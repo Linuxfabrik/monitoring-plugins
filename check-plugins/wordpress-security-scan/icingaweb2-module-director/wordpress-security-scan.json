@@ -275,7 +275,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 1,
-            "notes": "Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. The vulnerability database is only queried with an API token; without one the check says so instead of reporting a clean result it could not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan, version 4.0.0 or newer for the backup folder enumeration.",
+            "notes": "Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. The vulnerability database is refreshed before every scan and only queried with an API token; without one the check says so instead of reporting a clean result it could not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan, version 4.0.0 or newer for the backup folder enumeration.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wordpress-security-scan/",
             "object_name": "tpl-service-wordpress-security-scan",
             "object_type": "template",
@@ -473,7 +473,7 @@
         "5": {
             "varname": "wordpress_security_scan_ignore",
             "caption": "Wordpress Security Scan: Ignore",
-            "description": "Ignore findings whose component or title matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^akismet$\"` to accept the risk of one component.",
+            "description": "Skip findings whose component or title matches. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Example: `^akismet$` to accept the risk of one component.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -636,11 +636,11 @@
         "20": {
             "varname": "wordpress_security_scan_wpscan_http_auth",
             "caption": "Wordpress Security Scan: Wpscan Http Auth",
-            "description": "Credentials for HTTP basic authentication in front of the site, as `login:password`. Unlike the API token, the scanner accepts these only on its command line, where they are visible to every user on the scanning host while the scan runs. Prefer --http-auth-file, which at least keeps them out of the monitoring configuration. Takes precedence over --http-auth-file.",
+            "description": "Credentials for HTTP basic authentication in front of the site, as `login:password`. Unlike the API token, the scanner accepts these only on its command line, where they are visible to every user on the scanning host while the scan runs. Prefer --wpscan-http-auth-file, which at least keeps them out of the monitoring configuration. Takes precedence over --wpscan-http-auth-file.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
-                "visibility": "visible"
+                "visibility": "hidden"
             },
             "uuid": "0d396e5d-6e02-4df4-ad9b-0fcf76fd2109"
         },
@@ -651,14 +651,14 @@
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
-                "visibility": "visible"
+                "visibility": "hidden"
             },
             "uuid": "fbe90226-97ed-4951-aa81-465aac721b8c"
         },
         "22": {
             "varname": "wordpress_security_scan_wpscan_ignore_main_redirect",
             "caption": "Wordpress Security Scan: Wpscan Ignore Main Redirect?",
-            "description": "Scan the address given in --url even though it redirects elsewhere. Use it where the redirect is the very thing to look behind, for example a compromised site redirecting its visitors away. Mutually exclusive with --follow-redirect in effect, since the two ask for opposite behaviour.",
+            "description": "Scan the address given in --url even though it redirects elsewhere. Use it where the redirect is the very thing to look behind, for example a compromised site redirecting its visitors away. Mutually exclusive with --wpscan-follow-redirect in effect, since the two ask for opposite behaviour.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -667,7 +667,7 @@
         "23": {
             "varname": "wordpress_security_scan_wpscan_no_update",
             "caption": "Wordpress Security Scan: Wpscan No Update?",
-            "description": "Skip the update of the local vulnerability database before scanning. Speeds up the check, at the price of scanning against possibly stale vulnerability data.",
+            "description": "Skip the refresh of the local vulnerability database before scanning. The check refreshes it on every run by default, so a site is graded against current data rather than against whatever was last downloaded. Use this where something else keeps the database current, or to save the download on a host that is scanned several times an hour. A refresh that fails is not an error either way: the scan runs against the local copy, and the check says so.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -676,7 +676,7 @@
         "24": {
             "varname": "wordpress_security_scan_wpscan_option",
             "caption": "Wordpress Security Scan: Wpscan Option",
-            "description": "Additional raw option to pass to the wpscan call, for options that have no dedicated parameter here. Can be specified multiple times. Example: `--wpscan-option=--plugins-detection=aggressive`",
+            "description": "Additional raw option to pass to the wpscan call, for options that have no dedicated parameter here. Use it only for options this check does not set itself. Passing one it does set, the target address or the output format above all, leaves the check with nothing it can read. Can be specified multiple times. Example: `--wpscan-option=--plugins-detection=aggressive`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -687,7 +687,7 @@
         "25": {
             "varname": "wordpress_security_scan_wpscan_proxy",
             "caption": "Wordpress Security Scan: Wpscan Proxy",
-            "description": "Proxy the scan goes through, as `protocol://host:port`. Example: `--proxy=http://192.0.2.1:3128`",
+            "description": "Proxy the scan goes through, as `protocol://host:port`. Example: `--wpscan-proxy=http://192.0.2.1:3128`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -698,7 +698,7 @@
         "26": {
             "varname": "wordpress_security_scan_wpscan_random_user_agent",
             "caption": "Wordpress Security Scan: Wpscan Random User Agent?",
-            "description": "Use a random user agent for the scan instead of the one --user-agent sets. Only useful where a web application firewall blocks the scan outright, which the scanner reports as a 403. It makes the scan harder to recognize in the target's access log and impossible to allow-list, so the identifiable default is the better choice on a site you run yourself.",
+            "description": "Use a random user agent for the scan instead of the one --wpscan-user-agent sets. Only useful where a web application firewall blocks the scan outright, which the scanner reports as a 403. It makes the scan harder to recognize in the target's access log and impossible to allow-list, so the identifiable default is the better choice on a site you run yourself.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -707,7 +707,7 @@
         "27": {
             "varname": "wordpress_security_scan_wpscan_throttle",
             "caption": "Wordpress Security Scan: Wpscan Throttle",
-            "description": "Milliseconds to wait between requests, to keep the scan from overwhelming the target or tripping a rate limit. Setting it makes the scanner use a single thread instead of five, so the scan takes considerably longer; raise --scan-timeout with it. Not throttled when unset. Example: `--throttle=200`",
+            "description": "Milliseconds to wait between requests, to keep the scan from overwhelming the target or tripping a rate limit. Setting it makes the scanner use a single thread instead of five, so the scan takes considerably longer; raise --scan-timeout with it. Not throttled when unset. Example: `--wpscan-throttle=200`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

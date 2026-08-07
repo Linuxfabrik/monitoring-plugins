@@ -34,6 +34,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # wp-includes/version.php, wp-config.php, plus the plugin and theme headers below
 # wp-content/. It also contains the index.php placeholders WordPress ships in every
 # directory, so the "a placeholder is not a plugin" case is covered by the real layout.
+#
+# `fixtures/` holds the auxiliary input files a parameter points at, as opposed to the
+# scanner output under stdout/ and stderr/.
 BASE_PARAMS = '--url=https://www.example.com --path=wordpress'
 
 # Pointing --path at a directory that does not exist exercises the black box mode, in
@@ -529,6 +532,100 @@ TESTS = [
             '--max-scan-duration=90',
         ],
     },
+    # The scan itself never refreshes the vulnerability database. wpscan counts its own
+    # download against --max-scan-duration, so refreshing inside the scan would spend
+    # the site's time budget on it; the refresh is a call of its own before the scan.
+    {
+        'id': 'ok-the-scan-itself-never-updates',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--no-update'],
+    },
+    # The detection mode, the proxy and the throttle reach the scanner under its own
+    # option names, which differ from the ones this check offers.
+    {
+        'id': 'ok-verbose-shows-detection-mode-proxy-and-throttle',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --wpscan-detection-mode=aggressive '
+            '--wpscan-proxy=http://192.0.2.1:3128 --wpscan-throttle=200'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '--detection-mode=aggressive',
+            '--proxy=http://192.0.2.1:3128',
+            '--throttle=200',
+        ],
+    },
+    # An explicit enumeration is passed through as given, minus the choices the check
+    # adjusts for. `bf` survives here because the test path assumes a recent scanner.
+    {
+        'id': 'ok-explicit-enumerate-is-passed-through',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-enumerate=cb,dbe,bf,u',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=cb,dbe,bf,u'],
+    },
+    # A random user agent replaces the identifiable one rather than joining it, or the
+    # scanner would be told two different things to call itself.
+    {
+        'id': 'ok-random-user-agent-replaces-the-default',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-random-user-agent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--random-user-agent'],
+        'assert-not-in': ['--user-agent='],
+    },
+    # HTTP credentials reach the scanner on its command line, because it accepts them
+    # nowhere else. They must never reach the check's own output, which is mailed and
+    # stored: the printed command shows the option with its value redacted.
+    {
+        'id': 'ok-http-auth-is-redacted-in-the-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-http-auth=admin:linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--http-auth=******'],
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # The same credentials read out of a file, which is what keeps them out of the
+    # monitoring configuration. The value has to arrive, and still not be printed.
+    {
+        'id': 'ok-http-auth-file-is-read-and-redacted',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --wpscan-http-auth-file=fixtures/http-auth'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--http-auth=******'],
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # A credential carried inside a proxy address is redacted as well, while the host
+    # stays readable so the admin can still see where the scan was routed.
+    {
+        'id': 'ok-proxy-credentials-are-redacted',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-proxy=http://admin:linuxfabrik@192.0.2.1:3128'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--proxy=http://admin:******@192.0.2.1:3128'],
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # A run that fails while refreshing the vulnerability database reports under its own
+    # JSON key, not under the one every other abort uses. Reading only the latter left
+    # the admin with a generic "no usable output" instead of the scanner's own reason.
+    # Against a live scanner this run is repeated without the refresh; the fixture path
+    # cannot replay two runs, so what is asserted here is that the reason survives.
+    {
+        'id': 'unknown-failed-database-refresh-names-its-reason',
+        'test': 'stdout/update-aborted,,4',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Output from wpscan:', 'data.wpscan.org'],
+        'assert-not-in': ['no usable output'],
+    },
     # A bare host is completed to HTTPS, not left to the scanner's HTTP default. That
     # also keeps a www-to-apex redirect from changing the scheme at the same time, which
     # the scanner does not follow even when asked to.
@@ -625,7 +722,7 @@ TESTS = [
     {
         'id': 'unknown-token-file-empty',
         'test': 'stdout/clean-site,,0',
-        'params': f'{BASE_PARAMS} --api-token-file=stdin/empty-token',
+        'params': f'{BASE_PARAMS} --api-token-file=fixtures/empty-token',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['is empty'],
     },
@@ -685,6 +782,33 @@ class TestRedirectTarget(unittest.TestCase):
 
     def test_ignores_an_empty_message(self):
         self.assertEqual(self.check.get_redirect_target(''), '')
+
+
+class TestAbortReason(unittest.TestCase):
+    """The scanner reports an aborted run under one of two keys, picking the second one
+    while it is refreshing its vulnerability database. Telling the two apart is what
+    decides whether the run is worth repeating, and the retry itself only happens
+    against a real scanner, so it is the decision that is covered here.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_reads_a_scan_abort(self):
+        self.assertEqual(
+            self.check.get_abort_reason({'scan_aborted': 'Not running WordPress.'}),
+            'Not running WordPress.',
+        )
+
+    def test_reads_an_update_abort(self):
+        self.assertEqual(
+            self.check.get_abort_reason({'update_aborted': 'Unable to get ...'}),
+            'Unable to get ...',
+        )
+
+    def test_no_abort_at_all(self):
+        self.assertEqual(self.check.get_abort_reason({'version': {}}), '')
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)

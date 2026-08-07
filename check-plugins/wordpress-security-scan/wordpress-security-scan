@@ -19,7 +19,6 @@ import sys
 
 import lib.args
 import lib.base
-import lib.disk
 import lib.human
 import lib.lftest
 import lib.shell
@@ -30,21 +29,22 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080707'
+__version__ = '2026080713'
 
-DESCRIPTION = """Runs a WordPress security scan against a site and reports what an attacker
-can see from the outside. Combines the black box scan with the inventory read from the local
-installation directory, so plugins and themes the scanner cannot fingerprint remotely are
-still listed with their installed version. Findings are split into three classes: known
-vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker
-credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable
-backup folder), and hardening findings such as outdated components or a reachable readme.
-Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the
-critical threshold, because both mean the site can be taken over right now and someone has to
-react immediately. Everything else alerts WARNING. The vulnerability database is only queried
-with an API token; without one the check says so instead of reporting a clean result it could
-not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan,
-version 4.0.0 or newer for the backup folder enumeration."""
+DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
+attacker can see from the outside. Combines the black box scan with the inventory read
+from the local installation directory, so plugins and themes the scanner cannot
+fingerprint remotely are still listed with their installed version. Findings are split
+into three classes: known vulnerabilities from the scanner's vulnerability database,
+exposures that hand an attacker credentials, the database or an account (a readable
+wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as
+outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a
+vulnerability whose CVSS base score reaches the critical threshold, because both mean
+the site can be taken over right now and someone has to react immediately. Everything
+else alerts WARNING. The vulnerability database is refreshed before every scan and only
+queried with an API token; without one the check says so instead of reporting a clean
+result it could not verify. Supports extended reporting via --lengthy. Requires the
+command-line tool wpscan, version 4.0.0 or newer for the backup folder enumeration."""
 
 # CVSS v3 base score at or above which a vulnerability is treated as critical. 7.0 is
 # the lower bound of the "High" severity band and matches how wpscan itself maps scores
@@ -78,7 +78,7 @@ API_TOKEN_ENV = 'WPSCAN_API_TOKEN'  # nosec B105
 # token out and supplies vulnerability data on its own, so the enumeration must not be
 # downgraded when it is set.
 ENTERPRISE_TOKEN_ENV = 'WPSCAN_ENTERPRISE_DB_TOKEN'  # nosec B105
-ENTERPRISE_TOKEN_OPTION = '--enterprise-db-token'
+ENTERPRISE_TOKEN_OPTION = '--enterprise-db-token'  # nosec B105 - an option name
 
 # Enumeration choices that only exist from this wpscan release on. Passing one to an older
 # release is not a warning there, it is an invalid choice and the scan never starts, so the
@@ -122,6 +122,14 @@ VERSION_PROBE_TIMEOUT = 30
 # the hard subprocess timeout hit, which leaves us without any output at all.
 SCAN_TIMEOUT_HEADROOM = 30
 
+# Seconds granted to the refresh of the vulnerability database. It runs as a call of its
+# own rather than as part of the scan, because wpscan counts its own database download
+# against --max-scan-duration: refreshing inside the scan would spend the site's time
+# budget on a download, and a slow mirror would show up as a scan that did not finish.
+# Whatever it really takes is subtracted from the scan budget afterwards, so the check
+# as a whole still keeps to --scan-timeout.
+VULNDB_UPDATE_TIMEOUT = 120
+
 # How much of the enumerable user names is printed. A site can expose hundreds of them,
 # and the full list would widen the finding column past anything readable while adding
 # nothing: the count is what matters, and the sample only shows what the names look like.
@@ -140,6 +148,11 @@ MAX_REDIRECT_HOPS = 1
 # (WPScan::Error::MaxScanDurationReached). Reported as a timeout rather than as a broken
 # run, so both timeout paths of this check end in the same state.
 SCAN_TIMEOUT_MARKER = 'Max Scan Duration Reached'
+
+# The two JSON keys wpscan reports an aborted run under. It picks the second one while
+# it is refreshing its vulnerability database, so a check reading only `scan_aborted`
+# gets no explanation at all for the one failure it can recover from.
+ABORT_SECTIONS = ('scan_aborted', 'update_aborted')
 
 # Top level JSON sections whose mere presence is an exposure: each entry is a file or
 # directory reachable over HTTP that leaks credentials, the database, or both.
@@ -163,12 +176,15 @@ EXPOSURE_FINDING_TYPES = (
 
 # `interesting_findings[].type` values that describe how the site is set up rather than
 # a weakness. A multisite install or an enabled XML-RPC endpoint is the WordPress
-# default, so alerting on them would leave the check permanently non-OK everywhere.
+# default, and open user registration is what a shop or a membership site is for, so
+# alerting on any of them would leave the check permanently non-OK on the sites that
+# want them.
 INFO_FINDING_TYPES = (
     'headers',
     'multisite',
     'mu_plugins',
     'php_disabled',
+    'registration',
     'robots_txt',
     'xmlrpc',
 )
@@ -246,11 +262,9 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Ignore findings whose component or title matches this Python regular '
-        'expression. '
-        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
-        'Can be specified multiple times. '
-        'Example: `--ignore="^akismet$"` to accept the risk of one component.',
+        help='Skip findings whose component or title matches. '
+        + lib.args.help('--ignore-regex')
+        + ' Example: `^akismet$` to accept the risk of one component.',
         dest='IGNORE',
         action='append',
         default=None,
@@ -422,9 +436,9 @@ def parse_args():
         '`login:password`. '
         'Unlike the API token, the scanner accepts these only on its command line, '
         'where they are visible to every user on the scanning host while the scan '
-        'runs. Prefer --http-auth-file, which at least keeps them out of the '
+        'runs. Prefer --wpscan-http-auth-file, which at least keeps them out of the '
         'monitoring configuration. '
-        'Takes precedence over --http-auth-file.',
+        'Takes precedence over --wpscan-http-auth-file.',
         dest='WPSCAN_HTTP_AUTH',
     )
 
@@ -442,8 +456,8 @@ def parse_args():
         help='Scan the address given in --url even though it redirects elsewhere. '
         'Use it where the redirect is the very thing to look behind, for example a '
         'compromised site redirecting its visitors away. '
-        'Mutually exclusive with --follow-redirect in effect, since the two ask for '
-        'opposite behaviour.',
+        'Mutually exclusive with --wpscan-follow-redirect in effect, since the two ask '
+        'for opposite behaviour.',
         dest='WPSCAN_IGNORE_MAIN_REDIRECT',
         action='store_true',
         default=DEFAULT_WPSCAN_IGNORE_MAIN_REDIRECT,
@@ -451,9 +465,13 @@ def parse_args():
 
     parser.add_argument(
         '--wpscan-no-update',
-        help='Skip the update of the local vulnerability database before scanning. '
-        'Speeds up the check, at the price of scanning against possibly stale '
-        'vulnerability data.',
+        help='Skip the refresh of the local vulnerability database before scanning. '
+        'The check refreshes it on every run by default, so a site is graded against '
+        'current data rather than against whatever was last downloaded. '
+        'Use this where something else keeps the database current, or to save the '
+        'download on a host that is scanned several times an hour. '
+        'A refresh that fails is not an error either way: the scan runs against the '
+        'local copy, and the check says so.',
         dest='WPSCAN_NO_UPDATE',
         action='store_true',
         default=False,
@@ -463,6 +481,9 @@ def parse_args():
         '--wpscan-option',
         help='Additional raw option to pass to the wpscan call, for options that have no '
         'dedicated parameter here. '
+        'Use it only for options this check does not set itself. Passing one it does '
+        'set, the target address or the output format above all, leaves the check with '
+        'nothing it can read. '
         'Can be specified multiple times. '
         'Example: `--wpscan-option=--plugins-detection=aggressive`',
         dest='WPSCAN_OPTION',
@@ -473,14 +494,14 @@ def parse_args():
     parser.add_argument(
         '--wpscan-proxy',
         help='Proxy the scan goes through, as `protocol://host:port`. '
-        'Example: `--proxy=http://192.0.2.1:3128`',
+        'Example: `--wpscan-proxy=http://192.0.2.1:3128`',
         dest='WPSCAN_PROXY',
     )
 
     parser.add_argument(
         '--wpscan-random-user-agent',
-        help='Use a random user agent for the scan instead of the one --user-agent '
-        'sets. '
+        help='Use a random user agent for the scan instead of the one '
+        '--wpscan-user-agent sets. '
         'Only useful where a web application firewall blocks the scan outright, which '
         'the scanner reports as a 403. It makes the scan harder to recognize in the '
         "target's access log and impossible to allow-list, so the identifiable default "
@@ -497,7 +518,7 @@ def parse_args():
         'Setting it makes the scanner use a single thread instead of five, so the scan '
         'takes considerably longer; raise --scan-timeout with it. '
         'Not throttled when unset. '
-        'Example: `--throttle=200`',
+        'Example: `--wpscan-throttle=200`',
         dest='WPSCAN_THROTTLE',
         type=int,
     )
@@ -536,22 +557,31 @@ def extract_error(text):
 
 
 def resolve_api_token(args):
-    """Return (success, token). The token is looked up in this order: --api-token,
-    --api-token-file, and finally an already exported environment variable. Returns
-    (True, '') when no token is configured at all, which is a supported mode: the scan
+    """Return the API token. It is looked up in this order: --api-token,
+    --api-token-file, and finally an already exported environment variable. Returns the
+    empty string when no token is configured at all, which is a supported mode: the scan
     then runs without vulnerability data.
+
+    The file is read by the same helper that reads every other secret file in these
+    checks, so an unreadable or empty one is reported in the same words everywhere
+    rather than in words this check made up for itself.
     """
     if args.API_TOKEN:
-        return (True, args.API_TOKEN)
+        return args.API_TOKEN
     if args.API_TOKEN_FILE:
-        success, result = lib.disk.read_file(args.API_TOKEN_FILE)
-        if not success:
-            return (False, result)
-        token = result.strip().splitlines()[0].strip() if result.strip() else ''
-        if not token:
-            return (False, f'The token file "{args.API_TOKEN_FILE}" is empty.')
-        return (True, token)
-    return (True, os.environ.get(API_TOKEN_ENV, '').strip())
+        return lib.args.load_secret(args.API_TOKEN_FILE, '--api-token-file')
+    return os.environ.get(API_TOKEN_ENV, '').strip()
+
+
+def get_abort_reason(data):
+    """Return what the scanner says about an aborted run, whichever of its two sections
+    it put the explanation in, or the empty string when the run was not aborted.
+    """
+    for section in ABORT_SECTIONS:
+        reason = data.get(section)
+        if reason:
+            return reason
+    return ''
 
 
 def get_redirect_target(aborted):
@@ -620,8 +650,8 @@ def get_wpscan_version():
 
     This runs before the scan because some enumeration choices only exist from a certain
     release on, and passing one to an older release aborts the run instead of skipping
-    the choice. `--no-update` keeps the probe from pulling the database, which the scan
-    itself does right afterwards.
+    the choice. `--no-update` keeps the probe itself cheap; refreshing the database is
+    the scan's job, and doing it twice would only cost a second download.
     """
     cmd = ['wpscan', '--version', '--format=json', '--no-banner', '--no-update']
     success, result = lib.shell.shell_exec(cmd, timeout=VERSION_PROBE_TIMEOUT)
@@ -645,8 +675,9 @@ def get_wpscan_version():
 
 def get_vulndb_age(last_db_update):
     """Return how many seconds ago the local vulnerability database was refreshed, or
-    None when the scanner does not say. wpscan reports the timestamp in UTC and leaves it
-    null until the database has been updated at least once.
+    None when the scanner does not say. wpscan reports the timestamp in the scanning
+    host's own timezone, with its offset attached, and leaves it null until the database
+    has been refreshed at least once.
     """
     if not last_db_update:
         return None
@@ -717,29 +748,61 @@ def get_vuln_data_status(data, has_enterprise):
     return (False, 'the scan did not report whether the vulnerability database was used')
 
 
-def get_scan_budget(args):
+def get_scan_budget(args, spent=0):
     """Return the seconds granted to the scanner itself. It is asked to give up a little
     before the hard subprocess timeout, so it still writes a result rather than being
-    killed with nothing to report.
+    killed with nothing to report. `spent` is what the refresh of the vulnerability
+    database already used, so the check as a whole keeps to --scan-timeout.
     """
-    return max(1, args.SCAN_TIMEOUT - SCAN_TIMEOUT_HEADROOM)
+    return max(1, args.SCAN_TIMEOUT - spent - SCAN_TIMEOUT_HEADROOM)
 
 
-def build_wpscan_command(args, enumerate_opts, http_auth=''):
+def refresh_vulndb(timeout):
+    """Refresh the local copy of the vulnerability database. Returns (success, note),
+    where `note` explains a failure.
+
+    This is a call of its own, without a target. Two reasons it is not left to the scan:
+    wpscan only refreshes on its own when its output format is `cli` and a user answers
+    its prompt (`Controller::Core#update_db_required?`), so a run reading JSON never
+    refreshes; and a refresh it does perform counts against its own `--max-scan-duration`,
+    which would spend the site's time budget on a download.
+    """
+    cmd = ['wpscan', '--update', '--format=json', '--no-banner']
+    success, result = lib.shell.shell_exec(cmd, timeout=timeout)
+    if not success:
+        return (False, result)
+    stdout, stderr, retc = result
+    if retc != 0:
+        data = {}
+        try:
+            data = json.loads(stdout)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        reason = get_abort_reason(data) if isinstance(data, dict) else ''
+        return (False, from_wpscan(reason or extract_error('\n'.join((stdout, stderr)))))
+    return (True, '')
+
+
+def build_wpscan_command(args, enumerate_opts, http_auth='', spent=0):
     """Assemble the wpscan invocation as an argument list (argv). Every user supplied
     value sits in its own element and is bound to an option, so nothing can be picked up
     as a separate option and no shell is ever involved.
 
     `http_auth` is the only secret that ends up here. The scanner takes it on its command
     line and nowhere else, unlike the API token, which goes through the environment.
+
+    The scan itself never refreshes the vulnerability database; that has happened before
+    it, in a call of its own. `spent` is what that call took, so the scan gets the rest
+    of --scan-timeout.
     """
     cmd = [
         'wpscan',
         f'--url={args.URL}',
         '--format=json',
         '--no-banner',
+        '--no-update',
         f'--detection-mode={args.WPSCAN_DETECTION_MODE}',
-        f'--max-scan-duration={get_scan_budget(args)}',
+        f'--max-scan-duration={get_scan_budget(args, spent)}',
     ]
     if enumerate_opts:
         cmd.append(f'--enumerate={enumerate_opts}')
@@ -760,8 +823,6 @@ def build_wpscan_command(args, enumerate_opts, http_auth=''):
         cmd.append('--ignore-main-redirect')
     if args.INSECURE:
         cmd.append('--disable-tls-checks')
-    if args.WPSCAN_NO_UPDATE:
-        cmd.append('--no-update')
     cmd.extend(args.WPSCAN_OPTION)
     return cmd
 
@@ -772,6 +833,32 @@ def run_wpscan(cmd, token, timeout):
     """
     env = {API_TOKEN_ENV: token} if token else None
     return lib.shell.shell_exec(cmd, env=env, timeout=timeout)
+
+
+def run_scan(args, enumerate_opts, http_auth, token, *, spent=0):
+    """Run one scan and return (cmd, data, retc, output).
+
+    Ends the check on a timeout and on a scanner that could not be started at all,
+    because neither of those leaves anything to report. Everything the caller can still
+    act on, an aborted run above all, comes back in `data`.
+    """
+    cmd = build_wpscan_command(args, enumerate_opts, http_auth, spent=spent)
+    success, result = run_wpscan(cmd, token, max(1, args.SCAN_TIMEOUT - spent))
+    if not success:
+        # A scan killed by the hard subprocess timeout leaves us without any output, so
+        # there is nothing to report but the timeout itself. Every other failure here
+        # means the scanner could not be started at all, which is a problem with this
+        # host rather than with the monitored site.
+        if result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.SCAN_TIMEOUT}s while scanning {args.URL}.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        lib.base.cu(result)
+    stdout, stderr, retc = result
+    data = lib.base.coe(parse_scan(stdout, stderr))
+    return (cmd, data, retc, '\n'.join((stdout, stderr)))
 
 
 def parse_scan(stdout, stderr=''):
@@ -1106,7 +1193,7 @@ def main():
             )
     args.URL = normalize_url(args.URL)
 
-    token = lib.base.coe(resolve_api_token(args))
+    token = resolve_api_token(args)
     enterprise = has_enterprise_db(args)
     # The scanner takes these on its command line and nowhere else, so reading them from
     # a file only keeps them out of the monitoring configuration, not out of the process
@@ -1116,27 +1203,59 @@ def main():
         http_auth = lib.args.load_secret(
             args.WPSCAN_HTTP_AUTH_FILE, '--wpscan-http-auth-file'
         )
+    # Why the vulnerability database was not refreshed, if it was not. Empty on every
+    # run that either refreshed it or was told not to.
+    vulndb_note = ''
+    # Seconds used up before the scan proper, which come off its budget.
+    spent = 0
     if args.TEST is None:
         lib.base.coe(lib.shell.safe_cli_value(args.URL, '--url'))
         if not lib.shell.which('wpscan'):
             # Deliberately WARNING and not UNKNOWN: WordPress is a preferred target, so
             # the scanner belongs on a host serving it. A missing scanner is a state the
             # administrator has to fix, not an internal problem of this check.
+            # "not found" rather than "not installed": the usual cause is an installed
+            # scanner the check cannot see. A gem installed with `--user-install` sits
+            # in one account's home, and sudo replaces the inherited PATH with its own
+            # `secure_path`, so a scanner that works by hand disappears under the
+            # monitoring agent. The searched PATH is named, because that is the one
+            # thing an admin cannot guess from the outside.
             lib.base.oao(
-                'The command-line tool "wpscan" is not installed, so the site is not '
-                'being scanned. Install it with `gem install wpscan`.',
+                'The command-line tool "wpscan" was not found, so the site is not '
+                'being scanned. Install it with `gem install wpscan`, system-wide '
+                'rather than for a single account.'
+                f'\nSearched in: {os.environ.get("PATH", "")}',
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
+        # Everything before the scan proper: the refresh of the vulnerability database
+        # and the version probe. Both cost time that has to come off the scan budget,
+        # or the check as a whole overruns --scan-timeout and the monitoring agent kills
+        # it with nothing to report.
+        started = lib.time.now()
+        # The refresh runs as a call of its own. A failure here is not the site's fault
+        # and must not stop the scan: a host that cannot reach the database host still
+        # has its local copy, and grading a site against a copy of last week beats not
+        # grading it at all.
+        if not args.WPSCAN_NO_UPDATE:
+            lib.base.verbose(args.VERBOSE, 'Refreshing the vulnerability database...')
+            refreshed, vulndb_note = refresh_vulndb(
+                min(VULNDB_UPDATE_TIMEOUT, args.SCAN_TIMEOUT)
+            )
+            if refreshed:
+                vulndb_note = ''
+            else:
+                lib.base.verbose(args.VERBOSE, f'Could not refresh it: {vulndb_note}')
+        # After the refresh, so the reported age is the one the scan actually used.
         wpscan_version, last_db_update, version_note = get_wpscan_version()
         if version_note:
             lib.base.verbose(
                 args.VERBOSE, f'Cannot determine the wpscan version: {version_note}'
             )
+        spent = int(lib.time.now() - started)
         enumerate_opts, dropped = adjust_enumerate(
             args.WPSCAN_ENUMERATE, bool(token) or enterprise, wpscan_version
         )
-        cmd = build_wpscan_command(args, enumerate_opts, http_auth)
         for choice, minimum in dropped:
             lib.base.verbose(
                 args.VERBOSE,
@@ -1146,20 +1265,13 @@ def main():
         lib.base.verbose(
             args.VERBOSE, f'Scanning {args.URL} (this can take a few minutes)...'
         )
-        success, result = run_wpscan(cmd, token, args.SCAN_TIMEOUT)
-        if not success:
-            # A scan killed by the hard subprocess timeout leaves us without any output,
-            # so there is nothing to report but the timeout itself. Every other failure
-            # here means the scanner could not be started at all, which is a problem
-            # with this host rather than with the monitored site.
-            if result.startswith('Timeout after'):
-                lib.base.oao(
-                    f'Timeout after {args.SCAN_TIMEOUT}s while scanning {args.URL}.',
-                    STATE_WARN,
-                    always_ok=args.ALWAYS_OK,
-                )
-            lib.base.cu(result)
-        stdout, stderr, retc = result
+        # wpscan writes a valid JSON document even when it aborts, so the document is
+        # parsed first and only then is the exit code looked at. 0 means a clean scan,
+        # 5 means at least one vulnerability was found; both are results. Everything
+        # else is a broken run.
+        cmd, data, retc, output = run_scan(
+            args, enumerate_opts, http_auth, token, spent=spent
+        )
     else:
         # do not call the command, put in test data. The version probe would be a second
         # subprocess, so assume a release that knows every choice the check adjusts for.
@@ -1167,15 +1279,14 @@ def main():
         enumerate_opts, _ = adjust_enumerate(
             args.WPSCAN_ENUMERATE,
             bool(token) or enterprise,
-            max(ENUMERATE_MIN_VERSION.values(), key=lib.version.version),
+            # The highest minimum any choice asks for, so nothing is dropped. Once no
+            # choice carries a minimum any more there is nothing to satisfy either.
+            max(ENUMERATE_MIN_VERSION.values(), key=lib.version.version, default='0'),
         )
         cmd = build_wpscan_command(args, enumerate_opts, http_auth)
         stdout, stderr, retc = lib.lftest.test(args.TEST)
-
-    # wpscan writes a valid JSON document even when it aborts, so parse first and only
-    # then look at the exit code. 0 means a clean scan, 5 means at least one
-    # vulnerability was found; both are results. Everything else is a broken run.
-    data = lib.base.coe(parse_scan(stdout, stderr))
+        data = lib.base.coe(parse_scan(stdout, stderr))
+        output = '\n'.join((stdout, stderr))
 
     # Follow the redirect ourselves. The scanner names the destination but will not go
     # there, so the scan is repeated against the address it named. The aborted run cost
@@ -1187,27 +1298,19 @@ def main():
         and args.WPSCAN_FOLLOW_REDIRECT
         and hops < MAX_REDIRECT_HOPS
     ):
-        target = get_redirect_target(data.get('scan_aborted') or '')
+        target = get_redirect_target(get_abort_reason(data))
         if not target or target == args.URL:
             break
         hops += 1
         lib.base.verbose(args.VERBOSE, f'Following the redirect to {target}...')
         args.URL = lib.base.coe(lib.shell.safe_cli_value(target, '--url'))
-        cmd = build_wpscan_command(args, enumerate_opts, http_auth)
-        success, result = run_wpscan(cmd, token, args.SCAN_TIMEOUT)
-        if not success:
-            if result.startswith('Timeout after'):
-                lib.base.oao(
-                    f'Timeout after {args.SCAN_TIMEOUT}s while scanning {args.URL}.',
-                    STATE_WARN,
-                    always_ok=args.ALWAYS_OK,
-                )
-            lib.base.cu(result)
-        stdout, stderr, retc = result
-        data = lib.base.coe(parse_scan(stdout, stderr))
+        # The aborted run cost one request, so the hop keeps what is left of the budget.
+        cmd, data, retc, output = run_scan(
+            args, enumerate_opts, http_auth, token, spent=spent
+        )
 
     if retc not in (0, 5):
-        aborted = data.get('scan_aborted') or ''
+        aborted = get_abort_reason(data)
         if SCAN_TIMEOUT_MARKER in aborted:
             # The scan gave up on its own time budget, which is a partial result rather
             # than a broken run. Naming what it managed in that time separates the two
@@ -1218,7 +1321,8 @@ def main():
             done = data.get('requests_done') or 0
             elapsed = data.get('elapsed') or 0
             lib.base.oao(
-                f'Scan did not finish within {get_scan_budget(args)}s, stopping at '
+                f'Scan did not finish within {get_scan_budget(args, spent)}s, '
+                f'stopping at '
                 f'{done} {lib.txt.pluralize("request", done)} in '
                 f'{lib.human.seconds2human(elapsed)}. Raise --scan-timeout, or narrow '
                 f'the scan with --wpscan-enumerate. Scanned {args.URL}.',
@@ -1227,7 +1331,7 @@ def main():
             )
         # Everything reported here is the scanner's own wording, so it is labelled as
         # such: an admin must not go looking for a parameter of this check to fix it.
-        reason = aborted if aborted else extract_error('\n'.join((stdout, stderr)))
+        reason = aborted if aborted else extract_error(output)
         lib.base.cu(from_wpscan(reason))
 
     # read the local installation. An unreadable path is not an error: the check then
@@ -1364,6 +1468,13 @@ def main():
     elif args.LENGTHY:
         msg += f'\n{vuln_data_note.capitalize()}.'
 
+    # The refresh failed and the scan ran against the local copy instead. Naming it
+    # separates a site that is genuinely clean from one that was graded against
+    # yesterday's knowledge because the database host could not be reached.
+    if vulndb_note:
+        msg += f'\nCould not refresh the vulnerability database. {vulndb_note}'
+        state = lib.base.get_worst(state, STATE_WARN)
+
     # A database that has not been refreshed in a long time grades a site against what
     # was known back then. The scan itself does not report this, the version probe does.
     if vulndb_age is not None and vulndb_age > VULNDB_MAX_AGE:
@@ -1394,45 +1505,31 @@ def main():
             'reporting what the scan alone could see.'
         )
 
-    perfdata += lib.base.get_perfdata(
-        'vulnerabilities', counts['vulnerability'], uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'vulnerabilities_critical', vulnerabilities_critical, uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata('exposures', counts['exposure'], uom=None, _min=0)
-    perfdata += lib.base.get_perfdata(
-        'hardening_findings', counts['hardening'], uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'plugins_installed', len(installed_plugins), uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'plugins_detected', len(detected_plugins), uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'plugins_outdated', plugins_outdated, uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'themes_installed', len(installed_themes), uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'themes_detected', len(detected_themes), uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'themes_outdated', themes_outdated, uom=None, _min=0
-    )
-    perfdata += lib.base.get_perfdata('users', len(users), uom=None, _min=0)
-    perfdata += lib.base.get_perfdata(
-        'scan_duration', int(data.get('elapsed') or 0), uom='s', _min=0
-    )
-    # Trending this makes a run without vulnerability data visible as a gap in the
-    # vulnerability graph rather than as a clean site.
-    perfdata += lib.base.get_perfdata(
-        'vuln_data_available', int(vuln_data_available), uom=None, _min=0, _max=1
-    )
+    # Every metric is reported on every run, whatever the message and the filters show,
+    # so a dashboard can trend all of it. (label, value, uom, max)
+    metrics = [
+        ('vulnerabilities', counts['vulnerability'], None, None),
+        ('vulnerabilities_critical', vulnerabilities_critical, None, None),
+        ('exposures', counts['exposure'], None, None),
+        ('hardening_findings', counts['hardening'], None, None),
+        ('plugins_installed', len(installed_plugins), None, None),
+        ('plugins_detected', len(detected_plugins), None, None),
+        ('plugins_outdated', plugins_outdated, None, None),
+        ('themes_installed', len(installed_themes), None, None),
+        ('themes_detected', len(detected_themes), None, None),
+        ('themes_outdated', themes_outdated, None, None),
+        ('users', len(users), None, None),
+        ('scan_duration', int(data.get('elapsed') or 0), 's', None),
+        # Trending this makes a run without vulnerability data visible as a gap in the
+        # vulnerability graph rather than as a clean site.
+        ('vuln_data_available', int(vuln_data_available), None, 1),
+    ]
+    # Only reported once the scanner has refreshed its database at least once; until
+    # then it has no timestamp to give and an age of 0 would read as "just refreshed".
     if vulndb_age is not None:
-        perfdata += lib.base.get_perfdata('vulndb_age', vulndb_age, uom='s', _min=0)
+        metrics.append(('vulndb_age', vulndb_age, 's', None))
+    for label, value, uom, maximum in metrics:
+        perfdata += lib.base.get_perfdata(label, value, uom=uom, _min=0, _max=maximum)
 
     # build table output
     # State always sits in the last column: IcingaWeb replaces "[WARNING]" with an icon
@@ -1465,12 +1562,17 @@ def main():
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
     # --verbose: show the command the plugin runs to collect its data. The API token is
-    # never part of it, it is handed over through the environment.
+    # never part of it, it is handed over through the environment. The HTTP credentials
+    # and a proxy address are, because the scanner takes those on its command line and
+    # nowhere else, so they are redacted before the line is printed: plugin output is
+    # routinely mailed and stored, and a secret must not travel with it.
     # Quoted the way a shell needs it, so the line can be pasted into a terminal as it
     # stands. The command itself never goes through a shell; the user agent carries
     # spaces and would otherwise be shown as several arguments.
     if args.VERBOSE:
-        msg += '\nExecuted command:\n  ' + shlex.join(cmd)
+        msg += '\nExecuted command:\n  ' + lib.txt.sanitize_sensitive_data(
+            shlex.join(cmd)
+        )
 
     # over and out
     lib.base.oao(

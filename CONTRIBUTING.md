@@ -206,7 +206,7 @@ When creating a new plugin, make sure to deliver:
 * Optional: extend the repo-root `requirements.in` with new Python deps; the per-Python lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it
 * If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin. Run `tools/build-basket --auto` before every commit (not just for new plugins) so all basket JSONs stay in sync; a forgotten regeneration after a parameter change leaves a stale basket that only surfaces as an unrelated diff in a later contributor's `--auto` run.
-* Icinga Service Set in `all-the-rest.json` if appropriate (see [Service Set vs. Service Template](#service-set-vs-service-template))
+* Icinga Service Set in `all-the-rest.json` if appropriate (see the "Icinga Director: Service Set vs. Service Template" section below)
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).
 * Update `CHANGELOG.md`.
@@ -224,6 +224,8 @@ Use:
 * **Service Template only** when the check is per-instance parametrized (URL, account, token, hostname). Admins create services manually or via Apply rules, choosing the template and providing the values. Examples: `atlassian-statuspage`, `kemp-services`, `uptimerobot`, `virustotal-scan-url`.
 
 Ship the Service Template in `build-basket` either way. Add a Service Set entry to `all-the-rest.json` only if the check fits the generic or bundled shape.
+
+There is one deliberate exception. A per-instance check may join a Set anyway when its subject is important enough that an unconfigured host should not stay silent about it. The service the tag creates then reports UNKNOWN until the missing parameter is supplied, which is the point: the tag says the host runs the thing, and the UNKNOWN says nobody has finished setting up the check for it. Document the behaviour in the plugin's README so the state is not read as a defect. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) in the WordPress Service Set, where `--url` cannot be guessed.
 
 
 ### Rules of Thumb
@@ -262,6 +264,7 @@ Guidelines:
 * `STATE_WARN` and `STATE_CRIT` typically trigger notifications (email, SMS, paging) to operators, so pick them deliberately. Reserve them for conditions the user genuinely needs to act on, and avoid raising them for plugin-internal problems that are not the monitored service's fault.
 * Return `STATE_UNKNOWN` on missing dependencies, wrong parameters, or when `--help`/`--version` is requested.
 * Report internal plugin failures such as unhandled exceptions or tracebacks as `STATE_UNKNOWN`. A broken plugin says nothing about the monitored service, and routing these to UNKNOWN keeps them off the operators' alert path instead of spamming them with false CRITs.
+* One exception to the missing-dependency rule: where the missing thing is an external tool that belongs on the host by the very fact that the check was deployed there, `STATE_WARN` is the better answer, because it puts the gap on the list of things to fix instead of on the UNKNOWN pile nobody reads. Use this sparingly, only for a tool the administrator installs (not for a Python module the package pulls in), and say so in the plugin's README. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) reporting a missing `wpscan`.
 * Return `STATE_WARN` for most alert conditions. Only return `STATE_CRIT` if the situation requires immediate human intervention ("wake up at night").
 * Never return any exit code other than 0, 1, 2, or 3.
 * Use `lib.base.oao()` (output and out) to print the result and exit with the appropriate state in a single call.

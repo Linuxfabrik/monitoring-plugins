@@ -207,8 +207,15 @@ def get_caption(check, long_param):
 
 
 def get_visibility(varname):
+    # A field holding a credential, or the path to one, is hidden in the Director web
+    # interface. `http_auth` is the `login:password` pair that tools such as curl and
+    # wpscan take as a single value, which is as sensitive as a bare password. Matching
+    # a bare `auth` would also catch `authtype` and `auth_prot`, which name an algorithm
+    # rather than a secret and are useful to see.
     hide_if_present = [
+        'http_auth',
         'password',
+        'secret',
         'token',
     ]
     if any(
