@@ -336,6 +336,30 @@ gem install wpscan
 
 On Debian and Ubuntu the packages are `ruby`, `ruby-dev`, `build-essential`. Verify with `wpscan --version` as the user the monitoring agent runs as, since a `gem install --user-install` puts the executable into that user's home directory only.
 
+### Installing the gem fails while building a native extension
+
+```text
+Building native extensions. This could take a while...
+ERROR:  Error installing wpscan:
+	ERROR: Failed to build gem native extension.
+
+	current directory: ~/.local/share/gem/ruby/gems/yajl-ruby-1.4.3/ext/yajl
+/usr/bin/ruby -I/usr/share/rubygems extconf.rb
+mkmf.rb can't find header files for ruby at /usr/share/include/ruby.h
+```
+
+Ruby itself is installed, but its development headers are not. `wpscan` depends on gems such as `yajl-ruby` that compile a C extension, and those need `ruby.h`. The path in the message is where Ruby expects the headers, not a file to create by hand.
+
+Install the development package and repeat the `gem install`:
+
+```bash
+dnf install ruby-devel gcc make      # RHEL, Rocky, Fedora
+apt install ruby-dev build-essential # Debian, Ubuntu
+zypper install ruby-devel gcc make   # SLES, openSUSE
+```
+
+The half-built gem the failed run leaves behind does no harm; the next `gem install wpscan` replaces it. If the build still fails after installing the headers, the real compiler error is in the `gem_make.out` the message points to, not in the summary above.
+
 ### `The remote website is up, but does not seem to be running WordPress.`
 
 The scanner reached the target but could not confirm a WordPress installation behind it. In most cases `--url` points at a host name the site does not answer on under that name: the site's own `siteurl` is different, so all the links in the response point elsewhere and the fingerprint fails. Use the URL the site actually serves itself under. A reverse proxy or a redirect to a different host causes the same result; `--wpscan-option=--follow-redirect` makes the scanner follow it.
