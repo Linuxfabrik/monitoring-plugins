@@ -27,6 +27,7 @@ import lib.net
 import lib.shell
 import lib.time
 import lib.txt
+import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
@@ -38,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201 / v6.0.0'
+__version__ = '2026080701 / v6.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -53,6 +54,19 @@ DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_PUBLIC_IP_URL = None
 DEFAULT_TIMEOUT = 2
+
+# Where a WordPress installation is commonly rooted. The document root itself is the
+# most common layout of all, and `/usr/share/wordpress` is where the Debian package puts
+# it. Each candidate is confirmed by the presence of the core's own version file rather
+# than by the directory name, so an empty directory called `wordpress` is not mistaken
+# for an installation.
+WORDPRESS_PATHS = (
+    '/srv/www/htdocs/wordpress',
+    '/usr/share/wordpress',
+    '/var/www/html',
+    '/var/www/html/wordpress',
+    '/var/www/wordpress',
+)
 
 
 def _natural_key(s):
@@ -1146,11 +1160,9 @@ def get_lftags(distro):
         {'sw': 'Wildfly', 'package': [], 'expr': [lib.disk.dir_exists('/opt/wildfly')]},
         {
             'sw': 'Wordpress',
-            'package': [],
+            'package': ['wordpress'],
             'expr': [
-                lib.disk.dir_exists('/var/www/html/wordpress'),
-                lib.disk.dir_exists('/var/www/html/wp-config.php'),
-                lib.disk.dir_exists('/var/www/wordpress'),
+                any(lib.wordpress.is_installation(p) for p in WORDPRESS_PATHS),
             ],
         },
         # {'sw': 'XFS', 'package': [], 'expr': []},
@@ -1469,9 +1481,7 @@ def get_software_found():
         {
             'sw': 'Wordpress',
             'expr': [
-                lib.disk.dir_exists('/var/www/html/wordpress'),
-                lib.disk.dir_exists('/var/www/html/wp-config.php'),
-                lib.disk.dir_exists('/var/www/wordpress'),
+                any(lib.wordpress.is_installation(p) for p in WORDPRESS_PATHS),
             ],
         },
         {
