@@ -34,9 +34,10 @@ Checks the health and running status of all cluster nodes on a Huawei OceanStor 
 
 ```text
 usage: huawei-pacific-node [-h] [-V] [--always-ok]
-                           [--cache-expire CACHE_EXPIRE] [--insecure]
-                           [--no-insecure] [--no-perfdata] [--no-proxy]
-                           [--password PASSWORD]
+                           [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
+                           [--insecure] [--no-insecure] [--match MATCH]
+                           [--no-match-severity {ok,warn,crit,unknown}]
+                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
                            [--timeout TIMEOUT] -u URL --username USERNAME [-v]
 
@@ -51,6 +52,13 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  --ignore IGNORE       Skip cluster nodes. Any item matching this Python
+                        regex will be ignored. Can be specified multiple
+                        times. Example: `(?i)linuxfabrik` for a case-
+                        insensitive match. The regex is anchored at the start
+                        of the string (Python `re.match`) and is matched
+                        against `name`, `management_ip`, so prefix with `.*`
+                        to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-insecure         Verify the TLS certificate against the system trust
@@ -58,6 +66,19 @@ options:
                         Use it once the endpoint presents a publicly trusted
                         certificate, or once its CA has been added to the
                         system trust store.
+  --match MATCH         Filter by cluster nodes. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against `name`,
+                        `management_ip`, so prefix with `.*` to match
+                        anywhere.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -74,14 +95,16 @@ options:
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Pacific API URL.
-  --username USERNAME   Huawei OceanStor Pacific API username.
-  -v, --verbose         Print what every API request returned, so the
+  -u, --url URL         Huawei OceanStor Pacific API URL. URL to the endpoint.
+  --username USERNAME   Huawei OceanStor Pacific API username. Username.
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
                         appliance's own answers can be read while working out
-                        how it reports something. The output is as long as
-                        those answers are, and session tokens are redacted.
-                        Meant for the command line, not for a service
-                        definition.
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-node/

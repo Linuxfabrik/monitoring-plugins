@@ -43,6 +43,24 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['reported no fans.'],
     },
+    {
+        # The filter selects a subset; what it drops must not be checked either.
+        'id': 'ok-match-filters-fans',
+        'test': 'stdout/fans-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='Fan0'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Fan0'],
+        'assert-not-in': ['Fan1'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/fans-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No fans matched `nonexistent`.'],
+    },
 ]
 
 

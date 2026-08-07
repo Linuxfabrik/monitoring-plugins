@@ -49,6 +49,25 @@ TESTS = [
         'assert-in': ['Controller (CTE0.A) Is Offline'],
         'assert-not-in': ['&#40;'],
     },
+    {
+        # The filter selects a subset; what it drops must not be checked either. The
+        # alarm that survives is the critical one, so the state comes from it alone.
+        'id': 'crit-match-filters-alarms',
+        'test': 'stdout/alarms-critical,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='License'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['License'],
+        'assert-not-in': ['Disk Predicted'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/alarms-critical,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No alarms matched `nonexistent`.'],
+    },
 ]
 
 

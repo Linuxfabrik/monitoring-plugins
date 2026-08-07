@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -221,14 +221,15 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='Huawei OceanStor Pacific API URL.',
+        help='Huawei OceanStor Pacific API URL. ' + lib.args.help('--url'),
         dest='URL',
         required=True,
     )
 
     parser.add_argument(
         '--username',
-        help='Huawei OceanStor Pacific API username.',
+        help='Huawei OceanStor Pacific API username. '
+        + lib.args.help('--username'),
         dest='USERNAME',
         required=True,
     )
@@ -245,13 +246,14 @@ def parse_args():
     parser.add_argument(
         '-v',
         '--verbose',
-        help='Print what every API request returned, so the appliance\'s own answers can '
-        'be read while working out how it reports something. The output is as long as '
-        'those answers are, and session tokens are redacted. '
-        'Meant for the command line, not for a service definition.',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
         dest='VERBOSE',
-        action='count',
-        default=0,
+        action='store_true',
+        default=False,
     )
 
     args, _ = parser.parse_known_args()

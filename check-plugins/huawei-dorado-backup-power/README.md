@@ -65,11 +65,11 @@ options:
   -c, --critical CRIT   CRIT threshold for the remaining life of a backup
                         power module, as a Nagios range in days. Default: 30:
   --critical-voltage CRIT_VOLTAGE
-                        CRIT threshold for the voltage of a backup power
-                        module, as a Nagios range in volts. Off by default,
-                        because the healthy range depends on the module and on
-                        how many cells it has; read the label or watch the
-                        graph first. Example: `--critical-voltage=13.5:18.5`
+                        CRIT threshold in volts. Supports Nagios ranges. Off
+                        by default, because the healthy range depends on the
+                        module and on how many cells it has; read the label or
+                        watch the graph first. Example: `--critical-
+                        voltage=13.5:18.5`
   --device-id DEVICE_ID
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
@@ -117,22 +117,24 @@ options:
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope. Default: 0
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Dorado API URL.
-  --username USERNAME   Huawei OceanStor Dorado API username.
+  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
+  --username USERNAME   Huawei OceanStor Dorado API username. Username.
   -w, --warning WARN    WARN threshold for the remaining life of a backup
                         power module, as a Nagios range in days. Default: 180:
   --warning-voltage WARN_VOLTAGE
-                        WARN threshold for the voltage of a backup power
-                        module, as a Nagios range in volts. Off by default,
-                        because the healthy range depends on the module and on
-                        how many cells it has; read the label or watch the
-                        graph first. Example: `--warning-voltage=15:17`
-  -v, --verbose         Print what every API request returned, so the
+                        WARN threshold in volts. Supports Nagios ranges. Off
+                        by default, because the healthy range depends on the
+                        module and on how many cells it has; read the label or
+                        watch the graph first. Example: `--warning-
+                        voltage=15:17`
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
                         appliance's own answers can be read while working out
-                        how it reports something. The output is as long as
-                        those answers are, and session tokens are redacted.
-                        Meant for the command line, not for a service
-                        definition.
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/

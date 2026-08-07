@@ -11,11 +11,22 @@
                 "--critical": {
                     "value": "$huawei_pacific_disk_critical$"
                 },
+                "--ignore": {
+                    "value": "$huawei_pacific_disk_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_pacific_disk_insecure$"
                 },
                 "--no-insecure": {
                     "set_if": "$huawei_pacific_disk_no_insecure$"
+                },
+                "--match": {
+                    "value": "$huawei_pacific_disk_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$huawei_pacific_disk_no_match_severity$"
                 },
                 "--no-perfdata": {
                     "set_if": "$huawei_pacific_disk_no_perfdata$"
@@ -105,16 +116,31 @@
                 },
                 {
                     "datafield_id": 12,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 13,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -174,7 +200,10 @@
                 "huawei_pacific_disk_always_ok": false,
                 "huawei_pacific_disk_cache_expire": 15,
                 "huawei_pacific_disk_critical": "30:",
+                "huawei_pacific_disk_ignore": [],
                 "huawei_pacific_disk_insecure": true,
+                "huawei_pacific_disk_match": [],
+                "huawei_pacific_disk_no_match_severity": "ok",
                 "huawei_pacific_disk_no_perfdata": false,
                 "huawei_pacific_disk_no_proxy": false,
                 "huawei_pacific_disk_scope": "0",
@@ -184,6 +213,39 @@
             "volatile": null,
             "zone": null,
             "uuid": "6a958b64-d15d-49b9-9998-2206adcd5369"
+        }
+    },
+    "DataList": {
+        "huawei_pacific_disk_no_match_severity_list": {
+            "list_name": "huawei_pacific_disk_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "8d12d409-ec01-4e12-804a-5a89ff718f07"
         }
     },
     "Datafield": {
@@ -219,6 +281,17 @@
             "uuid": "e42128fc-24c7-428d-9fa0-22fd625348e1"
         },
         "4": {
+            "varname": "huawei_pacific_disk_ignore",
+            "caption": "Huawei Pacific Disk: Ignore",
+            "description": "Skip disks. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against the node name, the disk pool, the serial number and the slot, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3774013a-8e33-44d1-ad31-aa6b62756399"
+        },
+        "5": {
             "varname": "huawei_pacific_disk_insecure",
             "caption": "Huawei Pacific Disk: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -227,7 +300,7 @@
             "settings": {},
             "uuid": "97e6802d-aba0-40f4-913a-e2a704408de1"
         },
-        "5": {
+        "6": {
             "varname": "huawei_pacific_disk_no_insecure",
             "caption": "Huawei Pacific Disk: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -236,7 +309,31 @@
             "settings": {},
             "uuid": "f4d3d729-924e-4af9-9535-0b7639ef6982"
         },
-        "6": {
+        "7": {
+            "varname": "huawei_pacific_disk_match",
+            "caption": "Huawei Pacific Disk: Match",
+            "description": "Filter by disks. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the node name, the disk pool, the serial number and the slot, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4c8aed2b-1148-4e57-a079-ff03e20ac399"
+        },
+        "8": {
+            "varname": "huawei_pacific_disk_no_match_severity",
+            "caption": "Huawei Pacific Disk: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_pacific_disk_no_match_severity_list"
+            },
+            "uuid": "6347c448-d132-49e9-9895-2fea3cf7ef7c"
+        },
+        "9": {
             "varname": "huawei_pacific_disk_no_perfdata",
             "caption": "Huawei Pacific Disk: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -245,7 +342,7 @@
             "settings": {},
             "uuid": "b86decd7-db32-4145-8241-586459c01c00"
         },
-        "7": {
+        "10": {
             "varname": "huawei_pacific_disk_no_proxy",
             "caption": "Huawei Pacific Disk: No Proxy?",
             "description": "Do not use a proxy.",
@@ -254,7 +351,7 @@
             "settings": {},
             "uuid": "2e762867-d137-4369-8202-c868aa8a7d84"
         },
-        "8": {
+        "11": {
             "varname": "huawei_pacific_disk_password",
             "caption": "Huawei Pacific Disk: Password",
             "description": "Huawei OceanStor Pacific API password. Password.",
@@ -265,7 +362,7 @@
             },
             "uuid": "f89f1d88-b23d-4ad7-a321-a6a462853f21"
         },
-        "9": {
+        "12": {
             "varname": "huawei_pacific_disk_password_file",
             "caption": "Huawei Pacific Disk: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -276,7 +373,7 @@
             },
             "uuid": "06a3bdb3-7b62-40e9-b4bf-7f1fff72b1b5"
         },
-        "10": {
+        "13": {
             "varname": "huawei_pacific_disk_scope",
             "caption": "Huawei Pacific Disk: Scope",
             "description": "Huawei OceanStor Pacific API scope.",
@@ -287,7 +384,7 @@
             },
             "uuid": "7678a592-35c4-49f0-9d00-2f43935f12f5"
         },
-        "11": {
+        "14": {
             "varname": "huawei_pacific_disk_timeout",
             "caption": "Huawei Pacific Disk: Timeout",
             "description": "Network timeout in seconds.",
@@ -298,7 +395,7 @@
             },
             "uuid": "0ce23f3d-78b9-41f4-bdd6-e23f708c288e"
         },
-        "12": {
+        "15": {
             "varname": "huawei_pacific_disk_url",
             "caption": "Huawei Pacific Disk: URL",
             "description": "Huawei OceanStor Pacific API URL.",
@@ -309,7 +406,7 @@
             },
             "uuid": "17a8fcb9-3615-45d5-b87e-4c628f95c56d"
         },
-        "13": {
+        "16": {
             "varname": "huawei_pacific_disk_username",
             "caption": "Huawei Pacific Disk: Username",
             "description": "Huawei OceanStor Pacific API username.",
@@ -320,7 +417,7 @@
             },
             "uuid": "82794211-d63e-45ba-b2e0-c40109243d87"
         },
-        "14": {
+        "17": {
             "varname": "huawei_pacific_disk_warning",
             "caption": "Huawei Pacific Disk: Warning",
             "description": "WARN threshold for the remaining life of a disk, as a Nagios range in days.",

@@ -144,8 +144,8 @@ options:
                         switch port show up this way long before the link
                         drops. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Dorado API URL.
-  --username USERNAME   Huawei OceanStor Dorado API username.
+  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
+  --username USERNAME   Huawei OceanStor Dorado API username. Username.
   --warning-errors WARN_ERRORS
                         WARN threshold for the link errors of a port, as a
                         Nagios range in errors per second, summed over every
@@ -154,12 +154,14 @@ options:
                         alerting on; watch the graph first and set it once you
                         know what your fabric normally sits at. A healthy link
                         sits at 0. Example: `--warning-errors=1`
-  -v, --verbose         Print what every API request returned, so the
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
                         appliance's own answers can be read while working out
-                        how it reports something. The output is as long as
-                        those answers are, and session tokens are redacted.
-                        Meant for the command line, not for a service
-                        definition.
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-port/

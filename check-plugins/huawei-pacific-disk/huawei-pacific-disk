@@ -19,10 +19,11 @@ import lib.base
 import lib.huawei_pacific
 import lib.human
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks every disk of a Huawei OceanStor Pacific storage system via the REST API
 (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is
@@ -31,9 +32,14 @@ not healthy, and when its remaining life falls below the warning or critical thr
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_CRIT = '30:'
 DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+
+# Fields `--match` is applied to. A disk has no identifier of its own that an
+# operator would recognise, so the filter runs on where it sits and what it is.
+MATCH_FIELDS = ('node', 'pool', 'serial', 'slot')
 DEFAULT_WARN = '180:'
 
 
@@ -78,6 +84,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Skip disks. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against the node name, the disk pool, the serial number and the slot, '
+        'so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
@@ -91,6 +109,26 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by disks. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against the node name, the disk pool, the serial number and the slot, '
+        'so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -211,6 +249,12 @@ def main():
     if not args.PASSWORD:
         lib.base.cu('Provide the API password via --password or --password-file.')
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     # fetch data
     # The disks are only reachable per disk pool, so the pools have to be enumerated
     # first. The disk listing itself lives below the appliance's older endpoint
@@ -256,6 +300,13 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     # A pool that is faulty or stopped is a finding of its own: its disks may all report
@@ -290,6 +341,31 @@ def main():
                 if key in seen:
                     continue
                 seen.add(key)
+
+                identity = {
+                    'node': node_name,
+                    'pool': pool_id,
+                    'serial': disk.get('diskSn', '--'),
+                    'slot': disk.get('slotDesc', '--'),
+                }
+
+                if args.MATCH and not any(
+                    lib.base.coe(
+                        lib.txt.match_regex(pattern, str(identity.get(field, '')))
+                    )
+                    for pattern in compiled_match_regex
+                    for field in MATCH_FIELDS
+                ):
+                    continue
+
+                if args.IGNORE and any(
+                    lib.base.coe(
+                        lib.txt.match_regex(pattern, str(identity.get(field, '')))
+                    )
+                    for pattern in compiled_ignore_regex
+                    for field in MATCH_FIELDS
+                ):
+                    continue
 
                 disk_state = lib.huawei_pacific.get_disk_status_state(
                     disk.get('diskStatus')
@@ -345,6 +421,15 @@ def main():
                         'type': lib.huawei_pacific.get_disk_type(disk.get('diskType')),
                     }
                 )
+
+    # The appliance listed disks and the filter selected none of them.
+    if not table_data and args.MATCH:
+        lib.base.oao(
+            f'No disks matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     # build table output
     if pool_rows:

@@ -19,19 +19,24 @@ import lib.args
 import lib.base
 import lib.huawei_pacific
 import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080702'
+__version__ = '2026080703'
 
 DESCRIPTION = """Checks the status of all power supplies on a Huawei OceanStor Pacific storage system
 via the REST API (/hwm/power endpoint). Alerts when any power supply reports a non-normal status."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('frame_sn', 'name')
 
 
 def parse_args():
@@ -66,6 +71,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Skip power supplies. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `frame_sn`, `name`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
@@ -79,6 +95,25 @@ def parse_args():
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Filter by power supplies. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `frame_sn`, `name`, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -134,14 +169,15 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='Huawei OceanStor Pacific API URL.',
+        help='Huawei OceanStor Pacific API URL. ' + lib.args.help('--url'),
         dest='URL',
         required=True,
     )
 
     parser.add_argument(
         '--username',
-        help='Huawei OceanStor Pacific API username.',
+        help='Huawei OceanStor Pacific API username. '
+        + lib.args.help('--username'),
         dest='USERNAME',
         required=True,
     )
@@ -149,13 +185,14 @@ def parse_args():
     parser.add_argument(
         '-v',
         '--verbose',
-        help='Print what every API request returned, so the appliance\'s own answers can '
-        'be read while working out how it reports something. The output is as long as '
-        'those answers are, and session tokens are redacted. '
-        'Meant for the command line, not for a service definition.',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
         dest='VERBOSE',
-        action='count',
-        default=0,
+        action='store_true',
+        default=False,
     )
 
     args, _ = parser.parse_known_args()
@@ -175,6 +212,12 @@ def main():
         args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
     if not args.PASSWORD:
         lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
 
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
@@ -211,10 +254,31 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
     for power in result.get('data') or []:
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(power.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(power.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
         power_state = lib.huawei_pacific.get_component_status_state(
             power.get('status')
         )
@@ -232,6 +296,15 @@ def main():
 
         power['state'] = lib.base.state2str(power_state, empty_ok=False)
         table_data.append(power)
+
+    # The appliance listed power supplies and the filter selected none of them.
+    if not table_data and args.MATCH:
+        lib.base.oao(
+            f'No power supplies matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     # build table output
     if table_data:

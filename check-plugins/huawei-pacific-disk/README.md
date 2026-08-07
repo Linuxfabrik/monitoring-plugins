@@ -38,8 +38,10 @@ Checks every disk of a Huawei OceanStor Pacific storage system via the REST API 
 ```text
 usage: huawei-pacific-disk [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                           [--insecure] [--no-insecure] [--no-perfdata]
-                           [--no-proxy] [--password PASSWORD]
+                           [--ignore IGNORE] [--insecure] [--no-insecure]
+                           [--match MATCH]
+                           [--no-match-severity {ok,warn,crit,unknown}]
+                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
                            [--timeout TIMEOUT] -u URL --username USERNAME
                            [-w WARN] [-v]
@@ -58,6 +60,13 @@ options:
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold for the remaining life of a disk, as a
                         Nagios range in days. Default: 30:
+  --ignore IGNORE       Skip disks. Any item matching this Python regex will
+                        be ignored. Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match. The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against the node name, the
+                        disk pool, the serial number and the slot, so prefix
+                        with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-insecure         Verify the TLS certificate against the system trust
@@ -65,6 +74,19 @@ options:
                         Use it once the endpoint presents a publicly trusted
                         certificate, or once its CA has been added to the
                         system trust store.
+  --match MATCH         Filter by disks. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against the node name, the
+                        disk pool, the serial number and the slot, so prefix
+                        with `.*` to match anywhere.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
