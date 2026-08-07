@@ -546,6 +546,18 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['--url=http://www.example.com'],
     },
+    # A site can expose hundreds of user names. Printing them all would widen the finding
+    # column past anything readable, so the list is cut down while the count stays exact.
+    {
+        'id': 'warn-many-users-are-listed-shortened',
+        'test': 'stdout/users-many,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['544 usernames enumerable (', '...', "'users'=544"],
+        'assert-not-in': ['author277longname'],
+        # count, opening bracket, at most 40 characters of names, closing bracket
+        'assert-regex': r'544 usernames enumerable \(.{1,40}\)',
+    },
     # The printed command is quoted the way a shell needs it, so it can be pasted into a
     # terminal. The user agent carries spaces and would otherwise read as several
     # arguments. The command itself never goes through a shell.

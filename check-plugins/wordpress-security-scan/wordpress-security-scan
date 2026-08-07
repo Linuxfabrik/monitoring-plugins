@@ -30,7 +30,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080706'
+__version__ = '2026080707'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an attacker
 can see from the outside. Combines the black box scan with the inventory read from the local
@@ -121,6 +121,11 @@ VERSION_PROBE_TIMEOUT = 30
 # wpscan aborts itself and still writes a valid JSON document. Only if that fails does
 # the hard subprocess timeout hit, which leaves us without any output at all.
 SCAN_TIMEOUT_HEADROOM = 30
+
+# How much of the enumerable user names is printed. A site can expose hundreds of them,
+# and the full list would widen the finding column past anything readable while adding
+# nothing: the count is what matters, and the sample only shows what the names look like.
+USER_LIST_MAX_LEN = 40
 
 # How wpscan opens the message it aborts with when the target redirects elsewhere. The
 # destination follows, which is what makes --wpscan-follow-redirect workable at all.
@@ -1052,7 +1057,7 @@ def collect_user_findings(users):
             'hardening',
             'users',
             f'{len(users)} {lib.txt.pluralize("username", len(users))} '
-            f'enumerable ({", ".join(users)})',
+            f'enumerable ({lib.txt.shorten(", ".join(users), USER_LIST_MAX_LEN)})',
             STATE_WARN,
         )
     ]
