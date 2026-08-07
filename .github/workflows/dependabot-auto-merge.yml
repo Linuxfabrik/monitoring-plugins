@@ -7,11 +7,14 @@ permissions: 'read-all'
 
 env:
   # Lockfile directories pinned to versions that still support an old
-  # interpreter. A bump against one is never auto-merged: Dependabot does not
-  # honour `Requires-Python`, and its security updates reach such a directory
-  # even when `.github/dependabot.yml` does not watch it. Empty in
-  # repositories without such a lockfile.
-  FROZEN_LOCKFILES: '["/lockfiles/py39", "/lockfiles/py310"]'
+  # interpreter, written as `<ecosystem>:<directory>` pairs. A bump against one
+  # is never auto-merged: Dependabot does not honour `Requires-Python`, and its
+  # security updates reach such a directory even when `.github/dependabot.yml`
+  # does not watch it. The ecosystem is part of the key because several
+  # ecosystems share a directory, so freezing `pip:/` must not also stop the
+  # `github-actions` group that sits at `/`. Empty in repositories without such
+  # a lockfile.
+  FROZEN_LOCKFILES: '["pip:/lockfiles/py39", "pip:/lockfiles/py310"]'
 
 jobs:
   auto-merge:
@@ -33,7 +36,8 @@ jobs:
       # the pull request is neither merged nor closed. Regenerate the lockfile
       # with `pip-compile` on a matching Python host once the bump is accepted.
       - if: >-
-          contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
+          contains(fromJSON(env.FROZEN_LOCKFILES), format('{0}:{1}',
+          steps.meta.outputs.package-ecosystem, steps.meta.outputs.directory))
           && github.event.action == 'opened'
         run: |
           gh pr comment "$PR_URL" --body "Not auto-merged: \`${DIRECTORY}\` is frozen because Dependabot does not honour \`Requires-Python\`. Check whether \`${DEPENDENCY}\` still supports that lockfile's interpreter. If it does, regenerate the lockfile with \`pip-compile\` on a matching Python host. Either way, close this PR afterwards."
@@ -50,7 +54,8 @@ jobs:
       # keeps enforcing the required checks server-side, so a pull request that
       # is not ready is still rejected.
       - if: >-
-          !contains(fromJSON(env.FROZEN_LOCKFILES), steps.meta.outputs.directory)
+          !contains(fromJSON(env.FROZEN_LOCKFILES), format('{0}:{1}',
+          steps.meta.outputs.package-ecosystem, steps.meta.outputs.directory))
           && (steps.meta.outputs.update-type == 'version-update:semver-patch'
               || steps.meta.outputs.update-type == 'version-update:semver-minor')
         run: |
