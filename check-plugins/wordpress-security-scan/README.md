@@ -223,10 +223,8 @@ Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 theme
 
 Component      ! Installed ! Type   ! CVSS ! Fixed in ! Finding                                           ! State
 ---------------+-----------+--------+------+----------+---------------------------------------------------+-----------
-contact-form-7 ! 5.0       ! plugin ! 9.8  ! 5.3.2    ! Contact Form 7 &lt; 5.3.2 - Unrestricted File Upload ! [CRITICAL]
+contact-form-7 ! 5.0       ! plugin ! 9.8  ! 5.3.2    ! Contact Form 7 < 5.3.2 - Unrestricted File Upload ! [CRITICAL]
 ```
-
-The `&lt;` in the last column is intentional: the output is HTML-escaped so a version range like `< 5.3.2` survives in web interfaces instead of being swallowed as a tag.
 
 Accepting the risk for one component:
 

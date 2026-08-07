@@ -224,7 +224,7 @@ php.ini runtime settings:
 default_socket_timeout = 60
 display_errors = Off  ; default: On
 display_startup_errors = Off  ; default: On
-error_reporting = E_ALL &amp; ~E_DEPRECATED
+error_reporting = E_ALL & ~E_DEPRECATED
 expose_php = Off  ; default: On
 html_errors = On
 max_execution_time = 30

@@ -118,13 +118,13 @@ Dump                          ! Size     ! State
 [  688.748830] CPU: 0 UID: 0 PID: 1553 Comm: bash Kdump: loaded Not tainted 6.12.0-55.12.1.el10_0.x86_64 #1
 [  688.748885] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS edk2-20260508-6.fc44 05/08/2026
 [  688.748943] Call Trace:
-[  688.748964]  &lt;TASK&gt;
+[  688.748964]  &lt;TASK>
 ...
 [  688.749912] RDX: 0000000000000002 RSI: 000055b687757760 RDI: 0000000000000001
 [  688.749949] RBP: 000055b687757760 R08: 0000000000000073 R09: 00000000ffffffff
 [  688.749987] R10: 0000000000000000 R11: 0000000000000202 R12: 0000000000000002
 [  688.750024] R13: 00007ff3986415c0 R14: 0000000000000002 R15: 00007ff39863ef00
-[  688.750067]  &lt;/TASK&gt;
+[  688.750067]  </TASK>
 
 After investigating, remove the dump directory to clear this alert (dumps are large): rm -rf /var/crash/127.0.0.1-2026-07-15-11:07:59 (and the 1 older one(s) in /var/crash)
 
