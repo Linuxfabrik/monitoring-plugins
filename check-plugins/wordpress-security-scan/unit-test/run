@@ -23,15 +23,23 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # of every `test` value: 0 is a clean scan, 5 means wpscan considers the target
 # vulnerable, and anything else is a run that did not produce a result.
 #
+# Almost every fixture carries a `vuln_api` section reporting a working API token,
+# because that is the only way wpscan looks up vulnerabilities at all. The `no-api-token`
+# and `vuln-api-unreachable` fixtures cover the opposite case, in which every
+# vulnerability list is empty regardless of what the site runs.
+#
 # `wordpress/` is a WordPress installation tree reduced to the files the check reads:
-# wp-includes/version.php plus the plugin and theme headers below wp-content/. It also
-# contains the index.php placeholders WordPress ships in every directory, so the
-# "a placeholder is not a plugin" case is covered by the real layout.
+# wp-includes/version.php, wp-config.php, plus the plugin and theme headers below
+# wp-content/. It also contains the index.php placeholders WordPress ships in every
+# directory, so the "a placeholder is not a plugin" case is covered by the real layout.
 BASE_PARAMS = '--url=https://www.example.com --path=wordpress'
 
 # Pointing --path at a directory that does not exist exercises the black box mode, in
 # which the check reports what the scan alone could see.
 NO_PATH_PARAMS = '--url=https://www.example.com --path=/nonexistent'
+
+# No --url at all: the site URL has to come out of wordpress/wp-config.php.
+DERIVED_URL_PARAMS = '--path=wordpress'
 
 TESTS = [
     # A site that is fully patched and exposes nothing. The local inventory holds three
@@ -310,7 +318,12 @@ TESTS = [
         'test': 'stdout/malformed-json,,0',
         'params': NO_PATH_PARAMS,
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['Unable to parse the scan output'],
+        # wpscan reports a run it aborted before writing its document in plain text. That
+        # text is the only explanation there is and must reach the output.
+        'assert-in': [
+            'The remote website is up, but does not seem to be running',
+            'the scan output is not valid JSON',
+        ],
     },
     {
         'id': 'unknown-empty-response',
@@ -318,6 +331,221 @@ TESTS = [
         'params': NO_PATH_PARAMS,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['The scan returned no output.'],
+    },
+    # A scanner that aborts before writing its document reports in plain text, on stdout
+    # as well as on stderr depending on what went wrong. Either way the text is the only
+    # explanation there is.
+    {
+        'id': 'unknown-error-on-stderr-only',
+        'test': 'stdout/empty-response,stderr/ruby-crash,1',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['undefined method', 'the scan output is not valid JSON'],
+        'assert-not-in': ['The scan returned no output.'],
+    },
+    # Without vulnerability data an empty vulnerability list says nothing about the site,
+    # so the summary must not read as an all-clear. The state stays OK by default and
+    # follows --no-vuln-data-severity otherwise.
+    {
+        'id': 'ok-no-api-token-default',
+        'test': 'stdout/no-api-token,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No exposures found, vulnerabilities not checked.',
+            'No vulnerability data: no API token',
+            "'vuln_data_available'=0",
+        ],
+        'assert-not-in': ['No vulnerabilities found.'],
+    },
+    {
+        'id': 'warn-no-api-token-severity-warn',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No vulnerability data: no API token'],
+    },
+    {
+        'id': 'crit-no-api-token-severity-crit',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=crit',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'unknown-no-api-token-severity-unknown',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    # The token was fine but the database itself could not be reached. Same consequence,
+    # different cause, and the cause is what the admin needs to see.
+    {
+        'id': 'warn-vuln-api-unreachable',
+        'test': 'stdout/vuln-api-unreachable,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['the vulnerability database was unreachable'],
+    },
+    # A site with real findings must still report that the vulnerability class was never
+    # examined, otherwise "0 vulnerabilities" reads as a verified zero.
+    {
+        'id': 'ok-no-api-token-keeps-counting-other-findings',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'vuln_data_available'=0"],
+    },
+    # A working token is reported only under --lengthy, so the default output of a clean
+    # site stays a single verdict line.
+    {
+        'id': 'ok-token-quota-shown-with-lengthy',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Vulnerability database queried (free plan, 22 requests left)',
+            "'vuln_data_available'=1",
+        ],
+    },
+    {
+        'id': 'ok-token-quota-hidden-by-default',
+        'test': 'stdout/clean-site,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['requests left'],
+    },
+    # A backup folder wpscan could read entries out of is a leak; one it only saw the
+    # outside of is not the same situation and must not page at night.
+    {
+        'id': 'warn-backup-folder-without-readable-entries',
+        'test': 'stdout/backup-folder-unlisted,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'backup-db.*\[WARNING\]',
+    },
+    # Exactly at the threshold the vulnerability is critical, because the comparison is
+    # "at or above".
+    {
+        'id': 'crit-cvss-exactly-at-threshold',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': f'{BASE_PARAMS} --critical-cvss=5.4',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'warn-cvss-just-below-threshold',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': f'{BASE_PARAMS} --critical-cvss=5.5',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'unknown-no-match-severity-unknown',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A JSON document that is not an object carries no scan result, whatever else it is.
+    {
+        'id': 'unknown-json-array',
+        'test': 'stdout/json-array,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['the scan output is not a JSON object'],
+    },
+    # The site URL is not given and has to come out of wp-config.php.
+    {
+        'id': 'ok-url-derived-from-wp-config',
+        'test': 'stdout/clean-site,,0',
+        'params': DERIVED_URL_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['https://www.example.com'],
+    },
+    # Neither given nor derivable: the message has to name both the parameter and the
+    # usual reason, since wp-config.php is normally unreadable for the monitoring user.
+    {
+        'id': 'unknown-url-neither-given-nor-derivable',
+        'test': 'stdout/clean-site,,0',
+        'params': '--path=/nonexistent',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No --url given', 'WP_HOME', 'wp-config.php'],
+    },
+    # --verbose prints the command the check assembled, which is the only place the
+    # enumeration adjustments become visible. Without vulnerability data the vulnerable-
+    # plugins and vulnerable-themes choices are downgraded, because wpscan refuses to
+    # start with them.
+    {
+        'id': 'ok-verbose-shows-downgraded-enumeration',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Executed command:',
+            '--enumerate=p,t,tt,cb,dbe,bf,u',
+            '--format=json',
+            '--no-banner',
+            '--max-scan-duration=570',
+        ],
+        'assert-not-in': ['--enumerate=vp,vt'],
+    },
+    # The raw pass-through and the switches land in the command unchanged.
+    {
+        'id': 'ok-verbose-shows-passed-through-options',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --insecure --wpscan-no-update '
+            '--wpscan-option=--plugins-detection=aggressive --scan-timeout=120'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '--disable-tls-checks',
+            '--no-update',
+            '--plugins-detection=aggressive',
+            '--max-scan-duration=90',
+        ],
+    },
+    # An enterprise database supplies vulnerability data without an API token, so the
+    # enumeration must keep its vulnerable-plugins and vulnerable-themes choices.
+    {
+        'id': 'ok-enterprise-db-keeps-enumeration',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-option=--enterprise-db-token=linuxfabrik'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # An API token keeps the vulnerable-plugins and vulnerable-themes choices too.
+    {
+        'id': 'ok-api-token-keeps-enumeration',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --api-token=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # The token is handed over through the environment, so it must never show up in the
+    # command the check prints.
+    {
+        'id': 'ok-api-token-not-in-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --api-token=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # An unreadable or empty token file is a configuration error and stops the check,
+    # rather than silently scanning without vulnerability data.
+    {
+        'id': 'unknown-token-file-missing',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --api-token-file=/nonexistent/token',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-token-file-empty',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --api-token-file=stdin/empty-token',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['is empty'],
     },
 ]
 

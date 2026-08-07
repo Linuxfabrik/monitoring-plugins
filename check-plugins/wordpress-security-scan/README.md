@@ -2,22 +2,25 @@
 
 ## Overview
 
-Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. Supports extended reporting via `--lengthy`. Requires the command-line tool `wpscan`.
+Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. The vulnerability database is only queried with an API token; without one the check says so instead of reporting a clean result it could not verify. Supports extended reporting via `--lengthy`. Requires the command-line tool `wpscan`, version 4.0.0 or newer for the backup folder enumeration.
 
 **Important Notes:**
 
-* Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `gem install wpscan`.
+* Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `gem install wpscan`. Version 4.0.0 or newer is recommended; on an older release the backup folder enumeration (`bf`) is dropped automatically, because those releases reject it as an unknown choice and would not scan at all.
+* A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
 * A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 600 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
-* Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. See [API Token](#api-token).
+* Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. See [API Token](#api-token).
 * The scan sends a large number of requests to the target and probes for backup files and admin endpoints. Run it against your own sites only, and expect it to show up in the access log and in any WAF or fail2ban rule set.
+* On a stock WordPress the check reports WARNING out of the box: `readme.html` is reachable, the external WP-Cron is enabled and at least one username is usually enumerable. These are genuine hardening findings, not false alarms. Address them, or accept them with `--ignore`.
 * `--path` is optional in practice. If it points nowhere, or at an installation the monitoring user cannot read, the check falls back to pure black box mode and says so. It never turns a finished scan into an UNKNOWN, so a permission change on the web root cannot hide a critical finding.
+* `--url` is optional where the installation pins its own address. If it is not given, the check reads `WP_HOME` or `WP_SITEURL` from `wp-config.php` below `--path`. Most installations keep the address in the database instead, and `wp-config.php` is usually not readable for the monitoring user, so pass `--url` unless you know both apply.
 
 **Data Collection:**
 
 Two sources are merged:
 
-* The remote scan, run as `wpscan --url=<url> --format=json`. It contributes the known vulnerabilities including their CVSS scores, the exposures, the interesting findings and the enumerable usernames.
-* The local installation below `--path`. The check reads `wp-includes/version.php` for the core version and the plugin and theme headers below `wp-content/` for the installed components and their versions.
+* The remote scan, run as `wpscan --url=<url> --format=json`. It contributes the known vulnerabilities including their CVSS scores, the exposures, the interesting findings and the enumerable usernames. `wpscan --version` is called first to find out which enumeration choices the installed release accepts and how old its vulnerability database is.
+* The local installation below `--path`. The check reads `wp-includes/version.php` for the core version, the plugin and theme headers below `wp-content/` for the installed components and their versions, and `wp-config.php` for the site URL when `--url` is not given.
 
 The second source exists because a black box scan can only find plugins and themes it is able to fingerprint from the outside. On a site with seventeen plugins it may recognise four. The check therefore reports both numbers ("Installed locally: 17 plugins, 3 themes. Detected by the scan: 4 plugins, 3 themes.") so the coverage of the scan is visible instead of implied.
 
@@ -31,28 +34,11 @@ Findings can be narrowed with `--match` and widened out with `--ignore`. Both ar
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan> |
 | Nagios/Icinga Check Name              | `check_wordpress_security_scan` |
 | Check Interval Recommendation         | Every day |
-| Can be called without parameters      | No (`--url` is required) |
+| Can be called without parameters      | No (`--url`, unless the installation below `--path` pins it) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| Requirements                          | command-line tool `wpscan` |
+| Requirements                          | command-line tool `wpscan` (4.0.0 or newer recommended) |
 | 3rd Party Python modules              | None |
-
-
-## API Token
-
-The WPScan vulnerability database is only queried when an API token is present. A free token with a small daily request quota is available at <https://wpscan.com/register>.
-
-The token can be supplied in three ways, checked in this order:
-
-1. `--api-token=<token>`
-2. `--api-token-file=<path>`, which reads the first line of the file
-3. the `WPSCAN_API_TOKEN` environment variable, if it is already exported
-
-Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`. It keeps the token out of the monitoring configuration and out of the Director basket.
-
-Whichever way it is supplied, the check hands the token to `wpscan` through the environment and never on the command line, so it does not appear in the process list of the scanning host.
-
-Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
 
 
 ## Help
@@ -64,9 +50,10 @@ usage: wordpress-security-scan [-h] [-V] [--always-ok] [--api-token API_TOKEN]
                                [--ignore IGNORE] [--insecure] [--lengthy]
                                [--match MATCH]
                                [--no-match-severity {ok,warn,crit,unknown}]
-                               [--no-perfdata] [--path PATH]
-                               [--scan-timeout SCAN_TIMEOUT]
-                               [--unscored-severity {ok,warn,crit}] -u URL
+                               [--no-perfdata]
+                               [--no-vuln-data-severity {ok,warn,crit,unknown}]
+                               [--path PATH] [--scan-timeout SCAN_TIMEOUT]
+                               [--unscored-severity {ok,warn,crit}] [-u URL]
                                [-v] [--wpscan-enumerate WPSCAN_ENUMERATE]
                                [--wpscan-no-update]
                                [--wpscan-option WPSCAN_OPTION]
@@ -82,8 +69,10 @@ backup folder), and hardening findings such as outdated components or a
 reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose
 CVSS base score reaches the critical threshold, because both mean the site can
 be taken over right now and someone has to react immediately. Everything else
-alerts WARNING. Supports extended reporting via --lengthy. Requires the
-command-line tool wpscan.
+alerts WARNING. The vulnerability database is only queried with an API token;
+without one the check says so instead of reporting a clean result it could not
+verify. Supports extended reporting via --lengthy. Requires the command-line
+tool wpscan, version 4.0.0 or newer for the backup folder enumeration.
 
 options:
   -h, --help            show this help message and exit
@@ -92,12 +81,14 @@ options:
   --api-token API_TOKEN
                         WPScan API token, used to look up known
                         vulnerabilities. Without a token the scan still runs,
-                        but reports no vulnerability data at all. The token is
-                        handed to wpscan through the environment, never on the
-                        command line, so it does not show up in the process
-                        list. Takes precedence over --api-token-file and over
-                        a token already present in the WPSCAN_API_TOKEN
-                        environment variable.
+                        but reports no vulnerability data at all; the check
+                        then says so and --no-vuln-data-severity decides
+                        whether it alerts. The token is handed to wpscan
+                        through the environment, never on the command line, so
+                        it does not show up in the process list. Takes
+                        precedence over --api-token-file and over a token
+                        already present in the WPSCAN_API_TOKEN environment
+                        variable.
   --api-token-file API_TOKEN_FILE
                         Path to the file containing the WPScan API token. Use
                         this instead of --api-token to keep the token out of
@@ -117,11 +108,12 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --match MATCH         Only report findings whose component or title matches
-                        this Python regular expression. Case-sensitive by
-                        default; use `(?i)` for case-insensitive matching. Can
-                        be specified multiple times. If not specified, all
-                        findings are reported.
+  --match MATCH         Filter by this Python regular expression. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead).
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -129,11 +121,19 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --no-vuln-data-severity {ok,warn,crit,unknown}
+                        State to report when the vulnerability database could
+                        not be queried and no vulnerability data is available.
+                        The check still reports everything it can determine
+                        without that data, but a clean result then only means
+                        nothing else was found, not that the target is free of
+                        known vulnerabilities. Default: ok
   --path PATH           Local path to your WordPress installation, typically
                         within your Webserver's Document Root. Read to
                         determine the installed core version and the installed
                         plugins and themes, which the remote scan on its own
-                        cannot see completely. A path that does not exist is
+                        cannot see completely, and to determine the site URL
+                        when --url is not given. A path that does not exist is
                         not an error: the check then reports what the remote
                         scan found and says so. Default:
                         /var/www/html/wordpress
@@ -148,7 +148,11 @@ options:
                         for a large share of its entries, so treating them all
                         as critical would page for every one of them. Default:
                         warn
-  -u, --url URL         URL of the WordPress site to scan. Example:
+  -u, --url URL         URL of the WordPress site to scan. If not specified,
+                        it is taken from the `WP_HOME` or `WP_SITEURL`
+                        constant of the installation below --path, which only
+                        works where the installation pins them and the
+                        configuration file is readable. Example:
                         `--url=https://www.example.com`
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
@@ -156,10 +160,12 @@ options:
   --wpscan-enumerate WPSCAN_ENUMERATE
                         Enumeration options passed to wpscan (its
                         `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable
-                        plugins/themes) need an API token and are downgraded
-                        to `p`/`t` automatically when none is available,
-                        because wpscan aborts otherwise. Default:
-                        vp,vt,tt,cb,dbe,bf,u
+                        plugins/themes) need vulnerability data and are
+                        downgraded to `p`/`t` automatically when none is
+                        available, because wpscan aborts otherwise. `bf`
+                        (backup folders) needs wpscan 4.0.0 or newer and is
+                        dropped automatically on older releases, which reject
+                        it as an unknown choice. Default: vp,vt,tt,cb,dbe,bf,u
   --wpscan-no-update    Skip the update of the local vulnerability database
                         before scanning. Speeds up the check, at the price of
                         scanning against possibly stale vulnerability data.
@@ -212,12 +218,15 @@ With `--lengthy`, which adds the finding type, the CVSS score and the release th
 
 ```text
 1 vulnerability (1 critical), 0 exposures, 0 hardening findings on https://www.example.com
+Vulnerability database queried (free plan, 22 requests left).
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 
-Component      ! Installed ! Type   ! CVSS ! Fixed in ! Finding                                            ! State
----------------+-----------+--------+------+----------+----------------------------------------------------+-----------
-contact-form-7 ! 5.0       ! plugin ! 9.8  ! 5.3.2    ! Contact Form 7 < 5.3.2 - Unrestricted File Upload  ! [CRITICAL]
+Component      ! Installed ! Type   ! CVSS ! Fixed in ! Finding                                           ! State
+---------------+-----------+--------+------+----------+---------------------------------------------------+-----------
+contact-form-7 ! 5.0       ! plugin ! 9.8  ! 5.3.2    ! Contact Form 7 &lt; 5.3.2 - Unrestricted File Upload ! [CRITICAL]
 ```
+
+The `&lt;` in the last column is intentional: the output is HTML-escaped so a version range like `< 5.3.2` survives in web interfaces instead of being swallowed as a tag.
 
 Accepting the risk for one component:
 
@@ -231,6 +240,26 @@ Reading the API token from a file instead of the command line:
 ./wordpress-security-scan --url=https://www.example.com --api-token-file=/etc/icinga2/wpscan.token
 ```
 
+Output on a site scanned without an API token, where the vulnerability class was never examined:
+
+```text
+No exposures found, vulnerabilities not checked. WordPress v7.0.2 on https://www.example.com
+No vulnerability data: no API token, the vulnerability database was not queried.
+Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
+```
+
+Alerting while no token is configured, instead of accepting the gap:
+
+```bash
+./wordpress-security-scan --url=https://www.example.com --no-vuln-data-severity=warn
+```
+
+Letting the check take the site URL from `wp-config.php` instead of passing it:
+
+```bash
+./wordpress-security-scan --path=/var/www/html/wordpress
+```
+
 
 ## States
 
@@ -239,7 +268,7 @@ Findings fall into three classes, and the worst of them determines the result:
 | Class | What it is | State |
 |----|----|----|
 | Vulnerability | A known vulnerability from the WPScan vulnerability database, attached to the core, a plugin, a theme or a timthumb script. | CRIT if its CVSS v3 base score is >= `--critical-cvss` (default 7.0), otherwise WARN. An entry without a score follows `--unscored-severity` (default `warn`). |
-| Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, a backup folder with directory listing, a debug log, a `SearchReplaceDB2` or Duplicator installer left behind, an emergency password reset script, or a site still sitting on its installer. | Always CRIT. |
+| Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, a backup folder, a debug log, a `SearchReplaceDB2` or Duplicator installer left behind, an emergency password reset script, or a site still sitting on its installer. | CRIT, except for a backup folder the scanner could not read any entry out of, which is WARN. |
 | Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, an enabled external WP-Cron, upload directory listing, full path disclosure, enumerable usernames, a reachable timthumb script, and any finding type the scanner may add in the future. | WARN. |
 
 In detail:
@@ -249,8 +278,11 @@ In detail:
 * OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` changes that state.
 * WARN if the core version the scan sees differs from the one installed below `--path`. That means the scan did not look at this installation: a wrong virtual host, a stale cache, or a CDN in between.
 * WARN on a timeout, whether the scan ran past `--scan-timeout` or past its own internal budget.
+* WARN if `wpscan` is not installed, so the missing scanner shows up as something to fix instead of being routed to the UNKNOWN pile.
+* WARN if the local vulnerability database has not been refreshed in more than a week. It then grades the site against what was known back then.
+* Per `--no-vuln-data-severity` (default `ok`) if the vulnerability database could not be queried at all: no API token, an unreachable database, or an exhausted request quota. The summary then reads "vulnerabilities not checked" rather than "no vulnerabilities found", the reason is named in the output, and `vuln_data_available=0` marks the run in the perfdata. Everything the scan could determine without that data still counts towards the state.
 * CRIT as described in the table above.
-* UNKNOWN if `wpscan` is not installed, if the token file cannot be read, if the scan aborted (for example because the target does not run WordPress), or if the scan produced no parsable output.
+* UNKNOWN if the token file cannot be read, if `--url` is neither given nor derivable from `wp-config.php`, if the scan aborted (for example because the target does not run WordPress), or if the scan produced no parsable output. A scan that failed before writing its document reports in plain text; that text is carried into the message instead of being discarded.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 The coverage numbers ("Detected by the scan: 4 plugins") never influence the state. A component the scanner cannot fingerprint is a limit of black box scanning, not something the administrator can fix on the monitored site.
@@ -270,8 +302,27 @@ The coverage numbers ("Detected by the scan: 4 plugins") never influence the sta
 | themes_installed | Number | Number of themes installed below `--path`. Zero when the local installation is not readable. |
 | themes_outdated | Number | Number of detected themes for which a newer release exists. |
 | users | Number | Number of usernames that can be enumerated from the outside. |
+| vuln_data_available | Number | 1 if the vulnerability database was queried, 0 if it was not. A `vulnerabilities` value of 0 only means "none found" while this is 1. |
+| vulndb_age | Seconds | Age of the local vulnerability database. Only emitted once `wpscan` has updated it at least once. |
 | vulnerabilities | Number | Number of known vulnerabilities found. |
 | vulnerabilities_critical | Number | Number of those vulnerabilities at or above `--critical-cvss`. |
+
+
+## API Token
+
+The WPScan vulnerability database is only queried when an API token is present. A free token with a small daily request quota is available at <https://wpscan.com/register>.
+
+The token can be supplied in three ways, checked in this order:
+
+1. `--api-token=<token>`
+2. `--api-token-file=<path>`, which reads the first line of the file
+3. the `WPSCAN_API_TOKEN` environment variable, if it is already exported
+
+Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`. It keeps the token out of the monitoring configuration and out of the Director basket.
+
+Whichever way it is supplied, the check hands the token to `wpscan` through the environment and never on the command line, so it does not appear in the process list of the scanning host.
+
+Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
 
 
 ## Troubleshooting
@@ -305,9 +356,34 @@ Alternatively narrow the scan. Dropping the plugin and theme enumeration is the 
 
 `--wpscan-no-update` saves the vulnerability database update at the start of each run. Only use it if something else refreshes that database, otherwise the check silently scans against stale data.
 
-### No vulnerabilities are ever reported
+### `No vulnerability data: no API token, the vulnerability database was not queried`
 
-The vulnerability database needs an API token. Without one the check still finds exposures and outdated components, but the vulnerability class stays empty and `vulnerabilities=0` in the perfdata regardless of the actual state of the site. Run with `--verbose` and check the executed command: if it shows `--enumerate=p,t,...` instead of `--enumerate=vp,vt,...`, no token was resolved. See [API Token](#api-token).
+The vulnerability database needs an API token. Without one the check still finds exposures and outdated components, but the vulnerability class stays empty and `vulnerabilities=0` in the perfdata regardless of the actual state of the site. That is why the check says so rather than reporting a clean result, and why `vuln_data_available=0` marks the run in the perfdata.
+
+Supply a token as described under [API Token](#api-token). To have the check alert while no token is configured, set `--no-vuln-data-severity=warn`.
+
+The same message with `the vulnerability database was unreachable` means the token is fine but wpscan.com could not be reached during the scan.
+
+### `Your API limit has been reached`
+
+The daily request quota of the token is used up. `wpscan` refuses to start at all in that state, so the whole check turns UNKNOWN rather than falling back to a scan without vulnerability data.
+
+The free tier allows 25 requests per day, and one request is spent per plugin, per theme and per core version looked up. A site with two dozen plugins therefore exhausts it in a single scan. Keep the check interval at once per day, use one token per site, or move to a paid plan. The remaining quota is visible in the output under `--lengthy`.
+
+`The API token provided is invalid` behaves the same way and means the token was rejected outright.
+
+### The backup folder enumeration is missing from the scan
+
+Run with `--verbose` and look at the executed command. If it shows `--enumerate=vp,vt,tt,cb,dbe,u` without the `bf`, the installed `wpscan` is older than 4.0.0, which does not know that choice and would refuse to start with it. The check drops it automatically rather than failing the scan.
+
+```bash
+wpscan --version
+gem update wpscan
+```
+
+### `Scan Aborted: --enumerate Unknown choice: ...`
+
+The value of `--wpscan-enumerate` contains a choice the installed `wpscan` does not know. The check only adjusts the choices it knows a minimum version for; everything else is passed through as given. Check the value against `wpscan --help`.
 
 ### Findings that are accepted risks keep alerting
 

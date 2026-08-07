@@ -19,25 +19,31 @@ import sys
 import lib.args
 import lib.base
 import lib.disk
+import lib.human
 import lib.lftest
 import lib.shell
+import lib.time
 import lib.txt
+import lib.version
 import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026080701'
 
-DESCRIPTION = """Runs a WordPress security scan against a site and reports what an attacker can see
-from the outside. Combines the black box scan with the inventory read from the local installation
-directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their
-installed version. Findings are split into three classes: known vulnerabilities from the scanner's
-vulnerability database, exposures that hand an attacker credentials, the database or an account
-(a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as
-outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose
-CVSS base score reaches the critical threshold, because both mean the site can be taken over right now
-and someone has to react immediately. Everything else alerts WARNING. Supports extended reporting via
---lengthy. Requires the command-line tool wpscan."""
+DESCRIPTION = """Runs a WordPress security scan against a site and reports what an attacker
+can see from the outside. Combines the black box scan with the inventory read from the local
+installation directory, so plugins and themes the scanner cannot fingerprint remotely are
+still listed with their installed version. Findings are split into three classes: known
+vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker
+credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable
+backup folder), and hardening findings such as outdated components or a reachable readme.
+Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the
+critical threshold, because both mean the site can be taken over right now and someone has to
+react immediately. Everything else alerts WARNING. The vulnerability database is only queried
+with an API token; without one the check says so instead of reporting a clean result it could
+not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan,
+version 4.0.0 or newer for the backup folder enumeration."""
 
 # CVSS v3 base score at or above which a vulnerability is treated as critical. 7.0 is
 # the lower bound of the "High" severity band and matches how wpscan itself maps scores
@@ -46,6 +52,7 @@ DEFAULT_CRITICAL_CVSS = 7.0
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_VULN_DATA_SEVERITY = 'ok'
 DEFAULT_PATH = '/var/www/html/wordpress'
 DEFAULT_SCAN_TIMEOUT = 600
 DEFAULT_UNSCORED_SEVERITY = 'warn'
@@ -55,6 +62,28 @@ DEFAULT_WPSCAN_ENUMERATE = 'vp,vt,tt,cb,dbe,bf,u'
 # Name of the environment variable wpscan reads its API token from. The token is handed
 # over this way instead of on the command line so it never shows up in the process list.
 API_TOKEN_ENV = 'WPSCAN_API_TOKEN'  # nosec B105
+
+# The counterpart for a locally held copy of the vulnerability database. It rules the API
+# token out and supplies vulnerability data on its own, so the enumeration must not be
+# downgraded when it is set.
+ENTERPRISE_TOKEN_ENV = 'WPSCAN_ENTERPRISE_DB_TOKEN'  # nosec B105
+ENTERPRISE_TOKEN_OPTION = '--enterprise-db-token'
+
+# Enumeration choices that only exist from this wpscan release on. Passing one to an older
+# release is not a warning there, it is an invalid choice and the scan never starts, so the
+# choice is dropped instead when the installed release is older.
+ENUMERATE_MIN_VERSION = {
+    'bf': '4.0.0',
+}
+
+# Seconds the vulnerability database may be behind before it is reported. A database that
+# has not been refreshed in a week no longer says much about the current state of a site.
+VULNDB_MAX_AGE = 7 * 24 * 3600
+
+# Seconds granted to the version probe. It prints a constant and exits, so anything
+# beyond this means the scanner is not going to answer, and the budget of --scan-timeout
+# has to stay with the scan itself rather than being spent waiting here.
+VERSION_PROBE_TIMEOUT = 30
 
 # Seconds subtracted from --scan-timeout to get wpscan's own --max-scan-duration, so
 # wpscan aborts itself and still writes a valid JSON document. Only if that fails does
@@ -98,10 +127,21 @@ INFO_FINDING_TYPES = (
     'xmlrpc',
 )
 
-# Core version states wpscan reports. Anything but `latest` means the installed core is
-# behind; `insecure` additionally means the vulnerability database flags it.
-CORE_STATUS_INSECURE = ('insecure', 'insecure-via-api')
-CORE_STATUS_OUTDATED = ('outdated', 'outdated-via-api')
+# Core version states wpscan reports (app/models/wp_version.rb). The value is passed
+# through from the vulnerability metadata unchanged and falls back to the literal
+# `Unknown` for a release the metadata does not list. Anything but `latest` means the
+# installed core is behind; `insecure` additionally means the database flags it.
+CORE_STATUS_INSECURE = ('insecure',)
+CORE_STATUS_OUTDATED = ('outdated',)
+
+# How wpscan rates a backup folder (app/models/backup_folder.rb): `high` once it could
+# actually read entries out of the folder, `medium` when it only saw that the folder is
+# there. A folder whose contents are readable hands over whatever was backed up, which is
+# a different situation from one that merely exists.
+BACKUP_FOLDER_SEVERITY_STATE = {
+    'high': STATE_CRIT,
+    'medium': STATE_WARN,
+}
 
 
 def parse_args():
@@ -130,7 +170,8 @@ def parse_args():
     parser.add_argument(
         '--api-token',
         help='WPScan API token, used to look up known vulnerabilities. '
-        'Without a token the scan still runs, but reports no vulnerability data at all. '
+        'Without a token the scan still runs, but reports no vulnerability data at all; '
+        'the check then says so and --no-vuln-data-severity decides whether it alerts. '
         'The token is handed to wpscan through the environment, never on the command '
         'line, so it does not show up in the process list. '
         'Takes precedence over --api-token-file and over a token already present in '
@@ -187,11 +228,7 @@ def parse_args():
 
     parser.add_argument(
         '--match',
-        help='Only report findings whose component or title matches this Python regular '
-        'expression. '
-        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
-        'Can be specified multiple times. '
-        'If not specified, all findings are reported.',
+        help=lib.args.help('--match'),
         dest='MATCH',
         action='append',
         default=None,
@@ -214,10 +251,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-vuln-data-severity',
+        help=lib.args.help('--no-vuln-data-severity') + ' Default: %(default)s',
+        dest='NO_VULN_DATA_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_VULN_DATA_SEVERITY,
+    )
+
+    parser.add_argument(
         '--path',
         help="Local path to your WordPress installation, typically within your Webserver's "
         'Document Root. Read to determine the installed core version and the installed '
-        'plugins and themes, which the remote scan on its own cannot see completely. '
+        'plugins and themes, which the remote scan on its own cannot see completely, and '
+        'to determine the site URL when --url is not given. '
         'A path that does not exist is not an error: the check then reports what the '
         'remote scan found and says so. '
         'Default: %(default)s',
@@ -258,9 +304,11 @@ def parse_args():
         '-u',
         '--url',
         help='URL of the WordPress site to scan. '
+        'If not specified, it is taken from the `WP_HOME` or `WP_SITEURL` constant of '
+        'the installation below --path, which only works where the installation pins '
+        'them and the configuration file is readable. '
         'Example: `--url=https://www.example.com`',
         dest='URL',
-        required=True,
     )
 
     parser.add_argument(
@@ -276,8 +324,11 @@ def parse_args():
         '--wpscan-enumerate',
         help='Enumeration options passed to wpscan (its `--enumerate`). '
         'Comma-separated. '
-        '`vp`/`vt` (vulnerable plugins/themes) need an API token and are downgraded to '
-        '`p`/`t` automatically when none is available, because wpscan aborts otherwise. '
+        '`vp`/`vt` (vulnerable plugins/themes) need vulnerability data and are '
+        'downgraded to `p`/`t` automatically when none is available, because wpscan '
+        'aborts otherwise. '
+        '`bf` (backup folders) needs wpscan 4.0.0 or newer and is dropped automatically '
+        'on older releases, which reject it as an unknown choice. '
         'Default: %(default)s',
         dest='WPSCAN_ENUMERATE',
         default=DEFAULT_WPSCAN_ENUMERATE,
@@ -345,22 +396,122 @@ def resolve_api_token(args):
     return (True, os.environ.get(API_TOKEN_ENV, '').strip())
 
 
-def adjust_enumerate(enumerate_opts, has_token):
-    """Downgrade the vulnerable-plugins/vulnerable-themes enumeration choices to their
-    token-less counterparts when no API token is available. wpscan refuses to start at
-    all in that combination, which would turn a missing token into an UNKNOWN result
-    instead of a scan without vulnerability data.
+def has_enterprise_db(args):
+    """Return True if a locally held copy of the vulnerability database is configured.
+    It rules out the API token and supplies vulnerability data on its own, so the
+    enumeration must not be downgraded and a missing API token is not a gap.
+    """
+    if os.environ.get(ENTERPRISE_TOKEN_ENV, '').strip():
+        return True
+    return any(
+        option == ENTERPRISE_TOKEN_OPTION
+        or option.startswith(f'{ENTERPRISE_TOKEN_OPTION}=')
+        for option in args.WPSCAN_OPTION
+    )
+
+
+def get_wpscan_version():
+    """Ask wpscan for its own version and the age of its vulnerability database. Returns
+    (version, last_db_update, note), all of them strings. `note` explains why the version
+    is empty, if it is.
+
+    This runs before the scan because some enumeration choices only exist from a certain
+    release on, and passing one to an older release aborts the run instead of skipping
+    the choice. `--no-update` keeps the probe from pulling the database, which the scan
+    itself does right afterwards.
+    """
+    cmd = ['wpscan', '--version', '--format=json', '--no-banner', '--no-update']
+    success, result = lib.shell.shell_exec(cmd, timeout=VERSION_PROBE_TIMEOUT)
+    if not success:
+        return ('', '', result)
+    stdout, _, retc = result
+    if retc != 0:
+        return ('', '', f'wpscan --version exited with {retc}')
+    try:
+        data = json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        return ('', '', f'unable to parse wpscan --version: {e}')
+    if not isinstance(data, dict):
+        return ('', '', 'wpscan --version did not return a JSON object')
+    return (
+        data.get('version') or '',
+        data.get('last_db_update') or '',
+        '',
+    )
+
+
+def get_vulndb_age(last_db_update):
+    """Return how many seconds ago the local vulnerability database was refreshed, or
+    None when the scanner does not say. wpscan reports the timestamp in UTC and leaves it
+    null until the database has been updated at least once.
+    """
+    if not last_db_update:
+        return None
+    try:
+        stamp = lib.time.timestr2epoch(last_db_update, pattern='iso8601')
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return max(0, int(lib.time.now() - stamp))
+
+
+def adjust_enumerate(enumerate_opts, has_vuln_data, wpscan_version):
+    """Return the enumeration choices the installed wpscan actually accepts.
+
+    Two adjustments happen here. Without vulnerability data the vulnerable-plugins and
+    vulnerable-themes choices are downgraded to their plain counterparts, because wpscan
+    refuses to start at all in that combination, which would turn a missing token into an
+    UNKNOWN result instead of a scan without vulnerability data. And a choice that the
+    installed release does not know yet is dropped, because it is an invalid choice there
+    rather than an ignored one.
     """
     choices = [item.strip() for item in enumerate_opts.split(',') if item.strip()]
-    if has_token:
-        return ','.join(choices)
-    downgrade = {'vp': 'p', 'vt': 't'}
+    downgrade = {} if has_vuln_data else {'vp': 'p', 'vt': 't'}
     adjusted = []
+    dropped = []
+    # An unreadable or absent version parses as 0.0.0 and therefore fails every minimum,
+    # which is the conservative outcome: drop the choice rather than risk aborting the
+    # whole scan on a release that may not know it.
+    installed = lib.version.version(wpscan_version)
     for choice in choices:
+        minimum = ENUMERATE_MIN_VERSION.get(choice)
+        if minimum and installed < lib.version.version(minimum):
+            dropped.append((choice, minimum))
+            continue
         replacement = downgrade.get(choice, choice)
         if replacement not in adjusted:
             adjusted.append(replacement)
-    return ','.join(adjusted)
+    return (','.join(adjusted), dropped)
+
+
+def get_vuln_data_status(data, has_enterprise):
+    """Return (available, note) for the vulnerability database. `available` is False
+    whenever wpscan could not query it, which makes an empty vulnerability list say
+    nothing about the site. wpscan reports this in its `vuln_api` section: `error` for a
+    missing token, `http_error` and `parse_error` for an unreachable or broken API, and
+    a `plan` with the remaining request quota when everything worked.
+    """
+    vuln_api = data.get('vuln_api') or {}
+    if vuln_api.get('error'):
+        return (False, 'no API token, the vulnerability database was not queried')
+    if vuln_api.get('http_error'):
+        return (False, 'the vulnerability database was unreachable')
+    if vuln_api.get('parse_error'):
+        return (False, 'the vulnerability database returned an unusable response')
+    if vuln_api.get('plan'):
+        remaining = vuln_api.get('requests_remaining')
+        plan = vuln_api['plan']
+        if remaining in (None, ''):
+            return (True, f'vulnerability database queried ({plan} plan)')
+        return (
+            True,
+            f'vulnerability database queried ({plan} plan, {remaining} requests left)',
+        )
+    if has_enterprise:
+        return (True, 'vulnerability database read from the local enterprise copy')
+    # A document without a `vuln_api` section at all predates the section or was cut
+    # short. Saying nothing would be the same silent all-clear this branch exists to
+    # avoid, so it counts as missing data.
+    return (False, 'the scan did not report whether the vulnerability database was used')
 
 
 def build_wpscan_command(args, enumerate_opts):
@@ -393,17 +544,25 @@ def run_wpscan(cmd, token, timeout):
     return lib.shell.shell_exec(cmd, env=env, timeout=timeout)
 
 
-def parse_scan(stdout):
-    """Parse the JSON document wpscan writes to stdout. Returns (success, data)."""
-    if not stdout.strip():
-        return (False, 'The scan returned no output.')
+def parse_scan(stdout, stderr=''):
+    """Parse the JSON document wpscan writes to stdout. Returns (success, data).
+
+    A scan that fails before it gets as far as writing its document reports in plain
+    text instead, an invalid enumeration choice being the common case. That text is the
+    only explanation there is, so it is carried into the error message rather than
+    reported as "no output".
+    """
     try:
         data = json.loads(stdout)
-    except (json.JSONDecodeError, ValueError) as e:
-        return (False, f'Unable to parse the scan output: {e}')
-    if not isinstance(data, dict):
-        return (False, 'The scan output is not a JSON object.')
-    return (True, data)
+        if isinstance(data, dict):
+            return (True, data)
+        reason = 'the scan output is not a JSON object'
+    except (json.JSONDecodeError, ValueError):
+        reason = 'the scan output is not valid JSON'
+    output = '\n'.join((stdout, stderr))
+    if not output.strip():
+        return (False, 'The scan returned no output.')
+    return (False, f'{extract_error(output)} ({reason})')
 
 
 def shorten_finding(text, url):
@@ -498,9 +657,10 @@ def collect_core_findings(data, args, installed_core, core_version):
     scanned_core = version.get('number') or ''
     status = version.get('status') or ''
     findings = collect_vulnerabilities('WordPress', 'core', core_version, version, args)
-    # A core the vulnerability database flags as insecure without attaching a
-    # vulnerability only happens without an API token, so there is no score to grade it
-    # by: treat it like any other unscored entry.
+    # The status comes from the version metadata, which is read even when no
+    # vulnerability could be looked up: without an API token, or with the matching
+    # entries excluded. There is then no score to grade the finding by, so it is treated
+    # like any other unscored entry.
     if status in CORE_STATUS_INSECURE and not version.get('vulnerabilities'):
         findings.append(
             finding(
@@ -611,10 +771,22 @@ def collect_exposure_findings(data, url, core_version):
             )
         )
     for section, description in sorted(EXPOSURE_SECTIONS.items()):
-        findings += [
-            finding(found_url, 'exposure', section, description, STATE_CRIT)
-            for found_url in sorted(data.get(section) or {})
-        ]
+        entries = data.get(section) or {}
+        for found_url in sorted(entries):
+            # A backup folder carries the scanner's own rating: `high` once it could read
+            # entries out of it, `medium` when it only saw that the folder is there.
+            # Every other section is an outright leak with nothing left to grade, and so
+            # is a folder from a release that did not rate them yet.
+            severity = (entries.get(found_url) or {}).get('severity')
+            findings.append(
+                finding(
+                    found_url,
+                    'exposure',
+                    section,
+                    description,
+                    BACKUP_FOLDER_SEVERITY_STATE.get(severity, STATE_CRIT),
+                )
+            )
     return findings
 
 
@@ -688,15 +860,49 @@ def main():
     ]
 
     # fetch data
+    # The site URL may come from the installation itself, so this has to happen before
+    # the command is built.
+    if not args.URL:
+        success, url = lib.wordpress.get_site_url(args.PATH)
+        if success and url:
+            args.URL = url
+            lib.base.verbose(args.VERBOSE, f'Took the site URL from {args.PATH}.')
+        else:
+            lib.base.cu(
+                'No --url given, and the site URL could not be read from '
+                f'"{args.PATH}". A WordPress installation only pins it when '
+                '`WP_HOME` or `WP_SITEURL` is set in wp-config.php, and that file is '
+                'usually not readable for the monitoring user. Pass --url instead.'
+            )
+
     token = lib.base.coe(resolve_api_token(args))
-    enumerate_opts = adjust_enumerate(args.WPSCAN_ENUMERATE, bool(token))
-    cmd = build_wpscan_command(args, enumerate_opts)
+    enterprise = has_enterprise_db(args)
     if args.TEST is None:
         lib.base.coe(lib.shell.safe_cli_value(args.URL, '--url'))
         if not lib.shell.which('wpscan'):
-            lib.base.cu(
-                'The command-line tool "wpscan" is not installed. '
-                'Install it with `gem install wpscan`.'
+            # Deliberately WARNING and not UNKNOWN: WordPress is a preferred target, so
+            # the scanner belongs on a host serving it. A missing scanner is a state the
+            # administrator has to fix, not an internal problem of this check.
+            lib.base.oao(
+                'The command-line tool "wpscan" is not installed, so the site is not '
+                'being scanned. Install it with `gem install wpscan`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        wpscan_version, last_db_update, version_note = get_wpscan_version()
+        if version_note:
+            lib.base.verbose(
+                args.VERBOSE, f'Cannot determine the wpscan version: {version_note}'
+            )
+        enumerate_opts, dropped = adjust_enumerate(
+            args.WPSCAN_ENUMERATE, bool(token) or enterprise, wpscan_version
+        )
+        cmd = build_wpscan_command(args, enumerate_opts)
+        for choice, minimum in dropped:
+            lib.base.verbose(
+                args.VERBOSE,
+                f'Dropped the "{choice}" enumeration choice, it needs wpscan '
+                f'{minimum} or newer.',
             )
         lib.base.verbose(
             args.VERBOSE, f'Scanning {args.URL} (this can take a few minutes)...'
@@ -716,13 +922,21 @@ def main():
             lib.base.cu(result)
         stdout, stderr, retc = result
     else:
-        # do not call the command, put in test data
+        # do not call the command, put in test data. The version probe would be a second
+        # subprocess, so assume a release that knows every choice the check adjusts for.
+        last_db_update = ''
+        enumerate_opts, _ = adjust_enumerate(
+            args.WPSCAN_ENUMERATE,
+            bool(token) or enterprise,
+            max(ENUMERATE_MIN_VERSION.values(), key=lib.version.version),
+        )
+        cmd = build_wpscan_command(args, enumerate_opts)
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     # wpscan writes a valid JSON document even when it aborts, so parse first and only
     # then look at the exit code. 0 means a clean scan, 5 means at least one
     # vulnerability was found; both are results. Everything else is a broken run.
-    data = lib.base.coe(parse_scan(stdout))
+    data = lib.base.coe(parse_scan(stdout, stderr))
     if retc not in (0, 5):
         aborted = data.get('scan_aborted') or ''
         if SCAN_TIMEOUT_MARKER in aborted:
@@ -732,7 +946,7 @@ def main():
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
-        lib.base.cu(aborted if aborted else extract_error(f'{stdout}\n{stderr}'))
+        lib.base.cu(aborted if aborted else extract_error('\n'.join((stdout, stderr))))
 
     # read the local installation. An unreadable path is not an error: the check then
     # falls back to what the remote scan alone could see.
@@ -779,6 +993,13 @@ def main():
         detected_themes.setdefault(main_theme['slug'], main_theme)
     users = sorted(data.get('users') or {})
 
+    # Whether the vulnerability database was queried at all. Without it every
+    # vulnerability list in the document is empty no matter what the site runs, so an
+    # empty result must not be reported as a clean one.
+    vuln_data_available, vuln_data_note = get_vuln_data_status(data, enterprise)
+    # The probe reports the database age too, which the scan document does not carry.
+    vulndb_age = get_vulndb_age(last_db_update)
+
     findings += collect_core_findings(data, args, installed_core, core_version)
     findings += collect_component_findings(
         detected_plugins, installed_plugins, 'plugin', args
@@ -806,6 +1027,14 @@ def main():
         if item['kind'] == 'vulnerability' and item['state'] == STATE_CRIT:
             vulnerabilities_critical += 1
         state = lib.base.get_worst(state, item['state'])
+
+    # A scan that could not consult the vulnerability database says nothing about known
+    # vulnerabilities, whatever else it found. That is a property of the run, not of the
+    # site, so it drives the state through its own parameter instead of a finding row.
+    if not vuln_data_available:
+        state = lib.base.get_worst(
+            state, lib.base.str2state(args.NO_VULN_DATA_SEVERITY)
+        )
 
     plugins_outdated = sum(
         1 for item in detected_plugins.values() if (item or {}).get('outdated')
@@ -835,11 +1064,32 @@ def main():
             f'{lib.txt.pluralize("finding", counts["hardening"])}',
         ]
         msg += f'{", ".join(parts)} on {args.URL}'
-    else:
+    elif vuln_data_available:
         msg += (
             'No vulnerabilities found. No exposures found. '
             f'WordPress v{core_version} on {args.URL}'
         )
+    else:
+        # Saying "no vulnerabilities found" here would be an all-clear the scan never
+        # gave. Name what was actually checked instead.
+        msg += (
+            'No exposures found, vulnerabilities not checked. '
+            f'WordPress v{core_version} on {args.URL}'
+        )
+
+    if not vuln_data_available:
+        msg += f'\nNo vulnerability data: {vuln_data_note}.'
+    elif args.LENGTHY:
+        msg += f'\n{vuln_data_note.capitalize()}.'
+
+    # A database that has not been refreshed in a long time grades a site against what
+    # was known back then. The scan itself does not report this, the version probe does.
+    if vulndb_age is not None and vulndb_age > VULNDB_MAX_AGE:
+        msg += (
+            f'\nThe local vulnerability database was last updated '
+            f'{lib.human.seconds2human(vulndb_age)} ago.'
+        )
+        state = lib.base.get_worst(state, STATE_WARN)
 
     # How much of the installation the remote scan could actually see. This is context,
     # not an alert: a plugin the scanner cannot fingerprint from the outside is a limit
@@ -894,6 +1144,13 @@ def main():
     perfdata += lib.base.get_perfdata(
         'scan_duration', int(data.get('elapsed') or 0), uom='s', _min=0
     )
+    # Trending this makes a run without vulnerability data visible as a gap in the
+    # vulnerability graph rather than as a clean site.
+    perfdata += lib.base.get_perfdata(
+        'vuln_data_available', int(vuln_data_available), uom=None, _min=0, _max=1
+    )
+    if vulndb_age is not None:
+        perfdata += lib.base.get_perfdata('vulndb_age', vulndb_age, uom='s', _min=0)
 
     # build table output
     # State always sits in the last column: IcingaWeb replaces "[WARNING]" with an icon

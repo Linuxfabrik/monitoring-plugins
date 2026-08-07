@@ -34,6 +34,9 @@
                 "--no-perfdata": {
                     "set_if": "$wordpress_security_scan_no_perfdata$"
                 },
+                "--no-vuln-data-severity": {
+                    "value": "$wordpress_security_scan_no_vuln_data_severity$"
+                },
                 "--path": {
                     "value": "$wordpress_security_scan_path$"
                 },
@@ -130,7 +133,7 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -152,6 +155,11 @@
                     "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -159,7 +167,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-wordpress-security-scan",
             "object_type": "object",
-            "timeout": "660",
+            "timeout": 660,
             "vars": {},
             "zone": null,
             "uuid": "08515306-7686-492a-a039-e8ff791cbae0"
@@ -171,7 +179,7 @@
             "apply_for": null,
             "assign_filter": null,
             "check_command": "cmd-check-wordpress-security-scan",
-            "check_interval": "86400",
+            "check_interval": 86400,
             "check_period": null,
             "check_timeout": null,
             "command_endpoint": null,
@@ -194,12 +202,12 @@
             "imports": [
                 "tpl-service-generic"
             ],
-            "max_check_attempts": 5,
-            "notes": "Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. Supports extended reporting via --lengthy. Requires the command-line tool wpscan.",
+            "max_check_attempts": 1,
+            "notes": "Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. The vulnerability database is only queried with an API token; without one the check says so instead of reporting a clean result it could not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan, version 4.0.0 or newer for the backup folder enumeration.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wordpress-security-scan/",
             "object_name": "tpl-service-wordpress-security-scan",
             "object_type": "template",
-            "retry_interval": "3600",
+            "retry_interval": 3600,
             "service_set": null,
             "template_choice": null,
             "use_agent": null,
@@ -210,10 +218,11 @@
                 "wordpress_security_scan_critical_cvss": 7.0,
                 "wordpress_security_scan_ignore": [],
                 "wordpress_security_scan_insecure": false,
-                "wordpress_security_scan_lengthy": false,
+                "wordpress_security_scan_lengthy": true,
                 "wordpress_security_scan_match": [],
                 "wordpress_security_scan_no_match_severity": "ok",
                 "wordpress_security_scan_no_perfdata": false,
+                "wordpress_security_scan_no_vuln_data_severity": "ok",
                 "wordpress_security_scan_path": "/var/www/html/wordpress",
                 "wordpress_security_scan_scan_timeout": 600,
                 "wordpress_security_scan_unscored_severity": "warn",
@@ -259,6 +268,37 @@
             ],
             "uuid": "fe2fe6b7-6ace-4bab-8044-7c86891a7e61"
         },
+        "wordpress_security_scan_no_vuln_data_severity_list": {
+            "list_name": "wordpress_security_scan_no_vuln_data_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ca803886-def6-48d1-af9e-d5b0ea101dd8"
+        },
         "wordpress_security_scan_unscored_severity_list": {
             "list_name": "wordpress_security_scan_unscored_severity_list",
             "owner": "icinga-admin",
@@ -298,7 +338,7 @@
         "2": {
             "varname": "wordpress_security_scan_api_token",
             "caption": "Wordpress Security Scan: Api Token",
-            "description": "WPScan API token, used to look up known vulnerabilities. Without a token the scan still runs, but reports no vulnerability data at all. The token is handed to wpscan through the environment, never on the command line, so it does not show up in the process list. Takes precedence over --api-token-file and over a token already present in the WPSCAN_API_TOKEN environment variable.",
+            "description": "WPScan API token, used to look up known vulnerabilities. Without a token the scan still runs, but reports no vulnerability data at all; the check then says so and --no-vuln-data-severity decides whether it alerts. The token is handed to wpscan through the environment, never on the command line, so it does not show up in the process list. Takes precedence over --api-token-file and over a token already present in the WPSCAN_API_TOKEN environment variable.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -360,7 +400,7 @@
         "8": {
             "varname": "wordpress_security_scan_match",
             "caption": "Wordpress Security Scan: Match",
-            "description": "Only report findings whose component or title matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If not specified, all findings are reported.",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -391,9 +431,22 @@
             "uuid": "eaec6698-8749-46c4-b565-92fd66543319"
         },
         "11": {
+            "varname": "wordpress_security_scan_no_vuln_data_severity",
+            "caption": "Wordpress Security Scan: No Vuln Data Severity",
+            "description": "State to report when the vulnerability database could not be queried and no vulnerability data is available. The check still reports everything it can determine without that data, but a clean result then only means nothing else was found, not that the target is free of known vulnerabilities.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "wordpress_security_scan_no_vuln_data_severity_list"
+            },
+            "uuid": "4b11d929-c48d-40b5-9f76-35315c23b59a"
+        },
+        "12": {
             "varname": "wordpress_security_scan_path",
             "caption": "Wordpress Security Scan: Path",
-            "description": "Local path to your WordPress installation, typically within your Webserver's Document Root. Read to determine the installed core version and the installed plugins and themes, which the remote scan on its own cannot see completely. A path that does not exist is not an error: the check then reports what the remote scan found and says so.",
+            "description": "Local path to your WordPress installation, typically within your Webserver's Document Root. Read to determine the installed core version and the installed plugins and themes, which the remote scan on its own cannot see completely, and to determine the site URL when --url is not given. A path that does not exist is not an error: the check then reports what the remote scan found and says so.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -401,7 +454,7 @@
             },
             "uuid": "50384668-fb06-4304-9fb6-3ff00a057882"
         },
-        "12": {
+        "13": {
             "varname": "wordpress_security_scan_scan_timeout",
             "caption": "Wordpress Security Scan: Scan Timeout",
             "description": "Seconds to wait for the scan to finish. A full scan of a site with many plugins takes minutes, so this is much higher than the network timeout of other checks.",
@@ -412,7 +465,7 @@
             },
             "uuid": "89c19269-ebc2-425d-b1ec-41664be96245"
         },
-        "13": {
+        "14": {
             "varname": "wordpress_security_scan_unscored_severity",
             "caption": "Wordpress Security Scan: Unscored Severity",
             "description": "State to report for a known vulnerability that carries no CVSS score. The vulnerability database has no score for a large share of its entries, so treating them all as critical would page for every one of them.",
@@ -425,10 +478,10 @@
             },
             "uuid": "5e42290b-45a5-4f7e-b72c-dd7ac6cdfe8a"
         },
-        "14": {
+        "15": {
             "varname": "wordpress_security_scan_url",
             "caption": "Wordpress Security Scan: URL",
-            "description": "URL of the WordPress site to scan. Example: `--url=https://www.example.com`",
+            "description": "URL of the WordPress site to scan. If not specified, it is taken from the `WP_HOME` or `WP_SITEURL` constant of the installation below --path, which only works where the installation pins them and the configuration file is readable. Example: `--url=https://www.example.com`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -436,7 +489,7 @@
             },
             "uuid": "ace917b6-185b-4f2f-a854-a0381cf3f007"
         },
-        "15": {
+        "16": {
             "varname": "wordpress_security_scan_verbose",
             "caption": "Wordpress Security Scan: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
@@ -445,10 +498,10 @@
             "settings": {},
             "uuid": "404345b3-f30f-406b-992f-1958a35d7e30"
         },
-        "16": {
+        "17": {
             "varname": "wordpress_security_scan_wpscan_enumerate",
             "caption": "Wordpress Security Scan: Wpscan Enumerate",
-            "description": "Enumeration options passed to wpscan (its `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable plugins/themes) need an API token and are downgraded to `p`/`t` automatically when none is available, because wpscan aborts otherwise.",
+            "description": "Enumeration options passed to wpscan (its `--enumerate`). Comma-separated. `vp`/`vt` (vulnerable plugins/themes) need vulnerability data and are downgraded to `p`/`t` automatically when none is available, because wpscan aborts otherwise. `bf` (backup folders) needs wpscan 4.0.0 or newer and is dropped automatically on older releases, which reject it as an unknown choice.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -456,7 +509,7 @@
             },
             "uuid": "b034ccd0-3653-4ee5-aea9-d483969578cf"
         },
-        "17": {
+        "18": {
             "varname": "wordpress_security_scan_wpscan_no_update",
             "caption": "Wordpress Security Scan: Wpscan No Update?",
             "description": "Skip the update of the local vulnerability database before scanning. Speeds up the check, at the price of scanning against possibly stale vulnerability data.",
@@ -465,7 +518,7 @@
             "settings": {},
             "uuid": "35889eb8-6903-46ec-983b-98bb39f50033"
         },
-        "18": {
+        "19": {
             "varname": "wordpress_security_scan_wpscan_option",
             "caption": "Wordpress Security Scan: Wpscan Option",
             "description": "Additional raw option to pass to the wpscan call, for options that have no dedicated parameter here. Can be specified multiple times. Example: `--wpscan-option=--plugins-detection=aggressive`",

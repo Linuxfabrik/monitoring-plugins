@@ -1,6 +1,14 @@
 ---
 overwrites:
-  '["Command"]["cmd-check-wordpress-security-scan"]["timeout"]': '660'
-  '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["check_interval"]': '86400'
+  '["Command"]["cmd-check-wordpress-security-scan"]["timeout"]': 660
+  '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["check_interval"]': 86400
   '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["enable_perfdata"]': true
-  '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["retry_interval"]': '3600'
+  # A full scan runs for minutes and produces a burst of 404s on the target. Retrying a
+  # soft problem four more times would scan a site that was just reported as compromised
+  # over and over, so the first result is the final one.
+  '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["max_check_attempts"]': 1
+  '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["retry_interval"]': 3600
+  # Extended reporting on by default: the check runs once a day, so whoever opens it is
+  # looking at a finding and wants the CVSS score and the release that fixes it right
+  # away, not after editing the service and waiting another day.
+  '["ServiceTemplate"]["tpl-service-wordpress-security-scan"]["vars"]["wordpress_security_scan_lengthy"]': true
