@@ -28,9 +28,60 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
-            'CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode '
-            '! 32000  ! Link up (10)   ! [OK]   ! [OK]',
+            # Column widths follow the widest value, so the row is asserted per cell.
+            'CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode',
+            'Rx (dBm)',
+            'Tx (dBm)',
+            'Link up (10)',
         ],
+    },
+    {
+        # A module whose light is well inside the range it declares for itself.
+        # 10000 * 0.1 uW is 1 mW, which is 0 dBm.
+        'id': 'ok-optical-power-inside-the-module-range',
+        'test': 'stdout/sfp-power-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '0.0', '3.01'],
+        # The critical range in the performance data is the module's own: 1000 and
+        # 50000 tenths of a microwatt are -10 dBm and 6.99 dBm.
+        'assert-regex': r"_rx_power'=0\.0;;-10\.0:6\.99",
+    },
+    {
+        # Receive power below the minimum the module itself reports: a degrading
+        # transceiver or a dirty connector, long before the link drops.
+        'id': 'crit-optical-power-below-the-module-minimum',
+        'test': 'stdout/sfp-power-rx-too-low,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '-20.0', '[CRITICAL]'],
+    },
+    {
+        # An explicit critical range replaces the module's own, for an appliance whose
+        # transceivers report a range nobody wants to be alerted on.
+        'id': 'ok-optical-power-against-an-explicit-range',
+        'test': 'stdout/sfp-power-rx-too-low,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin '
+        '--rx-power-critical=-25:0',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # A warning range does not replace the module's own critical range; it adds an
+        # earlier step to it.
+        'id': 'crit-explicit-warning-keeps-the-module-critical-range',
+        'test': 'stdout/sfp-power-rx-too-low,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin '
+        '--rx-power-warning=-25:0',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        # Every optical field filled with the appliance's "no reading" marker, which is
+        # what the vendor's own response example shows. dBm is undefined for it.
+        'id': 'ok-optical-power-not-reported',
+        'test': 'stdout/sfp-power-not-reported,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['_rx_power', '_tx_power'],
     },
     {
         # The second module has its link down, which is what an uncabled one

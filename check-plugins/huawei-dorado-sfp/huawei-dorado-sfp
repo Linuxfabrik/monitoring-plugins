@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import math
 import re
 import sys
 
@@ -23,11 +24,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080701'
+__version__ = '2026080703'
 
-DESCRIPTION = """Checks the health and link status of the optical modules (SFP) of a Huawei
-OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module reports a
-non-normal health status, and optionally when its link is down."""
+DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
+Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
+reports a non-normal health status, when its receive or transmit power leaves the range the module
+itself reports as its operating range, and optionally when its link is down. A degrading transceiver
+or a dirty connector shows up as falling receive power long before the link drops."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
@@ -35,8 +38,17 @@ DEFAULT_INSECURE = True
 DEFAULT_LINK_DOWN_SEVERITY = 'ok'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
+DEFAULT_RX_POWER_CRIT = ''
+DEFAULT_RX_POWER_WARN = ''
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+DEFAULT_TX_POWER_CRIT = ''
+DEFAULT_TX_POWER_WARN = ''
+
+# The optical power fields are counted in units of 0.1 microwatt, and the appliance
+# reports this value for a reading it does not have. It is the largest 32-bit unsigned
+# integer, not a measurement.
+INVALID_VALUE32 = 4294967295
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
 # bounds the metric so a graph scales to the whole enumeration; the thresholds stay
@@ -63,6 +75,23 @@ PARENT_TYPES = {
     207: 'controller',
     208: 'expansion module',
     209: 'interface module',
+}
+
+# The field names of the optical power readings and of the operating range the module
+# reports for them. The REST Interface Reference documents these in camelCase in its
+# parameter table and in upper case in the response example on the same page, so both
+# spellings are tried.
+POWER_FIELDS = {
+    'rx': (
+        ('rxPowerReal', 'RXPOWER'),
+        ('rxPowerMin', 'RXPOWERMIN'),
+        ('rxPowerMax', 'RXPOWERMAX'),
+    ),
+    'tx': (
+        ('txPowerReal', 'TXPOWER'),
+        ('txPowerMin', 'TXPOWERMIN'),
+        ('txPowerMax', 'TXPOWERMAX'),
+    ),
 }
 
 # `sfpModeType` values.
@@ -197,6 +226,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--rx-power-critical',
+        help='CRIT threshold for the receive power of a module, as a Nagios range in '
+        'dBm. '
+        'Defaults to the operating range the module itself reports, so a transceiver is '
+        'judged against its own data sheet rather than against one number for the whole '
+        'appliance. '
+        'Example: `--rx-power-critical=-14:0`',
+        dest='RX_POWER_CRIT',
+        default=DEFAULT_RX_POWER_CRIT,
+    )
+
+    parser.add_argument(
+        '--rx-power-warning',
+        help='WARN threshold for the receive power of a module, as a Nagios range in '
+        'dBm. '
+        'Example: `--rx-power-warning=-12:-1`',
+        dest='RX_POWER_WARN',
+        default=DEFAULT_RX_POWER_WARN,
+    )
+
+    parser.add_argument(
         '--scope',
         help='Huawei OceanStor Dorado API scope.',
         dest='SCOPE',
@@ -208,6 +258,25 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--tx-power-critical',
+        help='CRIT threshold for the transmit power of a module, as a Nagios range in '
+        'dBm. '
+        'Defaults to the operating range the module itself reports. '
+        'Example: `--tx-power-critical=-9:3`',
+        dest='TX_POWER_CRIT',
+        default=DEFAULT_TX_POWER_CRIT,
+    )
+
+    parser.add_argument(
+        '--tx-power-warning',
+        help='WARN threshold for the transmit power of a module, as a Nagios range in '
+        'dBm. '
+        'Example: `--tx-power-warning=-8:2`',
+        dest='TX_POWER_WARN',
+        default=DEFAULT_TX_POWER_WARN,
     )
 
     parser.add_argument(
@@ -235,6 +304,80 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def as_dbm(tenth_microwatts):
+    """
+    Convert an optical power reading into dBm.
+
+    The appliance reports optical power in units of 0.1 microwatt. Transceiver data
+    sheets, and every other tool an engineer compares a reading against, state it in dBm.
+
+    ### Parameters
+    - **tenth_microwatts** (`int`, `str` or `None`): The reading as the API reported it.
+
+    ### Returns
+    - **float** or **None**: The power in dBm, rounded to two decimals, or `None` for a
+      value that cannot be used.
+
+    ### Notes
+    - Zero is not a reading but the absence of light, and dBm is undefined for it. So is
+      the appliance's `4294967295` marker for a value it does not have. Both yield `None`,
+      which keeps them out of the performance data instead of graphing minus infinity.
+
+    ### Example
+    >>> as_dbm('10000')
+    0.0
+
+    >>> as_dbm('1000')
+    -10.0
+
+    >>> as_dbm('4294967295') is None
+    True
+    """
+    value = lib.huawei_dorado.as_code(tenth_microwatts)
+    if value is None or value <= 0 or value >= INVALID_VALUE32:
+        return None
+    # 0.1 uW -> mW, then the usual decibel-milliwatt definition.
+    return round(10 * math.log10(value / 10000), 2)
+
+
+def get_power(module, fields):
+    """
+    Read one optical power reading and the operating range the module reports for it.
+
+    ### Parameters
+    - **module** (`dict`): One optical module as the API returned it.
+    - **fields** (`tuple`): The reading, minimum and maximum field names to try, each as
+      a tuple of the spellings the vendor documents.
+
+    ### Returns
+    - **tuple** (`float` or `None`, `float` or `None`, `float` or `None`):
+      The reading and its lower and upper bound, all in dBm.
+
+    ### Notes
+    - The reading is documented as an array, because a module with several lanes reports
+      one value per lane. The first usable lane is taken: a check reports whether the
+      module has light, and a per-lane breakdown belongs in a diagnosis, not in a
+      threshold.
+    - A module that does not report its operating range yields `None` for the bounds, and
+      the caller then has nothing to compare against unless the operator supplied a range.
+
+    ### Example
+    >>> get_power({'RXPOWER': '[10000]', 'RXPOWERMIN': '1000'}, POWER_FIELDS['rx'])
+    (0.0, -10.0, None)
+    """
+    reading_names, min_names, max_names = fields
+
+    raw = lib.huawei_dorado.field(module, *reading_names)
+    lanes = raw if isinstance(raw, list) else str(raw or '').strip('[]').split(',')
+    reading = next(
+        (dbm for dbm in (as_dbm(lane) for lane in lanes) if dbm is not None), None
+    )
+
+    lower = as_dbm(lib.huawei_dorado.field(module, *min_names))
+    upper = as_dbm(lib.huawei_dorado.field(module, *max_names))
+    return reading, lower, upper
 
 
 def main():
@@ -354,6 +497,40 @@ def main():
             _min=0,
         )
 
+        # A degrading transceiver or a dirty connector shows up as falling receive
+        # power long before the link drops, so this is the reading worth watching.
+        for direction, thresholds in (
+            ('rx', (args.RX_POWER_WARN, args.RX_POWER_CRIT)),
+            ('tx', (args.TX_POWER_WARN, args.TX_POWER_CRIT)),
+        ):
+            reading, lower, upper = get_power(module, POWER_FIELDS[direction])
+            warn, crit = thresholds
+            # Without an operator-supplied range, the module's own operating range is
+            # what it is judged against: a data sheet per transceiver beats one number
+            # for the whole appliance.
+            if not crit and lower is not None and upper is not None:
+                crit = f'{lower}:{upper}'
+
+            power_state = STATE_OK
+            if reading is not None and (warn or crit):
+                power_state = lib.base.get_state(
+                    reading, warn or None, crit or None, _operator='range'
+                )
+                state = lib.base.get_worst(state, power_state)
+
+            perfdata += lib.base.get_perfdata(
+                f'{label}_{direction}_power',
+                reading,
+                uom=None,
+                warn=warn or None,
+                crit=crit or None,
+            )
+            module[f'{direction}_power'] = (
+                '--'
+                if reading is None
+                else f'{reading}{lib.base.state2str(power_state, prefix=" ")}'
+            )
+
         module['health_state'] = lib.base.state2str(health_state, empty_ok=False)
         module['link'] = lib.huawei_dorado.get_running_status(
             module.get('runningStatus')
@@ -395,6 +572,8 @@ def main():
             'model',
             'mode',
             'speed',
+            'rx_power',
+            'tx_power',
             'link',
             'health_state',
             'running_state',
@@ -406,6 +585,8 @@ def main():
             'Model',
             'Mode',
             'Mbit/s',
+            'Rx (dBm)',
+            'Tx (dBm)',
             'Link',
             'Health',
             'Link State',

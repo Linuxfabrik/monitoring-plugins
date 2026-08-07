@@ -44,13 +44,19 @@ usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                          [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                         [--password-file PASSWORD_FILE] [--scope SCOPE]
+                         [--password-file PASSWORD_FILE]
+                         [--rx-power-critical RX_POWER_CRIT]
+                         [--rx-power-warning RX_POWER_WARN] [--scope SCOPE]
+                         [--tx-power-critical TX_POWER_CRIT]
+                         [--tx-power-warning TX_POWER_WARN]
                          [--timeout TIMEOUT] -u URL --username USERNAME
 
-Checks the health and link status of the optical modules (SFP) of a Huawei
-OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when
-a module reports a non-normal health status, and optionally when its link is
-down.
+Checks the health, link status and optical power of the optical modules (SFP)
+of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint).
+Alerts when a module reports a non-normal health status, when its receive or
+transmit power leaves the range the module itself reports as its operating
+range, and optionally when its link is down. A degrading transceiver or a
+dirty connector shows up as falling receive power long before the link drops.
 
 options:
   -h, --help            show this help message and exit
@@ -111,7 +117,27 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --rx-power-critical RX_POWER_CRIT
+                        CRIT threshold for the receive power of a module, as a
+                        Nagios range in dBm. Defaults to the operating range
+                        the module itself reports, so a transceiver is judged
+                        against its own data sheet rather than against one
+                        number for the whole appliance. Example: `--rx-power-
+                        critical=-14:0`
+  --rx-power-warning RX_POWER_WARN
+                        WARN threshold for the receive power of a module, as a
+                        Nagios range in dBm. Example: `--rx-power-
+                        warning=-12:-1`
   --scope SCOPE         Huawei OceanStor Dorado API scope.
+  --tx-power-critical TX_POWER_CRIT
+                        CRIT threshold for the transmit power of a module, as
+                        a Nagios range in dBm. Defaults to the operating range
+                        the module itself reports. Example: `--tx-power-
+                        critical=-9:3`
+  --tx-power-warning TX_POWER_WARN
+                        WARN threshold for the transmit power of a module, as
+                        a Nagios range in dBm. Example: `--tx-power-
+                        warning=-8:2`
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.

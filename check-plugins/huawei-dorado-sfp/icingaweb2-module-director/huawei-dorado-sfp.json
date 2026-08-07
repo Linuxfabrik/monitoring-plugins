@@ -43,8 +43,20 @@
                 "--password-file": {
                     "value": "$huawei_dorado_sfp_password_file$"
                 },
+                "--rx-power-critical": {
+                    "value": "$huawei_dorado_sfp_rx_power_critical$"
+                },
+                "--rx-power-warning": {
+                    "value": "$huawei_dorado_sfp_rx_power_warning$"
+                },
                 "--scope": {
                     "value": "$huawei_dorado_sfp_scope$"
+                },
+                "--tx-power-critical": {
+                    "value": "$huawei_dorado_sfp_tx_power_critical$"
+                },
+                "--tx-power-warning": {
+                    "value": "$huawei_dorado_sfp_tx_power_warning$"
                 },
                 "--timeout": {
                     "value": "$huawei_dorado_sfp_timeout$"
@@ -136,11 +148,31 @@
                 },
                 {
                     "datafield_id": 16,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -186,7 +218,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health and link status of the optical modules (SFP) of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module reports a non-normal health status, and optionally when its link is down.",
+            "notes": "Checks the health, link status and optical power of the optical modules (SFP) of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module reports a non-normal health status, when its receive or transmit power leaves the range the module itself reports as its operating range, and optionally when its link is down. A degrading transceiver or a dirty connector shows up as falling receive power long before the link drops.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-sfp/",
             "object_name": "tpl-service-huawei-dorado-sfp",
             "object_type": "template",
@@ -207,7 +239,11 @@
                 "huawei_dorado_sfp_no_match_severity": "ok",
                 "huawei_dorado_sfp_no_perfdata": false,
                 "huawei_dorado_sfp_no_proxy": false,
+                "huawei_dorado_sfp_rx_power_critical": "",
+                "huawei_dorado_sfp_rx_power_warning": "",
                 "huawei_dorado_sfp_scope": "0",
+                "huawei_dorado_sfp_tx_power_critical": "",
+                "huawei_dorado_sfp_tx_power_warning": "",
                 "huawei_dorado_sfp_timeout": 3
             },
             "volatile": null,
@@ -418,6 +454,28 @@
             "uuid": "3c4b0d48-b318-453c-90c0-91c46b706be8"
         },
         "14": {
+            "varname": "huawei_dorado_sfp_rx_power_critical",
+            "caption": "Huawei Dorado Sfp: Rx Power Critical",
+            "description": "CRIT threshold for the receive power of a module, as a Nagios range in dBm. Defaults to the operating range the module itself reports, so a transceiver is judged against its own data sheet rather than against one number for the whole appliance. Example: `--rx-power-critical=-14:0`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8d22e5f6-c251-4458-9827-8941c4692eae"
+        },
+        "15": {
+            "varname": "huawei_dorado_sfp_rx_power_warning",
+            "caption": "Huawei Dorado Sfp: Rx Power Warning",
+            "description": "WARN threshold for the receive power of a module, as a Nagios range in dBm. Example: `--rx-power-warning=-12:-1`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "116be64b-91d2-4680-819e-506061fb60e0"
+        },
+        "16": {
             "varname": "huawei_dorado_sfp_scope",
             "caption": "Huawei Dorado Sfp: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -428,7 +486,29 @@
             },
             "uuid": "6fdb16ae-50c8-4e74-a805-a77250d133f5"
         },
-        "15": {
+        "17": {
+            "varname": "huawei_dorado_sfp_tx_power_critical",
+            "caption": "Huawei Dorado Sfp: Tx Power Critical",
+            "description": "CRIT threshold for the transmit power of a module, as a Nagios range in dBm. Defaults to the operating range the module itself reports. Example: `--tx-power-critical=-9:3`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a8a6eee0-8467-40eb-a0cf-736de2e3fecc"
+        },
+        "18": {
+            "varname": "huawei_dorado_sfp_tx_power_warning",
+            "caption": "Huawei Dorado Sfp: Tx Power Warning",
+            "description": "WARN threshold for the transmit power of a module, as a Nagios range in dBm. Example: `--tx-power-warning=-8:2`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "70572221-7e38-4895-94e6-223f3903cbb2"
+        },
+        "19": {
             "varname": "huawei_dorado_sfp_timeout",
             "caption": "Huawei Dorado Sfp: Timeout",
             "description": "Network timeout in seconds.",
@@ -439,7 +519,7 @@
             },
             "uuid": "067a9c8b-6930-4243-8c45-a8038ab021e9"
         },
-        "16": {
+        "20": {
             "varname": "huawei_dorado_sfp_url",
             "caption": "Huawei Dorado Sfp: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -450,7 +530,7 @@
             },
             "uuid": "d0dcab48-1d4f-47b2-8064-29f564e3fe5b"
         },
-        "17": {
+        "21": {
             "varname": "huawei_dorado_sfp_username",
             "caption": "Huawei Dorado Sfp: Username",
             "description": "Huawei OceanStor Dorado API username.",
