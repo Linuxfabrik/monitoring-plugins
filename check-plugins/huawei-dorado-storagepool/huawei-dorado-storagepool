@@ -24,22 +24,26 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080703'
+__version__ = '2026080704'
 
 DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
-reports a non-normal state, and when its used capacity reaches the warning or critical threshold.
+reports a non-normal state, when its used capacity reaches the warning or critical threshold,
+and when it reaches the threshold the storage administrator configured on the appliance itself.
 Supports reporting the I/O counters via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '90'
+DEFAULT_CRIT_OVERPROVISIONING = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
+DEFAULT_DEVICE_THRESHOLD_SEVERITY = 'warn'
 DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '80'
+DEFAULT_WARN_OVERPROVISIONING = ''
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
 # bounds the metric so a graph scales to the whole enumeration; the thresholds stay
@@ -102,12 +106,37 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-overprovisioning',
+        help='CRIT threshold for the overprovisioning of a pool, as a Nagios range in '
+        'percent of its total capacity that is handed out to LUNs. '
+        'Above 100 percent the pool is thin provisioned, which is what thin provisioning '
+        'is for; what matters is how far the promise exceeds the disks behind it. '
+        'Off by default. '
+        'Example: `--critical-overprovisioning=300`',
+        dest='CRIT_OVERPROVISIONING',
+        default=DEFAULT_CRIT_OVERPROVISIONING,
+    )
+
+    parser.add_argument(
         '--device-id',
         help='Huawei OceanStor Dorado API device ID. '
         'Optional: the appliance reports its own at login, so this is only '
         'needed to override that answer.',
         dest='DEVICE_ID',
         default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--device-threshold-severity',
+        help='State to report for a pool that reached the capacity threshold configured '
+        'on the appliance itself. That threshold is what the storage administrator set in '
+        'the management GUI, so the check and the appliance agree on when a pool is full '
+        'instead of each having their own opinion. A pool that carries no threshold is '
+        'not affected. '
+        'Default: %(default)s',
+        dest='DEVICE_THRESHOLD_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_DEVICE_THRESHOLD_SEVERITY,
     )
 
     parser.add_argument(
@@ -242,6 +271,18 @@ def parse_args():
         default=DEFAULT_WARN,
     )
 
+    parser.add_argument(
+        '--warning-overprovisioning',
+        help='WARN threshold for the overprovisioning of a pool, as a Nagios range in '
+        'percent of its total capacity that is handed out to LUNs. '
+        'Above 100 percent the pool is thin provisioned, which is what thin provisioning '
+        'is for; what matters is how far the promise exceeds the disks behind it. '
+        'Off by default. '
+        'Example: `--warning-overprovisioning=200`',
+        dest='WARN_OVERPROVISIONING',
+        default=DEFAULT_WARN_OVERPROVISIONING,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -332,6 +373,7 @@ def main():
         lib.base.coe(item)
         for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
+    device_threshold_state = lib.base.str2state(args.DEVICE_THRESHOLD_SEVERITY)
 
     # analyze data
     table_data = []
@@ -379,7 +421,43 @@ def main():
             )
             state = lib.base.get_worst(state, usage_state)
 
+        # The appliance carries the threshold the storage administrator set for this
+        # pool in the management GUI. Honouring it keeps the check and the appliance from
+        # each having their own opinion on when a pool is full.
+        device_threshold = lib.huawei_dorado.as_code(
+            pool.get('USERCONSUMEDCAPACITYTHRESHOLD')
+        )
+        device_state = STATE_OK
+        if (
+            usage_percent is not None
+            and device_threshold
+            and 0 < device_threshold <= 100
+            and usage_percent >= device_threshold
+        ):
+            device_state = device_threshold_state
+            state = lib.base.get_worst(state, device_state)
+
+        # How much capacity the pool has promised to its LUNs. Above 100 percent it is
+        # thin provisioned, which is the point of thin provisioning; what an operator
+        # watches is how far the promise runs ahead of the disks behind it.
+        configured_capacity = lib.huawei_dorado.sectors2bytes(
+            pool.get('LUNCONFIGEDCAPACITY')
+        )
+        overprovisioning = None
+        overprovisioning_state = STATE_OK
+
         total_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERTOTALCAPACITY'))
+        if configured_capacity is not None and total_capacity:
+            overprovisioning = round(configured_capacity / total_capacity * 100, 1)
+            if args.WARN_OVERPROVISIONING or args.CRIT_OVERPROVISIONING:
+                overprovisioning_state = lib.base.get_state(
+                    overprovisioning,
+                    args.WARN_OVERPROVISIONING or None,
+                    args.CRIT_OVERPROVISIONING or None,
+                    _operator='range',
+                )
+                state = lib.base.get_worst(state, overprovisioning_state)
+
         used_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERCONSUMEDCAPACITY'))
         free_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERFREECAPACITY'))
         reduction_ratio = get_reduction_ratio(pool)
@@ -407,8 +485,20 @@ def main():
                 _min=0,
                 _max=100,
             )
+        if overprovisioning is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_overprovisioning_percent',
+                overprovisioning,
+                uom='%',
+                warn=args.WARN_OVERPROVISIONING or None,
+                crit=args.CRIT_OVERPROVISIONING or None,
+                _min=0,
+            )
         for perf_label, value, maximum in (
             ('total_capacity', total_capacity, None),
+            # No maximum: this is what the pool promised, which routinely exceeds the
+            # capacity it actually has.
+            ('lun_configured_capacity', configured_capacity, None),
             ('used_capacity', used_capacity, total_capacity),
             ('free_capacity', free_capacity, total_capacity),
         ):
@@ -442,7 +532,20 @@ def main():
         pool['usage'] = (
             f'{usage_percent:.0f}%' if usage_percent is not None else 'not reported'
         )
-        pool['usage_state'] = lib.base.state2str(usage_state, empty_ok=False)
+        pool['usage_state'] = lib.base.state2str(
+            lib.base.get_worst(usage_state, device_state), empty_ok=False
+        )
+        pool['device_threshold'] = (
+            '--'
+            if not device_threshold
+            else f'{device_threshold}%{lib.base.state2str(device_state, prefix=" ")}'
+        )
+        pool['overprovisioning'] = (
+            '--'
+            if overprovisioning is None
+            else f'{overprovisioning:.0f}%'
+            f'{lib.base.state2str(overprovisioning_state, prefix=" ")}'
+        )
         pool['total'] = (
             lib.human.bytes2human(total_capacity)
             if total_capacity is not None
@@ -499,6 +602,8 @@ def main():
             'used',
             'total',
             'usage',
+            'device_threshold',
+            'overprovisioning',
             'usage_state',
             'reduction',
             'health_state',
@@ -511,6 +616,8 @@ def main():
             'Used',
             'Total',
             'Usage',
+            'Device Limit',
+            'Overprov',
             'Usage State',
             'Reduction',
             'Health',

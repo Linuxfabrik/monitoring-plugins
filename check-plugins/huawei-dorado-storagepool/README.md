@@ -39,20 +39,25 @@ Checks the health, running status and capacity usage of all storage pools on a H
 ```text
 usage: huawei-dorado-storagepool [-h] [-V] [--always-ok]
                                  [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                                 [--device-id DEVICE_ID] [--ignore IGNORE]
-                                 [--insecure] [--match MATCH] [--no-insecure]
+                                 [--critical-overprovisioning CRIT_OVERPROVISIONING]
+                                 [--device-id DEVICE_ID]
+                                 [--device-threshold-severity {ok,warn,crit,unknown}]
+                                 [--ignore IGNORE] [--insecure]
+                                 [--match MATCH] [--no-insecure]
                                  [--no-match-severity {ok,warn,crit,unknown}]
                                  [--no-perfdata] [--no-proxy] [--performance]
                                  [--password PASSWORD]
                                  [--password-file PASSWORD_FILE]
                                  [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                  --username USERNAME [-w WARN]
+                                 [--warning-overprovisioning WARN_OVERPROVISIONING]
 
 Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool
-endpoint). Alerts when a pool reports a non-normal state, and when its used
-capacity reaches the warning or critical threshold. Supports reporting the I/O
-counters via --performance.
+endpoint). Alerts when a pool reports a non-normal state, when its used
+capacity reaches the warning or critical threshold, and when it reaches the
+threshold the storage administrator configured on the appliance itself.
+Supports reporting the I/O counters via --performance.
 
 options:
   -h, --help            show this help message and exit
@@ -63,10 +68,26 @@ options:
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold for the used capacity of a pool, as a
                         Nagios range in percent. Default: 90
+  --critical-overprovisioning CRIT_OVERPROVISIONING
+                        CRIT threshold for the overprovisioning of a pool, as
+                        a Nagios range in percent of its total capacity that
+                        is handed out to LUNs. Above 100 percent the pool is
+                        thin provisioned, which is what thin provisioning is
+                        for; what matters is how far the promise exceeds the
+                        disks behind it. Off by default. Example: `--critical-
+                        overprovisioning=300`
   --device-id DEVICE_ID
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
                         needed to override that answer.
+  --device-threshold-severity {ok,warn,crit,unknown}
+                        State to report for a pool that reached the capacity
+                        threshold configured on the appliance itself. That
+                        threshold is what the storage administrator set in the
+                        management GUI, so the check and the appliance agree
+                        on when a pool is full instead of each having their
+                        own opinion. A pool that carries no threshold is not
+                        affected. Default: warn
   --ignore IGNORE       Skip storage pools. Any item matching this Python
                         regex will be ignored. Can be specified multiple
                         times. Example: `(?i)linuxfabrik` for a case-
@@ -119,6 +140,14 @@ options:
   --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for the used capacity of a pool, as a
                         Nagios range in percent. Default: 80
+  --warning-overprovisioning WARN_OVERPROVISIONING
+                        WARN threshold for the overprovisioning of a pool, as
+                        a Nagios range in percent of its total capacity that
+                        is handed out to LUNs. Above 100 percent the pool is
+                        thin provisioned, which is what thin provisioning is
+                        for; what matters is how far the promise exceeds the
+                        disks behind it. Off by default. Example: `--warning-
+                        overprovisioning=200`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-storagepool/
@@ -154,6 +183,8 @@ Alert earlier than the defaults, and only on the pools of one disk domain:
 * OK if all storage pools report normal health, are online, and their used capacity is below the thresholds.
 * WARN if a pool reports a degraded health status, or one this check does not know.
 * WARN if a pool is busy rather than online (pre-copy, rebuilding, balancing, initializing or deleting).
+* `--device-threshold-severity` decides what a pool that reached the capacity threshold configured on the appliance itself reports (default: WARNING). That threshold is what the storage administrator set in the management GUI, so the check and the appliance agree on when a pool is full. A pool that carries no threshold is not affected.
+* WARN or CRIT if a pool's overprovisioning reaches `--warning-overprovisioning` or `--critical-overprovisioning`, that is how much capacity it handed out to LUNs relative to the disks behind it. Both are off by default; above 100 percent a pool is thin provisioned, which is what thin provisioning is for.
 * WARN if a pool's used capacity reaches `--warning` (default: 80%).
 * CRIT if a pool reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if a pool's running status is "Offline".
@@ -174,6 +205,8 @@ Alert earlier than the defaults, and only on the pools of one disk domain:
 | \<UUID\>\_health_status | Number | 1: normal, 2: faulty, 5: degraded. |
 | \<UUID\>\_running_status | Number | 14: pre-copy, 16: rebuilding, 27: online, 28: offline, 32: balancing, 53: initializing, 106: deleting. |
 | \<UUID\>\_total_capacity | Bytes | Total capacity of the pool. |
+| \<UUID\>\_lun_configured_capacity | Bytes | Capacity handed out to LUNs. Routinely exceeds the capacity the pool actually has. |
+| \<UUID\>\_overprovisioning_percent | Percentage | Capacity handed out to LUNs, relative to the pool total. |
 | \<UUID\>\_usage_percent | Percentage | Used capacity, as the appliance reports it. |
 | \<UUID\>\_used_capacity | Bytes | Used capacity of the pool. |
 

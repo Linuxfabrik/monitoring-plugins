@@ -8,7 +8,8 @@ Checks the health and running status of the LUNs of a Huawei OceanStor Dorado st
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* Only LUNs mapped to a host are checked. An unmapped LUN is not serving anything; add `--include-unmapped` to cover those as well
+* Only LUNs mapped to a host are checked. An unmapped LUN is not serving anything; add `--include-unmapped` to cover those as well, and `--unmapped-severity` to decide what they report
+* The appliance carries its own fill threshold per thin LUN, together with a switch saying whether it is in use. The check honours it, so it and the management GUI agree on when a LUN is full; `--device-threshold-severity` tunes what that reports
 * A thick LUN has its whole capacity allocated by definition, so it reports no usage and is never checked against the thresholds. Reading its allocation as "100% full" would alert on every thick LUN forever
 * The capacity thresholds are off by default. A thin LUN that is full is doing what it was created for; what actually runs out is the pool behind it, which `huawei-dorado-storagepool` watches
 * On an array with many LUNs, `--brief` keeps the output readable by listing only the LUNs that alert
@@ -42,13 +43,15 @@ Checks the health and running status of the LUNs of a Huawei OceanStor Dorado st
 ```text
 usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                         [--device-id DEVICE_ID] [--include-unmapped]
-                         [--ignore IGNORE] [--insecure] [--lengthy]
-                         [--match MATCH] [--no-insecure]
+                         [--device-id DEVICE_ID]
+                         [--device-threshold-severity {ok,warn,crit,unknown}]
+                         [--include-unmapped] [--ignore IGNORE] [--insecure]
+                         [--lengthy] [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--performance]
                          [--password PASSWORD] [--password-file PASSWORD_FILE]
-                         [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                         [--scope SCOPE] [--timeout TIMEOUT]
+                         [--unmapped-severity {ok,warn,crit,unknown}] -u URL
                          --username USERNAME [-w WARN]
 
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
@@ -77,6 +80,14 @@ options:
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
                         needed to override that answer.
+  --device-threshold-severity {ok,warn,crit,unknown}
+                        State to report for a thin LUN that reached the fill
+                        threshold configured on the appliance itself. That
+                        threshold is what the storage administrator set in the
+                        management GUI, so the check and the appliance agree
+                        on when a LUN is full instead of each having their own
+                        opinion. A LUN whose threshold is switched off is not
+                        affected. Default: warn
   --include-unmapped    Also check LUNs that are not mapped to any host. Those
                         are not serving anything, so they are left out by
                         default. Default: False
@@ -127,6 +138,14 @@ options:
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --unmapped-severity {ok,warn,crit,unknown}
+                        State to report for a LUN that is not mapped to any
+                        host. Only takes effect together with `--include-
+                        unmapped`, which is what brings those LUNs into the
+                        check in the first place. Worth raising on an array
+                        where every LUN is meant to be in use, so a LUN that
+                        dropped out of its mapping view is noticed. Default:
+                        ok
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for the used capacity of a thin LUN, as
