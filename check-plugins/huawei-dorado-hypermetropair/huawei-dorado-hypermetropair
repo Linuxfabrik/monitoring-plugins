@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080901'
+__version__ = '2026080902'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
@@ -302,8 +302,9 @@ def main():
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # fetch data
+    truncated = False
     if args.TEST is None:
-        result = lib.huawei_dorado.get_data('hypermetropair', args)
+        result, truncated = lib.huawei_dorado.get_all_data('hypermetropair', args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
@@ -513,6 +514,12 @@ def main():
             no_perfdata=args.NO_PERFDATA,
         )
 
+    # The truncated walk raises the state before the summary is written, so a
+    # partially read appliance does not open with "Everything is ok." and then exit
+    # WARNING.
+    if truncated:
+        state = lib.base.get_worst(state, STATE_WARN)
+
     # build the message
     if state == STATE_CRIT:
         msg += 'There are critical errors.'
@@ -520,7 +527,14 @@ def main():
         msg += 'There are warnings.'
     else:
         msg += 'Everything is ok.'
-    msg += '\n\n'
+    msg += '\n'
+    if truncated:
+        # The walk hit its page cap, so pairs beyond it were never looked at.
+        msg += (
+            'The appliance reports more HyperMetro pairs than this check reads in'
+            ' one run; the list below is incomplete.\n'
+        )
+    msg += '\n'
 
     # build table output
     display_rows = table_data

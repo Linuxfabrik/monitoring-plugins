@@ -167,6 +167,7 @@ Monitoring Plugins:
 * huawei-dorado-\*: a firmware that leaves an optional field out no longer takes the check to UNKNOWN, and the columns it said nothing about print as "--" instead of replacing the whole table with an error line
 * huawei-dorado-backup-power: a module that does not track its remaining life prints a dash instead of a zero that read like a dead battery
 * huawei-dorado-disk: a spinning disk no longer graphs a wear level of -1, and a disk whose media reports no health score no longer graphs 255 out of 100
+* huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair: every object is read instead of only the first page the appliance hands out, so a large array no longer reports a smaller but healthy inventory
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
 * huawei-dorado-hypermetropair: a firmware that sends its status codes as numbers rather than as text no longer turns every healthy pair into a warning, and a pair that has never synchronized no longer ends the check in a Python error
 * huawei-dorado-hypermetropair: a pair that has never synchronized reports "never" instead of a synchronization dated 1970
