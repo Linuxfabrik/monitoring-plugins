@@ -91,6 +91,7 @@ Icinga Director:
 
 Grafana:
 
+* dashboards for all 24 Huawei OceanStor checks, which had none, with a panel per topic so temperatures, voltages, capacities, percentages and status codes are not mixed into one graph (huawei-dorado-\*, huawei-pacific-\*)
 * disk-usage: graphs the total size of each partition, telling a disk resize apart from a mass file deletion ([#1374](https://github.com/Linuxfabrik/monitoring-plugins/issues/1374))
 
 ### Changed
