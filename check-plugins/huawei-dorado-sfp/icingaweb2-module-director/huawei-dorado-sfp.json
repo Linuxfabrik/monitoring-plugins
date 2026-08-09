@@ -24,6 +24,9 @@
                 "--link-down-severity": {
                     "value": "$huawei_dorado_sfp_link_down_severity$"
                 },
+                "--lengthy": {
+                    "set_if": "$huawei_dorado_sfp_lengthy$"
+                },
                 "--match": {
                     "value": "$huawei_dorado_sfp_match$",
                     "repeat_key": true
@@ -179,7 +182,7 @@
                 },
                 {
                     "datafield_id": 21,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -189,6 +192,11 @@
                 },
                 {
                     "datafield_id": 23,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -234,7 +242,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health, link status and optical power of the optical modules (SFP) of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module reports a non-normal health status, when its receive or transmit power leaves the range the module itself reports as its operating range, and optionally when its link is down. A degrading transceiver or a dirty connector shows up as falling receive power long before the link drops.",
+            "notes": "Checks the health, link status and optical power of the optical modules (SFP) of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module reports a non-normal health status, when its receive or transmit power leaves the range the module itself reports as its operating range, and optionally when its link is down. A degrading transceiver or a dirty connector shows up as falling receive power long before the link drops. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-sfp/",
             "object_name": "tpl-service-huawei-dorado-sfp",
             "object_type": "template",
@@ -252,6 +260,7 @@
                 "huawei_dorado_sfp_ignore": [],
                 "huawei_dorado_sfp_insecure": true,
                 "huawei_dorado_sfp_link_down_severity": "ok",
+                "huawei_dorado_sfp_lengthy": false,
                 "huawei_dorado_sfp_match": [],
                 "huawei_dorado_sfp_no_match_severity": "ok",
                 "huawei_dorado_sfp_no_perfdata": false,
@@ -408,6 +417,15 @@
             "uuid": "c561692d-fefe-4d1a-a8a6-ab155a4ca12a"
         },
         "8": {
+            "varname": "huawei_dorado_sfp_lengthy",
+            "caption": "Huawei Dorado Sfp: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fd0df42a-cb03-4799-948b-29fc7c579444"
+        },
+        "9": {
             "varname": "huawei_dorado_sfp_match",
             "caption": "Huawei Dorado Sfp: Match",
             "description": "Filter by optical modules. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the module identifier, its location, vendor, model and serial number, so prefix with `.*` to match anywhere.",
@@ -418,7 +436,7 @@
             },
             "uuid": "e13fd3e5-3795-4b82-b80a-9b5272b320c6"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_sfp_no_insecure",
             "caption": "Huawei Dorado Sfp: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -427,7 +445,7 @@
             "settings": {},
             "uuid": "3e79dff6-38f2-4377-99c4-187b81646bda"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_sfp_no_match_severity",
             "caption": "Huawei Dorado Sfp: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -440,7 +458,7 @@
             },
             "uuid": "d76a76d3-407f-4d16-bd10-892875fde589"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_sfp_no_perfdata",
             "caption": "Huawei Dorado Sfp: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -449,7 +467,7 @@
             "settings": {},
             "uuid": "4d41c0d1-aa66-4b00-b686-a3f2611291b4"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_sfp_no_proxy",
             "caption": "Huawei Dorado Sfp: No Proxy?",
             "description": "Do not use a proxy.",
@@ -458,7 +476,7 @@
             "settings": {},
             "uuid": "2a67ba39-c483-491f-b6c6-9feaeba471d9"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_sfp_password",
             "caption": "Huawei Dorado Sfp: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -469,7 +487,7 @@
             },
             "uuid": "1408db38-4083-4d69-a0d3-38294ec3f20b"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_sfp_password_file",
             "caption": "Huawei Dorado Sfp: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -480,7 +498,7 @@
             },
             "uuid": "3c4b0d48-b318-453c-90c0-91c46b706be8"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_sfp_rx_power_critical",
             "caption": "Huawei Dorado Sfp: Rx Power Critical",
             "description": "CRIT threshold for the receive power of a module, as a Nagios range in dBm. Defaults to the operating range the module itself reports, so a transceiver is judged against its own data sheet rather than against one number for the whole appliance. Example: `--rx-power-critical=-14:0`",
@@ -491,7 +509,7 @@
             },
             "uuid": "8d22e5f6-c251-4458-9827-8941c4692eae"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_sfp_rx_power_warning",
             "caption": "Huawei Dorado Sfp: Rx Power Warning",
             "description": "WARN threshold for the receive power of a module, as a Nagios range in dBm. Example: `--rx-power-warning=-12:-1`",
@@ -502,7 +520,7 @@
             },
             "uuid": "116be64b-91d2-4680-819e-506061fb60e0"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_sfp_scope",
             "caption": "Huawei Dorado Sfp: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -513,7 +531,7 @@
             },
             "uuid": "6fdb16ae-50c8-4e74-a805-a77250d133f5"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_sfp_tx_power_critical",
             "caption": "Huawei Dorado Sfp: Tx Power Critical",
             "description": "CRIT threshold for the transmit power of a module, as a Nagios range in dBm. Defaults to the operating range the module itself reports. Example: `--tx-power-critical=-9:3`",
@@ -524,7 +542,7 @@
             },
             "uuid": "a8a6eee0-8467-40eb-a0cf-736de2e3fecc"
         },
-        "19": {
+        "20": {
             "varname": "huawei_dorado_sfp_tx_power_warning",
             "caption": "Huawei Dorado Sfp: Tx Power Warning",
             "description": "WARN threshold for the transmit power of a module, as a Nagios range in dBm. Example: `--tx-power-warning=-8:2`",
@@ -535,7 +553,7 @@
             },
             "uuid": "70572221-7e38-4895-94e6-223f3903cbb2"
         },
-        "20": {
+        "21": {
             "varname": "huawei_dorado_sfp_timeout",
             "caption": "Huawei Dorado Sfp: Timeout",
             "description": "Network timeout in seconds.",
@@ -546,7 +564,7 @@
             },
             "uuid": "067a9c8b-6930-4243-8c45-a8038ab021e9"
         },
-        "21": {
+        "22": {
             "varname": "huawei_dorado_sfp_url",
             "caption": "Huawei Dorado Sfp: URL",
             "description": "Huawei OceanStor Dorado API URL. URL to the endpoint.",
@@ -557,7 +575,7 @@
             },
             "uuid": "d0dcab48-1d4f-47b2-8064-29f564e3fe5b"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_sfp_username",
             "caption": "Huawei Dorado Sfp: Username",
             "description": "Huawei OceanStor Dorado API username. Username.",
@@ -568,7 +586,7 @@
             },
             "uuid": "7c617eb3-07c1-4768-a294-6d27aede9484"
         },
-        "23": {
+        "24": {
             "varname": "huawei_dorado_sfp_verbose",
             "caption": "Huawei Dorado Sfp: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

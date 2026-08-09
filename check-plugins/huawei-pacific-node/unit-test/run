@@ -21,7 +21,8 @@ TESTS = [
     {
         'id': 'ok-nodes-healthy',
         'test': 'stdout/nodes-healthy,,0',
-        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
@@ -29,6 +30,20 @@ TESTS = [
             'Pacific (STL6SPCM)',
             'online',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-nodes-healthy-core-columns',
+        'test': 'stdout/nodes-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Name  ! Running ! OAM Agent',
+            'FSM01',
+            'online',
+        ],
+        'assert-not-in': ['Pacific (STL6SPCM)', 'Management IP', 'Software Version'],
     },
     {
         # A node that left the cluster took its share of the storage with it,

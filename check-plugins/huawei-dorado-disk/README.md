@@ -40,8 +40,8 @@ usage: huawei-dorado-disk [-h] [-V] [--always-ok] [--brief]
                           [--critical-temperature CRIT_TEMPERATURE]
                           [--critical-health-mark CRIT_HEALTH_MARK]
                           [--critical-wear CRIT_WEAR] [--device-id DEVICE_ID]
-                          [--ignore IGNORE] [--insecure] [--no-insecure]
-                          [--match MATCH]
+                          [--ignore IGNORE] [--insecure] [--lengthy]
+                          [--no-insecure] [--match MATCH]
                           [--no-match-severity {ok,warn,crit,unknown}]
                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                           [--password-file PASSWORD_FILE] [--scope SCOPE]
@@ -55,7 +55,7 @@ Checks the health status of all disks on a Huawei OceanStor Dorado storage
 system via the REST API (/disk endpoint). Alerts when any disk reports a
 non-normal health state or runs out of remaining service life, and optionally
 when its health score drops, when it has worn through most of its service
-life, or when it is running hot.
+life, or when it is running hot. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -103,6 +103,7 @@ options:
                         so prefix with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -190,11 +191,29 @@ Output:
 ```text
 Everything is ok.
 
-UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Abrasion% ! Progress% ! Runtime ! Temp ! Health ! Running 
--------------+----------+--------------+------------------+----------------------+-----------+-----------+---------+------+--------+---------
-10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! 67        ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]    
-10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! 70        ! 0         ! 4M 2W   ! 37   ! [OK]   ! [OK]    
-10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! 0         ! 0         ! 1Y 4M   ! 37   ! [OK]   ! [OK]    
+UUID         ! Location ! Usage  ! Wear% ! Health# ! Temp ! Health ! Running
+-------------+----------+--------+-------+---------+------+--------+--------
+10:134234112 ! DAE000.0 ! in use ! 67    ! --      ! 36   ! [OK]   ! [OK]   
+10:134234113 ! DAE000.1 ! in use ! 70    ! --      ! 37   ! [OK]   ! [OK]   
+10:0         ! CTE0.0   ! free   ! 0     ! --      ! 37   ! [OK]   ! [OK]
+```
+
+`--lengthy` adds the model, the serial number and the rebuild progress, which is what an RMA case and a running rebuild need:
+
+```bash
+./huawei-dorado-disk --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+Everything is ok.
+
+UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Usage  ! Wear% ! Health# ! Progress% ! Runtime ! Temp ! Health ! Running
+-------------+----------+--------------+------------------+----------------------+--------+-------+---------+-----------+---------+------+--------+--------
+10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! in use ! 67    ! --      ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]   
+10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! in use ! 70    ! --      ! 0         ! 4M 2W   ! 37   ! [OK]   ! [OK]   
+10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! free   ! 0     ! --      ! 0         ! 1Y 4M   ! 37   ! [OK]   ! [OK]
 ```
 
 

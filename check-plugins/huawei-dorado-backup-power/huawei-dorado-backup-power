@@ -24,12 +24,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080706'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
 module reports a non-normal health state, when it runs out of remaining service life,
-and optionally when its voltage leaves the range you expect."""
+and optionally when its voltage leaves the range you expect.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '30:'
@@ -135,6 +136,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -469,28 +478,46 @@ def main():
 
     # build table output
     if table_data:
-        keys = [
-            'UUID',
-            'LOCATION',
-            'MANUFACTUREDDATE',
-            'CONTROLLERID',
-            'CHARGETIMES',
-            'REMAINLIFEDAYS',
-            'VOLTAGE',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Location',
-            'Produced',
-            'ControllerID',
-            '#Discharged',
-            'Remain',
-            'Volt',
-            'Health',
-            'Running',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'MANUFACTUREDDATE',
+                'CONTROLLERID',
+                'CHARGETIMES',
+                'REMAINLIFEDAYS',
+                'VOLTAGE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Produced',
+                'ControllerID',
+                '#Discharged',
+                'Remain',
+                'Volt',
+                'Health',
+                'Running',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'REMAINLIFEDAYS',
+                'VOLTAGE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Remain',
+                'Volt',
+                'Health',
+                'Running',
+            ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 

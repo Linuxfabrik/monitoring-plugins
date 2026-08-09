@@ -23,11 +23,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health and running status of all enclosures on a Huawei OceanStor Dorado
 storage system via the REST API (/enclosure endpoint). Alerts when any enclosure
-reports a non-normal state."""
+reports a non-normal state.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT_TEMPERATURE = ''
@@ -125,6 +126,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -417,32 +426,50 @@ def main():
 
     # build table output
     if table_data:
-        keys = [
-            'UUID',
-            'LOCATION',
-            'NAME',
-            'MODEL',
-            'SERIALNUM',
-            'LOGICTYPE',
-            'MACADDRESS',
-            'SWITCHSTATUS',
-            'TEMPERATURE',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Location',
-            'Name',
-            'Model',
-            'SerialNumber',
-            'Logic',
-            'MacAddress',
-            'Switch',
-            'Temp',
-            'Health',
-            'Running',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'NAME',
+                'MODEL',
+                'SERIALNUM',
+                'LOGICTYPE',
+                'MACADDRESS',
+                'SWITCHSTATUS',
+                'TEMPERATURE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Name',
+                'Model',
+                'SerialNumber',
+                'Logic',
+                'MacAddress',
+                'Switch',
+                'Temp',
+                'Health',
+                'Running',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'NAME',
+                'TEMPERATURE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Name',
+                'Temp',
+                'Health',
+                'Running',
+            ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 

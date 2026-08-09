@@ -24,13 +24,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
 reports a non-normal state, when its used capacity reaches the warning or critical threshold,
 and when it reaches the threshold the storage administrator configured on the appliance itself.
-Supports reporting the I/O counters via --performance."""
+Supports extended reporting via --lengthy, and reporting the I/O counters via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = '90'
@@ -157,6 +157,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -609,34 +617,61 @@ def main():
 
     # build table output
     if table_data:
-        keys = [
-            'UUID',
-            'NAME',
-            'PARENTNAME',
-            'used',
-            'total',
-            'usage',
-            'device_threshold',
-            'overprovisioning',
-            'usage_state',
-            'reduction',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Name',
-            'Disk Domain',
-            'Used',
-            'Total',
-            'Usage',
-            'Device Limit',
-            'Overprov',
-            'Usage State',
-            'Reduction',
-            'Health',
-            'Running',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'NAME',
+                'PARENTNAME',
+                'used',
+                'total',
+                'usage',
+                'device_threshold',
+                'overprovisioning',
+                'reduction',
+                'usage_state',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Name',
+                'Disk Domain',
+                'Used',
+                'Total',
+                'Usage',
+                'Device Limit',
+                'Overprov',
+                'Reduction',
+                'Usage State',
+                'Health',
+                'Running',
+            ]
+        else:
+            # `Overprov` stays in the core view because it is the only cell that marks
+            # an overprovisioning breach; the appliance's own fill limit is already
+            # folded into `Usage State`.
+            keys = [
+                'UUID',
+                'NAME',
+                'used',
+                'total',
+                'usage',
+                'overprovisioning',
+                'usage_state',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Name',
+                'Used',
+                'Total',
+                'Usage',
+                'Overprov',
+                'Usage State',
+                'Health',
+                'Running',
+            ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 

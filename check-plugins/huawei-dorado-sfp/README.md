@@ -41,7 +41,7 @@ usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--brief]
                          [--cache-expire CACHE_EXPIRE] [--device-id DEVICE_ID]
                          [--ignore IGNORE] [--insecure]
                          [--link-down-severity {ok,warn,crit,unknown}]
-                         [--match MATCH] [--no-insecure]
+                         [--lengthy] [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
                          [--password-file PASSWORD_FILE]
@@ -57,6 +57,7 @@ Alerts when a module reports a non-normal health status, when its receive or
 transmit power leaves the range the module itself reports as its operating
 range, and optionally when its link is down. A degrading transceiver or a
 dirty connector shows up as falling receive power long before the link drops.
+Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -90,6 +91,7 @@ options:
                         that is simply not cabled reports the same thing,
                         which is why this defaults to not alerting. Default:
                         ok
+  --lengthy             Extended reporting.
   --match MATCH         Filter by optical modules. Filter by this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -172,10 +174,27 @@ Output:
 ```text
 Everything is ok.
 
-Location       ! Sits In          ! Vendor ! Model      ! Mode        ! Mbit/s ! Link           ! Health ! Link State
----------------+------------------+--------+------------+-------------+--------+----------------+--------+-----------
-CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! Link up (10)   ! [OK]   ! [OK]
-CTE0.A.IOM0.P1 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! Link down (11) ! [OK]   ! [OK]
+Location       ! Sits In          ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link           ! Health ! Link State
+---------------+------------------+--------+----------+----------+----------------+--------+-----------
+CTE0.A.IOM0.P0 ! interface module ! 32000  ! --       ! --       ! Link up (10)   ! [OK]   ! [OK]      
+CTE0.A.IOM0.P1 ! interface module ! 32000  ! --       ! --       ! Link down (11) ! [OK]   ! [OK]
+```
+
+`--lengthy` adds the vendor, the model and the fibre mode of every transceiver:
+
+```bash
+./huawei-dorado-sfp --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+Everything is ok.
+
+Location       ! Sits In          ! Vendor ! Model      ! Mode        ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link           ! Health ! Link State
+---------------+------------------+--------+------------+-------------+--------+----------+----------+----------------+--------+-----------
+CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! --       ! --       ! Link up (10)   ! [OK]   ! [OK]      
+CTE0.A.IOM0.P1 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! --       ! --       ! Link down (11) ! [OK]   ! [OK]
 ```
 
 Alert on a module that lost its link, and look at one vendor's modules only:

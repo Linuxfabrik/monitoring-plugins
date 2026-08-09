@@ -40,7 +40,8 @@ usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--cache-expire CACHE_EXPIRE] [-c CRIT]
                                   [--critical-voltage CRIT_VOLTAGE]
                                   [--device-id DEVICE_ID] [--ignore IGNORE]
-                                  [--insecure] [--no-insecure] [--match MATCH]
+                                  [--insecure] [--lengthy] [--no-insecure]
+                                  [--match MATCH]
                                   [--no-match-severity {ok,warn,crit,unknown}]
                                   [--no-perfdata] [--no-proxy]
                                   [--password PASSWORD]
@@ -53,7 +54,7 @@ Checks the health status of all backup power modules (BBU) on a Huawei
 OceanStor Dorado storage system via the REST API (/backup_power endpoint).
 Alerts when any module reports a non-normal health state, when it runs out of
 remaining service life, and optionally when its voltage leaves the range you
-expect.
+expect. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -83,6 +84,7 @@ options:
                         match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -152,13 +154,33 @@ Output:
 ```text
 There are warnings.
 
+UUID       ! Location   ! Remain ! Volt ! Health ! Running  
+-----------+------------+--------+------+--------+----------
+210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]
+210:0.0A.0 ! CTE0.A.BBU ! --     ! 15.9 ! [OK]   ! [OK]     
+210:0.0B.0 ! CTE0.B.BBU ! --     ! 15.8 ! [OK]   ! [OK]     
+210:0.0C.0 ! CTE0.C.BBU ! --     ! 15.8 ! [OK]   ! [OK]     
+210:0.0D.0 ! CTE0.D.BBU ! --     ! 16.0 ! [OK]   ! [OK]
+```
+
+`--lengthy` adds the manufacturing date, the owning controller and the number of discharge cycles, which is what an RMA case needs:
+
+```bash
+./huawei-dorado-backup-power --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+There are warnings.
+
 UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Volt ! Health ! Running  
 -----------+------------+------------+--------------+-------------+--------+------+--------+----------
 210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7           ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]
-210:0.0A.0 ! CTE0.A.BBU ! 2020-10-18 ! 0A           ! 1           ! 0      ! 15.9 ! [OK]   ! [OK]     
-210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1           ! 0      ! 15.8 ! [OK]   ! [OK]     
-210:0.0C.0 ! CTE0.C.BBU ! 2020-10-18 ! 0C           ! 1           ! 0      ! 15.8 ! [OK]   ! [OK]     
-210:0.0D.0 ! CTE0.D.BBU ! 2020-10-18 ! 0D           ! 1           ! 0      ! 16.0 ! [OK]   ! [OK]
+210:0.0A.0 ! CTE0.A.BBU ! 2020-10-18 ! 0A           ! 1           ! --     ! 15.9 ! [OK]   ! [OK]     
+210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1           ! --     ! 15.8 ! [OK]   ! [OK]     
+210:0.0C.0 ! CTE0.C.BBU ! 2020-10-18 ! 0C           ! 1           ! --     ! 15.8 ! [OK]   ! [OK]     
+210:0.0D.0 ! CTE0.D.BBU ! 2020-10-18 ! 0D           ! 1           ! --     ! 16.0 ! [OK]   ! [OK]
 ```
 
 

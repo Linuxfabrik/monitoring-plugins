@@ -24,6 +24,9 @@
                 "--insecure": {
                     "set_if": "$huawei_dorado_controller_insecure$"
                 },
+                "--lengthy": {
+                    "set_if": "$huawei_dorado_controller_lengthy$"
+                },
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_controller_no_insecure$"
                 },
@@ -161,7 +164,7 @@
                 },
                 {
                     "datafield_id": 18,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -171,7 +174,7 @@
                 },
                 {
                     "datafield_id": 20,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -181,6 +184,11 @@
                 },
                 {
                     "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -226,7 +234,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health and running status of all controllers on a Huawei OceanStor Dorado storage system via the REST API (/controller endpoint). Alerts when any controller reports a non-normal health or running state, and optionally when its CPU, memory or temperature exceeds the configured thresholds. Supports reporting the I/O and cache counters via --performance.",
+            "notes": "Checks the health and running status of all controllers on a Huawei OceanStor Dorado storage system via the REST API (/controller endpoint). Alerts when any controller reports a non-normal health or running state, and optionally when its CPU, memory or temperature exceeds the configured thresholds. Supports extended reporting via --lengthy, and reporting the I/O and cache counters via --performance.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-controller/",
             "object_name": "tpl-service-huawei-dorado-controller",
             "object_type": "template",
@@ -244,6 +252,7 @@
                 "huawei_dorado_controller_device_id": "",
                 "huawei_dorado_controller_ignore": [],
                 "huawei_dorado_controller_insecure": true,
+                "huawei_dorado_controller_lengthy": false,
                 "huawei_dorado_controller_match": [],
                 "huawei_dorado_controller_no_match_severity": "ok",
                 "huawei_dorado_controller_no_perfdata": false,
@@ -368,6 +377,15 @@
             "uuid": "05439d02-6158-453e-bcde-4c4d479efa08"
         },
         "8": {
+            "varname": "huawei_dorado_controller_lengthy",
+            "caption": "Huawei Dorado Controller: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "33723556-29aa-4cd4-9228-9d366e9ac279"
+        },
+        "9": {
             "varname": "huawei_dorado_controller_no_insecure",
             "caption": "Huawei Dorado Controller: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -376,7 +394,7 @@
             "settings": {},
             "uuid": "3727f6b2-4e3b-4800-8aad-efcfad73a50b"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_controller_match",
             "caption": "Huawei Dorado Controller: Match",
             "description": "Filter by controllers. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
@@ -387,7 +405,7 @@
             },
             "uuid": "0ed2a991-b61c-420c-9ff4-4d8d97a41d64"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_controller_no_match_severity",
             "caption": "Huawei Dorado Controller: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -400,7 +418,7 @@
             },
             "uuid": "b4b3c9a3-6edc-41d3-a2e0-80f6fe505ac2"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_controller_no_perfdata",
             "caption": "Huawei Dorado Controller: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -409,7 +427,7 @@
             "settings": {},
             "uuid": "068bab9b-f4b2-499a-85e9-447a88178d26"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_controller_no_proxy",
             "caption": "Huawei Dorado Controller: No Proxy?",
             "description": "Do not use a proxy.",
@@ -418,7 +436,7 @@
             "settings": {},
             "uuid": "81be51d1-4f06-4858-8965-694cd5f424d7"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_controller_performance",
             "caption": "Huawei Dorado Controller: Performance?",
             "description": "Additionally report the I/O counters of every controller. Costs one API request per object, so a large appliance may need a higher --timeout.",
@@ -427,7 +445,7 @@
             "settings": {},
             "uuid": "5b2654ea-fed5-43d4-ade6-4debfd64b905"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_controller_password",
             "caption": "Huawei Dorado Controller: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -438,7 +456,7 @@
             },
             "uuid": "aa19a792-1fdb-4d35-adf3-9d68622567af"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_controller_password_file",
             "caption": "Huawei Dorado Controller: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -449,7 +467,7 @@
             },
             "uuid": "1d926adb-cd4e-4457-b8b0-c1f0c14d2f0f"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_controller_scope",
             "caption": "Huawei Dorado Controller: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -460,7 +478,7 @@
             },
             "uuid": "4cef57e0-d4b1-4cea-8154-47ac75270ad9"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_controller_timeout",
             "caption": "Huawei Dorado Controller: Timeout",
             "description": "Network timeout in seconds.",
@@ -471,7 +489,7 @@
             },
             "uuid": "db35fea6-a368-4870-ad39-1095a61382db"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_controller_url",
             "caption": "Huawei Dorado Controller: URL",
             "description": "Huawei OceanStor Dorado API URL. URL to the endpoint.",
@@ -482,7 +500,7 @@
             },
             "uuid": "c8f2bb6e-7065-4423-b6b8-df8c94b7e0dc"
         },
-        "19": {
+        "20": {
             "varname": "huawei_dorado_controller_username",
             "caption": "Huawei Dorado Controller: Username",
             "description": "Huawei OceanStor Dorado API username. Username.",
@@ -493,7 +511,7 @@
             },
             "uuid": "8a2f9d9d-e405-4f53-a6b5-33e81573eebe"
         },
-        "20": {
+        "21": {
             "varname": "huawei_dorado_controller_warning",
             "caption": "Huawei Dorado Controller: Warning",
             "description": "WARN threshold for CPU and memory usage, as a Nagios range in percent. Off by default, because a controller under load is doing its job; set it once you know what your array normally sits at. Example: `--warning=80`",
@@ -504,7 +522,7 @@
             },
             "uuid": "eecfb901-aefb-47bd-b9d6-470a9b15fafd"
         },
-        "21": {
+        "22": {
             "varname": "huawei_dorado_controller_warning_temperature",
             "caption": "Huawei Dorado Controller: Warning Temperature",
             "description": "WARN threshold in degrees Celsius. Off by default, because a healthy operating temperature depends on the controller model and on where the array stands. Example: `--warning-temperature=45`",
@@ -515,7 +533,7 @@
             },
             "uuid": "fdc0a7bc-b83a-4a88-85c2-2383d99442c0"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_controller_verbose",
             "caption": "Huawei Dorado Controller: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

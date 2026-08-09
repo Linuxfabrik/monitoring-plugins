@@ -24,7 +24,8 @@ TESTS = [
         # TYPE:ID every other object on this appliance has.
         'id': 'ok-sfps-healthy',
         'test': 'stdout/sfps-healthy,,0',
-        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
@@ -34,6 +35,19 @@ TESTS = [
             'Tx (dBm)',
             'Link up (10)',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-sfps-healthy-core-columns',
+        'test': 'stdout/sfps-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Location       ! Sits In          ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link',
+            'Link up (10)',
+        ],
+        'assert-not-in': ['Vendor', 'SFP-32G-FC', 'single-mode'],
     },
     {
         # A module whose light is well inside the range it declares for itself.

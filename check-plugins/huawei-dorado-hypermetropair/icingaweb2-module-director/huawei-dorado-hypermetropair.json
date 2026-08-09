@@ -21,6 +21,9 @@
                 "--insecure": {
                     "set_if": "$huawei_dorado_hypermetropair_insecure$"
                 },
+                "--lengthy": {
+                    "set_if": "$huawei_dorado_hypermetropair_lengthy$"
+                },
                 "--no-insecure": {
                     "set_if": "$huawei_dorado_hypermetropair_no_insecure$"
                 },
@@ -139,7 +142,7 @@
                 },
                 {
                     "datafield_id": 16,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -149,6 +152,11 @@
                 },
                 {
                     "datafield_id": 18,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -194,7 +202,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any pair reports a non-normal state or synchronization issue.",
+            "notes": "Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any pair reports a non-normal state or synchronization issue. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-hypermetropair/",
             "object_name": "tpl-service-huawei-dorado-hypermetropair",
             "object_type": "template",
@@ -211,6 +219,7 @@
                 "huawei_dorado_hypermetropair_device_id": "",
                 "huawei_dorado_hypermetropair_ignore": [],
                 "huawei_dorado_hypermetropair_insecure": true,
+                "huawei_dorado_hypermetropair_lengthy": false,
                 "huawei_dorado_hypermetropair_match": [],
                 "huawei_dorado_hypermetropair_no_match_severity": "ok",
                 "huawei_dorado_hypermetropair_no_perfdata": false,
@@ -319,6 +328,15 @@
             "uuid": "905b2a48-2f50-4d94-af9c-16c6ee30c9dc"
         },
         "7": {
+            "varname": "huawei_dorado_hypermetropair_lengthy",
+            "caption": "Huawei Dorado Hyper Metro Pair: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2208894e-0da0-4882-a8e4-1c248c3620be"
+        },
+        "8": {
             "varname": "huawei_dorado_hypermetropair_no_insecure",
             "caption": "Huawei Dorado Hyper Metro Pair: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -327,7 +345,7 @@
             "settings": {},
             "uuid": "b04ab644-1a3f-420f-ae60-f85c719ad176"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_hypermetropair_match",
             "caption": "Huawei Dorado Hyper Metro Pair: Match",
             "description": "Filter by HyperMetro pairs. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCALOBJNAME`, `REMOTEOBJNAME`, so prefix with `.*` to match anywhere.",
@@ -338,7 +356,7 @@
             },
             "uuid": "adb1d5f4-5aae-468b-9fdf-02388d913b44"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_hypermetropair_no_match_severity",
             "caption": "Huawei Dorado Hyper Metro Pair: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -351,7 +369,7 @@
             },
             "uuid": "5c5d013e-4b93-4a2f-be40-de1f898b3be7"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_hypermetropair_no_perfdata",
             "caption": "Huawei Dorado Hyper Metro Pair: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -360,7 +378,7 @@
             "settings": {},
             "uuid": "f80ea894-4602-4b0b-b4db-94a07159447a"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_hypermetropair_no_proxy",
             "caption": "Huawei Dorado Hyper Metro Pair: No Proxy?",
             "description": "Do not use a proxy.",
@@ -369,7 +387,7 @@
             "settings": {},
             "uuid": "74253f27-0a93-4309-aa88-78205c0139c3"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_hypermetropair_password",
             "caption": "Huawei Dorado Hyper Metro Pair: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -380,7 +398,7 @@
             },
             "uuid": "ac1c3321-6488-4b9d-b780-33d0d191de92"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_hypermetropair_password_file",
             "caption": "Huawei Dorado Hyper Metro Pair: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -391,7 +409,7 @@
             },
             "uuid": "3fcfc959-e2dd-4048-b389-2164e679df9d"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_hypermetropair_scope",
             "caption": "Huawei Dorado Hyper Metro Pair: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -402,7 +420,7 @@
             },
             "uuid": "a78859ad-9463-474c-b920-a12ba67ca18f"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_hypermetropair_timeout",
             "caption": "Huawei Dorado Hyper Metro Pair: Timeout",
             "description": "Network timeout in seconds.",
@@ -413,7 +431,7 @@
             },
             "uuid": "a91146f6-9f5c-49dc-8375-3573a777a12e"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_hypermetropair_url",
             "caption": "Huawei Dorado Hyper Metro Pair: URL",
             "description": "Huawei OceanStor Dorado API URL. URL to the endpoint.",
@@ -424,7 +442,7 @@
             },
             "uuid": "59517d8b-f3e2-4a4c-8335-b382febf3d8b"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_hypermetropair_username",
             "caption": "Huawei Dorado Hyper Metro Pair: Username",
             "description": "Huawei OceanStor Dorado API username. Username.",
@@ -435,7 +453,7 @@
             },
             "uuid": "4487a310-2b31-4440-814b-5d3127cee250"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_hypermetropair_verbose",
             "caption": "Huawei Dorado Hyper Metro Pair: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

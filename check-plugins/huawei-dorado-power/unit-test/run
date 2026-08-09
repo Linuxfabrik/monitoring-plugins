@@ -25,7 +25,8 @@ TESTS = [
         # non-normal state alike.
         'id': 'crit-power-supplies-offline',
         'test': 'stdout/power-supplies-warning,,0',
-        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -42,6 +43,18 @@ TESTS = [
             '23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004',
             '[CRITICAL] ! [CRITICAL]',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'crit-power-supplies-offline-core-columns',
+        'test': 'stdout/power-supplies-warning,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'UUID       ! Location    ! In (V) ! Out (V) ! Temp ! Health     ! Running',
+        ],
+        'assert-not-in': ['SerialNumber', 'Manufacturer', 'Produced'],
     },
     {
         # A power supply whose feed is dead answers with health 11 (no input). That is

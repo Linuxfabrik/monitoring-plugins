@@ -24,12 +24,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080706'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
 state or runs out of remaining service life, and optionally when its health score drops,
-when it has worn through most of its service life, or when it is running hot."""
+when it has worn through most of its service life, or when it is running hot.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
@@ -179,6 +180,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -642,36 +651,58 @@ def main():
     if args.BRIEF:
         display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
     if display_rows:
-        keys = [
-            'UUID',
-            'LOCATION',
-            'MANUFACTURER',
-            'MODEL',
-            'SERIALNUMBER',
-            'LOGICTYPE',
-            'ABRASIONRATE',
-            'health_mark',
-            'PROGRESS',
-            'RUNTIME',
-            'TEMPERATURE',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Location',
-            'Manufacturer',
-            'Model',
-            'SerialNumber',
-            'Usage',
-            'Wear%',
-            'Health#',
-            'Progress%',
-            'Runtime',
-            'Temp',
-            'Health',
-            'Running',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'MANUFACTURER',
+                'MODEL',
+                'SERIALNUMBER',
+                'LOGICTYPE',
+                'ABRASIONRATE',
+                'health_mark',
+                'PROGRESS',
+                'RUNTIME',
+                'TEMPERATURE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Manufacturer',
+                'Model',
+                'SerialNumber',
+                'Usage',
+                'Wear%',
+                'Health#',
+                'Progress%',
+                'Runtime',
+                'Temp',
+                'Health',
+                'Running',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'LOGICTYPE',
+                'ABRASIONRATE',
+                'health_mark',
+                'TEMPERATURE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Usage',
+                'Wear%',
+                'Health#',
+                'Temp',
+                'Health',
+                'Running',
+            ]
 
         msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 

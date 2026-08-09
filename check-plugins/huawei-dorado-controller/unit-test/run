@@ -21,7 +21,8 @@ TESTS = [
     {
         'id': 'crit-controller-health-critical',
         'test': 'stdout/controller-health-critical,,0',
-        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -34,6 +35,19 @@ TESTS = [
             '207:0A ! CTE0.A   ! Unknown            ! Primary   ! -      ! 3       '
             '! 75      ! 12.0 ! --   ! [CRITICAL] ! [OK]   ',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'crit-controller-health-critical-core-columns',
+        'test': 'stdout/controller-health-critical,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'UUID   ! Location ! Master ! CPU (%) ! Mem (%) ! Temp ! Health     ! Running',
+            '207:0A ! CTE0.A   ! -      ! 3       ! 75      ! --   ! [CRITICAL] ! [OK]   ',
+        ],
+        'assert-not-in': ['Volt'],
     },
     {
         # A controller board without a temperature sensor answers with -1. Read as a
@@ -52,7 +66,8 @@ TESTS = [
         # said nothing about print as the placeholder it uses itself.
         'id': 'ok-controller-without-optional-fields',
         'test': 'stdout/controller-without-optional-fields,,0',
-        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--lengthy',
         'assert-retc': STATE_OK,
         'assert-in': ['207:0E ! CTE0.E   ! Unknown ! Unknown ! -      ! --      ! --'],
         'assert-not-in': ['Unknown column'],

@@ -38,8 +38,8 @@ Checks every disk of a Huawei OceanStor Pacific storage system via the REST API 
 ```text
 usage: huawei-pacific-disk [-h] [-V] [--always-ok] [--brief]
                            [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                           [--ignore IGNORE] [--insecure] [--no-insecure]
-                           [--match MATCH]
+                           [--ignore IGNORE] [--insecure] [--lengthy]
+                           [--no-insecure] [--match MATCH]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
@@ -49,7 +49,8 @@ usage: huawei-pacific-disk [-h] [-V] [--always-ok] [--brief]
 Checks every disk of a Huawei OceanStor Pacific storage system via the REST
 API (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo
 endpoints). Alerts when a disk is not healthy, and when its remaining life
-falls below the warning or critical threshold.
+falls below the warning or critical threshold. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -75,6 +76,7 @@ options:
                         with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -137,6 +139,32 @@ Output:
 
 ```text
 There are critical errors.
+
+Pool  ! Media    ! Status     ! State
+------+----------+------------+------
+pool0 ! ssd_disk ! normal (0) ! [OK] 
+
+Node  ! Pool ! Slot ! Capacity ! Remaining Life ! Status      ! State
+------+------+------+----------+----------------+-------------+-----------
+FSM01 ! 0    ! 0-1  ! 1.7TiB   ! 10Y 1W         ! healthy (0) ! [OK]
+FSM01 ! 0    ! 0-2  ! 1.7TiB   ! 3M 1W          ! healthy (0) ! [WARNING]
+FSM01 ! 0    ! 0-3  ! 1.7TiB   ! 2W 6D          ! healthy (0) ! [CRITICAL]
+```
+
+`--lengthy` adds the media type, the role the disk plays in its pool and its serial number, which is what an RMA case needs:
+
+```bash
+./huawei-pacific-disk --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik --warning=180: --critical=30: --lengthy
+```
+
+Output:
+
+```text
+There are critical errors.
+
+Pool  ! Media    ! Status     ! State
+------+----------+------------+------
+pool0 ! ssd_disk ! normal (0) ! [OK] 
 
 Node  ! Pool ! Slot ! Type           ! Role                        ! Serial ! Capacity ! Remaining Life ! Status      ! State
 ------+------+------+----------------+-----------------------------+--------+----------+----------------+-------------+-----------

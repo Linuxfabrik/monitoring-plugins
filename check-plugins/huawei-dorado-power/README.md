@@ -39,7 +39,8 @@ usage: huawei-dorado-power [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE]
                            [--critical-temperature CRIT_TEMPERATURE]
                            [--device-id DEVICE_ID] [--ignore IGNORE]
-                           [--insecure] [--no-insecure] [--match MATCH]
+                           [--insecure] [--lengthy] [--no-insecure]
+                           [--match MATCH]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
@@ -48,7 +49,8 @@ usage: huawei-dorado-power [-h] [-V] [--always-ok]
 
 Checks the health and running status of all power modules on a Huawei
 OceanStor Dorado storage system via the REST API (/power endpoint). Alerts
-when any module reports a non-normal state.
+when any module reports a non-normal state. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -75,6 +77,7 @@ options:
                         match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -138,14 +141,33 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-pow
 Output:
 
 ```text
-There are warnings.
+There are critical errors.
 
-UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (MV) ! Out (MV) ! Temp ! Health    ! Running   
------------+-------------+--------------+---------------+----------------------+------------+---------+----------+------+-----------+-----------
-23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:23.64.0 ! DAE000.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0       ! 0        ! 0    ! [OK]      ! [OK]      
-23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004 ! 2014-05-03 ! 0       ! 0        ! 0    ! [WARNING] ! [WARNING]   
+UUID       ! Location    ! In (V) ! Out (V) ! Temp ! Health     ! Running   
+-----------+-------------+--------+---------+------+------------+-----------
+23:23.0.0  ! CTE0.PSU0   ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
+23:23.0.1  ! CTE0.PSU1   ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
+23:23.64.0 ! DAE000.PSU0 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
+23:0.0B.0  ! CTE0.PSU 0  ! 0.0    ! 0.0     ! --   ! [CRITICAL] ! [CRITICAL]
+```
+
+`--lengthy` adds the manufacturer, the model, the serial number and the manufacturing date, which is what an RMA case needs:
+
+```bash
+./huawei-dorado-power --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+There are critical errors.
+
+UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (V) ! Out (V) ! Temp ! Health     ! Running   
+-----------+-------------+--------------+---------------+----------------------+------------+--------+---------+------+------------+-----------
+23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
+23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
+23:23.64.0 ! DAE000.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
+23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004 ! 2014-05-03 ! 0.0    ! 0.0     ! --   ! [CRITICAL] ! [CRITICAL]
 ```
 
 

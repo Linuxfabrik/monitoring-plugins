@@ -23,7 +23,7 @@ TESTS = [
     {
         'id': 'ok-disks-healthy',
         'test': 'stdout/disks-healthy,,0',
-        'params': COMMON,
+        'params': f'{COMMON} --lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
@@ -32,11 +32,24 @@ TESTS = [
         ],
     },
     {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-disks-healthy-core-columns',
+        'test': 'stdout/disks-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Node  ! Pool ! Slot ! Capacity ! Remaining Life ! Status',
+            'FSM01 ! 0    ! 0-1  ! ',
+        ],
+        'assert-not-in': ['SSD (SSD_DISK)', 'SN-A1'],
+    },
+    {
         # A spinning disk has no wear-based life to report, so it must not be
         # dragged below the threshold by the zero the appliance sends.
         'id': 'ok-disk-without-remaining-life',
         'test': 'stdout/disks-healthy,,0',
-        'params': COMMON,
+        'params': f'{COMMON} --lengthy',
         'assert-retc': STATE_OK,
         'assert-in': ['SATA disk (SATA_DISK)', 'not reported'],
     },
@@ -98,7 +111,7 @@ TESTS = [
         # while the ones that need attention stay.
         'id': 'crit-brief-hides-the-healthy-disk',
         'test': 'stdout/disks-one-faulty,,0',
-        'params': f'{COMMON} --brief',
+        'params': f'{COMMON} --brief --lengthy',
         'assert-retc': STATE_CRIT,
         'assert-in': ['SN-A2', 'SN-B1', 'SN-B2'],
         'assert-not-in': ['SN-A1 '],

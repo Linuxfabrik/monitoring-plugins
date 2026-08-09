@@ -39,7 +39,8 @@ usage: huawei-dorado-controller [-h] [-V] [--always-ok]
                                 [--cache-expire CACHE_EXPIRE] [-c CRIT]
                                 [--critical-temperature CRIT_TEMPERATURE]
                                 [--device-id DEVICE_ID] [--ignore IGNORE]
-                                [--insecure] [--no-insecure] [--match MATCH]
+                                [--insecure] [--lengthy] [--no-insecure]
+                                [--match MATCH]
                                 [--no-match-severity {ok,warn,crit,unknown}]
                                 [--no-perfdata] [--no-proxy] [--performance]
                                 [--password PASSWORD]
@@ -52,7 +53,8 @@ Checks the health and running status of all controllers on a Huawei OceanStor
 Dorado storage system via the REST API (/controller endpoint). Alerts when any
 controller reports a non-normal health or running state, and optionally when
 its CPU, memory or temperature exceeds the configured thresholds. Supports
-reporting the I/O and cache counters via --performance.
+extended reporting via --lengthy, and reporting the I/O and cache counters via
+--performance.
 
 options:
   -h, --help            show this help message and exit
@@ -83,6 +85,7 @@ options:
                         anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -155,13 +158,33 @@ Output:
 ```text
 There are critical errors.
 
-UUID   ! Location ! Model                               ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Temp ! Health     ! Running
--------+----------+-------------------------------------+-----------+--------+---------+---------+------+------+------------+--------
-207:0A ! CTE0.A   ! Unknown                             ! Primary   ! -      ! 3       ! 75      ! 12.0 ! --   ! [CRITICAL] ! [OK]   
-207:0A ! CTE0.A   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 87      ! 12.0 ! --   ! [OK]       ! [OK]   
-207:0B ! CTE0.B   ! V6R1C00 4U4C high-end control board ! Primary   ! x      ! 17      ! 87      ! 12.0 ! 41   ! [OK]       ! [OK]   
-207:0C ! CTE0.C   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 33      ! 86      ! 12.0 ! 42   ! [OK]       ! [OK]   
-207:0D ! CTE0.D   ! V6R1C00 4U4C high-end control board ! Secondary ! -      ! 32      ! 92      ! 12.0 ! 40   ! [OK]       ! [OK]
+UUID   ! Location ! Master ! CPU (%) ! Mem (%) ! Temp ! Health     ! Running
+-------+----------+--------+---------+---------+------+------------+--------
+207:0A ! CTE0.A   ! -      ! 3       ! 75      ! --   ! [CRITICAL] ! [OK]   
+207:0E ! CTE0.E   ! -      ! 33      ! 87      ! --   ! [OK]       ! [OK]   
+207:0B ! CTE0.B   ! x      ! 17      ! 87      ! --   ! [OK]       ! [OK]   
+207:0C ! CTE0.C   ! -      ! 33      ! 86      ! --   ! [OK]       ! [OK]   
+207:0D ! CTE0.D   ! -      ! 32      ! 92      ! --   ! [OK]       ! [OK]
+```
+
+`--lengthy` adds the board model, its role in the pair and the board voltage:
+
+```bash
+./huawei-dorado-controller --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+There are critical errors.
+
+UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Temp ! Health     ! Running
+-------+----------+--------------------+-----------+--------+---------+---------+------+------+------------+--------
+207:0A ! CTE0.A   ! Unknown            ! Primary   ! -      ! 3       ! 75      ! 12.0 ! --   ! [CRITICAL] ! [OK]   
+207:0E ! CTE0.E   ! 4U4C control board ! Secondary ! -      ! 33      ! 87      ! 12.0 ! --   ! [OK]       ! [OK]   
+207:0B ! CTE0.B   ! 4U4C control board ! Primary   ! x      ! 17      ! 87      ! 12.0 ! --   ! [OK]       ! [OK]   
+207:0C ! CTE0.C   ! 4U4C control board ! Secondary ! -      ! 33      ! 86      ! 12.0 ! --   ! [OK]       ! [OK]   
+207:0D ! CTE0.D   ! 4U4C control board ! Secondary ! -      ! 32      ! 92      ! 12.0 ! --   ! [OK]       ! [OK]
 ```
 
 

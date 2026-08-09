@@ -24,13 +24,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080706'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
 Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
 reports a non-normal health status, when its receive or transmit power leaves the range the module
 itself reports as its operating range, and optionally when its link is down. A degrading transceiver
-or a dirty connector shows up as falling receive power long before the link drops."""
+or a dirty connector shows up as falling receive power long before the link drops.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
@@ -178,6 +179,14 @@ def parse_args():
         dest='LINK_DOWN_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_LINK_DOWN_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -599,32 +608,54 @@ def main():
     if args.BRIEF:
         display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
     if display_rows:
-        keys = [
-            'location',
-            'sits_in',
-            'vendor',
-            'model',
-            'mode',
-            'speed',
-            'rx_power',
-            'tx_power',
-            'link',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'Location',
-            'Sits In',
-            'Vendor',
-            'Model',
-            'Mode',
-            'Mbit/s',
-            'Rx (dBm)',
-            'Tx (dBm)',
-            'Link',
-            'Health',
-            'Link State',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'location',
+                'sits_in',
+                'vendor',
+                'model',
+                'mode',
+                'speed',
+                'rx_power',
+                'tx_power',
+                'link',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'Location',
+                'Sits In',
+                'Vendor',
+                'Model',
+                'Mode',
+                'Mbit/s',
+                'Rx (dBm)',
+                'Tx (dBm)',
+                'Link',
+                'Health',
+                'Link State',
+            ]
+        else:
+            keys = [
+                'location',
+                'sits_in',
+                'speed',
+                'rx_power',
+                'tx_power',
+                'link',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'Location',
+                'Sits In',
+                'Mbit/s',
+                'Rx (dBm)',
+                'Tx (dBm)',
+                'Link',
+                'Health',
+                'Link State',
+            ]
 
         msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 

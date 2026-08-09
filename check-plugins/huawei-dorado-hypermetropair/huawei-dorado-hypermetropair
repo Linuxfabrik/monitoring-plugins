@@ -25,11 +25,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
-pair reports a non-normal state or synchronization issue."""
+pair reports a non-normal state or synchronization issue.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
@@ -144,6 +145,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -518,36 +527,58 @@ def main():
     if args.BRIEF:
         display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
     if display_rows:
-        keys = [
-            'UUID',
-            'sync_last',
-            'sync_duration',
-            'SYNCPROGRESS',
-            'LOCALOBJNAME',
-            'LOCALHOSTACCESSSTATE',
-            'REMOTEOBJNAME',
-            'REMOTEHOSTACCESSSTATE',
-            'link',
-            'local_data',
-            'remote_data',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Last Sync',
-            'Duration',
-            'Progr (%)',
-            'LocalJob',
-            'Access',
-            'RemoteJob',
-            'Access',
-            'Link',
-            'Local Data',
-            'Remote Data',
-            'Health',
-            'Running',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'sync_last',
+                'sync_duration',
+                'SYNCPROGRESS',
+                'LOCALOBJNAME',
+                'LOCALHOSTACCESSSTATE',
+                'REMOTEOBJNAME',
+                'REMOTEHOSTACCESSSTATE',
+                'link',
+                'local_data',
+                'remote_data',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Last Sync',
+                'Duration',
+                'Progr (%)',
+                'LocalJob',
+                'Access',
+                'RemoteJob',
+                'Access',
+                'Link',
+                'Local Data',
+                'Remote Data',
+                'Health',
+                'Running',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'sync_last',
+                'SYNCPROGRESS',
+                'LOCALOBJNAME',
+                'REMOTEOBJNAME',
+                'link',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Last Sync',
+                'Progr (%)',
+                'LocalJob',
+                'RemoteJob',
+                'Link',
+                'Health',
+                'Running',
+            ]
 
         msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
 

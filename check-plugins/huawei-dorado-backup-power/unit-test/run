@@ -32,7 +32,8 @@ TESTS = [
     {
         'id': 'warn-psu-running-warning',
         'test': 'stdout/psu-running-warning,,0',
-        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_WARN,
         'assert-in': [
             'There are warnings.',
@@ -44,6 +45,19 @@ TESTS = [
             '210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7           ! 5Y 4M  '
             '! 16.1 ! [OK]   ! [WARNING]',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'warn-psu-running-warning-core-columns',
+        'test': 'stdout/psu-running-warning,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'UUID       ! Location   ! Remain ! Volt ! Health ! Running  ',
+            '210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]',
+        ],
+        'assert-not-in': ['ControllerID', '#Discharged'],
     },
     {
         # An appliance always has backup power modules. An empty list means the query

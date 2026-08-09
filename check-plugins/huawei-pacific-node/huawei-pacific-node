@@ -23,11 +23,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080705'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
-online or its OAM agent is not healthy."""
+online or its OAM agent is not healthy.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_INSECURE = True
@@ -99,6 +100,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -379,34 +388,56 @@ def main():
 
     # build table output
     if table_data:
-        keys = [
-            'name',
-            'management_ip',
-            'model',
-            'base_board',
-            'software_version',
-            'running_status',
-            'oam_agent_status',
-            'error_code',
-            'warranty',
-            'running_state',
-            'oam_state',
-            'error_state',
-        ]
-        headers = [
-            'Name',
-            'Management IP',
-            'Model',
-            'Base Board',
-            'Software Version',
-            'Running',
-            'OAM Agent',
-            'Error Code',
-            'Warranty',
-            'Running State',
-            'OAM State',
-            'Error State',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'name',
+                'management_ip',
+                'model',
+                'base_board',
+                'software_version',
+                'running_status',
+                'oam_agent_status',
+                'error_code',
+                'warranty',
+                'running_state',
+                'oam_state',
+                'error_state',
+            ]
+            headers = [
+                'Name',
+                'Management IP',
+                'Model',
+                'Base Board',
+                'Software Version',
+                'Running',
+                'OAM Agent',
+                'Error Code',
+                'Warranty',
+                'Running State',
+                'OAM State',
+                'Error State',
+            ]
+        else:
+            keys = [
+                'name',
+                'running_status',
+                'oam_agent_status',
+                'error_code',
+                'warranty',
+                'running_state',
+                'oam_state',
+                'error_state',
+            ]
+            headers = [
+                'Name',
+                'Running',
+                'OAM Agent',
+                'Error Code',
+                'Warranty',
+                'Running State',
+                'OAM State',
+                'Error State',
+            ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 

@@ -42,7 +42,7 @@ usage: huawei-dorado-storagepool [-h] [-V] [--always-ok]
                                  [--critical-overprovisioning CRIT_OVERPROVISIONING]
                                  [--device-id DEVICE_ID]
                                  [--device-threshold-severity {ok,warn,crit,unknown}]
-                                 [--ignore IGNORE] [--insecure]
+                                 [--ignore IGNORE] [--insecure] [--lengthy]
                                  [--match MATCH] [--no-insecure]
                                  [--no-match-severity {ok,warn,crit,unknown}]
                                  [--no-perfdata] [--no-proxy] [--performance]
@@ -58,7 +58,8 @@ Huawei OceanStor Dorado storage system via the REST API (/storagepool
 endpoint). Alerts when a pool reports a non-normal state, when its used
 capacity reaches the warning or critical threshold, and when it reaches the
 threshold the storage administrator configured on the appliance itself.
-Supports reporting the I/O counters via --performance.
+Supports extended reporting via --lengthy, and reporting the I/O counters via
+--performance.
 
 options:
   -h, --help            show this help message and exit
@@ -99,6 +100,7 @@ options:
                         anywhere. Default: None
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --match MATCH         Filter by storage pools. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -174,10 +176,27 @@ Output:
 ```text
 Everything is ok.
 
-UUID  ! Name           ! Disk Domain   ! Used     ! Total    ! Usage ! Usage State ! Reduction ! Health ! Running
-------+----------------+---------------+----------+----------+-------+-------------+-----------+--------+--------
-216:0 ! StoragePool001 ! DiskDomain000 ! 303.3GiB ! 1.5TiB   ! 20%   ! [OK]        ! 3.2:1     ! [OK]   ! [OK]
-216:1 ! StoragePool002 ! DiskDomain000 ! 37.9GiB  ! 758.3GiB ! 5%    ! [OK]        ! 3.2:1     ! [OK]   ! [OK]
+UUID  ! Name           ! Used     ! Total    ! Usage ! Overprov ! Usage State ! Health ! Running
+------+----------------+----------+----------+-------+----------+-------------+--------+--------
+216:0 ! StoragePool001 ! 303.3GiB ! 1.5TiB   ! 20%   ! 100%     ! [OK]        ! [OK]   ! [OK]   
+216:1 ! StoragePool002 ! 37.9GiB  ! 758.3GiB ! 5%    ! 200%     ! [OK]        ! [OK]   ! [OK]
+```
+
+`--lengthy` adds the disk domain, the fill threshold configured on the appliance and the data reduction ratio:
+
+```bash
+./huawei-dorado-storagepool --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+Everything is ok.
+
+UUID  ! Name           ! Disk Domain   ! Used     ! Total    ! Usage ! Device Limit ! Overprov ! Reduction ! Usage State ! Health ! Running
+------+----------------+---------------+----------+----------+-------+--------------+----------+-----------+-------------+--------+--------
+216:0 ! StoragePool001 ! DiskDomain000 ! 303.3GiB ! 1.5TiB   ! 20%   ! 80%          ! 100%     ! 3.2:1     ! [OK]        ! [OK]   ! [OK]   
+216:1 ! StoragePool002 ! DiskDomain000 ! 37.9GiB  ! 758.3GiB ! 5%    ! 80%          ! 200%     ! 3.2:1     ! [OK]        ! [OK]   ! [OK]
 ```
 
 Alert earlier than the defaults, and only on the pools of one disk domain:

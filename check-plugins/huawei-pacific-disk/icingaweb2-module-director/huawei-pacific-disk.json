@@ -21,6 +21,9 @@
                 "--insecure": {
                     "set_if": "$huawei_pacific_disk_insecure$"
                 },
+                "--lengthy": {
+                    "set_if": "$huawei_pacific_disk_lengthy$"
+                },
                 "--no-insecure": {
                     "set_if": "$huawei_pacific_disk_no_insecure$"
                 },
@@ -142,7 +145,7 @@
                 },
                 {
                     "datafield_id": 16,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -152,11 +155,16 @@
                 },
                 {
                     "datafield_id": 18,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -202,7 +210,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks every disk of a Huawei OceanStor Pacific storage system via the REST API (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is not healthy, and when its remaining life falls below the warning or critical threshold.",
+            "notes": "Checks every disk of a Huawei OceanStor Pacific storage system via the REST API (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is not healthy, and when its remaining life falls below the warning or critical threshold. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-disk/",
             "object_name": "tpl-service-huawei-pacific-disk",
             "object_type": "template",
@@ -219,6 +227,7 @@
                 "huawei_pacific_disk_critical": "30:",
                 "huawei_pacific_disk_ignore": [],
                 "huawei_pacific_disk_insecure": true,
+                "huawei_pacific_disk_lengthy": false,
                 "huawei_pacific_disk_match": [],
                 "huawei_pacific_disk_no_match_severity": "ok",
                 "huawei_pacific_disk_no_perfdata": false,
@@ -328,6 +337,15 @@
             "uuid": "97e6802d-aba0-40f4-913a-e2a704408de1"
         },
         "7": {
+            "varname": "huawei_pacific_disk_lengthy",
+            "caption": "Huawei Pacific Disk: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "995366a9-e1f4-479f-b9a3-b9fcb298b8f5"
+        },
+        "8": {
             "varname": "huawei_pacific_disk_no_insecure",
             "caption": "Huawei Pacific Disk: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -336,7 +354,7 @@
             "settings": {},
             "uuid": "f4d3d729-924e-4af9-9535-0b7639ef6982"
         },
-        "8": {
+        "9": {
             "varname": "huawei_pacific_disk_match",
             "caption": "Huawei Pacific Disk: Match",
             "description": "Filter by disks. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the node name, the disk pool, the serial number and the slot, so prefix with `.*` to match anywhere.",
@@ -347,7 +365,7 @@
             },
             "uuid": "4c8aed2b-1148-4e57-a079-ff03e20ac399"
         },
-        "9": {
+        "10": {
             "varname": "huawei_pacific_disk_no_match_severity",
             "caption": "Huawei Pacific Disk: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -360,7 +378,7 @@
             },
             "uuid": "6347c448-d132-49e9-9895-2fea3cf7ef7c"
         },
-        "10": {
+        "11": {
             "varname": "huawei_pacific_disk_no_perfdata",
             "caption": "Huawei Pacific Disk: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -369,7 +387,7 @@
             "settings": {},
             "uuid": "b86decd7-db32-4145-8241-586459c01c00"
         },
-        "11": {
+        "12": {
             "varname": "huawei_pacific_disk_no_proxy",
             "caption": "Huawei Pacific Disk: No Proxy?",
             "description": "Do not use a proxy.",
@@ -378,7 +396,7 @@
             "settings": {},
             "uuid": "2e762867-d137-4369-8202-c868aa8a7d84"
         },
-        "12": {
+        "13": {
             "varname": "huawei_pacific_disk_password",
             "caption": "Huawei Pacific Disk: Password",
             "description": "Huawei OceanStor Pacific API password. Password.",
@@ -389,7 +407,7 @@
             },
             "uuid": "f89f1d88-b23d-4ad7-a321-a6a462853f21"
         },
-        "13": {
+        "14": {
             "varname": "huawei_pacific_disk_password_file",
             "caption": "Huawei Pacific Disk: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -400,7 +418,7 @@
             },
             "uuid": "06a3bdb3-7b62-40e9-b4bf-7f1fff72b1b5"
         },
-        "14": {
+        "15": {
             "varname": "huawei_pacific_disk_scope",
             "caption": "Huawei Pacific Disk: Scope",
             "description": "Huawei OceanStor Pacific API scope.",
@@ -411,7 +429,7 @@
             },
             "uuid": "7678a592-35c4-49f0-9d00-2f43935f12f5"
         },
-        "15": {
+        "16": {
             "varname": "huawei_pacific_disk_timeout",
             "caption": "Huawei Pacific Disk: Timeout",
             "description": "Network timeout in seconds.",
@@ -422,7 +440,7 @@
             },
             "uuid": "0ce23f3d-78b9-41f4-bdd6-e23f708c288e"
         },
-        "16": {
+        "17": {
             "varname": "huawei_pacific_disk_url",
             "caption": "Huawei Pacific Disk: URL",
             "description": "Huawei OceanStor Pacific API URL. URL to the endpoint.",
@@ -433,7 +451,7 @@
             },
             "uuid": "17a8fcb9-3615-45d5-b87e-4c628f95c56d"
         },
-        "17": {
+        "18": {
             "varname": "huawei_pacific_disk_username",
             "caption": "Huawei Pacific Disk: Username",
             "description": "Huawei OceanStor Pacific API username. Username.",
@@ -444,7 +462,7 @@
             },
             "uuid": "82794211-d63e-45ba-b2e0-c40109243d87"
         },
-        "18": {
+        "19": {
             "varname": "huawei_pacific_disk_warning",
             "caption": "Huawei Pacific Disk: Warning",
             "description": "WARN threshold for the remaining life of a disk, as a Nagios range in days.",
@@ -455,7 +473,7 @@
             },
             "uuid": "858ecbbc-c106-468a-8cd4-87c46465738b"
         },
-        "19": {
+        "20": {
             "varname": "huawei_pacific_disk_verbose",
             "caption": "Huawei Pacific Disk: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

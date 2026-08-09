@@ -35,7 +35,8 @@ Checks the health and running status of all cluster nodes on a Huawei OceanStor 
 ```text
 usage: huawei-pacific-node [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                           [--insecure] [--no-insecure] [--match MATCH]
+                           [--insecure] [--lengthy] [--no-insecure]
+                           [--match MATCH]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--scope SCOPE]
@@ -44,7 +45,8 @@ usage: huawei-pacific-node [-h] [-V] [--always-ok]
 
 Checks the health and running status of all cluster nodes on a Huawei
 OceanStor Pacific storage system via the REST API (/cluster/servers endpoint).
-Alerts when any node is not online or its OAM agent is not healthy.
+Alerts when any node is not online or its OAM agent is not healthy. Supports
+extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -62,6 +64,7 @@ options:
                         to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -130,10 +133,27 @@ Output:
 ```text
 Everything is ok.
 
-Name  ! Management IP ! Model             ! Base Board         ! Software Version ! Running ! OAM Agent   ! Running State ! OAM State
-------+---------------+-------------------+--------------------+------------------+---------+-------------+---------------+----------
-FSM01 ! 192.0.2.11    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! [OK]          ! [OK]
-HN00  ! 192.0.2.12    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! [OK]          ! [OK]
+Name  ! Running ! OAM Agent   ! Error Code ! Warranty                                  ! Running State ! OAM State ! Error State
+------+---------+-------------+------------+-------------------------------------------+---------------+-----------+------------
+FSM01 ! online  ! healthy (0) ! --         ! normal, more than six months (1)          ! [OK]          ! [OK]      ! [OK]       
+HN00  ! online  ! healthy (0) ! --         ! about to expire, less than six months (2) ! [OK]          ! [OK]      ! [OK]
+```
+
+`--lengthy` adds the management IP, the hardware model and the software version of every node:
+
+```bash
+./huawei-pacific-node --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+Everything is ok.
+
+Name  ! Management IP ! Model             ! Base Board         ! Software Version ! Running ! OAM Agent   ! Error Code ! Warranty                                  ! Running State ! OAM State ! Error State
+------+---------------+-------------------+--------------------+------------------+---------+-------------+------------+-------------------------------------------+---------------+-----------+------------
+FSM01 ! 192.0.2.11    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! --         ! normal, more than six months (1)          ! [OK]          ! [OK]      ! [OK]       
+HN00  ! 192.0.2.12    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! --         ! about to expire, less than six months (2) ! [OK]          ! [OK]      ! [OK]
 ```
 
 

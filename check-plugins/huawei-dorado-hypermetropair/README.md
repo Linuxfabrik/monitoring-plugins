@@ -37,7 +37,7 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok] [--brief]
                                     [--cache-expire CACHE_EXPIRE]
                                     [--device-id DEVICE_ID] [--ignore IGNORE]
-                                    [--insecure] [--no-insecure]
+                                    [--insecure] [--lengthy] [--no-insecure]
                                     [--match MATCH]
                                     [--no-match-severity {ok,warn,crit,unknown}]
                                     [--no-perfdata] [--no-proxy]
@@ -49,6 +49,7 @@ usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok] [--brief]
 Checks the health and running status of all HyperMetro pairs on a Huawei
 OceanStor Dorado storage system via the REST API (/hypermetropair endpoint).
 Alerts when any pair reports a non-normal state or synchronization issue.
+Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -76,6 +77,7 @@ options:
                         prefix with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -137,11 +139,29 @@ Output:
 ```text
 Everything is ok.
 
-UUID                                   ! Link ! Last Sync                       ! Duration ! Progr (%) ! LocalJob  ! DataState ! Access ! RemoteJob ! DataState ! Access ! Health ! Running 
----------------------------------------+------+---------------------------------+----------+-----------+-----------+-----------+--------+-----------+-----------+--------+--------+---------
-15361:2100f4b78d046ec60000000000000000 ! [OK] ! 2021-08-18 10:39:47 (3M 6D ago) ! 2m 1s    ! 100       ! LUN01-BLH ! [OK]      ! R/W    ! LUN01-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000001 ! [OK] ! 2021-08-18 10:39:50 (3M 6D ago) ! 2m 3s    ! 100       ! LUN02-BLH ! [OK]      ! R/W    ! LUN02-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
-15361:2100f4b78d046ec60000000000000002 ! [OK] ! 2021-08-18 10:38:29 (3M 6D ago) ! 42s      ! 100       ! LUN03-BLH ! [OK]      ! R/W    ! LUN03-COL ! [OK]      ! R/W    ! [OK]   ! [OK]    
+UUID                                   ! Last Sync                       ! Progr (%) ! LocalJob  ! RemoteJob ! Link          ! Health ! Running
+---------------------------------------+---------------------------------+-----------+-----------+-----------+---------------+--------+--------
+15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47 (3M 6D ago) ! 100       ! LUN01-BLH ! LUN01-COL ! Connected (1) ! [OK]   ! [OK]   
+15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50 (3M 6D ago) ! 100       ! LUN02-BLH ! LUN02-COL ! Connected (1) ! [OK]   ! [OK]   
+15361:2100f4b78d046ec60000000000000002 ! 2021-08-18 10:38:29 (3M 6D ago) ! 100       ! LUN03-BLH ! LUN03-COL ! Connected (1) ! [OK]   ! [OK]
+```
+
+`--lengthy` adds how long the last synchronisation ran, the host access state of both sides and whether their data is consistent:
+
+```bash
+./huawei-dorado-hypermetropair --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+Everything is ok.
+
+UUID                                   ! Last Sync                       ! Duration ! Progr (%) ! LocalJob  ! Access     ! RemoteJob ! Access     ! Link          ! Local Data     ! Remote Data    ! Health ! Running
+---------------------------------------+---------------------------------+----------+-----------+-----------+------------+-----------+------------+---------------+----------------+----------------+--------+--------
+15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47 (3M 6D ago) ! 2m 1s    ! 100       ! LUN01-BLH ! Read/write ! LUN01-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! [OK]   ! [OK]   
+15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50 (3M 6D ago) ! 2m 3s    ! 100       ! LUN02-BLH ! Read/write ! LUN02-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! [OK]   ! [OK]   
+15361:2100f4b78d046ec60000000000000002 ! 2021-08-18 10:38:29 (3M 6D ago) ! 42s      ! 100       ! LUN03-BLH ! Read/write ! LUN03-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! [OK]   ! [OK]
 ```
 
 

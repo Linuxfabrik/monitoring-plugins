@@ -23,13 +23,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080706'
+__version__ = '2026080901'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
 reports a non-normal health or running state, and optionally when its CPU, memory or
 temperature exceeds the configured thresholds.
-Supports reporting the I/O and cache counters via --performance."""
+Supports extended reporting via --lengthy, and reporting the I/O and cache counters
+via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = ''
@@ -162,6 +163,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -547,32 +556,54 @@ def main():
 
     # build table output
     if table_data:
-        keys = [
-            'UUID',
-            'LOCATION',
-            'MODEL',
-            'ROLE',
-            'ISMASTER',
-            'CPUUSAGE',
-            'MEMORYUSAGE',
-            'VOLTAGE',
-            'TEMPERATURE',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Location',
-            'Model',
-            'Role',
-            'Master',
-            'CPU (%)',
-            'Mem (%)',
-            'Volt',
-            'Temp',
-            'Health',
-            'Running',
-        ]
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'MODEL',
+                'ROLE',
+                'ISMASTER',
+                'CPUUSAGE',
+                'MEMORYUSAGE',
+                'VOLTAGE',
+                'TEMPERATURE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Model',
+                'Role',
+                'Master',
+                'CPU (%)',
+                'Mem (%)',
+                'Volt',
+                'Temp',
+                'Health',
+                'Running',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'ISMASTER',
+                'CPUUSAGE',
+                'MEMORYUSAGE',
+                'TEMPERATURE',
+                'health_state',
+                'running_state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Master',
+                'CPU (%)',
+                'Mem (%)',
+                'Temp',
+                'Health',
+                'Running',
+            ]
 
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
 

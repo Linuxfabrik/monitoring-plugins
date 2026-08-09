@@ -27,6 +27,9 @@
                 "--insecure": {
                     "set_if": "$huawei_dorado_storagepool_insecure$"
                 },
+                "--lengthy": {
+                    "set_if": "$huawei_dorado_storagepool_lengthy$"
+                },
                 "--match": {
                     "value": "$huawei_dorado_storagepool_match$",
                     "repeat_key": true
@@ -169,7 +172,7 @@
                 },
                 {
                     "datafield_id": 19,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -179,7 +182,7 @@
                 },
                 {
                     "datafield_id": 21,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -189,6 +192,11 @@
                 },
                 {
                     "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -234,7 +242,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health, running status and capacity usage of all storage pools on a Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool reports a non-normal state, when its used capacity reaches the warning or critical threshold, and when it reaches the threshold the storage administrator configured on the appliance itself. Supports reporting the I/O counters via --performance.",
+            "notes": "Checks the health, running status and capacity usage of all storage pools on a Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool reports a non-normal state, when its used capacity reaches the warning or critical threshold, and when it reaches the threshold the storage administrator configured on the appliance itself. Supports extended reporting via --lengthy, and reporting the I/O counters via --performance.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-storagepool/",
             "object_name": "tpl-service-huawei-dorado-storagepool",
             "object_type": "template",
@@ -253,6 +261,7 @@
                 "huawei_dorado_storagepool_device_threshold_severity": "warn",
                 "huawei_dorado_storagepool_ignore": [],
                 "huawei_dorado_storagepool_insecure": true,
+                "huawei_dorado_storagepool_lengthy": false,
                 "huawei_dorado_storagepool_match": [],
                 "huawei_dorado_storagepool_no_match_severity": "ok",
                 "huawei_dorado_storagepool_no_perfdata": false,
@@ -421,6 +430,15 @@
             "uuid": "4b03f7bf-ca2f-4dd8-ad4f-e5f85217dafd"
         },
         "9": {
+            "varname": "huawei_dorado_storagepool_lengthy",
+            "caption": "Huawei Dorado Storagepool: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9178aae6-5ff2-4f1c-bb9a-553dfd463f49"
+        },
+        "10": {
             "varname": "huawei_dorado_storagepool_match",
             "caption": "Huawei Dorado Storagepool: Match",
             "description": "Filter by storage pools. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against the pool identifier, the pool name and the name of its disk domain, so prefix with `.*` to match anywhere.",
@@ -431,7 +449,7 @@
             },
             "uuid": "edc45071-c629-42d7-a3bc-4f5032271ab2"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_storagepool_no_insecure",
             "caption": "Huawei Dorado Storagepool: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -440,7 +458,7 @@
             "settings": {},
             "uuid": "27dcabdd-90ec-49ca-86ac-4bd79f96b25a"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_storagepool_no_match_severity",
             "caption": "Huawei Dorado Storagepool: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -453,7 +471,7 @@
             },
             "uuid": "78d8d48a-3a16-4779-af28-e209c38d0c4b"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_storagepool_no_perfdata",
             "caption": "Huawei Dorado Storagepool: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -462,7 +480,7 @@
             "settings": {},
             "uuid": "d81da56c-a931-4b14-b854-189f0caf45a8"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_storagepool_no_proxy",
             "caption": "Huawei Dorado Storagepool: No Proxy?",
             "description": "Do not use a proxy.",
@@ -471,7 +489,7 @@
             "settings": {},
             "uuid": "da63fd39-3951-4feb-818c-1f22fcb2489a"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_storagepool_performance",
             "caption": "Huawei Dorado Storagepool: Performance?",
             "description": "Additionally report the I/O counters of every storage pool. Costs one API request per object, so a large appliance may need a higher --timeout.",
@@ -480,7 +498,7 @@
             "settings": {},
             "uuid": "6a3968e4-48a3-41a2-9baa-e0b815556f70"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_storagepool_password",
             "caption": "Huawei Dorado Storagepool: Password",
             "description": "Huawei OceanStor Dorado API password. Password.",
@@ -491,7 +509,7 @@
             },
             "uuid": "4ff52cae-f899-40dd-a484-74eaf0528711"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_storagepool_password_file",
             "caption": "Huawei Dorado Storagepool: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -502,7 +520,7 @@
             },
             "uuid": "270c09c0-d955-4183-bb3b-a54930ceda26"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_storagepool_scope",
             "caption": "Huawei Dorado Storagepool: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -513,7 +531,7 @@
             },
             "uuid": "7eb761f3-0e4f-4a3b-ae73-c55a4db2dc0a"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_storagepool_timeout",
             "caption": "Huawei Dorado Storagepool: Timeout",
             "description": "Network timeout in seconds.",
@@ -524,7 +542,7 @@
             },
             "uuid": "55bb8b00-ca08-451a-9436-30f1b97514a3"
         },
-        "19": {
+        "20": {
             "varname": "huawei_dorado_storagepool_url",
             "caption": "Huawei Dorado Storagepool: URL",
             "description": "Huawei OceanStor Dorado API URL. URL to the endpoint.",
@@ -535,7 +553,7 @@
             },
             "uuid": "c7c914f9-4157-45ec-b13f-af60425d4e40"
         },
-        "20": {
+        "21": {
             "varname": "huawei_dorado_storagepool_username",
             "caption": "Huawei Dorado Storagepool: Username",
             "description": "Huawei OceanStor Dorado API username. Username.",
@@ -546,7 +564,7 @@
             },
             "uuid": "94f72de3-5ec6-4a2e-9947-5bb9fb3cd369"
         },
-        "21": {
+        "22": {
             "varname": "huawei_dorado_storagepool_warning",
             "caption": "Huawei Dorado Storagepool: Warning",
             "description": "WARN threshold for the used capacity of a pool, as a Nagios range in percent.",
@@ -557,7 +575,7 @@
             },
             "uuid": "be38ef2b-7a69-4723-a127-e7d120b66a0d"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_storagepool_warning_overprovisioning",
             "caption": "Huawei Dorado Storagepool: Warning Overprovisioning",
             "description": "WARN threshold for the overprovisioning of a pool, as a Nagios range in percent of its total capacity that is handed out to LUNs. Above 100 percent the pool is thin provisioned, which is what thin provisioning is for; what matters is how far the promise exceeds the disks behind it. Off by default. Example: `--warning-overprovisioning=200`",
@@ -568,7 +586,7 @@
             },
             "uuid": "22ff1522-8bd6-40a9-ae9c-5d4385255d3d"
         },
-        "23": {
+        "24": {
             "varname": "huawei_dorado_storagepool_verbose",
             "caption": "Huawei Dorado Storagepool: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
