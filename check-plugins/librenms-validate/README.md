@@ -259,11 +259,12 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
 * WARN if a validation run did not finish within `--timeout`. The runs that did finish keep their findings and the summary names the group that was left unchecked, so a slow group cannot hide a problem another group reported. A run that finds a failure still wins over the timeout.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* UNKNOWN if LibreNMS cannot validate the installation at all: it refuses to run as the configured `--user`, its PHP dependencies are missing, its configuration file is broken or does not name the installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. The exit code of the validation cannot tell these apart from an ordinary finding, so the state comes from the report rather than from the exit code.
+* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, or its configuration file does not parse, does not start with an opening PHP tag, or ends with a closing one. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart.
+* UNKNOWN if the check cannot reach a validation at all: LibreNMS refuses to run as the configured `--user`, it does not know its own installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. These say nothing about the installation and are usually a matter of `--path`, `--php-path` or `--user`.
 * UNKNOWN if a validation reports a status this check has no meaning for. The summary counts those results separately, so an UNKNOWN never appears next to a line claiming nothing was found. This is what a LibreNMS release that introduced a new status looks like; update the check.
 * OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
 * OK if `--match` and `--ignore` dropped every validation result there was, for the same reason and controlled by the same `--no-match-severity`. A group that ran and found nothing is not this case and stays a clean result.
-* Always OK if `--always-ok` is set.
+* Always OK if `--always-ok` is set. That covers the WARN and CRIT states above, including the aborted validation of a broken installation. It does not cover UNKNOWN, which is reported whatever else is set.
 
 `--brief` and `--lengthy` change what is printed, never the state: a finding that `--brief` hides still drives the result. `--brief` hides every row that ended up OK, which includes a failure that `--fail-severity=ok` took out of the alerting. `--match` and `--ignore` do change the state, since a filtered finding is dropped before it is evaluated.
 
@@ -275,6 +276,7 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 | fail_count       | Number | Number of validations LibreNMS reported as failed. |
 | info_count       | Number | Number of validations that returned an informational result. |
 | ok_count         | Number | Number of validations that returned success. |
+| unknown_count    | Number | Number of validations LibreNMS reported under a status this check has no meaning for. |
 | validation_count | Number | Number of validations checked in total. |
 | warn_count       | Number | Number of validations LibreNMS reported as a warning. |
 

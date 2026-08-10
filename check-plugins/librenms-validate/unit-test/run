@@ -294,36 +294,38 @@ TESTS = [
         'assert-in': ['--user'],
     },
     # The other bootstrap failure: validate.php gives up before it can load anything,
-    # which is not the same as an installation that validated cleanly.
+    # which is not the same as an installation that validated cleanly. The installation
+    # is broken and somebody has to repair it, so this is a warning rather than an
+    # UNKNOWN nobody reads.
     {
-        'id': 'unknown-composer-missing',
+        'id': 'warn-composer-missing',
         'test': 'stdout/composer-not-run,,1',
         'params': '',
-        'assert-retc': STATE_UNKNOWN,
+        'assert-retc': STATE_WARN,
         'assert-in': ['composer_wrapper.php install --no-dev'],
     },
     # The configuration file aborts the validation the same way, and validate.php prints
     # the abort in the shape of an ordinary finding. Without that being recognised, an
     # installation that cannot start at all would arrive as a single failed validation.
     {
-        'id': 'unknown-config-does-not-parse',
+        'id': 'warn-config-does-not-parse',
         'test': 'stdout/config-syntax-error,,1',
         'params': '',
-        'assert-retc': STATE_UNKNOWN,
+        'assert-retc': STATE_WARN,
         'assert-in': ['php -l config.php'],
     },
     {
-        'id': 'unknown-config-without-opening-tag',
+        'id': 'warn-config-without-opening-tag',
         'test': 'stdout/config-missing-php-open-tag,,1',
         'params': '',
-        'assert-retc': STATE_UNKNOWN,
+        'assert-retc': STATE_WARN,
         'assert-in': ['<?php'],
     },
     {
-        'id': 'unknown-config-with-closing-tag',
+        'id': 'warn-config-with-closing-tag',
         'test': 'stdout/config-trailing-php-close-tag,,1',
         'params': '',
-        'assert-retc': STATE_UNKNOWN,
+        'assert-retc': STATE_WARN,
         'assert-in': ['?>'],
     },
     # This one aborts after the header and the dependency pre-check have already printed,
@@ -379,7 +381,14 @@ TESTS = [
         'test': 'stdout/unrecognised-status,,0',
         'params': '',
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['Schema migration scheduled', 'Checked 2 validations'],
+        'assert-in': [
+            'Schema migration scheduled',
+            'Checked 2 validations',
+            # counted in its own series, so the four known ones plus this one still add
+            # up to the total
+            "'unknown_count'=1;;;0",
+            "'validation_count'=2;;;0",
+        ],
     },
     # The same status without the padding LibreNMS puts between it and the message. It
     # measures that padding before it colorizes the status, so a name of six characters or

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081009'
+__version__ = '2026081010'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -110,36 +110,49 @@ KNOWN_STATUSES = ('FAIL', 'INFO', 'OK', 'WARN')
 # Everything that stops the validation before it reaches its first group. LibreNMS prints
 # these the same way it prints a finding, so without this list they would arrive as a
 # single failed validation of an installation that is in fact not validated at all.
+#
+# Each entry carries the state it is worth. An installation that is broken - dependencies
+# missing, a configuration file that does not parse or is delimited wrongly - is something
+# the administrator has to repair, and that belongs on the list of things to fix rather
+# than on the UNKNOWN pile. The two remaining cases are not the installation's fault but
+# this check pointed at the wrong account or an installation that does not know where it
+# lives, so they stay UNKNOWN: nothing was validated and nothing can be said.
 ABORT_HINTS = (
     (
         'Composer has not been run',
+        STATE_WARN,
         'The LibreNMS installation is incomplete, its PHP dependencies are missing. '
         'Run "./scripts/composer_wrapper.php install --no-dev" as the LibreNMS user.',
     ),
     (
         "config.php doesn't start with a <?php",
+        STATE_WARN,
         'The LibreNMS configuration file does not start with an opening PHP tag, so its '
         'contents are served as text instead of being executed. Make "<?php" the first '
         'line of "config.php".',
     ),
     (
         'Do not run validate.php as root',
+        STATE_UNKNOWN,
         'LibreNMS refuses to validate itself as root. Point --user at the LibreNMS '
         'system user.',
     ),
     (
         "'install_dir' config setting is not set correctly",
+        STATE_UNKNOWN,
         'LibreNMS does not know where it is installed and cannot validate itself. Set '
         '"install_dir" to the installation directory in its configuration.',
     ),
     (
         'Remove the ?> at the end of config.php',
+        STATE_WARN,
         'The LibreNMS configuration file ends with a closing PHP tag, which lets stray '
         'whitespace behind it break every page and every poller run. Remove the "?>" at '
         'the end of "config.php".',
     ),
     (
         'Syntax error in config.php',
+        STATE_WARN,
         'The LibreNMS configuration file does not parse, which stops the installation '
         'from starting at all. Check it with "php -l config.php".',
     ),
@@ -532,9 +545,9 @@ def main():
         state = lib.base.get_worst(state, STATE_WARN)
 
     for stdout in stdouts:
-        for hint, explanation in ABORT_HINTS:
+        for hint, hint_state, explanation in ABORT_HINTS:
             if hint in stdout:
-                lib.base.oao(explanation, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+                lib.base.oao(explanation, hint_state, always_ok=args.ALWAYS_OK)
 
     results = []
     groups = set()
@@ -662,6 +675,10 @@ def main():
     perfdata += lib.base.get_perfdata('warn_count', counts['WARN'], uom=None, _min=0)
     perfdata += lib.base.get_perfdata('info_count', counts['INFO'], uom=None, _min=0)
     perfdata += lib.base.get_perfdata('ok_count', counts['OK'], uom=None, _min=0)
+    # Reported so the four counters above and the total keep adding up. Without it a
+    # status the check has no meaning for would go missing from the graph, and the sum
+    # of the series would silently stop matching the number of validations.
+    perfdata += lib.base.get_perfdata('unknown_count', unrecognised, uom=None, _min=0)
     perfdata += lib.base.get_perfdata('validation_count', checked, uom=None, _min=0)
 
     # build table output

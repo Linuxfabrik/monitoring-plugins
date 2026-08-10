@@ -146,6 +146,36 @@ spec:
         operator: '='
         value: warn_count
 
+    - alias: unknown_count
+      refId: unknown_count
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: unknown_count
+
   - title: Validations
     type: timeseries
     gridPos:
