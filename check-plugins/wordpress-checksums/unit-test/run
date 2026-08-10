@@ -1,0 +1,271 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the wordpress-checksums check.
+
+Two fixtures drive every testcase. `wordpress/` holds small WordPress trees the check reads
+from disk, and `stdout/` holds what wordpress.org would have answered for them, in the
+shape the check's own fetchers return. Pairing one tree with a different answer is what
+produces a modified, an added or a missing file without any tree having to be tampered
+with, and the network is never touched.
+"""
+
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+SITE = '--path=wordpress/site'
+EXTRAS = '--path=wordpress/site-extras'
+DE = '--path=wordpress/site-de'
+
+TESTS = [
+    # Everything matches. Five files are verified: three below wp-admin/ and
+    # wp-includes/, one root file, and the plugin's own. `index.php`, `readme.html` and
+    # the plugin's `readme.txt` are outside the scope on purpose and must not turn up.
+    {
+        'id': 'ok-clean-installation',
+        'test': 'stdout/clean,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'WordPress v6.8.2 (en_US)',
+            '2 of 2 components',
+            'no checksum violations found',
+            "'files_checked'=5",
+        ],
+        'assert-not-in': ['index.php', 'readme.html', '[WARNING]'],
+    },
+    # A core file whose content no longer matches what wordpress.org published.
+    {
+        'id': 'warn-core-file-modified',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 modified', 'wp-includes/version.php', 'modified'],
+        'assert-regex': r'wp-includes/version\.php.*modified.*\[WARNING\]',
+    },
+    # The same finding, escalated for an installation nobody hand-patches.
+    {
+        'id': 'crit-core-file-modified-with-severity-crit',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE} --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'wp-includes/version\.php.*modified.*\[CRITICAL\]',
+    },
+    # ... and accepted, which is what an administrator does with a file they patched.
+    {
+        'id': 'ok-core-file-modified-but-ignored',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE} --ignore=^core/wp-includes/version\\.php$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no checksum violations found'],
+    },
+    {
+        'id': 'ok-core-file-modified-but-severity-ok',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE} --severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 modified'],
+    },
+    {
+        'id': 'ok-core-file-modified-but-always-ok',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE} --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 modified'],
+    },
+    # A file below wp-includes/ that the release never shipped. The classic place a
+    # backdoor is dropped, and the most valuable thing this check finds.
+    {
+        'id': 'warn-unexpected-file-below-wp-includes',
+        'test': 'stdout/added,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 added', "'core_added'=1"],
+        'assert-regex': r'wp-includes/functions\.php.*added',
+    },
+    # A file the release shipped and the installation no longer has.
+    {
+        'id': 'warn-core-file-missing',
+        'test': 'stdout/missing,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 missing', "'core_missing'=1"],
+        'assert-regex': r'wp-includes/gone\.php.*missing',
+    },
+    {
+        'id': 'warn-plugin-file-modified',
+        'test': 'stdout/plugin-modified,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 modified', "'plugins_modified'=1", 'akismet'],
+        'assert-regex': r'akismet.*akismet\.php.*modified',
+    },
+    # --lengthy adds the full path and the leading digits of both digests.
+    {
+        'id': 'warn-plugin-file-modified-lengthy',
+        'test': 'stdout/plugin-modified,,0',
+        'params': f'{SITE} --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Expected', 'Found', '0000000000000000'],
+    },
+    # A plugin file matching the copy the core release shipped rather than the copy the
+    # plugin directory published. WordPress bundles a few plugins and the two are not
+    # always identical, so this must not be a finding.
+    {
+        'id': 'ok-plugin-file-matches-the-bundled-copy',
+        'test': 'stdout/bundled,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no checksum violations found'],
+    },
+    # A finding filtered away by --match must not be counted either.
+    {
+        'id': 'ok-match-excludes-the-only-finding',
+        'test': 'stdout/plugin-modified,,0',
+        'params': f'{SITE} --match=^core/',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no checksum violations found'],
+    },
+    {
+        'id': 'warn-match-keeps-the-finding',
+        'test': 'stdout/plugin-modified,,0',
+        'params': f'{SITE} --match=^akismet/',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 modified'],
+    },
+    # wordpress.org unreachable. What was verified is still correct, but the notice comes
+    # first because it qualifies everything behind it.
+    {
+        'id': 'ok-stale-cache-is-reported-first',
+        'test': 'stdout/stale,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^wordpress\.org is unreachable, all 2 components verified '
+        r'against cached data up to .* old\. WordPress v6\.8\.2',
+    },
+    # Nothing published for this release, so nothing could be verified.
+    {
+        'id': 'ok-core-without-published-checksums',
+        'test': 'stdout/unpublished,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1 of 2 components',
+            'verify against: core',
+            "'plugins_unverified'=1",
+        ],
+    },
+    {
+        'id': 'warn-core-without-published-checksums-alerts-on-demand',
+        'test': 'stdout/unpublished,,0',
+        'params': f'{SITE} --no-checksum-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['verify against: core'],
+    },
+    # Nothing could be fetched and nothing was cached, so not one file was compared. That
+    # is a check that could not run, not a clean result, and the reason has to reach the
+    # administrator: a missing Python module and a firewall look identical without it.
+    {
+        'id': 'unknown-nothing-could-be-fetched',
+        'test': 'stdout/unreachable,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Could not obtain any checksums',
+            'Name or service not known',
+        ],
+        'assert-not-in': ['no checksum violations found'],
+    },
+    # The core still answered, so the check keeps working and reports the gap instead.
+    {
+        'id': 'ok-one-component-could-not-be-queried',
+        'test': 'stdout/unreachable-plugin-only,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^wordpress\.org could not be queried for 1 of 2 components '
+        r'\(akismet\): URL error .*\. WordPress v6\.8\.2',
+        'assert-in': ['1 of 2 components', "'plugins_unverified'=1"],
+    },
+    {
+        'id': 'warn-one-component-could-not-be-queried-alerts-on-demand',
+        'test': 'stdout/unreachable-plugin-only,,0',
+        'params': f'{SITE} --no-checksum-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['could not be queried for 1 of 2'],
+    },
+    # A plugin the core bundles differs from the plugin directory's copy, and without the
+    # core list there is no telling which of the two published copies the installation is
+    # entitled to. Reported as a coverage gap, not as a modified file, because it is one
+    # on every stock installation of a release too old to have published checksums.
+    {
+        'id': 'ok-bundled-plugin-cannot-be-decided-without-the-core-list',
+        'test': 'stdout/unpublished-bundled,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'verify against: core, akismet',
+            'nothing checked',
+            "'plugins_unverified'=2",
+        ],
+        'assert-not-in': ['akismet.php'],
+    },
+    # A single-file plugin is looked up under the slug it names itself, not under its file
+    # name: hello.php is hello-dolly in the plugin directory. Alongside it, a plugin from
+    # outside the directory, which has no published checksums at all.
+    {
+        'id': 'ok-single-file-plugin-and-commercial-plugin',
+        'test': 'stdout/extras,,0',
+        'params': f'{EXTRAS}',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 of 3 components',
+            'verify against: acme-premium',
+            'no checksum violations found',
+        ],
+    },
+    # The locale a localized build was made for decides which list it is held to.
+    {
+        'id': 'ok-localized-installation-reports-its-locale',
+        'test': 'stdout/de,,0',
+        'params': f'{DE}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['WordPress v6.8.2 (de_DE)'],
+    },
+    {
+        'id': 'unknown-path-holds-no-installation',
+        'test': 'stdout/clean,,0',
+        'params': '--path=wordpress/nowhere',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No WordPress installation below'],
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/clean,,0',
+        'params': f'{SITE} --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['files_checked'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../wordpress-checksums'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -81,11 +81,13 @@ Monitoring Plugins:
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
+* wordpress-checksums: check verifying the core and plugin files of a WordPress installation against the checksums wordpress.org publishes, which finds a web shell dropped into the tree or a core file with injected code
 * wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database, going CRITICAL only where the site can be taken over right now. Needs a free WPScan API token to look up vulnerabilities, and says so instead of reporting a clean result when it has none
 
 Icinga Director:
 
 * huawei-dorado-alarm, huawei-dorado-expboard, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-sfp and huawei-dorado-storagepool join the Huawei OceanStor Dorado service set
+* wordpress-checksums joins the WordPress service set and ships with extended reporting on by default, so a daily result names the affected files right away
 * wordpress-security-scan joins the WordPress service set and ships with extended reporting on by default, so a daily result shows the CVSS score and the fixing release right away
 * Huawei OceanStor Pacific service set, activating all seven Pacific checks on a host tagged `huawei-pacific`, the same way the Dorado set already works
 
