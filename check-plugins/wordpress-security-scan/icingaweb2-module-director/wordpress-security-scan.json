@@ -275,7 +275,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 1,
-            "notes": "Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. The vulnerability database is refreshed before every scan and only queried with an API token; without one the check says so instead of reporting a clean result it could not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan, version 4.0.0 or newer for the backup folder enumeration.",
+            "notes": "Runs a WordPress security scan against a site and reports what an attacker can see from the outside. Combines the black box scan with the inventory read from the local installation directory, so plugins and themes the scanner cannot fingerprint remotely are still listed with their installed version. Findings are split into three classes: known vulnerabilities from the scanner's vulnerability database, exposures that hand an attacker credentials, the database or an account (a readable wp-config backup, an SQL dump, a listable backup folder), and hardening findings such as outdated components or a reachable readme. Alerts CRITICAL on an exposure and on a vulnerability whose CVSS base score reaches the critical threshold, because both mean the site can be taken over right now and someone has to react immediately. Everything else alerts WARNING. The vulnerability database is refreshed before every scan and only queried with an API token; without one the check says so instead of reporting a clean result it could not verify. Supports extended reporting via --lengthy. Requires the command-line tool wpscan.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wordpress-security-scan/",
             "object_name": "tpl-service-wordpress-security-scan",
             "object_type": "template",
@@ -440,7 +440,7 @@
         "2": {
             "varname": "wordpress_security_scan_api_token",
             "caption": "WordPress Security Scan: Api Token",
-            "description": "WPScan API token, used to look up known vulnerabilities. Without a token the scan still runs, but reports no vulnerability data at all; the check then says so and --no-vuln-data-severity decides whether it alerts. The token is handed to wpscan through the environment, never on the command line, so it does not show up in the process list. Takes precedence over --api-token-file and over a token already present in the WPSCAN_API_TOKEN environment variable.",
+            "description": "WPScan API token, used to look up known vulnerabilities. Without a token the scan still runs, but reports no vulnerability data at all; the check then says so and --no-vuln-data-severity decides whether it alerts. Passed here, the token is visible to every user on this host for as long as the check runs, because a command-line argument shows up in the process list; prefer --api-token-file. It is handed on to wpscan through the environment either way, so it never reaches the scanner's own command line. Falls back to the WPSCAN_API_TOKEN environment variable when neither this nor --api-token-file is given.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -451,7 +451,7 @@
         "3": {
             "varname": "wordpress_security_scan_api_token_file",
             "caption": "WordPress Security Scan: Api Token File",
-            "description": "Path to the file containing the WPScan API token. Use this instead of --api-token to keep the token out of the monitoring configuration. Only the first line is read, surrounding whitespace is stripped.",
+            "description": "Path to a file holding the WPScan API token, read from its first line. Keeps the token out of the process list, where a command-line argument is visible to every user on the host, and out of the monitoring configuration. Takes precedence over `--api-token`. Keep the file readable only by the monitoring user. Example: `--api-token-file=/etc/icinga2/secrets/wpscan`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -636,7 +636,7 @@
         "20": {
             "varname": "wordpress_security_scan_wpscan_http_auth",
             "caption": "WordPress Security Scan: WPScan Http Auth",
-            "description": "Credentials for HTTP basic authentication in front of the site, as `login:password`. Unlike the API token, the scanner accepts these only on its command line, where they are visible to every user on the scanning host while the scan runs. Prefer --wpscan-http-auth-file, which at least keeps them out of the monitoring configuration. Takes precedence over --wpscan-http-auth-file.",
+            "description": "Credentials for HTTP basic authentication in front of the site, as `login:password`. Unlike the API token, the scanner accepts these only on its command line, where they are visible to every user on the scanning host while the scan runs. Prefer --wpscan-http-auth-file, which at least keeps them out of the monitoring configuration.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -647,7 +647,7 @@
         "21": {
             "varname": "wordpress_security_scan_wpscan_http_auth_file",
             "caption": "WordPress Security Scan: WPScan Http Auth File",
-            "description": "Path to the file containing the HTTP basic authentication credentials, as `login:password`. Only the first line is read. Keep the file readable only by the monitoring user.",
+            "description": "Path to a file holding the HTTP basic authentication credentials, as `login:password`, read from its first line. Takes precedence over `--wpscan-http-auth`. Keep the file readable only by the monitoring user.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

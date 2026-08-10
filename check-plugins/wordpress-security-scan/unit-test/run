@@ -273,6 +273,36 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Nothing checked.'],
     },
+    # A filtered run still reports every metric, so a dashboard shows a zero rather than
+    # a gap, and the context lines still say what the scan could see.
+    {
+        'id': 'ok-filtered-run-still-reports-perfdata',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Nothing checked.',
+            'Installed locally: 3 plugins',
+            "'exposures'=0",
+            "'vuln_data_available'=1",
+            "'scan_duration'=",
+        ],
+    },
+    # A scan that never consulted the vulnerability database still alerts through its own
+    # parameter, even where the filters removed every finding. The two reasons to alert
+    # are independent, so the one must not swallow the other.
+    {
+        'id': 'crit-filtered-run-still-reports-missing-vuln-data',
+        'test': 'stdout/core-outdated-no-api-token,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist --no-vuln-data-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Nothing checked.',
+            'No vulnerability data: no API token',
+            "'vuln_data_available'=0",
+        ],
+        'assert-not-in': ['core version is outdated'],
+    },
     # A site without findings is clean, not unchecked. A filter that had nothing to
     # remove must not turn the verdict into "Nothing checked.", which would otherwise
     # let --no-match-severity alert on a perfectly healthy site.
@@ -774,6 +804,39 @@ TESTS = [
         'params': f'{BASE_PARAMS} --api-token-file=fixtures/empty-token',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['is empty'],
+    },
+    # The file wins over the command line, the way --password-file wins over --password
+    # everywhere else. Where both are configured, an unreadable file therefore stops the
+    # check instead of quietly falling back to the token in the process list.
+    {
+        'id': 'unknown-token-file-wins-over-token',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --api-token=linuxfabrik '
+            '--api-token-file=/nonexistent/token'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-http-auth-file-wins-over-http-auth',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --wpscan-http-auth=admin:linuxfabrik '
+            '--wpscan-http-auth-file=/nonexistent/http-auth'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+    },
+    # The readable file is the one that reaches the scanner, and it is still redacted.
+    {
+        'id': 'ok-http-auth-file-wins-and-stays-redacted',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --wpscan-http-auth=admin:ignored-plaintext '
+            '--wpscan-http-auth-file=fixtures/http-auth'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--http-auth=******'],
+        'assert-not-in': ['linuxfabrik', 'ignored-plaintext'],
     },
 ]
 

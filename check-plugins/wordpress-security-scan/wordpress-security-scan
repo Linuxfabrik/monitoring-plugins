@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081003'
+__version__ = '2026081004'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -44,7 +44,7 @@ the site can be taken over right now and someone has to react immediately. Every
 else alerts WARNING. The vulnerability database is refreshed before every scan and only
 queried with an API token; without one the check says so instead of reporting a clean
 result it could not verify. Supports extended reporting via --lengthy. Requires the
-command-line tool wpscan, version 4.0.0 or newer for the backup folder enumeration."""
+command-line tool wpscan."""
 
 # CVSS v3 base score at or above which a vulnerability is treated as critical. 7.0 is
 # the lower bound of the "High" severity band and matches how wpscan itself maps scores
@@ -252,18 +252,24 @@ def parse_args():
         help='WPScan API token, used to look up known vulnerabilities. '
         'Without a token the scan still runs, but reports no vulnerability data at all; '
         'the check then says so and --no-vuln-data-severity decides whether it alerts. '
-        'The token is handed to wpscan through the environment, never on the command '
-        'line, so it does not show up in the process list. '
-        'Takes precedence over --api-token-file and over a token already present in '
-        f'the {API_TOKEN_ENV} environment variable.',
+        'Passed here, the token is visible to every user on this host for as long as the '
+        'check runs, because a command-line argument shows up in the process list; '
+        'prefer --api-token-file. '
+        'It is handed on to wpscan through the environment either way, so it never '
+        "reaches the scanner's own command line. "
+        f'Falls back to the {API_TOKEN_ENV} environment variable when neither this nor '
+        '--api-token-file is given.',
         dest='API_TOKEN',
     )
 
     parser.add_argument(
         '--api-token-file',
-        help='Path to the file containing the WPScan API token. '
-        'Use this instead of --api-token to keep the token out of the monitoring '
-        'configuration. Only the first line is read, surrounding whitespace is stripped.',
+        help='Path to a file holding the WPScan API token, read from its first line. '
+        'Keeps the token out of the process list, where a command-line argument is '
+        'visible to every user on the host, and out of the monitoring configuration. '
+        'Takes precedence over `--api-token`. '
+        'Keep the file readable only by the monitoring user. '
+        'Example: `--api-token-file=/etc/icinga2/secrets/wpscan`.',
         dest='API_TOKEN_FILE',
     )
 
@@ -469,16 +475,15 @@ def parse_args():
         'Unlike the API token, the scanner accepts these only on its command line, '
         'where they are visible to every user on the scanning host while the scan '
         'runs. Prefer --wpscan-http-auth-file, which at least keeps them out of the '
-        'monitoring configuration. '
-        'Takes precedence over --wpscan-http-auth-file.',
+        'monitoring configuration.',
         dest='WPSCAN_HTTP_AUTH',
     )
 
     parser.add_argument(
         '--wpscan-http-auth-file',
-        help='Path to the file containing the HTTP basic authentication credentials, '
-        'as `login:password`. '
-        'Only the first line is read. '
+        help='Path to a file holding the HTTP basic authentication credentials, as '
+        '`login:password`, read from its first line. '
+        'Takes precedence over `--wpscan-http-auth`. '
         'Keep the file readable only by the monitoring user.',
         dest='WPSCAN_HTTP_AUTH_FILE',
     )
@@ -589,19 +594,24 @@ def extract_error(text):
 
 
 def resolve_api_token(args):
-    """Return the API token. It is looked up in this order: --api-token,
-    --api-token-file, and finally an already exported environment variable. Returns the
-    empty string when no token is configured at all, which is a supported mode: the scan
-    then runs without vulnerability data.
+    """Return the API token. It is looked up in this order: --api-token-file,
+    --api-token, and finally an already exported environment variable. Returns the empty
+    string when no token is configured at all, which is a supported mode: the scan then
+    runs without vulnerability data.
+
+    The file wins over the command line, the way `--password-file` wins over `--password`
+    everywhere else in these checks. Where both are configured, one of them keeps the
+    secret out of the process list and the other does not, and the safer of the two is
+    the one to honour.
 
     The file is read by the same helper that reads every other secret file in these
     checks, so an unreadable or empty one is reported in the same words everywhere
     rather than in words this check made up for itself.
     """
-    if args.API_TOKEN:
-        return args.API_TOKEN
     if args.API_TOKEN_FILE:
         return lib.args.load_secret(args.API_TOKEN_FILE, '--api-token-file')
+    if args.API_TOKEN:
+        return args.API_TOKEN
     return os.environ.get(API_TOKEN_ENV, '').strip()
 
 
@@ -1254,12 +1264,14 @@ def main():
     enterprise = has_enterprise_db(args)
     # The scanner takes these on its command line and nowhere else, so reading them from
     # a file only keeps them out of the monitoring configuration, not out of the process
-    # list. That is still worth having, since the configuration is the copy that persists.
-    http_auth = args.WPSCAN_HTTP_AUTH or ''
-    if not http_auth and args.WPSCAN_HTTP_AUTH_FILE:
+    # list. That is still worth having, since the configuration is the copy that persists,
+    # which is why the file wins here the same way it does for the API token.
+    if args.WPSCAN_HTTP_AUTH_FILE:
         http_auth = lib.args.load_secret(
             args.WPSCAN_HTTP_AUTH_FILE, '--wpscan-http-auth-file'
         )
+    else:
+        http_auth = args.WPSCAN_HTTP_AUTH or ''
     # Why the vulnerability database was not refreshed, if it was not. Empty on every
     # run that either refreshed it or was told not to.
     vulndb_note = ''
@@ -1518,16 +1530,19 @@ def main():
 
     # The filters removed every finding there was. A site that simply has no findings is
     # clean, not unchecked, and is reported as such below, so this only fires when the
-    # filters actually swallowed something.
-    if findings_before_filter and not findings:
-        lib.base.oao(
-            'Nothing checked.',
-            lib.base.str2state(args.NO_MATCH_SEVERITY),
-            always_ok=args.ALWAYS_OK,
-        )
+    # filters actually swallowed something. The run continues rather than ending here, so
+    # a missing vulnerability database still alerts through its own parameter, the notes
+    # below still explain what was left out, and the metrics are still emitted: a
+    # dashboard has to show a zero for a filtered run, not a gap.
+    nothing_checked = bool(findings_before_filter) and not findings
+    if nothing_checked:
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
 
     # build the message
-    if findings:
+    if nothing_checked:
+        # The literal every check with --match prints, so it stays recognizable.
+        msg += f'Nothing checked. WordPress v{core_version} on {args.URL}'
+    elif findings:
         parts = [
             f'{counts["vulnerability"]} '
             f'{lib.txt.pluralize("vulnerabilit", counts["vulnerability"], "y,ies")}'
