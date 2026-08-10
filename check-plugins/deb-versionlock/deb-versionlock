@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081003'
+__version__ = '2026081004'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -52,6 +52,11 @@ APT_PREFERENCES_EXTENSIONS = ('', '.pref')
 # Pin types APT understands. A stanza naming any other one is skipped with a warning,
 # so it pins nothing, but the rest of the file still applies.
 APT_PIN_TYPES = ('origin', 'release', 'source-version', 'version')
+
+# The subset of those that pins a package to a version rather than giving a whole
+# archive a priority. APT only understands them where the stanza names a package, so on
+# `Package: *` they end up in the same place as a type it never heard of.
+APT_PACKAGE_PIN_TYPES = ('source-version', 'version')
 
 # Range APT accepts for a pin priority. A value outside it is refused, and refusing a
 # priority costs APT the whole file rather than just the stanza.
@@ -106,6 +111,15 @@ def parse_args():
         dest='CHECK_PINNING',
         action='store_true',
         default=False,
+    )
+
+    # hidden test hook: prefix every configuration path, so a fixture tree can
+    # stand in for the host's /etc without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
     )
 
     parser.add_argument(
@@ -163,15 +177,6 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
-    )
-
-    # hidden test hook: prefix every configuration path, so a fixture tree can
-    # stand in for the host's /etc without touching the host
-    parser.add_argument(
-        '--config-root',
-        help=argparse.SUPPRESS,
-        dest='CONFIG_ROOT',
-        default='/',
     )
 
     parser.add_argument(
@@ -294,11 +299,20 @@ def stanza_verdict(packages, named, pin, priority):
     with a warning and the file carries on. A missing, zero or out-of-range priority,
     a missing package name, or the special `never` on a named package are errors, and
     an error abandons the file at that stanza and makes every APT run fail.
+
+    The order matters: APT reads the pin type before it reads the priority, so a stanza
+    it skips over the type never has its priority looked at and cannot be the one that
+    costs the file. That is what makes the type check below come first.
     """
     if not packages:
         return 'no Package header'
     words = pin.split()
     if not words or words[0].lower() not in APT_PIN_TYPES:
+        return 'skip'
+    # A version is matched against a package, so APT accepts these two types only where
+    # a package is named. On `Package: *` it does not understand the type either and
+    # skips the stanza, priority and all.
+    if words[0].lower() in APT_PACKAGE_PIN_TYPES and not named:
         return 'skip'
     if priority == 'never':
         # `never` is reserved for a stanza that names no package of its own

@@ -206,7 +206,7 @@ The usual causes are a stanza whose `Pin-Priority` is missing or zero, one whose
 
 ### A pin is in place but not reported
 
-APT ignores a file in `preferences.d` whose extension is neither absent nor `.pref`, so a `.dpkg-old`, `.bak` or `.save` copy left behind by an upgrade pins nothing. It also skips a stanza that carries no `Pin` or a pin type it does not understand. The check follows those rules, so what it leaves out is what APT leaves out. Compare against APT's own view:
+APT ignores a file in `preferences.d` whose extension is neither absent nor `.pref`, so a `.dpkg-old`, `.bak` or `.save` copy left behind by an upgrade pins nothing. It also skips a stanza that carries no `Pin` or a pin type it does not understand, and `Pin: version` on `Package: *` counts as one of those, since a version is matched against a package. The check follows those rules, so what it leaves out is what APT leaves out. Compare against APT's own view:
 
 ```bash
 apt-cache policy

@@ -239,6 +239,16 @@ TESTS = [
             '72-out-of-range.pref',
         ],
     },
+    # APT reads the pin type before the priority, so a version pin on a whole archive is
+    # skipped over the type and its zero priority never costs the file.
+    {
+        'id': 'warn-version-pin-on-archive-is-skipped',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/pinning --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['APT refuses 2 preferences files'],
+        'assert-not-in': ['75-version-pin-on-archive.pref'],
+    },
     # Holds and pins are counted separately, so the summary does not call a pin a hold.
     {
         'id': 'warn-holds-and-pins-counted-apart',
