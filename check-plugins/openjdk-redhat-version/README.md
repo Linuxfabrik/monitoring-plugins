@@ -71,9 +71,11 @@ options:
   --path PATH           Local path to your Java binary. Default: /usr/bin/java
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
-                        State to report when the online end-of-life source is
-                        unreachable and the check falls back to the bundled
-                        offline data. Default: ok
+                        State to report when the online source is unreachable.
+                        What is used instead - bundled offline data, a cached
+                        copy, or nothing at all - is named in the output, and
+                        a clean result then only covers what that fallback
+                        could confirm. Default: ok
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openjdk-redhat-version/
