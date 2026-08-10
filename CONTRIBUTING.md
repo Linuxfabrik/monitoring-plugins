@@ -388,6 +388,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --latest
 --lengthy
 --loadstate
+--match
 --message
 --message-key
 --metric
@@ -397,6 +398,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --module
 --mount
 --no-kthreads
+--no-match-severity
 --no-perfdata
 --no-proxy
 --no-summary

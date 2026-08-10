@@ -12,7 +12,7 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 **Data Collection:**
 
 * Executes a shell command (`cat /etc/os-release` as a placeholder) to collect data
-* Items can be filtered by `--name` (exact match) and excluded by `--ignore-regex` (Python regular expression)
+* Items can be filtered by `--name` (exact match), limited with `--match` and excluded with `--ignore` (case-sensitive Python regular expressions; use `(?i)` for case-insensitive matching). An item hit by `--ignore` is dropped even if it also matches `--match`
 * Uses SQLite state persistence between runs to calculate deltas (e.g. bytes per second)
 
 
@@ -33,8 +33,9 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 ## Help
 
 ```text
-usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore-regex IGNORE_REGEX]
-               [--insecure] [--lengthy] [--module MODULE] [--name NAME]
+usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
+               [--insecure] [--lengthy] [--match MATCH] [--module MODULE]
+               [--name NAME] [--no-match-severity {ok,warn,crit,unknown}]
                [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] --token TOKEN
                [--url URL] [-w WARN]
 
@@ -50,19 +51,30 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
                         Default: 90
-  --ignore-regex IGNORE_REGEX
-                        Any item matching this Python regex will be ignored.
+  --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
+  --match MATCH         Filter by this Python regular expression. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead).
   --module MODULE       "modulename" to check (startswith). Can be specified
                         multiple times. Example: `--module json --module
                         mbstring`
   --name NAME           Only check items with this name. Can be specified
                         multiple times. If not specified, all items are
                         checked.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -82,7 +94,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/example/
 ## Usage Examples
 
 ```bash
-./example --token=mytoken --warning=80 --critical=90
+./example --token=linuxfabrik --warning=80 --critical=90
 ```
 
 Output (first run):
@@ -118,7 +130,9 @@ Lorem ipsum ! Lorem ! 42%
 * OK with "Waiting for more data." on the first run or after a reboot.
 * WARN if the percentage value is >= `--warning` (default: 80).
 * CRIT if the percentage value is >= `--critical` (default: 90).
-* UNKNOWN on missing Python modules, invalid `--ignore-regex` patterns, or invalid command-line arguments.
+* OK with "Nothing checked." if the filters match no item.
+* UNKNOWN on missing Python modules, invalid `--match` or `--ignore` patterns, or invalid command-line arguments.
+* `--no-match-severity` sets the state reported when the filters match no item and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing item) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -140,9 +154,9 @@ Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
 
-### `Unable to compile regex.`
+### Invalid `--match` or `--ignore` regular expression
 
-The pattern passed via `--ignore-regex` is not a valid Python regular expression. Check the syntax at <https://docs.python.org/3/library/re.html>.
+A pattern passed via `--match` or `--ignore` is not a valid Python regular expression; the plugin reports that it `contains one or more errors`. Check the syntax at <https://docs.python.org/3/library/re.html>.
 
 
 ## Credits, License

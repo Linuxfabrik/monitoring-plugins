@@ -21,6 +21,7 @@ import lib.human
 import lib.lftest
 import lib.shell
 import lib.time
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
@@ -31,7 +32,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081001'
 
 DESCRIPTION = """Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error handling,
@@ -42,6 +43,7 @@ Grafana-compatible panel design."""
 DEFAULT_CRIT = '90'
 DEFAULT_LENGTHY = False
 DEFAULT_MODULE = ['calendar', 'Core', 'ctype', 'date']
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '80'
 
@@ -94,11 +96,14 @@ def parse_args():
     #         The parameter is purely additive (e.g. patterns to match).
     #         Assign `[]` as the default in main().
     parser.add_argument(
-        '--ignore-regex',
+        '--ignore',
+        # `HELP_TEXTS['--ignore']` describes a plain-string filter. The regex variant
+        # used by every plugin whose `--ignore` takes a regex lives under
+        # `HELP_TEXTS['--ignore-regex']`.
         help=lib.args.help('--ignore-regex'),
         action='append',
         default=None,
-        dest='IGNORE_REGEX',
+        dest='IGNORE',
     )
 
     parser.add_argument(
@@ -115,6 +120,14 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        action='append',
+        default=None,
+        dest='MATCH',
     )
 
     # Case 2: "not specified" and "empty list" are the same thing, but there
@@ -152,6 +165,14 @@ def parse_args():
         dest='NAME',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -236,8 +257,10 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # set default values for append parameters that were not specified
-    if args.IGNORE_REGEX is None:  # case 1: default to empty list
-        args.IGNORE_REGEX = []
+    if args.IGNORE is None:  # case 1: default to empty list
+        args.IGNORE = []
+    if args.MATCH is None:  # case 1: default to empty list
+        args.MATCH = []
     if args.MODULE is None:  # case 2: default to non-empty list
         args.MODULE = DEFAULT_MODULE
     # args.NAME is not set here          # case 3: None means "check all"
@@ -256,38 +279,72 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
-
-    # compile user-supplied regex patterns
-    try:
-        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
-    except re.error:
-        lib.base.cu('Unable to compile regex.')
-
-    # analyze data
-    title = 'humidity1'
-    if args.NAME is not None:
-        # case 3: user specified --name, so filter
-        if title not in args.NAME:
-            pass  # in loops: continue
-    if any(item.search(title) for item in compiled_ignore_regex):
-        pass  # in loops: continue
-    # Parse the value to evaluate from the fetched data. Real plugins parse
-    # their own data formats (JSON, regex, SNMP walks, etc.). This skeleton
-    # reads a humidity sensor from the Linux `hwmon` interface and picks
-    # the first integer from stdout, so unit tests can drive the state
-    # machine via fixtures.
-    match = re.search(r'(\d+)', stdout)
-    value = match.group(1) if match else '0'
     uptime = 123456
     rx_bytes = 1073741824
-    # multiline f-string: use parentheses for implicit concatenation
-    lorem = (
-        f'Lorem ipsum dolor sit amet, consectetur adipiscing elit, {value} sed do eiusmod'
-        f' tempor incididunt ut labore. Ut enim ad minim veniam, quis nostrud exercitation'
-        f' ullamco laboris nisi ut aliquip ex ea commodo consequat.'
-    )
-    item_state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
-    state = lib.base.get_worst(state, item_state)
+    # compile user-supplied regex patterns. lib.txt.compile_regex() returns a
+    # (success, result) tuple per pattern and names the parameter in its error
+    # message, so an invalid pattern exits UNKNOWN via lib.base.coe().
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # Parse the items to evaluate from the fetched data. Real plugins parse
+    # their own data formats (JSON, regex, SNMP walks, etc.) and end up with a
+    # list of items. This skeleton reads a humidity sensor from the Linux
+    # `hwmon` interface and picks the first integer from stdout, so unit tests
+    # can drive the state machine via fixtures.
+    humidity = re.search(r'(\d+)', stdout)
+    title = 'humidity1'
+    items = [(title, humidity.group(1) if humidity else '0')]
+
+    # analyze data
+    for title, value in items:
+        if args.NAME is not None and title not in args.NAME:
+            continue  # case 3: user specified --name, so filter
+        # Filter items. --match (include) is applied first, then --ignore
+        # (exclude), so an item hit by --ignore is dropped even if it also
+        # matches --match. Both use case-sensitive Python regex.
+        if compiled_match and not any(item.search(title) for item in compiled_match):
+            continue
+        if any(item.search(title) for item in compiled_ignore):
+            continue
+
+        # multiline f-string: use parentheses for implicit concatenation
+        lorem = (
+            f'Lorem ipsum dolor sit amet, consectetur adipiscing elit, {value} sed do'
+            f' eiusmod tempor incididunt ut labore. Ut enim ad minim veniam, quis'
+            f' nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.'
+        )
+        item_state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
+        state = lib.base.get_worst(state, item_state)
+        msg += f'{value}% humidity{lib.base.state2str(item_state, prefix=" ")}'
+        perfdata += lib.base.get_perfdata(
+            'humidity',
+            value,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+        row = {
+            'title': title,
+            'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
+        }
+        if args.LENGTHY:
+            row['type'] = 'Lorem'
+        table_data.append(row)
+
+    # every item was filtered out, so there is nothing to report on
+    if not table_data:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
 
     # calculate delta from the previous run using a local SQLite database.
     # In test mode (--test), skip persistent state entirely and use a
@@ -355,22 +412,13 @@ def main():
     else:
         rx_bytes_per_second = 1234567
 
-    # build the message
+    # build the message: the per-item part was built in the loop above, the
+    # summary below describes the whole run
     msg += (
-        f'{value}% humidity{lib.base.state2str(item_state, prefix=" ")}'
         f', up {lib.human.seconds2human(uptime)}'
         f' since {lib.time.epoch2iso(lib.time.now() - uptime)}'
         f', {lib.human.bytes2human(rx_bytes_per_second)}/s'
         f', {lib.human.number2human(42000)} items'
-    )
-    perfdata += lib.base.get_perfdata(
-        'humidity',
-        value,
-        uom='%',
-        warn=args.WARN,
-        crit=args.CRIT,
-        _min=0,
-        _max=100,
     )
     perfdata += lib.base.get_perfdata(
         'rx-bytes-per-second',
@@ -381,22 +429,9 @@ def main():
 
     # build table output
     if args.LENGTHY:
-        table_data.append(
-            {
-                'title': title,
-                'type': 'Lorem',
-                'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
-            }
-        )
         keys = ['title', 'type', 'value']
         headers = ['Title', 'Type', 'Value']
     else:
-        table_data.append(
-            {
-                'title': title,
-                'value': f'{value}%{lib.base.state2str(item_state, prefix=" ")}',
-            }
-        )
         keys = ['title', 'value']
         headers = ['Title', 'Value']
     msg += '\n\n' + lib.base.get_table(
