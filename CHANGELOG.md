@@ -80,6 +80,7 @@ Monitoring Plugins:
 * ping: `--interface`, `--ipv4`/`--ipv6`, `--packet-size` and `--ttl` control the source interface, IP version, payload size and TTL of the probes
 * ping: optional `--rta-warning`/`--rta-critical`, `--rtt-mdev-warning`/`--rtt-mdev-critical` and `--packet-loss-warning`/`--packet-loss-critical` thresholds alert on latency, jitter and packet loss
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
+* rpm-versionlock: check alerting on packages the RPM package manager holds back at a fixed version, so a forgotten lock stops hiding behind a green update check. Part of the RHEL and Fedora service sets
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
 * statusiq: `--retries` sets how often a status page that did not answer with its feed is asked again before the check gives up, three times by default
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))

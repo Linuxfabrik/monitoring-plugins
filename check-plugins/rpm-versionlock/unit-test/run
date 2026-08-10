@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# rpm-versionlock reads the package manager's configuration, so its fixtures are
+# directory trees under `config/` that stand in for the host's /etc, selected with
+# `--test-config-root`. The lock lists below were captured from `ubi8`, `ubi9` and
+# `ubi10` containers after `yum versionlock add bash glibc` and
+# `yum versionlock exclude curl`.
+#
+# dnf 5 (Fedora) is the one generation whose locks are not plain text. There the
+# plugin runs `dnf versionlock list`, so those testcases combine a `config/` tree
+# holding the TOML file with a `--test` fixture holding the command output.
+TESTS = [
+    # A host with no locks at all, with and without the versionlock plugin installed.
+    {
+        'id': 'ok-no-locks',
+        'test': '',
+        'params': '--test-config-root=config/no-locks',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.', "'locks'=0"],
+    },
+    {
+        'id': 'ok-no-versionlock-plugin',
+        'test': '',
+        'params': '--test-config-root=config/no-versionlock-plugin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    # One testcase per supported RHEL release, so a changed lock list format fails here.
+    {
+        'id': 'warn-rhel8-locks-present',
+        'test': '',
+        'params': '--test-config-root=config/rhel8-two-locks-one-exclude',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 version locks in place.',
+            'bash',
+            '0:4.4.20-6.el8_10.*',
+            'glibc',
+            'curl',
+            'exclude',
+            "'locks'=3",
+        ],
+    },
+    {
+        'id': 'warn-rhel9-locks-present',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['3 version locks in place.', '0:5.1.8-9.el9.*', 'versionlock'],
+    },
+    {
+        'id': 'warn-rhel10-locks-present',
+        'test': '',
+        'params': '--test-config-root=config/rhel10-two-locks-two-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 version locks in place.',
+            '0:5.2.26-6.el10.*',
+            '0:8.12.1-4.el10.*',
+        ],
+    },
+    # The yum layout is a set of symlinks into the dnf one, so the same lock list is
+    # reachable under two paths and must still be reported once.
+    {
+        'id': 'warn-yum-symlinks-not-counted-twice',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-yum-symlinks',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['3 version locks in place.', "'locks'=3"],
+    },
+    # Thresholds are Nagios ranges over the number of locks.
+    {
+        'id': 'ok-warning-raised',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude --warning 5',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 version locks in place.'],
+    },
+    {
+        'id': 'crit-above-critical',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude '
+        '--warning 1 --critical 2',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'3 version locks in place\.\s*\[CRITICAL\]',
+    },
+    # Filtering by package name.
+    {
+        'id': 'warn-match-single-package',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude --match=^bash$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['glibc'],
+    },
+    {
+        'id': 'warn-ignore-single-package',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude --ignore=^curl$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 version locks in place.'],
+        'assert-not-in': ['curl'],
+    },
+    {
+        'id': 'ok-nothing-checked',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude '
+        '--match=^nothing-here$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', "'locks'=0"],
+    },
+    {
+        'id': 'warn-nothing-checked',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude '
+        '--match=^nothing-here$ --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # Extended reporting adds the file a lock has to be removed from.
+    {
+        'id': 'warn-lengthy-shows-origin',
+        'test': '',
+        'params': '--test-config-root=config/rhel9-two-locks-one-exclude --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Configured in', 'versionlock.list'],
+    },
+    # Package exclusions, off unless asked for.
+    {
+        'id': 'ok-excludes-not-checked',
+        'test': '',
+        'params': '--test-config-root=config/excludes',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    {
+        'id': 'warn-excludes-checked',
+        'test': '',
+        'params': '--test-config-root=config/excludes --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 version locks in place.',
+            'kernel*',
+            'redis',
+            'nagios*',
+            'icinga2',
+        ],
+    },
+    # Repository files are read from where `reposdir` points, not from a fixed path.
+    {
+        'id': 'warn-custom-reposdir',
+        'test': '',
+        'params': '--test-config-root=config/custom-reposdir --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'vendor-agent'],
+        # the default directory is not read once `reposdir` names another one
+        'assert-not-in': ['must-not-be-read'],
+    },
+    # A lock list moved elsewhere by the plugin configuration.
+    {
+        'id': 'warn-custom-locklist',
+        'test': '',
+        'params': '--test-config-root=config/custom-locklist',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'httpd'],
+    },
+    # Hand-written entries, which carry no epoch.
+    {
+        'id': 'warn-lock-without-epoch',
+        'test': '',
+        'params': '--test-config-root=config/kernel-lock-without-epoch',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 version locks in place.', 'kernel', 'kernel-core'],
+    },
+    # Rubbish in the lock list is skipped instead of being reported as a package.
+    {
+        'id': 'ok-malformed-locklist',
+        'test': '',
+        'params': '--test-config-root=config/malformed',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    # dnf 5 keeps its locks in TOML and renders them with its own command.
+    {
+        'id': 'warn-dnf5-locks-present',
+        'test': 'stdout/fedora-dnf5-two-locks-one-exclude,,0',
+        'params': '--test-config-root=config/fedora-dnf5',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 version locks in place.',
+            'bash',
+            '= 5.3.0-2.fc43',
+            'curl',
+            'exclude',
+        ],
+    },
+    {
+        'id': 'ok-dnf5-no-locks',
+        'test': 'stdout/fedora-dnf5-no-locks,,0',
+        'params': '--test-config-root=config/fedora-dnf5',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    # Deployed on a host that does not use RPM packages at all.
+    {
+        'id': 'unknown-not-rpm-based',
+        'test': '',
+        'params': '--test-config-root=config/not-rpm-based',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No RPM package manager configuration found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../rpm-versionlock'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
