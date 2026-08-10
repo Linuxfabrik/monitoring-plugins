@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081003'
+__version__ = '2026081007'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -53,9 +53,12 @@ DEFAULT_GROUPS = (
     'user',
 )
 
-# Groups LibreNMS deliberately leaves out of a default run. Each one is requested with its
-# own `-g` call, which is what keeps every sudoers entry a literal command without a
-# wildcard. Two of them have side effects an admin has to know about, see the README.
+# Groups LibreNMS leaves out of a default run. Each one is requested with its own `-g`
+# call, which is what keeps every sudoers entry a literal command without a wildcard. Two
+# of them have side effects an admin has to know about, see the README. Requesting a group
+# always runs it, whether LibreNMS would have included it on its own or not: `webserver`
+# never runs on the command line, and `distributedpoller` is part of a default run exactly
+# where distributed polling is enabled.
 OPTIONAL_GROUPS = (
     'distributedpoller',
     'mail',
@@ -72,12 +75,15 @@ DEFAULT_FAIL_SEVERITY = 'warn'
 DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_PATH = '/opt/librenms'
+DEFAULT_PHP_PATH = '/usr/bin/php'
 DEFAULT_TIMEOUT = 30
 DEFAULT_USER = 'librenms'
 
 # A result line, as ValidationResult::consolePrint() writes it: the status in brackets,
 # padded to twelve columns, then the message. Applied after the escape sequences are gone.
-RESULT_REGEX = re.compile(r'^\[(OK|WARN|FAIL|INFO)\]\s+(.*)$')
+# The status is not restricted to the four LibreNMS currently prints, so a status a later
+# release adds reaches the report instead of being dropped as an unparsable line.
+RESULT_REGEX = re.compile(r'^\[([A-Za-z]+)\]\s+(.*)$')
 
 # The group marker `-s` adds in front of each group's results. The status LibreNMS appends
 # to it is deliberately not captured: it lands on a later line whenever the group printed
@@ -85,12 +91,17 @@ RESULT_REGEX = re.compile(r'^\[(OK|WARN|FAIL|INFO)\]\s+(.*)$')
 GROUP_REGEX = re.compile(r'^Checking ([a-z]+):')
 
 # LibreNMS status -> the state the check reports for it. FAIL is not in here because it is
-# configurable via --fail-severity.
+# configurable via --fail-severity. A status that is in neither place is reported as
+# UNKNOWN: the check cannot say what it means, and staying quiet about it would be worse.
 STATE_BY_STATUS = {
     'INFO': STATE_OK,
     'OK': STATE_OK,
     'WARN': STATE_WARN,
 }
+
+# The statuses LibreNMS prints, and with them the counters the check always reports, so a
+# graph keeps its series even on a run where a status did not occur.
+KNOWN_STATUSES = ('FAIL', 'INFO', 'OK', 'WARN')
 
 # Aborts that leave the exit code at 0 and would otherwise be read as a clean run.
 ABORT_HINTS = (
@@ -150,8 +161,10 @@ def parse_args():
         '--group',
         help='Validation group to check. '
         'Can be specified multiple times. '
-        f'The groups {", ".join(OPTIONAL_GROUPS)} are not part of a default run and each '
-        'costs an additional run of the validation. '
+        f'The groups {", ".join(OPTIONAL_GROUPS)} are left out of a default run and each '
+        'costs an additional run of the validation when it is asked for. '
+        '"distributedpoller" is the exception: where distributed polling is enabled, a '
+        'default run already covers it. '
         'Two of them have side effects: "mail" sends a real test message to the '
         'configured alerting address on every check run, and "rrdcheck" reads every RRD '
         'file, which takes minutes on a grown installation. '
@@ -203,6 +216,16 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--php-path',
+        help='Local path to your PHP binary. '
+        'Has to be the binary the sudo rule names, because that rule lists the '
+        'permitted command with its exact arguments. '
+        'Default: %(default)s',
+        dest='PHP_PATH',
+        default=DEFAULT_PHP_PATH,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -234,14 +257,16 @@ def parse_args():
 
 
 def get_validate_script(path):
-    """Resolve the path to LibreNMS' validation script and make sure it is there.
+    """Build the path to LibreNMS' validation script and make sure it is there.
 
-    Returns (True, script_path) if the resolved path holds a `validate.php`, or
-    (False, errormessage) otherwise. Resolving symlinks up front keeps the value that
-    ends up in the command a real path, and refusing anything without a `validate.php`
-    stops the check from handing an arbitrary file to a PHP interpreter.
+    Returns (True, script_path) if the path holds a `validate.php`, or
+    (False, errormessage) otherwise. Only the file name is appended, and symlinks are
+    deliberately left unresolved: the script is an argument of the permitted command,
+    and sudo matches arguments as literal strings. An installation reached through a
+    symlink would resolve to a path the sudo rule does not spell, and the rule would
+    stop permitting the very command it was written for.
     """
-    script = os.path.realpath(os.path.join(path, 'validate.php'))
+    script = os.path.normpath(os.path.join(path, 'validate.php'))
     if not lib.disk.file_exists(script):
         return (False, f'No LibreNMS installation found at "{path}".')
     return (True, script)
@@ -262,13 +287,13 @@ def load_test_fixture(test_args, path):
     return stdout
 
 
-def run_validation(script, user, group, timeout):
+def run_validation(php, script, user, group, timeout):
     """Run LibreNMS' validation script and return its stdout.
 
     `group` is the single validation group to request, or None for a default run.
     Returns (True, stdout) or (False, errormessage).
     """
-    cmd = ['sudo', '-u', user, '/usr/bin/php', script, '-s']
+    cmd = ['sudo', '-u', user, php, script, '-s']
     if group is not None:
         cmd += ['-g', group]
 
@@ -321,6 +346,12 @@ def parse_validation(stdout):
     groups = set()
     group = 'dependencies'
     collecting_fix = False
+    # The result an indented line continues. Reset at every group marker, because an
+    # indented line only ever belongs to a result of the group it stands in. A group that
+    # prints progress output pushes its own status onto a line of its own, indented like a
+    # continuation, and without the reset that status would extend the last result of the
+    # group before it.
+    current_result = None
 
     for raw_line in stdout.splitlines():
         line = lib.txt.strip_ansi(raw_line)
@@ -330,25 +361,25 @@ def parse_validation(stdout):
             group = group_match.group(1)
             groups.add(group)
             collecting_fix = False
+            current_result = None
             continue
 
         result_match = RESULT_REGEX.match(line)
         if result_match:
             status, message = result_match.groups()
-            results.append(
-                {
-                    'fix': '',
-                    'group': group,
-                    'message': message.strip(),
-                    'status': status,
-                }
-            )
+            current_result = {
+                'fix': '',
+                'group': group,
+                'message': message.strip(),
+                'status': status,
+            }
+            results.append(current_result)
             groups.add(group)
             collecting_fix = False
             continue
 
-        if not results:
-            # Header and progress output ahead of the first result.
+        if current_result is None:
+            # Header, progress output and group status lines outside of any result.
             continue
 
         if line.startswith('\t[FIX]'):
@@ -363,14 +394,14 @@ def parse_validation(stdout):
             if not addition:
                 continue
             field = 'fix' if collecting_fix else 'message'
-            results[-1][field] = f'{results[-1][field]} {addition}'.strip()
+            current_result[field] = f'{current_result[field]} {addition}'.strip()
             continue
 
         if line.startswith(' '):
             # A message too long for one line continues indented by a single space.
             addition = line.strip()
             if addition:
-                results[-1]['message'] = f'{results[-1]["message"]} {addition}'
+                current_result['message'] = f'{current_result["message"]} {addition}'
 
     return results, groups
 
@@ -390,6 +421,12 @@ def main():
     # args.GROUP is not set here: None means "report everything that ran".
 
     # fetch data
+    # Every value that ends up in the command is checked before anything runs, so a
+    # rejected parameter is reported the same way whether the validation is called or
+    # test data is read.
+    php = lib.base.coe(lib.shell.safe_cli_value(args.PHP_PATH, '--php-path'))
+    path = lib.base.coe(lib.shell.safe_cli_value(args.PATH, '--path'))
+    user = lib.base.coe(lib.shell.safe_cli_value(args.USER, '--user'))
     # The default groups all come out of one run without `-g`, which keeps the command
     # that has to be allowed in sudoers a single literal line. Only the groups LibreNMS
     # leaves out of a default run cost a call of their own, and a run that would only
@@ -401,17 +438,15 @@ def main():
         if args.GROUP is not None and group in args.GROUP
     ]
     if args.TEST is None:
-        user = lib.base.coe(lib.shell.safe_cli_value(args.USER, '--user'))
-        path = lib.base.coe(lib.shell.safe_cli_value(args.PATH, '--path'))
         script = lib.base.coe(get_validate_script(path))
         stdouts = []
         if default_run:
             stdouts.append(
-                lib.base.coe(run_validation(script, user, None, args.TIMEOUT))
+                lib.base.coe(run_validation(php, script, user, None, args.TIMEOUT))
             )
         for group in optional_runs:
             stdouts.append(
-                lib.base.coe(run_validation(script, user, group, args.TIMEOUT))
+                lib.base.coe(run_validation(php, script, user, group, args.TIMEOUT))
             )
     else:
         stdouts = []
@@ -425,7 +460,7 @@ def main():
     state = STATE_OK
     perfdata = ''
     table_data = []
-    counts = {'FAIL': 0, 'INFO': 0, 'OK': 0, 'WARN': 0}
+    counts = dict.fromkeys(KNOWN_STATUSES, 0)
 
     # compile user-supplied regex patterns
     try:
@@ -441,9 +476,21 @@ def main():
 
     results = []
     groups = set()
+    # Every run of the validation repeats the checks LibreNMS performs before it gets to
+    # the group it was asked for, so the same result arrives once per run. Counting it
+    # again for each of them would report more validations than the installation has.
+    # Only results a previous run already delivered are dropped: two identical results
+    # within one run are two findings and stay two.
+    seen = set()
     for stdout in stdouts:
         stdout_results, stdout_groups = parse_validation(stdout)
-        results += stdout_results
+        keys = [
+            (item['group'], item['status'], item['message']) for item in stdout_results
+        ]
+        results += [
+            result for result, key in zip(stdout_results, keys) if key not in seen
+        ]
+        seen.update(keys)
         groups |= stdout_groups
 
     if not groups:
@@ -472,9 +519,9 @@ def main():
         if result['status'] == 'FAIL':
             item_state = lib.base.str2state(args.FAIL_SEVERITY)
         else:
-            item_state = STATE_BY_STATUS[result['status']]
+            item_state = STATE_BY_STATUS.get(result['status'], STATE_UNKNOWN)
         state = lib.base.get_worst(state, item_state)
-        counts[result['status']] += 1
+        counts[result['status']] = counts.get(result['status'], 0) + 1
         if args.BRIEF and result['status'] in ('INFO', 'OK'):
             continue
         row = {
@@ -491,18 +538,29 @@ def main():
         table_data.append(row)
 
     checked = sum(counts.values())
+    # Results LibreNMS reported under a status this check has no meaning for. They drive
+    # the result to UNKNOWN, so the summary has to name them instead of leaving an admin
+    # with an UNKNOWN next to a line that says nothing was found.
+    unrecognised = sum(
+        count for status, count in counts.items() if status not in KNOWN_STATUSES
+    )
 
     # build the message
-    if counts['FAIL'] or counts['WARN']:
-        findings = []
-        if counts['FAIL']:
-            findings.append(
-                f'{counts["FAIL"]} {lib.txt.pluralize("failure", counts["FAIL"])}'
-            )
-        if counts['WARN']:
-            findings.append(
-                f'{counts["WARN"]} {lib.txt.pluralize("warning", counts["WARN"])}'
-            )
+    findings = []
+    if counts['FAIL']:
+        findings.append(
+            f'{counts["FAIL"]} {lib.txt.pluralize("failure", counts["FAIL"])}'
+        )
+    if counts['WARN']:
+        findings.append(
+            f'{counts["WARN"]} {lib.txt.pluralize("warning", counts["WARN"])}'
+        )
+    if unrecognised:
+        findings.append(
+            f'{unrecognised} {lib.txt.pluralize("result", unrecognised)} this check '
+            'does not understand'
+        )
+    if findings:
         msg += f'{" and ".join(findings)} found. '
     else:
         msg += 'No failures found. No warnings found. '

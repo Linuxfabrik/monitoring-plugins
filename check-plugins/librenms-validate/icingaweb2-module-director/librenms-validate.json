@@ -31,6 +31,9 @@
                 "--path": {
                     "value": "$librenms_validate_path$"
                 },
+                "--php-path": {
+                    "value": "$librenms_validate_php_path$"
+                },
                 "--timeout": {
                     "value": "$librenms_validate_timeout$"
                 },
@@ -93,6 +96,11 @@
                 },
                 {
                     "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -158,6 +166,7 @@
                 "librenms_validate_no_match_severity": "ok",
                 "librenms_validate_no_perfdata": false,
                 "librenms_validate_path": "/opt/librenms",
+                "librenms_validate_php_path": "/usr/bin/php",
                 "librenms_validate_timeout": 30,
                 "librenms_validate_user": "librenms"
             },
@@ -374,7 +383,7 @@
         "4": {
             "varname": "librenms_validate_group",
             "caption": "LibreNMS Validate: Group",
-            "description": "Validation group to check. Can be specified multiple times. The groups distributedpoller, mail, rrdcheck, webserver are not part of a default run and each costs an additional run of the validation. Two of them have side effects: \"mail\" sends a real test message to the configured alerting address on every check run, and \"rrdcheck\" reads every RRD file, which takes minutes on a grown installation. If not specified, everything the default run reports is checked. Example: `--group=database --group=poller`",
+            "description": "Validation group to check. Can be specified multiple times. The groups distributedpoller, mail, rrdcheck, webserver are left out of a default run and each costs an additional run of the validation when it is asked for. \"distributedpoller\" is the exception: where distributed polling is enabled, a default run already covers it. Two of them have side effects: \"mail\" sends a real test message to the configured alerting address on every check run, and \"rrdcheck\" reads every RRD file, which takes minutes on a grown installation. If not specified, everything the default run reports is checked. Example: `--group=database --group=poller`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -438,6 +447,17 @@
             "uuid": "fc507321-ad4f-43fe-92e7-cd86fb8becb8"
         },
         "10": {
+            "varname": "librenms_validate_php_path",
+            "caption": "LibreNMS Validate: PHP Path",
+            "description": "Local path to your PHP binary. Has to be the binary the sudo rule names, because that rule lists the permitted command with its exact arguments.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5f5f137c-7f34-4023-8982-0364dfb5877e"
+        },
+        "11": {
             "varname": "librenms_validate_timeout",
             "caption": "LibreNMS Validate: Timeout",
             "description": "Seconds to wait for a single run of the validation to finish.",
@@ -448,7 +468,7 @@
             },
             "uuid": "5a2f986f-6a1e-4da6-837e-1cee0775e623"
         },
-        "11": {
+        "12": {
             "varname": "librenms_validate_user",
             "caption": "LibreNMS Validate: User",
             "description": "System user to run the validation as. LibreNMS refuses to validate itself as root and reports a failure when any other user runs it, so this has to name the user that owns the installation. Requires the right to `sudo -u <user>` (root has this by default).",

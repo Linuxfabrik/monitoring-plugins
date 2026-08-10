@@ -25,11 +25,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # the fixtures follow the same split: `--test=stdout/all-ok` feeds the default run, and
 # `stdout/all-ok-distributedpoller` the run that `--group=distributedpoller` triggers.
 #
-# Three fixtures are synthetic, because they capture a state an installation only reaches
-# while it is broken: default-run-unlisted-group is a captured default run with a group
-# appended that no LibreNMS release currently reports, which is how a future validation
-# group would arrive; composer-not-run reproduces the bootstrap failure validate.php
-# prints before it can load anything; empty-output is the run that printed nothing at all.
+# Four fixtures are synthetic, because they capture a state an installation only reaches
+# while it is broken or has not shipped yet: default-run-unlisted-group is a captured
+# default run with a group appended that no LibreNMS release currently reports, which is
+# how a future validation group would arrive; unrecognised-status does the same for a
+# status LibreNMS does not print today; composer-not-run reproduces the bootstrap failure
+# validate.php prints before it can load anything; empty-output is the run that printed
+# nothing at all.
 
 TESTS = [
     # A healthy installation with one real finding. The exit code of validate.php is 1
@@ -216,6 +218,18 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['Scanning', 'Status:'],
     },
+    # That status line is indented like the continuation of a message, and it arrives
+    # after the last result of the group before it. It must not extend that result, and
+    # the checks every run repeats before it reaches its group are one validation, not
+    # one per run.
+    {
+        'id': 'ok-second-run-neither-duplicates-nor-extends-a-result',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=dependencies --group=rrdcheck',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 validation in 2 groups.'],
+        'assert-not-in': ['required OK'],
+    },
     # validate.php refuses to run as root. Its exit code is the same 1 a run that found a
     # problem returns, so only the output tells the two apart.
     {
@@ -268,6 +282,39 @@ TESTS = [
         'params': '--group=database --no-match-severity=unknown',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Nothing checked.'],
+    },
+    # LibreNMS prints four statuses today and falls back to a placeholder for anything
+    # else, so a status a later release adds arrives as a shape the check has never seen.
+    # It has to reach the report rather than be dropped as an unparsable line.
+    {
+        'id': 'unknown-status-the-check-does-not-know',
+        'test': 'stdout/unrecognised-status,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Schema migration scheduled', 'Checked 2 validations'],
+    },
+    # A value that would reach the command line as an option instead of as the path or
+    # the account it is meant to be is refused before anything runs.
+    {
+        'id': 'unknown-path-looks-like-an-option',
+        'test': 'stdout/all-ok,,0',
+        'params': '--path=-x',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--path'],
+    },
+    {
+        'id': 'unknown-php-path-looks-like-an-option',
+        'test': 'stdout/all-ok,,0',
+        'params': '--php-path=-x',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--php-path'],
+    },
+    {
+        'id': 'unknown-user-looks-like-an-option',
+        'test': 'stdout/all-ok,,0',
+        'params': '--user=-x',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--user'],
     },
     # A pattern that is not a valid regex is a parameter error, not a finding.
     {
