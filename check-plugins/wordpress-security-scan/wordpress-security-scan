@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081005'
+__version__ = '2026081008'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -78,7 +78,9 @@ API_TOKEN_ENV = 'WPSCAN_API_TOKEN'  # nosec B105
 # token out and supplies vulnerability data on its own, so the enumeration must not be
 # downgraded when it is set.
 ENTERPRISE_TOKEN_ENV = 'WPSCAN_ENTERPRISE_DB_TOKEN'  # nosec B105
-ENTERPRISE_TOKEN_OPTION = '--enterprise-db-token'  # nosec B105 - an option name
+# The name of an option, not a secret. The reason for the marker below stays on its own
+# line, because bandit reads whatever follows the marker as further test ids.
+ENTERPRISE_TOKEN_OPTION = '--enterprise-db-token'  # nosec B105
 
 # Enumeration choices that only exist from this wpscan release on. Passing one to an older
 # release is not a warning there, it is an invalid choice and the scan never starts, so the
@@ -172,10 +174,14 @@ VULN_API_ABORT_MARKERS = (
     'Your API limit has been reached',
 )
 
+# The one exposure section whose entries carry a rating of their own, see
+# BACKUP_FOLDER_SEVERITY_STATE below.
+BACKUP_FOLDER_SECTION = 'backup_folders'
+
 # Top level JSON sections whose mere presence is an exposure: each entry is a file or
 # directory reachable over HTTP that leaks credentials, the database, or both.
 EXPOSURE_SECTIONS = {
-    'backup_folders': 'Backup folder with directory listing',
+    BACKUP_FOLDER_SECTION: 'Backup folder with directory listing',
     'config_backups': 'Readable wp-config backup',
     'db_exports': 'Readable database export',
 }
@@ -322,10 +328,9 @@ def parse_args():
         'Matched against the component and against the finding title separately, so an '
         'anchored expression still works on either of the two. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
-        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
-        'a finding must match `--match` AND not match `--ignore` to be reported '
-        '(include first, exclude second). '
-        'Example: `--match="^WordPress$"` to watch the core alone. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Example: `--match="^WordPress$"` to watch the core alone. '
         'Example: `--match="(?i)backup"` to watch the exposed backups alone.',
         dest='MATCH',
         action='append',
@@ -374,6 +379,7 @@ def parse_args():
         help='Seconds to wait for the scan to finish. '
         'A full scan of a site with many plugins takes minutes, so this is much higher '
         'than the network timeout of other checks. '
+        'Keep it below the timeout the monitoring agent grants the check. '
         'Default: %(default)s (seconds)',
         dest='SCAN_TIMEOUT',
         type=int,
@@ -682,7 +688,8 @@ def normalize_url(url):
 def has_enterprise_db(args):
     """Return True if a locally held copy of the vulnerability database is configured.
     It rules out the API token and supplies vulnerability data on its own, so the
-    enumeration must not be downgraded and a missing API token is not a gap.
+    vulnerable-plugins and vulnerable-themes choices must not be downgraded even though
+    no token is given.
     """
     if os.environ.get(ENTERPRISE_TOKEN_ENV, '').strip():
         return True
@@ -767,12 +774,16 @@ def adjust_enumerate(enumerate_opts, has_vuln_data, wpscan_version):
     return (','.join(adjusted), dropped)
 
 
-def get_vuln_data_status(data, has_enterprise):
+def get_vuln_data_status(data):
     """Return (available, note) for the vulnerability database. `available` is False
     whenever wpscan could not query it, which makes an empty vulnerability list say
     nothing about the site. wpscan reports this in its `vuln_api` section: `error` for a
     missing token, `http_error` and `parse_error` for an unreachable or broken API, and
     a `plan` with the remaining request quota when everything worked.
+
+    A locally held copy of the vulnerability database needs no branch of its own. It is
+    reported through the same `plan` as everything else, named `enterprise` and with an
+    unlimited quota.
     """
     vuln_api = data.get('vuln_api') or {}
     if vuln_api.get('error'):
@@ -800,8 +811,6 @@ def get_vuln_data_status(data, has_enterprise):
             f'vulnerability database queried ({plan} plan, {remaining} of the daily '
             'requests left)',
         )
-    if has_enterprise:
-        return (True, 'vulnerability database read from the local enterprise copy')
     # A document without a `vuln_api` section at all predates the section or was cut
     # short. Saying nothing would be the same silent all-clear this branch exists to
     # avoid, so it counts as missing data.
@@ -814,8 +823,9 @@ def get_vuln_data_status(data, has_enterprise):
 def get_scan_budget(args, spent=0):
     """Return the seconds granted to the scanner itself. It is asked to give up a little
     before the hard subprocess timeout, so it still writes a result rather than being
-    killed with nothing to report. `spent` is what the refresh of the vulnerability
-    database already used, so the check as a whole keeps to --scan-timeout.
+    killed with nothing to report. `spent` is what the check has already used up on the
+    database refresh, the version probe and any earlier scan attempt, so the check as a
+    whole keeps to --scan-timeout.
     """
     return max(1, args.SCAN_TIMEOUT - spent - SCAN_TIMEOUT_HEADROOM)
 
@@ -858,8 +868,8 @@ def build_wpscan_command(args, enumerate_opts, http_auth='', spent=0):
     line and nowhere else, unlike the API token, which goes through the environment.
 
     The scan itself never refreshes the vulnerability database; that has happened before
-    it, in a call of its own. `spent` is what that call took, so the scan gets the rest
-    of --scan-timeout.
+    it, in a call of its own. `spent` is what the check has used up by now, so the scan
+    gets the rest of --scan-timeout.
     """
     cmd = [
         'wpscan',
@@ -896,9 +906,15 @@ def build_wpscan_command(args, enumerate_opts, http_auth='', spent=0):
 def run_wpscan(cmd, token, timeout):
     """Run wpscan and return (success, (stdout, stderr, retc)). The API token is passed
     through the environment so it stays out of the process list.
+
+    Without a token the variable is removed rather than left alone. The monitoring user
+    may export one, and a scan that is deliberately run without a token has to be run
+    without that one too: the scanner reads the variable on its own, and an empty value
+    is a rejected token to it rather than no token at all.
     """
-    env = {API_TOKEN_ENV: token} if token else None
-    return lib.shell.shell_exec(cmd, env=env, timeout=timeout)
+    return lib.shell.shell_exec(
+        cmd, env={API_TOKEN_ENV: token or None}, timeout=timeout
+    )
 
 
 def run_scan(args, enumerate_opts, http_auth, token, *, spent=0):
@@ -1156,18 +1172,25 @@ def collect_exposure_findings(data, url, core_version):
     for section, description in sorted(EXPOSURE_SECTIONS.items()):
         entries = data.get(section) or {}
         for found_url in sorted(entries):
-            # A backup folder carries the scanner's own rating: `high` once it could read
-            # entries out of it, `medium` when it only saw that the folder is there.
-            # Every other section is an outright leak with nothing left to grade, and so
-            # is a folder from a release that did not rate them yet.
-            severity = (entries.get(found_url) or {}).get('severity')
+            # A backup folder carries the scanner's own rating: `high` once it could
+            # read entries out of it, `medium` when it only saw that the folder is
+            # there. The rating is read for that section alone, because every other one
+            # is an outright leak with nothing left to grade: a readable wp-config
+            # backup hands over the database credentials whatever rating a later release
+            # might attach to it. A folder from a release that did not rate them yet has
+            # no rating and counts as the full leak.
+            if section == BACKUP_FOLDER_SECTION:
+                severity = (entries.get(found_url) or {}).get('severity')
+                state = BACKUP_FOLDER_SEVERITY_STATE.get(severity, STATE_CRIT)
+            else:
+                state = STATE_CRIT
             findings.append(
                 finding(
                     found_url,
                     'exposure',
                     section,
                     description,
-                    BACKUP_FOLDER_SEVERITY_STATE.get(severity, STATE_CRIT),
+                    state,
                 )
             )
     return findings
@@ -1233,10 +1256,10 @@ def main():
     if args.WPSCAN_OPTION is None:  # case 1: default to empty list
         args.WPSCAN_OPTION = []
 
-    # compile user-supplied regex patterns
-    # Ahead of everything else, so an invalid expression fails within a second instead of
-    # after a scan that runs for half an hour. Case-sensitive by default, matching the
-    # lib.args convention; opt into case-insensitive matching with an inline `(?i)`.
+    # Compile the user-supplied regex patterns ahead of everything else, so an invalid
+    # expression fails within a second instead of after a scan that runs for half an
+    # hour. Case-sensitive by default, matching the lib.args convention; opt into
+    # case-insensitive matching with an inline `(?i)`.
     ignore_patterns = [
         lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
@@ -1301,10 +1324,11 @@ def main():
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
-        # Everything before the scan proper: the refresh of the vulnerability database
-        # and the version probe. Both cost time that has to come off the scan budget,
-        # or the check as a whole overruns --scan-timeout and the monitoring agent kills
-        # it with nothing to report.
+        # When the check started spending time. Everything that follows comes off the
+        # scan budget: the refresh of the vulnerability database, the version probe, and
+        # any scan that had to be repeated. Without that, a repeated scan would grant
+        # itself the full budget a second time, the check would overrun --scan-timeout
+        # and the monitoring agent would kill it with nothing to report.
         started = lib.time.now()
         # The refresh runs as a call of its own. A failure here is not the site's fault
         # and must not stop the scan: a host that cannot reach the database host still
@@ -1345,6 +1369,7 @@ def main():
         cmd, data, retc, output = run_scan(
             args, enumerate_opts, http_auth, token, spent=spent
         )
+        spent = int(lib.time.now() - started)
         # A token the API rejected, an exhausted daily quota or an unreachable API stop
         # the scanner before it looks at the site at all. Reporting that alone would
         # throw away everything the scan would have found and let a rotated key hide a
@@ -1358,7 +1383,8 @@ def main():
                 f'The vulnerability database rejected the request ({vuln_api_note}), '
                 'scanning without it...',
             )
-            token = ''  # nosec B105 - dropping the token, not setting one
+            # Dropping the token, not setting one.
+            token = ''  # nosec B105
             # Without a token the vulnerable-plugins and vulnerable-themes choices are
             # refused outright, so the enumeration has to be downgraded the same way a
             # run that never had a token downgrades it.
@@ -1368,6 +1394,7 @@ def main():
             cmd, data, retc, output = run_scan(
                 args, enumerate_opts, http_auth, token, spent=spent
             )
+            spent = int(lib.time.now() - started)
     else:
         # do not call the command, put in test data. The version probe would be a second
         # subprocess, so assume a release that knows every choice the check adjusts for.
@@ -1404,6 +1431,7 @@ def main():
         cmd, data, retc, output = run_scan(
             args, enumerate_opts, http_auth, token, spent=spent
         )
+        spent = int(lib.time.now() - started)
 
     if retc not in (0, 5):
         aborted = get_abort_reason(data)
@@ -1479,7 +1507,7 @@ def main():
     # Whether the vulnerability database was queried at all. Without it every
     # vulnerability list in the document is empty no matter what the site runs, so an
     # empty result must not be reported as a clean one.
-    vuln_data_available, vuln_data_note = get_vuln_data_status(data, enterprise)
+    vuln_data_available, vuln_data_note = get_vuln_data_status(data)
     # The probe reports the database age too, which the scan document does not carry.
     vulndb_age = get_vulndb_age(last_db_update)
 
@@ -1542,7 +1570,7 @@ def main():
     # build the message
     if nothing_checked:
         # The literal every check with --match prints, so it stays recognizable.
-        msg += f'Nothing checked. WordPress v{core_version} on {args.URL}'
+        msg += f'Nothing checked. WordPress v{core_version} on {args.URL}.'
     elif findings:
         parts = [
             f'{counts["vulnerability"]} '
@@ -1552,18 +1580,18 @@ def main():
             f'{counts["hardening"]} hardening '
             f'{lib.txt.pluralize("finding", counts["hardening"])}',
         ]
-        msg += f'{", ".join(parts)} on {args.URL}'
+        msg += f'{", ".join(parts)} on {args.URL}.'
     elif vuln_data_available:
         msg += (
             'No vulnerabilities found. No exposures found. '
-            f'WordPress v{core_version} on {args.URL}'
+            f'WordPress v{core_version} on {args.URL}.'
         )
     else:
         # Saying "no vulnerabilities found" here would be an all-clear the scan never
         # gave. Name what was actually checked instead.
         msg += (
             'No exposures found, vulnerabilities not checked. '
-            f'WordPress v{core_version} on {args.URL}'
+            f'WordPress v{core_version} on {args.URL}.'
         )
 
     if not vuln_data_available:

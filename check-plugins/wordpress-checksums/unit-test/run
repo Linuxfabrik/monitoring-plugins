@@ -23,7 +23,10 @@ side instead, through the fixtures that report an endpoint which answered with n
 usable.
 """
 
+import os
+import subprocess
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, '..')
@@ -50,7 +53,7 @@ TESTS = [
         'assert-in': [
             'WordPress v6.8.2 (en_US)',
             '2 of 2 components',
-            'no checksum violations found',
+            'No checksum violations found.',
             "'files_checked'=5",
         ],
         'assert-not-in': ['index.php', 'readme.html', '[WARNING]'],
@@ -115,7 +118,7 @@ TESTS = [
     {
         'id': 'warn-filtered-run-still-reports-the-unverifiable-component',
         'test': 'stdout/modified-and-unreachable,,0',
-        'params': f'{SITE} --match=ZZZ-nothing-matches --no-checksum-data-severity=warn',
+        'params': f'{SITE} --match=ZZZ-nothing-matches --unreachable-severity=warn',
         'assert-retc': STATE_WARN,
         'assert-in': [
             'Nothing checked.',
@@ -206,7 +209,7 @@ TESTS = [
         'test': 'stdout/bundled,,0',
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
-        'assert-in': ['no checksum violations found'],
+        'assert-in': ['No checksum violations found.'],
     },
     # A finding filtered away by --match must not be counted either.
     {
@@ -231,7 +234,7 @@ TESTS = [
         'test': 'stdout/stale,,0',
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^WordPress v6\.8\.2 \(en_US\): no checksum violations found\..*'
+        'assert-regex': r'^No checksum violations found\. WordPress v6\.8\.2 \(en_US\)\..*'
         r'\nwordpress\.org is unreachable, all 2 components verified against cached data '
         r'up to .* old\.',
     },
@@ -275,7 +278,7 @@ TESTS = [
             'Could not obtain any checksums',
             'Name or service not known',
         ],
-        'assert-not-in': ['no checksum violations found'],
+        'assert-not-in': ['No checksum violations found.'],
     },
     # The core still answered, so the check keeps working and reports the gap instead.
     {
@@ -283,7 +286,7 @@ TESTS = [
         'test': 'stdout/unreachable-plugin-only,,0',
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^WordPress v6\.8\.2 \(en_US\): no checksum violations found\..*'
+        'assert-regex': r'^No checksum violations found\. WordPress v6\.8\.2 \(en_US\)\..*'
         r'\nwordpress\.org could not be queried for 1 of 2 components '
         r'\(akismet\): URL error ',
         'assert-in': ['1 of 2 components', "'components_unverified'=1"],
@@ -291,9 +294,38 @@ TESTS = [
     {
         'id': 'warn-one-component-could-not-be-queried-alerts-on-demand',
         'test': 'stdout/unreachable-plugin-only,,0',
-        'params': f'{SITE} --no-checksum-data-severity=warn',
+        'params': f'{SITE} --unreachable-severity=warn',
         'assert-retc': STATE_WARN,
         'assert-in': ['could not be queried for 1 of 2'],
+    },
+    # The two gaps are graded apart. A component wordpress.org could not be asked about
+    # is a problem on this host with a fix; one it publishes nothing for is a permanent
+    # property of that component. Raising the parameter for the one must not raise the
+    # other, or an administrator alerting on a broken egress rule also gets paged for
+    # every commercial plugin on the site.
+    {
+        'id': 'ok-an-unreachable-component-ignores-no-checksum-data-severity',
+        'test': 'stdout/unreachable-plugin-only,,0',
+        'params': f'{SITE} --no-checksum-data-severity=crit',
+        'assert-retc': STATE_OK,
+        'assert-in': ['could not be queried for 1 of 2'],
+    },
+    {
+        'id': 'ok-an-unpublished-component-ignores-unreachable-severity',
+        'test': 'stdout/extras,,0',
+        'params': f'{EXTRAS} --unreachable-severity=crit',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Not verified: acme-premium'],
+    },
+    # A run served from an expired cache verified everything, but it could not ask
+    # wordpress.org either, so it follows the same parameter as a component that could
+    # not be reached at all.
+    {
+        'id': 'warn-stale-cache-alerts-on-demand',
+        'test': 'stdout/stale,,0',
+        'params': f'{SITE} --unreachable-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['wordpress.org is unreachable'],
     },
     # A plugin the core bundles differs from the plugin directory's copy, and without the
     # core list there is no telling which of the two published copies the installation is
@@ -306,7 +338,7 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             'Not verified: core, akismet',
-            'nothing checked',
+            'Nothing checked.',
             "'components_unverified'=2",
         ],
         'assert-not-in': ['akismet.php'],
@@ -322,7 +354,7 @@ TESTS = [
         'assert-in': [
             '2 of 3 components',
             'Not verified: acme-premium',
-            'no checksum violations found',
+            'No checksum violations found.',
         ],
     },
     # A plugin living in `wp-content/plugins/core/` is a plugin, not the WordPress core.
@@ -371,6 +403,39 @@ TESTS = [
 
 class TestCheck(unittest.TestCase):
     check = '../wordpress-checksums'
+
+
+class TestTotalTimeout(unittest.TestCase):
+    """The whole run shares one network budget, not one per component. Without it a host
+    that cannot reach wordpress.org waits --timeout seconds per component and is killed
+    by the monitoring agent before it prints anything.
+
+    Run without `--test`, because the fixtures are injected behind the fetch and the
+    budget is what decides whether that fetch happens at all. A budget of zero leaves no
+    room for a single request, so nothing is asked and the network stays untouched. The
+    run gets a temporary directory of its own, because the cache would otherwise answer
+    out of whatever a real run on this machine left behind.
+    """
+
+    def test_a_spent_budget_asks_for_nothing_and_says_so(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            env = dict(os.environ, TMPDIR=tmpdir)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    '../wordpress-checksums',
+                    '--path=wordpress/site',
+                    '--total-timeout=0',
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+                check=False,
+            )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('Could not obtain any checksums', output)
+        self.assertIn('--total-timeout', output)
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)

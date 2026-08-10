@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081005'
+__version__ = '2026081007'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -46,6 +46,8 @@ DEFAULT_NO_PROXY = False
 DEFAULT_PATH = '/var/www/html/wordpress'
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
+DEFAULT_TOTAL_TIMEOUT = 45
+DEFAULT_UNREACHABLE_SEVERITY = 'ok'
 
 # Where wordpress.org publishes the digests of a released version. Both are open endpoints
 # and need no account. They are separate services and answer a request for something they
@@ -202,10 +204,9 @@ def parse_args():
         'Matched against `<component>/<path>`, where the component is `core` or the '
         "plugin's slug. "
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
-        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
-        'a file must match `--match` AND not match `--ignore` to be reported '
-        '(include first, exclude second). '
-        'Example: `--match="^core/"` to look at the core alone. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Example: `--match="^core/"` to look at the core alone. '
         'Example: `--match="\\.php$"` to look at the PHP files alone.',
         dest='MATCH',
         action='append',
@@ -214,7 +215,12 @@ def parse_args():
 
     parser.add_argument(
         '--no-checksum-data-severity',
-        help=lib.args.help('--no-checksum-data-severity') + ' Default: %(default)s',
+        help=lib.args.help('--no-checksum-data-severity')
+        + ' Applies where wordpress.org publishes nothing for a component, which is a '
+        'permanent property of that component and nothing to fix on this host. '
+        'A component wordpress.org could not be asked about is a different case and '
+        'follows --unreachable-severity. '
+        'Default: %(default)s',
         dest='NO_CHECKSUM_DATA_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_CHECKSUM_DATA_SEVERITY,
@@ -273,10 +279,42 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        help=lib.args.help('--timeout') + ' Applies to a single request. '
+        'The run as a whole is bounded by --total-timeout. '
+        'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--total-timeout',
+        help='Seconds the run may spend asking wordpress.org, across all requests. '
+        'One request is made per component, so a host that cannot reach wordpress.org '
+        'would otherwise wait --timeout seconds per component and be killed by the '
+        'monitoring agent before it printed anything. '
+        'Components not reached within the budget are reported as unqueried, the same '
+        'way a failed request is. '
+        'Keep it below the timeout the monitoring agent grants the check. '
+        'Raise it on an installation with many plugins on a slow link. '
+        'Default: %(default)s (seconds)',
+        dest='TOTAL_TIMEOUT',
+        type=int,
+        default=DEFAULT_TOTAL_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--unreachable-severity',
+        help=lib.args.help('--unreachable-severity')
+        + ' Covers both a component verified against an expired cached copy and one '
+        'that could not be verified at all for want of one. '
+        'Raise it where the host is expected to reach wordpress.org, so a broken egress '
+        'rule or an expired proxy credential surfaces instead of quietly reducing what '
+        'the check covers. '
+        'Default: %(default)s',
+        dest='UNREACHABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNREACHABLE_SEVERITY,
     )
 
     args, _ = parser.parse_known_args()
@@ -498,7 +536,7 @@ def url_component(value):
     return urllib.parse.quote(value, safe='')
 
 
-def get_checksums(args, key, endpoint, extract, algorithm):
+def get_checksums(args, key, endpoint, extract, algorithm, timeout):
     """Serve a digest map, from the local cache where it is still fresh and from `endpoint`
     otherwise.
 
@@ -511,6 +549,10 @@ def get_checksums(args, key, endpoint, extract, algorithm):
     a released version never change, so an outdated copy verifies exactly as well as a
     current one; only the knowledge of newer versions is missing from it. The caller is told
     through `stale` and `expired` so it can say so.
+
+    `timeout` is what is left of the run's overall budget, so zero means the budget is
+    spent. The cache is still read in that case - it costs nothing and a hit is a full
+    answer - but nothing is asked over the network any more.
     """
     result = empty_answer(algorithm)
 
@@ -532,36 +574,44 @@ def get_checksums(args, key, endpoint, extract, algorithm):
         result['checksums'] = cached
         return result
 
-    success, response = lib.url.fetch(
-        endpoint,
-        extended=True,
-        insecure=args.INSECURE,
-        no_proxy=args.NO_PROXY,
-        response_on_error=True,
-        timeout=args.TIMEOUT,
-    )
-    status = response.get('status_code') if isinstance(response, dict) else None
-
     checksums = None
     error = ''
-    if success:
-        try:
-            checksums = extract(json.loads(response['response']))
-        except (AttributeError, KeyError, TypeError, ValueError) as e:
-            error = f'Unreadable answer from wordpress.org: {e}'
-        else:
-            if checksums is None:
-                result['published'] = False
-                return result
-    elif status == 404:
-        result['published'] = False
-        return result
-    else:
+    if timeout <= 0:
+        # The budget the whole run shares is spent. Nothing is asked any more: a request
+        # started now would run past the point where the monitoring agent kills the
+        # check, and a killed check prints nothing at all - not even the components that
+        # were verified before the budget ran out.
         error = (
-            response
-            if isinstance(response, str)
-            else f'HTTP error "{status}" from wordpress.org'
+            f'ran out of the {args.TOTAL_TIMEOUT}s that --total-timeout grants a run'
         )
+    else:
+        success, response = lib.url.fetch(
+            endpoint,
+            extended=True,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            response_on_error=True,
+            timeout=timeout,
+        )
+        status = response.get('status_code') if isinstance(response, dict) else None
+        if success:
+            try:
+                checksums = extract(json.loads(response['response']))
+            except (AttributeError, KeyError, TypeError, ValueError) as e:
+                error = f'Unreadable answer from wordpress.org: {e}'
+            else:
+                if checksums is None:
+                    result['published'] = False
+                    return result
+        elif status == 404:
+            result['published'] = False
+            return result
+        else:
+            error = (
+                response
+                if isinstance(response, str)
+                else f'HTTP error "{status}" from wordpress.org'
+            )
 
     if checksums:
         result['checksums'] = checksums
@@ -586,7 +636,15 @@ def get_checksums(args, key, endpoint, extract, algorithm):
     return result
 
 
-def fetch_core_checksums(args, version, locale):
+def remaining_timeout(args, deadline):
+    """Return how long the next request may take: `--timeout`, or what is left of the
+    overall budget where that is less. Zero once the budget is spent, which is what tells
+    `get_checksums()` to stop asking.
+    """
+    return max(0, min(args.TIMEOUT, int(deadline - lib.time.now())))
+
+
+def fetch_core_checksums(args, version, locale, timeout):
     """Return the digests wordpress.org publishes for a released core version, or the
     fixture standing in for them in test mode.
 
@@ -604,10 +662,11 @@ def fetch_core_checksums(args, version, locale):
         # `"checksums": false`, where the plugin endpoint answers 404. Same meaning.
         extract=lambda data: data.get('checksums') or None,
         algorithm=CORE_CHECKSUM_ALGORITHM,
+        timeout=timeout,
     )
 
 
-def fetch_plugin_checksums(args, slug, version):
+def fetch_plugin_checksums(args, slug, version, timeout):
     """Return the digests wordpress.org publishes for a released plugin version, or the
     fixture standing in for them in test mode.
 
@@ -639,6 +698,7 @@ def fetch_plugin_checksums(args, slug, version):
             or None
         ),
         algorithm=PLUGIN_CHECKSUM_ALGORITHM,
+        timeout=timeout,
     )
 
 
@@ -670,7 +730,12 @@ def main():
     # things. `hello.php`, shipped with every WordPress, sits in no directory at all and is
     # `hello-dolly` there. Reported under the name on disk, looked up under the other one.
     slugs = lib.wordpress.get_plugin_slugs(args.PATH)
-    core = fetch_core_checksums(args, version, locale)
+    # Everything asked of wordpress.org shares one budget, counted from here. The reads
+    # above are local and cost nothing worth budgeting for.
+    deadline = lib.time.now() + args.TOTAL_TIMEOUT
+    core = fetch_core_checksums(
+        args, version, locale, remaining_timeout(args, deadline)
+    )
 
     # init some vars
     findings = []
@@ -711,7 +776,13 @@ def main():
     # component name: `wp-content/plugins/core/` is a legal plugin directory, and reading
     # the name would hold that plugin to the core's scope and count it as the core.
     for component, bucket, result in [('core', 'core', core)] + [
-        (slug, 'plugins', fetch_plugin_checksums(args, slugs[slug], plugins[slug]))
+        (
+            slug,
+            'plugins',
+            fetch_plugin_checksums(
+                args, slugs[slug], plugins[slug], remaining_timeout(args, deadline)
+            ),
+        )
         for slug in sorted(plugins)
     ]:
         if result['stale']:
@@ -756,9 +827,11 @@ def main():
         # A plugin the core bundles is held to two published copies at once, and only the
         # core list picks the one that applies. Without it, a difference from the plugin
         # directory's copy says nothing: it is just as likely to be the core's copy. Report
-        # the coverage gap that it is rather than a finding nobody can act on.
+        # the coverage gap that it is rather than a finding nobody can act on. Decided on
+        # the unfiltered findings: whether a component could be verified at all is a
+        # property of the run, and `--ignore` must not turn it into a verified one.
         if (
-            component_findings
+            unfiltered_findings
             and not core['checksums']
             and slugs.get(component) in CORE_BUNDLED_PLUGINS
         ):
@@ -785,10 +858,15 @@ def main():
     violation_state = lib.base.str2state(args.SEVERITY)
     if findings:
         state = lib.base.get_worst(state, violation_state)
-    if unverified or unreachable:
+    # The two gaps are graded apart, because an administrator can act on one of them and
+    # not on the other. Nothing published for a component is a permanent property of that
+    # component; wordpress.org not answering is a problem on this host with a fix.
+    if unverified:
         state = lib.base.get_worst(
             state, lib.base.str2state(args.NO_CHECKSUM_DATA_SEVERITY)
         )
+    if unreachable or stale:
+        state = lib.base.get_worst(state, lib.base.str2state(args.UNREACHABLE_SEVERITY))
 
     # The filters removed every finding there was. An installation that simply matches its
     # published checksums is clean, not unchecked, and is reported as such below, so this
@@ -820,10 +898,10 @@ def main():
             )
             verdict += lib.base.state2str(violation_state, prefix=' ')
         elif files_checked:
-            verdict = 'no checksum violations found'
+            verdict = 'No checksum violations found'
         else:
-            verdict = 'nothing checked'
-        msg += f'WordPress v{version} ({locale}): {verdict}.'
+            verdict = 'Nothing checked'
+        msg += f'{verdict}. WordPress v{version} ({locale}).'
         if files_checked:
             msg += (
                 f' {files_checked} {lib.txt.pluralize("file", files_checked)} verified '

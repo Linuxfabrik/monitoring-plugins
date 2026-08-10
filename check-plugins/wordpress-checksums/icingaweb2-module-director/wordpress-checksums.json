@@ -42,6 +42,12 @@
                 },
                 "--timeout": {
                     "value": "$wordpress_checksums_timeout$"
+                },
+                "--total-timeout": {
+                    "value": "$wordpress_checksums_total_timeout$"
+                },
+                "--unreachable-severity": {
+                    "value": "$wordpress_checksums_unreachable_severity$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/wordpress-checksums",
@@ -111,6 +117,16 @@
                     "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -177,7 +193,9 @@
                 "wordpress_checksums_no_proxy": false,
                 "wordpress_checksums_path": "/var/www/html/wordpress",
                 "wordpress_checksums_severity": "warn",
-                "wordpress_checksums_timeout": 8
+                "wordpress_checksums_timeout": 8,
+                "wordpress_checksums_total_timeout": 45,
+                "wordpress_checksums_unreachable_severity": "ok"
             },
             "volatile": null,
             "zone": null,
@@ -271,6 +289,37 @@
                 }
             ],
             "uuid": "7324f283-fdc3-4675-ad2b-f35bd46c30b7"
+        },
+        "wordpress_checksums_unreachable_severity_list": {
+            "list_name": "wordpress_checksums_unreachable_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "71a91317-26f2-4746-8738-ce4c5598b4fd"
         }
     },
     "Datafield": {
@@ -326,7 +375,7 @@
         "6": {
             "varname": "wordpress_checksums_match",
             "caption": "WordPress Checksums: Match",
-            "description": "Only check files whose path matches this Python regular expression. Matched against `<component>/<path>`, where the component is `core` or the plugin's slug. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, a file must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match=\"^core/\"` to look at the core alone. Example: `--match=\"\\.php$\"` to look at the PHP files alone.",
+            "description": "Only check files whose path matches this Python regular expression. Matched against `<component>/<path>`, where the component is `core` or the plugin's slug. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match=\"^core/\"` to look at the core alone. Example: `--match=\"\\.php$\"` to look at the PHP files alone.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -337,7 +386,7 @@
         "7": {
             "varname": "wordpress_checksums_no_checksum_data_severity",
             "caption": "WordPress Checksums: No Checksum Data Severity",
-            "description": "State to report when no published checksums are available for a component and it could not be verified. The check still verifies everything it has checksums for, but a clean result then only covers those components, not the ones it had to skip.",
+            "description": "State to report when no published checksums are available for a component and it could not be verified. The check still verifies everything it has checksums for, but a clean result then only covers those components, not the ones it had to skip. Applies where wordpress.org publishes nothing for a component, which is a permanent property of that component and nothing to fix on this host. A component wordpress.org could not be asked about is a different case and follows --unreachable-severity.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -405,13 +454,37 @@
         "13": {
             "varname": "wordpress_checksums_timeout",
             "caption": "WordPress Checksums: Timeout",
-            "description": "Network timeout in seconds.",
+            "description": "Network timeout in seconds. Applies to a single request. The run as a whole is bounded by --total-timeout.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "3c0f2d12-2f26-497a-aa28-50e39754cee9"
+        },
+        "14": {
+            "varname": "wordpress_checksums_total_timeout",
+            "caption": "WordPress Checksums: Total Timeout",
+            "description": "Seconds the run may spend asking wordpress.org, across all requests. One request is made per component, so a host that cannot reach wordpress.org would otherwise wait --timeout seconds per component and be killed by the monitoring agent before it printed anything. Components not reached within the budget are reported as unqueried, the same way a failed request is. Keep it below the timeout the monitoring agent grants the check. Raise it on an installation with many plugins on a slow link.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7bf6168f-5fbd-4560-a0d9-afb9ac4b65b2"
+        },
+        "15": {
+            "varname": "wordpress_checksums_unreachable_severity",
+            "caption": "WordPress Checksums: Unreachable Severity",
+            "description": "State to report when the online source is unreachable. What is used instead - bundled offline data, a cached copy, or nothing at all - is named in the output, and a clean result then only covers what that fallback could confirm. Covers both a component verified against an expired cached copy and one that could not be verified at all for want of one. Raise it where the host is expected to reach wordpress.org, so a broken egress rule or an expired proxy credential surfaces instead of quietly reducing what the check covers.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "wordpress_checksums_unreachable_severity_list"
+            },
+            "uuid": "c1c8228f-8071-475d-b06d-6303f4345938"
         }
     }
 }

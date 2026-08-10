@@ -139,7 +139,7 @@ options:
                         an anchored expression still works on either of the
                         two. Case-sensitive by default; use `(?i)` for case-
                         insensitive matching. Can be specified multiple times.
-                        If both `--match` and `--ignore` are given, a finding
+                        If both `--match` and `--ignore` are given, an item
                         must match `--match` AND not match `--ignore` to be
                         reported (include first, exclude second). Example:
                         `--match="^WordPress$"` to watch the core alone.
@@ -172,7 +172,8 @@ options:
                         Seconds to wait for the scan to finish. A full scan of
                         a site with many plugins takes minutes, so this is
                         much higher than the network timeout of other checks.
-                        Default: 1800 (seconds)
+                        Keep it below the timeout the monitoring agent grants
+                        the check. Default: 1800 (seconds)
   --unscored-severity {ok,warn,crit}
                         State to report for a known vulnerability that carries
                         no CVSS score. The vulnerability database has no score
@@ -303,14 +304,14 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wordpress-securit
 Output on a healthy site:
 
 ```text
-No vulnerabilities found. No exposures found. WordPress v6.8.2 on https://www.example.com
+No vulnerabilities found. No exposures found. WordPress v6.8.2 on https://www.example.com.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 ```
 
 Output on a site with findings:
 
 ```text
-0 vulnerabilities (0 critical), 3 exposures, 4 hardening findings on https://www.example.com
+0 vulnerabilities (0 critical), 3 exposures, 4 hardening findings on https://www.example.com.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 
 Component                                    ! Installed ! Finding                                  ! State
@@ -331,7 +332,7 @@ With `--lengthy`, which adds the finding type, the CVSS score and the release th
 ```
 
 ```text
-1 vulnerability (1 critical), 0 exposures, 0 hardening findings on https://www.example.com
+1 vulnerability (1 critical), 0 exposures, 0 hardening findings on https://www.example.com.
 Vulnerability database queried (free plan, 22 of the daily requests left).
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 
@@ -347,7 +348,7 @@ Accepting the risk for one component:
 ```
 
 ```text
-0 vulnerabilities (0 critical), 0 exposures, 1 hardening finding on https://www.example.com
+0 vulnerabilities (0 critical), 0 exposures, 1 hardening finding on https://www.example.com.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 
 Component ! Installed ! Finding                             ! State
@@ -362,7 +363,7 @@ Reading the API token from a file instead of the command line:
 ```
 
 ```text
-No vulnerabilities found. No exposures found. WordPress v6.8.2 on https://www.example.com
+No vulnerabilities found. No exposures found. WordPress v6.8.2 on https://www.example.com.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 ```
 
@@ -373,7 +374,7 @@ Without a token, the vulnerability class is never examined and the check says so
 ```
 
 ```text
-No exposures found, vulnerabilities not checked. WordPress v6.8.2 on https://www.example.com
+No exposures found, vulnerabilities not checked. WordPress v6.8.2 on https://www.example.com.
 No vulnerability data: no API token, the vulnerability database was not queried.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 ```
@@ -385,7 +386,7 @@ Alerting while no token is configured, instead of accepting the gap:
 ```
 
 ```text
-No exposures found, vulnerabilities not checked. WordPress v6.8.2 on https://www.example.com
+No exposures found, vulnerabilities not checked. WordPress v6.8.2 on https://www.example.com.
 No vulnerability data: no API token, the vulnerability database was not queried.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 ```
@@ -397,7 +398,7 @@ Letting the check take the site URL from `wp-config.php` instead of passing it:
 ```
 
 ```text
-No vulnerabilities found. No exposures found. WordPress v6.8.2 on https://www.example.com
+No vulnerabilities found. No exposures found. WordPress v6.8.2 on https://www.example.com.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 ```
 

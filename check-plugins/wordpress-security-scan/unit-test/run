@@ -17,6 +17,7 @@ import importlib.util
 import os
 import subprocess
 import unittest
+from unittest import mock
 
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -67,6 +68,10 @@ TESTS = [
             "'plugins_installed'=3",
             "'plugins_detected'=2",
         ],
+        # The verdict opens the first line and that line is a complete sentence, the
+        # same shape wordpress-checksums prints.
+        'assert-regex': r'^No vulnerabilities found\. No exposures found\. '
+        r'WordPress v7\.0\.2 on https://www\.example\.com\.\n',
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
@@ -501,6 +506,16 @@ TESTS = [
         'params': BASE_PARAMS,
         'assert-retc': STATE_WARN,
         'assert-regex': r'backup-db.*\[WARNING\]',
+    },
+    # That rating belongs to the backup folders alone. A readable wp-config backup hands
+    # over the database credentials whatever rating a future release might attach to it,
+    # so a severity turning up in that section must not soften the finding.
+    {
+        'id': 'crit-config-backup-ignores-a-severity',
+        'test': 'stdout/config-backup-rated,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'wp-config\.php\.bak.*\[CRITICAL\]',
     },
     # Exactly at the threshold the vulnerability is critical, because the comparison is
     # "at or above".
@@ -966,6 +981,53 @@ def _is_a_lookup_problem(test, item):
 
 def _is_not_a_lookup_problem(test, item):
     test.assertFalse(test.check.is_vuln_api_failure(item[1]))
+
+
+class TestTokenEnvironment(unittest.TestCase):
+    """The API token reaches the scanner through the environment, never through its
+    command line. What matters just as much is the opposite case: a scan the check runs
+    deliberately without a token has to run without the one the monitoring user may have
+    exported, or the retry after a rejected token repeats the very failure it exists to
+    get past.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def _env_of_a_run(self, token):
+        with mock.patch.object(
+            self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
+        ) as fake:
+            self.check.run_wpscan(['wpscan'], token, 60)
+        return fake.call_args.kwargs['env']
+
+    def test_a_token_is_handed_over_through_the_environment(self):
+        env = self._env_of_a_run('linuxfabrik')
+        self.assertEqual(env[self.check.API_TOKEN_ENV], 'linuxfabrik')
+
+    def test_no_token_removes_an_exported_one(self):
+        # None is what lib.shell.shell_exec() reads as "remove this variable". An empty
+        # string would not do: the scanner reads the variable itself and takes an empty
+        # value for a rejected token rather than for no token at all.
+        env = self._env_of_a_run('')
+        self.assertIsNone(env[self.check.API_TOKEN_ENV])
+
+    def test_the_token_never_reaches_the_command_line(self):
+        with mock.patch.object(
+            sys,
+            'argv',
+            [
+                'wordpress-security-scan',
+                '--url=https://www.example.com',
+                '--api-token=linuxfabrik',
+            ],
+        ):
+            args = self.check.parse_args()
+        args.WPSCAN_OPTION = []
+        self.assertNotIn(
+            'linuxfabrik', ' '.join(self.check.build_wpscan_command(args, 'u'))
+        )
 
 
 def run_without_test_mode(params, path=None):
