@@ -8,231 +8,109 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Six checks that aborted with a Python error on every run work again. `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on servers with many components. New checks cover Docker and Podman. Cumulative counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating.
+**Highlights:** Six checks that aborted with a Python error on every run work again, `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on servers with many components. Thirty checks are new, covering Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Cumulative counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating.
 
 ### Breaking Changes
 
 Monitoring Plugins:
 
-* Cumulative counters are reported as per-second rates (or plain values) instead of ever-growing totals, which fixes Grafana graphs and aggregations. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* disk-io: is WARN-only (never CRITICAL) and no longer measures I/O wait, which is unreliable on multi-core hosts. `--critical`, `--iowait-warning` and `--iowait-critical` are deprecated and ignored, and the Grafana dashboard has to be re-imported
-* huawei-dorado-\*: performance data metric names are lower case with underscores, huawei-dorado-system and huawei-dorado-host report their capacities in bytes instead of raw 512-byte sectors, huawei-dorado-power and huawei-dorado-controller report their voltages in volts instead of the raw millivolts and tenths of a volt the appliance counts them in, and huawei-dorado-backup-power no longer graphs the discharge count, a counter that only ever grows. Re-import the affected Grafana dashboards after updating
-* huawei-pacific-quota: `--ignore-regex` is now `--ignore`, and it is joined by `--match`, so the check filters the way the rest of the family does. The old name keeps working, but the pattern is anchored at the start of the share name instead of matching anywhere: prefix an existing pattern with `.*` to keep it matching
-* redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the misleading localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+* cumulative counters are reported as per-second rates instead of ever-growing totals. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* disk-io: is WARN-only and no longer measures I/O wait. `--critical`, `--iowait-warning` and `--iowait-critical` are ignored, and the Grafana dashboard has to be re-imported
+* huawei-dorado-\*: performance data metric names are lower case with underscores, capacities are reported in bytes and voltages in volts. Re-import the affected Grafana dashboards after updating
+* redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Added
 
 Monitoring Plugins:
 
-* `--always-ok` forces an OK result on 43 further plugins, consistent with the rest (about-me, borgbackup, deb-lastactivity, file-ownership, fs-xfs-stats, getent, ipmi-sel, ipmi-sensor, keycloak-stats, librenms-version, metabase-stats, mysql-traffic, needs-restarting, network-connections, network-port-tcp, nextcloud-enterprise, nextcloud-security-scan, nextcloud-stats, nodebb-events, nodebb-groups, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, ntp-w32tm, onlyoffice-stats, openvpn-client-list, qts-uptime, restic-check, restic-snapshots, restic-stats, rocketchat-stats, rpm-lastactivity, scanrootkit, scheduled-task, snmp, starface-account-stats, starface-database-stats, starface-peer-stats, systemd-unit, users, whmcs-status, wildfly-gc-status, xca-cert)
-* `--help` ends with a link to the plugin's online documentation, on all plugins ([#161](https://github.com/Linuxfabrik/monitoring-plugins/issues/161))
-* `--no-insecure` enforces TLS certificate verification on the checks that skip it by default, with the default unchanged so nothing breaks on hosts with self-signed certificates (dmesg, huawei-dorado-\*, huawei-pacific-\*, journald-query, logfile, redfish-\*, veeam-status)
-* `--no-match-severity` can alert instead of silently reporting OK when the filters match nothing, with the default staying OK (disk-io, disk-smart, disk-usage, fail2ban, network-errors, network-io, nextcloud-app-updates, sensors-temperatures, wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats) ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
-* `--no-perfdata` drops the performance data from the output while keeping the status message and exit code, on all plugins that report performance data ([#1331](https://github.com/Linuxfabrik/monitoring-plugins/issues/1331))
-* `--unreachable-severity` can alert instead of silently reporting OK when endoflife.date is unreachable and the bundled offline data is used, on all `*-version` checks, with the default staying OK ([#750](https://github.com/Linuxfabrik/monitoring-plugins/issues/750))
-* apache-tomcat-version: check for an end-of-life or outdated Apache Tomcat, with an Icinga Director service set ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
-* `--match` and `--no-match-severity` limit the check to the objects whose identifier, location or name matches a regex, on all ten Huawei OceanStor Dorado hardware and replication checks (huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure, huawei-dorado-fan, huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair, huawei-dorado-interface, huawei-dorado-power)
-* huawei-dorado-backup-power: `--warning`/`--critical` alert on a backup power module running out of remaining life, and `--warning-voltage`/`--critical-voltage` on one whose voltage leaves the range you expect, which is where a lost cell shows up long before the health status changes
-* `--brief` hides the rows that are within the thresholds on six further checks whose output grows with the size of the array, so a quiet system prints one line instead of hundreds. Perfdata and alerting are unaffected (huawei-dorado-disk, huawei-dorado-host, huawei-dorado-hypermetropair, huawei-dorado-port, huawei-dorado-sfp, huawei-pacific-disk)
-* `--lengthy` brings back the inventory columns on ten Huawei checks that used to print every column at once; without it the table shows the columns that decide the state (huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure, huawei-dorado-hypermetropair, huawei-dorado-power, huawei-dorado-sfp, huawei-dorado-storagepool, huawei-pacific-disk, huawei-pacific-node)
-* huawei-pacific-node: `--warranty-severity` alerts on a node whose warranty has expired or is about to, which is what a hardware refresh gets planned from. Off by default, because a warranty is a commercial fact rather than a fault
-* `--match`, `--ignore` and `--no-match-severity` limit the check to the objects whose name, location or identifier matches a regex, on the six Huawei OceanStor Pacific checks that did not have them yet, so the Pacific family filters the same way the Dorado one already does (huawei-pacific-alarm, huawei-pacific-disk, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power, huawei-pacific-quota)
-* `--verbose` prints what every API request returned on all 24 Huawei checks, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted, and the output is as long as those answers are, so it is a debugging aid rather than something to leave switched on (huawei-dorado-\*, huawei-pacific-\*)
-* huawei-dorado-controller: `--performance` additionally reports the average read and write I/O size and the read and write response times, which the appliance keeps for a controller and the check did not ask for
-* huawei-dorado-lun, huawei-dorado-storagepool: the fill threshold the storage administrator configured on the appliance itself is honoured, so the check and the management GUI agree on when a LUN or a pool is full instead of each having their own opinion. `--device-threshold-severity` tunes it and defaults to WARNING
-* huawei-dorado-lun: `--unmapped-severity` alerts on a LUN that is not mapped to any host, for an array where every LUN is meant to be in use
-* huawei-dorado-storagepool: `--warning-overprovisioning`/`--critical-overprovisioning` alert on how far a pool's promise to its LUNs runs ahead of the disks behind it, off by default
-* huawei-dorado-disk: `--warning-health-mark`/`--critical-health-mark` alert on the health score the appliance keeps per disk, `--warning-wear`/`--critical-wear` on a disk that has worn through most of its service life, and `--unused-disk-severity` on a disk that belongs to no pool. All off by default
-* huawei-dorado-controller: `--warning`/`--critical` alert on CPU and memory usage, and `--warning-temperature`/`--critical-temperature` on the controller temperature, all off by default
-* huawei-dorado-disk: `--warning`/`--critical` alert on a disk running out of remaining life, and `--warning-temperature`/`--critical-temperature` on a disk running hot
-* huawei-dorado-enclosure, huawei-dorado-power: `--warning-temperature`/`--critical-temperature` alert on an enclosure or power supply running hot, off by default
-* deb-versionlock: check alerting on packages APT holds back at their installed version, so a forgotten hold stops hiding behind a green update check. Part of the Debian and Ubuntu service sets
-* disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical`, both off by default
-* disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
-* disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
-* dmesg: `--icinga-callback` suppresses acknowledged kernel messages on following runs, so no manual `dmesg --clear` on the host ([#639](https://github.com/Linuxfabrik/monitoring-plugins/issues/639))
-* docker-container, podman-container: check for unhealthy, unexpected-state, frequently restarting or too-young containers, with `podman-container --user` covering a rootless user
-* docker-image, podman-image: check listing images and alerting on images older than a configurable age, with `podman-image --user` covering a rootless user
+* apache-tomcat-version: check for an end-of-life or outdated Apache Tomcat ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
+* deb-versionlock: check alerting on packages APT holds back at their installed version
+* docker-container, podman-container: check for unhealthy, unexpected-state, frequently restarting or too-young containers
+* docker-image, podman-image: check listing images and alerting on images older than a configurable age
 * docker-service: check alerting when a Docker Swarm service runs fewer tasks than expected
 * docker-swarm: check alerting on swarm membership, a down node, or lost manager quorum
-* fs-inodes: filter mount points with `--match`/`--ignore` and show a detailed table with `--lengthy` ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
-* huawei-dorado-alarm: check listing the current alarms of a Huawei OceanStor Dorado storage system, which surfaces the conditions the per-component checks cannot see
-* huawei-dorado-expboard: check alerting on a faulty expansion board, which connects a disk enclosure to the controllers
-* huawei-dorado-lun: check alerting on a faulty LUN of a Huawei OceanStor Dorado storage system, and optionally on a thin LUN filling up
-* huawei-dorado-port: check alerting on a faulty front-end port of a Huawei OceanStor Dorado storage system, covering FC, Ethernet, SAS and bond ports, with `--link-down-severity` deciding what a lost link reports
-* huawei-dorado-port: alerts when a port negotiated a speed below the one it is configured or built for, which is what a dirty connector, the wrong transceiver or a mismatched switch port look like long before the link drops. `--slow-port-severity` tunes it, and it defaults to WARNING
-* huawei-dorado-port: reports the link error counters of every FC, Ethernet and SAS port as per-second rates, so a fabric that starts erroring is visible in the graph. `--warning-errors`/`--critical-errors` alert on them, off by default. The first run after an update has no baseline yet and reports no rates
-* huawei-dorado-sfp: check alerting on a faulty optical module, reporting its vendor, model, mode and working speed
-* huawei-dorado-storagepool: check alerting on a faulty storage pool of a Huawei OceanStor Dorado storage system, and on a pool filling up
-* `--ignore` skips objects by regular expression on the 16 Huawei checks that already filter with `--match`, and both parameters can now be given several times
-* `--performance` additionally reports the I/O counters the appliance keeps per object, off by default because it costs one API request per object (huawei-dorado-controller, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-storagepool)
-* `--password-file` reads the API password from a file instead of the command line, so it no longer shows up in the process list, on all Huawei OceanStor Dorado and Pacific checks
-* huawei-dorado-sfp: reports the receive and transmit power of every optical module in dBm and alerts when a reading leaves the operating range the module itself reports, which catches a degrading transceiver or a dirty connector long before the link drops. `--rx-power-warning`/`--rx-power-critical` and their transmit counterparts override that range
-* huawei-pacific-alarm: counts minor and informational alarms as well, so a listing of them shows up in the graph instead of only in the exit code
-* huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on a disk whose remaining life is running out
-* huawei-pacific-node: alerts when a cluster node reports an error code, a fault the node has already diagnosed itself
+* huawei-dorado-alarm: check listing the current alarms of a Huawei OceanStor Dorado storage system
+* huawei-dorado-expboard: check alerting on a faulty expansion board
+* huawei-dorado-lun: check alerting on a faulty LUN, and on a thin LUN filling up
+* huawei-dorado-port: check alerting on a faulty or too slowly negotiated front-end port, covering FC, Ethernet, SAS and bond ports
+* huawei-dorado-sfp: check alerting on a faulty optical module, or one whose light levels leave its operating range
+* huawei-dorado-storagepool: check alerting on a faulty storage pool, and on a pool filling up
+* huawei-pacific-alarm: check listing the current alarms of a Huawei OceanStor Pacific storage system
+* huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on one running out of remaining life
+* huawei-pacific-fan: check alerting on a faulty fan
+* huawei-pacific-node: check alerting on a faulty cluster node, on the error codes it reports and on an expired warranty
+* huawei-pacific-power: check alerting on a faulty power supply
 * huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
-* huawei-pacific-system: check reporting the product model, system version and cluster name of a Huawei OceanStor Pacific storage system, and alerting on its cluster capacity usage
-* kdump: check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
-* librenms-validate: check alerting on the problems LibreNMS reports about its own installation, such as an unfinished schema update or a stopped poller ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
+* huawei-pacific-system: check reporting product model, system version and cluster name, and alerting on cluster capacity usage
+* kdump: check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind
+* librenms-validate: check alerting on the problems LibreNMS reports about its own installation ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
 * network-errors: check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
 * nextcloud-status: check alerting when a Nextcloud instance is blocked by a pending database upgrade or sits in maintenance mode ([#329](https://github.com/Linuxfabrik/monitoring-plugins/issues/329))
-* ping: `--interface`, `--ipv4`/`--ipv6`, `--packet-size` and `--ttl` control the source interface, IP version, payload size and TTL of the probes
-* ping: optional `--rta-warning`/`--rta-critical`, `--rtt-mdev-warning`/`--rtt-mdev-critical` and `--packet-loss-warning`/`--packet-loss-critical` thresholds alert on latency, jitter and packet loss
-* php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
-* rpm-versionlock: check alerting on packages the RPM package manager holds back at a fixed version, so a forgotten lock stops hiding behind a green update check. Part of the RHEL and Fedora service sets
-* snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
-* statusiq: `--retries` sets how often a status page that did not answer with its feed is asked again before the check gives up, three times by default
+* rpm-versionlock: check alerting on packages the RPM package manager holds back at a fixed version
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
-* wordpress-checksums: check verifying the core and plugin files of a WordPress installation against the checksums wordpress.org publishes, which finds a web shell dropped into the tree or a core file with injected code
-* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database, going CRITICAL only where the site can be taken over right now, and needing a free WPScan API token for the vulnerability lookup without which it says so instead of reporting a clean result
-
-Icinga Director:
-
-* huawei-dorado-alarm, huawei-dorado-expboard, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-sfp and huawei-dorado-storagepool join the Huawei OceanStor Dorado service set
-* librenms-validate joins the LibreNMS service set
-* wordpress-checksums joins the WordPress service set and ships with extended reporting on by default, so a daily result names the affected files right away
-* wordpress-security-scan joins the WordPress service set and ships with extended reporting on by default, so a daily result shows the CVSS score and the fixing release right away
-* Huawei OceanStor Pacific service set, activating all seven Pacific checks on a host tagged `huawei-pacific`, the same way the Dorado set already works
-
-Grafana:
-
-* dashboards for all 24 Huawei OceanStor checks, which had none, with a panel per topic so temperatures, voltages, capacities, percentages and status codes are not mixed into one graph (huawei-dorado-\*, huawei-pacific-\*)
-* deb-versionlock: dashboard graphing the number of holds over time
-* disk-usage: graphs the total size of each partition, telling a disk resize apart from a mass file deletion ([#1374](https://github.com/Linuxfabrik/monitoring-plugins/issues/1374))
-* rpm-versionlock: dashboard graphing the number of version locks over time
-* wordpress-checksums: dashboard graphing the checksum violations, the files verified and the components that could not be verified
-* wordpress-security-scan: dashboard graphing the findings per class, the scan duration and the age of the vulnerability database
+* wordpress-checksums: check verifying the core and plugin files of a WordPress installation against the checksums wordpress.org publishes
+* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database. Needs a free WPScan API token for the vulnerability lookup
 
 ### Changed
 
 Monitoring Plugins:
 
-* the `--help` of `--match` says how the parameter combines with `--ignore`, on the 46 checks that offer both (deb-versionlock, disk-smart, disk-usage, docker-container, ...)
-* about-me: recognizes an installed Apache Tomcat when guessing Icinga Director tags
-* all plugins: a version range like `< 5.3.2`, a threshold like `<= 10` and a shell snippet like `echo 1 > /proc/sys/...` appear verbatim in the output instead of as `&lt;`, `&gt;` and `&amp;`. Web interfaces render them unchanged, so only the command line and log files see a difference
-* all plugins: the internal `--test` parameter is no longer shown in `--help`
-* cert: a `/24` scan on the default ports finishes within the check timeout instead of taking about 20 minutes
-* cert: scan output reports how many parallel workers the run used
-* cert: scan parallelism is bounded with `--max-workers`, so scanning a subnet no longer drives the load up and makes other checks time out
-* cpu-usage: no longer alerts on iowait, which is relabelled idle time on Linux and unreliable on multi-core systems, but stays reported and graphed
-* disk-usage: mountpoints are filtered with `--match`/`--ignore`, and the old `--include-*`/`--exclude-*` options keep working
-* disk-usage: runs every minute instead of every 5 minutes, so a filling disk is noticed earlier
-* docker-stats, podman-stats: select or exclude containers by name with `--match`/`--ignore`, plus `--no-match-severity`
-* huawei-dorado-\*, huawei-pacific-\*: a failed disk, power supply, fan, backup power module, interface module or cluster node is CRITICAL instead of WARNING, so a hardware failure is no longer indistinguishable from a component that is merely degraded
-* huawei-dorado-\*: a power supply whose feed is dead, a component that is not running, a disk parked because it got too hot and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING, because all four describe a component that has stopped doing its job
-* huawei-dorado-\*, huawei-pacific-fan, huawei-pacific-node, huawei-pacific-power: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok", because an appliance always has some
-* huawei-dorado-\*: the appliance device ID is optional. The appliance reports its own at login, so `--device-id` only has to be given to override that answer
-* huawei-dorado-\*: a component without a temperature sensor prints "--" in the table instead of the raw placeholder the appliance happens to use for it
-* huawei-dorado-backup-power: the discharge count is labelled as such. It used to be headed "#Charged", which reads as the opposite of what the appliance counts
-* huawei-dorado-controller: the table shows the controller temperature, which the check could already alert on but never printed
-* huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows; the value stays in the output
-* huawei-dorado-hypermetropair: the table shows the appliance's own link and data state next to the check's verdict, so a disconnected pair is told apart from an invalid one
-* huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges, like every other threshold in the plugin family
-* huawei-pacific-node: additionally reports the baseboard product line, the software version and the warranty status of every cluster node, and skips a node that is not (yet) part of the cluster, which holds none of its storage
-* huawei-pacific-quota: an appliance whose shares carry no hard quota reports OK. `--no-match-severity` now only applies when a filter really did exclude everything
-* keycloak-memory-usage, keycloak-stats, keycloak-version: verified against Keycloak 17 to 26, and the README states how to point `--url` at an instance that serves below a context path
-* mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency that raising `innodb_log_buffer_size` cannot fix
-* mysql-logfile: documents case-insensitive ignore matching and how to silence harmless idle-connection-timeout warnings
-* mysql-user-security: recommends MariaDB's `parsec` plugin on 11.6 and newer, and prepends the one-time `INSTALL SONAME` that MariaDB needs before the suggested `ALTER USER` can run
-* podman-info, podman-stats: `--user` reports on a specific rootless user's Podman
+* all plugins: a version range like `< 5.3.2` or a shell snippet appears verbatim in the output instead of as `&lt;`, `&gt;` and `&amp;`
+* cert: a `/24` scan on the default ports finishes within the check timeout, and its parallelism is bounded with `--max-workers`
+* cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but stays reported and graphed
+* disk-usage: runs every minute instead of every 5 minutes
+* huawei-dorado-\*: a failed disk, power supply, fan, backup power module or interface module is CRITICAL instead of WARNING
+* huawei-dorado-\*: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok"
+* huawei-dorado-\*: a dead power feed, a component that is not running, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
+* huawei-dorado-\*: `--device-id` is optional, the appliance reports its own at login
+* huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows
+* huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges
+* mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency
+* php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, which silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
-
-Event Plugins:
-
-* cloudflare-security-level: no longer requires the `requests` Python module
 
 Icinga Director:
 
-* the WordPress service set, the services in it and the WordPress host tag are spelled the way WordPress spells itself, and the same goes for the CVSS and WPScan fields of the WordPress checks
-* whmcs-status: the API secret is a hidden field, like every other credential
-
-Tools:
-
-* package builds fail fast when the source checkout does not match the requested release version, instead of silently shipping outdated code under a newer version label ([#1406](https://github.com/Linuxfabrik/monitoring-plugins/issues/1406))
+* the WordPress service set, its services and the WordPress host tag are spelled the way WordPress spells itself, so re-tag the affected hosts after importing the basket
 
 ### Fixed
 
 Monitoring Plugins:
 
 * six checks that aborted with a Python error on every run work again (borgbackup, file-ownership, getent, nextcloud-enterprise, rpm-lastactivity, scheduled-task)
-* the output no longer ends in a meaningless "Fetched API 0 times" line on 16 checks (huawei-dorado-\*, huawei-pacific-\*)
-* about-me: a WordPress installation is detected in the document root as well, the most common layout, which the suggested Icinga Director tags used to miss entirely
-* cert: a subnet scan needs far less memory, so it no longer risks an out-of-memory kill on small hosts
-* cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
+* about-me: a WordPress installation in the document root is detected when guessing Icinga Director tags
+* cert: a subnet scan needs far less memory, and one that runs out of file descriptors reports UNKNOWN instead of OK
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
-* disk-io: no longer produces false CRITICAL alerts from I/O wait on healthy systems, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
-* disk-io: the `--match` help no longer claims the parameter can be given several times, since it takes a single expression
-* disk-smart: `--ignore` matches the drives again
-* disk-smart: a drive smartctl cannot open is reported with the real reason instead of a misleading parse error, and no longer aborts the whole check ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
-* disk-smart: a failed drive scan reports the reason smartctl gives instead of inventing a device out of it
-* disk-smart: a failing drive is no longer downgraded from CRITICAL to WARNING by a second finding on the same drive
-* disk-smart: drives behind a hardware RAID controller and external USB drives are read correctly
-* disk-smart: reads the drives again on hosts that have `POSIXLY_CORRECT` set in the environment
-* disk-usage: `--match`/`--ignore` patterns that opt into case-sensitive matching with `(?-i:...)` match as documented
-* disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
-* disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
-* fs-inodes: an unreadable mount point such as a Kubernetes CSI volume that requires root no longer aborts the whole check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* disk-io: no longer produces false CRITICAL alerts from I/O wait, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
+* disk-smart: drives behind a hardware RAID controller, external USB drives and hosts with `POSIXLY_CORRECT` are read again, `--ignore` matches, an unreadable drive no longer aborts the check, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
+* disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
+* fs-inodes: an unreadable mount point such as a Kubernetes CSI volume no longer aborts the check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * haproxy-status: the `--username` / `--password` migration hint is readable again
-* huawei-dorado-\*, huawei-pacific-\*: a firmware that reports success as a text `0` instead of a number no longer takes 18 of the checks to UNKNOWN on every run
-* huawei-dorado-\*, huawei-pacific-\*: a missing or non-numeric temperature, runtime, wear level, voltage, synchronization time, alarm severity or quota value no longer ends the check in a Python error
-* huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses
-* huawei-dorado-backup-power: the README names the metrics the check actually emits, so a dashboard built from it no longer graphs nothing
-* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set at all, and is left out of the graph instead of showing a permanent 0 degrees
-* huawei-dorado-\*: a firmware that leaves an optional field out no longer takes the check to UNKNOWN, and the columns it said nothing about print as "--" instead of replacing the whole table with an error line
-* huawei-dorado-backup-power: a module that does not track its remaining life prints a dash instead of a zero that read like a dead battery
-* huawei-dorado-disk: a spinning disk no longer graphs a wear level of -1, and a disk whose media reports no health score no longer graphs 255 out of 100
-* huawei-dorado-host, huawei-dorado-hypermetrodomain, huawei-dorado-hypermetropair: every object is read instead of only the first page the appliance hands out, so a large array no longer reports a smaller but healthy inventory
-* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected. It was read through the wrong status table, where a fault came out looking like normal operation
-* huawei-dorado-hypermetropair: a firmware that sends its status codes as numbers rather than as text no longer turns every healthy pair into a warning, and a pair that has never synchronized no longer ends the check in a Python error
-* huawei-dorado-hypermetropair: a pair that has never synchronized reports "never" instead of a synchronization dated 1970
-* huawei-dorado-lun: the fill level is marked in the row that breached the warning or critical threshold, which used to show as an exit code without a visible cause
-* huawei-dorado-lun, huawei-dorado-storagepool: an appliance with more objects than the check reads in one run no longer opens with "Everything is ok." while exiting WARNING
-* huawei-dorado-port: reports what the appliance said when it refused to list the ports, instead of always blaming the API user's permissions
-* huawei-dorado-sfp: an optical module reporting its operating range the wrong way round no longer takes the whole check to UNKNOWN
-* huawei-dorado-system: an appliance without a storage pool, and a firmware that leaves a capacity out, no longer end the check in a Python error
-* huawei-dorado-system: reports the storage system model even on a firmware that only sends its numeric code
-* huawei-dorado-system: reports the real capacity on an array that is not formatted with 512-byte sectors, where every capacity used to be understated
-* huawei-pacific-alarm: reads every active alarm instead of stopping after the first 100, decodes the HTML entities the appliance embeds in alarm names, and warns when the list it reads is still incomplete
-* huawei-pacific-disk: alerts on a faulty or stopped disk pool, which used to go unnoticed as long as its disks reported healthy
-* huawei-pacific-disk: `--brief` hides the healthy disks it promised to hide
-* huawei-pacific-node: an OAM agent that is not being monitored no longer warns forever; it is a "nothing to report" marker, not a fault
-* huawei-pacific-quota: a quota the appliance counts in KB, MB or GB is read in that unit, so the reported quota and fill level are no longer off by up to a factor of a billion
-* huawei-pacific-quota: a firmware that ignores the paging parameter can no longer keep the check running until its timeout
-* huawei-pacific-system: the cluster fill level is calculated from the raw cluster capacities, so it can reach a threshold at all, and a cluster reporting no capacity yet no longer ends the check in a Python error
+* huawei-dorado-\*: a firmware that omits a field, sends a status code as a number or reports success as text no longer takes the check to UNKNOWN or into a Python error
+* huawei-dorado-\*: capacities, wear levels and health scores are read in the unit and range the appliance means, instead of being off by a factor or graphed as -1, 255 or a fake zero
+* huawei-dorado-\*: every object is read instead of only the first page, so a large array no longer reports a smaller but healthy inventory
+* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set, and is left out of the graph
+* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected, it was read through the wrong status table
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
-* logfile: detects a logfile that an application rewrites from the beginning instead of appending to, which until now hid every new line from the check ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
-* lynis: audits produce a report on Debian, Ubuntu and other distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
-* lynis: shows the underlying lynis error when an audit produces no report
-* mysql-replica-status: a monitoring account that may not list replicas no longer turns the whole check UNKNOWN
-* mysql-replica-status: works on MySQL 8.4, which no longer understands `SHOW SLAVE HOSTS` and made the check return UNKNOWN
+* logfile: detects a logfile that an application rewrites from the beginning instead of appending to ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
+* lynis: audits produce a report on distributions that keep lynis outside `/usr/share`, and the lynis error is shown when they do not ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
+* mysql-replica-status: works on MySQL 8.4, and an account that may not list replicas no longer turns the check UNKNOWN
+* mysql-user-security: the suggested `ALTER USER` runs on MariaDB 11.6 and newer, which needs a one-time `INSTALL SONAME`
 * ping: checksum-corrupted packets are counted correctly, and a corrupted reply no longer turns the check UNKNOWN
-* redfish-\*: `--cache-expire`, now 5 minutes by default, also caches the Redfish session and API responses, so the several Redfish checks on a host share one session and the fetched data ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
-* redfish-\*: reads each component collection in one request where the controller supports it, so checks on servers with many sensors, drives or firmware components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
-* snmp: a harmless net-snmp warning such as a missing MIB module no longer aborts the check
-* snmp: string-indexed OIDs are read correctly
-* snmp: the bundled device profiles work again on current net-snmp instead of aborting with UNKNOWN
-* statusiq: a StatusIQ page that intermittently answers with an error page instead of its feed is retried, and no longer flaps into UNKNOWN claiming the page has RSS switched off
-* strongswan-connections: a connection being rekeyed, or one shared by several peers, no longer raises a false alarm or writes garbled graph data
-* strongswan-connections: a connection that has not carried traffic yet no longer graphs a made-up zero byte count
-* strongswan-connections: a connection that is still connecting, or one using a fixed-key cipher such as 3DES, no longer makes the check crash ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
-* strongswan-connections: a connection that never expires no longer graphs a made-up "expires right now", and an overdue re-keying is graphed as the negative value it is
-* strongswan-connections: the re-keying and re-authentication times are graphed as the two separate values they are
-* systemd-unit: the bundled Ubuntu service sets check `ssh.service`, so the SSH unit check works on Ubuntu again instead of reporting the unit as missing ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
+* redfish-\*: the checks on a host share one session and the fetched data, and read each collection in one request, so servers with many components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* snmp: a harmless net-snmp warning no longer aborts the check, string-indexed OIDs are read correctly, and the bundled device profiles work on current net-snmp
+* statusiq: a page that intermittently answers with an error page instead of its feed is retried instead of flapping into UNKNOWN
+* strongswan-connections: a rekeying, shared, still-connecting or 3DES connection no longer raises a false alarm or crashes, and re-keying and re-authentication are graphed separately ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
+* systemd-unit: the bundled Ubuntu service sets check `ssh.service` ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
 
 Grafana:
 
-* ping: the round-trip time and total-time graphs are scaled in milliseconds instead of seconds, so the values are no longer shown 1000x too large
-
-Icinga Director:
-
-* five services of the Huawei OceanStor Dorado service set carried the same UUID as a sixth, which the Director refuses to import and which stopped the combined basket from being built at all. Every service has its own UUID again (huawei-dorado-alarm, huawei-dorado-expboard, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-sfp)
+* ping: the round-trip time and total-time graphs are scaled in milliseconds instead of seconds
 
 Tools:
 
-* build-basket: switches that turn an option off, such as `--no-insecure`, end up in the Director basket instead of being dropped with an error
-* installer: `--source` on a host with too-old system Python picks the newest installed Python and rebuilds cleanly
+* a source install on a host with too-old system Python picks the newest installed Python and rebuilds cleanly, and switches that turn an option off, such as `--no-insecure`, end up in the Director basket instead of being dropped with an error
 
 ### Security
 
@@ -240,20 +118,19 @@ Monitoring Plugins:
 
 * all plugins: the internal `--test` argument can no longer be abused to read arbitrary root-owned files on hosts that grant the checks passwordless sudo ([GHSA-rh9c-rqvg-f7pr](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-rh9c-rqvg-f7pr))
 * keycloak-memory-usage, keycloak-stats, keycloak-version: a malicious or compromised Keycloak can no longer make the check send its admin credentials to another host (SSRF / credential leak) ([GHSA-88fj-95f7-w68m](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-88fj-95f7-w68m))
-* logfile: closed a local privilege-escalation path in the legacy state-database migration, exploitable only with the non-default `fs.protected_symlinks=0`; the first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
-* logfile, mysql-logfile, openvpn-client-list: the log file to read is confined to `/var/log` (mysql-logfile also allows `/var/lib/mysql`), so the check can no longer be used to read an arbitrary root-owned file; bind-mount a log stored elsewhere under `/var/log` ([GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c))
+* logfile: closed a local privilege-escalation path in the legacy state-database migration, exploitable only with the non-default `fs.protected_symlinks=0`. The first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
+* logfile, mysql-logfile, openvpn-client-list: the log file to read is confined to `/var/log` (mysql-logfile also allows `/var/lib/mysql`), closing a path to arbitrary root-owned files. Bind-mount a log stored elsewhere under `/var/log` ([GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c))
 * redfish-\*: a malicious controller can no longer redirect a check to another host (SSRF / auth-token leak) ([GHSA-96fx-pqc3-28xv](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-96fx-pqc3-28xv))
 * virustotal-scan-url: the scan report is fetched from the VirusTotal API address instead of from a link in the API response, so the API key cannot end up at another host
 
 Notification Plugins:
 
-* notify-host-mail, notify-service-mail: the notification email HTML-escapes host and service output, comments and other values, so content from a monitored service can no longer inject markup into the mail
+* notify-host-mail, notify-service-mail: the notification email HTML-escapes host and service output, comments and other values, so a monitored service can no longer inject markup into the mail
 
 Tools:
 
-* installer: a source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv; they stay owned by root, closing a local root code-execution path
-* installer: a source install on Ubuntu 22.04 no longer bundles an `h2` with a known request smuggling issue; on RHEL 8, RHEL 9 and Debian 11 no fixed release exists that still supports their Python 3.9
-* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities in `cryptography` (a padding oracle in PKCS#7 decryption) and `soupsieve` (two denial-of-service issues in CSS selector parsing)
+* installer: a source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv, closing a local root code-execution path
+* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities in `h2` (request smuggling), `cryptography` (a padding oracle) and `soupsieve` (denial of service). On RHEL 8, RHEL 9 and Debian 11 no fixed `h2` release exists that still supports their Python 3.9
 
 
 ## [v6.0.0] - 2026-06-14
@@ -264,72 +141,47 @@ Tools:
 
 Monitoring Plugins:
 
-* redfish-\*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`); update any Icinga commands that reference the old names
+* redfish-\*: plugins renamed to match their Redfish API endpoints (`redfish-drives` → `redfish-storage`, `redfish-sel` → `redfish-logservices`, `redfish-sensor` → `redfish-sensors`, `redfish-system` → `redfish-systems`). Update any Icinga commands that reference the old names
 
 ### Added
 
 Monitoring Plugins:
 
 * csv-values: is shipped as a Windows build again
-* disk-io: can also monitor raw, unmounted block devices such as multipath SAN or Oracle ASM disks (`--include-unmounted`)
-* file-size: can report the mean or median file size as performance data (`--perfdata-mode`) ([#159](https://github.com/Linuxfabrik/monitoring-plugins/issues/159))
-* lynis: check that audits the security hardening of hosts across a subnet over SSH (hardening index, warnings, suggestions)
+* lynis: check auditing the security hardening of hosts across a subnet over SSH (hardening index, warnings, suggestions)
 * redfish-ethernetinterfaces: check for a server's Ethernet interface health
 * redfish-firmwareinventory: check for a server's firmware component versions and health
 * redfish-managers: check for a server's management controller health (BMC, e.g. iLO or iDRAC)
 * redfish-memory: check for a server's memory module health
 * redfish-processors: check for a server's processor health
 
-Icinga Director:
-
-* Redfish Service Set now also covers the memory, processor, Ethernet-interface, manager and firmware-inventory checks
-
-Grafana:
-
-* ipmi-sensor: ships a Grafana dashboard that groups temperature, fan, voltage and power readings into separate panels ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
-* the Redfish checks that emit performance data ship Grafana dashboards
-
 ### Changed
 
 Monitoring Plugins:
 
-* by-ssh: the `--shell` option is deprecated and ignored, and remote commands using pipes, globs or variables always work
-* cert: can scan a whole subnet for expiring or untrusted TLS certificates across many common ports, not just a single endpoint or local files (now the default when run without parameters)
-* cert: warning/critical thresholds also accept a percentage of the lifetime or a duration, and the full certificate chain is checked, not just the leaf
-* ipmi-sensor: performance data is grouped by sensor type, so temperatures, fan speeds, voltages and power show up in separate graphs, at the price of resetting the existing IPMI graph history once ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
-* nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one (`--path`) ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
-* php-status: OPcache alerting is more tolerant (warns at 95% by default) and flags cache thrashing, while a full interned strings buffer no longer warns
-* php-status: also reports the active php.ini runtime settings and the largest OPcache scripts (`--top`), and flags PHP-FPM services a single check does not cover
-* php-status: the raw OPcache hits and misses counters are no longer emitted as performance data, while the hit-rate percentage stays
-* php-status: when the monitoring.php helper cannot be read, the output names the actual cause instead of a generic "not found"
-* redfish-\*: a slow or flaky management controller request is retried before the check fails (`--retries`)
-* redfish-\*: can export the parsed hardware as a JSON inventory instead of running a health check (`--inventory`)
-* redfish-\*: frequent checks no longer flood a management controller's session table or audit log
-* redfish-\*: individual components can be included or excluded by regular expression, so noisy hardware no longer drives the check state (`--match`, `--ignore`)
-* redfish-\*: lists only the components in WARN or CRIT state with `--brief`, to keep the output short on large systems
-* redfish-logservices: can also read the management controller event log (MEL), not just the System Event Log (`--log-type=sel|mel|both`)
-* redfish-logservices: event log entries can be filtered by regular expression and aged out (`--match`, `--ignore`, `--max-age`)
-* redfish-memory: reports memory size and module health correctly on Dell, HPE and Fujitsu controllers
-* redfish-sensors: also reports chassis-wide power consumption, and reads fan speed whether reported in RPM or percent
-* redfish-sensors: falls back to the legacy Thermal and Power endpoints when the modern Sensors collection is absent
+* by-ssh: `--shell` is deprecated and ignored, and remote commands using pipes, globs or variables always work
+* cert: scans a whole subnet across many common ports when run without parameters, thresholds also accept a percentage of the lifetime or a duration, and the full certificate chain is checked
+* ipmi-sensor: performance data is grouped by sensor type, which resets the existing IPMI graph history once ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
+* nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
+* php-status: OPcache alerting warns at 95% and flags cache thrashing, a full interned strings buffer no longer warns, and the raw hits and misses counters are gone from the performance data
+* redfish-\*: frequent checks no longer flood a management controller's session table or audit log, and a slow or flaky request is retried before the check fails
+* redfish-sensors: also reports chassis-wide power consumption, reads fan speed whether reported in RPM or percent, and falls back to the legacy Thermal and Power endpoints
 * redfish-storage: also checks volumes (logical drives), not just physical drives and controllers
-* redfish-storage: reports performance data for drive wear, temperature and component counts, ready for graphing
-* swap-usage: a host without any swap is OK by default instead of UNKNOWN, and `--severity-no-swap` alerts on missing swap ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
+* swap-usage: a host without any swap is OK by default instead of UNKNOWN ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
 Icinga Director:
 
-* the Redfish baskets expose the new check options and raise the command timeout to 60 seconds
+* the Redfish baskets raise the command timeout to 60 seconds
 
 ### Fixed
 
 Monitoring Plugins:
 
-* several plugins that run system commands no longer report UNKNOWN when the command only writes a harmless warning to stderr, while a genuine command failure is now reported as WARN (deb-lastactivity, disk-smart, getent, journald-query, journald-usage, kubectl-get-pods, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, redis-status, restic-snapshots, restic-stats, rpm-lastactivity, safenet-hsm-state, valkey-status)
+* several plugins that run system commands no longer report UNKNOWN when the command only writes a harmless warning to stderr, while a genuine command failure is reported as WARN (deb-lastactivity, disk-smart, getent, journald-query, journald-usage, kubectl-get-pods, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, redis-status, restic-snapshots, restic-stats, rpm-lastactivity, safenet-hsm-state, valkey-status)
+* on Windows, multi-line output is no longer shown with a blank line between every line in IcingaWeb, and umlauts from system commands are no longer garbled ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
 * about-me: no longer crashes when detecting installed software on a host
 * apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
-* by-ssh: a failed connection no longer echoes the full command line, which can contain the `--password` value, in the plugin output
-* on Windows, multi-line plugin output is no longer shown with a blank line between every line in IcingaWeb
-* on Windows, plugins that run system commands such as `users`, `scheduled-task` and `ntp-w32tm` show non-ASCII output such as umlauts in usernames correctly instead of garbled ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
+* by-ssh: a failed connection no longer echoes the full command line, which can contain the `--password` value
 * redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
 
 Icinga Director:
@@ -338,8 +190,7 @@ Icinga Director:
 
 Tools:
 
-* installer: a source install (`--source`) cleans up a sudoers drop-in left under an earlier name, so sudo no longer warns about a duplicate `Cmnd_Alias`
-* installer: a source install (`--source`) no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts
+* installer: a source install cleans up a sudoers drop-in left under an earlier name, so sudo no longer warns about a duplicate `Cmnd_Alias`
 
 ### Security
 
@@ -352,13 +203,11 @@ Monitoring Plugins:
 
 **Highlights:** Checks that cache trend data keep their SQLite databases in a private, per-user directory instead of the shared `/tmp`, closing a local symlink attack against checks running as root. The NUT service set gains the `ups-nut` UPS check.
 
-### Added
+### Changed
 
 Icinga Director:
 
-* NUT Service Set now includes the `ups-nut` UPS check, not just the NUT systemd units
-
-### Changed
+* the NUT Service Set also activates the `ups-nut` UPS check, not just the NUT systemd units
 
 Tools:
 
@@ -375,40 +224,25 @@ Monitoring Plugins:
 
 **Highlights:** A local privilege escalation through the Debian `apt-get` sudoers rule is closed. Several `mysql-*` checks stop raising false alarms and stop handing out advice that does not work, and `mysql-database-metrics` points at the largest tables before you enlarge the InnoDB buffer pool. `about-me` detects far more platforms when guessing Icinga Director tags.
 
-### Added
-
-Monitoring Plugins:
-
-* fail2ban: `--ignore` (regex) and `--socket` options ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
-* mysql-database-metrics: lists the largest tables by data plus index size to spot cleanup candidates before raising the InnoDB buffer pool, with optional `--warning`/`--critical` size thresholds such as `10G`
-* mysql-long-queries: output suggests `KILL <id>` to terminate a runaway query
-* snmp: "Perfdata Alert Thresholds" accepts an optional min/max for the graph axis (`warn,crit,min,max`) ([PR #986](https://github.com/Linuxfabrik/monitoring-plugins/pull/986), thanks to [paasi6666](https://github.com/paasi6666))
-* swap-usage: `--severity-no-swap` alerts when a host has no swap configured at all, which detects a swap partition that was inadvertently disabled ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
-
 ### Changed
 
 Monitoring Plugins:
 
-* about-me: `--tags` covers Jitsi, Needs Restarting and Proxmox
-* about-me: `--tags` detects Podman hosts
-* about-me: `--tags` emits all `MariaDB *` and `MySQL *` variant tags, so all relevant service sets are offered
+* about-me: `--tags` covers Jitsi, Needs Restarting, Podman and Proxmox, and emits all `MariaDB *` and `MySQL *` variant tags
 * fail2ban: the per-jail breakdown is a table, and thresholds accept Nagios ranges ([#140](https://github.com/Linuxfabrik/monitoring-plugins/issues/140))
-* `mysql-*`: tuning advice appears only in the plugin output where a problem is flagged, no longer duplicated in the plugin description
+* mysql-database-metrics: lists the largest tables by data plus index size, to spot cleanup candidates before raising the InnoDB buffer pool
 
 ### Fixed
 
 Monitoring Plugins:
 
-* about-me: "User-Installed Software" (renamed from the misleading "Non-default Software") lists every package instead of just the first one
-* about-me: `--tags` correctly distinguishes MariaDB from MySQL
-* about-me: `--tags` package-based detection works on Debian, Ubuntu, SUSE, Arch and Alpine, and is fixed on the Red Hat family
 * all plugins: no longer abort on RHEL 8's default Python 3.6 when importing `lib.url`, while the officially supported minimum stays Python 3.9
-* fail2ban: a banned jail no longer mislabels the following jails with its state in the output
-* `mysql-*`: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" when the server's connection-collation default differs from the system tables' ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
+* about-me: `--tags` distinguishes MariaDB from MySQL, package-based detection works on Debian, Ubuntu, SUSE, Arch and Alpine and is fixed on the Red Hat family, and "User-Installed Software" lists every package instead of just the first one
+* fail2ban: a banned jail no longer mislabels the following jails with its state
+* mysql-\*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
 * mysql-innodb-buffer-pool-size: no longer aborts on MySQL 9.3 and newer, where `innodb_log_file_size` was removed in favour of `innodb_redo_log_capacity`
-* mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, where they are still valid
-* mysql-perf-metrics: the `innodb_io_capacity` check no longer raises false alarms on virtualised or network-backed storage such as Ceph and cloud volumes, since it now runs only with an explicit `--storage-type=ssd`
-* mysql-table-definition-cache: recommends a concrete value above the table count instead of the incorrect `table_definition_cache = -1`, which does not enable autosizing
+* mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, and the `innodb_io_capacity` check no longer raises false alarms on virtualised or network-backed storage such as Ceph and cloud volumes
+* mysql-table-definition-cache: recommends a concrete value above the table count instead of the incorrect `table_definition_cache = -1`
 * snmp: a malformed "Perfdata Alert Thresholds" entry in a device CSV is reported as UNKNOWN instead of being silently ignored ([#768](https://github.com/Linuxfabrik/monitoring-plugins/discussions/768))
 
 ### Security
@@ -420,143 +254,101 @@ Assets:
 
 ## [v5.0.0] - 2026-05-15
 
+**Highlights:** The `mysql-*` family is reworked from end to end: cumulative counters become per-second rates and several perfdata labels are renamed, so every MySQL dashboard has to be re-imported. Six checks are new, among them a single-number MySQL health score and a UPS check for Network UPS Tools. Two checks are gone.
+
 ### Added
 
 Monitoring Plugins:
 
-* [cert](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/): inspect X.509 certificates from a TLS endpoint or local PEM/DER files. Alerts on days until expiry
-* [mysql-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-health/): single-number 0-100 health score for a MySQL/MariaDB server. Top-level Icinga alert and Grafana KPI
-* [mysql-index-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-index-health/): trip-wire for unused and redundant indexes (`sys.schema_unused_indexes`, `sys.schema_redundant_indexes`). When it alerts, run `mysqltuner --pfstat` on the host for the full analysis with `ALTER TABLE ... DROP INDEX` statements. Performance Schema must be enabled; UNKNOWN when it is OFF (MariaDB default)
-* [mysql-long-queries](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-long-queries/): alert on in-flight queries running longer than `--warning` / `--critical` seconds. Shows session ID, user, DB and statement so the admin can `KILL <id>` directly. New perfdata `mysql_active_transactions` from `information_schema.innodb_trx` trends background InnoDB transaction contention even when no single query is over the long-running threshold
-* [mysql-tls](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-tls/): TLS/SSL posture (have_ssl, require_secure_transport, TLS versions, cert expiry, remote users without REQUIRE SSL). Finding text "Current connection ..." matches mysqltuner output verbatim
-* [ups-nut](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ups-nut/): monitor a UPS managed by Network UPS Tools (NUT). Battery, load, voltages, runtime, temperature and status
-
-
-Build, CI/CD:
-
-* requirements: one hash-pinned lockfile per supported Python LTS, each in its own `lockfiles/pyXX/` subdirectory (`py39` to `py314`). Replaces the single `requirements.txt`. Windows uses `lockfiles/py313-windows/requirements.txt`
-* requirements: build scripts auto-detect the Python version and pick the matching file. urllib3 lands at 2.7.0 on Python 3.10+, closing two of the four Dependabot advisories
-* requirements: `lockfiles/py39/` is excluded from both Dependabot version bumps and Dependabot security PRs. Most upstream packages dropped Python 3.9 over 2025/2026, so automated bumps would break `pip install --require-hashes` on RHEL 8 / Debian 11. The py39 lockfile is regenerated manually as needed
-* INSTALL.md: documents how source-tarball installs on RHEL 8 can opt out of the frozen py39 lockfile by installing AppStream `python3.12` and running the plugins against `lockfiles/py312/requirements.txt`. RPM users on RHEL 8 stay on Python 3.9; Debian 11 has no comparable escape hatch
-
+* cert: check inspecting X.509 certificates from a TLS endpoint or local PEM/DER files, alerting on days until expiry
+* mysql-health: check reporting a single 0-100 health score for a MySQL/MariaDB server
+* mysql-index-health: check alerting on unused and redundant indexes. Needs Performance Schema, which is off by default on MariaDB
+* mysql-long-queries: check alerting on in-flight queries running longer than a threshold, naming session, user, database and statement
+* mysql-tls: check reporting the TLS posture of a server, including certificate expiry and remote users without `REQUIRE SSL`
+* ups-nut: check for a UPS managed by Network UPS Tools (NUT), covering battery, load, voltages, runtime, temperature and status
 
 ### Changed
 
-Grafana:
+Monitoring Plugins:
 
-* Panel lines stay continuous at zoom levels finer than the check interval (was disconnected dots)
-
+* mysql-\*: cumulative counters are replaced by per-second rates and several perfdata labels are renamed, so re-import the MySQL dashboards after updating
+* mysql-\*: thresholds accept Nagios ranges, which shifts a boundary from `>=N` to `>N`
+* mysql-\*: the required privileges are verified up front, and a missing one exits UNKNOWN naming it
+* mysql-aria, mysql-binlog-cache, mysql-innodb-log-waits, mysql-logfile: an absent or disabled engine, `log_bin = OFF` and an empty log file report OK instead of UNKNOWN
+* mysql-database-metrics: excludes the `percona` schema, which was falsely flagged, and emits performance data
+* mysql-innodb-buffer-pool-size: checks `innodb_redo_log_capacity` on MySQL 8.0.30 and newer, and `innodb_file_per_table`
+* mysql-logfile: prefers `performance_schema.error_log` on MySQL 8.0.22 and newer, which also works remotely
+* mysql-memory: counts the Galera GCache on cluster nodes, and alerts at 85% and 95%
+* mysql-open-files, mysql-slow-queries, mysql-sorts, mysql-table-cache, mysql-table-locks, mysql-temp-tables, mysql-thread-cache: the hardcoded limits are replaced by `--warning`/`--critical` thresholds
+* mysql-perf-metrics: the duplicate `innodb_file_per_table` check is gone, a deprecated variable only warns when it was set explicitly, and the storage-type-aware InnoDB knobs are checked
+* mysql-replica-status: the required privilege is narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5 and newer
+* mysql-storage-engines: the AUTO_INCREMENT check uses each column's own type ceiling instead of always assuming BIGINT UNSIGNED
+* mysql-system: warns on `fs.nr_open < 1M`, counts only ports in LISTEN state, and renames its `kernel.*` and `mysql_opened_ports` perfdata
+* mysql-table-indexes: rewritten, and InnoDB base tables without a user-defined `PRIMARY KEY` are flagged
+* mysql-user-security: flags accounts on legacy authentication plugins and weak passwords from a dictionary of common defaults, excludes MariaDB roles, and skips the username-as-password check when `validate_password` is active
 
 Icinga Director:
 
-* `mysql-binlog-cache` moved from **MySQL Replication Service Set** to baseline **MySQL Service Set**. Hosts activating only `mysql-replication` should now also activate `mysql`
+* mysql-binlog-cache moved from the MySQL Replication Service Set to the baseline MySQL Service Set. Hosts activating only `mysql-replication` should now also activate `mysql`
 
+Build, CI/CD:
 
-Monitoring Plugins:
-
-* `mysql-*` plugins: verify required privileges up front; exit UNKNOWN naming the missing privilege. See [PLUGINS-MYSQL.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-MYSQL.md)
-* [mysql-aria](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-aria/): absent or disabled Aria engine no longer UNKNOWN (now OK with info). Breaking perfdata: cumulative counters replaced by per-second rates. Ships Grafana dashboard
-* [mysql-binlog-cache](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-binlog-cache/): `log_bin = OFF` no longer UNKNOWN. Breaking perfdata: cumulative counters replaced by per-second rates. Ships Grafana dashboard
-* [mysql-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections/): name-resolution warning suppressed when `skip_networking=ON`. Breaking perfdata: cumulative counters replaced by per-second rates. New `mysql_pct_max_connections_used`
-* [mysql-database-metrics](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-database-metrics/): new `--ignore-schemas REGEX` and `--lengthy`. Director Basket defaults `--lengthy=true`, pre-fills `--ignore-schemas=^icinga`
-* [mysql-database-metrics](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-database-metrics/): excludes `percona` schema (was falsely flagged). Index-vs-data-size check fixed. New `--ignore-tables REGEX`. Now emits perfdata. Ships Grafana dashboard
-* [mysql-innodb-buffer-pool-size](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-buffer-pool-size/)!: workload-based `innodb_redo_log_capacity` check on MySQL 8.0.30+. New `innodb_file_per_table` check. Breaking perfdata. Ships Grafana dashboard
-* [mysql-innodb-log-waits](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-log-waits/): scope broadened to "Write Log efficiency" (alerts below 90%). Absent/disabled InnoDB no longer UNKNOWN. Breaking perfdata. Ships Grafana dashboard
-* [mysql-joins](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-joins/): ship Grafana dashboard. Recommendation only suggests raising `join_buffer_size` below 4 MiB. Breaking perfdata
-* [mysql-logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/): prefers `performance_schema.error_log` on MySQL 8.0.22+ (works remote). Bug fix: docker/podman/kubectl sources read container logs. Severity matched via `[ERROR]`/`[Warning]` tags
-* [mysql-logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/): empty log file is now consistently STATE_OK regardless of whether `--server-log` was set (was STATE_UNKNOWN in auto-detect mode). Typical right after logrotate fires
-* [mysql-memory](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/): bug fix on `max_tmp_table_size`. Galera GCache counted on cluster nodes. New `--warning` (85%) / `--critical` (95%). `--lengthy` shows full breakdown. New perfdata
-* mysql-memory and several other `mysql-*` plugins: thresholds now accept Nagios ranges. Boundary semantic shifts from `>=N` to `>N`
-* [mysql-open-files](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-open-files/): new `--warning` (85%) / `--critical` (95%) replace the hardcoded 85% WARN-only
-* mysql-open-files, mysql-slow-queries, mysql-sorts, mysql-table-cache, mysql-table-definition-cache, mysql-table-locks, mysql-temp-tables, mysql-thread-cache, mysql-traffic: ship Grafana dashboards
-* [mysql-perf-metrics](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-perf-metrics/): duplicate `innodb_file_per_table` check removed (lives in `mysql-innodb-buffer-pool-size`). Now emits numeric perfdata. Ships Grafana dashboard
-* [mysql-perf-metrics](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-perf-metrics/): warn when a deprecated config variable was explicitly set via `my.cnf` or `SET GLOBAL` (compile-time defaults stay silent). New perfdata `mysql_deprecated_config_variables`
-* [mysql-perf-metrics](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-perf-metrics/): also check `innodb_snapshot_isolation` (MariaDB), and the two storage-type-aware InnoDB knobs `innodb_flush_neighbors` and `innodb_io_capacity`. New `--storage-type=auto|ssd|hdd|skip` parameter (auto reads `/sys/block` when the plugin runs on the database host)
-* `mysql-*` plugins: container-test image matrix moved into per-plugin Containerfiles under `unit-test/containerfiles/`. Adding/retiring a MariaDB LTS is now a single-file change in each affected plugin
-* `mysql-*` plugins: container tests now also cover MySQL 8.0 and 8.4 LTS upstream images (`mysql-v80`, `mysql-v84` Containerfiles per plugin)
-* [mysql-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-query/)!: align with the other `mysql-*` plugins. Breaking perfdata: `cnt_warn`/`cnt_crit` renamed to `mysql_query_warn_value`/`mysql_query_crit_value`
-* [mysql-replica-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-replica-status/)!: bug fix - lag detection fired on every server. Privilege narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+. New parameters and perfdata. Ships Grafana dashboard
-* [mysql-slow-queries](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-slow-queries/): README clarifies that `Slow_queries` is a counter independent of `slow_query_log`, and that the `slow_query_log` / `long_query_time` findings only surface as recommendations alongside a slow-query-ratio WARN/CRIT (no standalone alert)
-* [mysql-slow-queries](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-slow-queries/)!: bug fix - 5.x% never alerted (now float). New `--warning` (5%) / `--critical` (10%). Breaking perfdata: cumulative counters replaced by per-second rates
-* [mysql-sorts](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-sorts/)!: new `--warning` (10%) / `--critical` (20%). Output reworded ("merge-sort file"). Breaking perfdata: cumulative counters replaced by per-second rates
-* [mysql-storage-engines](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-storage-engines/)!: AUTO_INCREMENT check uses each column's own type ceiling (was always BIGINT UNSIGNED). New parameters. Now emits perfdata. Ships Grafana dashboard
-* [mysql-system](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-system/): new WARN on `fs.nr_open < 1M`. Listening-port count limited to LISTEN state (was over-triggering). Breaking perfdata: `kernel.*` labels and `mysql_opened_ports` renamed
-* [mysql-table-cache](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-cache/)!: new `--warning` (20%) / `--critical` (10%). Breaking perfdata: cumulative counters replaced by per-second rates
-* [mysql-table-definition-cache](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-definition-cache/): OK output shows the verified value and table count. `-1` autosizing sentinel encoded as `0` in perfdata
-* [mysql-table-indexes](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-indexes/)!: rewritten with two single-shot queries. New check: InnoDB base tables without a user-defined `PRIMARY KEY`. New parameters and perfdata. Ships Grafana dashboard
-* [mysql-table-locks](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-locks/)!: new `--warning` (95%) / `--critical` (85%). Breaking perfdata: cumulative counters replaced by per-second rates
-* [mysql-temp-tables](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-temp-tables/)!: new `--warning` / `--critical` (25/50). Bug fix: `KeyError` crash on idle servers. Bug fix: effective temp-table cap now correctly reported as the smaller of `tmp_table_size` and `max_heap_table_size` (was wrongly the larger), preventing a false "cap is already large enough" verdict on asymmetric configurations. Recommendation rewritten to explain per-table allocation, RAM impact under concurrency, and how to size from `performance_schema`. Breaking perfdata: cumulative counters replaced by per-second rates
-* [mysql-thread-cache](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-thread-cache/)!: new `--warning` / `--critical` (50/30). Bug fix: `mysql_thread_cache_size` perfdata uom. Breaking perfdata
-* [mysql-traffic](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-traffic/)!: bug fix - "100% writes" on idle servers. Breaking perfdata: cumulative counters replaced by per-second rates
-* [mysql-user-security](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-user-security/): documented privilege broadened to `SELECT on mysql.*` (was `mysql.user`)
-* [mysql-user-security](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-user-security/): skip username-as-password check when `validate_password` is active. MariaDB roles excluded. New perfdata. Basket `enable_perfdata = true`
-* [mysql-user-security](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-user-security/): flag accounts on legacy `mysql_native_password` (and `sha256_password` on MySQL 8.0+). Version-aware recommendation. New perfdata: `mysql_users_on_legacy_auth_plugin`
-* [mysql-user-security](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-user-security/): weak-password dictionary check (~110 common defaults from SecLists + MySQL/MariaDB-specific entries). Per-user finding names the matched password. Skipped on MySQL 8.0+ (`PASSWORD()` removed) and when the `validate_password` plugin is active. New perfdata: `mysql_users_with_weak_password`
-
+* one hash-pinned lockfile per supported Python LTS in `lockfiles/pyXX/`, replacing the single `requirements.txt`. `INSTALL.md` documents how a source install on RHEL 8 can opt out of the frozen `py39` lockfile by installing AppStream `python3.12`
 
 ### Fixed
 
-Grafana:
-
-* `schemaVersion` fixed to `42`; Grafana 12 was failing to import the date-encoded value
-
-
 Monitoring Plugins:
 
-* docker-stats, podman-stats: per-container CPU and memory perfdata restored. The previous release reported only aggregate values, breaking long-term trending of individual containers ([#1104](https://github.com/Linuxfabrik/monitoring-plugins/issues/1104))
-* [veeam-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/veeam-status/): works again against Veeam Enterprise Manager v13, which serialises REST-API JSON keys in camelCase after its .NET migration ([#1001](https://github.com/Linuxfabrik/monitoring-plugins/issues/1001))
+* docker-stats, podman-stats: per-container CPU and memory perfdata restored, which the previous release had reduced to aggregate values ([#1104](https://github.com/Linuxfabrik/monitoring-plugins/issues/1104))
+* mysql-database-metrics: the index-vs-data-size check no longer misjudges a table
+* mysql-logfile: the docker, podman and kubectl sources read container logs again
+* mysql-memory: `max_tmp_table_size` is accounted for correctly
+* mysql-replica-status: lag detection no longer fires on every server
+* mysql-slow-queries: a slow-query ratio of 5.x% alerts again instead of being truncated away
+* mysql-temp-tables: no longer crashes on idle servers, and the effective temp-table cap is the smaller of `tmp_table_size` and `max_heap_table_size`
+* mysql-thread-cache: the `mysql_thread_cache_size` perfdata carries the correct unit
+* mysql-traffic: no longer reports "100% writes" on idle servers
+* veeam-status: works again against Veeam Enterprise Manager v13, which serialises REST-API JSON keys in camelCase ([#1001](https://github.com/Linuxfabrik/monitoring-plugins/issues/1001))
 
+Grafana:
+
+* dashboards import into Grafana 12 again
 
 ### Removed
 
 Monitoring Plugins:
 
-* hin-status: removed - the HIN support status page no longer exists
-* mysql-innodb-buffer-pool-instances: removed - the underlying variable is gone on MariaDB 10.6+ and obsolete on modern MySQL. Also removed from both InnoDB Service Sets
+* hin-status: removed, the HIN support status page no longer exists
+* mysql-innodb-buffer-pool-instances: removed, the underlying variable is gone on MariaDB 10.6 and newer and obsolete on modern MySQL. Also removed from both InnoDB Service Sets
 
 
 ## [v4.1.0] - 2026-05-08
 
-### Added
-
-Monitoring Plugins:
-
-* [systemd-units-failed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-units-failed/): in OK state, output now includes the last failed unit since the last reboot, its timestamp and how long ago
-
-
 ### Changed
 
 Monitoring Plugins:
 
-* [sap-open-concur-com](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sap-open-concur-com/): default `--datacenter` is now `eu2` (the legacy `eu` endpoint returns HTTP 500). Setups passing `--datacenter` explicitly are unaffected
-* [sap-open-concur-com](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sap-open-concur-com/): longer default timeout so slow but healthy SAP API responses no longer flip to UNKNOWN
-
+* sap-open-concur-com: the default `--datacenter` is `eu2`, because the legacy `eu` endpoint returns HTTP 500, and the default timeout is longer, so a slow but healthy response no longer flips to UNKNOWN
+* systemd-units-failed: in OK state, the output names the last failed unit since the last reboot, its timestamp and how long ago
 
 Icinga Director:
 
-* `Apache apache2 Service Set (Debian 10-)` matches only `debian10` now; obsolete `debian8`/`debian9` removed from the filter
-* `Apache apache2 Service Set (Ubuntu 18+)` now also matches `ubuntu24` and `ubuntu26`
-* `Apache httpd Service Set` (Fedora / RHEL) now also matches `rhel10`
-* `OS - RHEL 10 Basic Service Set` drops the `audit-rules.service` check (oneshot unit that stays inactive). Audit health stays covered by `auditd.service` and the `audit.log` file-size check
-* OS host tag labels for `rhel7`/`rhel8`/`rhel9` get a leading double space (`OS - RHEL  7 (and compatible)`, etc.) so they sort before `rhel10` in the Director dropdown. Tag names unchanged
-
+* the Apache service sets match `rhel10`, `ubuntu24` and `ubuntu26`, and the Debian 10 set no longer matches the obsolete `debian8` and `debian9`
+* the `OS - RHEL 10 Basic Service Set` drops the `audit-rules.service` check, a oneshot unit that stays inactive. Audit health stays covered by `auditd.service` and the `audit.log` file-size check
 
 ### Removed
 
 Icinga Director:
 
-* `all-the-rest.json`: 13 single-plugin Service Sets removed - each needed per-instance parameters. Service Templates remain, configure via Director Apply rules instead
-* `all-the-rest.json`: obsolete `tarifpool-v2` host tag dropped (the Set itself was removed in v3)
-
+* 13 single-plugin Service Sets removed, each needed per-instance parameters. The Service Templates remain, configure them via Director Apply rules instead
+* the obsolete `tarifpool-v2` host tag is dropped
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Non-default Software, Non-default Users and systemctl list-timers tables now sort case-insensitive and natural (so `foo10` lands after `foo2`)
-* [network-port-tcp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-port-tcp/): fix plugin crashing on every invocation
-* [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/): no more false CRIT on dynamic and ondemand pools when all current workers are momentarily busy
-* Various plugins: declare `lib.*` imports explicitly to harden against future lib refactors. No behaviour change today
+* network-port-tcp: no longer crashes on every invocation
+* php-fpm-status: no more false CRIT on dynamic and ondemand pools when all current workers are momentarily busy
 
 
 ## [v4.0.0] - 2026-05-07
@@ -565,220 +357,156 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* Add `Needs Restarting Service Set` (host tag `needs-restarting`) for Linux servers patched but not yet rebooted. Tag only hosts where reboots are manual. Red Hat- and Debian-based distributions
-* Add `OS - RHEL 10 Basic Service Set` for Rocky Linux 10 / RHEL 10 / AlmaLinux 10 hosts. Adds `audit-rules.service` over the RHEL 9 set
-* Add `Postfix MTA Service Set (Multi-Instance)` for hosts running the MTA as `postfix@-.service` ([#535](https://github.com/Linuxfabrik/monitoring-plugins/issues/535))
-
-Monitoring Plugins:
-
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): cross-distro container-based test added, covering RHEL 10 SSH sessions without a PTY ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
-
+* `Needs Restarting Service Set` (host tag `needs-restarting`) for Linux servers patched but not yet rebooted. Tag only hosts where reboots are manual
+* `OS - RHEL 10 Basic Service Set` for Rocky Linux 10, RHEL 10 and AlmaLinux 10 hosts
+* `Postfix MTA Service Set (Multi-Instance)` for hosts running the MTA as `postfix@-.service` ([#535](https://github.com/Linuxfabrik/monitoring-plugins/issues/535))
 
 ### Changed
 
-Build, CI/CD:
+Monitoring Plugins:
 
-* Bump pinned `linuxfabrik-lib` dependency from 3.4.0 to 3.4.1, which fixes `librenms-alerts` silently reporting OK on alerts in LibreNMS states `WORSE`, `BETTER` or `CHANGED`
+* dmesg: `--ignore` takes a regex instead of a substring, is repeatable, and replaces the bundled defaults instead of extending them. The defaults grew to cover SHPC PCI hot-plug noise
+* dmesg: `--severity` is deprecated and the plugin always alerts as CRIT. Existing templates with `dmesg_severity = warn` keep working but no longer downgrade
 
 Icinga Director:
 
-* Backfill `Disk I/O` and `Network I/O` checks on the older Debian OS Basic Service Sets where they were missing
-* OS host tag labels now suffix `(and compatible)` so the derivative distribution coverage is explicit. Tag names unchanged
-* Remove the hard-wired `rsyslog.service` check from every OS Basic Service Set. Tag hosts running rsyslog with `rsyslog` to activate the dedicated `rsyslog Service Set`
-
-Monitoring Plugins:
-
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): `--ignore` now takes a regex (was substring) and is repeatable. Specifying it replaces the bundled defaults (was extending). Defaults grew to cover SHPC PCI hot-plug noise
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): `--severity` deprecated; the plugin always alerts as CRIT. Existing templates with `dmesg_severity = warn` keep working but no longer downgrade
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): emit `errors` perfdata so the unfiltered error count can be trended in Grafana
-
+* the hard-wired `rsyslog.service` check is gone from every OS Basic Service Set. Tag hosts running rsyslog with `rsyslog` to activate the dedicated `rsyslog Service Set`
+* the older Debian OS Basic Service Sets get the missing `Disk I/O` and `Network I/O` checks
 
 ### Removed
 
 Icinga Director:
 
-* Drop the `OS - Debian 8 Basic Service Set`. Debian 8 (Jessie) has been EOL since June 2020 and is not covered by the rest of the project anymore
+* the `OS - Debian 8 Basic Service Set` is dropped, Debian 8 (Jessie) has been EOL since June 2020
+
+### Fixed
+
+Monitoring Plugins:
+
+* librenms-alerts: alerts in the LibreNMS states `WORSE`, `BETTER` and `CHANGED` are no longer silently reported OK
 
 
 ## [v3.0.0] - 2026-05-05
 
-### Security
-
-* **ci**: scope `GITHUB_TOKEN` permissions in the dependabot-auto-merge workflow to the job level (addresses OpenSSF Scorecard `Token-Permissions`)
-
 ### Breaking Changes
 
-Build, CI/CD:
-
-* Drop the `flatdict` dependency; `statuspal` reworked accordingly. Unblocks builds on RHEL 10 and SLE 15/16 ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
-
 Monitoring Plugins:
 
-* [haproxy-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/): replaced `--username` / `--password` with HTTP basic auth in `--url` (e.g. `https://user:pw@host/server-status`); old parameters now UNKNOWN with a migration hint
-* [mailq](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq/): thresholds now take a duration (`1h`, `3D`) instead of a count. New `oldest_mail_age` perfdata. New `--mta` ([#781](https://github.com/Linuxfabrik/monitoring-plugins/issues/781))
-* [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/): multi-pool via repeatable `--url`; HTTP basic auth in the URL. All perfdata labels renamed and prefixed `<pool>_` - update Grafana/InfluxDB queries
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): `--argument`, `--command`, `--username` now regex instead of substring/startswith; use `^foo` for startswith, `^foo$` for exact match
-
-
-### Added
+* a batch of plugins with `append` parameters: user values replace the defaults instead of extending them ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* haproxy-status: `--username` / `--password` are replaced by HTTP basic auth in `--url` (e.g. `https://user:pw@host/server-status`). The old parameters exit UNKNOWN with a migration hint
+* mailq: thresholds take a duration (`1h`, `3D`) instead of a count, and `--mta` selects the MTA ([#781](https://github.com/Linuxfabrik/monitoring-plugins/issues/781))
+* php-fpm-status: multi-pool via repeatable `--url`, HTTP basic auth in the URL, and all perfdata labels renamed and prefixed `<pool>_`. Update Grafana and InfluxDB queries
+* procs: `--argument`, `--command` and `--username` are regex instead of substring and startswith. Use `^foo` for startswith and `^foo$` for an exact match
+* redfish-sensor: `--insecure` defaults to `True`, because BMCs usually serve self-signed certificates. Pass `--insecure=false` explicitly if a trusted CA chain is installed
 
 Build, CI/CD:
 
-* Documentation site at <https://linuxfabrik.github.io/monitoring-plugins/>
-* Package support for SLE 15, SLE 16, Ubuntu 26.04 (incl. "OS - Ubuntu 26 Basic Service Set" template)
-
-
-Monitoring Plugins:
-
-* [by-ssh](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/by-ssh/): alert on single numeric values
-* [by-winrm](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/by-winrm/): executes commands on remote Windows hosts via WinRM, with JEA support (incl. `--winrm-configuration-name`)
-* [dhcp-scope-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/): add `--brief` to hide scopes within thresholds ([#788](https://github.com/Linuxfabrik/monitoring-plugins/issues/788))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): add `--brief` to hide filesystems within thresholds ([#782](https://github.com/Linuxfabrik/monitoring-plugins/issues/782))
-* docker-info, podman-info: add `--ignore` to filter stderr warnings/errors by regex ([#834](https://github.com/Linuxfabrik/monitoring-plugins/issues/834))
-* [gitlab-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-version/): add `--check-security` to warn on security-relevant updates (default on) ([#688](https://github.com/Linuxfabrik/monitoring-plugins/issues/688))
-* [haproxy-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/): add `--ignore` to filter proxies/frontends/backends/servers by regex on `<proxy>/<svname>` ([#835](https://github.com/Linuxfabrik/monitoring-plugins/issues/835))
-* [infomaniak-swiss-backup-devices](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-swiss-backup-devices/): add `--ignore-customer`, `--ignore-name`, `--ignore-tag`, `--ignore-user`
-* [infomaniak-swiss-backup-products](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-swiss-backup-products/): add `--ignore-customer`, `--ignore-tag`
-* [ipmi-sel](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sel/): add `--ignore` to filter SEL entries by regex ([#982](https://github.com/Linuxfabrik/monitoring-plugins/issues/982))
-* [journald-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/): add `--icinga-callback` so acknowledging the service in Icinga suppresses the matching events on following runs ([#649](https://github.com/Linuxfabrik/monitoring-plugins/issues/649))
-* [json-values](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/json-values/): add `--token`/`--header` for HTTP auth; new `--warning-key`/`--critical-key` (dot-notation) for numeric alerts ([#1005](https://github.com/Linuxfabrik/monitoring-plugins/issues/1005))
-* librenms-alerts, librenms-health: support device-type `management`
-* [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/): `--filename` accepts time macros (`{today}`, `{%Y}`, ...) for date-stamped logs. Offset survives day rollovers ([#678](https://github.com/Linuxfabrik/monitoring-plugins/issues/678))
-* [nextcloud-enterprise](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-enterprise/): reports Nextcloud Enterprise subscription information
-* [podman-info](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-info/): displays system-wide Podman information ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
-* [podman-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-stats/): cpu and memory statistics for all running Podman containers ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): add `--top N` to list the top N processes by CPU time and memory usage
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): add `--lengthy` for extended `--top` table output
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): add `--warning-cpu-percent` / `--critical-cpu-percent` for aggregated CPU usage of filtered processes
-* [redfish-system](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-system/): checks overall system health from a Redfish-compatible server (split off from `redfish-drives`) ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): add 41 signatures for modern Linux rootkits and implants (BPFDoor, Drovorub, Ebury, FontOnLake, Kaiji, Kobalos, perfctl, PUMAKIT, Reptile, Symbiote, Winnti, and more)
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): add 11 further signatures for recent Linux threats (Auto-Color, Bootkitty, DslogdRAT, Hadooken, Koske, LinkPro, randkit, Snapekit, Sutekh, vmwfxs, WolfsBane)
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): findings now show the year the rootkit was first publicly disclosed
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): `rootkit_items` / `rootkit_possible` perfdata count distinct rootkits (was indicators); `max` field carries the signature-database size
-* [sensors-temperatures](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sensors-temperatures/): add `--ignore` to filter sensors by regex ([#965](https://github.com/Linuxfabrik/monitoring-plugins/issues/965))
-* [strongswan-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/strongswan-connections/): add `--match` and `--ignore` to filter VICI connections by regex ([#738](https://github.com/Linuxfabrik/monitoring-plugins/issues/738))
-* [statuspal](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/statuspal/): also detect `emergency-maintenance` state
-* [valkey-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/valkey-status/): support user and password credentials [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
-
-
-Icinga Director:
-
-* Add Debian 13 Service Set
-
-
-### Changed
-
-Assets:
-
-* sudoers: disable PAM's session stack log lines when user icinga or nagios uses sudo
-
-
-Build, CI/CD:
-
-* Bump pinned `linuxfabrik-lib` dependency from 3.0.0 to 3.2.0
-* Windows MSI no longer depends on an installed Icinga2 agent (install path unchanged: `ProgramFiles64Folder/ICINGA2/sbin/linuxfabrik`)
-
-
-Grafana:
-
-* All panels: do not connect across nulls
-
-
-Icinga Director:
-
-* Service Templates: "Notes URL" now points at the docs site instead of GitHub source; re-run `tools/build-basket --auto` to pick up the new URL
-
-
-Monitoring Plugins:
-
-* all plugins: ignore unknown arguments instead of erroring (helps when rolling out updated service definitions)
-* all plugins: expanded `DESCRIPTION` in `--help`
-* all plugins: drop incorrect "Supports Nagios ranges" mentions from `--help` where not implemented
-* [atlassian-statuspage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/atlassian-statuspage/): report primary incident, affected services and maintenance windows. New `--service REGEX`. Perfdata renamed (`impact` → `cnt_warn`/`cnt_crit`)
-* batch of plugins with `append` parameters: user values now replace the defaults (was extending) ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): remove `--top` (moved to `procs --top`)
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): also monitor normalized iowait on Linux (100% = one fully I/O-saturated core)
-* [file-count](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-count/): much faster on large directories (stops counting once thresholds are exceeded)
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): `--filename` merges with the default file list; use `--no-default-files` to check only user-supplied files
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): default file list extended with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM, etc.)
-* [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/): output names the scanned file and each configured pattern with per-pattern match count and severity label ([#547](https://github.com/Linuxfabrik/monitoring-plugins/issues/547))
-* nextcloud-enterprise, nextcloud-version: `occ` no longer has to be executable; `php occ <cmd>` is invoked under the owner of `config/config.php`
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): default to `http://localhost/monitoring.php`, tolerate its absence
-* [redfish-sensor](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sensor/): `--insecure` now defaults to `True` (BMCs usually serve self-signed certs). Pass `--insecure=false` explicitly if a trusted CA chain is installed
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): exact per-symbol kernel symbol matching (fewer false positives)
-* [service](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/service/): Windows services with a space in their technical name now match `--service` ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
-* [systemd-units-failed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-units-failed/): failed unit names appear in the first output line for dashboard/SMS readability ([#967](https://github.com/Linuxfabrik/monitoring-plugins/issues/967))
-
+* the `flatdict` dependency is dropped and `statuspal` reworked accordingly, which unblocks builds on RHEL 10 and SLE 15/16 ([#1044](https://github.com/Linuxfabrik/monitoring-plugins/issues/1044))
 
 Tools:
 
-* build-basket: `--auto` is now truly non-interactive; unknown datafields and objects get fresh uuids instead of prompting
-* rename `tools/check2basket` → `tools/build-basket` and `tools/remove-uuids` → `tools/basket-remove-uuids`; update any wrappers or documentation
+* `tools/check2basket` is now `tools/build-basket` and `tools/remove-uuids` is now `tools/basket-remove-uuids`. Update any wrappers or documentation
 
+### Added
+
+Monitoring Plugins:
+
+* by-winrm: executes commands on remote Windows hosts via WinRM, with JEA support
+* nextcloud-enterprise: reports Nextcloud Enterprise subscription information
+* podman-info: displays system-wide Podman information ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
+* podman-stats: CPU and memory statistics for all running Podman containers ([#1023](https://github.com/Linuxfabrik/monitoring-plugins/issues/1023))
+* redfish-system: checks overall system health from a Redfish-compatible server, split off from `redfish-drives` ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
+
+Build, CI/CD:
+
+* documentation site at <https://linuxfabrik.github.io/monitoring-plugins/>
+* packages for SLE 15, SLE 16 and Ubuntu 26.04, including an "OS - Ubuntu 26 Basic Service Set"
+
+Icinga Director:
+
+* Debian 13 Service Set
+
+### Changed
+
+Monitoring Plugins:
+
+* all plugins: unknown arguments are ignored instead of erroring, which helps when rolling out updated service definitions
+* atlassian-statuspage: reports the primary incident, affected services and maintenance windows, and the `impact` perfdata is renamed to `cnt_warn`/`cnt_crit`
+* disk-io: also monitors normalized iowait on Linux (100% = one fully I/O-saturated core)
+* file-count: much faster on large directories, it stops counting once the thresholds are exceeded
+* file-ownership: the default file list is extended with CIS benchmark-relevant files (login.defs, sudoers, sysctl, systemd, PAM), so a host can newly alert
+* gitlab-version: warns on security-relevant updates by default ([#688](https://github.com/Linuxfabrik/monitoring-plugins/issues/688))
+* librenms-alerts, librenms-health: support device-type `management`
+* nextcloud-version: `occ` no longer has to be executable, `php occ <cmd>` is invoked under the owner of `config/config.php`
+* php-status: defaults to `http://localhost/monitoring.php` and tolerates its absence
+* scanrootkit: 52 further signatures for modern Linux rootkits and implants, exact per-symbol kernel symbol matching for fewer false positives, and the `rootkit_items` / `rootkit_possible` perfdata count distinct rootkits instead of indicators
+* statuspal: also detects the `emergency-maintenance` state
+
+Assets:
+
+* sudoers: PAM's session stack log lines are disabled when the user icinga or nagios uses sudo
+
+Build, CI/CD:
+
+* the Windows MSI no longer depends on an installed Icinga 2 agent, the install path is unchanged
+
+Icinga Director:
+
+* Service Templates: "Notes URL" points at the docs site instead of the GitHub source. Re-run `tools/build-basket --auto` to pick up the new URL
+
+Tools:
+
+* build-basket: `--auto` is truly non-interactive, unknown datafields and objects get fresh uuids instead of prompting
 
 ### Removed
 
 Monitoring Plugins:
 
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): remove `--top` (moved to `procs --top`)
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): remove the Suckit rootkit check and the `rootkit_extra` perfdata; update Grafana panels and alerts that rely on `rootkit_extra`
-
+* cpu-usage: `--top` is removed and lives on as `procs --top`
+* scanrootkit: the Suckit rootkit check and the `rootkit_extra` perfdata are removed. Update Grafana panels and alerts that rely on `rootkit_extra`
 
 Tools:
 
-* remove legacy `grafana-tool`
-
+* the legacy `grafana-tool` is removed
 
 ### Fixed
 
+Monitoring Plugins:
+
+* semantic bugfixes across a batch of plugins (keycloak-version, mysql-table-locks, valkey-status, wildfly-\*, ...) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
+* ntp-\*: no longer raise a `TypeError` when comparing int and str
+* about-me: no longer errors on `sys_dimensions`, or on `--dmidecode` when no hardware information is available ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
+* cpu-usage: no more false 100% readings on Windows with 64 or more cores ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
+* deb-updates: no longer crashes when reporting the number of available updates
+* docker-stats: memory perfdata no longer uses the CPU thresholds, and the aggregate metrics include block and network I/O totals
+* file-age: handles the race when files disappear on busy file systems
+* fs-ro: ignores `/run/credentials`
+* keycloak-stats: the check runs again, its library symlink was wrong
+* librenms-alerts: reports `WORSE`, `BETTER` and `CHANGED` alerts too, which LibreNMS 25.2 and newer produce for many alerts ([#882](https://github.com/Linuxfabrik/monitoring-plugins/issues/882))
+* logfile: several services on the same logfile with different patterns no longer interfere with each other, the read offset no longer resets on every run after the state-database rename, and an inode beyond the SQLite integer range on Windows no longer raises an `OverflowError` ([#698](https://github.com/Linuxfabrik/monitoring-plugins/issues/698), [#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
+* mysql-joins, mysql-traffic: no longer crash on a server booted less than one second ago
+* mysql-memory: no longer crashes in "other process memory" on hosts with psutil older than 5.3.0
+* needs-restarting: shows "Running Kernel X != Installed Kernel Y" on Debian-based systems when `needrestart` reports a pending kernel upgrade
+* notify-host-mail, notify-service-mail: the Icinga logo renders inline again on hosts with long FQDNs ([#790](https://github.com/Linuxfabrik/monitoring-plugins/issues/790))
+* redfish-drives: system-level warnings such as inlet temperature no longer flip the check to WARN, they are covered by `redfish-system` ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
+* rocketchat-stats: no longer crashes when reporting the user count
+* scanrootkit: a single malformed signature file no longer crashes the whole check, and directory-only rootkit signatures are evaluated at all
+* service: Windows services with a space in their technical name match `--service` ([#921](https://github.com/Linuxfabrik/monitoring-plugins/issues/921))
+* updates: no longer crashes on Python 3.9 when pending updates are reported
+* users: correct TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
+* valkey-status: TLS connections work ([PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty))
+
 Build, CI/CD:
 
-* RPM: no longer conflicts with other RPMs shipping ELF build-id symlinks (e.g. `azure-cli`) ([#979](https://github.com/Linuxfabrik/monitoring-plugins/issues/979))
-* requirements.txt: add missing `setuptools` dependency
-
-
-Tools:
-
-* build-basket: strip argparse `%%` escaping in Icinga Director basket descriptions
-* build-basket: write `[]` as default value for `append` parameters with `default=None`
-* update-readmes: backslashes in a plugin's `--help` output (e.g. Windows example paths like `C:\logs\...`) no longer make README regeneration crash
-
+* RPM: no longer conflicts with other RPMs shipping ELF build-id symlinks, such as `azure-cli` ([#979](https://github.com/Linuxfabrik/monitoring-plugins/issues/979))
 
 Grafana:
 
-* Icinga Dashboard: use a query for the service name so the dashboard works regardless of the configured service name
+* Icinga Dashboard: uses a query for the service name, so the dashboard works regardless of the configured service name
 
-Monitoring Plugins:
+Tools:
 
-* semantic bugfixes across a batch of plugins (keycloak-version, mysql-table-locks, valkey-status, wildfly-*, ...) ([#1070](https://github.com/Linuxfabrik/monitoring-plugins/issues/1070))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): perfdata error when `--dmidecode` is used and no HW information is available
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): various `sys_dimensions` errors on some machines ([#1006](https://github.com/Linuxfabrik/monitoring-plugins/issues/1006))
-* [by-ssh](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/by-ssh/): add missing `--verbose` parameter
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): false 100% readings on Windows with 64+ cores ([#626](https://github.com/Linuxfabrik/monitoring-plugins/issues/626))
-* [deb-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-updates/): crash when reporting the number of available updates
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): memory perfdata used CPU thresholds
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): replace per-container perfdata with aggregate metrics (containers, cpu)
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): handle race when files disappear on busy file systems
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): ignore `/run/credentials`
-* [keycloak-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/keycloak-stats/): incorrect symlink for lib
-* [librenms-alerts](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-alerts/): report `WORSE`/`BETTER`/`CHANGED` alerts too (was only `ACTIVE`); LibreNMS 25.2+ flips many to `CHANGED` ([#882](https://github.com/Linuxfabrik/monitoring-plugins/issues/882))
-* [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/): `OverflowError` when inode exceeds SQLite INTEGER range on Windows/NTFS ([#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
-* [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/): multiple services on the same logfile with different patterns no longer interfere with each other ([#698](https://github.com/Linuxfabrik/monitoring-plugins/issues/698))
-* [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/): after the #698 state-DB rename, the read offset could reset on every run on hosts upgrading from an older DB schema, visible as a steadily climbing `scanned_lines` in Grafana
-* [mysql-joins](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-joins/): crash on a server booted less than one second ago
-* [mysql-memory](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/): crash in "other process memory" on hosts with psutil older than 5.3.0
-* [mysql-traffic](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-traffic/): crash from missing import and crash on a server booted less than one second ago
-* [needs-restarting](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/needs-restarting/): show "Running Kernel X != Installed Kernel Y" on Debian-based systems when `needrestart` reports a pending kernel upgrade
-* notify-host-mail, notify-service-mail: Icinga logo renders inline again on hosts with long FQDNs ([#790](https://github.com/Linuxfabrik/monitoring-plugins/issues/790))
-* ntp-\*: prevent `TypeError` when comparing int and str
-* [podman-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-stats/): precise numeric values; aggregate perfdata includes block and network I/O totals
-* [redfish-drives](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-drives/): system-level warnings (e.g. inlet temp) no longer flip the check to WARN (covered by `redfish-system` now) ([#652](https://github.com/Linuxfabrik/monitoring-plugins/issues/652))
-* [rocketchat-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/): crash when reporting the user count
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): a single malformed signature file no longer crashes the whole check
-* [scanrootkit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scanrootkit/): directory-only rootkit signatures (e.g. KBeast `/usr/_h4x_`, Kaiji `/usr/bin/lib`) are now actually evaluated
-* [updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/updates/): crash on Python 3.9 when pending updates are reported
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): incorrect TTY count when SSH clients connect via IPv6 ([#989](https://github.com/Linuxfabrik/monitoring-plugins/issues/989))
-* [valkey-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/valkey-status/): TLS connection [PR #954](https://github.com/Linuxfabrik/monitoring-plugins/pull/954), thanks to [Claudio Kuenzler](https://github.com/Napsty)
+* build-basket: Icinga Director basket descriptions no longer carry argparse `%%` escaping, and `append` parameters with `default=None` get `[]` as default value
 
 
 ## [v2.2.1] - 2025-09-22
@@ -787,90 +515,52 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* ntp-chronyd, ntp-ntpd: SyntaxError: f-string: unmatched '(' on python 3.11 ([#952](https://github.com/Linuxfabrik/monitoring-plugins/issues/952))
-
+* ntp-chronyd, ntp-ntpd: no longer abort with a SyntaxError on Python 3.11 ([#952](https://github.com/Linuxfabrik/monitoring-plugins/issues/952))
 
 
 ## [v2.2.0] - 2025-09-19
 
 ### Added
 
-Build, CI/CD:
-
-* Add support for debian13 and rhel10 packages
-
-
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add option to avoid dmidecode and sudo ([#948](https://github.com/Linuxfabrik/monitoring-plugins/issues/948))
-* ntp-\*: add `--stratum` parameter and modernize code
-* [spring-boot-actuator-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/spring-boot-actuator-health/): derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er) - a monitoring plugin for the Spring Boot Actuator `/health` endpoint
-* [virustotal-scan-url](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/virustotal-scan-url/): analyses URLs to detect malware and other breaches using VirusTotal
-
-
-### Fixed
-
-Assets:
-
-* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): allow D-Bus daemon IPC with unconfined services via FIFOs and UNIX sockets
-* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te): add missing type enforcement requirements ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
-
+* spring-boot-actuator-health: check for the Spring Boot Actuator `/health` endpoint (derived from [PR #940](https://github.com/Linuxfabrik/monitoring-plugins/pull/940), thanks to [Dominik Riva](https://github.com/slalomsk8er))
+* virustotal-scan-url: check analysing URLs for malware and other breaches using VirusTotal
 
 Build, CI/CD:
 
-* Build on Ubuntu 24.02 error on system_dbusd_t ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
-
-
-Monitoring Plugins:
-
-* [deb-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-updates/): apt-get returns with an error ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904))
-* [deb-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-updates/): missing rights and still OK ([#937](https://github.com/Linuxfabrik/monitoring-plugins/issues/937))
-* [icinga-topflap-services](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-topflap-services/): prevent stacktrace when required parameters are empty
-* [openstack-swift-stat](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-swift-stat/): problem with python-keystoneclient, optimize requirements* ([#900](https://github.com/Linuxfabrik/monitoring-plugins/issues/900))
-* [safenet-hsm-state](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/safenet-hsm-state/): set `use_agent` to false and enable perfdata in Icinga Director Basket
-* [statuspal](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/statuspal/): handle incident_type "performance"
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): "no one is logged in" on Ubuntu 24.04 LTS ([#919](https://github.com/Linuxfabrik/monitoring-plugins/issues/919))
-* valkey-status|redis-status: improve `--ignore-thp` ([#898](https://github.com/Linuxfabrik/monitoring-plugins/issues/898))
-
+* packages for Debian 13 and RHEL 10
 
 ### Changed
 
-Assets:
+Monitoring Plugins:
 
-* To make it easier to integrate with other tools, all RST files have been converted to GitHub-flavoured Markdown.
-
-
-Build, CI/CD:
-
-* Change to official, up-to-date Rocky Linux containers for building RPMs ([Motivation](https://hub.docker.com/_/rockylinux#important-note))
-
+* about-me: reports the current CPU frequency, and avoids dmidecode noise
+* cpu-usage: measures without blocking, which makes the check both more accurate and faster
+* gitlab-health, gitlab-liveness, gitlab-readiness, infomaniak-events: longer default timeouts, so a slow but healthy endpoint no longer flips to UNKNOWN
+* journald-usage: also prints SystemMaxUse and SystemKeepFree
+* procs: much cheaper on busy Windows servers, where reading every process ate into the check interval
+* statuspal: a "performance" degradation is WARN instead of UNKNOWN
 
 Icinga Director:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): change command timeout from 30 to 60
-* [atlassian-statuspage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/atlassian-statuspage/): increase Icinga Director command timeout
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): change command timeout from 10 to 30 for Windows
-* [memory-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/): change command timeout from 10 to 30 for Windows
-* [ntp-w32tm](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-w32tm/): change command timeout from 10 to 30 and check interval from 60 to 600
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): change command timeout from 10 to 30 for Windows
+* longer command timeouts for about-me, atlassian-statuspage and the Windows variants of disk-io, memory-usage, ntp-w32tm and procs
 
+### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): report current cpu frequency and avoid dmidecode noise, new perfdata
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): non-blocking behaviour (interval=None + manual deltas via SQLite DB) so we get both accuracy and faster runtime
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): modernize code
-* [gitlab-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-health/): increase timeout from 3 to 8 secs
-* [gitlab-liveness](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-liveness/): increase timeout from 3 to 8 secs
-* [gitlab-readiness](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-readiness/): increase timeout from 3 to 8 secs
-* [infomaniak-events](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-events/): increase timeout from 8 to 28 secs
-* [journald-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-usage/): also print SystemMaxUse and SystemKeepFree
-* [memory-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/): modernize code
-* [pip-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/): modernize code
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): avoid token + PEB reads and repeated attribute calls per process, as this has an impact on busy Windows servers
-* [rocketchat-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/): improve output and docs a little bit
-* [statuspal](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/statuspal/): 'performance' degredation is now a WARN, not UNKNOWN
+* deb-updates: reports the real reason when apt-get fails, and no longer reports OK when it lacks the rights to check ([#904](https://github.com/Linuxfabrik/monitoring-plugins/issues/904), [#937](https://github.com/Linuxfabrik/monitoring-plugins/issues/937))
+* icinga-topflap-services: no longer produces a stacktrace when required parameters are empty
+* openstack-swift-stat: works with the current python-keystoneclient ([#900](https://github.com/Linuxfabrik/monitoring-plugins/issues/900))
+* safenet-hsm-state: performance data is enabled in the Icinga Director basket
+* statuspal: handles the incident type "performance"
+* users: no longer reports "no one is logged in" on Ubuntu 24.04 LTS ([#919](https://github.com/Linuxfabrik/monitoring-plugins/issues/919))
+* valkey-status, redis-status: `--ignore-thp` works as documented ([#898](https://github.com/Linuxfabrik/monitoring-plugins/issues/898))
 
+Assets:
+
+* SELinux policy: the checks no longer trip over D-Bus IPC with unconfined services ([#918](https://github.com/Linuxfabrik/monitoring-plugins/issues/918))
 
 
 ## [v2.1.1] - 2025-06-20
@@ -879,50 +569,42 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* Icinga2 Service Set
-
+* the Icinga 2 Service Set
 
 
 ## [v2.1.0] - 2025-06-20
 
 ### Added
 
-Icinga Director:
-
-* Icinga2 Service Set
-
-
 Monitoring Plugins:
 
-* [icinga-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-version/): tracks if Icinga is EOL
-
-
-### Fixed
+* icinga-version: check tracking whether Icinga is end of life
 
 Icinga Director:
 
-* all-the-rest.json: correct nextcloud-app-update.timer unit states
-
-
-Monitoring Plugins:
-
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): handle disk accessibility ([#792](https://github.com/Linuxfabrik/monitoring-plugins/issues/792))
-* [updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/updates/): "The syntax of the command is incorrect."
-
+* Icinga 2 Service Set
 
 ### Changed
 
+Monitoring Plugins:
+
+* matomo-version: uses the EOL library, `--cache-expire` is deprecated
+
 Icinga Director:
 
-* [atlassian-statuspage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/atlassian-statuspage/): Increase timeout from 8 to 30 secs
-* [uptimerobot](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptimerobot/): Increase timeout from 8 to 30 secs
-* Path to notification plugins changed back to `/usr/lib64/nagios/plugins` 
+* the notification plugins are called from `/usr/lib64/nagios/plugins` again
+* longer timeouts for atlassian-statuspage and uptimerobot
 
+### Fixed
 
 Monitoring Plugins:
 
-* [matomo-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/matomo-version/): use EOL library, parameter `--cache-expire` is deprecated
+* disk-usage: handles a disk that cannot be accessed ([#792](https://github.com/Linuxfabrik/monitoring-plugins/issues/792))
+* updates: no longer fails with "The syntax of the command is incorrect."
 
+Icinga Director:
+
+* corrected the nextcloud-app-update.timer unit states
 
 
 ## [v2.0.0] - 2025-06-06
@@ -931,395 +613,138 @@ Monitoring Plugins:
 
 Build, CI/CD:
 
-* Windows: To save disk space, Windows plugins are only compiled if they are useful for testing local system resources. Plugins that check remote services should run on Linux. Currently we compile:
-
-    * cpu-usage
-    * dhcp-scope-usage
-    * disk-io
-    * disk-usage
-    * dns
-    * dummy
-    * file-age
-    * file-count
-    * file-size
-    * logfile
-    * memory-usage
-    * network-connections
-    * network-io
-    * network-port-tcp
-    * ntp-w32tm
-    * path-rw-test
-    * procs
-    * scheduled-task
-    * service
-    * swap-usage
-    * updates
-    * uptime
-    * users
-
-* Linux: To save disk space, we *no longer compile* to binaries. The .rpm and .deb packages now ship the source code and require Python 3.9+ to be installed on the target host. We also install a Python venv (virtual environment) in `/usr/lib64/linuxfabrik-monitoring-plugins/venv/` to manage all Python libraries with `pip`. Sorry for the back and forth.
-
+* Linux: the plugins are no longer compiled to binaries. The .rpm and .deb packages ship the source code and require Python 3.9 or newer on the target host, plus a venv in `/usr/lib64/linuxfabrik-monitoring-plugins/venv/` for the Python libraries
+* Windows: only the plugins that check local system resources are compiled, to save disk space. Plugins checking remote services are meant to run on Linux (cpu-usage, dhcp-scope-usage, disk-io, disk-usage, dns, dummy, file-age, file-count, file-size, logfile, memory-usage, network-connections, network-io, network-port-tcp, ntp-w32tm, path-rw-test, procs, scheduled-task, service, swap-usage, updates, uptime, users)
 
 Icinga Director:
 
-* all-the-rest.json: drop legacy commands
-* The Icinga Director configuration has been updated to remove plugins that are no longer compiled for Windows:
-
-    * apache-solr-version
-    * axenita-stats
-    * composer-version
-    * countdown
-    * csv-values
-    * dhcp-relayed
-    * diacos
-    * disk-smart
-    * feed
-    * fortios-cpu-usage
-    * fortios-firewall-stats
-    * fortios-ha-stats
-    * fortios-memory-usage
-    * fortios-network-io
-    * fortios-sensor
-    * fortios-version
-    * githubstatus
-    * grassfish-licenses
-    * grassfish-players
-    * grassfish-screens
-    * haproxy-status
-    * hin-status
-    * huawei-dorado-backup-power
-    * huawei-dorado-controller
-    * huawei-dorado-disk
-    * huawei-dorado-enclosure
-    * huawei-dorado-fan
-    * huawei-dorado-host
-    * huawei-dorado-hypermetrodomain
-    * huawei-dorado-hypermetropair
-    * huawei-dorado-interface
-    * huawei-dorado-power
-    * huawei-dorado-system
-    * icinga-topflap-services
-    * infomaniak-events
-    * infomaniak-swiss-backup-devices
-    * infomaniak-swiss-backup-products
-    * jitsi-videobridge-stats
-    * jitsi-videobridge-status
-    * json-values
-    * kemp-services
-    * keycloak-memory-usage
-    * keycloak-stats
-    * keycloak-version
-    * librenms-alerts
-    * librenms-health
-    * librenms-version
-    * matomo-reporting
-    * matomo-version
-    * mediawiki-version
-    * metabase-stats
-    * mod-qos-stats
-    * moodle-version
-    * mysql-aria
-    * mysql-binlog-cache
-    * mysql-connections
-    * mysql-database-metrics
-    * mysql-innodb-buffer-pool-instances
-    * mysql-innodb-buffer-pool-size
-    * mysql-innodb-log-waits
-    * mysql-joins
-    * mysql-logfile
-    * mysql-memory
-    * mysql-open-files
-    * mysql-perf-metrics
-    * mysql-query
-    * mysql-replica-status
-    * mysql-slow-queries
-    * mysql-sorts
-    * mysql-storage-engines
-    * mysql-system
-    * mysql-table-cache
-    * mysql-table-definition-cache
-    * mysql-table-indexes
-    * mysql-table-locks
-    * mysql-temp-tables
-    * mysql-thread-cache
-    * mysql-traffic
-    * mysql-user-security
-    * nextcloud-security-scan
-    * nextcloud-stats
-    * nextcloud-version
-    * nginx-status
-    * nodebb-cache
-    * nodebb-database
-    * nodebb-errors
-    * nodebb-events
-    * nodebb-groups
-    * nodebb-info
-    * nodebb-users
-    * nodebb-version
-    * onlyoffice-stats
-    * openjdk-redhat-version
-    * openvpn-version
-    * php-fpm-ping
-    * php-fpm-status
-    * php-status
-    * php-version
-    * pip-updates
-    * python-version
-    * qts-cpu-usage
-    * qts-disk-smart
-    * qts-memory-usage
-    * qts-temperatures
-    * qts-uptime
-    * qts-version
-    * redfish-drives
-    * redfish-sel
-    * redfish-sensor
-    * restic-check
-    * restic-snapshots
-    * restic-stats
-    * rocketchat-stats
-    * rocketchat-version
-    * sap-open-concur-com
-    * starface-account-stats
-    * starface-backup-status
-    * starface-channel-status
-    * starface-database-stats
-    * starface-java-memory-usage
-    * starface-peer-stats
-    * starface-status
-    * statusiq
-    * statuspal
-    * uptimerobot
-    * veeam-status
-    * whmcs-status
-    * wildfly-deployment-status
-    * wildfly-gc-status
-    * wildfly-memory-pool-usage
-    * wildfly-memory-usage
-    * wildfly-non-xa-datasource-stats
-    * wildfly-server-status
-    * wildfly-thread-usage
-    * wildfly-uptime
-    * wildfly-xa-datasource-stats
-    * wordpress-version
-    * xml
-
+* the plugins no longer compiled for Windows are removed from the Windows configuration, and the legacy commands are dropped. Affected are around 140 checks, among them all fortios-\*, huawei-dorado-\*, mysql-\*, nodebb-\*, php-\*, qts-\*, redfish-\*, starface-\*, wildfly-\* and the single checks apache-solr-version, axenita-stats, composer-version, countdown, csv-values, dhcp-relayed, diacos, disk-smart, feed, githubstatus, grassfish-\*, haproxy-status, hin-status, icinga-topflap-services, infomaniak-\*, jitsi-\*, json-values, kemp-services, keycloak-\*, librenms-\*, matomo-\*, mediawiki-version, metabase-stats, mod-qos-stats, moodle-version, nextcloud-\*, nginx-status, onlyoffice-stats, openjdk-redhat-version, openvpn-version, pip-updates, python-version, restic-\*, rocketchat-\*, sap-open-concur-com, statusiq, statuspal, uptimerobot, veeam-status, whmcs-status, wordpress-version and xml
 
 ### Added
 
 Monitoring Plugins:
 
-* [atlassian-statuspage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/atlassian-statuspage/): receive alerts on incidents on a specific Atlassian Statuspage
-* [deb-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-updates/): checks for software updates on systems that use package management systems based on the `apt-get` command
-* [kubectl-get-pods](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kubectl-get-pods/): checks the health and status of kubernetes pods by running `kubectl get pods` and parsing the results
-* [rpm-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-updates/): displays available updates, including a list of advisories about newer versions of installed packages
-* [valkey-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/valkey-status/): returns information and statistics about a Valkey server
-* [valkey-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/valkey-version/): tracks if Valkey is EOL
-
-
-### Fixed
-
-Build, CI/CD:
-
-* compile-one.sh: provide Nuitka's no-deployment-flag ([#864](https://github.com/Linuxfabrik/monitoring-plugins/issues/864))
-
-
-Monitoring Plugins:
-
-* [by-ssh](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/by-ssh/): fix traceback on "permission denied"
-* [icinga-topflap-services](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-topflap-services/): ignore events with "Waiting for Icinga DB to synchronize the config." to prevent UNKNOWNs
-* [needs-restarting](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/needs-restarting/): add missung import of lib.disk
-* [ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/): '10 received' contains '0 received' ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
-* [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): Special characters not supported in options --v3-auth-prot-password and --v3-priv-prot-password ([#886](https://github.com/Linuxfabrik/monitoring-plugins/issues/886))
-
+* atlassian-statuspage: check alerting on incidents on a specific Atlassian Statuspage
+* deb-updates: check for software updates on systems using `apt-get`
+* kubectl-get-pods: check for the health and status of Kubernetes pods
+* rpm-updates: check listing available updates, including the advisories for newer versions of installed packages
+* valkey-status: check reporting information and statistics about a Valkey server
+* valkey-version: check tracking whether Valkey is end of life
 
 ### Changed
 
-Build, CI/CD:
+Monitoring Plugins:
 
-* create-fpms.sh: fix OS detection for setting OS family
-* change linux packaging workflow to use native tools (rpmbuild, debuild)
-
+* about-me: detects Valkey and reports the type of display server, if any
+* csv-values: copes with an omitted `--warning-query` and `--critical-query`
+* fail2ban: is a bit more verbose when everything is OK
+* haproxy-status: supports a UNIX socket as an alternative to HTTP(S) ([#767](https://github.com/Linuxfabrik/monitoring-plugins/issues/767))
+* icinga-topflap-services: the default warning level rises from 5 to 7
+* php-status: bz2 and curl are no longer expected as default modules
+* redfish-sel: supports Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
+* snmp: the table output can be suppressed, and a "skip output" column is available in the device CSV
+* systemd-unit: supports `systemctl --machine` and `--user`
 
 Assets:
 
-* prefix sudoers command alias to avoid conflicts ([#880](https://github.com/Linuxfabrik/monitoring-plugins/issues/880))
+* sudoers: the command alias is prefixed to avoid conflicts ([#880](https://github.com/Linuxfabrik/monitoring-plugins/issues/880))
 
+### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add valkey detection
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): reports type of display server (if any)
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): switch from lib.version to lib.distro
-* [csv-values](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/csv-values/): make use of ommitted --warning-query and --critical-query more robust
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): improve help text
-* [fail2ban](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/): be a bit more verbose in case everything is ok
-* [fedora-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fedora-version/): switch from lib.version to lib.distro
-* [fs-inodes](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-inodes/): improve code
-* [grassfish-screens](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/grassfish-screens/): initialize screen statuses earlier
-* [haproxy-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/): add unix socket support as alternative to HTTP(S) ([#767](https://github.com/Linuxfabrik/monitoring-plugins/issues/767))
-* [icinga-topflap-services](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-topflap-services/): increase default warning level from 5 to 7
-* [load](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/load/): Use `os.getloadavg()` instead of `cat /proc/loadavg` ([#295](https://github.com/Linuxfabrik/monitoring-plugins/issues/295))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): bz2 and curl are no default modules
-* [redfish-sel](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sel/): add support for Supermicro ([#866](https://github.com/Linuxfabrik/monitoring-plugins/issues/866))
-* [rhel-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rhel-version/): switch from lib.version to lib.distro
-* [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): add column "skip output" to CSV definition for devices, add unit tests
-* [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): make table output suppressable, streamline output
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): implement support for `systemctl --machine` and `--user`
-
+* by-ssh: no longer produces a traceback on "permission denied"
+* icinga-topflap-services: ignores "Waiting for Icinga DB to synchronize the config." instead of going UNKNOWN
+* needs-restarting: a missing import no longer breaks the check
+* ping: "10 received" is no longer read as "0 received" ([#860](https://github.com/Linuxfabrik/monitoring-plugins/issues/860))
+* snmp: special characters in `--v3-auth-prot-password` and `--v3-priv-prot-password` are supported ([#886](https://github.com/Linuxfabrik/monitoring-plugins/issues/886))
 
 
 ## [v1.2.0.11] - 2025-03-13
 
 ### Breaking Changes
 
-Build, CI/CD:
-
-* Due to the new [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) and version string requirements in Windows MSI setup files, the project switches from [calendar versioning](https://calver.org/) to [semantic versioning](https://semver.org/). Project starts at `v1.0.0.0`.
-* Re-implemented `/build` and `/.github` from scratch.
-
-
-Assets:
-
-* Move `/selinux` to `/assets/selinux`
-
-
-Icinga Director:
-
-* all-the-rest.json: Remove Tarifpool-v2 Service Set
-
-
 Monitoring Plugins:
 
-* Since some libraries such as pymysql or openssl have security vulnerabilities for Python 3.6, the project now requires Python 3.9+ to use the plugins in the source code variant.
-* [jitsi-videobridge-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/jitsi-videobridge-stats/): Remove deprecated values ([PR #780](https://github.com/Linuxfabrik/monitoring-plugins/pull/780), thanks to [SnejPro](https://github.com/SnejPro))
-* [jitsi-videobridge-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/jitsi-videobridge-stats/): Remove deprecated warning and critical parameters, always returns OK
-
+* the source-code variant requires Python 3.9 or newer, because libraries such as pymysql and openssl have known vulnerabilities on Python 3.6
+* jitsi-videobridge-stats: deprecated values and the `--warning` / `--critical` parameters are gone, the check always returns OK ([PR #780](https://github.com/Linuxfabrik/monitoring-plugins/pull/780), thanks to [SnejPro](https://github.com/SnejPro))
 
 Notification Plugins:
 
-* notify-\*-rocketchat-telegram: Remove Telegram functionality, remove ``-telegram`` suffix
+* notify-\*-rocketchat-telegram: the Telegram functionality and the `-telegram` suffix are gone
 
+Icinga Director:
+
+* the Tarifpool-v2 Service Set is removed
+
+Build, CI/CD:
+
+* the project switches from calendar versioning to semantic versioning, starting at `v1.0.0.0`
 
 ### Added
 
+Monitoring Plugins:
+
+* new checks: graylog-version, hin-status, icinga-topflap-services, keycloak-memory-usage, keycloak-stats, mastodon-version, moodle-version, openvpn-version, scanrootkit, statusiq, uptimerobot, whmcs-status
+
+Icinga Director:
+
+* new Service Sets: Debian 12 (Cloud Image), IcingaDB, Mastodon, Moodle, networking, rsyslog, Ubuntu 24, WHMCS
+
 Build, CI/CD:
 
-* Add support for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
-
-
-Icinga Director:
-
-* all-the-rest.json: Add Debian 12 (Cloud Image) Service Set
-* all-the-rest.json: Add IcingaDB Service Set
-* all-the-rest.json: Add Mastodon Service Set
-* all-the-rest.json: Add Moodle Service Set
-* all-the-rest.json: Add networking Service Set (mostly for Debian-based systems)
-* all-the-rest.json: Add rsyslog Service Set
-* all-the-rest.json: Add Ubuntu 24 Service Set
-* all-the-rest.json: Add WHMCS Service Set
-
-
-Monitoring Plugins:
-
-* graylog-version
-* hin-status
-* icinga-topflap-services
-* keycloak-memory-usage
-* keycloak-stats
-* mastodon-version
-* moodle-version
-* openvpn-version
-* scanrootkit
-* statusiq
-* uptimerobot
-* whmcs-status
-
-
-### Fixed
-
-Icinga Director:
-
-* [crypto-policy](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/crypto-policy/): New defaults according to LFOps crypto_policy role
-* [dhcp-relayed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-relayed/): Binding a socket to all network interfaces
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): UnboundLocalError: cannot access local variable 'msg' where it is not associated with a value ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): always-ok not referenced ([#839](https://github.com/Linuxfabrik/monitoring-plugins/issues/839))
-* [fortios-network-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-network-io/): Fix reading from local SQLite database
-* [mysql-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-query/): Fix director basket
-* [needs-restarting](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/needs-restarting/): UnboundLocalError under nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
-* [service](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/service/): Implement `--starttype`, as code was missing (parameter is now appending); implement unit-tests
-* [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): With some CSV files, user gets traceback `IndexError: list index out of range`. Add more unit-tests.
-* [strongswan-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/strongswan-connections/): check fails if using AES-GCM algorithm ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): Fix ProcessLookupError
-
-
-Monitoring Plugins:
-
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): expanded RAM isn't updating ([#757](https://github.com/Linuxfabrik/monitoring-plugins/issues/757))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): failure when mod_md is enabled ([#783](https://github.com/Linuxfabrik/monitoring-plugins/issues/783))
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): ValueError: could not convert string to float: '0B' ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776))
-* [redfish-sel](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sel/): UnboundLocalError: local variable 'sel_path' referenced before assignment ([#779](https://github.com/Linuxfabrik/monitoring-plugins/issues/779))
-* [whmcs-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/whmcs-status/): handle null correctly in whmcs api response ([#820](https://github.com/Linuxfabrik/monitoring-plugins/pull/820))
-
+* packages for ARM ([#702](https://github.com/Linuxfabrik/monitoring-plugins/issues/702))
 
 ### Changed
 
-Build, CI/CD:
+Monitoring Plugins:
 
-* Create MSI package for Windows.
-* Switch compilation for Linux from pyinstaller to Nuitka.
-* Switch compilation for Windows from mingw/gcc to MSVC.
-* Switch compilation platform for the .tar.gz/.zip distribution files from CentOS 7 to Ubuntu 20.04.
-* Refactor CI/CD pipeline, move from self-hosted Github runners to runners at Github.
-* Linuxfabrik/lib are now part of the requirements.txt, so no extra checkout needed any more.
-
+* about-me: determines the date of birth of cloud VMs more accurately, and detects Mastodon, Moodle and WHMCS
+* dhcp-scope-usage: ignores PercentageInUse fractions
+* disk-io: supports Windows again after the rewrite
+* disk-usage: `--fstype` and `--list-fstypes` select the file system type
+* fs-inodes: checks inode usage per real disk, `--mount` is deprecated
+* infomaniak-events: returns CRIT on critical events
+* keycloak-version: reads the version over the REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
+* librenms-alerts, librenms-health: compact output is the default and shows non-OK entries only
+* mysql-thread-cache: measures the cache hit rate only after the database has been running for an hour
+* nextcloud-security-scan: handles an error from scan.nextcloud.com
+* nodebb-stats: "Last user" no longer reports the account the check logs in with ([#536](https://github.com/Linuxfabrik/monitoring-plugins/issues/536))
+* openstack-nova-list: no longer needs keystoneauth and keystoneclient
+* rhel-version: `--extended-support` checks against the Extended Life Cycle Support dates ([#740](https://github.com/Linuxfabrik/monitoring-plugins/issues/740))
+* rocketchat-version: uses the EOL library, `--cache-expire` is deprecated
+* uptime: reports downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
 
 Icinga Director:
 
-* all-the-rest.json: Make all dmesg Service Sets use sudo
-* all-the-rest.json: Check /var/log/syslog file size in all Debian Service Sets
-* All plugins for Windows: Prepared for msi and changed default path from C:\ProgramData\icinga2\usr\lib64\nagios\plugins to c:\Program Files\icinga2\sbin\linuxfabrik
-* Replace png with svg icons for all plugins
+* the Windows plugins move to `c:\Program Files\icinga2\sbin\linuxfabrik`, all dmesg Service Sets use sudo, and the Debian Service Sets watch the size of `/var/log/syslog`
 
+Build, CI/CD:
+
+* Windows ships as an MSI package, and the Linux builds switch from pyinstaller to Nuitka
+
+### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Determines date of birth of cloud VMs more accurately
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add Mastodon detection
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add Moodle detection
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add WHMCS detection
-* [dhcp-scope-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/): Ignore PercentageInUse fractions
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Re-add support for Windows after last rewrite
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Add `--list-fstypes` and `--fstype` for specifying the file system type
-* [fail2ban](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/): More compact output (closes #141)
-* [file-size](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/): fix help text
-* [fs-inodes](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-inodes/): Check inode usage on real and different disks. `--mount` parameter is deprecated.
-* [infomaniak-events](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-events/): return CRIT in case of critical events
-* [keycloak-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/keycloak-version/): Check Keycloak Version via REST API ([#748](https://github.com/Linuxfabrik/monitoring-plugins/issues/748))
-* librenms-alerts, librenms-health: Compact output is the new default and shows non-OK only
-* [mysql-thread-cache](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-thread-cache/): DB daemon must have been running for an hour before the cache hit rate is measured.
-* [mysql-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-version/): handle `mysql: Deprecated program name`
-* [nextcloud-security-scan](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-security-scan/): Handle error on https://scan.nextcloud.com/
-* nodebb-stats: In "Last user", don't report the user you login with ([#536](https://github.com/Linuxfabrik/monitoring-plugins/issues/536))
-* [openstack-nova-list](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-list/): No more need for keystoneauth and keystoneclient
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): Add `--tls` parameter
-* [rhel-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rhel-version/): `--extended-support` checks for "Extended Life Cycle Support" EOL ([#740](https://github.com/Linuxfabrik/monitoring-plugins/issues/740))
-* [rocketchat-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-version/): use EOL library, parameter `--cache-expire` is deprecated
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): Improve output
-* [uptime](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptime/): Report downtime ([#191](https://github.com/Linuxfabrik/monitoring-plugins/issues/191))
-
+* about-me: expanded RAM is picked up ([#757](https://github.com/Linuxfabrik/monitoring-plugins/issues/757))
+* apache-httpd-status: no longer fails when mod_md is enabled ([#783](https://github.com/Linuxfabrik/monitoring-plugins/issues/783))
+* dhcp-relayed: binds its socket to all network interfaces
+* disk-io: no longer aborts with an UnboundLocalError ([#777](https://github.com/Linuxfabrik/monitoring-plugins/issues/777))
+* docker-stats: `--always-ok` works, and a container reporting `0B` no longer crashes the check ([#776](https://github.com/Linuxfabrik/monitoring-plugins/issues/776), [#839](https://github.com/Linuxfabrik/monitoring-plugins/issues/839))
+* fortios-network-io: reads its local SQLite database again
+* needs-restarting: no longer aborts under the nagios user ([#799](https://github.com/Linuxfabrik/monitoring-plugins/issues/799))
+* redfish-sel: no longer aborts with an UnboundLocalError ([#779](https://github.com/Linuxfabrik/monitoring-plugins/issues/779))
+* service: `--starttype` is implemented at all, and repeatable
+* snmp: some device CSV files no longer end in an `IndexError`
+* strongswan-connections: works with the AES-GCM algorithm ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
+* swap-usage: no longer aborts with a ProcessLookupError
 
 ### Removed
 
 Build, CI/CD:
 
-* Remove support for debian10, rhel7, ubuntu1804 packages (OS's are EOL)
-
-
-Notification Plugins:
-
-* notify-\*-rocketchat: remove telegram functionality
-
+* packages for debian10, rhel7 and ubuntu1804, whose distributions are end of life
 
 
 ## [2024060401] - 2024-06-04
@@ -1328,233 +753,132 @@ Notification Plugins:
 
 Monitoring Plugins:
 
-* mysql-query
+* mysql-query: check running an arbitrary query against a MySQL/MariaDB server
 
 Build, CI/CD:
 
-* Added Ubuntu 24.04
+* packages for Ubuntu 24.04
 
 
 ## [2024052901] - 2024-05-29
 
 ### Breaking Changes
 
-Icinga Director:
-
-* all-the-rest.json: Remove all predefined "Journald Query" definitions, as they were not as useful in practice as we thought. Single services are more useful.
-* Lowered the criticality of many service templates and service set services to make the monitoring less noisy by default. Make sure to double check and increase the criticality for important services.
-
 Monitoring Plugins:
 
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Nearly rewritten from scratch, old parameters have been replaced by new, better ones. Perfdata "throughput" has been renamed to "bandwidth". Filter disks which are really mounted, translate dm-* device names, wildcard support for ignore disks ([#709](https://github.com/Linuxfabrik/monitoring-plugins/issues/709), [#708](https://github.com/Linuxfabrik/monitoring-plugins/issues/708), [#676](https://github.com/Linuxfabrik/monitoring-plugins/issues/676))
-* [file-size](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/): Note that the plugin now requires a size qualifier when specifying parameters, e.g. ``--warning=10K`` for 10 KiB (instead of ``--warning=10000`` as in previous versions).
-* [journald-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/): Pattern-matching is now always case-sensitive ([#745](https://github.com/Linuxfabrik/monitoring-plugins/issues/745))
-* [librenms-alerts](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-alerts/): Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
-* [librenms-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-health/): Rewritten from scratch to fetch from LibreNMS MySQL/MariaDB database (therefore the check comes with new parameters)
-* php-fpm: Remove parameters `--*-max-children` because php-fpm `max children reached` is either 0 or 1
-* [snmp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/): Improve Performance Data Handling ([#481](https://github.com/Linuxfabrik/monitoring-plugins/issues/481)) - update your CSV definition files and add two more columns according to the check's README
-* [uptime](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptime/): Use the plugin to warn about recent reboots ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722)). Note that the plugin now requires a time qualifier when specifying parameters, e.g. ``--warning=180D`` for 180 days (instead of ``--warning=180`` as in previous versions).
+* disk-io: rewritten, with new parameters. The perfdata "throughput" is renamed to "bandwidth", only mounted disks are considered, and dm-\* device names are translated ([#709](https://github.com/Linuxfabrik/monitoring-plugins/issues/709), [#708](https://github.com/Linuxfabrik/monitoring-plugins/issues/708), [#676](https://github.com/Linuxfabrik/monitoring-plugins/issues/676))
+* file-size: the thresholds require a size qualifier, `--warning=10K` instead of `--warning=10000`
+* journald-query: pattern matching is always case-sensitive ([#745](https://github.com/Linuxfabrik/monitoring-plugins/issues/745))
+* librenms-alerts, librenms-health: rewritten to read from the LibreNMS database, with new parameters
+* php-fpm: the `--*-max-children` parameters are gone, because php-fpm's "max children reached" is either 0 or 1
+* snmp: update your device CSV files, two more columns are required ([#481](https://github.com/Linuxfabrik/monitoring-plugins/issues/481))
+* uptime: warns about recent reboots, and the thresholds require a time qualifier, `--warning=180D` instead of `--warning=180` ([#722](https://github.com/Linuxfabrik/monitoring-plugins/issues/722))
 
 Notification Plugins:
 
-* All notification plugins are now installed in `/usr/lib64/nagios/plugins/notifications/` by default, because otherwise installing the notification and monitoring plugins package at the same time fails ([#726](https://github.com/Linuxfabrik/monitoring-plugins/issues/726))
+* all notification plugins are installed in `/usr/lib64/nagios/plugins/notifications/`, otherwise installing both packages at once fails ([#726](https://github.com/Linuxfabrik/monitoring-plugins/issues/726))
 
+Icinga Director:
+
+* the predefined "Journald Query" definitions are gone, single services turned out to be more useful
+* many service templates and service set services are less critical by default. Check the ones that matter to you and raise them again
 
 ### Added
 
-Icinga Director:
-
-* all-the-rest.json: New TuneD Service Set (therefore removed from all "OS - RHEL" service sets)
-
 Monitoring Plugins:
 
-* dhcp-relayed (a port of [check_dhcp_relayed](https://exchange.nagios.org/directory/Plugins/Network-Protocols/DHCP-and-BOOTP/check_dhcp_relayed/details))
-* composer-version
-* mediawiki-version
+* new checks: composer-version, dhcp-relayed (a port of check_dhcp_relayed), mediawiki-version
 
+Icinga Director:
+
+* TuneD Service Set, therefore removed from all "OS - RHEL" service sets
 
 ### Changed
 
-Icinga Director:
-
-* all-the-rest.json: Rename "Starface Java Status" to "Starface Java Memory Usage"
-* all-the-rest.json: Ignore session-c*.scope in systemd-units-failed by default
-
 Monitoring Plugins:
 
-* \*-version: Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add detection of non-default software, udp ports, hardware and much more
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Pipes ("|") within the plugin output lead to broken perfdata ([#741](https://github.com/Linuxfabrik/monitoring-plugins/issues/741))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): Add new parameters `--no-proxy` `--timeout`
-* [axenita-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/axenita-stats/): Add new parameters `--insecure` `--no-proxy`
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): Add `--top` parameter, showing 5 top processes by default
-* [csv-values](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/csv-values/): Pipes in data are seen as delimiter between check output and performance data ([#727](https://github.com/Linuxfabrik/monitoring-plugins/issues/727))
-* [deb-lastactivity](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-lastactivity/): WARN if last modified timestamp is not found for one or more packages ([#743](https://github.com/Linuxfabrik/monitoring-plugins/issues/743))
-* [diacos](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/diacos/): Add new parameter `--insecure`
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): Make use of `--insecure` `--no-proxy` `--timeout`
-* [file-descriptors](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-descriptors/): Add `--top` parameter, showing 5 top processes by default
-* [file-size](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/): Support Nagios ranges for `--warning` and `--critical` ([PR #735](https://github.com/Linuxfabrik/monitoring-plugins/issues/735), thanks to [djmcd89](https://github.com/djmcd89))
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): Add `/dev/loop` to default ignore list
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): Make output better readable ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), thanks to [Konrad Bucheli](https://github.com/kbucheli))
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): Show mount point info on first line when there is only one hit ([PR #730](https://github.com/Linuxfabrik/monitoring-plugins/issues/730), thanks to [Konrad Bucheli](https://github.com/kbucheli))
-* [githubstatus](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/githubstatus/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [gitlab-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-health/): Add new parameters `--insecure` `--no-proxy`
-* [gitlab-liveness](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-liveness/): Add new parameters `--insecure` `--no-proxy`
-* [gitlab-readiness](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-readiness/): Add new parameters `--insecure` `--no-proxy`
-* grassfish-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [haproxy-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/): Add new parameters `--insecure` `--no-proxy`
-* huawei-dorado-\*: Add new parameter `--insecure`
-* infomaniak-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [infomaniak-events](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-events/): Add new parameter `--ignore-regex`
-* [infomaniak-swiss-backup-products](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-swiss-backup-products/): Improve output
-* jitsi-\*: Add new parameters `--insecure` `--no-proxy`
-* [journald-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/): Remove hard-coded `--boot` parameter from query
-* [kvm-vm](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-vm/): Improve output
-* [librenms-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-version/): Fetches info from local SQLite using new librenms library
-* [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [memory-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/): Add `--top` parameter, showing 5 top processes by default
-* [metabase-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/metabase-stats/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [mod-qos-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mod-qos-stats/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [mysql-memory](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/): Enhance output, set threshold to 95%
-* [nextcloud-security-scan](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-security-scan/): Add new parameters `--insecure` `--no-proxy`
-* [nextcloud-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/): Add new parameter `--timeout`
-* nodebb-\*: Add new parameter `--no-proxy`
-* [nginx-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-status/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [ntp-chronyd](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-chronyd/): Provide config info if an ntp server is not being used
-* onlyoffice-status: Add new parameters `--insecure` `--no-proxy`
-* [php-fpm-ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-ping/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [redfish-drives](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-drives/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [redfish-sel](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sel/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [redfish-sensor](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sensor/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* rocket-\*: Add new parameters `--insecure` `--no-proxy` `--timeout`
-* sap-open-concur: Add new parameter `--insecure`
-* [statuspal](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/statuspal/): Add new parameters `--insecure` `--no-proxy` `--timeout`
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): Report the top 3 processes causing the usage (Linux only)
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): Add `--top` parameter, showing 5 top processes by default
-* [veeam-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/veeam-status/): Add new parameters `--insecure` `--no-proxy`
-* wildfly-\*: Add new parameters `--insecure` `--no-proxy`
-* [xml](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/xml/): Add new parameter `--insecure`
+* about-me: detects non-default software, UDP ports, hardware and much more
+* deb-lastactivity: WARNs when the last modified timestamp is missing for one or more packages ([#743](https://github.com/Linuxfabrik/monitoring-plugins/issues/743))
+* file-size: supports Nagios ranges for `--warning` and `--critical` ([PR #735](https://github.com/Linuxfabrik/monitoring-plugins/issues/735), thanks to [djmcd89](https://github.com/djmcd89))
+* fs-ro: `/dev/loop` is ignored by default, and the output is easier to read ([PR #729](https://github.com/Linuxfabrik/monitoring-plugins/issues/729), [PR #730](https://github.com/Linuxfabrik/monitoring-plugins/issues/730), thanks to [Konrad Bucheli](https://github.com/kbucheli))
+* journald-query: the hard-coded `--boot` is gone from the query
+* librenms-version: reads from the local SQLite database
+* mysql-memory: enhanced output, threshold at 95%
+* ntp-chronyd: hints at the configuration when no NTP server is being used
+* swap-usage: reports the top 3 processes causing the usage (Linux only)
 
+Icinga Director:
+
+* "Starface Java Status" is renamed to "Starface Java Memory Usage", and systemd-units-failed ignores session-c\*.scope by default
 
 ### Fixed
 
-Icinga Director:
-
-* all-the-rest.json: Fix "FreeIPA Server Service Set" definition
-
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Throws exception for openvas ([#749](https://github.com/Linuxfabrik/monitoring-plugins/issues/749))
-* [infomaniak-events](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-events/): Fix `UnboundLocalError: local variable 'keys' referenced before assignment`
-* [nextcloud-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/): KeyError: apps ([#731](https://github.com/Linuxfabrik/monitoring-plugins/issues/731))
-* [ntp-ntpd](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-ntpd/): Fixed unpacking of ntpq -p values ([PR #758](https://github.com/Linuxfabrik/monitoring-plugins/pull/758), thanks to [Leo Pempera](https://github.com/leo-pempera))
-* [ntp-w32tm](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-w32tm/): Fix `UnboundLocalError: local variable 'clock_rate' referenced before assignment`
+* about-me: no longer throws an exception for openvas, and a pipe in the output no longer breaks the perfdata ([#741](https://github.com/Linuxfabrik/monitoring-plugins/issues/741), [#749](https://github.com/Linuxfabrik/monitoring-plugins/issues/749))
+* csv-values: a pipe in the data is no longer read as the delimiter to the perfdata ([#727](https://github.com/Linuxfabrik/monitoring-plugins/issues/727))
+* infomaniak-events: no longer aborts with an UnboundLocalError
+* nextcloud-stats: no longer aborts with `KeyError: apps` ([#731](https://github.com/Linuxfabrik/monitoring-plugins/issues/731))
+* ntp-ntpd: unpacks the `ntpq -p` values correctly ([PR #758](https://github.com/Linuxfabrik/monitoring-plugins/pull/758), thanks to [Leo Pempera](https://github.com/leo-pempera))
+* ntp-w32tm: no longer aborts with an UnboundLocalError
+
+Icinga Director:
+
+* corrected the "FreeIPA Server Service Set" definition
 
 
 ## [2023112901] - 2023-11-29
 
 ### Breaking Changes
 
-Monitoring Plugins:
+Notification Plugins:
 
-* Notifications Plugins now generate URLs for Icinga DB Web instead of the old IcingaWeb2 Monitoring Module ([#643](https://github.com/Linuxfabrik/monitoring-plugins/issues/643))
-
+* the generated URLs point at Icinga DB Web instead of the old IcingaWeb2 Monitoring Module ([#643](https://github.com/Linuxfabrik/monitoring-plugins/issues/643))
 
 ### Added
 
-Grafana:
+Monitoring Plugins:
 
-* [mysql-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections/): Add Grafana dashboard
-* [mysql-memory](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/): Add Grafana dashboard
+* new checks: apache-solr-version, deb-lastactivity, gitlab-health, gitlab-liveness, gitlab-readiness, gitlab-version, ntp-w32tm, openjdk-redhat-version, openstack-nova-list, postgresql-version, python-version, redis-version, statuspal ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670), [#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629), [PR #710](https://github.com/Linuxfabrik/monitoring-plugins/issues/710), thanks to [Yannic Schüpbach](https://github.com/Dissiyt))
 
 Icinga Director:
 
-* all-the-rest.json: Add Debian 12 (Bookworm), add deb-lastactivity
-* all-the-rest.json: Add Apache Solr Service Set
-* all-the-rest.json: Increase file size warning for `/var/log/secure`
+* Apache Solr Service Set, Debian 12 (Bookworm) coverage including deb-lastactivity
 
-Monitoring Plugins:
+Grafana:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add detection of Apache Solr
-* apache-solr-version
-* deb-lastactivity ([PR #710](https://github.com/Linuxfabrik/monitoring-plugins/issues/710), thanks to [Yannic Schüpbach](https://github.com/Dissiyt))
-* gitlab-health ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
-* gitlab-liveness ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
-* gitlab-readiness ([#670](https://github.com/Linuxfabrik/monitoring-plugins/issues/670))
-* gitlab-version
-* ntp-w32tm ([#629](https://github.com/Linuxfabrik/monitoring-plugins/issues/629))
-* openjdk-redhat-version
-* openstack-nova-list
-* postgresql-version
-* python-version
-* redis-version
-* statuspal
-
-Project:
-
-* Add a `requirements.txt`
-
+* dashboards for mysql-connections and mysql-memory
 
 ### Changed
 
-Features:
-
-* sudoers: Don't log command calls any longer.
-
-Icinga Director:
-
-* all-the-rest.json: Remove "Journald Query - aide-check.service" from the AIDE service set because it's not useful
-
 Monitoring Plugins:
 
-* All plugins: Consistently reporting errors using cu() instead of oao()
-* \*-version: Add eol offset date, optional warn on new major/minor/patch
-* \*-version: Curl from https://endoflife.date first, then use hardcoded version ([#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add detection of ncdu
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add detection of yarn
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Show systemd timers with next runtime
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): On Windows, exclude "System Idle Process" from the Top3 list
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): Skip unsupported disks ([#672](https://github.com/Linuxfabrik/monitoring-plugins/issues/672))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Add a parameter to select performance data ([#697](https://github.com/Linuxfabrik/monitoring-plugins/issues/697))
-* [fail2ban](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/): Improve output, add unit-test
-* [fortios-firewall-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-firewall-stats/): Allow the check to run even some FortiOS users use only IPv4 or IPv6 ([PR #719](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Pierrot la menace](https://github.com/Pierrot-la-menace))
-* [grafana-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/grafana-version/): Add Grafana v9.5
-* [infomaniak-events](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-events/): Add filter for service categories
-* [infomaniak-swiss-backup-devices](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/infomaniak-swiss-backup-devices/): Improve column ordering in output
-* [journald-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/): Improve output
-* [mysql-aria](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-aria/): Remove WARN if `aria_pagecache_read_requests` > 0 and `pct_aria_keys_from_mem` < 95%
-* [mysql-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections/): Add perfdata mysql_max_used_connections
-* [mysql-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections/): Report and warn on current usage instead of peak usage, and improved output.
-* [mysql-innodb-buffer-pool-size](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-buffer-pool-size/): Improve code and output
-* [mysql-logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/): Returns OK instead of UNKNOWN if logfile is found but empty
-* [mysql-logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/): State only UNKNOWN if the log is empty and wasn't set deliberately ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))
-* [mysql-logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/): Stop magic auto-configure if `--server-log` is given
-* [openstack-nova-list](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-list/): Make more robust in case of OpenStack errors
-* [php-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-version/): Check multiple installed PHP versions ([#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
-* [ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/): Check plugin to fast states "error" ([#691](https://github.com/Linuxfabrik/monitoring-plugins/issues/691))
-* qts-\*: 'Keyerror: func' while executing qts-plugins ([#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
-* qts-\*: General code and README improvements, all tested against QuTScloud 4.5.6, 5.0.1 and 5.1
-* qts-temperature: Is it correct to have one value for CPU and System Temperature Threshold? ([#313](https://github.com/Linuxfabrik/monitoring-plugins/issues/313))
-* [qts-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-version/): Shows up to date even when new firmware available ([#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
-* [rocketchat-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/): There are new values available ([#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): Encode unit-name to text before running systemd command
-* [uptime](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/uptime/): Additionally report last reboot time ([#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190)
-* [xca-cert](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/xca-cert/): refactor check, make better use of the new libraries ([#75](https://github.com/Linuxfabrik/monitoring-plugins/issues/75))
+* \*-version: the version data is fetched from endoflife.date first and falls back to the bundled data, with an EOL offset date and optional warnings on a new major, minor or patch release ([#680](https://github.com/Linuxfabrik/monitoring-plugins/issues/680))
+* about-me: detects ncdu and yarn, and shows systemd timers with their next runtime
+* cpu-usage: excludes the "System Idle Process" from the Windows top 3 list
+* disk-smart: skips unsupported disks ([#672](https://github.com/Linuxfabrik/monitoring-plugins/issues/672))
+* fortios-firewall-stats: runs when a FortiOS user has only IPv4 or only IPv6 ([PR #719](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Pierrot la menace](https://github.com/Pierrot-la-menace))
+* mysql-aria: no longer WARNs on a low `pct_aria_keys_from_mem`
+* mysql-connections: reports and warns on the current usage instead of the peak usage
+* mysql-logfile: an empty logfile is OK instead of UNKNOWN, and the auto-configuration stops when `--server-log` is given ([PR #716](https://github.com/Linuxfabrik/monitoring-plugins/issues/716), thanks to [Eric Esser](https://github.com/dorkmaneuver))
+* php-version: checks several installed PHP versions ([#694](https://github.com/Linuxfabrik/monitoring-plugins/issues/694))
+* qts-\*: tested against QuTScloud 4.5.6, 5.0.1 and 5.1, and qts-version no longer reports "up to date" when new firmware is available ([#692](https://github.com/Linuxfabrik/monitoring-plugins/issues/692))
+* rocketchat-stats: reports the values Rocket.Chat added ([#151](https://github.com/Linuxfabrik/monitoring-plugins/issues/151))
+* uptime: also reports the last reboot time ([#190](https://github.com/Linuxfabrik/monitoring-plugins/issues/190))
 
+Assets:
+
+* sudoers: the command calls are no longer logged
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [csv-values](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/csv-values/): header included in data results despite setting "--skip-header" ([#706](https://github.com/Linuxfabrik/monitoring-plugins/issues/706))
-* [journald-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/): Rename perfdata from "sudo journald-query" to "journald-query"
-* [path-rw-test](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/path-rw-test/): To avoid race conditions, use a unique filename ([#283](https://github.com/Linuxfabrik/monitoring-plugins/issues/283))
-* [qts-disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-disk-smart/): Plugin not working since new update ([#696](https://github.com/Linuxfabrik/monitoring-plugins/issues/696))
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): Fix Traceback `PdhAddEnglishCounterW failed`
-
+* csv-values: the header is no longer included in the data despite `--skip-header` ([#706](https://github.com/Linuxfabrik/monitoring-plugins/issues/706))
+* journald-query: the perfdata is named "journald-query" instead of "sudo journald-query"
+* path-rw-test: uses a unique filename to avoid a race condition ([#283](https://github.com/Linuxfabrik/monitoring-plugins/issues/283))
+* qts-disk-smart: works again after a QTS update ([#696](https://github.com/Linuxfabrik/monitoring-plugins/issues/696))
+* swap-usage: no longer aborts with `PdhAddEnglishCounterW failed`
 
 
 ## [2023051201] - 2023-05-12
@@ -1563,378 +887,200 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Add include mount points/fs ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662)) (so dropped `--ignore` parameter)
-* keycloak-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
-* php-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
-* wordpress-version3: Simplified, no longer cares about patch levels, no longer needs internet access (so dropped some parameters)
-* Implement a new and cleaner directory structure ([#350](https://github.com/Linuxfabrik/monitoring-plugins/issues/350))
-* Remove all Python 2 based plugins and libraries from the project, and therefore remove the "3" suffix from all Python3-based plugins and libraries as well ([#589](https://github.com/Linuxfabrik/monitoring-plugins/issues/589))
-* Simplify sudoers ([#651](https://github.com/Linuxfabrik/monitoring-plugins/issues/651))
+* all Python 2 based plugins and libraries are gone, and the "3" suffix is dropped from the Python 3 ones ([#589](https://github.com/Linuxfabrik/monitoring-plugins/issues/589))
+* the repository moves to a new directory structure ([#350](https://github.com/Linuxfabrik/monitoring-plugins/issues/350))
+* disk-usage: `--ignore` is dropped in favour of including mount points and file systems ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662))
+* keycloak-version, php-version, wordpress-version: simplified, no longer care about patch levels, no longer need internet access, and dropped some parameters
 
+Assets:
+
+* sudoers: simplified ([#651](https://github.com/Linuxfabrik/monitoring-plugins/issues/651))
 
 ### Added
 
-Features:
-
-* Question/Documentation: Are the tools to compile the download binary part of this repo? ([#660](https://github.com/Linuxfabrik/monitoring-plugins/issues/660))
-
 Monitoring Plugins:
 
-* apache-httpd-version
-* by-ssh
-* cometsystem ([PR #650](https://github.com/Linuxfabrik/monitoring-plugins/pull/650), thanks to [Dominik Riva](https://github.com/slalomsk8er))
-* fedora-version
-* githubstatus
-* grafana-version
-* mysql-version
-* network-io ([#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619))
-* openstack-swift-stat
-* postfix-version
-* rhel-version
-* safenet-hsm-state ([PR #648](https://github.com/Linuxfabrik/monitoring-plugins/pull/648), thanks to [Dominik Riva](https://github.com/slalomsk8er))
+* new checks: apache-httpd-version, by-ssh, cometsystem, fedora-version, githubstatus, grafana-version, mysql-version, network-io, openstack-swift-stat, postfix-version, rhel-version, safenet-hsm-state ([#619](https://github.com/Linuxfabrik/monitoring-plugins/issues/619), [PR #648](https://github.com/Linuxfabrik/monitoring-plugins/pull/648), [PR #650](https://github.com/Linuxfabrik/monitoring-plugins/pull/650), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 
 Grafana:
 
-* Add new panels, update existing ones
-* Dashboards written in Jsonnet, to be maintained by [Grizzly](https://github.com/grafana/grizzly)
-* Add a grafana dashboard for the inbuilt icinga command ([#577](https://github.com/Linuxfabrik/monitoring-plugins/issues/577))
-
+* new and updated panels, plus a dashboard for the built-in icinga command ([#577](https://github.com/Linuxfabrik/monitoring-plugins/issues/577))
 
 ### Changed
 
 Monitoring Plugins:
 
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): Remove `ReqPerSec`, `BytesPerSec`, `BytesPerReq`, `DurationPerReq` perfdata as they are wrong
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): `--ignore` now ignores all disks "starting with" the given parameter value
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Move top3-processes-which-caused-the-most-io to here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Add include mount points/fs ([#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): allow passing absolute values for warn/crit ([#114](https://github.com/Linuxfabrik/monitoring-plugins/issues/114))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Also show "free" in table ([#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Make plugin output more generic ([#664](https://github.com/Linuxfabrik/monitoring-plugins/issues/664))
-* [fortios-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-version/): Simplified, returns version information in perfdata
-* [journald-query](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/): Lower default for `--since` from 24h to 8h
-* [kemp-services](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kemp-services/): Display the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
-* Move "test3" and "examples" folder into a new "unit-test" folder for each plugin ([#288](https://github.com/Linuxfabrik/monitoring-plugins/issues/288))
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): Simplified, no longer cares about patch levels, no longer needs internet access
-* [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/): Remove `req per sec` perfdata as it is meaningless
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): Move monitoring.php
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): Rename perfdata item from `php-opcache-memory_usage-current_wasted_percentage` to `php-opcache-memory_usage-current_wasted-percentage`
-* [restic-snapshots](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-snapshots/): Shorten output, add `--lengthy` parameter, change DEFAULT_GROUP_BY to 'host,paths'
-* Unified most of the \*-version3 checks in behavior, also using data from https://endoflife.date (no need for internet access).
-
+* apache-httpd-status: the `ReqPerSec`, `BytesPerSec`, `BytesPerReq` and `DurationPerReq` perfdata is gone, the values were wrong
+* disk-io: `--ignore` ignores all disks starting with the given value, and the top 3 I/O processes moved here ([#285](https://github.com/Linuxfabrik/monitoring-plugins/issues/285))
+* disk-usage: mount points and file systems can be included, absolute values are allowed for the thresholds, and the table also shows "free" ([#114](https://github.com/Linuxfabrik/monitoring-plugins/issues/114), [#482](https://github.com/Linuxfabrik/monitoring-plugins/issues/482), [#662](https://github.com/Linuxfabrik/monitoring-plugins/issues/662))
+* fortios-version: simplified, returns the version information in the perfdata
+* journald-query: the default `--since` drops from 24h to 8h
+* kemp-services: displays the original status of every Virtual Service ([#654](https://github.com/Linuxfabrik/monitoring-plugins/issues/654))
+* nextcloud-version: simplified, no longer needs internet access
+* php-fpm-status: the meaningless `req per sec` perfdata is gone
+* php-status: `monitoring.php` moved, and one perfdata item is renamed to `php-opcache-memory_usage-current_wasted-percentage`
+* restic-snapshots: shorter output, `--lengthy` for the full table, and the default grouping changes to 'host,paths'
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [kemp-services](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kemp-services/): Credentials not converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): Getting error: "KeyError: 'serial_number'" ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): module 'psutil' has no attribute 'disk_partitions' ([#663](https://github.com/Linuxfabrik/monitoring-plugins/issues/663))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): Type object 'SMBDirEntry' has no attribute 'from_filename' ([#665](https://github.com/Linuxfabrik/monitoring-plugins/issues/665))
-
+* disk-smart: no longer aborts with `KeyError: 'serial_number'` ([#659](https://github.com/Linuxfabrik/monitoring-plugins/issues/659))
+* disk-usage: works with current psutil ([#663](https://github.com/Linuxfabrik/monitoring-plugins/issues/663))
+* file-age: works with current psutil on SMB shares ([#665](https://github.com/Linuxfabrik/monitoring-plugins/issues/665))
+* kemp-services: the credentials are converted correctly ([#653](https://github.com/Linuxfabrik/monitoring-plugins/issues/653))
 
 ### Removed
 
 Monitoring Plugins:
 
-* top3-processes-which-caused-the-most-io (moved it into disk-io)
+* top3-processes-which-caused-the-most-io, moved into disk-io
 
 
 ## [2023030801] - 2023-03-08
 
 ### Breaking Changes
 
-Features:
-
-* Move all CHANGELOG items for the "libs" [into its own file](https://github.com/Linuxfabrik/lib/blob/main/CHANGELOG.md) (since it is a [stand-alone project](https://github.com/Linuxfabrik/lib))
-
 Monitoring Plugins:
 
-* journald-query3: Removed `--grep` and `--case-sensitive` parameter which are a bit weird and only work on systemd v237+. Replaced by `--ignore-regex`.
-* journald-query3: Implement filter (therefore the check comes with new parameters) ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641))
-* journald-usage3: Switch `--warning` parameter from MiB to GiB
-* mysql-\*3: Removed parameters `--hostname`, `--password`, `--port` and `--username` and switched to option-file authentication (therefore all checks come with new parameters)
-* pip-updates3: Include- and exclude-property (therefore the check comes with new parameters) ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646))
-* redis-status3: Add option to disable hit-ratio check (therefore the check comes with new parameters) ([#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623))
-* service3: Check is rewritten and now able to check multiple Windows services on a host, supporting Python Regular expressions and threshold ranges (therefore the check comes with new parameters)
-* veeam-status3: Add an option switch to "WarningVmLatestState" for an integer value of tolerated VM warnings (therefore the check comes with new parameters) ([#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
+* journald-query: `--grep` and `--case-sensitive` are replaced by `--ignore-regex`, and the check comes with a new filter ([#641](https://github.com/Linuxfabrik/monitoring-plugins/issues/641))
+* journald-usage: `--warning` switches from MiB to GiB
+* mysql-\*: `--hostname`, `--password`, `--port` and `--username` are gone, all checks authenticate through an option file
+* pip-updates, redis-status, service, veeam-status: rewritten or extended, all four come with new parameters ([#646](https://github.com/Linuxfabrik/monitoring-plugins/issues/646), [#623](https://github.com/Linuxfabrik/monitoring-plugins/issues/623), [#630](https://github.com/Linuxfabrik/monitoring-plugins/issues/630))
 
 Icinga Director:
 
-* Removed "OS - RHEL 7 Basic Service Set (Hardware)"
-* Removed "oVirt Engine 4.2 Service Set"
-* Removed "oVirt Engine 4.3 Service Set"
-* Removed "oVirt Host Service Set"
-* Removed "oVirt VM Service Set (RHEL 7)"
-* Removed "oVirt VM Service Set (RHEL 8)"
-* Removed "oVirt VM Service Set (Windows Python)"
-* Removed "oVirt VM Service Set (Windows)"
-* Removed "PostgreSQL 9.6 Service Set"
-* Removed tags "redhat7" and "redhat8", because there are also "rhel7" and "rhel8"
-
+* removed Service Sets: "OS - RHEL 7 Basic (Hardware)", all six oVirt sets, "PostgreSQL 9.6", plus the duplicate tags "redhat7" and "redhat8"
 
 ### Added
 
-Features:
-
-* Linuxfabrik Monitoring Plugins [SELinux Type Enforcement Policies](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.te)
-* Add new sudoers files for Alma 9, RHEL 9, Rocky 9, Fedora 37, Oracle 7, Oracle 8, Oracle 9 ([#627](https://github.com/Linuxfabrik/monitoring-plugins/issues/627) and more)
-
 Monitoring Plugins:
 
-* crypto-policy
-* csv-values
-* grassfish-licenses
-* grassfish-players
-* grassfish-screens
-* infomaniak-events
-* journald-query
-* journald-usage
-* ntp-chronyd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
-* ntp-ntpd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
-* ntp-systemd-timesyncd (from "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
-* restic-check
-* restic-snapshots
-* restic-stats
-* systemd-timedate-status
-* tuned-profile
+* new checks: crypto-policy, csv-values, grassfish-licenses, grassfish-players, grassfish-screens, infomaniak-events, journald-query, journald-usage, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, restic-check, restic-snapshots, restic-stats, systemd-timedate-status, tuned-profile. The three ntp checks replace ntp-offset ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))
 
 Notification Plugins:
 
-* notify-host-rocketchat-telegram
-* notify-host-zoom
-* notify-service-rocketchat-telegram
+* notify-host-rocketchat-telegram, notify-host-zoom, notify-service-rocketchat-telegram
 
 Icinga Director:
 
-* AIDE Service Set
-* All RHEL-based Basic Service Sets: Systemd Unit - debug-shell.service
-* Apache Service Set for Debian 11 ([#534](https://github.com/Linuxfabrik/monitoring-plugins/issues/534))")
-* Basic Service Set for Debian 11 ([#533](https://github.com/Linuxfabrik/monitoring-plugins/issues/533))")
-* FreeIPA Server Service Set
-* Grav Service Set
-* Ubuntu 22 Service Set
-* UPS Service Set (Network UPS Tools, nut)
+* new Service Sets: AIDE, Apache for Debian 11, Basic for Debian 11, FreeIPA Server, Grav, Ubuntu 22, UPS (Network UPS Tools), plus debug-shell.service in all RHEL-based Basic Service Sets
 
+Assets:
+
+* SELinux Type Enforcement Policies, and sudoers files for Alma 9, RHEL 9, Rocky 9, Fedora 37, Oracle 7, Oracle 8 and Oracle 9 ([#627](https://github.com/Linuxfabrik/monitoring-plugins/issues/627))
 
 ### Changed
 
-Features:
-
-* Enhanced sudoers files
-
 Monitoring Plugins:
 
-* about-me3: Add detection of restic
-* about-me3: Add detection of Snap
-* about-me3: Add Maker and Model ([#637](https://github.com/Linuxfabrik/monitoring-plugins/issues/637))
-* about-me3: Improve detection of coturn
-* about-me3: Improve psutil error handling
-* about-me3: Make external IP search configurable with 3rd party providers (and disabled by default) ([#645](https://github.com/Linuxfabrik/monitoring-plugins/issues/645)) 
-* about-me3: Re-written from scratch, now also recommends tags for our Icinga Director Basket. New parameter `--tags`.
-* about-me3: Remove unstable bonding detection
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Move state output to usage column
-* dmesg3: add additional message to ignorelist
-* docker-info3: Report more info in case of failures
-* docker-stats3: Report more info in case of failures
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): Exclude squashfs filesystems ([#412](https://github.com/Linuxfabrik/monitoring-plugins/issues/412))
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): Ignore ramfs ([#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
-* infomaniak-swiss-backup-\*: Apply new API version
-* [journald-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-usage/): Increase DEFAULT_WARN to 6 GiB
-* matomo-reporting3: Perfdata now is also aware of percentages
-* [mysql-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-connections/): add --ignore-name-resolution ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
-* mysql-storage-engines3: Improve recognition of schema.table
-* [mysql-user-security](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-user-security/): Ignore mysql.sys and mariadb.sys users
-* [network-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-connections/): Alert if there's more than a specified number of conns ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
-* php-status3: Improve output in case of startup/config/module errors
-* php-status3: URL to monitoring.php should be optional
-* [php-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-version/): Add PHP 8.3
-* qts-version3: Add support for firmware 5.0.1+
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): Do not warn on "Peak memory"
-* [rpm-lastactivity](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-lastactivity/): do | sort | tail -1 with Python Code ([#94](https://github.com/Linuxfabrik/monitoring-plugins/issues/94))
-* service3: Now able to check multiple windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
+* about-me: rewritten, recommends tags for the Icinga Director basket with `--tags`, detects restic and Snap, reports maker and model, and the external IP lookup is configurable and off by default ([#637](https://github.com/Linuxfabrik/monitoring-plugins/issues/637), [#645](https://github.com/Linuxfabrik/monitoring-plugins/issues/645))
+* disk-usage: the state moves into the usage column
+* fs-ro: squashfs and ramfs are excluded ([#412](https://github.com/Linuxfabrik/monitoring-plugins/issues/412), [#617](https://github.com/Linuxfabrik/monitoring-plugins/issues/617))
+* infomaniak-swiss-backup-\*: adapted to the new API version
+* mysql-connections: `--ignore-name-resolution` ([#631](https://github.com/Linuxfabrik/monitoring-plugins/issues/631))
+* mysql-user-security: ignores the mysql.sys and mariadb.sys users
+* network-connections: alerts above a configurable number of connections ([#621](https://github.com/Linuxfabrik/monitoring-plugins/issues/621))
+* php-status: the URL to monitoring.php is optional, and startup, config and module errors are reported more clearly
+* redis-status: no longer warns on "Peak memory"
+* service: checks several Windows services at once ([#609](https://github.com/Linuxfabrik/monitoring-plugins/issues/609))
 
 Icinga Director:
 
-* Enhanced RHEL 7+ and Fedora-based Service Sets by TuneD Profile
-* Enhanced RHEL 8+-based Service Sets by Crypto Policy
-* Enhanced all Service Sets checking for a Systemd Service by an according Journald Query
-* Enhanced all Service Sets checking for a Systemd Service by Systemd TimeDate Status
-* Notifications are enabled only for critical hardware-related services (assuming you want to stay up at 2 a.m.)
-* Split up the MariaDB/MySQL service sets into smaller sets:
-
-    * MySQL/MariaDB InnoDB Service Set
-    * MySQL/MariaDB Metrics Service Set
-    * MySQL/MariaDB Replication Service Set
-    * MySQL/MariaDB Schemas Service Set
-    * MySQL/MariaDB Security Service Set
-    * MySQL/MariaDB Service Set
-
+* the MariaDB/MySQL service set is split into InnoDB, Metrics, Replication, Schemas, Security and a baseline set
+* the RHEL and Fedora sets gain TuneD Profile and Crypto Policy, every set with a systemd service gains a matching Journald Query and Systemd TimeDate Status, and notifications are enabled only for critical hardware-related services
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): ignore type CDFS by default ([#632](https://github.com/Linuxfabrik/monitoring-plugins/issues/632))
-* docker-stats missing shortening of containername in perfdata output ([#600](https://github.com/Linuxfabrik/monitoring-plugins/issues/600))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): critical reported for new files because modification time is negative or not set ([#618](https://github.com/Linuxfabrik/monitoring-plugins/issues/618))
-* infomaniak-swiss-backup-devices3: Fix TypeError: unsupported operand type(s) for -: 'int' and 'NoneType'
-* [librenms-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-version/): KeyError: 'mysql_ver' ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
-* matomo-reporting3: --metric - Got more information back instead one metric ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))
-* [nextcloud-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/): Fix error non-existing ALWAYS_OK Attribute ([#640](https://github.com/Linuxfabrik/monitoring-plugins/pull/640))
-* [ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/): ping -t has to be int but its float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))
-* [rpm-lastactivity](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-lastactivity/): ValueError: invalid literal for int() with base 10: '' ([#616](https://github.com/Linuxfabrik/monitoring-plugins/issues/616))
-* [systemd-timedate-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-timedate-status/): UNKNOWN with "unknown operation show" on RHEL7 ([#605](https://github.com/Linuxfabrik/monitoring-plugins/issues/605))
-* [updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/updates/): On Windows with closed firewall a PowerShell error is returned ([#633](https://github.com/Linuxfabrik/monitoring-plugins/issues/633))
-
+* disk-usage: CDFS is ignored by default ([#632](https://github.com/Linuxfabrik/monitoring-plugins/issues/632))
+* docker-stats: the container name in the perfdata is shortened as intended ([#600](https://github.com/Linuxfabrik/monitoring-plugins/issues/600))
+* file-age: new files are no longer reported critical because of a negative modification time ([#618](https://github.com/Linuxfabrik/monitoring-plugins/issues/618))
+* infomaniak-swiss-backup-devices: no longer aborts with a TypeError
+* librenms-version: no longer aborts with `KeyError: 'mysql_ver'` ([#602](https://github.com/Linuxfabrik/monitoring-plugins/issues/602))
+* matomo-reporting: `--metric` returns the one metric asked for ([#603](https://github.com/Linuxfabrik/monitoring-plugins/issues/603))
+* nextcloud-stats: no longer aborts on a missing ALWAYS_OK attribute ([#640](https://github.com/Linuxfabrik/monitoring-plugins/pull/640))
+* ping: no longer aborts because `ping -t` was handed a float ([#628](https://github.com/Linuxfabrik/monitoring-plugins/issues/628))
+* rpm-lastactivity: no longer aborts with a ValueError ([#616](https://github.com/Linuxfabrik/monitoring-plugins/issues/616))
+* updates: no longer returns a PowerShell error on Windows behind a closed firewall ([#633](https://github.com/Linuxfabrik/monitoring-plugins/issues/633))
 
 ### Removed
 
-Features:
-
-* All plugins: Remove code for self-handling Python virtual environments (venv). ([#543](https://github.com/Linuxfabrik/monitoring-plugins/issues/543))")
-
 Monitoring Plugins:
 
-* ntp-offset (due to "ntp-offset: Split it into three different ntp-checks ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))")
+* ntp-offset, split into ntp-chronyd, ntp-ntpd and ntp-systemd-timesyncd ([#449](https://github.com/Linuxfabrik/monitoring-plugins/issues/449))
+* all plugins: the code for self-handling Python virtual environments ([#543](https://github.com/Linuxfabrik/monitoring-plugins/issues/543))
 
 Icinga Director:
 
-* Remove DiagTrack from Windows Service Sets, since it's windows telemetry
-
+* DiagTrack, Windows telemetry, is gone from the Windows Service Sets
 
 
 ## [2022072001] - 2022-07-20
 
 ### Breaking Changes
 
-*  wildfly-memory-pool-usage: Flapping PS_Eden_Space reporting ([#563](https://github.com/Linuxfabrik/monitoring-plugins/issues/563)) - Removed `--warning` and `--critical` parameters (not needed anymore)
+Monitoring Plugins:
 
+* wildfly-memory-pool-usage: `--warning` and `--critical` are gone, they are not needed any more ([#563](https://github.com/Linuxfabrik/monitoring-plugins/issues/563))
 
 ### Added
 
-Features:
-
-* This CHANGELOG.
-* Add hidden `.windows` files as indication for automatic compilation on/for Windows systems.
-* Add sudoers file for Fedora 35 and Fedora 36.
-
 Monitoring Plugins:
 
-* diacos ([PR #567](https://github.com/Linuxfabrik/monitoring-plugins/pull/567), thanks to [Dominik Riva](https://github.com/slalomsk8er))
-* infomaniak-swiss-backup-devices
-* infomaniak-swiss-backup-products
-* mysql-aria
-* mysql-binlog-cache
-* mysql-connections
-* mysql-database-metrics
-* mysql-innodb-buffer-pool-instances
-* mysql-innodb-buffer-pool-size
-* mysql-innodb-log-waits
-* mysql-joins
-* mysql-logfile
-* mysql-memory
-* mysql-open-files
-* mysql-perf-metrics
-* mysql-replica-status
-* mysql-slow-queries
-* mysql-sorts
-* mysql-storage-systems
-* mysql-system
-* mysql-table-cache
-* mysql-table-definition-cache
-* mysql-table-indexes
-* mysql-temp-tables
-* mysql-thread-cache
-* mysql-traffic
-* mysql-user-security
-* nodebb-cache
-* nodebb-database
-* nodebb-errors
-* nodebb-events
-* nodebb-groups
-* nodebb-info
-* nodebb-users
-* strongswan-connections
-* xml (replacement for "wsdl" check from [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583), thanks to [Dominik Riva](https://github.com/slalomsk8er))
+* new checks: diacos, infomaniak-swiss-backup-devices, infomaniak-swiss-backup-products, strongswan-connections, xml, the whole mysql-\* family (aria, binlog-cache, connections, database-metrics, innodb-buffer-pool-instances, innodb-buffer-pool-size, innodb-log-waits, joins, logfile, memory, open-files, perf-metrics, replica-status, slow-queries, sorts, storage-systems, system, table-cache, table-definition-cache, table-indexes, temp-tables, thread-cache, traffic, user-security) and the nodebb-\* family (cache, database, errors, events, groups, info, users) ([PR #567](https://github.com/Linuxfabrik/monitoring-plugins/pull/567), [PR #583](https://github.com/Linuxfabrik/monitoring-plugins/pull/583), thanks to [Dominik Riva](https://github.com/slalomsk8er))
 
 Icinga Director:
 
-* duplicity Service Set
-* strongSwan Service Set
+* duplicity Service Set, strongSwan Service Set
 
+Assets:
+
+* sudoers files for Fedora 35 and Fedora 36
 
 ### Changed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add AIDE ([#546](https://github.com/Linuxfabrik/monitoring-plugins/issues/546))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add Birthdate ([#554](https://github.com/Linuxfabrik/monitoring-plugins/issues/554))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add certbot and acme.sh ([#433](https://github.com/Linuxfabrik/monitoring-plugins/issues/433))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add gpg ([#511](https://github.com/Linuxfabrik/monitoring-plugins/issues/511))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add list of listening ports ([#538](https://github.com/Linuxfabrik/monitoring-plugins/issues/538))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add mod_security ([#496](https://github.com/Linuxfabrik/monitoring-plugins/issues/496))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Add swanctl ([#575](https://github.com/Linuxfabrik/monitoring-plugins/issues/575))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Print its own version ([#439](https://github.com/Linuxfabrik/monitoring-plugins/issues/439))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Report active tuned-Profile in first line if tuned.service is found and running ([#374](https://github.com/Linuxfabrik/monitoring-plugins/issues/374))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Report Boot Mode ([#562](https://github.com/Linuxfabrik/monitoring-plugins/issues/562)) 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Show key features of the Machine ([#561](https://github.com/Linuxfabrik/monitoring-plugins/issues/561))
-* All checks using SQLite databases: More unique sqlite db names ([#333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): New parameter `--insecure`
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): Subtract the "nice" percentage from thresholds ([#550](https://github.com/Linuxfabrik/monitoring-plugins/issues/550))
-* [dhcp-scope-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/): Parse PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Checks if psutil has a certain minimum version on systems with kernel 4.18+.
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): Exclude zfs-volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): Now also runs on Windows ([PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): Properly handle Power_On_Hours_and_Msec attribute perfdata parsing ([PR #549](https://github.com/Linuxfabrik/monitoring-plugins/pull/549))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): Critical but first line of plugin output prints "OK" ([#545](https://github.com/Linuxfabrik/monitoring-plugins/issues/545))
-* [docker-info](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-info/): Raise CRIT on return code != 0 ([#569](https://github.com/Linuxfabrik/monitoring-plugins/issues/569))
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): Improve handling of container names ([#586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586)). New parameter `--full-name`.
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): Improve perfdata labels
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): Performance data aggregation on file_age check ([PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): shorten the message ([#559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559))
-* infomaniak-swiss-backup-devices3: Increase default thresholds from 80/90% to 90/95%
-* infomaniak-swiss-backup-devices3: Sort output table by "Tags" column
-* infomaniak-swiss-backup-products3: Changed thresholds from 14/5 days to 6/3 days
-* infomaniak-swiss-backup-products3: Sort output table by "Tags" column
-* [ipmi-sel](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sel/): Change the order of events ([#558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
-* needs-restarting3: Debian Buster/bullseye command not found ([#572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): Add a "--dev" switch to not warn on display_errors=On and display_startup_errors=On ([#461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): Change behavior when handling default values ([#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
-* qts-\*: Increase default connect timeout from 3 to 6 seconds
-* Revert Python 3.6+ `f`-strings to use `.format()` to be more conservative
-* [systemd-units-failed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-units-failed/): Allow wildcards for the `--ignore` parameter ([#542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
+* about-me: reports birthdate, boot mode, listening ports, the active tuned profile and the key features of the machine, and detects AIDE, certbot, acme.sh, gpg, mod_security and swanctl
+* all checks using SQLite databases: more unique database names ([#333](https://github.com/Linuxfabrik/monitoring-plugins/issues/333))
+* cpu-usage: the "nice" percentage is subtracted from the thresholds ([#550](https://github.com/Linuxfabrik/monitoring-plugins/issues/550))
+* dhcp-scope-usage: parses PercentageInUse locale-aware ([PR #551](https://github.com/Linuxfabrik/monitoring-plugins/pull/551))
+* disk-smart: runs on Windows, and excludes zfs volumes ([PR #539](https://github.com/Linuxfabrik/monitoring-plugins/pull/539), [PR #553](https://github.com/Linuxfabrik/monitoring-plugins/pull/553))
+* disk-usage: the first output line no longer says "OK" while the check is critical ([#545](https://github.com/Linuxfabrik/monitoring-plugins/issues/545))
+* docker-info: raises CRIT on a return code other than 0 ([#569](https://github.com/Linuxfabrik/monitoring-plugins/issues/569))
+* docker-stats: better handling of container names ([#586](https://github.com/Linuxfabrik/monitoring-plugins/issues/586))
+* file-age: shorter message and better perfdata labels ([#559](https://github.com/Linuxfabrik/monitoring-plugins/issues/559), [PR #544](https://github.com/Linuxfabrik/monitoring-plugins/pull/544))
+* ipmi-sel: the events are ordered differently ([#558](https://github.com/Linuxfabrik/monitoring-plugins/issues/558))
+* needs-restarting: works on Debian Buster and Bullseye ([#572](https://github.com/Linuxfabrik/monitoring-plugins/issues/572))
+* php-status: different handling of default values, and `--dev` suppresses the warnings on display_errors and display_startup_errors ([#461](https://github.com/Linuxfabrik/monitoring-plugins/issues/461), [#540](https://github.com/Linuxfabrik/monitoring-plugins/issues/540))
+* qts-\*: the default connect timeout rises from 3 to 6 seconds
+* systemd-units-failed: `--ignore` accepts wildcards ([#542](https://github.com/Linuxfabrik/monitoring-plugins/issues/542))
 
 Icinga Director:
 
-* Adjust windows director definitions to the new folder structure
-* Increase windows service check intervals
-
+* longer check intervals for the Windows services
 
 ### Fixed
 
 Monitoring Plugins:
 
-* disk-io3: Fix python3 lib calls
-* file-count3: Traceback: KeyError: 'lib'  ([#591](https://github.com/Linuxfabrik/monitoring-plugins/issues/591))
-* fortios-memory-usage3: Change urllib.quote to urllib.parse.quote ([PR #599](https://github.com/Linuxfabrik/monitoring-plugins/pull/599))
-* logfile3: "Database locked" and "UNKNOWN" in case of massive usage on a host ([#578](https://github.com/Linuxfabrik/monitoring-plugins/issues/578))
-* keycloak-version3: AttributeError: 'NoneType' object has no attribute 'group' ([#555](https://github.com/Linuxfabrik/monitoring-plugins/issues/555))
-* xca-cert3: Checks expiry date again
-
+* file-count: no longer aborts with `KeyError: 'lib'` ([#591](https://github.com/Linuxfabrik/monitoring-plugins/issues/591))
+* fortios-memory-usage: works on Python 3 ([PR #599](https://github.com/Linuxfabrik/monitoring-plugins/pull/599))
+* keycloak-version: no longer aborts on a missing match ([#555](https://github.com/Linuxfabrik/monitoring-plugins/issues/555))
+* logfile: no longer runs into "Database locked" and UNKNOWN under heavy use on one host ([#578](https://github.com/Linuxfabrik/monitoring-plugins/issues/578))
+* xca-cert: checks the expiry date again
 
 ### Removed
 
 Monitoring Plugins:
 
-* mysql-stats
-* nodebb-stats
-* nodebb-status
+* mysql-stats, nodebb-stats, nodebb-status
 
 Icinga Director:
 
-* Remove gpsvc on Windows
-
+* gpsvc on Windows
 
 
 ## [2022030201] - 2022-03-02
@@ -1942,455 +1088,202 @@ Icinga Director:
 This is a "we migrated everything from GitLab to GitHub, but had to adjust many details afterwards" version. **In terms of source code, nothing has changed** compared to 2022022801, just a bunch of links in source code comments and READMEs.
 
 
-
 ## 2022022801 - 2022-02-28
 
 ### Breaking Changes
 
-* This is the last release including bugfixes for the Python 2 variant of all checks.
-* This project has moved from a public repo on our self-hosted GitLab server to a [public repo on GitHub](https://github.com/linuxfabrik/monitoring-plugins) to increase visibility and reach a larger community.
-* The Git branches "master" and "develop" no longer exist - in the future we will only work with the "main" branch and create releases based on tags.
-* Due to the removal of binaries (zip and png files), all commit hashes have changed.
-* Removed all checks compiled for Windows from Git and moved them to our [download server](https://download.linuxfabrik.ch//monitoring-plugins/windows).
-
+* this is the last release including bugfixes for the Python 2 variant of all checks
+* the project moved from our self-hosted GitLab to a [public repo on GitHub](https://github.com/linuxfabrik/monitoring-plugins). The branches "master" and "develop" are gone, releases are built from tags on "main", and all commit hashes changed with the removal of the binaries
+* the checks compiled for Windows moved to the [download server](https://download.linuxfabrik.ch//monitoring-plugins/windows)
 
 ### Added
 
 Monitoring Plugins:
 
-* IPv4 scope usage for a Windows DHCP server service (running on Windows using PowerShell, or remotely on Linux or Windows using WinRM).
-* Huawei OceanStor Dorado storage system: Status of backup power modules (Backup Battery Unit (BBU)), controller, disk basic status and performance data, enclosure information, plus basic information about fans, interfaces, power, attached hosts, the system itself, HyperMetro domain and pairing information.
-* Redfish-based BMCs (instead of IPMI): drives, system event logs (SEL) and sensor data.
+* dhcp-scope-usage: IPv4 scope usage of a Windows DHCP server, locally via PowerShell or remotely via WinRM
+* huawei-dorado-\*: backup power modules, controller, disks, enclosures, fans, interfaces, power, attached hosts, the system itself and the HyperMetro domain and pairing information of a Huawei OceanStor Dorado storage system
+* redfish-drives, redfish-sel, redfish-sensor: drives, system event logs and sensor data of a Redfish-based BMC
 
 Notification Plugins:
 
-* Notify via Zoom
-* Notify via E-Mail
+* notify via Zoom, notify via e-mail
 
 Icinga Director:
 
-* Active Directory Certificate Services Service Set ([#472](https://github.com/Linuxfabrik/monitoring-plugins/issues/472))
-* Active Directory Domain Services Service Set ([#468](https://github.com/Linuxfabrik/monitoring-plugins/issues/468))
-* Active Directory Federation Services Service Set ([#471](https://github.com/Linuxfabrik/monitoring-plugins/issues/471))
-* Active Directory Lightweight Directory Services Service Set ([#473](https://github.com/Linuxfabrik/monitoring-plugins/issues/473))
-* acme.sh Service Set ([#447](https://github.com/Linuxfabrik/monitoring-plugins/issues/447))
-* DHCP Server Service Set ([#466](https://github.com/Linuxfabrik/monitoring-plugins/issues/466))
-* DHCP Server Failover Feature Service Set ([#467](https://github.com/Linuxfabrik/monitoring-plugins/issues/467))
-* [dhcp-scope-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/): add Icinga Director configuration
-* DNS Server Service Set ([#470](https://github.com/Linuxfabrik/monitoring-plugins/issues/470))
-* Duplicati Service Set
-* Huawei Dorado Service Set
-* Redfish Service Set
-* Redfish no agent Service Set
-* tpl-service-cert and tpl-service-cert-no-agent service templates
-* Veeam Backup & Replication Service Set ([#464](https://github.com/Linuxfabrik/monitoring-plugins/issues/464))
-* Web Server (IIS) Service Set ([#465](https://github.com/Linuxfabrik/monitoring-plugins/issues/465))
-* Windows Basic Service Set extended Service Set
-* Windows Defender Antivirus Service Service Set ([#469](https://github.com/Linuxfabrik/monitoring-plugins/issues/469))
+* new Service Sets: acme.sh, Active Directory Certificate Services, Active Directory Domain Services, Active Directory Federation Services, Active Directory Lightweight Directory Services, DHCP Server, DHCP Server Failover Feature, DNS Server, Duplicati, Huawei Dorado, Redfish, Redfish no agent, Veeam Backup & Replication, Web Server (IIS), Windows Basic extended, Windows Defender Antivirus Service
 
 Assets:
 
-* Rocky 8 sudoers
-* openSUSE Leap 15 sudoers
-
+* sudoers for Rocky 8 and openSUSE Leap 15
 
 ### Changed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add ownCloud and alternate Nextcloud Path ([#512](https://github.com/Linuxfabrik/monitoring-plugins/issues/512))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): report virtualisation ([#480](https://github.com/Linuxfabrik/monitoring-plugins/issues/480))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): run even if psutil is or cannot be installed ([#514](https://github.com/Linuxfabrik/monitoring-plugins/issues/514))
-* all plugins: adapt to pylinted libraries ([#526](https://github.com/Linuxfabrik/monitoring-plugins/issues/526))
-* all plugins: let the new txt3 library do all encoding and decoding ([#507](https://github.com/Linuxfabrik/monitoring-plugins/issues/507))
-* all plugins: pylint all check plugins ([#529](https://github.com/Linuxfabrik/monitoring-plugins/issues/529))
-* all plugins: use new library "human.py" ([#521](https://github.com/Linuxfabrik/monitoring-plugins/issues/521))
-* all plugins: use new library "shell3.py" ([#525](https://github.com/Linuxfabrik/monitoring-plugins/issues/525))
-* all plugins: use new library "time3.py" ([#524](https://github.com/Linuxfabrik/monitoring-plugins/issues/524))
-* all plugins: use new library "txt3.py" ([#522](https://github.com/Linuxfabrik/monitoring-plugins/issues/522))
-* [dhcp-scope-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/): add WinRM capability ([#477](https://github.com/Linuxfabrik/monitoring-plugins/issues/477))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): recompiled for windows
-* librenms checks: add more filtering parameters
-* [librenms-alerts](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-alerts/): add `--device-group` parameter
-* [librenms-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-health/): adjust check timeout
-* [nginx-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-status/): print human readable total values ([#520](https://github.com/Linuxfabrik/monitoring-plugins/issues/520))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): hint when not running with sudo ([#459](https://github.com/Linuxfabrik/monitoring-plugins/issues/459))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): make more tolerant when it comes to Defragmentation ([#425](https://github.com/Linuxfabrik/monitoring-plugins/issues/425))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): support Redis 3.0 ([#510](https://github.com/Linuxfabrik/monitoring-plugins/issues/510))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): only warn if cache hit rate < 10% ([#490](https://github.com/Linuxfabrik/monitoring-plugins/issues/490))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): warn on bad OS configuration ([#428](https://github.com/Linuxfabrik/monitoring-plugins/issues/428))
-* [rocketchat-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/): rename rocket.chat to rocketchat ([#335](https://github.com/Linuxfabrik/monitoring-plugins/issues/335))
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): don't display "swapped in" and "swapped out" on Windows ([#454](https://github.com/Linuxfabrik/monitoring-plugins/issues/454))
-* [veeam-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/veeam-status/): make `--username` and `--password` mandatory ([#499](https://github.com/Linuxfabrik/monitoring-plugins/issues/499))
-* [wildfly-deployment-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-deployment-status/): allow to limit deployment by name ([#497](https://github.com/Linuxfabrik/monitoring-plugins/issues/497))
+* about-me: reports virtualisation, detects ownCloud and an alternate Nextcloud path, and runs even when psutil is missing ([#480](https://github.com/Linuxfabrik/monitoring-plugins/issues/480), [#512](https://github.com/Linuxfabrik/monitoring-plugins/issues/512), [#514](https://github.com/Linuxfabrik/monitoring-plugins/issues/514))
+* librenms-alerts, librenms-health: more filtering parameters, among them `--device-group`
+* nginx-status: prints human-readable total values ([#520](https://github.com/Linuxfabrik/monitoring-plugins/issues/520))
+* php-status: hints when it is not running with sudo ([#459](https://github.com/Linuxfabrik/monitoring-plugins/issues/459))
+* redis-status: supports Redis 3.0, is more tolerant about defragmentation, warns only below a 10% cache hit rate, and warns on a bad OS configuration ([#425](https://github.com/Linuxfabrik/monitoring-plugins/issues/425), [#428](https://github.com/Linuxfabrik/monitoring-plugins/issues/428), [#490](https://github.com/Linuxfabrik/monitoring-plugins/issues/490), [#510](https://github.com/Linuxfabrik/monitoring-plugins/issues/510))
+* rocketchat-stats: rocket.chat is renamed to rocketchat ([#335](https://github.com/Linuxfabrik/monitoring-plugins/issues/335))
+* swap-usage: no longer displays "swapped in" and "swapped out" on Windows ([#454](https://github.com/Linuxfabrik/monitoring-plugins/issues/454))
+* veeam-status: `--username` and `--password` are mandatory ([#499](https://github.com/Linuxfabrik/monitoring-plugins/issues/499))
+* wildfly-deployment-status: the deployment can be limited by name ([#497](https://github.com/Linuxfabrik/monitoring-plugins/issues/497))
 
 Icinga Director:
 
-* all-the-rest.json: adjust loolwsd to coolwsd
-* all-the-rest.json: adjust director baskets for the new Windows variants
-* all-the-rest.json: adjust Huawei service names
-* all-the-rest.json: enable notifications for Redfish checks
-* all-the-rest.json: extend Windows Basic Service Set
-* all-the-rest.json: ensure the no-agent and sudo variants are based on Linux
-* all-the-rest.json: split up LibreNMS services by type in the Service Set
-* [getent](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/getent/): increase Icinga timeout to 30 sec ([#455](https://github.com/Linuxfabrik/monitoring-plugins/issues/455))
-
-Tools:
-
-* check2basket: extend to support notification-plugins
-
+* the Huawei service names and the Windows variants are adapted, notifications are enabled for the Redfish checks, the LibreNMS services are split by type, and getent gets a 30 second timeout ([#455](https://github.com/Linuxfabrik/monitoring-plugins/issues/455))
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Open Virtual Machine Tools Error: vmtoolsd must be run inside a virtual machine on a VMware hypervisor product ([#513](https://github.com/Linuxfabrik/monitoring-plugins/issues/513))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Traceback "IndexError: list index out of range" ([#443](https://github.com/Linuxfabrik/monitoring-plugins/issues/443))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Traceback 'ModuleWrapper' object has no attribute 'net_if_addrs' ([#438](https://github.com/Linuxfabrik/monitoring-plugins/issues/438))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): Traceback on Ubuntu Xenial (16.04) ([#436](https://github.com/Linuxfabrik/monitoring-plugins/issues/436))
-* [borgbackup](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/borgbackup/): AttributeError: 'str' object has no attribute 'decode' ([#430](https://github.com/Linuxfabrik/monitoring-plugins/issues/430))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): disk names like sdda, sdab and so on were not checked ([#487](https://github.com/Linuxfabrik/monitoring-plugins/issues/487))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): new files or modifications after now result in files from the future ([#478](https://github.com/Linuxfabrik/monitoring-plugins/issues/478))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): Windows variant crashes if using a glob wildcard ([#494](https://github.com/Linuxfabrik/monitoring-plugins/issues/494))
-* [fs-xfs-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-xfs-stats/): I/O error "No such file or directory" while opening or reading /proc/fs/xfs/stat ([#445](https://github.com/Linuxfabrik/monitoring-plugins/issues/445))
-* jitsi-videobridge-status3: TypeError: string indices must be integers ([#527](https://github.com/Linuxfabrik/monitoring-plugins/issues/527))
-* [librenms-health](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-health/): timeout on too many values ([#365](https://github.com/Linuxfabrik/monitoring-plugins/issues/365))
-* mysql-stats: Traceback ([#170](https://github.com/Linuxfabrik/monitoring-plugins/issues/170))
-* nextcloud-stats3: TypeError: a bytes-like object is required, not 'str' ([#517](https://github.com/Linuxfabrik/monitoring-plugins/issues/517))
-* nextcloud-stats3: TypeError: string argument without an encoding ([#531](https://github.com/Linuxfabrik/monitoring-plugins/issues/531))
-* [nextcloud-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/): DB size is reported using YiB ([#463](https://github.com/Linuxfabrik/monitoring-plugins/issues/463))
-* nextcloud-version3: put get_owner() from base3 in here ([#523](https://github.com/Linuxfabrik/monitoring-plugins/issues/523))
-* nginx-status3: ModuleNotFoundError: No module named 'lib.globals2' ([#515](https://github.com/Linuxfabrik/monitoring-plugins/issues/515))
-* [nginx-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-status/): wrong perfdata ([#440](https://github.com/Linuxfabrik/monitoring-plugins/issues/440))
-* ntp-offset: regular UNKNOWN when using with chrony ([#71](https://github.com/Linuxfabrik/monitoring-plugins/issues/71))
-* php-status3: SyntaxError: invalid syntax ([#532](https://github.com/Linuxfabrik/monitoring-plugins/issues/532))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): On some machines, display_startup_errors is N/A ([#434](https://github.com/Linuxfabrik/monitoring-plugins/issues/434))
-* [php-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-version/): Warns "PHP v7.4.25 is available (installed: v7.4.24)", but should not ([#435](https://github.com/Linuxfabrik/monitoring-plugins/issues/435))
-* procs (Windows): Traceback "AttributeError: module object has no attribute STATUS_PARKED" ([#453](https://github.com/Linuxfabrik/monitoring-plugins/issues/453))
-* procs3: on Windows, it always returns `oldest proc created 52Y 1M ago` ([#506](https://github.com/Linuxfabrik/monitoring-plugins/issues/506))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): when checking if a process exists, returns OK even if the process is missing ([#488](https://github.com/Linuxfabrik/monitoring-plugins/issues/488))
-* [redfish-sensor](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sensor/): returns 404 against ESXi ([#460](https://github.com/Linuxfabrik/monitoring-plugins/issues/460))
-* redis-status3: AttributeError: module lib has no attribute "disk2" ([#498](https://github.com/Linuxfabrik/monitoring-plugins/issues/498))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): mistakenly reports "net.core.somaxconn is lower than net.ipv4.tcp_max_syn_backlog [WARNING]" ([#458](https://github.com/Linuxfabrik/monitoring-plugins/issues/458))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): Redis requires more memory than available and is forced to use swap ([#486](https://github.com/Linuxfabrik/monitoring-plugins/issues/486))
-* [redis-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redis-status/): warning when using a password on command line ([#450](https://github.com/Linuxfabrik/monitoring-plugins/issues/450))
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): recompiled for Windows ([#454](https://github.com/Linuxfabrik/monitoring-plugins/issues/454)), ([#456](https://github.com/Linuxfabrik/monitoring-plugins/issues/456))
-* [swap-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/): UnboundLocalError: local variable msg_body referenced before assignment ([#456](https://github.com/Linuxfabrik/monitoring-plugins/issues/456))
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): on Fedora, failed Units are printed with all columns shifted one to the right ([#328](https://github.com/Linuxfabrik/monitoring-plugins/issues/328))
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): UnitFileState is "", but supposed to be "empty" ([#509](https://github.com/Linuxfabrik/monitoring-plugins/issues/509))
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): on Windows: UnicodeDecodeError: 'utf-8' codec can't decode byte 0x81 in position 25: invalid start byte ([#451](https://github.com/Linuxfabrik/monitoring-plugins/issues/451))
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): quote the output because of possible pipe symbol in "WHAT" column ([#17](https://github.com/Linuxfabrik/monitoring-plugins/issues/17))
-* veeam.py: ValueError: need more than 2 values to unpack ([#45](https://github.com/Linuxfabrik/monitoring-plugins/issues/45))
-* Windows-compiled plugins are shipped without required 3rd party Python modules ([#504](https://github.com/Linuxfabrik/monitoring-plugins/issues/504))
-
-Icinga Director:
-
-* all-the-rest.json: fix GUIDs
+* about-me: no longer aborts on a VMware hypervisor check, an index error or a missing psutil attribute ([#438](https://github.com/Linuxfabrik/monitoring-plugins/issues/438), [#443](https://github.com/Linuxfabrik/monitoring-plugins/issues/443), [#513](https://github.com/Linuxfabrik/monitoring-plugins/issues/513))
+* apache-httpd-status: no longer aborts on Ubuntu 16.04 ([#436](https://github.com/Linuxfabrik/monitoring-plugins/issues/436))
+* borgbackup: no longer aborts with an AttributeError ([#430](https://github.com/Linuxfabrik/monitoring-plugins/issues/430))
+* disk-smart: disk names such as sdda and sdab are checked ([#487](https://github.com/Linuxfabrik/monitoring-plugins/issues/487))
+* file-age: files dated in the future are handled, and the Windows variant no longer crashes on a glob wildcard ([#478](https://github.com/Linuxfabrik/monitoring-plugins/issues/478), [#494](https://github.com/Linuxfabrik/monitoring-plugins/issues/494))
+* fs-xfs-stats: handles an I/O error while reading /proc/fs/xfs/stat ([#445](https://github.com/Linuxfabrik/monitoring-plugins/issues/445))
+* jitsi-videobridge-status: no longer aborts with a TypeError ([#527](https://github.com/Linuxfabrik/monitoring-plugins/issues/527))
+* librenms-health: no longer times out on too many values ([#365](https://github.com/Linuxfabrik/monitoring-plugins/issues/365))
+* nextcloud-stats: no longer aborts on encoding errors, and the DB size is no longer reported in YiB ([#463](https://github.com/Linuxfabrik/monitoring-plugins/issues/463), [#517](https://github.com/Linuxfabrik/monitoring-plugins/issues/517), [#531](https://github.com/Linuxfabrik/monitoring-plugins/issues/531))
+* nginx-status: the perfdata is correct ([#440](https://github.com/Linuxfabrik/monitoring-plugins/issues/440))
+* ntp-offset: no longer regularly UNKNOWN when used with chrony ([#71](https://github.com/Linuxfabrik/monitoring-plugins/issues/71))
+* php-status: handles a missing display_startup_errors ([#434](https://github.com/Linuxfabrik/monitoring-plugins/issues/434))
+* php-version: no longer warns about a patch release that is not newer ([#435](https://github.com/Linuxfabrik/monitoring-plugins/issues/435))
+* procs: no longer aborts on Windows, no longer reports "oldest proc created 52Y 1M ago", and reports a missing process as missing ([#453](https://github.com/Linuxfabrik/monitoring-plugins/issues/453), [#488](https://github.com/Linuxfabrik/monitoring-plugins/issues/488), [#506](https://github.com/Linuxfabrik/monitoring-plugins/issues/506))
+* redis-status: no longer reports a false somaxconn warning, detects Redis forced into swap, and no longer warns about the password on the command line ([#450](https://github.com/Linuxfabrik/monitoring-plugins/issues/450), [#458](https://github.com/Linuxfabrik/monitoring-plugins/issues/458), [#486](https://github.com/Linuxfabrik/monitoring-plugins/issues/486))
+* swap-usage: no longer aborts with an UnboundLocalError ([#456](https://github.com/Linuxfabrik/monitoring-plugins/issues/456))
+* systemd-unit: failed units are printed with the correct columns on Fedora, and an empty UnitFileState is handled ([#328](https://github.com/Linuxfabrik/monitoring-plugins/issues/328), [#509](https://github.com/Linuxfabrik/monitoring-plugins/issues/509))
+* users: no longer aborts on a decoding error on Windows, and a pipe symbol in the "WHAT" column no longer breaks the output ([#17](https://github.com/Linuxfabrik/monitoring-plugins/issues/17), [#451](https://github.com/Linuxfabrik/monitoring-plugins/issues/451))
+* veeam-status: no longer aborts with a ValueError ([#45](https://github.com/Linuxfabrik/monitoring-plugins/issues/45))
+* the Windows builds ship the required third-party Python modules again ([#504](https://github.com/Linuxfabrik/monitoring-plugins/issues/504))
 
 Grafana:
 
-* [dns](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/): Grafana Panels divide query time by 1000 ([#453](https://github.com/Linuxfabrik/monitoring-plugins/issues/453))
-* [fail2ban](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fail2ban/): Grafana Panels list "Banned IPs" twice ([#139](https://github.com/Linuxfabrik/monitoring-plugins/issues/139))
-* [fortios-network-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-network-io/): fix Grafana dashboard name
+* dns: the panels no longer divide the query time by 1000, and the fail2ban panel no longer lists "Banned IPs" twice ([#139](https://github.com/Linuxfabrik/monitoring-plugins/issues/139), [#453](https://github.com/Linuxfabrik/monitoring-plugins/issues/453))
 
-Tools:
+Icinga Director:
 
-* basket-join: allow missing Datafield key
-* basket-join: fix error on duplicate entries in JSON
-* check2basket: abort on error with the `--auto` option
-* check2basket: add workaround for notification-plugins
-* check2basket: fix problem with notification-plugins
-
+* corrected the GUIDs in all-the-rest.json
 
 ### Removed
 
 Icinga Director:
 
-* all-the-rest.json: delete SysMain from Windows Service Set ([#446](https://github.com/Linuxfabrik/monitoring-plugins/issues/446))
-* all-the-rest.json: remove getent from the basic Service Sets
-* all-the-rest.json: disable TimeBrokerSvc ([#427](https://github.com/Linuxfabrik/monitoring-plugins/issues/427))
-
-Tools:
-
-* check2basket: remove default states for notifications
-
-
+* SysMain and TimeBrokerSvc are gone from the Windows Service Set, and getent from the basic Service Sets ([#427](https://github.com/Linuxfabrik/monitoring-plugins/issues/427), [#446](https://github.com/Linuxfabrik/monitoring-plugins/issues/446))
 
 
 ## 2021101401 - 2021-10-14
 
 ### Added
 
-Features:
-
-* All of the checks are ported to Python 3 (suffixed by `3`).
-* Most of the checks are also available on Windows (compiled with Nuitka and suffixed by `.zip`).
-* At the same time the style of the source code of all plugins has been unified according to the example check plugin.
-* All plugins run flawlessly on Rocky and Alma Linux (simply so that was said).
-
 Monitoring Plugins:
 
-* Jitsi Videobridge Statistics and Status
-* NodeBB Statistics, Status and Version
-* Redis
-* SAP Open Concur (thanks to [Dominik Riva](https://github.com/slalomsk8er))
-* Starface PBX: Account, Database and Peer Statistics; Overall, Backup and Channel Status; Java Memory Usage
-* Veeam Status
+* all checks are ported to Python 3 (suffixed by `3`), most of them are also available on Windows, and all of them run on Rocky and Alma Linux
+* new checks: jitsi-videobridge-stats, jitsi-videobridge-status, nodebb-stats, nodebb-status, nodebb-version, redis, sap-open-concur, veeam-status, and the starface-\* family (account, database and peer statistics, overall, backup and channel status, Java memory usage)
 
 Event Plugins:
 
-* Cloudflare Security Level
+* cloudflare-security-level
 
 Icinga Director:
 
-* Four checks have been added to the Windows Basic ServiceSet (disk-io, dns, swap-usage, top3-processes-which-caused-the-most-io)
-
+* the Windows Basic Service Set gains disk-io, dns, swap-usage and top3-processes-which-caused-the-most-io
 
 ### Changed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): Reports much much more inventory info. New sections are Interfaces (IPv4), systemd default target, systemd timers, systemd enabled units, systemd mounts, systemd automounts, non-default users and crontabs.
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): Now calculates the average values ReqPerSec, BytesPerSec, BytesPerReq and DurationPerReq over Apache's uptime.
-* php-\*: Report more (don't forget to install the new `monitoring.php` as well).
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): Counting is more accurate.
-* [ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/): Mainly used for host alive checking, now reports OK on request (using `--always-ok`) if a host cannot be reached for some reason only on the ping side, but can otherwise be checked e.g. by the Icinga agent.
-
-
-### Changed
-
-Monitoring Plugins:
-
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add content of os family /etc/release file ([#319](https://github.com/Linuxfabrik/monitoring-plugins/issues/319))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add GCC detection ([#306](https://github.com/Linuxfabrik/monitoring-plugins/issues/306))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add GitLab Community Edition (Omnibus) detection ([#371](https://github.com/Linuxfabrik/monitoring-plugins/issues/371))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add OpenVPN detection ([#341](https://github.com/Linuxfabrik/monitoring-plugins/issues/341))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add the FQDN hostname to the first line ([#368](https://github.com/Linuxfabrik/monitoring-plugins/issues/368))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add Veeam detection ([#315](https://github.com/Linuxfabrik/monitoring-plugins/issues/315))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add vsftpd detection ([#269](https://github.com/Linuxfabrik/monitoring-plugins/issues/269))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): extend with more infos ([#362](https://github.com/Linuxfabrik/monitoring-plugins/issues/362))
-* all plugins: add Python 3 versions for apache-httpd-stats ([#327](https://github.com/Linuxfabrik/monitoring-plugins/issues/327)), axenita-stats ([#376](https://github.com/Linuxfabrik/monitoring-plugins/issues/376)), borgbackup ([#287](https://github.com/Linuxfabrik/monitoring-plugins/issues/287)), countdown ([#377](https://github.com/Linuxfabrik/monitoring-plugins/issues/377)), disk-smart ([#401](https://github.com/Linuxfabrik/monitoring-plugins/issues/401)), docker-info ([#378](https://github.com/Linuxfabrik/monitoring-plugins/issues/378)), dummy ([#379](https://github.com/Linuxfabrik/monitoring-plugins/issues/379)), fail2ban ([#380](https://github.com/Linuxfabrik/monitoring-plugins/issues/380)), feed ([#402](https://github.com/Linuxfabrik/monitoring-plugins/issues/402)), file-count ([#381](https://github.com/Linuxfabrik/monitoring-plugins/issues/381)), fortios-\* ([#424](https://github.com/Linuxfabrik/monitoring-plugins/issues/424)), ipmi-sel ([#384](https://github.com/Linuxfabrik/monitoring-plugins/issues/384)), ipmi-sensor ([#385](https://github.com/Linuxfabrik/monitoring-plugins/issues/385)), kemp-services ([#403](https://github.com/Linuxfabrik/monitoring-plugins/issues/403)), keycloak-version ([#400](https://github.com/Linuxfabrik/monitoring-plugins/issues/400)), kvm-vm ([#388](https://github.com/Linuxfabrik/monitoring-plugins/issues/388)), librenms-alerts ([#389](https://github.com/Linuxfabrik/monitoring-plugins/issues/389)), librenms-health ([#390](https://github.com/Linuxfabrik/monitoring-plugins/issues/390)), librenms-version ([#314](https://github.com/Linuxfabrik/monitoring-plugins/issues/314)), mailq ([#391](https://github.com/Linuxfabrik/monitoring-plugins/issues/391)), matomo-reporting ([#405](https://github.com/Linuxfabrik/monitoring-plugins/issues/405)), matomo-version ([#406](https://github.com/Linuxfabrik/monitoring-plugins/issues/406)), metabase-stats ([#342](https://github.com/Linuxfabrik/monitoring-plugins/issues/342)), mysql-stats ([#407](https://github.com/Linuxfabrik/monitoring-plugins/issues/407)), needs-restarting ([#393](https://github.com/Linuxfabrik/monitoring-plugins/issues/393)), network-bonding ([#409](https://github.com/Linuxfabrik/monitoring-plugins/issues/409)), network-port-tcp ([#410](https://github.com/Linuxfabrik/monitoring-plugins/issues/410)), nextcloud-security-scan ([#411](https://github.com/Linuxfabrik/monitoring-plugins/issues/411)), nextcloud-stats ([#413](https://github.com/Linuxfabrik/monitoring-plugins/issues/413)), nginx-status ([#414](https://github.com/Linuxfabrik/monitoring-plugins/issues/414)), ntp-offset ([#387](https://github.com/Linuxfabrik/monitoring-plugins/issues/387)), onlyoffice-stats ([#394](https://github.com/Linuxfabrik/monitoring-plugins/issues/394)), openvpn-client-list ([#395](https://github.com/Linuxfabrik/monitoring-plugins/issues/395)), ping ([#348](https://github.com/Linuxfabrik/monitoring-plugins/issues/348)), qts-\* ([#423](https://github.com/Linuxfabrik/monitoring-plugins/issues/423)), rocketchat-stats ([#415](https://github.com/Linuxfabrik/monitoring-plugins/issues/415)), rocketchat-version ([#416](https://github.com/Linuxfabrik/monitoring-plugins/issues/416)), sensors-battery ([#418](https://github.com/Linuxfabrik/monitoring-plugins/issues/418)), sensors-temperature ([#419](https://github.com/Linuxfabrik/monitoring-plugins/issues/419)), wordpress-version ([#382](https://github.com/Linuxfabrik/monitoring-plugins/issues/382)), xca-cert ([#375](https://github.com/Linuxfabrik/monitoring-plugins/issues/375))
-* all plugins: adapt source code to example plugin for file-size ([#398](https://github.com/Linuxfabrik/monitoring-plugins/issues/398)), json-values ([#399](https://github.com/Linuxfabrik/monitoring-plugins/issues/399)), logfile ([#404](https://github.com/Linuxfabrik/monitoring-plugins/issues/404)), scheduled-task ([#417](https://github.com/Linuxfabrik/monitoring-plugins/issues/417)), service ([#386](https://github.com/Linuxfabrik/monitoring-plugins/issues/386)), snmp ([#396](https://github.com/Linuxfabrik/monitoring-plugins/issues/396)), updates ([#383](https://github.com/Linuxfabrik/monitoring-plugins/issues/383)), wildfly-\* ([#422](https://github.com/Linuxfabrik/monitoring-plugins/issues/422))
-* all plugins: consistently handle unicode ([#334](https://github.com/Linuxfabrik/monitoring-plugins/issues/334))
-* all plugins: make usage of `--help` possible even if some Python modules are missing ([#42](https://github.com/Linuxfabrik/monitoring-plugins/issues/42))
-* all plugins: remove unnecessary import of lib.args ([#347](https://github.com/Linuxfabrik/monitoring-plugins/issues/347))
-* all plugins: replace `print()` by `oao()` for consistent unicode handling ([#344](https://github.com/Linuxfabrik/monitoring-plugins/issues/344))
-* all plugins: replace unit test code by new "test" library ([#343](https://github.com/Linuxfabrik/monitoring-plugins/issues/343))
-* all plugins: save with UTF-8 encoding ([#305](https://github.com/Linuxfabrik/monitoring-plugins/issues/305))
-* all plugins: use `lib.base.cu()` instead of `print_exc()` ([#345](https://github.com/Linuxfabrik/monitoring-plugins/issues/345))
-* all plugins: validate automatically converted Python 3 variants ([#359](https://github.com/Linuxfabrik/monitoring-plugins/issues/359))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): also print worker percentage state in table ([#311](https://github.com/Linuxfabrik/monitoring-plugins/issues/311))
-* [borgbackup](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/borgbackup/): no need to open Borg logfile in binary mode ([#420](https://github.com/Linuxfabrik/monitoring-plugins/issues/420))
-* cloudflare-security-level: make `--zone-id` repeatable ([#309](https://github.com/Linuxfabrik/monitoring-plugins/issues/309))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): add `--ignore` parameter (repeating) ([#351](https://github.com/Linuxfabrik/monitoring-plugins/issues/351))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): add "brcmfmac" messages to ignore list ([#338](https://github.com/Linuxfabrik/monitoring-plugins/issues/338))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): add `--ignore` parameter (repeating) ([#340](https://github.com/Linuxfabrik/monitoring-plugins/issues/340))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): reduce the output to a maximum of ten lines ([#254](https://github.com/Linuxfabrik/monitoring-plugins/issues/254))
-* [example](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/example/): provide unit-tests ([#326](https://github.com/Linuxfabrik/monitoring-plugins/issues/326))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): improve output message ([#361](https://github.com/Linuxfabrik/monitoring-plugins/issues/361))
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): check /tmp/linuxfabrik-plugin-cache.db ([#356](https://github.com/Linuxfabrik/monitoring-plugins/issues/356))
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): fix defaults for Debian ([#294](https://github.com/Linuxfabrik/monitoring-plugins/issues/294)), SLES ([#317](https://github.com/Linuxfabrik/monitoring-plugins/issues/317)) and Ubuntu ([#332](https://github.com/Linuxfabrik/monitoring-plugins/issues/332))
-* [getent](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/getent/): also print the response ([#297](https://github.com/Linuxfabrik/monitoring-plugins/issues/297))
-* [openvpn-client-list](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openvpn-client-list/): no need to open OpenVPN logfile in binary mode ([#421](https://github.com/Linuxfabrik/monitoring-plugins/issues/421))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): improve config and module error messages ([#267](https://github.com/Linuxfabrik/monitoring-plugins/issues/267))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): make check for a high Cache "Hit Rate" optional ([#303](https://github.com/Linuxfabrik/monitoring-plugins/issues/303))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): print php.ini "Off" and "On" values as "Off" and "On" ([#325](https://github.com/Linuxfabrik/monitoring-plugins/issues/325))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): remove "simplexml" from default module list ([#284](https://github.com/Linuxfabrik/monitoring-plugins/issues/284))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): report more opcache-settings in output table ([#353](https://github.com/Linuxfabrik/monitoring-plugins/issues/353))
-* [php-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-version/): just check on PHP version Major.Minor (default), not Major.Minor.Patch ([#304](https://github.com/Linuxfabrik/monitoring-plugins/issues/304))
-* [php-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-version/): test against package manager, print version from php.net just as a hint ([#253](https://github.com/Linuxfabrik/monitoring-plugins/issues/253))
-* [ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/): add `--always-ok` for unpingable but check-capable hosts ([#392](https://github.com/Linuxfabrik/monitoring-plugins/issues/392))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): alert on specific processes ([#355](https://github.com/Linuxfabrik/monitoring-plugins/issues/355))
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): the `--unitfilestate` parameter should accept None to disable checking of the unit file state ([#299](https://github.com/Linuxfabrik/monitoring-plugins/issues/299))
-* [systemd-units-failed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-units-failed/): add `--ignore` parameter (repeating) ([#160](https://github.com/Linuxfabrik/monitoring-plugins/issues/160), [#337](https://github.com/Linuxfabrik/monitoring-plugins/issues/337))
-* [wildfly-gc-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-gc-status/): increase default values for `avr_gc_time` ([#307](https://github.com/Linuxfabrik/monitoring-plugins/issues/307))
-* [wildfly-gc-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-gc-status/): refactor check ([#308](https://github.com/Linuxfabrik/monitoring-plugins/issues/308))
-* [wildfly-memory-pool-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-memory-pool-usage/): don't alert on "PS_Survivor_Space" (if it exists) ([#286](https://github.com/Linuxfabrik/monitoring-plugins/issues/286))
+* about-me: reports much more inventory, among it interfaces, the systemd default target, timers, enabled units, mounts, automounts, non-default users and crontabs, plus GCC, GitLab, OpenVPN, Veeam and vsftpd detection
+* apache-httpd-status: calculates ReqPerSec, BytesPerSec, BytesPerReq and DurationPerReq over Apache's uptime, and prints the worker percentage in the table
+* dmesg: the output is capped at ten lines, and more messages are ignored by default ([#254](https://github.com/Linuxfabrik/monitoring-plugins/issues/254), [#338](https://github.com/Linuxfabrik/monitoring-plugins/issues/338))
+* file-ownership: also checks /tmp/linuxfabrik-plugin-cache.db, with corrected defaults for Debian, SLES and Ubuntu ([#294](https://github.com/Linuxfabrik/monitoring-plugins/issues/294), [#317](https://github.com/Linuxfabrik/monitoring-plugins/issues/317), [#332](https://github.com/Linuxfabrik/monitoring-plugins/issues/332), [#356](https://github.com/Linuxfabrik/monitoring-plugins/issues/356))
+* getent: also prints the response ([#297](https://github.com/Linuxfabrik/monitoring-plugins/issues/297))
+* php-\*: report more, which needs the new `monitoring.php` installed
+* php-status: the cache hit rate check is optional, "simplexml" is no longer a default module, and config and module errors are clearer ([#267](https://github.com/Linuxfabrik/monitoring-plugins/issues/267), [#284](https://github.com/Linuxfabrik/monitoring-plugins/issues/284), [#303](https://github.com/Linuxfabrik/monitoring-plugins/issues/303))
+* php-version: checks major and minor by default rather than the patch level, and tests against the package manager ([#253](https://github.com/Linuxfabrik/monitoring-plugins/issues/253), [#304](https://github.com/Linuxfabrik/monitoring-plugins/issues/304))
+* procs: counts more accurately, and can alert on specific processes ([#355](https://github.com/Linuxfabrik/monitoring-plugins/issues/355))
+* systemd-unit: `--unitfilestate` accepts None to disable the unit file state check ([#299](https://github.com/Linuxfabrik/monitoring-plugins/issues/299))
+* wildfly-gc-status, wildfly-memory-pool-usage: higher defaults for `avr_gc_time`, and "PS_Survivor_Space" no longer alerts ([#286](https://github.com/Linuxfabrik/monitoring-plugins/issues/286), [#307](https://github.com/Linuxfabrik/monitoring-plugins/issues/307))
 
 Icinga Director:
 
-* provide the Icinga Director command definitions using the basket ([#301](https://github.com/Linuxfabrik/monitoring-plugins/issues/301))
-
-Tools:
-
-* check2basket: add update mode ([#203](https://github.com/Linuxfabrik/monitoring-plugins/issues/203))
-
+* the command definitions are provided through the basket ([#301](https://github.com/Linuxfabrik/monitoring-plugins/issues/301))
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): only last disk is shown ([#281](https://github.com/Linuxfabrik/monitoring-plugins/issues/281))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): remove newline after printing "vsftpd" ([#364](https://github.com/Linuxfabrik/monitoring-plugins/issues/364))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): reports loolwsd even if it is not installed ([#370](https://github.com/Linuxfabrik/monitoring-plugins/issues/370))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): too many values to unpack ([#372](https://github.com/Linuxfabrik/monitoring-plugins/issues/372))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): ReqPerSec, BytesPerSec, BytesPerReq and DurationPerReq are average values calculated by Apache over its uptime ([#310](https://github.com/Linuxfabrik/monitoring-plugins/issues/310))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): unsupported operand type(s) for +: 'float' and 'str' ([#323](https://github.com/Linuxfabrik/monitoring-plugins/issues/323))
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): after reboot, byte values are 0 or very low, so rate diffs are negative ([#312](https://github.com/Linuxfabrik/monitoring-plugins/issues/312))
-* dmesg3: AttributeError: module 'lib' has no attribute 'base2' ([#330](https://github.com/Linuxfabrik/monitoring-plugins/issues/330))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): always counts +1 ([#331](https://github.com/Linuxfabrik/monitoring-plugins/issues/331))
-* [dummy](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dummy/): broken in dev branch ([#354](https://github.com/Linuxfabrik/monitoring-plugins/issues/354))
-* example3: partially uses base2 library ([#369](https://github.com/Linuxfabrik/monitoring-plugins/issues/369))
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): correctly handle negative times ([#188](https://github.com/Linuxfabrik/monitoring-plugins/issues/188))
-* [getent](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/getent/): ascii codec can't decode byte ([#367](https://github.com/Linuxfabrik/monitoring-plugins/issues/367))
-* [mydumper-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mydumper-version/): 'module' object has no attribute 'url2' ([#322](https://github.com/Linuxfabrik/monitoring-plugins/issues/322))
-* [mydumper-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mydumper-version/): stumbles upon "v0.10.7-2" ([#318](https://github.com/Linuxfabrik/monitoring-plugins/issues/318))
-* [network-port-tcp](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-port-tcp/): NameError: global name 'TYPE' is not defined ([#298](https://github.com/Linuxfabrik/monitoring-plugins/issues/298))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): monitoring.php does not run on PHP 7.2 ([#289](https://github.com/Linuxfabrik/monitoring-plugins/issues/289))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): reporting "Opcache not installed or not enabled" if monitoring.php is not used ([#324](https://github.com/Linuxfabrik/monitoring-plugins/issues/324))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): typo in output ("Opache") ([#296](https://github.com/Linuxfabrik/monitoring-plugins/issues/296))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): Uncaught Error: Call to undefined function opcache_get_status() ([#290](https://github.com/Linuxfabrik/monitoring-plugins/issues/290))
-* [php-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-version/): ValueError: invalid literal for float(): 5.640-0+deb8u12 ([#293](https://github.com/Linuxfabrik/monitoring-plugins/issues/293))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): counting in output seems to be wrong ([#357](https://github.com/Linuxfabrik/monitoring-plugins/issues/357))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): NameError: name 'STATE_Ok' is not defined ([#363](https://github.com/Linuxfabrik/monitoring-plugins/issues/363))
-* [qts-temperatures](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-temperatures/): Traceback ([#360](https://github.com/Linuxfabrik/monitoring-plugins/issues/360))
-* [service](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/service/): bad output/status if status is 'running' but not supposed to be 'running' ([#336](https://github.com/Linuxfabrik/monitoring-plugins/issues/336))
-* systemd-units: UnitFileState might be empty ("") ([#292](https://github.com/Linuxfabrik/monitoring-plugins/issues/292))
-* unit tests: fix failing tests ([#346](https://github.com/Linuxfabrik/monitoring-plugins/issues/346))
-
+* about-me: shows all disks, no longer reports loolwsd when it is not installed, and no longer aborts on unpacking ([#281](https://github.com/Linuxfabrik/monitoring-plugins/issues/281), [#370](https://github.com/Linuxfabrik/monitoring-plugins/issues/370), [#372](https://github.com/Linuxfabrik/monitoring-plugins/issues/372))
+* apache-httpd-status: no longer aborts on an unsupported operand type ([#323](https://github.com/Linuxfabrik/monitoring-plugins/issues/323))
+* disk-io: negative rate differences after a reboot are handled ([#312](https://github.com/Linuxfabrik/monitoring-plugins/issues/312))
+* dmesg: no longer counts one line too many ([#331](https://github.com/Linuxfabrik/monitoring-plugins/issues/331))
+* file-age: negative times are handled correctly ([#188](https://github.com/Linuxfabrik/monitoring-plugins/issues/188))
+* getent: no longer aborts on a decoding error ([#367](https://github.com/Linuxfabrik/monitoring-plugins/issues/367))
+* mydumper-version: copes with a version such as "v0.10.7-2" ([#318](https://github.com/Linuxfabrik/monitoring-plugins/issues/318))
+* network-port-tcp: no longer aborts with a NameError ([#298](https://github.com/Linuxfabrik/monitoring-plugins/issues/298))
+* php-status: monitoring.php runs on PHP 7.2, and OPcache is no longer reported as missing when monitoring.php is not used ([#289](https://github.com/Linuxfabrik/monitoring-plugins/issues/289), [#290](https://github.com/Linuxfabrik/monitoring-plugins/issues/290), [#324](https://github.com/Linuxfabrik/monitoring-plugins/issues/324))
+* php-version: no longer aborts on a Debian package version ([#293](https://github.com/Linuxfabrik/monitoring-plugins/issues/293))
+* procs: the counting in the output is correct ([#357](https://github.com/Linuxfabrik/monitoring-plugins/issues/357))
+* qts-temperatures: no longer aborts with a traceback ([#360](https://github.com/Linuxfabrik/monitoring-plugins/issues/360))
+* service: reports the right state when a service is running but is not supposed to be ([#336](https://github.com/Linuxfabrik/monitoring-plugins/issues/336))
+* systemd-unit: an empty UnitFileState is handled ([#292](https://github.com/Linuxfabrik/monitoring-plugins/issues/292))
 
 ### Removed
 
 Monitoring Plugins:
 
-* We [removed](https://github.com/Linuxfabrik/monitoring-plugins/-/commit/661758831108a86a2a92f784aa0997c7286b0e07) the fah-stats, hostname and all Atlassian checks.
-
+* fah-stats, hostname and all Atlassian checks
 
 
 ## 2021061501 - 2021-06-15
 
 ### Added
 
-Features:
-
-* 50% of the checks are ported to Python 3 (suffixed by `3`), 17 checks of those available on Windows (compiled with Nuitka and suffixed by `.zip`).
-* The human-readable units of measurement in the output of the checks are more precise, for example:
-
-    * Bytes: "MiB" always means "Mebibyte" = 1024 Kibibytes.
-    * Counters: The SI symbol "G" means "Billion" in "US, Canada and modern British", and "Milliard" in "Traditional European (long scale)".
-    * Date and Time: "M" means "Month" while "m" means "Minute".
-    * See [README for further details](https://github.com/Linuxfabrik/monitoring-plugins).
-
-* We are using more and more Prometheus-compatible Performance Data Names (first checks doing this are fs-xfs-stats and nginx-status).
-* All README's have been revised, standardized and converted into RST format (reStructuredText). They are also available on https://docs.linuxfabrik.ch > Monitoring-Plugins.
-* Icons have been updated (useful for Icingaweb and other).
-
 Monitoring Plugins:
 
-* Apache mod_qos
-* Docker Info and Statistics
-* Filesystem XFS Statistics
-* HAProxy Status
-* LibreNMS Alerts and Version
-* Logfiles (although we prefer using Graylog)
-* Metabase Statistics
-* mydumper Version
-* Nginx Status
-* OnlyOffice Statistics
-* Path read/write test
-* PHP Status and Version
-* PHP-FPM Status and Availability
-* pip for pending updates
-* SNMP (although we prefer using LibreNMS)
-* WildFly Deployment Status, Garbage Collector Status, Memory and Memory Pool Usage, Server Status, Thread Usage, Uptime, XA and Non-XA Datasource Statistics
-
+* half of the checks are ported to Python 3 (suffixed by `3`), 17 of them are available on Windows
+* new checks: docker-info, docker-stats, fs-xfs-stats, haproxy-status, librenms-alerts, librenms-version, logfile, metabase-stats, mod-qos-stats, mydumper-version, nginx-status, onlyoffice-stats, path-rw-test, php-fpm-ping, php-fpm-status, php-status, php-version, pip-updates, snmp, and the wildfly-\* family (deployment status, garbage collector status, memory and memory pool usage, server status, thread usage, uptime, XA and non-XA datasource statistics)
+* the human-readable units in the output are more precise: "MiB" always means Mebibyte, "M" means Month while "m" means Minute, and the SI symbol "G" means Billion
+* the performance data names move towards Prometheus compatibility, starting with fs-xfs-stats and nginx-status
 
 ### Changed
 
 Monitoring Plugins:
 
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Automatically determines the maximum possible disk throughput.
-* file-\*: Deal directly with SMB/CIFS shares.
-* ipmi-\*: Can now connect remotely to Supermicro's IPMI, HPE iLo and DELL iDRAC.
-
-
-### Changed
-
-Monitoring Plugins:
-
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): add detection of Django ([#196](https://github.com/Linuxfabrik/monitoring-plugins/issues/196)), LibreNMS ([#195](https://github.com/Linuxfabrik/monitoring-plugins/issues/195)), mydumper ([#202](https://github.com/Linuxfabrik/monitoring-plugins/issues/202)), Nikto ([#197](https://github.com/Linuxfabrik/monitoring-plugins/issues/197)), OpenSSL-version ([#164](https://github.com/Linuxfabrik/monitoring-plugins/issues/164)), OpenVAS ([#194](https://github.com/Linuxfabrik/monitoring-plugins/issues/194)), tmate ([#175](https://github.com/Linuxfabrik/monitoring-plugins/issues/175)) and more software ([#171](https://github.com/Linuxfabrik/monitoring-plugins/issues/171))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): extend PHP version checking ([#136](https://github.com/Linuxfabrik/monitoring-plugins/issues/136)), improve version checking ([#172](https://github.com/Linuxfabrik/monitoring-plugins/issues/172))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): ignore zram devices ([#227](https://github.com/Linuxfabrik/monitoring-plugins/issues/227))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): report CentOS version in perfdata ([#137](https://github.com/Linuxfabrik/monitoring-plugins/issues/137))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): show "Local IP Address/Subnet" and "Public IP Address" ([#256](https://github.com/Linuxfabrik/monitoring-plugins/issues/256))
-* all plugins: add Python 3 versions for dmesg ([#239](https://github.com/Linuxfabrik/monitoring-plugins/issues/239)), dns ([#229](https://github.com/Linuxfabrik/monitoring-plugins/issues/229)), file-descriptors ([#230](https://github.com/Linuxfabrik/monitoring-plugins/issues/230)), file-ownership ([#232](https://github.com/Linuxfabrik/monitoring-plugins/issues/232)), fs-inodes ([#274](https://github.com/Linuxfabrik/monitoring-plugins/issues/274)), fs-ro ([#236](https://github.com/Linuxfabrik/monitoring-plugins/issues/236)), getent ([#237](https://github.com/Linuxfabrik/monitoring-plugins/issues/237)), load ([#240](https://github.com/Linuxfabrik/monitoring-plugins/issues/240)), rpm-lastactivity ([#241](https://github.com/Linuxfabrik/monitoring-plugins/issues/241)), selinux-mode ([#275](https://github.com/Linuxfabrik/monitoring-plugins/issues/275)), swap-usage ([#242](https://github.com/Linuxfabrik/monitoring-plugins/issues/242)), systemd-unit ([#243](https://github.com/Linuxfabrik/monitoring-plugins/issues/243)), systemd-units-failed ([#244](https://github.com/Linuxfabrik/monitoring-plugins/issues/244)), top3-processes-which-caused-the-most-io ([#273](https://github.com/Linuxfabrik/monitoring-plugins/issues/273))
-* all plugins: implement the `*_or_none` arguments ([#116](https://github.com/Linuxfabrik/monitoring-plugins/issues/116))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): clean up code ([#200](https://github.com/Linuxfabrik/monitoring-plugins/issues/200))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): make "total accesses" human-readable ([#219](https://github.com/Linuxfabrik/monitoring-plugins/issues/219))
-* [axenita-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/axenita-stats/): add version number to perfdata ([#184](https://github.com/Linuxfabrik/monitoring-plugins/issues/184))
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): migrate top3-processes-which-consumed-the-most-cpu-time into cpu-usage ([#248](https://github.com/Linuxfabrik/monitoring-plugins/issues/248))
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): state in the README the different values' units ([#209](https://github.com/Linuxfabrik/monitoring-plugins/issues/209))
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): "State" belongs only to overusage of "RWx", remove separate column ([#279](https://github.com/Linuxfabrik/monitoring-plugins/issues/279))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): print "* sdc (model, ser) [CRIT]" instead of "* [CRIT] sdc (model, ser)" ([#214](https://github.com/Linuxfabrik/monitoring-plugins/issues/214))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): add messages to ignore list ([#192](https://github.com/Linuxfabrik/monitoring-plugins/issues/192), [#216](https://github.com/Linuxfabrik/monitoring-plugins/issues/216), [#270](https://github.com/Linuxfabrik/monitoring-plugins/issues/270))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): add severity parameter ([#115](https://github.com/Linuxfabrik/monitoring-plugins/issues/115))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): reduce the output to a maximum of ten lines ([#254](https://github.com/Linuxfabrik/monitoring-plugins/issues/254))
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): use `--ctime` instead of `--reltime` ([#238](https://github.com/Linuxfabrik/monitoring-plugins/issues/238))
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): change behaviour, do not fetch feed items from the future ([#95](https://github.com/Linuxfabrik/monitoring-plugins/issues/95), [#208](https://github.com/Linuxfabrik/monitoring-plugins/issues/208))
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): in Atom feed, try "content" field when summary is not available ([#207](https://github.com/Linuxfabrik/monitoring-plugins/issues/207))
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): strip HTML from content ([#206](https://github.com/Linuxfabrik/monitoring-plugins/issues/206))
-* [file-descriptors](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-descriptors/): migrate top3-processes-opening-more-file-descriptors into file-descriptors ([#247](https://github.com/Linuxfabrik/monitoring-plugins/issues/247))
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): add files according to CIS CentOS standard ([#233](https://github.com/Linuxfabrik/monitoring-plugins/issues/233))
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): make the `--filename` parameter repeatable ([#6](https://github.com/Linuxfabrik/monitoring-plugins/issues/6))
-* [file-ownership](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/): print file, owner and group as table ([#231](https://github.com/Linuxfabrik/monitoring-plugins/issues/231))
-* fortios-\*: add the ability to specify a port ([#186](https://github.com/Linuxfabrik/monitoring-plugins/issues/186))
-* fortios-\*: HTTP-encode the password/access_token ([#187](https://github.com/Linuxfabrik/monitoring-plugins/issues/187))
-* [fs-ro](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/): make `--ignore` parameter repeatable ([#235](https://github.com/Linuxfabrik/monitoring-plugins/issues/235))
-* [ipmi-sel](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sel/): make it usable against targets over the network ([#169](https://github.com/Linuxfabrik/monitoring-plugins/issues/169))
-* ipmi-sensors: make it usable against targets over the network ([#168](https://github.com/Linuxfabrik/monitoring-plugins/issues/168))
-* [kemp-services](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kemp-services/): add port option ([#189](https://github.com/Linuxfabrik/monitoring-plugins/issues/189))
-* [memory-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/): migrate top3-processes into memory-usage ([#246](https://github.com/Linuxfabrik/monitoring-plugins/issues/246))
-* [memory-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/): unify v2 and v3 ([#245](https://github.com/Linuxfabrik/monitoring-plugins/issues/245))
-* [network-connections](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-connections/): unify v2 and v3 ([#250](https://github.com/Linuxfabrik/monitoring-plugins/issues/250))
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): get apache user from owner of config/config.php ([#225](https://github.com/Linuxfabrik/monitoring-plugins/issues/225))
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): review handling of Enterprise Channel ([#142](https://github.com/Linuxfabrik/monitoring-plugins/issues/142))
-* [nginx-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-status/): make perfdata compatible to Prometheus ([#271](https://github.com/Linuxfabrik/monitoring-plugins/issues/271))
-* [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/): rename col "ContLen" to "POST" ([#211](https://github.com/Linuxfabrik/monitoring-plugins/issues/211))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): improve config and module error messages ([#267](https://github.com/Linuxfabrik/monitoring-plugins/issues/267))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): remove "shmop" and "zip" from default module list ([#215](https://github.com/Linuxfabrik/monitoring-plugins/issues/215), [#266](https://github.com/Linuxfabrik/monitoring-plugins/issues/266))
-* [pip-updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/): change "No venv." to "Not running in a venv." ([#268](https://github.com/Linuxfabrik/monitoring-plugins/issues/268))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): always return perfdata for process memory usage ([#264](https://github.com/Linuxfabrik/monitoring-plugins/issues/264))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): improve output ([#255](https://github.com/Linuxfabrik/monitoring-plugins/issues/255))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): make filter for username, procname and arguments case-insensitive ([#261](https://github.com/Linuxfabrik/monitoring-plugins/issues/261))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): show used filter in output ([#263](https://github.com/Linuxfabrik/monitoring-plugins/issues/263))
-* [wildfly-gc-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-gc-status/): collection-time and -count in perfdata are continuous counters ([#185](https://github.com/Linuxfabrik/monitoring-plugins/issues/185))
-* [wildfly-memory-pool-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-memory-pool-usage/): refactor code to better distinguish between heap and non-heap ([#183](https://github.com/Linuxfabrik/monitoring-plugins/issues/183))
-
+* about-me: detects Django, LibreNMS, mydumper, Nikto, OpenSSL, OpenVAS, tmate and more, reports the local and public IP address, and ignores zram devices ([#227](https://github.com/Linuxfabrik/monitoring-plugins/issues/227), [#256](https://github.com/Linuxfabrik/monitoring-plugins/issues/256))
+* cpu-usage, file-descriptors, memory-usage: the three "Top 3" checks are merged into them ([#246](https://github.com/Linuxfabrik/monitoring-plugins/issues/246), [#247](https://github.com/Linuxfabrik/monitoring-plugins/issues/247), [#248](https://github.com/Linuxfabrik/monitoring-plugins/issues/248))
+* disk-io: determines the maximum possible disk throughput automatically, and the separate "State" column is gone ([#279](https://github.com/Linuxfabrik/monitoring-plugins/issues/279))
+* dmesg: uses `--ctime` instead of `--reltime`, caps the output at ten lines, and gained a severity parameter ([#115](https://github.com/Linuxfabrik/monitoring-plugins/issues/115), [#238](https://github.com/Linuxfabrik/monitoring-plugins/issues/238), [#254](https://github.com/Linuxfabrik/monitoring-plugins/issues/254))
+* feed: no longer fetches items dated in the future, strips HTML from the content, and falls back to the "content" field of an Atom feed ([#95](https://github.com/Linuxfabrik/monitoring-plugins/issues/95), [#206](https://github.com/Linuxfabrik/monitoring-plugins/issues/206), [#207](https://github.com/Linuxfabrik/monitoring-plugins/issues/207))
+* file-\*: deal directly with SMB/CIFS shares
+* file-ownership: prints a table, and the default list follows the CIS CentOS standard ([#231](https://github.com/Linuxfabrik/monitoring-plugins/issues/231), [#233](https://github.com/Linuxfabrik/monitoring-plugins/issues/233))
+* fortios-\*: the port can be specified, and the password is HTTP-encoded ([#186](https://github.com/Linuxfabrik/monitoring-plugins/issues/186), [#187](https://github.com/Linuxfabrik/monitoring-plugins/issues/187))
+* ipmi-\*: can connect remotely to Supermicro IPMI, HPE iLO and DELL iDRAC ([#168](https://github.com/Linuxfabrik/monitoring-plugins/issues/168), [#169](https://github.com/Linuxfabrik/monitoring-plugins/issues/169))
+* nextcloud-version: takes the Apache user from the owner of config/config.php, and handles the Enterprise channel ([#142](https://github.com/Linuxfabrik/monitoring-plugins/issues/142), [#225](https://github.com/Linuxfabrik/monitoring-plugins/issues/225))
+* procs: the filters for username, process name and arguments are case-insensitive, the used filter is shown, and memory usage is always in the perfdata ([#261](https://github.com/Linuxfabrik/monitoring-plugins/issues/261), [#263](https://github.com/Linuxfabrik/monitoring-plugins/issues/263), [#264](https://github.com/Linuxfabrik/monitoring-plugins/issues/264))
+* wildfly-gc-status: collection time and count are reported as continuous counters ([#185](https://github.com/Linuxfabrik/monitoring-plugins/issues/185))
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): disk sizes are not shown on CentOS ([#259](https://github.com/Linuxfabrik/monitoring-plugins/issues/259))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): struggles about html pages served via HTTP, containing "::" ([#199](https://github.com/Linuxfabrik/monitoring-plugins/issues/199))
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): if RW5 is < 0, set it to 0 ([#265](https://github.com/Linuxfabrik/monitoring-plugins/issues/265))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): ignore zram devices ([#221](https://github.com/Linuxfabrik/monitoring-plugins/issues/221))
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): SyntaxError: invalid syntax, line 890 ([#220](https://github.com/Linuxfabrik/monitoring-plugins/issues/220))
-* [docker-info](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-info/): Byte-UOM must be "B", not "b" ([#180](https://github.com/Linuxfabrik/monitoring-plugins/issues/180))
-* [docker-info](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-info/): perfdata "ram" must be in "bytes" ([#179](https://github.com/Linuxfabrik/monitoring-plugins/issues/179))
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): Byte-UOM must be "B", not "b" ([#181](https://github.com/Linuxfabrik/monitoring-plugins/issues/181))
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): I/O values not usable ([#277](https://github.com/Linuxfabrik/monitoring-plugins/issues/277))
-* [docker-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/): remove "host_mem_usage", because counting is wrong ([#276](https://github.com/Linuxfabrik/monitoring-plugins/issues/276))
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): sometimes runs into 10s Plugin Timeout in Icinga and gets killed with UNKNOWN ([#83](https://github.com/Linuxfabrik/monitoring-plugins/issues/83))
-* haproxy-stats3: TypeError: a bytes-like object is required, not "str" ([#278](https://github.com/Linuxfabrik/monitoring-plugins/issues/278))
-* [librenms-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-version/): KeyError: "local_branch" ([#204](https://github.com/Linuxfabrik/monitoring-plugins/issues/204))
-* [nextcloud-stats](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/): num_users counts every user who ever existed ([#224](https://github.com/Linuxfabrik/monitoring-plugins/issues/224))
-* [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/): request duration is in us, not ms ([#210](https://github.com/Linuxfabrik/monitoring-plugins/issues/210))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): check status is printed without leading space ([#257](https://github.com/Linuxfabrik/monitoring-plugins/issues/257))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): don't set WARN threshold for Hit Rate in Perfdata ([#251](https://github.com/Linuxfabrik/monitoring-plugins/issues/251))
-* [php-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-status/): opcache_hit_rate - WARN and CRIT are swapped ([#226](https://github.com/Linuxfabrik/monitoring-plugins/issues/226))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): checking processes on CPU usage is wrong ([#260](https://github.com/Linuxfabrik/monitoring-plugins/issues/260))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): several unknowns and tracebacks ([#162](https://github.com/Linuxfabrik/monitoring-plugins/issues/162), [#166](https://github.com/Linuxfabrik/monitoring-plugins/issues/166))
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): "utf-8" codec can't decode byte 0x81 on Windows ([#201](https://github.com/Linuxfabrik/monitoring-plugins/issues/201))
-
+* about-me: disk sizes show up on CentOS ([#259](https://github.com/Linuxfabrik/monitoring-plugins/issues/259))
+* apache-httpd-status: copes with HTML pages containing "::" ([#199](https://github.com/Linuxfabrik/monitoring-plugins/issues/199))
+* disk-io: a negative RW5 is clamped to 0 ([#265](https://github.com/Linuxfabrik/monitoring-plugins/issues/265))
+* disk-smart: ignores zram devices, and no longer aborts with a SyntaxError ([#220](https://github.com/Linuxfabrik/monitoring-plugins/issues/220), [#221](https://github.com/Linuxfabrik/monitoring-plugins/issues/221))
+* feed: no longer runs into the 10s plugin timeout ([#83](https://github.com/Linuxfabrik/monitoring-plugins/issues/83))
+* nextcloud-stats: num_users no longer counts every user who ever existed ([#224](https://github.com/Linuxfabrik/monitoring-plugins/issues/224))
+* procs: checking processes by CPU usage is correct, and several tracebacks are gone ([#162](https://github.com/Linuxfabrik/monitoring-plugins/issues/162), [#166](https://github.com/Linuxfabrik/monitoring-plugins/issues/166), [#260](https://github.com/Linuxfabrik/monitoring-plugins/issues/260))
+* users: no longer aborts on a decoding error on Windows ([#201](https://github.com/Linuxfabrik/monitoring-plugins/issues/201))
 
 ### Removed
 
 Monitoring Plugins:
 
-* fs-file-usage: replaced by file-descriptors ([#234](https://github.com/Linuxfabrik/monitoring-plugins/issues/234))
-* Three of the four "Top 3" checks are merged into cpu-usage, file-descriptors and memory-usage.
-
+* fs-file-usage, replaced by file-descriptors ([#234](https://github.com/Linuxfabrik/monitoring-plugins/issues/234))
+* three of the four "Top 3" checks, merged into cpu-usage, file-descriptors and memory-usage
 
 
 ## 2021021701 - 2021-02-17
@@ -2399,36 +1292,32 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* virtualenv is not activated if the plugin is called using an absolute path / from a different directory ([#154](https://github.com/Linuxfabrik/monitoring-plugins/issues/154))
-
+* the virtualenv is activated even when a plugin is called by an absolute path ([#154](https://github.com/Linuxfabrik/monitoring-plugins/issues/154))
 
 
 ## 2021021601 - 2021-02-16
 
 ### Added
 
-Features:
+Monitoring Plugins:
 
-* Added support for using a virtual environment (see README)
-
+* support for running the plugins in a virtual environment
 
 ### Changed
 
 Monitoring Plugins:
 
-* file-age, file-count & file-size: Now support SMB.
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): Added missing perfdata for Windows.
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): throw UNKNOWN if update server is not available ([#147](https://github.com/Linuxfabrik/monitoring-plugins/issues/147))
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): increase timeout for fetching the update server ([#148](https://github.com/Linuxfabrik/monitoring-plugins/issues/148))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): added thresholds for cpu & memory
+* file-age, file-count, file-size: support SMB
+* nextcloud-version: returns UNKNOWN when the update server is unavailable, with a longer timeout ([#147](https://github.com/Linuxfabrik/monitoring-plugins/issues/147), [#148](https://github.com/Linuxfabrik/monitoring-plugins/issues/148))
+* procs: thresholds for CPU and memory
+* users: the missing perfdata on Windows
 
 ### Fixed
 
 Monitoring Plugins:
 
-* json: renamed to json-values due to collision with the official json library.
-* pip-version: fixed mixup in the output message.
-
+* json: renamed to json-values, it collided with the official json library
+* pip-version: the output message is no longer mixed up
 
 
 ## 2020122401 - 2020-12-24
@@ -2437,40 +1326,20 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* cpu-usage (for Windows)
-* disk-usage (for Windows)
-* dummy
-* dummy (for Windows)
-* file-age (for Windows)
-* file-count
-* file-count (for Windows)
-* file-size (for Windows)
-* json
-* json (for Windows)
-* memory-usage (for Windows)
-* network-connections (for Windows)
-* procs (for Windows)
-* scheduled-task (for Windows)
-* service (for Windows)
-* updates (for Windows)
-* uptime (for Windows)
-* users (for Windows)
-
+* new checks: dummy, file-count, json
+* Windows builds for cpu-usage, disk-usage, dummy, file-age, file-count, file-size, json, memory-usage, network-connections, procs, scheduled-task, service, updates, uptime and users
 
 ### Changed
 
 Monitoring Plugins:
 
-* [file-age](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/): Now support globbing for selecting multiple files.
-* [file-size](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/): Now support globbing for selecting multiple files.
-* [updates](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/updates/): Added the --always-ok parameter.
-
+* file-age, file-size: support globbing to select several files
 
 ### Fixed
 
-* [users](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/): Fixed the counting of user under Windows (it also includes disconnected users now)
+Monitoring Plugins:
 
-
+* users: the count on Windows includes disconnected users
 
 
 ## 2020112001 - 2020-11-20
@@ -2479,8 +1348,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): added more states
-
+* systemd-unit: knows more states
 
 
 ## 2020111901 - 2020-11-19
@@ -2489,93 +1357,63 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* ntp-offset: error on server without ntp ([#138](https://github.com/Linuxfabrik/monitoring-plugins/issues/138))
-
+* ntp-offset: no longer errors on a server without NTP ([#138](https://github.com/Linuxfabrik/monitoring-plugins/issues/138))
 
 
 ## 2020111801 - 2020-11-18
 
 ### Added
 
-Features:
+Assets:
 
-* Added sudoers for Debian 9 and 10
-
+* sudoers for Debian 9 and 10
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [dns](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/): traceback ([#132](https://github.com/Linuxfabrik/monitoring-plugins/issues/132))
-* disk-usage3: traceback ([#133](https://github.com/Linuxfabrik/monitoring-plugins/issues/133))
-* ntp-offset: Wrong logic ([#134](https://github.com/Linuxfabrik/monitoring-plugins/issues/134))
-
+* disk-usage, dns: no longer abort with a traceback ([#132](https://github.com/Linuxfabrik/monitoring-plugins/issues/132), [#133](https://github.com/Linuxfabrik/monitoring-plugins/issues/133))
+* ntp-offset: corrected logic ([#134](https://github.com/Linuxfabrik/monitoring-plugins/issues/134))
 
 
 ## 2020102301 - 2020-10-23
 
 ### Breaking Changes
 
-* This update restructures our GitLab repository and adds the first Windows-compatible python3 check plugins.
-
+* the repository is restructured, and the first Windows-compatible Python 3 check plugins arrive
 
 ### Added
 
-Features:
-
-* We added a new utility to help generate Grafana Dashboards: grafana-tool. Check out the documentation for more infomation.
-
 Monitoring Plugins:
 
-* atlassian-confluence-version
-* atlassian-jira-version
-* cpu-usage (for Windows)
-* disk-usage (for Windows)
-* file-age (for Windows)
-* file-size (for Windows)
-* keycloak-version
-* memory-usage (for Windows)
-* network-connections (for Windows)
-* pip-version
-* procs (for Windows)
-* qts-cpu-usage
-* qts-disk-smart
-* qts-memory-usage
-* qts-temperatures
-* qts-uptime
-* qts-version
-* scheduled-task (for Windows)
-* service (for Windows)
-* updates (for Windows)
-* uptime (for Windows)
-* users (for Windows)
-* wordpress-version
+* new checks: atlassian-confluence-version, atlassian-jira-version, keycloak-version, pip-version, wordpress-version, and the qts-\* family (cpu-usage, disk-smart, memory-usage, temperatures, uptime, version)
+* Windows builds for cpu-usage, disk-usage, file-age, file-size, memory-usage, network-connections, procs, scheduled-task, service, updates, uptime and users
 
+Tools:
+
+* grafana-tool, a utility to generate Grafana dashboards
 
 ### Changed
 
-Features:
-
-* We unified all the sudoers into one file (for each OS), in the assets/sudoers folder.
-
 Monitoring Plugins:
 
-* [borgbackup](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/borgbackup/): changed the expected string in the logfile from rc to retc.
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): removed --no-icinga-callback, added --icinga-callback.
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): new --argument parameter.
+* borgbackup: the expected string in the logfile changes from rc to retc
+* feed: `--no-icinga-callback` is replaced by `--icinga-callback`
 
+Assets:
+
+* the sudoers are unified into one file per OS, in the assets/sudoers folder
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [feed](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/): python traceback ([#107](https://github.com/Linuxfabrik/monitoring-plugins/issues/107))
-* [memory-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-usage/): Print top3 memory consuming processes in case of WARN/CRIT ([#108](https://github.com/Linuxfabrik/monitoring-plugins/issues/108))
-* ntp-offset: add systemd-timesyncd ([#90](https://github.com/Linuxfabrik/monitoring-plugins/issues/90))
-* [openvpn-client-list](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openvpn-client-list/): output as table ([#19](https://github.com/Linuxfabrik/monitoring-plugins/issues/19))
-* [qts-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-version/): "None" after update ([#112](https://github.com/Linuxfabrik/monitoring-plugins/issues/112))
-* [xca-cert](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/xca-cert/): Print a list of all checked certs with "commonName, CA (y/n), Serial, Expiry date" starting at the second line ([#65](https://github.com/Linuxfabrik/monitoring-plugins/issues/65))
-
+* feed: no longer aborts with a traceback ([#107](https://github.com/Linuxfabrik/monitoring-plugins/issues/107))
+* memory-usage: prints the top 3 memory consuming processes on WARN and CRIT ([#108](https://github.com/Linuxfabrik/monitoring-plugins/issues/108))
+* ntp-offset: supports systemd-timesyncd ([#90](https://github.com/Linuxfabrik/monitoring-plugins/issues/90))
+* openvpn-client-list: the output is a table ([#19](https://github.com/Linuxfabrik/monitoring-plugins/issues/19))
+* qts-version: no longer reports "None" after an update ([#112](https://github.com/Linuxfabrik/monitoring-plugins/issues/112))
+* xca-cert: lists all checked certificates with common name, CA, serial and expiry date ([#65](https://github.com/Linuxfabrik/monitoring-plugins/issues/65))
 
 
 ## 2020061901 - 2020-06-19
@@ -2586,20 +1424,11 @@ Monitoring Plugins:
 
 * network-bonding
 
-
-### Changed
-
-Monitoring Plugins:
-
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): new username parameter
-
-
 ### Fixed
 
 Monitoring Plugins:
 
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): AttributeError: NoneType object has no attribute group ([#105](https://github.com/Linuxfabrik/monitoring-plugins/issues/105))
-
+* nextcloud-version: no longer aborts with an AttributeError ([#105](https://github.com/Linuxfabrik/monitoring-plugins/issues/105))
 
 
 ## 2020052801 - 2020-05-28
@@ -2608,97 +1437,60 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* fortios-cpu-usage
-* fortios-firewall-stats
-* fortios-ha-stats
-* fortios-memory-usage
-* fortios-network-io
-* fortios-sensor
-* fortios-version
-* fs-ro
-* kemp-services
-* matomo-reporting
-* matomo-version
-* sensors-battery
-* sensors-fans
-* sensors-temperatures
-* systemd-units-failed
-
+* new checks: fs-ro, kemp-services, matomo-reporting, matomo-version, sensors-battery, sensors-fans, sensors-temperatures, systemd-units-failed, and the fortios-\* family (cpu-usage, firewall-stats, ha-stats, memory-usage, network-io, sensor, version)
 
 ### Changed
 
-Features:
+Monitoring Plugins:
 
-* Most of the checks now also run on Ubuntu Server 16+.
-* On stack traces, any token and password URL request parameters are now printed with asterisks.
-* All checks calling shell commands force english output even if system locale is different.
-
+* most of the checks also run on Ubuntu Server 16 and newer
+* any token and password URL parameter is printed with asterisks on a stack trace
+* all checks calling shell commands force English output even when the system locale differs
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [disk-smart](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-smart/): Traceback if not running on hardware ([#82](https://github.com/Linuxfabrik/monitoring-plugins/issues/82))
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Counts n loop Devices on Ubuntu 20 ([#87](https://github.com/Linuxfabrik/monitoring-plugins/issues/87))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): ignore snap Devices ([#88](https://github.com/Linuxfabrik/monitoring-plugins/issues/88))
-* [mailq](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq/): Test with Exim ([#93](https://github.com/Linuxfabrik/monitoring-plugins/issues/93))
-* [procs](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/): total proc count in perfdata is always 0 ([#96](https://github.com/Linuxfabrik/monitoring-plugins/issues/96))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): Traceback on Ubuntu 16 ([#97](https://github.com/Linuxfabrik/monitoring-plugins/issues/97))
-* [disk-io](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-io/): Traceback on Ubuntu 16 ([#98](https://github.com/Linuxfabrik/monitoring-plugins/issues/98))
-* [nextcloud-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-version/): Don't throw UNKNOWN if update server is not available, because it doesn't help at all ([#99](https://github.com/Linuxfabrik/monitoring-plugins/issues/99))
-* [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/): ignore iso9660 devices ([#100](https://github.com/Linuxfabrik/monitoring-plugins/issues/100))
-* [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/): Report if server-info is malformed due to any reason ([#101](https://github.com/Linuxfabrik/monitoring-plugins/issues/101))
-* sensors-temperature: Ignore psutil's IOError ([#102](https://github.com/Linuxfabrik/monitoring-plugins/issues/102))
-
+* apache-httpd-status: no longer aborts on Ubuntu 16, and reports a malformed server-info ([#97](https://github.com/Linuxfabrik/monitoring-plugins/issues/97), [#101](https://github.com/Linuxfabrik/monitoring-plugins/issues/101))
+* disk-io: no longer counts loop devices on Ubuntu 20, and no longer aborts on Ubuntu 16 ([#87](https://github.com/Linuxfabrik/monitoring-plugins/issues/87), [#98](https://github.com/Linuxfabrik/monitoring-plugins/issues/98))
+* disk-smart: no longer aborts when not running on hardware ([#82](https://github.com/Linuxfabrik/monitoring-plugins/issues/82))
+* disk-usage: ignores snap and iso9660 devices ([#88](https://github.com/Linuxfabrik/monitoring-plugins/issues/88), [#100](https://github.com/Linuxfabrik/monitoring-plugins/issues/100))
+* mailq: works with Exim ([#93](https://github.com/Linuxfabrik/monitoring-plugins/issues/93))
+* nextcloud-version: no longer returns UNKNOWN when the update server is unavailable ([#99](https://github.com/Linuxfabrik/monitoring-plugins/issues/99))
+* procs: the total process count in the perfdata is no longer always 0 ([#96](https://github.com/Linuxfabrik/monitoring-plugins/issues/96))
 
 
 ## 2020042001 - 2020-04-20
 
 ### Added
 
-Features:
-
-* Most of the checks now also run on Ubuntu (tested on Ubuntu Server 20 Beta).
-
 Monitoring Plugins:
 
-* dns
-* fah-stats
-
+* new checks: dns, fah-stats
+* most of the checks also run on Ubuntu
 
 ### Fixed
 
 Monitoring Plugins:
 
-* [nextcloud-security-scan](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-security-scan/): missing urllib ([#91](https://github.com/Linuxfabrik/monitoring-plugins/issues/91))
-* [about-me](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/): doesn't report details about NVMe disks ([#89](https://github.com/Linuxfabrik/monitoring-plugins/issues/89))
-* [ping](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/): no duplicate Output; maybe switch to regex ([#84](https://github.com/Linuxfabrik/monitoring-plugins/issues/84))
-
+* about-me: reports the details of NVMe disks ([#89](https://github.com/Linuxfabrik/monitoring-plugins/issues/89))
+* nextcloud-security-scan: no longer aborts on a missing urllib ([#91](https://github.com/Linuxfabrik/monitoring-plugins/issues/91))
+* ping: no duplicate output ([#84](https://github.com/Linuxfabrik/monitoring-plugins/issues/84))
 
 
 ## 2020041501 - 2020-04-15
 
 ### Added
 
-Features:
-
-* We refactored the whole library stack and adapted all checks to the new library standards.
-* We started using docstrings for better documentation of libraries and plugins. Now its possible to use for example `pydoc cache` to get a description of the cache.py library.
-
 Monitoring Plugins:
 
-* getent
-* nextcloud-version
-* ping
-* rocket.chat-version
-
+* new checks: getent, nextcloud-version, ping, rocket.chat-version
 
 ### Removed
 
 Monitoring Plugins:
 
-* docker-info, docker-container, network-io, redis, xca-cert for now. We will rewrite them from scratch soon.
-
+* docker-info, docker-container, network-io, redis and xca-cert, to be rewritten from scratch
 
 
 ## 2020031201 - 2020-03-12
@@ -2713,10 +1505,9 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* [cpu-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/): Adjusted to changes in psutil
-* [dmesg](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/): expanded the ignore list
-* [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit/): improved output
-
+* cpu-usage: adjusted to changes in psutil
+* dmesg: a longer ignore list
+* systemd-unit: improved output
 
 
 ## 2020022801 - 2020-02-28

@@ -65,13 +65,18 @@ If there is a related issue, append `(fix #N)`:
 
 Document all changes in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sort entries within sections alphabetically.
 
-The audience is a Linux system engineer with 30 seconds to decide whether an update is worth it. Write for that reader:
+The audience is a Linux system engineer with 30 seconds to decide whether an update is worth it. That reader needs four answers: which plugins are new, what behaves differently or is no longer evaluated, what is gone, and which bugs and security holes are closed. Write for that reader:
 
-* **Lead with highlights.** Begin every release section with three to five sentences of running text, directly below the version heading and above the first `###` section. Cover what drives the update decision, including any manual step it requires. No bullet list, no issue links, no repetition of the individual entries. A release with only a handful of entries does not need one, since the entries themselves already fit on a screen.
-* **State the change before its scope.** Up to five affected components keep the `component: what changed` form. From six on, put the statement first and close it with either a collective name (`all *-version checks`) or the components in parentheses, so the entry is understood from its first line. These broad entries come first in their subsection, ahead of the alphabetically sorted per-component entries.
-* **One sentence per entry.** `Added`, `Changed` and `Fixed` say what an administrator notices. Root cause, reproduction steps and internal reasoning belong in the commit body and the issue.
+* **What goes where.** `Breaking Changes` covers everything that requires manual work after the update. `Added` covers new plugins and new tools, nothing else. `Changed` covers changed behaviour, including a parameter that now produces a different result, is deprecated, or is no longer evaluated. `Removed` covers dropped plugins, parameters, service sets and metrics. `Fixed` covers bugs, `Security` covers closed holes with their GHSA link.
+* **What stays out.** New parameters and options on existing plugins, help text, README and `DESCRIPTION` wording, Grafana dashboards and Director service sets that ship with a new plugin, lockfile and pin bumps, Dependabot and pre-commit configuration, GitHub Actions bumps, test infrastructure and refactorings without a visible effect. An administrator looks a parameter up in the plugin's README when a concrete use case calls for it.
+* **Relevance test.** Before writing an entry, answer what it changes for an administrator running the plugins on Icinga, Nagios or Shinken, and whether it makes the update worth doing. No answer, no entry. Two entries that fail the test: "installer: a source install no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts" and "cloudflare-security-level: no longer requires the `requests` Python module". Dependency, import and packaging internals stay out until an installation visibly succeeds or fails because of them. `Tools:` and `Build, CI/CD:` are almost always a single line or none at all; bundle several tool changes into one entry.
+* **Nothing under `Changed`, `Fixed` or `Breaking Changes` for a plugin that the same section lists under `Added`.** Nobody has ever seen it in a release, so it has no changed behaviour, no bug and no migration. This also applies to family wildcards: drop the entry when the family consists of new plugins only, and narrow it to the already released ones otherwise (`huawei-dorado-*` instead of `huawei-dorado-*, huawei-pacific-*`). Check which plugins are really new against the last tag instead of trusting the existing section.
+* **Grafana and Icinga Director only when the administrator has to act.** Re-import a dashboard, activate a service set, repair a broken import. A dashboard that comes with a new plugin is not an entry.
+* **Lead with highlights.** Begin every release section with two to four sentences of running text, directly below the version heading and above the first `###` section. Cover what drives the update decision, including any manual step it requires. No bullet list, no issue links, no repetition of the individual entries. A release with only a handful of entries does not need one, since the entries themselves already fit on a screen.
+* **State the change before its scope.** Up to five affected components keep the `component: what changed` form. From six on, put the statement first and close it with a family wildcard (`huawei-dorado-*`, `mysql-*`, `all *-version checks`, `all plugins`) instead of listing every component in parentheses. These broad entries come first in their subsection, ahead of the alphabetically sorted per-component entries.
+* **One entry per component and topic, one sentence each.** Several fixes to the same plugin are bundled into one sentence instead of being listed one by one. `Added`, `Changed` and `Fixed` say what an administrator notices. Root cause, reproduction steps, defaults and internal reasoning belong in the commit body and the issue. Aim for one line of about 120 characters.
+* **No documentation links inside an entry.** Issue, pull request and GHSA references only.
 * **Migration instructions only under `Breaking Changes`.** Wording such as "rename x to y" or "set z to restore the previous behaviour" anywhere else means the entry sits in the wrong section. Entries under `Breaking Changes` may run longer than one sentence.
-* **Leave out contributor-only changes.** Lockfile and pin bumps, Dependabot and pre-commit configuration, GitHub Actions bumps and test infrastructure are covered by the git history and the pull request. Keep an entry only where an administrator sees the effect, for example when it changes the released artifact.
 
 A release section starts like this:
 
@@ -81,18 +86,6 @@ A release section starts like this:
 **Highlights:** Two long-standing sources of false alarms are gone, and container workloads are now covered. Cumulative counters are reported as rates instead of totals, so any dashboard built on them has to be re-imported.
 
 ### Added
-```
-
-The scope rule, on an entry affecting 43 components. Instead of:
-
-```markdown
-* about-me, borgbackup, deb-lastactivity, file-ownership, fs-xfs-stats, getent, ...: `--always-ok` to force an OK result
-```
-
-write:
-
-```markdown
-* `--always-ok` forces an OK result on 43 further components (about-me, borgbackup, deb-lastactivity, ...)
 ```
 
 
