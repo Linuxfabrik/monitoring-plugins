@@ -25,6 +25,9 @@
                 "--no-checksum-data-severity": {
                     "value": "$wordpress_checksums_no_checksum_data_severity$"
                 },
+                "--no-match-severity": {
+                    "value": "$wordpress_checksums_no_match_severity$"
+                },
                 "--no-perfdata": {
                     "set_if": "$wordpress_checksums_no_perfdata$"
                 },
@@ -103,6 +106,11 @@
                     "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -164,6 +172,7 @@
                 "wordpress_checksums_lengthy": true,
                 "wordpress_checksums_match": [],
                 "wordpress_checksums_no_checksum_data_severity": "ok",
+                "wordpress_checksums_no_match_severity": "ok",
                 "wordpress_checksums_no_perfdata": false,
                 "wordpress_checksums_no_proxy": false,
                 "wordpress_checksums_path": "/var/www/html/wordpress",
@@ -207,6 +216,37 @@
             ],
             "uuid": "a607f7a1-3675-4064-90a7-ff4a2ae9b613"
         },
+        "wordpress_checksums_no_match_severity_list": {
+            "list_name": "wordpress_checksums_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "9ae4341e-11a3-435f-83df-f416a9ae408b"
+        },
         "wordpress_checksums_severity_list": {
             "list_name": "wordpress_checksums_severity_list",
             "owner": "icinga-admin",
@@ -236,7 +276,7 @@
     "Datafield": {
         "1": {
             "varname": "wordpress_checksums_always_ok",
-            "caption": "Wordpress Checksums: Always OK?",
+            "caption": "WordPress Checksums: Always OK?",
             "description": "Always returns OK.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
@@ -245,7 +285,7 @@
         },
         "2": {
             "varname": "wordpress_checksums_cache_expire",
-            "caption": "Wordpress Checksums: Cache Expire",
+            "caption": "WordPress Checksums: Cache Expire",
             "description": "The amount of time after which the credential/data cache expires, in minutes. The published checksums of a released version never change, so this is about how often wordpress.org is asked, not about how current the answer is.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -256,7 +296,7 @@
         },
         "3": {
             "varname": "wordpress_checksums_ignore",
-            "caption": "Wordpress Checksums: Ignore",
+            "caption": "WordPress Checksums: Ignore",
             "description": "Skip files whose path matches. Matched against `<component>/<path>`, where the component is `core` or the plugin's slug. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Example: `^my-plugin/` to skip one component. Example: `^core/index\\.php$` to accept an edited file.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
@@ -267,7 +307,7 @@
         },
         "4": {
             "varname": "wordpress_checksums_insecure",
-            "caption": "Wordpress Checksums: Insecure?",
+            "caption": "WordPress Checksums: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
@@ -276,7 +316,7 @@
         },
         "5": {
             "varname": "wordpress_checksums_lengthy",
-            "caption": "Wordpress Checksums: Lengthy?",
+            "caption": "WordPress Checksums: Lengthy?",
             "description": "Extended reporting.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
@@ -285,7 +325,7 @@
         },
         "6": {
             "varname": "wordpress_checksums_match",
-            "caption": "Wordpress Checksums: Match",
+            "caption": "WordPress Checksums: Match",
             "description": "Only report files whose path matches. Matched against `<component>/<path>`, where the component is `core` or the plugin's slug. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
@@ -296,7 +336,7 @@
         },
         "7": {
             "varname": "wordpress_checksums_no_checksum_data_severity",
-            "caption": "Wordpress Checksums: No Checksum Data Severity",
+            "caption": "WordPress Checksums: No Checksum Data Severity",
             "description": "State to report when no published checksums are available for a component and it could not be verified. The check still verifies everything it has checksums for, but a clean result then only covers those components, not the ones it had to skip.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
@@ -308,26 +348,39 @@
             "uuid": "997da366-dc79-43d9-8e89-0e1bad6be47b"
         },
         "8": {
+            "varname": "wordpress_checksums_no_match_severity",
+            "caption": "WordPress Checksums: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "wordpress_checksums_no_match_severity_list"
+            },
+            "uuid": "1f5d7239-2c33-4503-8dac-eb9f8d643606"
+        },
+        "9": {
             "varname": "wordpress_checksums_no_perfdata",
-            "caption": "Wordpress Checksums: No Perfdata?",
+            "caption": "WordPress Checksums: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "33b406a8-1f51-4b03-822d-efb2ad0a4ee2"
         },
-        "9": {
+        "10": {
             "varname": "wordpress_checksums_no_proxy",
-            "caption": "Wordpress Checksums: No Proxy?",
+            "caption": "WordPress Checksums: No Proxy?",
             "description": "Do not use a proxy.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "3dcd8373-3a7a-4b18-b014-f54425eb3105"
         },
-        "10": {
+        "11": {
             "varname": "wordpress_checksums_path",
-            "caption": "Wordpress Checksums: Path",
+            "caption": "WordPress Checksums: Path",
             "description": "Local path to your WordPress installation, typically within your Webserver's Document Root.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
@@ -336,9 +389,9 @@
             },
             "uuid": "c6ee4c1e-a0f5-4542-b319-3974976755b2"
         },
-        "11": {
+        "12": {
             "varname": "wordpress_checksums_severity",
-            "caption": "Wordpress Checksums: Severity",
+            "caption": "WordPress Checksums: Severity",
             "description": "State to report for a file that does not match its published checksum. Raise it to `crit` on an installation nobody hand-patches, where a mismatch can only mean the files were tampered with.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
@@ -349,9 +402,9 @@
             },
             "uuid": "f27e2094-47fa-4cbb-a454-740d4312141e"
         },
-        "12": {
+        "13": {
             "varname": "wordpress_checksums_timeout",
-            "caption": "Wordpress Checksums: Timeout",
+            "caption": "WordPress Checksums: Timeout",
             "description": "Network timeout in seconds.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,

@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080901'
+__version__ = '2026081001'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -41,6 +41,7 @@ DEFAULT_CACHE_EXPIRE = 1440  # minutes
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
 DEFAULT_NO_CHECKSUM_DATA_SEVERITY = 'ok'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_PATH = '/var/www/html/wordpress'
 DEFAULT_SEVERITY = 'warn'
@@ -202,6 +203,14 @@ def parse_args():
         dest='NO_CHECKSUM_DATA_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_CHECKSUM_DATA_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -634,6 +643,9 @@ def main():
 
     # init some vars
     findings = []
+    # How many findings there were before --match and --ignore were applied, so a run whose
+    # filters swallowed every last one can be told apart from an installation that is clean.
+    findings_before_filter = 0
     msg = ''
     perfdata = ''
     state = STATE_OK
@@ -689,18 +701,19 @@ def main():
             root, wanted, present, added_scope, bundled = scope_plugin(
                 args.PATH, component, result['checksums'], core['checksums']
             )
+        unfiltered_findings = compare(
+            component,
+            root,
+            result['checksums'],
+            result['algorithm'],
+            wanted,
+            present,
+            added_scope,
+            bundled,
+        )
         component_findings = [
             item
-            for item in compare(
-                component,
-                root,
-                result['checksums'],
-                result['algorithm'],
-                wanted,
-                present,
-                added_scope,
-                bundled,
-            )
+            for item in unfiltered_findings
             if keep(
                 f'{item["component"]}/{item["path"]}', match_patterns, ignore_patterns
             )
@@ -717,6 +730,9 @@ def main():
             unverified.append(component)
             continue
         files_checked += len(wanted & present)
+        # Counted only for a component that was really held to a list, so a plugin dropped
+        # as unverifiable above does not look like a finding the filters swallowed.
+        findings_before_filter += len(unfiltered_findings)
         findings += component_findings
 
     for item in findings:
@@ -740,33 +756,22 @@ def main():
             state, lib.base.str2state(args.NO_CHECKSUM_DATA_SEVERITY)
         )
 
+    # The filters removed every finding there was. An installation that simply matches its
+    # published checksums is clean, not unchecked, and is reported as such below, so this
+    # only fires when the filters actually swallowed something.
+    if findings_before_filter and not findings:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
     # build the message
     components = len(plugins) + 1
-    if unreachable:
-        # Ahead of the verdict, like the stale notice below and for the same reason: a
-        # component nobody could ask about is neither clean nor dirty, and the number
-        # behind this only covers the ones that were asked about.
-        # The reason comes from a library and does not end in a sentence, so it is given
-        # one; without it the next sentence reads as part of the error message.
-        msg += (
-            f'wordpress.org could not be queried for {len(unreachable)} of {components} '
-            f'{lib.txt.pluralize("component", components)} '
-            f'({", ".join(unreachable)}): {unreachable_reason.rstrip(". ")}. '
-        )
-    if stale:
-        # First, ahead of the verdict, because it qualifies everything behind it. What was
-        # verified is still correct - the digests of a released version never change - but
-        # a component updated since the outage began has no published checksums here yet
-        # and shows up as unverified rather than as verified clean.
-        share = 'all' if len(stale) == components else f'{len(stale)} of'
-        msg += (
-            f'wordpress.org is unreachable, {share} {components} '
-            f'{lib.txt.pluralize("component", components)} verified against cached data '
-            f'up to {lib.human.seconds2human(lib.time.now() - stale_since)} old. '
-        )
-    # The verdict comes before the coverage, so it still fits in the first 80 characters
-    # that a notification or an SMS carries. How much was verified matters once somebody
-    # is reading the whole line; what was found matters before that.
+    # The verdict opens the message, so it still fits in the first 80 characters that a
+    # notification or an SMS carries. Everything that qualifies it - how much was verified,
+    # what could not be asked about, how old the cached data is - follows behind it and on
+    # its own lines, because an admin reads left to right and wants the result first.
     if findings:
         verdict = ', '.join(
             f'{counts["core"][issue] + counts["plugins"][issue]} {issue}'
@@ -778,19 +783,63 @@ def main():
         verdict = 'no checksum violations found'
     else:
         verdict = 'nothing checked'
-    msg += f'WordPress v{version} ({locale}): {verdict}. '
+    msg += f'WordPress v{version} ({locale}): {verdict}.'
     if files_checked:
         msg += (
-            f'{files_checked} {lib.txt.pluralize("file", files_checked)} verified '
+            f' {files_checked} {lib.txt.pluralize("file", files_checked)} verified '
             f'in {components - len(unverified) - len(unreachable)} of {components} '
             f'{lib.txt.pluralize("component", components)}.'
         )
-    if unverified:
+    if unreachable:
+        # The coverage behind the verdict only counts the components that could be asked
+        # about, so the ones that could not are named here. The reason comes from a library
+        # and does not end in a sentence, so it is given one.
         msg += (
-            f'\nNo checksums to verify against: {", ".join(unverified)}.'
-            ' A commercial plugin, one installed from outside the wordpress.org plugin'
-            ' directory, and a release too old to be listed there all end up here.'
+            f'\nwordpress.org could not be queried for {len(unreachable)} of {components} '
+            f'{lib.txt.pluralize("component", components)} '
+            f'({", ".join(unreachable)}): {unreachable_reason.rstrip(". ")}.'
         )
+    if stale:
+        # What was verified is still correct - the digests of a released version never
+        # change - but a component updated since the outage began has no published checksums
+        # here yet and shows up as unverified rather than as verified clean.
+        share = 'all' if len(stale) == components else f'{len(stale)} of'
+        msg += (
+            f'\nwordpress.org is unreachable, {share} {components} '
+            f'{lib.txt.pluralize("component", components)} verified against cached data '
+            f'up to {lib.human.seconds2human(lib.time.now() - stale_since)} old.'
+        )
+    if unverified:
+        # What it means for the result comes before why it happened, and each of the two
+        # causes gets the answer that belongs to it: a plugin from outside the directory is
+        # a permanent property nobody can fix, an unverifiable core is fixed by updating.
+        # Spelled for one and for several, because the list is a single component as often
+        # as not.
+        listed = 'these components' if len(unverified) > 1 else 'this component'
+        pronoun = 'them' if len(unverified) > 1 else 'it'
+        msg += (
+            f'\nNot verified: {", ".join(unverified)}. wordpress.org publishes no '
+            f'checksums for {listed}, so nothing in the result above applies to '
+            f'{pronoun}.'
+        )
+        # A plugin the core bundles is in this list for the core's sake, which the sentence
+        # below explains, so naming it as one from outside the directory would mislead.
+        if any(
+            item != 'core' and slugs.get(item) not in CORE_BUNDLED_PLUGINS
+            for item in unverified
+        ):
+            msg += (
+                ' A plugin ends up here when it is commercial or was installed from'
+                ' outside the wordpress.org plugin directory. Nothing to fix on this'
+                " host; compare it against the vendor's own download where it has to be"
+                ' covered.'
+            )
+        if 'core' in unverified:
+            msg += (
+                ' The core ends up here when its release predates the published'
+                ' checksums, which updating fixes - and with it the plugins WordPress'
+                ' bundles, which cannot be decided without the core list.'
+            )
 
     for label, value in (
         ('core_added', counts['core'][ISSUE_ADDED]),

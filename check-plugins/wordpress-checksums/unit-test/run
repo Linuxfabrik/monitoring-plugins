@@ -63,13 +63,23 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-regex': r'wp-includes/version\.php.*modified.*\[CRITICAL\]',
     },
-    # ... and accepted, which is what an administrator does with a file they patched.
+    # ... and accepted, which is what an administrator does with a file they patched. The
+    # filters swallowed the only finding there was, which is what "Nothing checked." says.
     {
         'id': 'ok-core-file-modified-but-ignored',
         'test': 'stdout/modified,,0',
         'params': f'{SITE} --ignore=^core/wp-includes/version\\.php$',
         'assert-retc': STATE_OK,
-        'assert-in': ['no checksum violations found'],
+        'assert-in': ['Nothing checked.'],
+    },
+    # The same run, but alerting instead of accepting the gap the filters leave.
+    {
+        'id': 'warn-core-file-modified-but-ignored-alerts-on-demand',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE} --ignore=^core/wp-includes/version\\.php$ '
+        '--no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
     },
     {
         'id': 'ok-core-file-modified-but-severity-ok',
@@ -136,7 +146,8 @@ TESTS = [
         'test': 'stdout/plugin-modified,,0',
         'params': f'{SITE} --match=^core/',
         'assert-retc': STATE_OK,
-        'assert-in': ['no checksum violations found'],
+        'assert-in': ['Nothing checked.'],
+        'assert-not-in': ['1 modified'],
     },
     {
         'id': 'warn-match-keeps-the-finding',
@@ -145,15 +156,16 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['1 modified'],
     },
-    # wordpress.org unreachable. What was verified is still correct, but the notice comes
-    # first because it qualifies everything behind it.
+    # wordpress.org unreachable. What was verified is still correct, so the verdict keeps
+    # the first line and the notice qualifying it follows on its own.
     {
-        'id': 'ok-stale-cache-is-reported-first',
+        'id': 'ok-stale-cache-is-reported-on-its-own-line',
         'test': 'stdout/stale,,0',
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^wordpress\.org is unreachable, all 2 components verified '
-        r'against cached data up to .* old\. WordPress v6\.8\.2',
+        'assert-regex': r'^WordPress v6\.8\.2 \(en_US\): no checksum violations found\..*'
+        r'\nwordpress\.org is unreachable, all 2 components verified against cached data '
+        r'up to .* old\.',
     },
     # Nothing published for this release, so nothing could be verified.
     {
@@ -163,7 +175,7 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             '1 of 2 components',
-            'verify against: core',
+            'Not verified: core',
             "'plugins_unverified'=1",
         ],
     },
@@ -172,7 +184,7 @@ TESTS = [
         'test': 'stdout/unpublished,,0',
         'params': f'{SITE} --no-checksum-data-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['verify against: core'],
+        'assert-in': ['Not verified: core'],
     },
     # Nothing could be fetched and nothing was cached, so not one file was compared. That
     # is a check that could not run, not a clean result, and the reason has to reach the
@@ -194,8 +206,9 @@ TESTS = [
         'test': 'stdout/unreachable-plugin-only,,0',
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
-        'assert-regex': r'^wordpress\.org could not be queried for 1 of 2 components '
-        r'\(akismet\): URL error .*\. WordPress v6\.8\.2',
+        'assert-regex': r'^WordPress v6\.8\.2 \(en_US\): no checksum violations found\..*'
+        r'\nwordpress\.org could not be queried for 1 of 2 components '
+        r'\(akismet\): URL error ',
         'assert-in': ['1 of 2 components', "'plugins_unverified'=1"],
     },
     {
@@ -215,7 +228,7 @@ TESTS = [
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'verify against: core, akismet',
+            'Not verified: core, akismet',
             'nothing checked',
             "'plugins_unverified'=2",
         ],
@@ -231,7 +244,7 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             '2 of 3 components',
-            'verify against: acme-premium',
+            'Not verified: acme-premium',
             'no checksum violations found',
         ],
     },
