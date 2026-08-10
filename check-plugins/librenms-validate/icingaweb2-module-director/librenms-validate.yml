@@ -1,0 +1,12 @@
+---
+overwrites:
+  # The validation reads the whole installation, from the database schema to the file
+  # ownership. Nothing in there changes between two poller runs, so checking it hourly is
+  # enough and keeps the load off a machine that is busy polling the network.
+  '["ServiceTemplate"]["tpl-service-librenms-validate"]["check_interval"]': 3600
+  '["ServiceTemplate"]["tpl-service-librenms-validate"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-librenms-validate"]["retry_interval"]': 600
+  '["ServiceTemplate"]["tpl-service-librenms-validate"]["vars"]["criticality"]': 'A'
+  # Measured at 1.3 s on a container instance and 2.9 s on a production installation, but
+  # the optional rrdcheck group reads every RRD file and runs for minutes.
+  '["Command"]["cmd-check-librenms-validate"]["timeout"]': 90

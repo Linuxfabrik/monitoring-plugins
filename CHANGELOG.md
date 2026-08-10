@@ -73,6 +73,7 @@ Monitoring Plugins:
 * huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
 * huawei-pacific-system: check reporting the product model, system version and cluster name of a Huawei OceanStor Pacific storage system, and alerting on its cluster capacity usage
 * kdump: check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind (with a first analysis of the panic reason)
+* librenms-validate: check alerting on the problems LibreNMS reports about its own installation, such as an unfinished schema update or a stopped poller ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
 * network-errors: check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
 * nextcloud-app-updates: check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
 * nextcloud-status: check alerting when a Nextcloud instance is blocked by a pending database upgrade or sits in maintenance mode ([#329](https://github.com/Linuxfabrik/monitoring-plugins/issues/329))
@@ -87,6 +88,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * huawei-dorado-alarm, huawei-dorado-expboard, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-sfp and huawei-dorado-storagepool join the Huawei OceanStor Dorado service set
+* librenms-validate joins the LibreNMS service set
 * wordpress-checksums joins the WordPress service set and ships with extended reporting on by default, so a daily result names the affected files right away
 * wordpress-security-scan joins the WordPress service set and ships with extended reporting on by default, so a daily result shows the CVSS score and the fixing release right away
 * Huawei OceanStor Pacific service set, activating all seven Pacific checks on a host tagged `huawei-pacific`, the same way the Dorado set already works

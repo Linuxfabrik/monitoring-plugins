@@ -1,0 +1,503 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081001'
+
+DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
+performs: database schema, dependencies, poller activity, disk space, file ownership and
+more. Alerts when a validation reports a warning or a failure, for example an outstanding
+schema update or a poller that stopped running, which LibreNMS itself keeps reporting as a
+healthy web interface. Runs the validation as the LibreNMS system user and therefore
+requires a matching sudo rule.
+Supports extended reporting via --lengthy."""
+
+# Validation groups LibreNMS runs on its own when no group is requested. Anything not
+# listed here has to be asked for explicitly, and each of those costs an extra run.
+DEFAULT_GROUPS = (
+    'configuration',
+    'database',
+    'dependencies',
+    'disk',
+    'php',
+    'poller',
+    'programs',
+    'python',
+    'rrd',
+    'scheduler',
+    'system',
+    'updates',
+    'user',
+)
+
+# Groups LibreNMS deliberately leaves out of a default run. Each one is requested with its
+# own `-g` call, which is what keeps every sudoers entry a literal command without a
+# wildcard. Two of them have side effects an admin has to know about, see the README.
+OPTIONAL_GROUPS = (
+    'distributedpoller',
+    'mail',
+    'rrdcheck',
+    'webserver',
+)
+
+# Keeps the message column narrow enough that the table still fits a terminal next to the
+# group and state columns. --lengthy prints the message in full.
+MAX_MESSAGE_LEN = 70
+
+DEFAULT_BRIEF = False
+DEFAULT_FAIL_SEVERITY = 'warn'
+DEFAULT_LENGTHY = False
+DEFAULT_PATH = '/opt/librenms'
+DEFAULT_TIMEOUT = 30
+DEFAULT_USER = 'librenms'
+
+# A result line, as ValidationResult::consolePrint() writes it: the status in brackets,
+# padded to twelve columns, then the message. Applied after the escape sequences are gone.
+RESULT_REGEX = re.compile(r'^\[(OK|WARN|FAIL|INFO)\]\s+(.*)$')
+
+# The group marker `-s` adds in front of each group's results. The status LibreNMS appends
+# to it is deliberately not captured: it lands on a later line whenever the group printed
+# something first, so the state comes from the result lines instead.
+GROUP_REGEX = re.compile(r'^Checking ([a-z]+):')
+
+# LibreNMS status -> the state the check reports for it. FAIL is not in here because it is
+# configurable via --fail-severity.
+STATE_BY_STATUS = {
+    'INFO': STATE_OK,
+    'OK': STATE_OK,
+    'WARN': STATE_WARN,
+}
+
+# Aborts that leave the exit code at 0 and would otherwise be read as a clean run.
+ABORT_HINTS = (
+    (
+        'Do not run validate.php as root',
+        'LibreNMS refuses to validate itself as root. Point --user at the LibreNMS '
+        'system user.',
+    ),
+    (
+        'Composer has not been run',
+        'The LibreNMS installation is incomplete, its PHP dependencies are missing. '
+        'Run "./scripts/composer_wrapper.php install --no-dev" as the LibreNMS user.',
+    ),
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--fail-severity',
+        help='State to report for a validation LibreNMS marks as failed. '
+        'A failed validation means the installation is broken in a way that stops it '
+        'from working correctly, which is worth acting on but rarely worth waking '
+        'somebody up for. '
+        'Default: %(default)s',
+        dest='FAIL_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_FAIL_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--group',
+        help='Validation group to check. '
+        'Can be specified multiple times. '
+        f'The groups {", ".join(OPTIONAL_GROUPS)} are not part of a default run and each '
+        'costs an additional run of the validation. '
+        'Two of them have side effects: "mail" sends a real test message to the '
+        'configured alerting address on every check run, and "rrdcheck" reads every RRD '
+        'file, which takes minutes on a grown installation. '
+        'If not specified, all groups of a default run are checked. '
+        'Example: `--group=database --group=poller`',
+        dest='GROUP',
+        action='append',
+        choices=sorted(DEFAULT_GROUPS + OPTIONAL_GROUPS),
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore-regex',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE_REGEX',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--path',
+        help=lib.args.help('--path') + ' Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='Seconds to wait for a single run of the validation to finish. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--user',
+        help='System user to run the validation as. '
+        'LibreNMS refuses to validate itself as root and reports a failure when any '
+        'other user runs it, so this has to name the user that owns the installation. '
+        'Default: %(default)s',
+        dest='USER',
+        default=DEFAULT_USER,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_validate_script(path):
+    """Resolve the path to LibreNMS' validation script and make sure it is there.
+
+    Returns (True, script_path) if the resolved path holds a `validate.php`, or
+    (False, errormessage) otherwise. Resolving symlinks up front keeps the value that
+    ends up in the command a real path, and refusing anything without a `validate.php`
+    stops the check from handing an arbitrary file to a PHP interpreter.
+    """
+    script = os.path.realpath(os.path.join(path, 'validate.php'))
+    if not os.path.isfile(script):
+        return (False, f'No LibreNMS installation found at "{path}".')
+    return (True, script)
+
+
+def run_validation(script, user, group, timeout):
+    """Run LibreNMS' validation script and return its stdout.
+
+    `group` is the single validation group to request, or None for a default run.
+    Returns (True, stdout) or (False, errormessage).
+    """
+    cmd = ['sudo', '-u', user, '/usr/bin/php', script, '-s']
+    if group is not None:
+        cmd += ['-g', group]
+
+    # TERM: readline asks whether to apply a suggested fix whenever a result ships one.
+    # Standard input is closed, so it never blocks, but unless it recognises the terminal
+    # it writes a complaint about it into the output we are about to parse.
+    success, result = lib.shell.shell_exec(cmd, env={'TERM': 'dumb'}, timeout=timeout)
+    if not success:
+        return (False, result)
+    stdout, stderr, _ = result
+    # The exit code is not a usable signal: it stays 0 when the script refuses to run at
+    # all, when no group matched, and when every finding is a warning. Only the parsed
+    # output tells us what happened.
+    #
+    # An empty stdout is the one case the report cannot explain, because the validation
+    # never got as far as printing its header. What stopped it is on stderr, which is
+    # otherwise ignored: LibreNMS writes PHP deprecation notices there on a perfectly
+    # good run, and they would corrupt the report if they were merged into it.
+    if not stdout.strip():
+        reason = lib.txt.sanitize_sensitive_data(stderr.strip())
+        if 'password is required' in reason or 'not allowed' in reason:
+            return (
+                False,
+                f'Not allowed to run the validation as "{user}". Add a sudo rule for '
+                f'"{" ".join(cmd[3:])}" as that user, or correct --path and --user.',
+            )
+        return (
+            False,
+            f'The validation produced no output. {reason}'
+            if reason
+            else 'The validation produced no output at all.',
+        )
+    return (True, stdout)
+
+
+def parse_validation(stdout):
+    """Turn the output of one validation run into its results and the groups it ran.
+
+    Returns (results, groups). Each result holds the group, the status as LibreNMS spells
+    it, the message including its continuation lines, and the suggested fix. Results that
+    appear before the first group marker belong to the dependency pre-check LibreNMS runs
+    ahead of everything else, which is why that group never gets a marker of its own.
+
+    The groups are collected separately because a group that found nothing to report
+    prints its marker and no result at all, which is the normal case on a healthy
+    installation. Counting groups from the results would understate what was checked.
+    """
+    results = []
+    groups = set()
+    group = 'dependencies'
+    collecting_fix = False
+
+    for raw_line in stdout.splitlines():
+        line = lib.txt.strip_ansi(raw_line)
+
+        group_match = GROUP_REGEX.match(line)
+        if group_match:
+            group = group_match.group(1)
+            groups.add(group)
+            collecting_fix = False
+            continue
+
+        result_match = RESULT_REGEX.match(line)
+        if result_match:
+            status, message = result_match.groups()
+            results.append(
+                {
+                    'fix': '',
+                    'group': group,
+                    'message': message.strip(),
+                    'status': status,
+                }
+            )
+            groups.add(group)
+            collecting_fix = False
+            continue
+
+        if not results:
+            # Header and progress output ahead of the first result.
+            continue
+
+        if line.startswith('\t[FIX]'):
+            collecting_fix = True
+            continue
+
+        if line.startswith('\t'):
+            # Tab-indented and after the FIX marker: one of the commands that repair the
+            # finding. Tab-indented without it: the description and the items of the
+            # result's detail list, which explain the finding and belong to its message.
+            addition = line.strip()
+            if not addition:
+                continue
+            field = 'fix' if collecting_fix else 'message'
+            results[-1][field] = f'{results[-1][field]} {addition}'.strip()
+            continue
+
+        if line.startswith(' '):
+            # A message too long for one line continues indented by a single space.
+            addition = line.strip()
+            if addition:
+                results[-1]['message'] = f'{results[-1]["message"]} {addition}'
+
+    return results, groups
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE_REGEX is None:
+        args.IGNORE_REGEX = []
+    if args.GROUP is None:
+        args.GROUP = list(DEFAULT_GROUPS)
+
+    # fetch data
+    if args.TEST is None:
+        user = lib.base.coe(lib.shell.safe_cli_value(args.USER, '--user'))
+        path = lib.base.coe(lib.shell.safe_cli_value(args.PATH, '--path'))
+        script = lib.base.coe(get_validate_script(path))
+        # The default groups all come out of one run without `-g`, which keeps the
+        # command that has to be allowed in sudoers a single literal line. Only the
+        # groups LibreNMS leaves out of a default run cost a call of their own.
+        stdouts = [lib.base.coe(run_validation(script, user, None, args.TIMEOUT))]
+        for group in OPTIONAL_GROUPS:
+            if group in args.GROUP:
+                stdouts.append(
+                    lib.base.coe(run_validation(script, user, group, args.TIMEOUT))
+                )
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        stdouts = [stdout]
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    counts = {'FAIL': 0, 'INFO': 0, 'OK': 0, 'WARN': 0}
+
+    # compile user-supplied regex patterns
+    try:
+        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    except re.error:
+        lib.base.cu('Unable to compile regex.')
+
+    # analyze data
+    for stdout in stdouts:
+        for hint, explanation in ABORT_HINTS:
+            if hint in stdout:
+                lib.base.oao(explanation, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    results = []
+    groups = set()
+    for stdout in stdouts:
+        stdout_results, stdout_groups = parse_validation(stdout)
+        results += stdout_results
+        groups |= stdout_groups
+
+    if not groups:
+        lib.base.oao(
+            f'LibreNMS ran no validation at all. Check that "{args.PATH}" is the '
+            f'installation directory and that "{args.USER}" may run its validation.',
+            STATE_UNKNOWN,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    groups &= set(args.GROUP)
+    for result in results:
+        if result['group'] not in args.GROUP:
+            continue
+        message = lib.txt.sanitize_sensitive_data(result['message'])
+        if any(item.search(message) for item in compiled_ignore_regex):
+            continue
+        if result['status'] == 'FAIL':
+            item_state = lib.base.str2state(args.FAIL_SEVERITY)
+        else:
+            item_state = STATE_BY_STATUS[result['status']]
+        state = lib.base.get_worst(state, item_state)
+        counts[result['status']] += 1
+        if args.BRIEF and result['status'] in ('INFO', 'OK'):
+            continue
+        row = {
+            'group': result['group'],
+            # A validation message runs long, and one of them would otherwise widen the
+            # column past what fits on a screen. --lengthy keeps the full text.
+            'message': message
+            if args.LENGTHY
+            else lib.txt.shorten(message, MAX_MESSAGE_LEN),
+            'state': lib.base.state2str(item_state, empty_ok=False),
+        }
+        if args.LENGTHY:
+            row['fix'] = lib.txt.sanitize_sensitive_data(result['fix'])
+        table_data.append(row)
+
+    if not groups:
+        lib.base.oao(
+            'Nothing checked. None of the requested validation groups was run.',
+            STATE_UNKNOWN,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    checked = sum(counts.values())
+
+    # build the message
+    if counts['FAIL'] or counts['WARN']:
+        findings = []
+        if counts['FAIL']:
+            findings.append(
+                f'{counts["FAIL"]} {lib.txt.pluralize("failure", counts["FAIL"])}'
+            )
+        if counts['WARN']:
+            findings.append(
+                f'{counts["WARN"]} {lib.txt.pluralize("warning", counts["WARN"])}'
+            )
+        msg += f'{" and ".join(findings)} found. '
+    else:
+        msg += 'No failures found. No warnings found. '
+    msg += (
+        f'Checked {checked} {lib.txt.pluralize("validation", checked)} '
+        f'in {len(groups)} {lib.txt.pluralize("group", len(groups))}.'
+    )
+
+    perfdata += lib.base.get_perfdata('fail_count', counts['FAIL'], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('warn_count', counts['WARN'], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('info_count', counts['INFO'], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('ok_count', counts['OK'], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('validation_count', checked, uom=None, _min=0)
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = ['group', 'message', 'fix', 'state']
+            headers = ['Group', 'Message', 'Suggested Fix', 'State']
+        else:
+            keys = ['group', 'message', 'state']
+            headers = ['Group', 'Message', 'State']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
