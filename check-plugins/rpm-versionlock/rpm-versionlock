@@ -19,47 +19,72 @@ import sys
 import lib.args
 import lib.base
 import lib.disk
-import lib.lftest
-import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
-__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+try:
+    import tomllib
+except ImportError:
+    # only dnf 5 keeps its locks in a TOML file, and every distribution that ships
+    # dnf 5 also ships a Python that has this module
+    tomllib = None
 
-DESCRIPTION = """Reports the packages that the RPM package manager holds back at a fixed version.
-A version lock set to work around a broken update and then forgotten keeps a host on an
-unpatched version for good, while the update check stays green because the package
-manager no longer offers the update. Alerts as soon as one lock is in place; raise
---warning to tolerate a number of deliberate locks, or filter the ones you keep on
-purpose with --ignore. Optionally also reports the packages excluded in the package
-manager configuration via --check-excludes. Supports extended reporting via --lengthy."""
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081003'
+
+DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
+fixed version. A version lock set to work around a broken update and then forgotten
+keeps a host on an unpatched version for good, while the update check stays green
+because the package manager no longer offers the update. Only locks the package manager
+actually applies are reported, so a lock list it has switched off stays quiet. Alerts as
+soon as one lock is in place; raise --warning to tolerate a number of deliberate locks,
+or filter the ones you keep on purpose with --ignore. Optionally also reports the
+packages excluded in the package manager configuration via --check-excludes. Supports
+extended reporting via --lengthy."""
 
 DEFAULT_CRIT = None
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
-DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '0'
 
-# Configuration paths, relative to the configuration root, in the order they are read.
-# The `yum` pair covers hosts that still carry the pre-dnf layout.
+# Plugin configuration paths, relative to the configuration root. The `yum` one covers
+# hosts that still carry the pre-dnf layout, where it is a symlink into the dnf one.
 LOCKLIST_CONFIGS = (
-    ('etc/dnf/plugins/versionlock.conf', 'etc/dnf/plugins/versionlock.list'),
-    ('etc/yum/pluginconf.d/versionlock.conf', 'etc/yum/pluginconf.d/versionlock.list'),
+    'etc/dnf/plugins/versionlock.conf',
+    'etc/yum/pluginconf.d/versionlock.conf',
 )
 DNF5_LOCKFILE = 'etc/dnf/versionlock.toml'
 MAIN_CONFIGS = ('etc/dnf/dnf.conf', 'etc/yum.conf')
 # The package manager's own default for `reposdir`, used unless the main configuration
-# names another one.
-REPO_DIRS = ('etc/yum.repos.d', 'etc/yum/repos.d', 'etc/distro.repos.d')
+# names another one. Kept in search order rather than sorted, and holding the union of
+# what dnf 4 and dnf 5 look at, so the same list serves both generations.
+REPO_DIRS = (
+    'etc/yum.repos.d',
+    'etc/yum/repos.d',
+    'etc/distro.repos.d',
+    'usr/share/dnf5/repos.d',
+)
 
-# A configuration file that grew beyond this is not a version lock list anymore.
+# Comparators and condition keys dnf 5 accepts in its lock file.
+DNF5_COMPARATORS = ('!=', '<', '<=', '=', '>', '>=')
+DNF5_KEYS = ('arch', 'epoch', 'evr')
+
+# A configuration file that grew beyond this is not a lock configuration anymore.
 MAX_CONFIG_BYTES = 1024 * 1024
 
+# Section name that stands in for the one Python would otherwise treat as a template for
+# every other section. The package manager knows no such magic, and a NUL byte cannot
+# occur in a section name, so nothing in a real file collides with it.
+UNUSED_DEFAULT_SECTION = '\x00'
+
 # Package name as RPM defines it: alphanumerics plus `.-_+`, starting alphanumeric or
-# with an underscore. Anything else is not a package name and must not reach the output.
-# Exclusions may name a package by glob, so they get their own expression.
-RPM_NAME_REGEX = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.+-]*$')
-RPM_GLOB_REGEX = re.compile(r'^[A-Za-z0-9*?\[][A-Za-z0-9_.+*?\[\]!-]*$')
+# with an underscore, and never carrying the sequence `..`. Every generation accepts a
+# shell glob wherever it expects a package name, so the wildcard characters belong to
+# the expression as well - a lock on `kernel*` is a lock and has to be reported as one.
+# Anything else is not a package name and must not reach the output.
+RPM_NAME_REGEX = re.compile(r'^(?!.*\.\.)[A-Za-z0-9_*?\[][A-Za-z0-9_.+*?\[\]!^-]*$')
+# An exclusion is written as a package spec rather than as a plain name, so it may carry
+# the epoch separator on top of what a name is allowed to contain.
+RPM_EXCLUDE_REGEX = re.compile(r'^(?!.*\.\.)[A-Za-z0-9_*?\[][A-Za-z0-9_.+:*?\[\]!^-]*$')
 
 
 def parse_args():
@@ -147,28 +172,13 @@ def parse_args():
         default=False,
     )
 
-    parser.add_argument(
-        '--test',
-        help=lib.args.help('--test'),
-        dest='TEST',
-        type=lib.args.csv,
-    )
-
     # hidden test hook: prefix every configuration path, so a fixture tree can
     # stand in for the host's /etc without touching the host
     parser.add_argument(
-        '--test-config-root',
+        '--config-root',
         help=argparse.SUPPRESS,
-        dest='TEST_CONFIG_ROOT',
+        dest='CONFIG_ROOT',
         default='/',
-    )
-
-    parser.add_argument(
-        '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
-        dest='TIMEOUT',
-        type=int,
-        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -208,6 +218,21 @@ def unique_paths(paths):
     return result
 
 
+def new_parser():
+    """Return a parser that reads the package manager's configuration verbatim.
+
+    The package manager takes every value literally and knows no magic section, so
+    interpolation is off (a `%` in a package spec is a character, not a placeholder,
+    and Python would otherwise raise on it) and the section Python would treat as a
+    template for all others is renamed out of the way.
+    """
+    return configparser.ConfigParser(
+        default_section=UNUSED_DEFAULT_SECTION,
+        interpolation=None,
+        strict=False,
+    )
+
+
 def read_config_file(filename):
     """Read a configuration file, or return an empty string if it is not readable.
 
@@ -223,21 +248,50 @@ def read_config_file(filename):
     return content
 
 
+def plugins_enabled(root):
+    """Say whether the package manager loads its plugins at all.
+
+    Turning plugins off in the main configuration takes version locking with it, so
+    the entries in a lock list are not applied and must not be reported.
+    """
+    for config in unique_paths([rooted(root, config) for config in MAIN_CONFIGS]):
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            return parser.getboolean('main', 'plugins', fallback=True)
+        except (configparser.Error, ValueError):
+            continue
+    return True
+
+
 def get_locklists(root):
-    """Return the lock list files to read, honouring a `locklist` set in the plugin config."""
+    """Return the lock list files the package manager reads.
+
+    Only a list the plugin configuration names explicitly is read. There is no
+    built-in default for it, and a configuration that names none makes the package
+    manager refuse to transact rather than apply locks ("Error: Locklist not set"),
+    so there is nothing in place to report. A configuration that turns the plugin
+    off is left out for the same reason.
+    """
     locklists = []
-    for config, default_locklist in LOCKLIST_CONFIGS:
-        locklist = default_locklist
+    for config in LOCKLIST_CONFIGS:
         content = read_config_file(rooted(root, config))
-        if content:
-            parser = configparser.ConfigParser(strict=False)
-            try:
-                parser.read_string(content)
-                locklist = parser.get('main', 'locklist', fallback=default_locklist)
-            except configparser.Error:
-                # a broken plugin config still leaves the default list in place
-                pass
-        locklists.append(rooted(root, locklist))
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            if not parser.getboolean('main', 'enabled', fallback=True):
+                continue
+            locklist = parser.get('main', 'locklist', fallback='')
+        except (configparser.Error, ValueError):
+            # a configuration the package manager cannot read applies no locks either
+            continue
+        if locklist:
+            locklists.append(rooted(root, locklist))
     return unique_paths(locklists)
 
 
@@ -245,7 +299,8 @@ def parse_locklist(content, origin):
     """Parse a dnf 4 / yum version lock list.
 
     One entry per line, in the package manager's `name-epoch:version-release.arch`
-    notation, with a `!` prefix marking an exclude and `#` starting a comment:
+    notation, with a `!` prefix marking an exclude. Only a `#` in the first column
+    starts a comment; an indented one is part of a package spec:
 
         # Added lock on Mon Aug 10 11:57:28 2026
         bash-0:4.4.20-6.el8_10.*
@@ -253,11 +308,15 @@ def parse_locklist(content, origin):
     """
     entries = []
     for line in content.splitlines():
-        line = line.strip()
-        if not line or line.startswith('#'):
+        if line.startswith('#') or not line.strip():
             continue
-        source = 'exclude' if line.startswith('!') else 'versionlock'
-        package, lock = split_entry(line.lstrip('!'))
+        spec = line.strip()
+        source = 'versionlock'
+        if spec.startswith('!'):
+            # only the first `!` marks the exclude, any further one belongs to the spec
+            source = 'exclude'
+            spec = spec[1:]
+        package, lock = split_entry(spec)
         if not package:
             continue
         entries.append(
@@ -276,14 +335,17 @@ def split_entry(spec):
 
     The package name itself may contain dashes, so the split is anchored on the epoch
     the package manager always writes. Entries edited by hand may carry no epoch, in
-    which case the last two dash-separated fields are taken as version and release.
+    which case the last two dash-separated fields are taken as version and release,
+    but only where the version field starts with a digit - otherwise `kernel-devel-*`
+    would be read as the package `kernel` locked to `devel-*` instead of as a glob over
+    the package name.
     """
     match = re.match(r'^(?P<package>.+?)-(?P<lock>\d+:.+)$', spec)
     if match:
         package, lock = match.group('package'), match.group('lock')
     else:
         fields = spec.rsplit('-', 2)
-        if len(fields) == 3:
+        if len(fields) == 3 and fields[1][:1].isdigit():
             package, lock = fields[0], '-'.join(fields[1:])
         else:
             package, lock = spec, ''
@@ -292,84 +354,91 @@ def split_entry(spec):
     return package, lock
 
 
-def parse_dnf5_list(stdout, origin):
-    """Parse the output of `dnf versionlock list` as written by dnf 5.
+def parse_dnf5_conditions(conditions):
+    """Turn the conditions of one dnf 5 lock entry into a readable term and its
+    comparators.
 
-    One stanza per package, conditions on their own lines. `!=` marks an exclude:
-
-        # Added by 'versionlock add' command on 2026-08-10 11:57:35
-        Package name: bash
-        evr = 5.3.0-2.fc43
+    Every condition has to hold for the entry to match, so they are joined into one
+    term. A condition the package manager does not understand is left out.
     """
-    entries = []
-    package = ''
-    conditions = []
+    terms = []
     comparators = []
+    for condition in conditions:
+        if not isinstance(condition, dict):
+            continue
+        key = condition.get('key')
+        comparator = condition.get('comparator')
+        value = condition.get('value')
+        if key not in DNF5_KEYS or comparator not in DNF5_COMPARATORS:
+            continue
+        if not isinstance(value, str):
+            continue
+        comparators.append(comparator)
+        # the key is spelled out for anything but the version, where it would only
+        # repeat what the column already says
+        prefix = '' if key == 'evr' else f'{key} '
+        terms.append(f'{prefix}{comparator} {value}')
+    return terms, comparators
 
-    def flush():
-        if not package or not RPM_NAME_REGEX.match(package):
-            return
+
+def get_dnf5_locks(root):
+    """Return the version locks dnf 5 keeps in its TOML configuration.
+
+    dnf 5 is the only generation whose lock configuration is not plain text. The
+    format carries its own version number and is documented, so it is read directly
+    instead of through the package manager, which keeps the check free of a
+    subprocess:
+
+        version = "1.0"
+
+        [[packages]]
+        name = "bash"
+        [[packages.conditions]]
+        key = "evr"
+        comparator = "="
+        value = "5.3.9-3.fc44"
+
+    An entry whose conditions are all `!=` is an exclude, which is how the package
+    manager records one.
+    """
+    if tomllib is None:
+        return []
+
+    lockfile = rooted(root, DNF5_LOCKFILE)
+    content = read_config_file(lockfile)
+    if not content:
+        return []
+    try:
+        data = tomllib.loads(content)
+    except (tomllib.TOMLDecodeError, ValueError):
+        # a lock file the package manager cannot read applies no locks
+        return []
+
+    entries = []
+    packages = data.get('packages')
+    if not isinstance(packages, list):
+        return []
+    for package in packages:
+        if not isinstance(package, dict):
+            continue
+        name = package.get('name')
+        if not isinstance(name, str) or not RPM_NAME_REGEX.match(name):
+            continue
+        conditions = package.get('conditions')
+        terms, comparators = parse_dnf5_conditions(
+            conditions if isinstance(conditions, list) else []
+        )
         entries.append(
             {
-                'package': package,
-                'lock': ', '.join(conditions),
+                'package': name,
+                'lock': ', '.join(terms),
                 'source': 'exclude'
                 if comparators and all(c == '!=' for c in comparators)
                 else 'versionlock',
-                'origin': origin,
+                'origin': lockfile,
             }
         )
-
-    for line in stdout.splitlines():
-        line = line.strip()
-        if not line or line.startswith('#'):
-            continue
-        if line.startswith('Package name:'):
-            flush()
-            package = line.split(':', 1)[1].strip()
-            conditions = []
-            comparators = []
-            continue
-        match = re.match(
-            r'^(?P<key>\S+)\s+(?P<comparator>=|!=|<|<=|>|>=)\s+(?P<value>.+)$', line
-        )
-        if match and package:
-            comparators.append(match.group('comparator'))
-            # the key is spelled out for anything but the version, where it would only
-            # repeat what the column already says
-            key = '' if match.group('key') == 'evr' else f'{match.group("key")} '
-            conditions.append(
-                f'{key}{match.group("comparator")} {match.group("value")}'
-            )
-    flush()
-
     return entries
-
-
-def get_dnf5_locks(args, root):
-    """Return the version locks dnf 5 keeps in its TOML configuration.
-
-    dnf 5 is the only generation whose lock configuration is not plain text, so its own
-    command renders it. Unlike on dnf 4 that command reads no repository metadata, which
-    keeps it usable in a check.
-    """
-    lockfile = rooted(root, DNF5_LOCKFILE)
-    if not lib.disk.file_exists(lockfile, allow_empty=True):
-        return []
-
-    if args.TEST is None:
-        success, result = lib.shell.shell_exec(
-            ['dnf', 'versionlock', 'list'], timeout=args.TIMEOUT
-        )
-        if not success:
-            return []
-        stdout, _, retc = result
-        if retc:
-            return []
-    else:
-        stdout, _, _ = lib.lftest.test(args.TEST)
-
-    return parse_dnf5_list(stdout, 'dnf versionlock')
 
 
 def get_repo_dirs(root, main_configs):
@@ -378,7 +447,7 @@ def get_repo_dirs(root, main_configs):
         content = read_config_file(config)
         if not content:
             continue
-        parser = configparser.ConfigParser(strict=False)
+        parser = new_parser()
         try:
             parser.read_string(content)
             reposdir = parser.get('main', 'reposdir', fallback='')
@@ -393,34 +462,39 @@ def get_repo_dirs(root, main_configs):
 def get_excludes(root):
     """Return the packages excluded in the package manager and repository configuration."""
     entries = []
-    configs = [rooted(root, config) for config in MAIN_CONFIGS]
-    for repo_dir in get_repo_dirs(root, configs):
+    main_configs = [rooted(root, config) for config in MAIN_CONFIGS]
+    configs = list(main_configs)
+    for repo_dir in get_repo_dirs(root, main_configs):
         configs += lib.disk.glob(os.path.join(repo_dir, '*.repo'))
 
     for config in unique_paths(configs):
         content = read_config_file(config)
         if not content:
             continue
-        parser = configparser.ConfigParser(strict=False)
+        parser = new_parser()
         try:
             parser.read_string(content)
+            for section in parser.sections():
+                # the package manager reads its main configuration from one file only,
+                # so a `main` section in a repository file configures nothing
+                if section == 'main' and config not in main_configs:
+                    continue
+                # `excludepkgs` is the current spelling, `exclude` the historical one
+                for option in ('excludepkgs', 'exclude'):
+                    value = parser.get(section, option, fallback='')
+                    for package in value.replace(',', ' ').split():
+                        if not RPM_EXCLUDE_REGEX.match(package):
+                            continue
+                        entries.append(
+                            {
+                                'package': package,
+                                'lock': f'[{section}]',
+                                'source': 'exclude',
+                                'origin': config,
+                            }
+                        )
         except configparser.Error:
             continue
-        for section in parser.sections():
-            # `excludepkgs` is the current spelling, `exclude` the historical one
-            for option in ('excludepkgs', 'exclude'):
-                value = parser.get(section, option, fallback='')
-                for package in value.replace(',', ' ').split():
-                    if not RPM_GLOB_REGEX.match(package):
-                        continue
-                    entries.append(
-                        {
-                            'package': package,
-                            'lock': f'[{section}]',
-                            'source': 'exclude',
-                            'origin': config,
-                        }
-                    )
     return entries
 
 
@@ -439,14 +513,8 @@ def main():
     if args.MATCH is None:
         args.MATCH = []
 
-    # `--test` carries the fixture for the one source that is read through a command;
-    # the file-based sources are driven by `--test-config-root`, so a `--test` without a
-    # value means "no fixture" rather than "read a file named empty string"
-    if args.TEST is not None and not any(args.TEST):
-        args.TEST = None
-
     # fetch data
-    root = args.TEST_CONFIG_ROOT
+    root = args.CONFIG_ROOT
     if not (
         lib.disk.dir_exists(rooted(root, 'etc/dnf'))
         or lib.disk.dir_exists(rooted(root, 'etc/yum.repos.d'))
@@ -458,15 +526,20 @@ def main():
         )
 
     entries = []
-    for locklist in get_locklists(root):
-        entries += parse_locklist(read_config_file(locklist), locklist)
-    entries += get_dnf5_locks(args, root)
+    if plugins_enabled(root):
+        for locklist in get_locklists(root):
+            entries += parse_locklist(read_config_file(locklist), locklist)
+        entries += get_dnf5_locks(root)
     if args.CHECK_EXCLUDES:
+        # an exclusion is part of the package manager's own configuration, so it stays
+        # in force no matter what happens to the plugins
         entries += get_excludes(root)
 
     # init some vars
     perfdata = ''
     table_data = []
+
+    # compile user-supplied regex patterns
     compiled_match = [
         lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -500,10 +573,17 @@ def main():
         msg = 'Nothing checked.'
         state = lib.base.str2state(args.NO_MATCH_SEVERITY)
     else:
-        msg = (
-            f'{len(table_data)} {lib.txt.pluralize("version lock", len(table_data))} '
-            f'in place.{lib.base.state2str(state, prefix=" ")}'
-        )
+        # an exclusion keeps a package off the host rather than at a version, so the
+        # two kinds are named separately instead of being summed up as version locks
+        locks = sum(1 for row in table_data if row['source'] == 'versionlock')
+        excludes = len(table_data) - locks
+        counted = []
+        if locks:
+            counted.append(f'{locks} {lib.txt.pluralize("version lock", locks)}')
+        if excludes:
+            counted.append(f'{excludes} {lib.txt.pluralize("exclusion", excludes)}')
+        msg = f'{" and ".join(counted)} in place.'
+    msg += lib.base.state2str(state, prefix=' ')
     perfdata += lib.base.get_perfdata(
         'locks',
         len(table_data),

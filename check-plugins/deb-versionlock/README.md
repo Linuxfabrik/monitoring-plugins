@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports the packages that APT holds back at their installed version. A hold set to work around a broken update and then forgotten keeps a host on an unpatched version for good, while the update check stays green because APT no longer offers the update. Alerts as soon as one hold is in place; raise `--warning` to tolerate a number of deliberate holds, or filter the ones you keep on purpose with `--ignore`. Optionally also reports the packages pinned in the APT preferences via `--check-pinning`. Supports extended reporting via `--lengthy`.
+Reports the packages that APT holds back at their installed version. A hold set to work around a broken update and then forgotten keeps a host on an unpatched version for good, while the update check stays green because APT no longer offers the update. Alerts as soon as one hold is in place; raise `--warning` to tolerate a number of deliberate holds, or filter the ones you keep on purpose with `--ignore`. Optionally also reports the packages pinned in the APT preferences via `--check-pinning`, and then alerts as well on a preferences file APT refuses, which stops every package operation on the host. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 
@@ -11,13 +11,22 @@ Reports the packages that APT holds back at their installed version. A hold set 
 * `--match` and `--ignore` filter on the package name, not on the version the package is held at
 * A package that is held but no longer installed is reported with the version `not installed`. The hold survives the removal and applies again as soon as the package comes back.
 * A held package of a foreign architecture is reported the way APT names it, with the architecture qualifier attached (`libgcc-s1:i386`). `--match` and `--ignore` see that name as well.
-* `--check-pinning` is off by default because a pin is also used legitimately to give a repository like backports a priority of its own. A stanza with `Package: *` sets such a repository-wide priority and is never reported, since it holds no individual package.
+* `--check-pinning` is off by default because a pin is also used legitimately to give a repository like backports a priority of its own. A stanza with `Package: *` sets such an archive-wide priority and is never reported, since it holds no individual package.
+* With `--check-pinning`, a preferences file APT refuses gets a line of its own and raises WARN. APT gives up on such a file at the offending stanza and then fails every run, so the host cannot install or upgrade anything until it is fixed.
 
 **Data Collection:**
 
 * Runs `apt-mark showhold` for the held packages
 * Runs `dpkg-query` for those packages to report the version each hold pins the host to
-* `--check-pinning` additionally reads the pin stanzas from `/etc/apt/preferences` and `/etc/apt/preferences.d/*`, restricted to the files APT itself reads there: extension `.pref` or none, no leading dot. A `.dpkg-old` or `.bak` copy left behind by an upgrade pins nothing and is not reported.
+* `--check-pinning` additionally reads the pin stanzas from `/etc/apt/preferences` and `/etc/apt/preferences.d/*`, restricted to what APT itself applies
+
+APT's own rules decide what counts as a pin in force, so the check follows them exactly:
+
+* A `.dpkg-old` or `.bak` copy left behind by an upgrade, and any other file name APT skips in `preferences.d`, is not read at all.
+* A stanza without a `Pin`, or with a pin type APT does not understand, pins nothing and is skipped, while the rest of the file still applies.
+* A stanza with no `Package` header, with a missing, zero or out-of-range `Pin-Priority`, or with `Pin-Priority: never` on a named package, is one APT refuses. It applies the stanzas before it, abandons the file there, and fails. The check reports it the same way.
+* A `Pin-Priority` carrying trailing characters, such as `1001abc`, is a priority of 1001 to APT, not a typo it rejects.
+* A line starting with whitespace continues the field above it, so a `Package` header may span several lines.
 
 Neither command needs root, and neither touches the network or refreshes the package cache.
 
@@ -49,8 +58,9 @@ unpatched version for good, while the update check stays green because APT no
 longer offers the update. Alerts as soon as one hold is in place; raise
 --warning to tolerate a number of deliberate holds, or filter the ones you
 keep on purpose with --ignore. Optionally also reports the packages pinned in
-the APT preferences via --check-pinning. Supports extended reporting via
---lengthy.
+the APT preferences via --check-pinning, and then alerts as well on a
+preferences file APT refuses, which stops every package operation on the host.
+Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -62,8 +72,8 @@ options:
                         legitimately to give a repository like backports a
                         priority of its own, which is why it is not reported
                         by default.
-  -c, --critical CRIT   CRIT threshold for the number of held packages.
-                        Supports Nagios ranges. Default: None
+  -c, --critical CRIT   CRIT threshold for the number of holds. Supports
+                        Nagios ranges. Default: None
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -82,8 +92,8 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  -w, --warning WARN    WARN threshold for the number of held packages.
-                        Supports Nagios ranges. Default: 0
+  -w, --warning WARN    WARN threshold for the number of holds. Supports
+                        Nagios ranges. Default: 0
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-versionlock/
@@ -99,7 +109,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-versionlock/
 Output:
 
 ```text
-2 held packages. [WARNING]
+2 holds in place. [WARNING]
 
 Package   ! Held at ! Type ! Configured in
 ----------+---------+------+--------------
@@ -122,7 +132,7 @@ Also report what the APT preferences pin:
 Output:
 
 ```text
-3 held packages. [WARNING]
+2 holds and 1 pin in place. [WARNING]
 
 Package   ! Held at                      ! Type ! Configured in
 ----------+------------------------------+------+--------------------------------
@@ -131,21 +141,35 @@ coreutils ! 8.30-3                       ! hold ! apt-mark
 nginx     ! version 1.24.* priority 1001 ! pin  ! /etc/apt/preferences.d/99-nginx
 ```
 
+A host whose preferences APT refuses:
+
+```text
+1 pin in place. APT refuses 1 preferences file, so no package operation works on this host. [WARNING]
+
+Package   ! Held at                      ! Type
+----------+------------------------------+-----
+nginx     ! version 1.24.* priority 1001 ! pin
+
+APT stops reading these files where they are named:
+/etc/apt/preferences.d/60-backports: no priority (or zero) specified for pin
+```
+
 
 ## States
 
 * OK if nothing is held back, or if the number of holds is within `--warning`.
-* WARN or CRIT depending on how the number of holds compares to `--warning` and `--critical`, which take [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md). The default `--warning=0` alerts on the first hold.
+* WARN or CRIT depending on how the number of holds compares to `--warning` and `--critical`, which take [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md). The default `--warning=0` alerts on the first hold. Pins count towards the same number.
+* WARN, whatever the thresholds say, if `--check-pinning` finds a preferences file APT refuses.
 * OK if `--match` and `--ignore` leave nothing to check, unless `--no-match-severity` says otherwise.
-* WARN if APT cannot be asked for its held packages, which means the check is deployed on a host that does not install its packages with APT, or that its APT installation is damaged.
-* `--always-ok` suppresses all alerts and always returns OK.
+* UNKNOWN if APT cannot be asked for its held packages, which means the check is deployed on a host that does not install its packages with APT, or that its APT installation is damaged. APT's own error message is part of the output.
+* `--always-ok` forces OK for everything the thresholds decide. It does not cover UNKNOWN, which is reported whatever else is set.
 
 
 ## Perfdata / Metrics
 
 | Name | Type | Description |
 |----|----|----|
-| holds | Number | Number of held packages after `--match` and `--ignore` were applied. |
+| holds | Number | Number of holds, plus pins with `--check-pinning`, after `--match` and `--ignore` were applied. |
 
 
 ## Troubleshooting
@@ -160,6 +184,32 @@ dpkg --get-selections | grep hold
 ```
 
 Release a hold with `apt-mark unhold <package>`.
+
+With `--check-pinning`, an entry of type `pin` is not a hold at all. The `Configured in` column that `--lengthy` adds names the preferences file it comes from; edit that file instead.
+
+### `APT refuses N preferences files, so no package operation works on this host`
+
+APT reads `/etc/apt/preferences` and `/etc/apt/preferences.d/*` before every operation and treats a stanza it cannot make sense of as a fatal error, so the host can neither install nor upgrade until the file is fixed. The check names the file and the reason; APT itself prints the same thing:
+
+```bash
+apt-get -s upgrade
+```
+
+```text
+E: No priority (or zero) specified for pin
+```
+
+The usual causes are a stanza whose `Pin-Priority` is missing or zero, one whose priority does not fit into the range -32768 to 32767, a stanza with no `Package` header, and `Pin-Priority: never` on a stanza that names a package instead of `Package: *`.
+
+### A pin is in place but not reported
+
+APT ignores a file in `preferences.d` whose extension is neither absent nor `.pref`, so a `.dpkg-old`, `.bak` or `.save` copy left behind by an upgrade pins nothing. It also skips a stanza that carries no `Pin` or a pin type it does not understand. The check follows those rules, so what it leaves out is what APT leaves out. Compare against APT's own view:
+
+```bash
+apt-cache policy
+```
+
+A preferences file the monitoring user cannot read holds no pins the check could report, so it is treated as empty rather than as an error.
 
 
 ## Credits, License

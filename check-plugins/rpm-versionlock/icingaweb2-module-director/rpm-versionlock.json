@@ -28,9 +28,6 @@
                 "--no-perfdata": {
                     "set_if": "$rpm_versionlock_no_perfdata$"
                 },
-                "--timeout": {
-                    "value": "$rpm_versionlock_timeout$"
-                },
                 "--warning": {
                     "value": "$rpm_versionlock_warning$"
                 }
@@ -82,11 +79,6 @@
                     "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 10,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -106,7 +98,7 @@
             "apply_for": null,
             "assign_filter": null,
             "check_command": "cmd-check-rpm-versionlock",
-            "check_interval": 60,
+            "check_interval": 3600,
             "check_period": null,
             "check_timeout": null,
             "command_endpoint": null,
@@ -130,11 +122,11 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports the packages that the RPM package manager holds back at a fixed version. A version lock set to work around a broken update and then forgotten keeps a host on an unpatched version for good, while the update check stays green because the package manager no longer offers the update. Alerts as soon as one lock is in place; raise --warning to tolerate a number of deliberate locks, or filter the ones you keep on purpose with --ignore. Optionally also reports the packages excluded in the package manager configuration via --check-excludes. Supports extended reporting via --lengthy.",
+            "notes": "Reports the packages that the RPM package manager holds back at a fixed version. A version lock set to work around a broken update and then forgotten keeps a host on an unpatched version for good, while the update check stays green because the package manager no longer offers the update. Only locks the package manager actually applies are reported, so a lock list it has switched off stays quiet. Alerts as soon as one lock is in place; raise --warning to tolerate a number of deliberate locks, or filter the ones you keep on purpose with --ignore. Optionally also reports the packages excluded in the package manager configuration via --check-excludes. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-versionlock/",
             "object_name": "tpl-service-rpm-versionlock",
             "object_type": "template",
-            "retry_interval": 15,
+            "retry_interval": 300,
             "service_set": null,
             "template_choice": null,
             "use_agent": null,
@@ -148,7 +140,6 @@
                 "rpm_versionlock_match": [],
                 "rpm_versionlock_no_match_severity": "ok",
                 "rpm_versionlock_no_perfdata": false,
-                "rpm_versionlock_timeout": 8,
                 "rpm_versionlock_warning": "0"
             },
             "volatile": null,
@@ -273,17 +264,6 @@
             "uuid": "27c5e88b-a5f5-467e-8fad-cca97179b132"
         },
         "9": {
-            "varname": "rpm_versionlock_timeout",
-            "caption": "RPM Versionlock: Timeout",
-            "description": "Network timeout in seconds.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "41c33d12-e372-4d08-946a-08c1c784b221"
-        },
-        "10": {
             "varname": "rpm_versionlock_warning",
             "caption": "RPM Versionlock: Warning",
             "description": "WARN threshold for the number of version locks. Supports Nagios ranges.",

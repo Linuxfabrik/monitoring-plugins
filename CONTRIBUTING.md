@@ -877,6 +877,18 @@ check-plugins/my-check/unit-test/
 
 Only create `stderr/` if a test actually needs to inject stderr data. Do not create empty `retc/` or `stderr/` directories.
 
+A plugin that reads configuration files instead of command output cannot be driven by `--test`, because there is no command whose stdout a fixture could stand in for. Those plugins take a second, `argparse.SUPPRESS`ed hook that prefixes every path they open, and their fixtures are whole directory trees under `config/` that stand in for the host's `/etc`:
+
+```text
+check-plugins/my-check/unit-test/
+├── run
+└── config/
+    ├── no-locks/etc/dnf/plugins/versionlock.list
+    └── two-locks/etc/dnf/plugins/versionlock.list
+```
+
+Name the hook so that `--test` cannot abbreviate into it. `--config-root` works, `--test-config-root` does not: once `--test` itself is gone from the parser, argparse resolves `--test=` to the longer option and the fixture root silently becomes the empty string. Reference implementations: `check-plugins/rpm-versionlock` (files only) and `check-plugins/deb-versionlock` (both hooks side by side, `--test` for the commands and `--config-root` for the files).
+
 
 #### Test data file naming
 

@@ -24,15 +24,16 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081003'
 
-DESCRIPTION = """Reports the packages that APT holds back at their installed version. A hold set
-to work around a broken update and then forgotten keeps a host on an unpatched
-version for good, while the update check stays green because APT no longer offers
-the update. Alerts as soon as one hold is in place; raise --warning to tolerate a
-number of deliberate holds, or filter the ones you keep on purpose with --ignore.
-Optionally also reports the packages pinned in the APT preferences via
---check-pinning. Supports extended reporting via --lengthy."""
+DESCRIPTION = """Reports the packages that APT holds back at their installed version.
+A hold set to work around a broken update and then forgotten keeps a host on an
+unpatched version for good, while the update check stays green because APT no longer
+offers the update. Alerts as soon as one hold is in place; raise --warning to tolerate
+a number of deliberate holds, or filter the ones you keep on purpose with --ignore.
+Optionally also reports the packages pinned in the APT preferences via --check-pinning,
+and then alerts as well on a preferences file APT refuses, which stops every package
+operation on the host. Supports extended reporting via --lengthy."""
 
 DEFAULT_CRIT = None
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -48,18 +49,29 @@ APT_PREFERENCES_DIR = 'etc/apt/preferences.d'
 # must not be reported as a pin that is in force.
 APT_PREFERENCES_EXTENSIONS = ('', '.pref')
 
+# Pin types APT understands. A stanza naming any other one is skipped with a warning,
+# so it pins nothing, but the rest of the file still applies.
+APT_PIN_TYPES = ('origin', 'release', 'source-version', 'version')
+
+# Range APT accepts for a pin priority. A value outside it is refused, and refusing a
+# priority costs APT the whole file rather than just the stanza.
+APT_PRIORITY_MIN = -32768
+APT_PRIORITY_MAX = 32767
+
 # A preferences file that grew beyond this is not a pinning configuration anymore.
 MAX_CONFIG_BYTES = 1024 * 1024
 
-# Package name as Debian policy defines it: lower case, at least two characters, starting
-# alphanumeric, with the architecture qualifier APT appends for a package that is not of
+# Package name as APT hands it out: lower case (APT folds mixed case itself), starting
+# alphanumeric, with the architecture qualifier it appends for a package that is not of
 # the host's own architecture. Anything else is not a package name and must not reach a
 # command line.
-DEB_NAME_REGEX = re.compile(r'^[a-z0-9][a-z0-9+.-]+(:[a-z0-9][a-z0-9-]*)?$')
+DEB_NAME_REGEX = re.compile(r'^[a-z0-9][a-z0-9+.-]*(:[a-z0-9][a-z0-9-]*)?$')
 
-# Filename APT accepts in preferences.d: alphanumerics and `_-:.` only, no leading dot,
-# not ending in a period.
-APT_FILENAME_REGEX = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_:.-]*[A-Za-z0-9_:-]$')
+# Filename APT accepts in preferences.d: alphanumerics and `_-:.` only, not ending in a
+# period. A name may start with any of them and may be a single character; a leading dot
+# is the only exception, and those files are already out because a glob does not match
+# them.
+APT_FILENAME_REGEX = re.compile(r'^[A-Za-z0-9_:.-]*[A-Za-z0-9_:-]$')
 
 
 def parse_args():
@@ -99,7 +111,7 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the number of held packages. '
+        help='CRIT threshold for the number of holds. '
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='CRIT',
@@ -156,9 +168,9 @@ def parse_args():
     # hidden test hook: prefix every configuration path, so a fixture tree can
     # stand in for the host's /etc without touching the host
     parser.add_argument(
-        '--test-config-root',
+        '--config-root',
         help=argparse.SUPPRESS,
-        dest='TEST_CONFIG_ROOT',
+        dest='CONFIG_ROOT',
         default='/',
     )
 
@@ -173,7 +185,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the number of held packages. '
+        help='WARN threshold for the number of holds. '
         'Supports Nagios ranges. '
         'Default: %(default)s',
         dest='WARN',
@@ -198,22 +210,23 @@ def get_holds(args):
         if not success:
             # apt-mark ships with apt itself, so it is missing only where this check
             # does not belong or where the installation is damaged
-            lib.base.oao(
+            lib.base.cu(
                 'Unable to ask APT for its held packages. '
-                'This check belongs on a host that installs its packages with APT.',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
-        stdout, _, retc = result
-        if retc:
-            lib.base.oao(
-                f'`apt-mark showhold` returned with error {retc}.',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
+                'This check belongs on a host that installs its packages with APT. '
+                f'{result}'
             )
     else:
-        stdout, _, _ = lib.lftest.test(
-            [args.TEST[0] + '-showhold', args.TEST[1], args.TEST[2]],
+        result = lib.lftest.test([args.TEST[0] + '-showhold', *args.TEST[1:]])
+
+    stdout, stderr, retc = result
+    if retc:
+        # APT reads its package list for this and nothing else, so a non-zero exit
+        # means that list is unusable. Whatever it wrote to stderr is the only hint
+        # the admin gets, so it is passed on.
+        reason = stderr.strip().splitlines()
+        lib.base.cu(
+            f'`apt-mark showhold` returned with error {retc}. '
+            f'{reason[0] if reason else ""}'
         )
 
     # one package name per line; a line that is not a package name is a message APT
@@ -245,13 +258,12 @@ def get_versions(args, packages):
         )
         if not success:
             return {}
-        # a package that is held but not installed makes dpkg-query exit non-zero
-        # while still reporting the others, so the return code is not fatal here
-        stdout, _, _ = result
     else:
-        stdout, _, _ = lib.lftest.test(
-            [args.TEST[0] + '-dpkg-query', args.TEST[1], args.TEST[2]],
-        )
+        result = lib.lftest.test([args.TEST[0] + '-dpkg-query', *args.TEST[1:]])
+
+    # a package that is held but not installed makes dpkg-query exit non-zero while
+    # still reporting the others, so the return code is not fatal here
+    stdout, _, _ = result
 
     versions = {}
     for line in stdout.splitlines():
@@ -261,56 +273,120 @@ def get_versions(args, packages):
     return versions
 
 
+def parse_priority(priority):
+    """Read a `Pin-Priority` value the way APT does.
+
+    APT converts the value with `strtol`, which takes the leading integer and ignores
+    whatever follows, so `1001abc` is a priority of 1001 and not a typo APT rejects.
+    A value with no leading integer counts as zero.
+    """
+    match = re.match(r'^\s*([+-]?\d+)', priority)
+    return int(match.group(1)) if match else 0
+
+
+def stanza_verdict(packages, named, pin, priority):
+    """Say what APT makes of one pin stanza.
+
+    Returns `'pin'` when APT applies it, `'skip'` when APT ignores just this stanza,
+    and a message when APT refuses it in a way that costs it the rest of the file.
+
+    A stanza without a `Pin`, or with a pin type APT does not understand, is skipped
+    with a warning and the file carries on. A missing, zero or out-of-range priority,
+    a missing package name, or the special `never` on a named package are errors, and
+    an error abandons the file at that stanza and makes every APT run fail.
+    """
+    if not packages:
+        return 'no Package header'
+    words = pin.split()
+    if not words or words[0].lower() not in APT_PIN_TYPES:
+        return 'skip'
+    if priority == 'never':
+        # `never` is reserved for a stanza that names no package of its own
+        if named:
+            return "the special 'Pin-Priority: never' on a named package"
+        return 'skip'
+    value = parse_priority(priority)
+    if value == 0:
+        return 'no priority (or zero) specified for pin'
+    if not APT_PRIORITY_MIN <= value <= APT_PRIORITY_MAX:
+        return (
+            f'priority {value} outside the valid range '
+            f'({APT_PRIORITY_MIN} to {APT_PRIORITY_MAX})'
+        )
+    return 'pin'
+
+
 def parse_preferences(content, origin):
     """Parse an APT preferences file into one entry per pinned package.
 
+    Returns the entries and, if APT would refuse the file, what it stumbles over.
+
     The file holds one stanza per pin, stanzas separated by blank lines, and a stanza
-    may name more than one package:
+    may name more than one package. A line starting with whitespace continues the
+    value of the field above it, so the two spellings below pin the same two packages:
+
+        Package: nginx nginx-full
+        Pin: version 1.24.*
+        Pin-Priority: 1001
 
         Package: nginx
+         nginx-full
         Pin: version 1.24.*
         Pin-Priority: 1001
     """
     entries = []
-    packages, pin, priority = [], '', ''
+    fields = {}
+    key = ''
 
     def flush():
-        # a stanza without a Pin is not a pin, and APT skips it as well
-        if not pin:
-            return
-        for package in packages:
-            # `Package: *` gives a whole repository a priority instead of holding a
-            # package at a version, which is not what this check reports on
-            if package == '*':
-                continue
+        if not fields:
+            # a stanza that held nothing but comments is not a stanza to APT
+            return 'skip'
+        packages = fields.get('package', '').split()
+        pin = fields.get('pin', '')
+        priority = fields.get('pin-priority', '')
+        # `Package: *` gives a whole archive a priority instead of holding a package
+        # at a version, and APT treats it as no package name at all
+        named = [package for package in packages if package != '*']
+        verdict = stanza_verdict(packages, named, pin, priority)
+        if verdict != 'pin':
+            return verdict
+        for package in named:
             entries.append(
                 {
                     'package': package,
-                    'lock': ' '.join(part for part in (pin, priority) if part),
+                    'lock': f'{pin} priority {parse_priority(priority)}',
                     'source': 'pin',
                     'origin': origin,
                 }
             )
+        return 'pin'
 
     for line in content.splitlines():
-        line = line.strip()
-        if not line:
-            flush()
-            packages, pin, priority = [], '', ''
+        if not line.strip():
+            # APT reads the stanzas before it, so the entries collected so far stay
+            verdict = flush()
+            if verdict not in ('pin', 'skip'):
+                return entries, verdict
+            fields, key = {}, ''
             continue
+        # only a `#` in the first column starts a comment, and a comment does not end
+        # the stanza it sits in
         if line.startswith('#'):
             continue
-        key, _, value = line.partition(':')
-        key, value = key.strip().lower(), value.strip()
-        if key == 'package':
-            packages = value.split()
-        elif key == 'pin':
-            pin = value
-        elif key == 'pin-priority':
-            priority = f'priority {value}'
-    flush()
+        if line[:1].isspace() and key:
+            fields[key] += f'\n{line.strip()}'
+            continue
+        key, separator, value = line.partition(':')
+        if not separator:
+            continue
+        key = key.strip().lower()
+        fields[key] = value.strip()
+    verdict = flush()
+    if verdict not in ('pin', 'skip'):
+        return entries, verdict
 
-    return entries
+    return entries, ''
 
 
 def apt_reads(filename):
@@ -331,8 +407,14 @@ def apt_reads(filename):
 
 
 def get_pins(root):
-    """Return the packages pinned in the APT preferences."""
+    """Return the packages pinned in the APT preferences, and the files APT refuses.
+
+    A refused file is worth its own line: APT abandons it at the offending stanza and
+    then fails every run, so the host cannot install or upgrade anything at all until
+    the file is fixed.
+    """
     entries = []
+    refused = []
     files = [rooted(root, APT_PREFERENCES)]
     files += [
         filename
@@ -348,9 +430,12 @@ def get_pins(root):
         success, content = lib.disk.read_file(filename, max_bytes=MAX_CONFIG_BYTES)
         if not success:
             continue
-        entries += parse_preferences(content, filename)
+        found, reason = parse_preferences(content, filename)
+        entries += found
+        if reason:
+            refused.append(f'{filename}: {reason}')
 
-    return entries
+    return entries, refused
 
 
 def main():
@@ -368,19 +453,13 @@ def main():
     if args.MATCH is None:
         args.MATCH = []
 
-    # Pad args.TEST to 3 elements so the per-command fixture loads below that splice
-    # `args.TEST[1]` and `args.TEST[2]` into custom lib.lftest.test() calls do not go
-    # out of range when the user passes `--test=path` without trailing commas. A
-    # `--test` without a value carries no fixture at all.
-    if args.TEST is not None:
-        if not any(args.TEST):
-            args.TEST = None
-        else:
-            while len(args.TEST) < 3:
-                args.TEST.append('')
+    # a `--test` without a value carries no fixture at all, rather than one named the
+    # empty string
+    if args.TEST is not None and not any(args.TEST):
+        args.TEST = None
 
     # fetch data
-    root = args.TEST_CONFIG_ROOT
+    root = args.CONFIG_ROOT
     holds = get_holds(args)
     versions = get_versions(args, holds)
     entries = [
@@ -392,12 +471,16 @@ def main():
         }
         for package in holds
     ]
+    refused = []
     if args.CHECK_PINNING:
-        entries += get_pins(root)
+        pins, refused = get_pins(root)
+        entries += pins
 
     # init some vars
     perfdata = ''
     table_data = []
+
+    # compile user-supplied regex patterns
     compiled_match = [
         lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -424,18 +507,33 @@ def main():
     # build the message
     if not entries:
         # nothing is held back, which is what a healthy host looks like
-        msg = 'No held packages.'
+        msg = 'No holds in place.'
         state = STATE_OK
     elif not table_data:
         # holds exist, but the filters dropped all of them
         msg = 'Nothing checked.'
         state = lib.base.str2state(args.NO_MATCH_SEVERITY)
     else:
-        msg = (
-            f'{len(table_data)} held '
-            f'{lib.txt.pluralize("package", len(table_data))}.'
-            f'{lib.base.state2str(state, prefix=" ")}'
+        # a pin keeps a package at a version the archive offers rather than at the one
+        # installed, so the two kinds are named separately instead of being summed up
+        holds_count = sum(1 for row in table_data if row['source'] == 'hold')
+        pins_count = len(table_data) - holds_count
+        counted = []
+        if holds_count:
+            counted.append(f'{holds_count} {lib.txt.pluralize("hold", holds_count)}')
+        if pins_count:
+            counted.append(f'{pins_count} {lib.txt.pluralize("pin", pins_count)}')
+        msg = f'{" and ".join(counted)} in place.'
+    if refused:
+        # APT gives up on such a file and then fails every run, so the host cannot
+        # install or upgrade anything until it is fixed
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f' APT refuses '
+            f'{len(refused)} preferences {lib.txt.pluralize("file", len(refused))}, '
+            f'so no package operation works on this host.'
         )
+    msg += lib.base.state2str(state, prefix=' ')
     perfdata += lib.base.get_perfdata(
         'holds',
         len(table_data),
@@ -454,6 +552,10 @@ def main():
             keys = ['package', 'lock', 'source']
             headers = ['Package', 'Held at', 'Type']
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    if refused:
+        msg += '\n\nAPT stops reading these files where they are named:\n'
+        msg += '\n'.join(refused)
 
     # over and out
     lib.base.oao(

@@ -46,8 +46,8 @@ Monitoring Plugins:
 * huawei-dorado-controller: `--warning`/`--critical` alert on CPU and memory usage, and `--warning-temperature`/`--critical-temperature` on the controller temperature, all off by default
 * huawei-dorado-disk: `--warning`/`--critical` alert on a disk running out of remaining life, and `--warning-temperature`/`--critical-temperature` on a disk running hot
 * huawei-dorado-enclosure, huawei-dorado-power: `--warning-temperature`/`--critical-temperature` alert on an enclosure or power supply running hot, off by default
-* disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical`, both off by default
 * deb-versionlock: check alerting on packages APT holds back at their installed version, so a forgotten hold stops hiding behind a green update check. Part of the Debian and Ubuntu service sets
+* disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical`, both off by default
 * disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
 * dmesg: `--icinga-callback` suppresses acknowledged kernel messages on following runs, so no manual `dmesg --clear` on the host ([#639](https://github.com/Linuxfabrik/monitoring-plugins/issues/639))
@@ -99,7 +99,9 @@ Icinga Director:
 Grafana:
 
 * dashboards for all 24 Huawei OceanStor checks, which had none, with a panel per topic so temperatures, voltages, capacities, percentages and status codes are not mixed into one graph (huawei-dorado-\*, huawei-pacific-\*)
+* deb-versionlock: dashboard graphing the number of holds over time
 * disk-usage: graphs the total size of each partition, telling a disk resize apart from a mass file deletion ([#1374](https://github.com/Linuxfabrik/monitoring-plugins/issues/1374))
+* rpm-versionlock: dashboard graphing the number of version locks over time
 * wordpress-checksums: dashboard graphing the checksum violations, the files verified and the components that could not be verified
 * wordpress-security-scan: dashboard graphing the findings per class, the scan duration and the age of the vulnerability database
 
