@@ -3,7 +3,7 @@
 
 ## Overview
 
-Runs the self-validation of a LibreNMS installation and reports every check it performs: database schema, dependencies, poller activity, disk space, file ownership and more. Alerts when a validation reports a warning or a failure, for example an outstanding schema update or a poller that stopped running, which LibreNMS itself keeps reporting as a healthy web interface. Runs the validation as the LibreNMS system user and therefore requires a matching sudo rule. Supports extended reporting via `--lengthy`.
+Runs the self-validation of a LibreNMS installation and reports every check it performs: database schema, dependencies, poller activity, disk space, file ownership and more. Alerts when a validation reports a warning or a failure, for example an outstanding schema update or a poller that stopped running, which LibreNMS itself keeps reporting as a healthy web interface. Runs the validation as the LibreNMS system user. Supports extended reporting via `--lengthy`. Requires root or sudo.
 
 This is the same set of checks LibreNMS shows under "Validate Config" in its web interface. A LibreNMS whose schema update never finished, or whose poller stopped, keeps serving a green dashboard built from the data it collected before the problem started, which is what makes this worth alerting on separately.
 
@@ -18,7 +18,8 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 **Data Collection:**
 
 * Runs LibreNMS' own `validate.php` as the LibreNMS system user and reads its report
-* Groups LibreNMS runs by default come out of a single run; the groups it leaves out (`distributedpoller`, `mail`, `rrdcheck`, `webserver`) each cost an additional run and are only started when `--group` asks for them
+* Groups LibreNMS runs by default come out of a single run; the groups it leaves out (`distributedpoller`, `mail`, `rrdcheck`, `webserver`) each cost an additional run and are only started when `--group` asks for them. Asking only for optional groups skips the default run altogether
+* Without `--group` everything the default run reports is checked, including a validation group a later LibreNMS release adds. `--group` restricts the report to the named groups
 * The exit code of the validation is deliberately not used. It stays `0` when the script refuses to run, when no group matched, and when every finding is a warning, so only the report itself tells the check what happened
 * Findings that are known and accepted can be filtered out with `--ignore-regex`; they then no longer influence the check state
 * Validation messages are redacted before they are printed, so a connection error quoting a data source name does not carry a credential into the plugin output
@@ -44,6 +45,7 @@ usage: librenms-validate [-h] [-V] [--always-ok] [--brief]
                          [--fail-severity {ok,warn,crit,unknown}]
                          [--group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user,webserver}]
                          [--ignore-regex IGNORE_REGEX] [--lengthy]
+                         [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--path PATH] [--timeout TIMEOUT]
                          [--user USER]
 
@@ -52,8 +54,8 @@ performs: database schema, dependencies, poller activity, disk space, file
 ownership and more. Alerts when a validation reports a warning or a failure,
 for example an outstanding schema update or a poller that stopped running,
 which LibreNMS itself keeps reporting as a healthy web interface. Runs the
-validation as the LibreNMS system user and therefore requires a matching sudo
-rule. Supports extended reporting via --lengthy.
+validation as the LibreNMS system user. Supports extended reporting via
+--lengthy. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -78,14 +80,17 @@ options:
                         side effects: "mail" sends a real test message to the
                         configured alerting address on every check run, and
                         "rrdcheck" reads every RRD file, which takes minutes
-                        on a grown installation. If not specified, all groups
-                        of a default run are checked. Example:
+                        on a grown installation. If not specified, everything
+                        the default run reports is checked. Example:
                         `--group=database --group=poller`
   --ignore-regex IGNORE_REGEX
                         Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
   --lengthy             Extended reporting.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: unknown
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -177,7 +182,8 @@ Accepting a known finding, so it stops driving the check state:
 * OK if every validation reports success or an informational result.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* UNKNOWN if LibreNMS refuses to run the validation as the configured `--user`, if its PHP dependencies are missing, if `--path` does not hold a LibreNMS installation, or if no requested validation group was run at all. In each of these cases the validation itself exits successfully, so the state comes from the report rather than from an exit code.
+* UNKNOWN if LibreNMS refuses to run the validation as the configured `--user`, if its PHP dependencies are missing, or if `--path` does not hold a LibreNMS installation. In each of these cases the validation itself exits successfully, so the state comes from the report rather than from an exit code.
+* UNKNOWN if none of the groups named with `--group` was run, which is a misconfigured check rather than a quiet installation. Other checks default `--no-match-severity` to `ok`; here it defaults to `unknown` so the gap stays visible. Set `--no-match-severity` to change it.
 * Always OK if `--always-ok` is set.
 
 `--brief` and `--lengthy` change what is printed, never the state: a finding that `--brief` hides still drives the result. `--ignore-regex` does change the state, since an ignored finding is dropped before it is evaluated.
@@ -200,13 +206,13 @@ Accepting a known finding, so it stops driving the check state:
 
 `Not allowed to run the validation as "librenms". Add a sudo rule for ...`
 
-The monitoring user may not run that exact command as the LibreNMS user. Install the `LF_LIBRENMS_VALIDATE` block from the [sudoers files](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers) and check it with `visudo -c -f /etc/sudoers.d/<file>`, then confirm the result with `sudo -l -U icinga`.
+The monitoring user may not run that exact command as the LibreNMS user. Install the `LF_LIBRENMS_VALIDATE` block from the [sudoers files](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers) and check it with `visudo --check --file=/etc/sudoers.d/<file>`, then confirm the result with `sudo --list --other-user=icinga`.
 
 The rule lists each permitted command with its exact arguments, so the same message appears when the installation is somewhere other than `/opt/librenms`, when PHP is not at `/usr/bin/php`, when `--user` names a different account, or when `--group` asks for one of the optional groups the rule does not cover. The message quotes the command that was refused, so compare it line by line with what the rule allows.
 
 ### `LibreNMS refuses to validate itself as root.`
 
-`--user` points at `root` and the sudo rule permits it, so the validation started and LibreNMS exited rather than run under that account. Set `--user` to the account that owns the installation, which `getent passwd librenms` or `ls -ld /opt/librenms` will name.
+`--user` points at `root` and the sudo rule permits it, so the validation started and LibreNMS exited rather than run under that account. Set `--user` to the account that owns the installation, which `stat --format='%U' /opt/librenms` will name.
 
 ### `No LibreNMS installation found at "..."`
 
@@ -222,7 +228,7 @@ LibreNMS cannot start because its PHP libraries were never installed or were rem
 
 ### `Nothing checked. None of the requested validation groups was run.`
 
-Every group named with `--group` was skipped. LibreNMS ignores a group it does not know, and it skips `distributedpoller` unless distributed polling is enabled. Check the spelling against the list in `--help`, and drop `--group` entirely to fall back to the groups LibreNMS runs by default.
+Every group named with `--group` was skipped. LibreNMS ignores a group it does not know, and it skips `distributedpoller` unless distributed polling is enabled. Check the spelling against the list in `--help`, and drop `--group` entirely to report everything the default run produces. Where a group is legitimately absent on a given host, `--no-match-severity=ok` silences the result instead.
 
 ### The check reports a finding that is known and accepted
 

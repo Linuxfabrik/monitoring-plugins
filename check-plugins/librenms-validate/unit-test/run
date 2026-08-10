@@ -20,6 +20,14 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # Every fixture in stdout/ was captured from a real `validate.php` run, escape sequences
 # included: the container ones from a LibreNMS Docker instance, git-install-* from a
 # production installation deployed from git.
+#
+# A check run consists of the default run plus one run per requested optional group, so
+# the fixtures follow the same split: `--test=stdout/all-ok` feeds the default run, and
+# `stdout/all-ok-distributedpoller` the run that `--group=distributedpoller` triggers.
+#
+# default-run-unlisted-group is the one synthetic fixture: it is a captured default run
+# with a group appended that no LibreNMS release currently reports, which is how a future
+# validation group would arrive.
 
 TESTS = [
     # A healthy installation with one real finding. The exit code of validate.php is 1
@@ -106,35 +114,67 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-regex': r'Time between this server and the mysql database is off Mysql time',
     },
-    # A group LibreNMS leaves out of a default run is only reported when it is asked for.
+    # A group LibreNMS leaves out of a default run is only reported when it is asked for,
+    # and it is only run then, which is why its findings live in their own fixture.
     {
         'id': 'ok-optional-group-not-requested',
-        'test': 'stdout/fix-block-only,,1',
+        'test': 'stdout/all-ok,,0',
         'params': '',
         'assert-retc': STATE_OK,
         'assert-not-in': ['distributed_poller'],
     },
     {
         'id': 'warn-optional-group-requested',
-        'test': 'stdout/fix-block-only,,1',
+        'test': 'stdout/all-ok,,0',
         'params': '--group=distributedpoller',
         'assert-retc': STATE_WARN,
         'assert-in': ['You have not enabled distributed_poller'],
     },
+    # Both runs happen, and their results and groups end up in one report.
+    {
+        'id': 'warn-optional-group-merges-with-default-run',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=disk --group=distributedpoller',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'You have not enabled distributed_poller',
+            'in 2 groups',
+        ],
+    },
     # --lengthy adds the command LibreNMS suggests for the finding.
     {
         'id': 'warn-lengthy-shows-the-suggested-fix',
-        'test': 'stdout/fix-block-only,,1',
+        'test': 'stdout/all-ok,,0',
         'params': '--group=distributedpoller --lengthy',
         'assert-retc': STATE_WARN,
         'assert-in': ['lnms config:set distributed_poller true'],
     },
     {
         'id': 'warn-default-hides-the-suggested-fix',
-        'test': 'stdout/fix-block-only,,1',
+        'test': 'stdout/all-ok,,0',
         'params': '--group=distributedpoller',
         'assert-retc': STATE_WARN,
         'assert-not-in': ['lnms config:set distributed_poller true'],
+    },
+    # Everything a default run reports is checked, including a group the check does not
+    # know by name, so a group a later LibreNMS adds cannot fall out of the report.
+    {
+        'id': 'warn-unlisted-group-of-a-default-run-still-alerts',
+        'test': 'stdout/default-run-unlisted-group,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 failure found.',
+            'Custom MIB directory is not writable',
+        ],
+    },
+    # Naming a group restricts the report to it, whether the group is known or not.
+    {
+        'id': 'ok-unlisted-group-filtered-out',
+        'test': 'stdout/default-run-unlisted-group,,1',
+        'params': '--group=disk',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Custom MIB directory is not writable'],
     },
     # The detail list of a result explains the finding and belongs to its message, not to
     # the fix column.
@@ -148,7 +188,7 @@ TESTS = [
     # A group whose progress output pushes its status onto a later line still parses.
     {
         'id': 'ok-progress-output-does-not-confuse-the-parser',
-        'test': 'stdout/rrdcheck-progress,,0',
+        'test': 'stdout/all-ok,,0',
         'params': '--group=rrdcheck',
         'assert-retc': STATE_OK,
         'assert-not-in': ['Scanning', 'Status:'],
@@ -177,6 +217,21 @@ TESTS = [
         'params': '--group=database',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-no-group-matched-severity-lowered',
+        'test': 'stdout/unknown-group,,0',
+        'params': '--group=database --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A pattern that is not a valid regex is a parameter error, not a finding.
+    {
+        'id': 'unknown-invalid-ignore-regex',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore-regex=[',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to compile regex.'],
     },
     # Performance data covers every result, including the ones --brief hides.
     {

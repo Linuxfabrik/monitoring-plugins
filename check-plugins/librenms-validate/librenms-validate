@@ -17,24 +17,26 @@ import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081002'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
 more. Alerts when a validation reports a warning or a failure, for example an outstanding
 schema update or a poller that stopped running, which LibreNMS itself keeps reporting as a
-healthy web interface. Runs the validation as the LibreNMS system user and therefore
-requires a matching sudo rule.
-Supports extended reporting via --lengthy."""
+healthy web interface. Runs the validation as the LibreNMS system user.
+Supports extended reporting via --lengthy. Requires root or sudo."""
 
-# Validation groups LibreNMS runs on its own when no group is requested. Anything not
-# listed here has to be asked for explicitly, and each of those costs an extra run.
+# Validation groups LibreNMS runs on its own when no group is requested. Used to decide
+# whether a default run is needed at all, and to offer the group names on the command
+# line. Results are never filtered against this list: a group a later LibreNMS adds to
+# its default run has to reach the report, not fall out of it silently.
 DEFAULT_GROUPS = (
     'configuration',
     'database',
@@ -68,6 +70,10 @@ MAX_MESSAGE_LEN = 70
 DEFAULT_BRIEF = False
 DEFAULT_FAIL_SEVERITY = 'warn'
 DEFAULT_LENGTHY = False
+# Other checks default this to "ok", where nothing to report means a quiet system. Here it
+# means none of the requested groups ran, which is a misconfigured check rather than a
+# clean installation, so it stays visible.
+DEFAULT_NO_MATCH_SEVERITY = 'unknown'
 DEFAULT_PATH = '/opt/librenms'
 DEFAULT_TIMEOUT = 30
 DEFAULT_USER = 'librenms'
@@ -156,7 +162,7 @@ def parse_args():
         'Two of them have side effects: "mail" sends a real test message to the '
         'configured alerting address on every check run, and "rrdcheck" reads every RRD '
         'file, which takes minutes on a grown installation. '
-        'If not specified, all groups of a default run are checked. '
+        'If not specified, everything the default run reports is checked. '
         'Example: `--group=database --group=poller`',
         dest='GROUP',
         action='append',
@@ -178,6 +184,14 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -234,9 +248,24 @@ def get_validate_script(path):
     stops the check from handing an arbitrary file to a PHP interpreter.
     """
     script = os.path.realpath(os.path.join(path, 'validate.php'))
-    if not os.path.isfile(script):
+    if not lib.disk.file_exists(script):
         return (False, f'No LibreNMS installation found at "{path}".')
     return (True, script)
+
+
+def load_test_fixture(test_args, path):
+    """Read one test fixture, replacing the path in a copy of `--test`.
+
+    A check run consists of one default run plus one run per requested optional group, so
+    a single fixture cannot represent it. The default run reads the path given on the
+    command line, each optional group the same path suffixed with the group name.
+    """
+    if not lib.disk.file_exists(path, allow_empty=True):
+        lib.base.cu(f'Test fixture not found: "{path}".')
+    test_args = list(test_args)
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    return stdout
 
 
 def run_validation(script, user, group, timeout):
@@ -363,26 +392,38 @@ def main():
     # set default values for append parameters that were not specified
     if args.IGNORE_REGEX is None:
         args.IGNORE_REGEX = []
-    if args.GROUP is None:
-        args.GROUP = list(DEFAULT_GROUPS)
+    # args.GROUP is not set here: None means "report everything that ran".
 
     # fetch data
+    # The default groups all come out of one run without `-g`, which keeps the command
+    # that has to be allowed in sudoers a single literal line. Only the groups LibreNMS
+    # leaves out of a default run cost a call of their own, and a run that would only
+    # produce results nobody asked for is skipped entirely.
+    default_run = args.GROUP is None or bool(set(args.GROUP) & set(DEFAULT_GROUPS))
+    optional_runs = [
+        group
+        for group in OPTIONAL_GROUPS
+        if args.GROUP is not None and group in args.GROUP
+    ]
     if args.TEST is None:
         user = lib.base.coe(lib.shell.safe_cli_value(args.USER, '--user'))
         path = lib.base.coe(lib.shell.safe_cli_value(args.PATH, '--path'))
         script = lib.base.coe(get_validate_script(path))
-        # The default groups all come out of one run without `-g`, which keeps the
-        # command that has to be allowed in sudoers a single literal line. Only the
-        # groups LibreNMS leaves out of a default run cost a call of their own.
-        stdouts = [lib.base.coe(run_validation(script, user, None, args.TIMEOUT))]
-        for group in OPTIONAL_GROUPS:
-            if group in args.GROUP:
-                stdouts.append(
-                    lib.base.coe(run_validation(script, user, group, args.TIMEOUT))
-                )
+        stdouts = []
+        if default_run:
+            stdouts.append(
+                lib.base.coe(run_validation(script, user, None, args.TIMEOUT))
+            )
+        for group in optional_runs:
+            stdouts.append(
+                lib.base.coe(run_validation(script, user, group, args.TIMEOUT))
+            )
     else:
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        stdouts = [stdout]
+        stdouts = []
+        if default_run:
+            stdouts.append(load_test_fixture(args.TEST, args.TEST[0]))
+        for group in optional_runs:
+            stdouts.append(load_test_fixture(args.TEST, f'{args.TEST[0]}-{group}'))
 
     # init some vars
     msg = ''
@@ -418,9 +459,17 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
-    groups &= set(args.GROUP)
+    if args.GROUP is not None:
+        groups &= set(args.GROUP)
+        if not groups:
+            lib.base.oao(
+                'Nothing checked. None of the requested validation groups was run.',
+                lib.base.str2state(args.NO_MATCH_SEVERITY),
+                always_ok=args.ALWAYS_OK,
+            )
+
     for result in results:
-        if result['group'] not in args.GROUP:
+        if args.GROUP is not None and result['group'] not in args.GROUP:
             continue
         message = lib.txt.sanitize_sensitive_data(result['message'])
         if any(item.search(message) for item in compiled_ignore_regex):
@@ -445,13 +494,6 @@ def main():
         if args.LENGTHY:
             row['fix'] = lib.txt.sanitize_sensitive_data(result['fix'])
         table_data.append(row)
-
-    if not groups:
-        lib.base.oao(
-            'Nothing checked. None of the requested validation groups was run.',
-            STATE_UNKNOWN,
-            always_ok=args.ALWAYS_OK,
-        )
 
     checked = sum(counts.values())
 
