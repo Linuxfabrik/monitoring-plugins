@@ -32,7 +32,8 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 
 ```text
 usage: statusiq [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
-                [--no-proxy] [--timeout TIMEOUT] [--url URL]
+                [--no-proxy] [--retries RETRIES] [--timeout TIMEOUT]
+                [--url URL]
 
 Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Returns OK for
 operational or informational messages, WARN for maintenance windows, and CRIT
@@ -47,6 +48,10 @@ options:
                      The status message and the exit code are unaffected, so
                      alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
+  --retries RETRIES  Number of extra attempts if the status page does not
+                     answer with its feed, before the check gives up. Helps
+                     against a status page that intermittently returns an
+                     error page or an empty response instead. Default: 3
   --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
   --url URL          StatusIQ status page URL. Default:
                      https://status.trustid.ch

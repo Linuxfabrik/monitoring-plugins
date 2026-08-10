@@ -81,6 +81,7 @@ Monitoring Plugins:
 * ping: optional `--rta-warning`/`--rta-critical`, `--rtt-mdev-warning`/`--rtt-mdev-critical` and `--packet-loss-warning`/`--packet-loss-critical` thresholds alert on latency, jitter and packet loss
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, a misconfiguration that silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--snmpconf-path` keeps the SNMP community and SNMPv3 passphrases out of the process list by reading them from a net-snmp config file
+* statusiq: `--retries` sets how often a status page that did not answer with its feed is asked again before the check gives up, three times by default
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 * wordpress-checksums: check verifying the core and plugin files of a WordPress installation against the checksums wordpress.org publishes, which finds a web shell dropped into the tree or a core file with injected code
 * wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database, going CRITICAL only where the site can be taken over right now. Needs a free WPScan API token to look up vulnerabilities, and says so instead of reporting a clean result when it has none
@@ -204,6 +205,7 @@ Monitoring Plugins:
 * snmp: a harmless net-snmp warning such as a missing MIB module no longer aborts the check
 * snmp: string-indexed OIDs are read correctly
 * snmp: the bundled device profiles work again on current net-snmp instead of aborting with UNKNOWN
+* statusiq: a StatusIQ page that intermittently answers with an error page instead of its feed is retried, and no longer flaps into UNKNOWN claiming the page has RSS switched off
 * strongswan-connections: a connection being rekeyed, or one shared by several peers, no longer raises a false alarm or writes garbled graph data
 * strongswan-connections: a connection that has not carried traffic yet no longer graphs a made-up zero byte count
 * strongswan-connections: a connection that is still connecting, or one using a fixed-key cipher such as 3DES, no longer makes the check crash ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))

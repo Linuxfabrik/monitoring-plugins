@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 BASE_PARAMS = '--url=https://mydatacenter'
 
@@ -78,6 +78,27 @@ TESTS = [
             'OPUS Uni Würzburg          ! 2025-02-18 02:49:47+01:00 ! [OK]      ',
             'Opus Uni Potsdam           ! 2025-02-14 13:45:45+01:00 ! [OK]      ',
             'THW WILBERT                ! 2025-02-26 14:15:32+01:00 ! [OK]',
+        ],
+    },
+    {
+        # A feed the page really serves, just without any component in it.
+        'id': 'unknown-no-components',
+        'test': 'stdout/no-components,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'RSS feed disabled for this page? @ https://mydatacenter',
+        ],
+    },
+    {
+        # StatusIQ answers HTTP 200 with a feed content type but sends this instead of the
+        # feed. That is a broken response, not a page with RSS switched off.
+        'id': 'unknown-not-a-feed',
+        'test': 'stdout/not-a-feed,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'https://mydatacenter does not seem to be an Atom or RSS feed I understand.',
         ],
     },
 ]

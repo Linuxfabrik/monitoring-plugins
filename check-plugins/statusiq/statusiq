@@ -15,20 +15,13 @@ import sys
 
 import lib.args
 import lib.base
+import lib.feedparser
 import lib.lftest
 import lib.time
-import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-try:
-    from bs4 import BeautifulSoup
-except ImportError:
-    print('Python module "BeautifulSoup4" is not installed.')
-    sys.exit(STATE_UNKNOWN)
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081001'
 
 DESCRIPTION = """Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Returns OK for
 operational or informational messages, WARN for maintenance windows, and CRIT for
@@ -36,6 +29,7 @@ service disruptions or degraded performance."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
+DEFAULT_RETRIES = 3  # extra attempts on a status page that did not return its feed
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'https://status.trustid.ch'
 
@@ -85,6 +79,16 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--retries',
+        help='Number of extra attempts if the status page does not answer with its feed, '
+        'before the check gives up. Helps against a status page that intermittently '
+        'returns an error page or an empty response instead. Default: %(default)s',
+        dest='RETRIES',
+        type=int,
+        default=DEFAULT_RETRIES,
     )
 
     parser.add_argument(
@@ -138,23 +142,19 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        xml = lib.base.coe(
-            lib.url.fetch(
+        soup = lib.base.coe(
+            lib.feedparser.fetch_soup(
                 args.URL + ('rss' if args.URL.endswith('/') else '/rss'),
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                retries=args.RETRIES,
                 timeout=args.TIMEOUT,
             )
         )
     else:
         # do not call the command, put in test data
         xml, _, _ = lib.lftest.test(args.TEST)
-
-    try:
-        soup = BeautifulSoup(xml, 'xml')
-    except Exception as e:
-        print(f'{e}')
-        sys.exit(STATE_UNKNOWN)
+        soup = lib.base.coe(lib.feedparser.parse_soup(xml, args.URL))
 
     # init some vars
     msg = ''
