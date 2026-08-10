@@ -28,6 +28,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 SITE = '--path=wordpress/site'
 EXTRAS = '--path=wordpress/site-extras'
 DE = '--path=wordpress/site-de'
+# An installation carrying a plugin in `wp-content/plugins/core/`, which is a legal
+# directory name and must not be mistaken for the WordPress core.
+CORE_PLUGIN = '--path=wordpress/site-core-plugin'
 
 TESTS = [
     # Everything matches. Five files are verified: three below wp-admin/ and
@@ -65,12 +68,19 @@ TESTS = [
     },
     # ... and accepted, which is what an administrator does with a file they patched. The
     # filters swallowed the only finding there was, which is what "Nothing checked." says.
+    # The metrics still come, so a dashboard shows a zero rather than a gap.
     {
         'id': 'ok-core-file-modified-but-ignored',
         'test': 'stdout/modified,,0',
         'params': f'{SITE} --ignore=^core/wp-includes/version\\.php$',
         'assert-retc': STATE_OK,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': [
+            'Nothing checked.',
+            'WordPress v6.8.2 (en_US)',
+            "'core_modified'=0",
+            "'files_checked'=5",
+        ],
+        'assert-not-in': ['1 modified', 'version.php'],
     },
     # The same run, but alerting instead of accepting the gap the filters leave.
     {
@@ -79,7 +89,33 @@ TESTS = [
         'params': f'{SITE} --ignore=^core/wp-includes/version\\.php$ '
         '--no-match-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': ['Nothing checked.', "'files_checked'=5"],
+    },
+    # A component that could not be queried still drives the state through its own
+    # parameter, even where the filters removed every finding. The two reasons to alert are
+    # independent, so the one must not swallow the other, and the reason still reaches the
+    # administrator instead of a bare "Nothing checked.".
+    {
+        'id': 'warn-filtered-run-still-reports-the-unverifiable-component',
+        'test': 'stdout/modified-and-unreachable,,0',
+        'params': f'{SITE} --match=ZZZ-nothing-matches --no-checksum-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Nothing checked.',
+            'could not be queried for 1 of 2',
+            "'components_unverified'=1",
+            "'files_checked'=4",
+        ],
+        'assert-not-in': ['1 modified', 'version.php'],
+    },
+    # The same run without that parameter: the filters alone decide, and the default
+    # accepts the gap they leave.
+    {
+        'id': 'ok-filtered-run-accepts-the-gap-by-default',
+        'test': 'stdout/modified-and-unreachable,,0',
+        'params': f'{SITE} --match=ZZZ-nothing-matches',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', "'components_unverified'=1"],
     },
     {
         'id': 'ok-core-file-modified-but-severity-ok',
@@ -161,7 +197,7 @@ TESTS = [
         'test': 'stdout/plugin-modified,,0',
         'params': f'{SITE} --match=^core/',
         'assert-retc': STATE_OK,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': ['Nothing checked.', "'plugins_modified'=0"],
         'assert-not-in': ['1 modified'],
     },
     {
@@ -191,7 +227,7 @@ TESTS = [
         'assert-in': [
             '1 of 2 components',
             'Not verified: core',
-            "'plugins_unverified'=1",
+            "'components_unverified'=1",
         ],
     },
     {
@@ -224,7 +260,7 @@ TESTS = [
         'assert-regex': r'^WordPress v6\.8\.2 \(en_US\): no checksum violations found\..*'
         r'\nwordpress\.org could not be queried for 1 of 2 components '
         r'\(akismet\): URL error ',
-        'assert-in': ['1 of 2 components', "'plugins_unverified'=1"],
+        'assert-in': ['1 of 2 components', "'components_unverified'=1"],
     },
     {
         'id': 'warn-one-component-could-not-be-queried-alerts-on-demand',
@@ -245,7 +281,7 @@ TESTS = [
         'assert-in': [
             'Not verified: core, akismet',
             'nothing checked',
-            "'plugins_unverified'=2",
+            "'components_unverified'=2",
         ],
         'assert-not-in': ['akismet.php'],
     },
@@ -262,6 +298,25 @@ TESTS = [
             'Not verified: acme-premium',
             'no checksum violations found',
         ],
+    },
+    # A plugin living in `wp-content/plugins/core/` is a plugin, not the WordPress core.
+    # It has to be held to its own published list and counted as a plugin; holding it to
+    # the core's scope instead reports the real core files as added and its own as
+    # missing, which is a wall of findings on an installation that is fine.
+    {
+        'id': 'warn-plugin-directory-named-core-is-not-the-core',
+        'test': 'stdout/core-plugin,,0',
+        'params': f'{CORE_PLUGIN}',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 modified',
+            "'plugins_modified'=1",
+            "'core_modified'=0",
+            "'core_added'=0",
+            "'core_missing'=0",
+            'core.php',
+        ],
+        'assert-not-in': ['wp-includes/functions.php', 'wp-admin/about.php'],
     },
     # The locale a localized build was made for decides which list it is held to.
     {

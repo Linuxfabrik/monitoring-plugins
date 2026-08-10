@@ -230,7 +230,7 @@ wordpress.org is unreachable, all 3 components verified against cached data up t
 * WARNING if at least one file within the verified scope was modified, added or is missing. Configurable with `--severity`: `crit` for an installation nobody hand-patches, `ok` to keep the check reporting without alerting.
 * OK if every verified file matches what wordpress.org published, or matches the copy the core release shipped for a bundled plugin.
 * By default OK when a component has no published checksums and could not be verified at all. `--no-checksum-data-severity` raises that to `warn`, `crit` or `unknown`.
-* By default OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` raises that to `warn`, `crit` or `unknown`. An installation that simply matches its published checksums is reported as clean instead, so the two cases stay distinguishable.
+* By default OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` raises that to `warn`, `crit` or `unknown`. An installation that simply matches its published checksums is reported as clean instead, so the two cases stay distinguishable. A filtered run still emits every metric and still reports an unverifiable component, so `--no-checksum-data-severity` keeps working and a dashboard shows a zero rather than a gap.
 * By default OK when wordpress.org is unreachable and an expired cached copy was used instead. The output says so on its own line below the result. Where no cached copy exists either, the component counts as not verified and `--no-checksum-data-severity` applies.
 * UNKNOWN if `--path` holds no WordPress installation, meaning no readable `wp-includes/version.php` below it.
 * UNKNOWN if not a single checksum could be obtained, from wordpress.org or from the cache, so nothing at all was compared. The reason is part of the message. This is deliberately not an OK: a check that could not run says nothing about the installation, and a green result would claim otherwise.
@@ -243,6 +243,7 @@ The table lists at most 50 findings and states how many were left out. That is a
 
 | Name | Type | Description |
 |----|----|----|
+| components_unverified | Number | Components that could not be verified, either because nothing is published for them or because wordpress.org could not be queried. The core counts as a component here. |
 | core_added | Number | Files below `wp-admin/` or `wp-includes/` that the release never shipped. |
 | core_missing | Number | Files the release shipped and the installation no longer has. |
 | core_modified | Number | Verified core files whose content does not match the published checksum. |
@@ -250,7 +251,6 @@ The table lists at most 50 findings and states how many were left out. That is a
 | plugins_added | Number | Files inside a plugin directory that the plugin never shipped. |
 | plugins_missing | Number | Files a plugin shipped and the installation no longer has. |
 | plugins_modified | Number | Verified plugin files whose content does not match the published checksum. |
-| plugins_unverified | Number | Components that could not be verified, either because nothing is published for them or because wordpress.org could not be queried. Includes the core where it has none. |
 
 
 ## Troubleshooting
