@@ -16,22 +16,26 @@ shape the check's own fetchers return. Pairing one tree with a different answer 
 produces a modified, an added or a missing file without any tree having to be tampered
 with, and the network is never touched.
 
-A damaged answer from wordpress.org has no testcase here by construction, not by
-oversight: `--test` injects behind the JSON parsing, so a corrupt fixture would break the
-harness rather than reach the check. The paths that handle one are covered from the other
-side instead, through the fixtures that report an endpoint which answered with nothing
-usable.
+`--test` injects behind the fetch, so no fixture reaches the layer that builds a request,
+reads the cache and decides what a refusal or an outage means. That layer is exercised
+directly further down, by importing the check as a module and standing in for the network
+and the cache, which is also where a damaged answer from wordpress.org is covered.
 """
 
+import importlib.machinery
+import importlib.util
+import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, '..')
 
 import lib.lftest
+import lib.time
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 SITE = '--path=wordpress/site'
@@ -40,6 +44,9 @@ DE = '--path=wordpress/site-de'
 # An installation carrying a plugin in `wp-content/plugins/core/`, which is a legal
 # directory name and must not be mistaken for the WordPress core.
 CORE_PLUGIN = '--path=wordpress/site-core-plugin'
+# An installation whose plugin ships its readme as `README.txt`, which the plugin
+# directory reads just as it reads the lowercase spelling.
+UPPERCASE_README = '--path=wordpress/site-uppercase-readme'
 
 TESTS = [
     # Everything matches. Five files are verified: three below wp-admin/ and
@@ -210,6 +217,18 @@ TESTS = [
         'params': f'{SITE}',
         'assert-retc': STATE_OK,
         'assert-in': ['No checksum violations found.'],
+    },
+    # The plugin directory rewrites a plugin's readme without the plugin changing, so a
+    # readme that no longer matches is not a finding. Plugins ship the file as
+    # `README.txt` just as often as lowercase, and the same rewrite must not be a finding
+    # in one plugin and not in the next.
+    {
+        'id': 'ok-uppercase-readme-is-a-soft-file',
+        'test': 'stdout/uppercase-readme,,0',
+        'params': f'{UPPERCASE_README}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No checksum violations found.', "'plugins_modified'=0"],
+        'assert-not-in': ['README.txt'],
     },
     # A finding filtered away by --match must not be counted either.
     {
@@ -436,6 +455,203 @@ class TestTotalTimeout(unittest.TestCase):
         self.assertEqual(result.returncode, STATE_UNKNOWN)
         self.assertIn('Could not obtain any checksums', output)
         self.assertIn('--total-timeout', output)
+
+
+def load_check():
+    """Import the check as a module, so the helpers can be exercised directly."""
+    loader = importlib.machinery.SourceFileLoader(
+        'wordpress_checksums', '../wordpress-checksums'
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+class FetchArgs:
+    """The handful of parsed options the fetch layer reads."""
+
+    ALWAYS_OK = False
+    CACHE_EXPIRE = 1440
+    INSECURE = False
+    NO_PROXY = False
+    TIMEOUT = 8
+    TOTAL_TIMEOUT = 45
+
+
+class TestUrlComponent(unittest.TestCase):
+    """A slug and a version are read off the filesystem below a tree the web server can
+    usually write to, so both are attacker-controlled wherever it is, and both end up as
+    a path segment of a request. The fixture-driven tests above cannot reach this: they
+    are injected behind the fetch, where no URL is built any more.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_keeps_an_ordinary_value(self):
+        self.assertEqual(self.check.url_component('contact-form-7'), 'contact-form-7')
+
+    def test_encodes_the_separator(self):
+        # The whole point: a traversal stays inside its own path segment instead of
+        # climbing out of it.
+        self.assertEqual(self.check.url_component('../../etc'), '..%2F..%2Fetc')
+
+    def test_encodes_whitespace_and_query_characters(self):
+        self.assertEqual(self.check.url_component('a b?c#d'), 'a%20b%3Fc%23d')
+
+    def test_refuses_an_empty_value(self):
+        self.assertEqual(self.check.url_component(''), '')
+
+    def test_refuses_an_overlong_value(self):
+        long_value = 'a' * (self.check.MAX_URL_COMPONENT + 1)
+        self.assertEqual(self.check.url_component(long_value), '')
+
+    def test_accepts_a_value_at_the_limit(self):
+        limit_value = 'a' * self.check.MAX_URL_COMPONENT
+        self.assertEqual(self.check.url_component(limit_value), limit_value)
+
+
+class TestRemainingTimeout(unittest.TestCase):
+    """What is left of the run's shared budget, which is what stops the check from
+    spending --timeout seconds per component on a host that cannot reach wordpress.org.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_a_wide_budget_leaves_the_single_request_timeout(self):
+        deadline = lib.time.now() + 300
+        self.assertEqual(
+            self.check.remaining_timeout(FetchArgs, deadline), FetchArgs.TIMEOUT
+        )
+
+    def test_a_narrow_budget_wins_over_the_single_request_timeout(self):
+        deadline = lib.time.now() + 3
+        self.assertLessEqual(self.check.remaining_timeout(FetchArgs, deadline), 3)
+
+    def test_a_spent_budget_is_zero_rather_than_negative(self):
+        deadline = lib.time.now() - 60
+        self.assertEqual(self.check.remaining_timeout(FetchArgs, deadline), 0)
+
+
+class TestGetChecksums(unittest.TestCase):
+    """The layer between the two endpoints and the comparison: what a refusal, an outage
+    and a still-valid cache entry each turn into. The fixtures above stand in for its
+    result, so nothing here is covered by them.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def _get(self, timeout=8):
+        return self.check.get_checksums(
+            FetchArgs,
+            key='plugin:acme:1.0',
+            endpoint='https://downloads.example/acme/1.0.json',
+            extract=lambda data: data.get('files') or None,
+            algorithm='sha256',
+            timeout=timeout,
+        )
+
+    def test_a_spent_budget_asks_nothing_and_names_the_parameter(self):
+        with (
+            mock.patch('lib.cache.get', return_value=None),
+            mock.patch('lib.url.fetch') as fetch,
+        ):
+            result = self._get(timeout=0)
+        fetch.assert_not_called()
+        self.assertEqual(result['checksums'], {})
+        self.assertTrue(result['published'])
+        self.assertIn('--total-timeout', result['error'])
+
+    def test_a_404_means_nothing_is_published_rather_than_an_error(self):
+        # The plugin endpoint says "I have nothing for this" with a 404, where the core
+        # endpoint answers 200 with a falsy payload. Both have to arrive as the same
+        # thing, because neither is a problem the administrator can fix on this host.
+        with (
+            mock.patch('lib.cache.get', return_value=None),
+            mock.patch('lib.url.fetch', return_value=(False, {'status_code': 404})),
+        ):
+            result = self._get()
+        self.assertFalse(result['published'])
+        self.assertEqual(result['error'], '')
+
+    def test_an_empty_payload_means_nothing_is_published(self):
+        answer = (True, {'response': json.dumps({'files': {}}), 'status_code': 200})
+        with (
+            mock.patch('lib.cache.get', return_value=None),
+            mock.patch('lib.url.fetch', return_value=answer),
+        ):
+            result = self._get()
+        self.assertFalse(result['published'])
+
+    def test_a_fresh_cache_entry_is_served_without_asking(self):
+        entry = {
+            'value': json.dumps({'acme.php': 'aa'}),
+            'timestamp': lib.time.now() + 600,
+        }
+        with (
+            mock.patch('lib.cache.get', return_value=entry),
+            mock.patch('lib.url.fetch') as fetch,
+        ):
+            result = self._get()
+        fetch.assert_not_called()
+        self.assertEqual(result['checksums'], {'acme.php': 'aa'})
+        self.assertFalse(result['stale'])
+
+    def test_an_answer_is_cached_and_the_predecessors_are_pruned(self):
+        # The key carries the version, so every release would otherwise leave its
+        # predecessor behind unasked for and the database would grow without end.
+        answer = (
+            True,
+            {'response': json.dumps({'files': {'acme.php': 'bb'}}), 'status_code': 200},
+        )
+        with (
+            mock.patch('lib.cache.get', return_value=None),
+            mock.patch('lib.url.fetch', return_value=answer),
+            mock.patch('lib.cache.set') as cache_set,
+            mock.patch('lib.cache.prune') as prune,
+        ):
+            result = self._get()
+        self.assertEqual(result['checksums'], {'acme.php': 'bb'})
+        cache_set.assert_called_once()
+        prune.assert_called_once()
+
+    def test_an_expired_entry_carries_a_failed_refresh(self):
+        # The digests of a released version never change, so an outdated copy verifies
+        # exactly as well as a current one. The caller is told, so the output can say
+        # that a component released since the outage began is not covered.
+        expired = lib.time.now() - 3600
+        entry = {'value': json.dumps({'acme.php': 'cc'}), 'timestamp': expired}
+        with (
+            mock.patch('lib.cache.get', return_value=entry),
+            mock.patch('lib.url.fetch', return_value=(False, 'connection refused')),
+        ):
+            result = self._get()
+        self.assertEqual(result['checksums'], {'acme.php': 'cc'})
+        self.assertTrue(result['stale'])
+        self.assertEqual(result['expired'], expired)
+        self.assertEqual(result['error'], 'connection refused')
+
+    def test_a_damaged_entry_is_worth_no_more_than_a_missing_one(self):
+        entry = {'value': 'not json at all', 'timestamp': lib.time.now() + 600}
+        answer = (
+            True,
+            {'response': json.dumps({'files': {'acme.php': 'dd'}}), 'status_code': 200},
+        )
+        with (
+            mock.patch('lib.cache.get', return_value=entry),
+            mock.patch('lib.url.fetch', return_value=answer),
+            mock.patch('lib.cache.set'),
+            mock.patch('lib.cache.prune'),
+        ):
+            result = self._get()
+        self.assertEqual(result['checksums'], {'acme.php': 'dd'})
+        self.assertFalse(result['stale'])
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)

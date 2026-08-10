@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081007'
+__version__ = '2026081008'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -100,7 +100,10 @@ CORE_ROOT_EXCLUDED = (
 )
 
 # Files inside a plugin that the plugin directory rewrites without the plugin itself
-# changing, which is why the reference implementation calls them soft changes.
+# changing, which is why the reference implementation calls them soft changes. Matched
+# without regard to case: the plugin directory reads the file either way, so plugins ship
+# it as `readme.txt` and as `README.txt`, and the same rewrite must not be a finding in
+# one plugin and not in the next.
 PLUGIN_SOFT_FILES = ('readme.md', 'readme.txt')
 
 # The plugins WordPress ships along with the core. For these, two different contents are
@@ -343,6 +346,13 @@ def is_core_file(relative_path):
     return relative_path not in CORE_ROOT_EXCLUDED
 
 
+def is_soft_file(relative_path):
+    """Report whether a path inside a plugin is one of the files the plugin directory
+    rewrites on its own. See `PLUGIN_SOFT_FILES` for why the comparison ignores case.
+    """
+    return relative_path.lower() in PLUGIN_SOFT_FILES
+
+
 def get_digest(root, relative_path, algorithm):
     """Return the digest of a whole file below `root`, or the empty string when it cannot
     be read.
@@ -417,7 +427,7 @@ def scope_plugin(path, slug, checksums, core_checksums):
     plugin's root so `compare()` can use it as the second digest a file may match.
     """
     plugin_dir = os.path.join(path, 'wp-content', 'plugins')
-    wanted = {p for p in checksums if p not in PLUGIN_SOFT_FILES}
+    wanted = {p for p in checksums if not is_soft_file(p)}
     if lib.disk.dir_exists(os.path.join(plugin_dir, slug)):
         prefix = f'wp-content/plugins/{slug}/'
         bundled = {
@@ -426,7 +436,7 @@ def scope_plugin(path, slug, checksums, core_checksums):
             if p.startswith(prefix)
         }
         root = os.path.join(plugin_dir, slug)
-        present = walk(root) - set(PLUGIN_SOFT_FILES)
+        present = {p for p in walk(root) if not is_soft_file(p)}
         return root, wanted, present, present, bundled
     # A single-file plugin. Its root is shared with every other plugin, so only the files
     # the list names are looked at, nothing counts as added, and the core's copy of the
