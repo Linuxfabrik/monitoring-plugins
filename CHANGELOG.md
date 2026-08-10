@@ -86,7 +86,7 @@ Monitoring Plugins:
 * statusiq: `--retries` sets how often a status page that did not answer with its feed is asked again before the check gives up, three times by default
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 * wordpress-checksums: check verifying the core and plugin files of a WordPress installation against the checksums wordpress.org publishes, which finds a web shell dropped into the tree or a core file with injected code
-* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database, going CRITICAL only where the site can be taken over right now. Needs a free WPScan API token to look up vulnerabilities, and says so instead of reporting a clean result when it has none
+* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database, going CRITICAL only where the site can be taken over right now, and needing a free WPScan API token for the vulnerability lookup without which it says so instead of reporting a clean result
 
 Icinga Director:
 
@@ -100,6 +100,8 @@ Grafana:
 
 * dashboards for all 24 Huawei OceanStor checks, which had none, with a panel per topic so temperatures, voltages, capacities, percentages and status codes are not mixed into one graph (huawei-dorado-\*, huawei-pacific-\*)
 * disk-usage: graphs the total size of each partition, telling a disk resize apart from a mass file deletion ([#1374](https://github.com/Linuxfabrik/monitoring-plugins/issues/1374))
+* wordpress-checksums: dashboard graphing the checksum violations, the files verified and the components that could not be verified
+* wordpress-security-scan: dashboard graphing the findings per class, the scan duration and the age of the vulnerability database
 
 ### Changed
 
