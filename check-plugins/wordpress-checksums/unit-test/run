@@ -114,6 +114,21 @@ TESTS = [
         'assert-in': ['1 missing', "'core_missing'=1"],
         'assert-regex': r'wp-includes/gone\.php.*missing',
     },
+    # 60 findings against a table that shows 50. The state and the perfdata still count
+    # every one of them, only the table is cut off.
+    {
+        'id': 'warn-many-findings-are-truncated',
+        'test': 'stdout/truncated,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '60 missing',
+            "'core_missing'=60",
+            '... and 10 more findings.',
+            'wp-includes/gone01.php',
+        ],
+        'assert-not-in': ['wp-includes/gone60.php'],
+    },
     {
         'id': 'warn-plugin-file-modified',
         'test': 'stdout/plugin-modified,,0',

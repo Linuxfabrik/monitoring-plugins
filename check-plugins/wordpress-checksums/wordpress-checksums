@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081003'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -117,6 +117,13 @@ MAX_PATH_LEN = 46
 # leading ones already tell the two files apart, which is all the column is there for.
 DIGEST_LEN = 16
 
+# How many findings the table shows before it is cut off. An installation that was
+# defaced wholesale has a finding per file, and the full list would be thousands of lines
+# that Icinga stores and mails on with every notification. Not tied to `--lengthy`, which
+# decides how wide a row is rather than how many there are, and which the shipped Director
+# service template switches on anyway.
+MAX_TABLE_ROWS = 50
+
 # What the three kinds of discrepancy are called in the output. "Added" and "missing" are
 # stated from the installation's point of view, not the checksum list's.
 ISSUE_ADDED = 'added'
@@ -160,12 +167,13 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Skip files whose path matches. '
+        help='Skip files whose path matches this Python regular expression. '
         'Matched against `<component>/<path>`, where the component is `core` or the '
         "plugin's slug. "
-        + lib.args.help('--ignore-regex')
-        + ' Example: `^my-plugin/` to skip one component. '
-        'Example: `^core/index\\.php$` to accept an edited file.',
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^my-plugin/"` to skip one component. '
+        'Example: `--ignore="^core/index\\.php$"` to accept an edited file.',
         dest='IGNORE',
         action='append',
         default=None,
@@ -189,9 +197,15 @@ def parse_args():
 
     parser.add_argument(
         '--match',
-        help='Only report files whose path matches. '
+        help='Only report files whose path matches this Python regular expression. '
         'Matched against `<component>/<path>`, where the component is `core` or the '
-        "plugin's slug. " + lib.args.help('--match'),
+        "plugin's slug. "
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
+        'a file must match `--match` AND not match `--ignore` to be reported '
+        '(include first, exclude second). '
+        'Example: `--match="^core/"` to look at the core alone. '
+        'Example: `--match="\\.php$"` to look at the PHP files alone.',
         dest='MATCH',
         action='append',
         default=None,
@@ -239,7 +253,8 @@ def parse_args():
 
     parser.add_argument(
         '--severity',
-        help='State to report for a file that does not match its published checksum. '
+        help=lib.args.help('--severity')
+        + ' Applies to a file that does not match its published checksum. '
         'Raise it to `crit` on an installation nobody hand-patches, where a mismatch can '
         'only mean the files were tampered with. '
         'Default: %(default)s',
@@ -877,7 +892,13 @@ def main():
         else:
             keys = ['component', 'path', 'issue', 'state']
             headers = ['Component', 'File', 'Issue', 'State']
-        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            keys,
+            header=headers,
+            max_rows=MAX_TABLE_ROWS,
+            max_rows_label='finding',
+        )
 
     # over and out
     lib.base.oao(

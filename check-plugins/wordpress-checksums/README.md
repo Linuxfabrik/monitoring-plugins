@@ -89,24 +89,28 @@ options:
                         a released version never change, so this is about how
                         often wordpress.org is asked, not about how current
                         the answer is. Default: 1440 (minutes)
-  --ignore IGNORE       Skip files whose path matches. Matched against
-                        `<component>/<path>`, where the component is `core` or
-                        the plugin's slug. Any item matching this Python regex
-                        will be ignored. Can be specified multiple times.
-                        Example: `(?i)linuxfabrik` for a case-insensitive
-                        match. Example: `^my-plugin/` to skip one component.
-                        Example: `^core/index\.php$` to accept an edited file.
+  --ignore IGNORE       Skip files whose path matches this Python regular
+                        expression. Matched against `<component>/<path>`,
+                        where the component is `core` or the plugin's slug.
+                        Case-sensitive by default; use `(?i)` for case-
+                        insensitive matching. Can be specified multiple times.
+                        Example: `--ignore="^my-plugin/"` to skip one
+                        component. Example: `--ignore="^core/index\.php$"` to
+                        accept an edited file.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --match MATCH         Only report files whose path matches. Matched against
+  --match MATCH         Only report files whose path matches this Python
+                        regular expression. Matched against
                         `<component>/<path>`, where the component is `core` or
-                        the plugin's slug. Filter by this Python regular
-                        expression. Case-sensitive by default; use `(?i)` for
-                        case-insensitive matching. Can be specified multiple
-                        times. Examples: `(?i)example` to match "example"
-                        regardless of case. `^(?!.*example).*$` to match any
-                        string except "example" (negative lookahead).
+                        the plugin's slug. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times. If both `--match` and `--ignore` are
+                        given, a file must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second). Example: `--match="^core/"` to look at the
+                        core alone. Example: `--match="\.php$"` to look at the
+                        PHP files alone.
   --no-checksum-data-severity {ok,warn,crit,unknown}
                         State to report when no published checksums are
                         available for a component and it could not be
@@ -126,8 +130,8 @@ options:
                         within your Webserver's Document Root. Default:
                         /var/www/html/wordpress
   --severity {ok,warn,crit}
-                        State to report for a file that does not match its
-                        published checksum. Raise it to `crit` on an
+                        Severity for alerting. Applies to a file that does not
+                        match its published checksum. Raise it to `crit` on an
                         installation nobody hand-patches, where a mismatch can
                         only mean the files were tampered with. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
@@ -187,6 +191,22 @@ akismet   ! akismet.php             ! modified ! 95027ba5326398e3 ! 04b6b1aa3275
 akismet   ! shell.php               ! added    ! -                ! -                ! [WARNING]
 ```
 
+An installation that was defaced wholesale. The table stops after 50 rows and says how many findings are left:
+
+```bash
+./wordpress-checksums --path=/var/www/html/wordpress
+```
+
+```text
+WordPress v6.8.2 (en_US): 1893 modified, 12 added [WARNING]. 2834 files verified in 3 of 3 components.
+
+Component ! File                    ! Issue    ! State
+----------+-------------------------+----------+----------
+core      ! wp-admin/about.php      ! modified ! [WARNING]
+[...]
+... and 1855 more findings.
+```
+
 Accepting one file that is edited on purpose, and raising the rest to CRITICAL:
 
 ```bash
@@ -216,19 +236,21 @@ wordpress.org is unreachable, all 3 components verified against cached data up t
 * UNKNOWN if not a single checksum could be obtained, from wordpress.org or from the cache, so nothing at all was compared. The reason is part of the message. This is deliberately not an OK: a check that could not run says nothing about the installation, and a green result would claim otherwise.
 * Always OK with `--always-ok`.
 
+The table lists at most 50 findings and states how many were left out. That is a display limit only: the state is determined by every finding, and the performance data counts them all. A defaced installation would otherwise produce thousands of lines that Icinga stores and mails on with every notification.
+
 
 ## Perfdata / Metrics
 
-| Name                 | Type   | Description |
-|----------------------|--------|-------------|
-| core_added           | Number | Files below `wp-admin/` or `wp-includes/` that the release never shipped. |
-| core_missing         | Number | Files the release shipped and the installation no longer has. |
-| core_modified        | Number | Verified core files whose content does not match the published checksum. |
-| files_checked        | Number | Files compared against a published checksum in this run. |
-| plugins_added        | Number | Files inside a plugin directory that the plugin never shipped. |
-| plugins_missing      | Number | Files a plugin shipped and the installation no longer has. |
-| plugins_modified     | Number | Verified plugin files whose content does not match the published checksum. |
-| plugins_unverified   | Number | Components that could not be verified, either because nothing is published for them or because wordpress.org could not be queried. Includes the core where it has none. |
+| Name | Type | Description |
+|----|----|----|
+| core_added | Number | Files below `wp-admin/` or `wp-includes/` that the release never shipped. |
+| core_missing | Number | Files the release shipped and the installation no longer has. |
+| core_modified | Number | Verified core files whose content does not match the published checksum. |
+| files_checked | Number | Files compared against a published checksum in this run. |
+| plugins_added | Number | Files inside a plugin directory that the plugin never shipped. |
+| plugins_missing | Number | Files a plugin shipped and the installation no longer has. |
+| plugins_modified | Number | Verified plugin files whose content does not match the published checksum. |
+| plugins_unverified | Number | Components that could not be verified, either because nothing is published for them or because wordpress.org could not be queried. Includes the core where it has none. |
 
 
 ## Troubleshooting
