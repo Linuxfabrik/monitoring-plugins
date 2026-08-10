@@ -135,6 +135,7 @@ Event Plugins:
 
 Icinga Director:
 
+* the WordPress service set, the services in it and the WordPress host tag are spelled the way WordPress spells itself, and the same goes for the CVSS and WPScan fields of the WordPress checks
 * whmcs-status: the API secret is a hidden field, like every other credential
 
 Tools:
