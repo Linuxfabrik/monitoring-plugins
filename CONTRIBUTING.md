@@ -566,6 +566,10 @@ state = lib.base.get_worst(state, item_state)
 
 The library parses the range expression and returns `STATE_OK`, `STATE_WARN`, or `STATE_CRIT`. Never reimplement range parsing per plugin. See `check-plugins/procs/procs` and the `example` plugin for reference implementations with multiple metrics and per-row worst-state aggregation.
 
+The rule covers every bound the operator picks for themselves: a percentage, a count, an age, a temperature, whatever the admin decides is too much on their systems. That is what ranges are for, and it is the case a plugin must never solve on its own.
+
+A parameter that names a fixed classification boundary defined outside the plugin is a different thing and keeps a plain numeric type (`type=float`, `type=int`) with a direct comparison. A CVSS base score is scored on a published scale whose severity bands are given, so "at or above this score" is the whole semantic, and a range expression there would offer syntax (`@10:20`, `~:50`) that means nothing for the value. Reference implementation: `--critical-cvss` in [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan). Say so in the README, so the missing range support reads as a decision rather than as an omission.
+
 Multi-threshold worked example: `--warning 2:100 --critical 1:150`. The per-value state the library will return:
 
 ```text
