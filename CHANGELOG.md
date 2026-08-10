@@ -47,6 +47,7 @@ Monitoring Plugins:
 * huawei-dorado-disk: `--warning`/`--critical` alert on a disk running out of remaining life, and `--warning-temperature`/`--critical-temperature` on a disk running hot
 * huawei-dorado-enclosure, huawei-dorado-power: `--warning-temperature`/`--critical-temperature` alert on an enclosure or power supply running hot, off by default
 * disk-io: reports per-disk I/O latency (await) and can alert on it with `--await-warning`/`--await-critical`, both off by default
+* deb-versionlock: check alerting on packages APT holds back at their installed version, so a forgotten hold stops hiding behind a green update check. Part of the Debian and Ubuntu service sets
 * disk-smart: filter drives by regular expression with `--match`/`--ignore` ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: per-mountpoint warning and critical thresholds via `--mount` ([#1286](https://github.com/Linuxfabrik/monitoring-plugins/issues/1286))
 * dmesg: `--icinga-callback` suppresses acknowledged kernel messages on following runs, so no manual `dmesg --clear` on the host ([#639](https://github.com/Linuxfabrik/monitoring-plugins/issues/639))

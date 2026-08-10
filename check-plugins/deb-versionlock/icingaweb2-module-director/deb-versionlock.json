@@ -1,0 +1,298 @@
+{
+    "Command": {
+        "cmd-check-deb-versionlock": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$deb_versionlock_always_ok$"
+                },
+                "--check-pinning": {
+                    "set_if": "$deb_versionlock_check_pinning$"
+                },
+                "--critical": {
+                    "value": "$deb_versionlock_critical$"
+                },
+                "--ignore": {
+                    "value": "$deb_versionlock_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$deb_versionlock_lengthy$"
+                },
+                "--match": {
+                    "value": "$deb_versionlock_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$deb_versionlock_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$deb_versionlock_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$deb_versionlock_timeout$"
+                },
+                "--warning": {
+                    "value": "$deb_versionlock_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/deb-versionlock",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-deb-versionlock",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "89f94542-dc57-4291-8d6e-2d423aba6aca"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-deb-versionlock": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-deb-versionlock",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "deb-versionlock.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports the packages that APT holds back at their installed version. A hold set to work around a broken update and then forgotten keeps a host on an unpatched version for good, while the update check stays green because APT no longer offers the update. Alerts as soon as one hold is in place; raise --warning to tolerate a number of deliberate holds, or filter the ones you keep on purpose with --ignore. Optionally also reports the packages pinned in the APT preferences via --check-pinning. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-versionlock/",
+            "object_name": "tpl-service-deb-versionlock",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "deb_versionlock_always_ok": false,
+                "deb_versionlock_check_pinning": false,
+                "deb_versionlock_ignore": [],
+                "deb_versionlock_lengthy": false,
+                "deb_versionlock_match": [],
+                "deb_versionlock_no_match_severity": "ok",
+                "deb_versionlock_no_perfdata": false,
+                "deb_versionlock_timeout": 8,
+                "deb_versionlock_warning": "0"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "7b336263-5d1a-448c-90c6-8e4aa466b55b"
+        }
+    },
+    "DataList": {
+        "deb_versionlock_no_match_severity_list": {
+            "list_name": "deb_versionlock_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "6c1479bb-a387-4c4a-9ad4-e5bdcf0408c4"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "deb_versionlock_always_ok",
+            "caption": "Deb Versionlock: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2ac8c9f3-c828-42a4-a033-055153757cba"
+        },
+        "2": {
+            "varname": "deb_versionlock_check_pinning",
+            "caption": "Deb Versionlock: Check Pinning?",
+            "description": "Additionally report the packages pinned in the APT preferences. A pin keeps a package at a version just as effectively as a hold, but it is also used legitimately to give a repository like backports a priority of its own, which is why it is not reported by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2574b61a-a322-47d7-a2ca-d3d4f3acc1fd"
+        },
+        "3": {
+            "varname": "deb_versionlock_critical",
+            "caption": "Deb Versionlock: Critical",
+            "description": "CRIT threshold for the number of held packages. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "76385ab8-4966-416e-b316-629836728bbb"
+        },
+        "4": {
+            "varname": "deb_versionlock_ignore",
+            "caption": "Deb Versionlock: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "790facb3-7a1f-4ac5-ac7e-87c2d75abe14"
+        },
+        "5": {
+            "varname": "deb_versionlock_lengthy",
+            "caption": "Deb Versionlock: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9b4b08e6-7aa3-4045-b334-0cc940e9f675"
+        },
+        "6": {
+            "varname": "deb_versionlock_match",
+            "caption": "Deb Versionlock: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8f48a6bd-df4c-45f7-89f0-f784265d7567"
+        },
+        "7": {
+            "varname": "deb_versionlock_no_match_severity",
+            "caption": "Deb Versionlock: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "deb_versionlock_no_match_severity_list"
+            },
+            "uuid": "75195f0c-2f9c-43c7-876e-a6a68d1dfcc3"
+        },
+        "8": {
+            "varname": "deb_versionlock_no_perfdata",
+            "caption": "Deb Versionlock: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "cf134944-47d7-4a01-8f2e-65393ea73625"
+        },
+        "9": {
+            "varname": "deb_versionlock_timeout",
+            "caption": "Deb Versionlock: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fe21682f-07b0-4ca5-a697-66b34a7a75ea"
+        },
+        "10": {
+            "varname": "deb_versionlock_warning",
+            "caption": "Deb Versionlock: Warning",
+            "description": "WARN threshold for the number of held packages. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3add403c-642c-4140-a8dc-18e9c13c88e4"
+        }
+    }
+}

@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# deb-versionlock runs two commands, so a testcase points at a fixture base name and
+# the plugin appends `-showhold` and `-dpkg-query` to it. The fixtures were captured
+# on real podman containers after `apt-mark hold bash coreutils`, one per supported
+# Debian and Ubuntu release, so a changed output format fails here.
+#
+# APT pinning is read from files instead, which the `config/` trees stand in for via
+# `--test-config-root`.
+TESTS = [
+    # A host with nothing held back.
+    {
+        'id': 'ok-no-holds',
+        'test': 'stdout/no-holds,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No held packages.', "'holds'=0"],
+    },
+    # One testcase per supported release.
+    {
+        'id': 'warn-debian10-holds-present',
+        'test': 'stdout/debian10-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', 'bash', '5.0-4', 'coreutils', "'holds'=2"],
+    },
+    {
+        'id': 'warn-debian11-holds-present',
+        'test': 'stdout/debian11-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.1-2+deb11u1'],
+    },
+    {
+        'id': 'warn-debian12-holds-present',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.2.15-2+b13'],
+    },
+    {
+        'id': 'warn-debian13-holds-present',
+        'test': 'stdout/debian13-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.2.37-2+b9'],
+    },
+    {
+        'id': 'warn-ubuntu2004-holds-present',
+        'test': 'stdout/ubuntu2004-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.0-6ubuntu1.2'],
+    },
+    {
+        'id': 'warn-ubuntu2204-holds-present',
+        'test': 'stdout/ubuntu2204-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.1-6ubuntu1.1'],
+    },
+    {
+        'id': 'warn-ubuntu2404-holds-present',
+        'test': 'stdout/ubuntu2404-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.2.21-2ubuntu4'],
+    },
+    {
+        'id': 'warn-ubuntu2604-holds-present',
+        'test': 'stdout/ubuntu2604-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', '5.3-2ubuntu1'],
+    },
+    # Thresholds are Nagios ranges over the number of holds.
+    {
+        'id': 'ok-warning-raised',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--warning 5',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 held packages.'],
+    },
+    {
+        'id': 'crit-above-critical',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--warning 0 --critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'2 held packages\.\s*\[CRITICAL\]',
+    },
+    # Filtering by package name.
+    {
+        'id': 'warn-match-single-package',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--match=^bash$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 held package.', 'bash'],
+        'assert-not-in': ['coreutils'],
+    },
+    {
+        'id': 'warn-ignore-single-package',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--ignore=^coreutils$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 held package.'],
+        'assert-not-in': ['coreutils'],
+    },
+    {
+        'id': 'ok-nothing-checked',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--match=^nothing-here$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', "'holds'=0"],
+    },
+    {
+        'id': 'warn-nothing-checked',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--match=^nothing-here$ --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # Extended reporting adds where the hold has to be removed.
+    {
+        'id': 'warn-lengthy-shows-origin',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Configured in', 'apt-mark'],
+    },
+    # A hold survives the removal of the package it holds.
+    {
+        'id': 'warn-hold-without-package',
+        'test': 'stdout/hold-without-package,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', 'removed-package', 'not installed'],
+    },
+    # APT appends the architecture to a package that is not of the host's own, so a
+    # hold on a multi-arch package arrives as `libgcc-s1:i386`.
+    {
+        'id': 'warn-multiarch-hold',
+        'test': 'stdout/multiarch-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 held packages.', 'libgcc-s1:i386', '12.2.0-14+deb12u1'],
+    },
+    # Rubbish from apt-mark is skipped instead of being reported as a package.
+    {
+        'id': 'ok-malformed-showhold',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No held packages.'],
+    },
+    # APT pinning, off unless asked for.
+    {
+        'id': 'ok-pinning-not-checked',
+        'test': 'stdout/no-holds,,0',
+        'params': '--test-config-root=config/pinning',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No held packages.'],
+    },
+    {
+        'id': 'warn-pinning-checked',
+        'test': 'stdout/no-holds,,0',
+        'params': '--test-config-root=config/pinning --check-pinning --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 held packages.',
+            'nginx',
+            'version 1.24.* priority 1001',
+            'borgbackup',
+            'borgmatic',
+            '99-backports',
+        ],
+        'assert-not-in': [
+            # `Package: *` gives a repository a priority, it does not hold a package
+            'bookworm-backports priority 100 ',
+            # APT ignores a `.dpkg-old` left behind by an upgrade, so its pin is not
+            # in force and must not be reported
+            'ignored-by-apt',
+            # a stanza without a Pin is not a pin, and APT skips it too
+            'no-pin-package',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../deb-versionlock'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
