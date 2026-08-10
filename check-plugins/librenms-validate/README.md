@@ -13,6 +13,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 * **The sudo rule lists its commands with their exact arguments.** That is deliberate: a wildcard would hand the LibreNMS account a PHP interpreter with free arguments. If the installation does not live in `/opt/librenms`, or PHP is not at `/usr/bin/php`, the paths in the sudoers file have to be adjusted to match. Without a matching rule `sudo` asks for a password and the check reports UNKNOWN.
 * **`--group=mail` sends a real e-mail.** LibreNMS tests its mail transport by delivering a message to the configured alerting address. On a check that runs hourly that is an hourly e-mail. Only request this group deliberately.
 * **`--group=rrdcheck` reads every RRD file.** On a grown installation that is a six-figure number of files and a runtime of minutes. Raise `--timeout` and the command timeout in the service definition before requesting it, and keep the check interval long.
+* **`--timeout` applies per validation run, not to the check as a whole.** The default run plus all four optional groups are five runs, so the worst case is five times `--timeout`. The shipped service template allows the command 90 seconds in total; raise that too when requesting optional groups.
 * **Containerised LibreNMS installations are only partly covered.** The official image marks itself as such through an environment variable that `sudo` removes again, so the `dependencies` and `updates` groups report what a package installation would rather than what the container actually is.
 
 **Data Collection:**
@@ -20,7 +21,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 * Runs LibreNMS' own `validate.php` as the LibreNMS system user and reads its report
 * Groups LibreNMS runs by default come out of a single run; the groups it leaves out (`distributedpoller`, `mail`, `rrdcheck`, `webserver`) each cost an additional run and are only started when `--group` asks for them. Asking only for optional groups skips the default run altogether
 * Without `--group` everything the default run reports is checked, including a validation group a later LibreNMS release adds. `--group` restricts the report to the named groups
-* The exit code of the validation is deliberately not used. It stays `0` when the script refuses to run, when no group matched, and when every finding is a warning, so only the report itself tells the check what happened
+* The exit code of the validation is deliberately not used. It only separates "at least one failure" from everything else: it stays `0` when every finding is a warning and when no group matched, and it is `1` both for a run that found a problem and for one that never started, so only the report itself tells the check what happened
 * Findings that are known and accepted can be filtered out with `--ignore-regex`; they then no longer influence the check state
 * Validation messages are redacted before they are printed, so a connection error quoting a data source name does not carry a credential into the plugin output
 
@@ -67,11 +68,11 @@ options:
                         performance data and still drives the overall check
                         state, so this is safe to leave on.
   --fail-severity {ok,warn,crit,unknown}
-                        State to report for a validation LibreNMS marks as
-                        failed. A failed validation means the installation is
-                        broken in a way that stops it from working correctly,
-                        which is worth acting on but rarely worth waking
-                        somebody up for. Default: warn
+                        State to report for an item the monitored system
+                        itself marks as failed. A failed item means the
+                        installation is broken in a way that stops it from
+                        working correctly, which is worth acting on but rarely
+                        worth waking somebody up for. Default: warn
   --group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user,webserver}
                         Validation group to check. Can be specified multiple
                         times. The groups distributedpoller, mail, rrdcheck,
@@ -90,7 +91,7 @@ options:
   --lengthy             Extended reporting.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
-                        nothing is checked. Default: unknown
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -101,7 +102,9 @@ options:
   --user USER           System user to run the validation as. LibreNMS refuses
                         to validate itself as root and reports a failure when
                         any other user runs it, so this has to name the user
-                        that owns the installation. Default: librenms
+                        that owns the installation. Requires the right to
+                        `sudo -u <user>` (root has this by default). Default:
+                        librenms
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-validate/
@@ -116,6 +119,8 @@ A healthy installation with one real finding:
 ./librenms-validate
 ```
 
+Output:
+
 ```text
 1 failure found. Checked 17 validations in 13 groups.
 
@@ -125,9 +130,17 @@ dependencies ! Composer Version: 2.10.2                                         
 dependencies ! Dependencies up-to-date.                                               ! [OK]
 database     ! Database Connected                                                     ! [OK]
 database     ! Database Schema is current                                             ! [OK]
+database     ! SQL Server meets minimum requirements                                  ! [OK]
+database     ! lower_case_table_names is enabled                                      ! [OK]
+database     ! MySQL engine is optimal                                                ! [OK]
+database     ! Database and column collations are correct                             ! [OK]
+database     ! Database schema correct                                                ! [OK]
 database     ! MySQL and PHP time match                                               ! [OK]
 poller       ! Active pollers found                                                   ! [OK]
+poller       ! Dispatcher Service not detected                                        ! [OK]
+poller       ! Locks are functional                                                   ! [OK]
 poller       ! Python poller wrapper is polling                                       ! [OK]
+poller       ! Redis is unavailable                                                   ! [OK]
 rrd          ! rrdtool version ok                                                     ! [OK]
 rrd          ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
 ```
@@ -137,6 +150,8 @@ The same run reduced to what needs attention:
 ```bash
 ./librenms-validate --brief
 ```
+
+Output:
 
 ```text
 1 failure found. Checked 17 validations in 13 groups.
@@ -152,6 +167,8 @@ With the full message and the command LibreNMS suggests for the finding:
 ./librenms-validate --brief --lengthy --group=distributedpoller
 ```
 
+Output:
+
 ```text
 1 failure found. Checked 1 validation in 1 group.
 
@@ -160,20 +177,47 @@ Group             ! Message                                 ! Suggested Fix     
 distributedpoller ! You have not enabled distributed_poller ! lnms config:set distributed_poller true ! [WARNING]
 ```
 
-An installation where nothing needs attention:
-
-```bash
-./librenms-validate
-```
-
-```text
-No failures found. No warnings found. Checked 19 validations in 13 groups.
-```
-
 Accepting a known finding, so it stops driving the check state:
 
 ```bash
 ./librenms-validate --ignore-regex='rrdcached connectivity'
+```
+
+Output:
+
+```text
+No failures found. No warnings found. Checked 16 validations in 13 groups.
+
+Group        ! Message                                    ! State
+-------------+--------------------------------------------+------
+dependencies ! Composer Version: 2.10.2                   ! [OK]
+dependencies ! Dependencies up-to-date.                   ! [OK]
+database     ! Database Connected                         ! [OK]
+database     ! Database Schema is current                 ! [OK]
+database     ! SQL Server meets minimum requirements      ! [OK]
+database     ! lower_case_table_names is enabled          ! [OK]
+database     ! MySQL engine is optimal                    ! [OK]
+database     ! Database and column collations are correct ! [OK]
+database     ! Database schema correct                    ! [OK]
+database     ! MySQL and PHP time match                   ! [OK]
+poller       ! Active pollers found                       ! [OK]
+poller       ! Dispatcher Service not detected            ! [OK]
+poller       ! Locks are functional                       ! [OK]
+poller       ! Python poller wrapper is polling           ! [OK]
+poller       ! Redis is unavailable                       ! [OK]
+rrd          ! rrdtool version ok                         ! [OK]
+```
+
+An installation where nothing needs attention, reduced to a single line:
+
+```bash
+./librenms-validate --brief --ignore-regex='rrdcached connectivity'
+```
+
+Output:
+
+```text
+No failures found. No warnings found. Checked 16 validations in 13 groups.
 ```
 
 
@@ -182,8 +226,8 @@ Accepting a known finding, so it stops driving the check state:
 * OK if every validation reports success or an informational result.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* UNKNOWN if LibreNMS refuses to run the validation as the configured `--user`, if its PHP dependencies are missing, or if `--path` does not hold a LibreNMS installation. In each of these cases the validation itself exits successfully, so the state comes from the report rather than from an exit code.
-* UNKNOWN if none of the groups named with `--group` was run, which is a misconfigured check rather than a quiet installation. Other checks default `--no-match-severity` to `ok`; here it defaults to `unknown` so the gap stays visible. Set `--no-match-severity` to change it.
+* UNKNOWN if LibreNMS refuses to run the validation as the configured `--user`, if its PHP dependencies are missing, if `--path` does not hold a LibreNMS installation, or if the validation produced no report at all. The exit code of the validation cannot tell these apart from an ordinary finding, so the state comes from the report rather than from the exit code.
+* OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
 * Always OK if `--always-ok` is set.
 
 `--brief` and `--lengthy` change what is printed, never the state: a finding that `--brief` hides still drives the result. `--ignore-regex` does change the state, since an ignored finding is dropped before it is evaluated.
@@ -228,7 +272,7 @@ LibreNMS cannot start because its PHP libraries were never installed or were rem
 
 ### `Nothing checked. None of the requested validation groups was run.`
 
-Every group named with `--group` was skipped. LibreNMS ignores a group it does not know, and it skips `distributedpoller` unless distributed polling is enabled. Check the spelling against the list in `--help`, and drop `--group` entirely to report everything the default run produces. Where a group is legitimately absent on a given host, `--no-match-severity=ok` silences the result instead.
+Every group named with `--group` was skipped, which is reported as OK by default because a group that is legitimately absent on a host produces the same result. LibreNMS ignores a group it does not know, and it skips `distributedpoller` unless distributed polling is enabled. Check the spelling against the list in `--help`, and drop `--group` entirely to report everything the default run produces. Where a missing group means the check is misconfigured rather than the host being different, `--no-match-severity=warn` or `--no-match-severity=unknown` makes the gap visible.
 
 ### The check reports a finding that is known and accepted
 

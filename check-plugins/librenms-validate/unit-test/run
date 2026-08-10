@@ -25,9 +25,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # the fixtures follow the same split: `--test=stdout/all-ok` feeds the default run, and
 # `stdout/all-ok-distributedpoller` the run that `--group=distributedpoller` triggers.
 #
-# default-run-unlisted-group is the one synthetic fixture: it is a captured default run
-# with a group appended that no LibreNMS release currently reports, which is how a future
-# validation group would arrive.
+# Three fixtures are synthetic, because they capture a state an installation only reaches
+# while it is broken: default-run-unlisted-group is a captured default run with a group
+# appended that no LibreNMS release currently reports, which is how a future validation
+# group would arrive; composer-not-run reproduces the bootstrap failure validate.php
+# prints before it can load anything; empty-output is the run that printed nothing at all.
 
 TESTS = [
     # A healthy installation with one real finding. The exit code of validate.php is 1
@@ -141,6 +143,27 @@ TESTS = [
             'in 2 groups',
         ],
     },
+    # A message longer than the column is cut in the middle by default, so the table still
+    # fits a terminal, and --lengthy prints it whole.
+    {
+        'id': 'warn-long-message-is-shortened',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '/run/rrdcached.sock does not appe...rrdcached connectivity test failed'
+        ],
+    },
+    {
+        'id': 'warn-lengthy-keeps-the-whole-message',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '/run/rrdcached.sock does not appear to exist, rrdcached connectivity test '
+            'failed',
+        ],
+    },
     # --lengthy adds the command LibreNMS suggests for the finding.
     {
         'id': 'warn-lengthy-shows-the-suggested-fix',
@@ -193,13 +216,32 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['Scanning', 'Status:'],
     },
-    # validate.php refuses to run as root and still exits 0, so only the output says so.
+    # validate.php refuses to run as root. Its exit code is the same 1 a run that found a
+    # problem returns, so only the output tells the two apart.
     {
         'id': 'unknown-refused-as-root',
-        'test': 'stdout/run-as-root,,0',
+        'test': 'stdout/run-as-root,,1',
         'params': '',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['--user'],
+    },
+    # The other bootstrap failure: validate.php gives up before it can load anything,
+    # which is not the same as an installation that validated cleanly.
+    {
+        'id': 'unknown-composer-missing',
+        'test': 'stdout/composer-not-run,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['composer_wrapper.php install --no-dev'],
+    },
+    # A run that printed nothing at all cannot be reported on, and an empty report is not
+    # a clean one.
+    {
+        'id': 'unknown-no-validation-ran',
+        'test': 'stdout/empty-output,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['LibreNMS ran no validation at all.'],
     },
     # Running as a user that is neither root nor the LibreNMS user is a finding, not an
     # abort: LibreNMS reports it through its own `user` group.
@@ -211,18 +253,20 @@ TESTS = [
         'assert-in': ["You need to run this script as 'librenms' or root"],
     },
     # An unknown group leaves validate.php with nothing to do, and it exits 0 doing it.
+    # A group that is legitimately absent on a host looks the same, which is why this
+    # stays quiet unless --no-match-severity says otherwise.
     {
-        'id': 'unknown-no-group-matched',
+        'id': 'ok-no-group-matched',
         'test': 'stdout/unknown-group,,0',
         'params': '--group=database',
-        'assert-retc': STATE_UNKNOWN,
+        'assert-retc': STATE_OK,
         'assert-in': ['Nothing checked.'],
     },
     {
-        'id': 'warn-no-group-matched-severity-lowered',
+        'id': 'unknown-no-group-matched-severity-raised',
         'test': 'stdout/unknown-group,,0',
-        'params': '--group=database --no-match-severity=warn',
-        'assert-retc': STATE_WARN,
+        'params': '--group=database --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Nothing checked.'],
     },
     # A pattern that is not a valid regex is a parameter error, not a finding.

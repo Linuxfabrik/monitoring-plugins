@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081002'
+__version__ = '2026081003'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -70,10 +70,7 @@ MAX_MESSAGE_LEN = 70
 DEFAULT_BRIEF = False
 DEFAULT_FAIL_SEVERITY = 'warn'
 DEFAULT_LENGTHY = False
-# Other checks default this to "ok", where nothing to report means a quiet system. Here it
-# means none of the requested groups ran, which is a misconfigured check rather than a
-# clean installation, so it stays visible.
-DEFAULT_NO_MATCH_SEVERITY = 'unknown'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_PATH = '/opt/librenms'
 DEFAULT_TIMEOUT = 30
 DEFAULT_USER = 'librenms'
@@ -143,11 +140,7 @@ def parse_args():
 
     parser.add_argument(
         '--fail-severity',
-        help='State to report for a validation LibreNMS marks as failed. '
-        'A failed validation means the installation is broken in a way that stops it '
-        'from working correctly, which is worth acting on but rarely worth waking '
-        'somebody up for. '
-        'Default: %(default)s',
+        help=lib.args.help('--fail-severity') + ' Default: %(default)s',
         dest='FAIL_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_FAIL_SEVERITY,
@@ -230,6 +223,7 @@ def parse_args():
         help='System user to run the validation as. '
         'LibreNMS refuses to validate itself as root and reports a failure when any '
         'other user runs it, so this has to name the user that owns the installation. '
+        'Requires the right to `sudo -u <user>` (root has this by default). '
         'Default: %(default)s',
         dest='USER',
         default=DEFAULT_USER,
@@ -285,9 +279,10 @@ def run_validation(script, user, group, timeout):
     if not success:
         return (False, result)
     stdout, stderr, _ = result
-    # The exit code is not a usable signal: it stays 0 when the script refuses to run at
-    # all, when no group matched, and when every finding is a warning. Only the parsed
-    # output tells us what happened.
+    # The exit code is not a usable signal: it only separates "at least one failure" from
+    # everything else. It stays 0 when every finding is a warning and when no group
+    # matched at all, and it is 1 both for a run that found something and for one that
+    # never started. Only the parsed output tells us what happened.
     #
     # An empty stdout is the one case the report cannot explain, because the validation
     # never got as far as printing its header. What stopped it is on stderr, which is
