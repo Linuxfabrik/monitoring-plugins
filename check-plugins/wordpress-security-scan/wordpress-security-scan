@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081004'
+__version__ = '2026081005'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -286,7 +286,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Skip findings whose component or title matches this Python regular '
+        help='Ignore findings whose component or title matches this Python regular '
         'expression. '
         'Matched against the component and against the finding title separately, so an '
         'anchored expression still works on either of the two. '
@@ -317,7 +317,7 @@ def parse_args():
 
     parser.add_argument(
         '--match',
-        help='Only report findings whose component or title matches this Python regular '
+        help='Only check findings whose component or title matches this Python regular '
         'expression. '
         'Matched against the component and against the finding title separately, so an '
         'anchored expression still works on either of the two. '
@@ -406,7 +406,7 @@ def parse_args():
         'If not specified, it is taken from the `WP_HOME` or `WP_SITEURL` constant of '
         'the installation below --path, which only works where the installation pins '
         'them and the configuration file is readable. '
-        'Example: `--url=https://www.example.com`',
+        'Example: `--url=https://www.example.com`.',
         dest='URL',
     )
 
@@ -484,7 +484,8 @@ def parse_args():
         help='Path to a file holding the HTTP basic authentication credentials, as '
         '`login:password`, read from its first line. '
         'Takes precedence over `--wpscan-http-auth`. '
-        'Keep the file readable only by the monitoring user.',
+        'Keep the file readable only by the monitoring user. '
+        'Example: `--wpscan-http-auth-file=/etc/icinga2/secrets/wordpress-http-auth`.',
         dest='WPSCAN_HTTP_AUTH_FILE',
     )
 
@@ -522,7 +523,7 @@ def parse_args():
         'set, the target address or the output format above all, leaves the check with '
         'nothing it can read. '
         'Can be specified multiple times. '
-        'Example: `--wpscan-option=--plugins-detection=aggressive`',
+        'Example: `--wpscan-option=--plugins-detection=aggressive`.',
         dest='WPSCAN_OPTION',
         action='append',
         default=None,
@@ -531,7 +532,7 @@ def parse_args():
     parser.add_argument(
         '--wpscan-proxy',
         help='Proxy the scan goes through, as `protocol://host:port`. '
-        'Example: `--wpscan-proxy=http://192.0.2.1:3128`',
+        'Example: `--wpscan-proxy=http://192.0.2.1:3128`.',
         dest='WPSCAN_PROXY',
     )
 
@@ -555,7 +556,7 @@ def parse_args():
         'Setting it makes the scanner use a single thread instead of five, so the scan '
         'takes considerably longer; raise --scan-timeout with it. '
         'Not throttled when unset. '
-        'Example: `--wpscan-throttle=200`',
+        'Example: `--wpscan-throttle=200`.',
         dest='WPSCAN_THROTTLE',
         type=int,
     )

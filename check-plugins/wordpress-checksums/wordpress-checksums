@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081004'
+__version__ = '2026081005'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -159,7 +159,7 @@ def parse_args():
         help=lib.args.help('--cache-expire')
         + ' The published checksums of a released version never change, so this is about '
         'how often wordpress.org is asked, not about how current the answer is. '
-        'Default: %(default)s (minutes)',
+        'Default: %(default)s',
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
@@ -167,13 +167,14 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Skip files whose path matches this Python regular expression. '
+        help='Ignore files whose path matches this Python regular expression. '
         'Matched against `<component>/<path>`, where the component is `core` or the '
         "plugin's slug. "
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
-        'Example: `--ignore="^my-plugin/"` to skip one component. '
-        'Example: `--ignore="^core/index\\.php$"` to accept an edited file.',
+        'Example: `--ignore="^my-plugin/"` to accept one component. '
+        'Example: `--ignore="^akismet/akismet\\.php$"` to accept one file that was '
+        'patched by hand.',
         dest='IGNORE',
         action='append',
         default=None,
@@ -197,7 +198,7 @@ def parse_args():
 
     parser.add_argument(
         '--match',
-        help='Only report files whose path matches this Python regular expression. '
+        help='Only check files whose path matches this Python regular expression. '
         'Matched against `<component>/<path>`, where the component is `core` or the '
         "plugin's slug. "
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '

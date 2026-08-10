@@ -14,6 +14,8 @@ sys.path.insert(0, '..')
 
 import importlib.machinery
 import importlib.util
+import os
+import subprocess
 import unittest
 
 import lib.lftest
@@ -964,6 +966,84 @@ def _is_a_lookup_problem(test, item):
 
 def _is_not_a_lookup_problem(test, item):
     test.assertFalse(test.check.is_vuln_api_failure(item[1]))
+
+
+def run_without_test_mode(params, path=None):
+    """Run the check for real, without `--test`, and return (retc, output).
+
+    Everything the check does before it would talk to the scanner sits behind
+    `if args.TEST is None:` and is therefore unreachable from the fixture-driven tests
+    above. `path` replaces PATH for the run, so an empty one makes the scanner
+    genuinely absent no matter what is installed on the machine running the tests.
+    """
+    env = dict(os.environ)
+    if path is not None:
+        env['PATH'] = path
+    # A token in the environment of the developer running the tests would otherwise
+    # change which branch the check takes.
+    env.pop('WPSCAN_API_TOKEN', None)
+    env.pop('WPSCAN_ENTERPRISE_DB_TOKEN', None)
+    result = subprocess.run(
+        [sys.executable, '../wordpress-security-scan', *params],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    return (result.returncode, result.stdout + result.stderr)
+
+
+class TestScannerMissing(unittest.TestCase):
+    """A missing `wpscan` is WARNING, not UNKNOWN: WordPress is a preferred target, so
+    the scanner belongs on a host serving it, and its absence is a state the
+    administrator has to fix. CONTRIBUTING cites this check as the reference
+    implementation for that exception, so the behaviour is worth pinning down.
+    """
+
+    def test_warns_instead_of_going_unknown(self):
+        retc, output = run_without_test_mode(
+            ['--url=https://www.example.com', '--path=wordpress'], path=''
+        )
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('was not found', output)
+
+    def test_names_the_searched_path(self):
+        # The searched PATH is the one thing an admin cannot guess from the outside,
+        # which is why the message carries it.
+        _, output = run_without_test_mode(
+            ['--url=https://www.example.com', '--path=wordpress'], path='/nonexistent'
+        )
+        self.assertIn('Searched in: /nonexistent', output)
+
+    def test_always_ok_still_applies(self):
+        retc, _ = run_without_test_mode(
+            ['--url=https://www.example.com', '--path=wordpress', '--always-ok'], path=''
+        )
+        self.assertEqual(retc, STATE_OK)
+
+
+class TestUrlOptionInjection(unittest.TestCase):
+    """A URL that starts with `-` would be picked up by the scanner as one of its own
+    options rather than as its target. The guard runs before the scanner is even looked
+    for, so it holds whether or not `wpscan` is installed.
+    """
+
+    def test_refuses_an_option_style_url(self):
+        retc, output = run_without_test_mode(
+            ['--url=-oProxyCommand://evil', '--path=wordpress'], path=''
+        )
+        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertIn('--url', output)
+        self.assertIn('starts with', output)
+
+    def test_a_scheme_less_url_is_completed_and_passes(self):
+        # Completed to https://, so it no longer looks like an option and the run gets
+        # as far as looking for the scanner.
+        retc, output = run_without_test_mode(
+            ['--url=www.example.com', '--path=wordpress'], path=''
+        )
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('was not found', output)
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)

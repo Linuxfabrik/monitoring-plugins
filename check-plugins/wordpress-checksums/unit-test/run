@@ -15,6 +15,12 @@ from disk, and `stdout/` holds what wordpress.org would have answered for them, 
 shape the check's own fetchers return. Pairing one tree with a different answer is what
 produces a modified, an added or a missing file without any tree having to be tampered
 with, and the network is never touched.
+
+A damaged answer from wordpress.org has no testcase here by construction, not by
+oversight: `--test` injects behind the JSON parsing, so a corrupt fixture would break the
+harness rather than reach the check. The paths that handle one are covered from the other
+side instead, through the fixtures that report an endpoint which answered with nothing
+usable.
 """
 
 import sys
@@ -90,6 +96,17 @@ TESTS = [
         '--no-match-severity=warn',
         'assert-retc': STATE_WARN,
         'assert-in': ['Nothing checked.', "'files_checked'=5"],
+    },
+    # The same run escalated all the way. `unknown` is one of the declared choices and is
+    # what an administrator picks who wants a filtered run to stand out as "this check did
+    # not answer the question" rather than as an alert about the site.
+    {
+        'id': 'unknown-filtered-run-can-be-escalated',
+        'test': 'stdout/modified,,0',
+        'params': f'{SITE} --ignore=^core/wp-includes/version\\.php$ '
+        '--no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
     },
     # A component that could not be queried still drives the state through its own
     # parameter, even where the filters removed every finding. The two reasons to alert are
@@ -235,6 +252,15 @@ TESTS = [
         'test': 'stdout/unpublished,,0',
         'params': f'{SITE} --no-checksum-data-severity=warn',
         'assert-retc': STATE_WARN,
+        'assert-in': ['Not verified: core'],
+    },
+    # The same gap escalated all the way. `unknown` is one of the declared choices and
+    # says "this component was not checked" rather than "this component has a problem".
+    {
+        'id': 'unknown-core-without-published-checksums-can-be-escalated',
+        'test': 'stdout/unpublished,,0',
+        'params': f'{SITE} --no-checksum-data-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Not verified: core'],
     },
     # Nothing could be fetched and nothing was cached, so not one file was compared. That
