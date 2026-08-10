@@ -7,7 +7,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 
 **Important Notes:**
 
-* Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `sudo gem install wpscan`. Install it system-wide, not for a single account: a gem in a user's home is invisible to the monitoring agent and to `sudo`. Keep it current: an enumeration choice the installed release does not know is skipped automatically, so an outdated scanner quietly covers less. `--help` names the release each affected choice needs.
+* Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem, not a distribution package; see "Installing wpscan" below for what it needs and which releases can run it. Install it system-wide, not for a single account: a gem in a user's home is invisible to the monitoring agent and to `sudo`. Keep it current: an enumeration choice the installed release does not know is skipped automatically, so an outdated scanner quietly covers less. `--help` names the release each affected choice needs.
 * A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
 * A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 1800 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
 * Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. A free token with a small daily request quota is available at <https://wpscan.com/register>.
@@ -21,6 +21,48 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * `--url` is optional where the installation pins its own address. If it is not given, the check reads `WP_HOME` or `WP_SITEURL` from `wp-config.php` below `--path`. Most installations keep the address in the database instead, and `wp-config.php` is usually not readable for the monitoring user, so pass `--url` unless you know both apply.
 * The check is part of the WordPress Service Set, so tagging a host `wordpress` activates it. The service it creates carries no `--url` and therefore reports UNKNOWN until one is set. That is deliberate: the address is per instance and cannot be guessed, and a check that says nothing is worse than one that asks to be configured.
 * The vulnerability database is refreshed before every scan, so a site is graded against current data. If the refresh fails, for example on a host that cannot reach `data.wpscan.org`, the scan still runs against the local copy and the check says so. The refresh counts towards `--scan-timeout`, so the check as a whole keeps to it. Use `--wpscan-no-update` where something else keeps the database current.
+
+**Installing wpscan:**
+
+`wpscan` is a Ruby gem. No distribution packages it, so it is installed with `gem install` and needs three things on the host: Ruby 3.3 or newer, `libcurl` at runtime, and a C compiler while the gem is being installed.
+
+The compiler is the part worth spelling out, because putting one on a production server is a hardening question. Four of the gem's dependencies have no prebuilt binary and are compiled during `gem install`; everything else, `nokogiri` above all, arrives prebuilt. The compiler is therefore only needed while installing, not while scanning, and it can be removed again afterwards. Only put it back for a `gem update wpscan`. Note that the scanner's own documentation asks for the distribution's full development group, which installs several hundred packages; none of them beyond the three below are required here.
+
+On RHEL 10, Rocky 10, AlmaLinux 10 and Fedora, where the distribution's Ruby is already new enough:
+
+```bash
+dnf install ruby ruby-devel gcc make
+gem install --no-document wpscan
+dnf remove ruby-devel gcc make
+```
+
+On RHEL 9 and AlmaLinux 9 the default Ruby is too old, so select a current module stream first. The rest is identical:
+
+```bash
+dnf module reset ruby
+dnf module enable ruby:3.3
+dnf install ruby ruby-devel gcc make
+gem install --no-document wpscan
+dnf remove ruby-devel gcc make
+```
+
+On Debian and Ubuntu, `libcurl` has to be asked for explicitly, because nothing in the dependency chain pulls it in. Without it the gem installs cleanly and the scanner then fails to start with `Could not open library 'libcurl'`:
+
+```bash
+apt install ruby ruby-dev gcc make curl
+gem install --no-document wpscan
+apt remove ruby-dev gcc make
+```
+
+Afterwards, confirm what actually landed on the host:
+
+```bash
+wpscan --version --no-update
+```
+
+That last step is the one to not skip. Where Ruby is older than 3.3, `gem` does not report an error: it quietly falls back to the newest scanner release that still runs on that Ruby, which is several years old and misses the backup folder enumeration among other things. The check works with it and skips what it cannot use, so nothing in the output says the scanner is behind. Four current releases ship a Ruby that is too old for this and need a newer one from elsewhere before `gem install` is worth running: RHEL 8, Debian 12, Ubuntu 22.04 and Ubuntu 24.04.
+
+Two further limits on RHEL 8, on top of the Ruby version: its `libcurl` predates the version the scanner asks for, which shows up as HTTP/2 framing errors against some targets, and its glibc is too old for the prebuilt `nokogiri`. Run the check from a newer host against RHEL 8 sites rather than on them.
 
 **Data Collection:**
 
@@ -44,7 +86,7 @@ Findings can be narrowed from both ends: `--match` keeps only what matches, `--i
 | Can be called without parameters      | No (`--url`, unless the installation below `--path` pins it) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| Requirements                          | command-line tool `wpscan`; a WPScan API token for the vulnerability lookup |
+| Requirements                          | command-line tool `wpscan` (Ruby gem, needs Ruby 3.3 or newer and `libcurl`, see "Installing wpscan"); a WPScan API token for the vulnerability lookup |
 
 
 ## Help
@@ -485,14 +527,7 @@ sudo sh -c 'command -v wpscan'
 
 Do not work around this by adding a home directory to `secure_path` or by symlinking the user's copy into `/usr/local/bin`. Where the check runs as `root`, that would have `root` execute a program an unprivileged account can rewrite.
 
-If the gem is genuinely missing, `wpscan` is a Ruby gem and is not packaged by most distributions. Install Ruby and its development headers first, because one of its dependencies builds a native extension:
-
-```bash
-dnf install ruby ruby-devel gcc make
-sudo gem install wpscan
-```
-
-On Debian and Ubuntu the packages are `ruby`, `ruby-dev`, `build-essential`.
+If the gem is genuinely missing, follow "Installing wpscan" in the Overview above, which names the packages each distribution needs and which releases can run the current scanner at all.
 
 ### Installing the gem fails while building a native extension
 
@@ -506,17 +541,11 @@ ERROR:  Error installing wpscan:
 mkmf.rb can't find header files for ruby at /usr/share/include/ruby.h
 ```
 
-Ruby itself is installed, but its development headers are not. `wpscan` depends on gems such as `yajl-ruby` that compile a C extension, and those need `ruby.h`. The path in the message is where Ruby expects the headers, not a file to create by hand.
-
-Install the development package and repeat the `gem install`:
-
-```bash
-dnf install ruby-devel gcc make      # RHEL, Rocky, Fedora
-apt install ruby-dev build-essential # Debian, Ubuntu
-zypper install ruby-devel gcc make   # SLES, openSUSE
-```
+Ruby itself is installed, but its development headers are not. Four of the gem's dependencies compile a C extension, and those need `ruby.h`. The path in the message is where Ruby expects the headers, not a file to create by hand. Install the headers and the compiler as described under "Installing wpscan" in the Overview, then repeat the `gem install`. On SLES and openSUSE the packages are named as on RHEL and are installed with `zypper install ruby-devel gcc make`.
 
 The half-built gem the failed run leaves behind does no harm; the next `gem install wpscan` replaces it. If the build still fails after installing the headers, the real compiler error is in the `gem_make.out` the message points to, not in the summary above.
+
+A build that fails on `nokogiri` rather than on one of those four is a different problem: that gem normally arrives prebuilt and only falls back to compiling where the host is too old to use the prebuilt copy. Compiling it needs considerably more than the three packages above, so on such a host the better answer is a newer Ruby, or running the check from a newer host against the site.
 
 ### `No vulnerability data: no API token, the vulnerability database was not queried`
 
@@ -632,9 +661,11 @@ The free tier's allowance is shown as the "Daily API request limit" on the wpsca
 Run with `--verbose` and look at the executed command. If it shows `--enumerate=vp,vt,tt,cb,dbe,u` without the `bf`, the installed `wpscan` predates that choice and would refuse to start with it, so the check drops it rather than failing the scan. `--help` names the release the choice needs. Updating the gem brings it back:
 
 ```bash
-wpscan --version
+wpscan --version --no-update
 gem update wpscan
 ```
+
+If `gem update` leaves the version where it was, the host's Ruby is older than the current scanner requires and `gem` is holding it on the newest release that still runs there. That is the common cause on RHEL 8, Debian 12, Ubuntu 22.04 and Ubuntu 24.04. See "Installing wpscan" in the Overview for which Ruby is needed and how to get one.
 
 ### The scan aborts on an unknown `--wpscan-enumerate` choice
 
