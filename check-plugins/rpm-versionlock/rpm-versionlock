@@ -30,7 +30,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081003'
+__version__ = '2026081004'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -122,6 +122,15 @@ def parse_args():
         default=False,
     )
 
+    # hidden test hook: prefix every configuration path, so a fixture tree can
+    # stand in for the host's /etc without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
     parser.add_argument(
         '-c',
         '--critical',
@@ -170,15 +179,6 @@ def parse_args():
         dest='NO_PERFDATA',
         action='store_true',
         default=False,
-    )
-
-    # hidden test hook: prefix every configuration path, so a fixture tree can
-    # stand in for the host's /etc without touching the host
-    parser.add_argument(
-        '--config-root',
-        help=argparse.SUPPRESS,
-        dest='CONFIG_ROOT',
-        default='/',
     )
 
     parser.add_argument(
@@ -251,8 +251,9 @@ def read_config_file(filename):
 def plugins_enabled(root):
     """Say whether the package manager loads its plugins at all.
 
-    Turning plugins off in the main configuration takes version locking with it, so
-    the entries in a lock list are not applied and must not be reported.
+    On dnf 4 and yum, version locking is a plugin, so turning plugins off in the main
+    configuration takes it with it and the entries in a lock list are not applied. It
+    says nothing about dnf 5, which locks without a plugin - see get_dnf5_locks().
     """
     for config in unique_paths([rooted(root, config) for config in MAIN_CONFIGS]):
         content = read_config_file(config)
@@ -384,10 +385,12 @@ def parse_dnf5_conditions(conditions):
 def get_dnf5_locks(root):
     """Return the version locks dnf 5 keeps in its TOML configuration.
 
-    dnf 5 is the only generation whose lock configuration is not plain text. The
-    format carries its own version number and is documented, so it is read directly
-    instead of through the package manager, which keeps the check free of a
-    subprocess:
+    dnf 5 is the only generation whose lock configuration is not plain text, and the
+    only one that locks without a plugin: the file and the code that applies it belong
+    to the package manager's own library, so a host that switched plugins off still has
+    every one of these locks in force. The format carries its own version number and is
+    documented, so it is read directly instead of through the package manager, which
+    keeps the check free of a subprocess:
 
         version = "1.0"
 
@@ -529,7 +532,11 @@ def main():
     if plugins_enabled(root):
         for locklist in get_locklists(root):
             entries += parse_locklist(read_config_file(locklist), locklist)
-        entries += get_dnf5_locks(root)
+    # dnf 5 does not lock through a plugin: the lock file and the code that applies it
+    # belong to the package manager's own library, and the switch that turns plugins off
+    # only covers the ones loaded from the plugin directory. Its locks therefore stay in
+    # force no matter what that switch says, and reporting them is not conditional either.
+    entries += get_dnf5_locks(root)
     if args.CHECK_EXCLUDES:
         # an exclusion is part of the package manager's own configuration, so it stays
         # in force no matter what happens to the plugins

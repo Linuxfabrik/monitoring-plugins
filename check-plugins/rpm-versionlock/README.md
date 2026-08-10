@@ -9,7 +9,8 @@ Reports the packages that the RPM package manager holds back at a fixed version.
 
 * Red Hat-based distributions (RHEL, CentOS, Rocky, AlmaLinux, Fedora, etc.)
 * Version locking is not part of dnf 4, which RHEL 8, 9 and 10 ship. It comes with the `python3-dnf-plugin-versionlock` package, and a host without that package cannot hold anything back and is reported as having no locks. dnf 5, which Fedora ships, brings version locking with it and needs no extra package.
-* Three configurations leave the entries in a lock list without effect, and the check reports none of them: `enabled = 0` in the plugin configuration, `plugins = 0` in the main configuration, and a plugin configuration that names no `locklist` at all. The last one is worth fixing on its own, because the package manager then refuses to install or upgrade anything with `Error: Locklist not set`.
+* On dnf 4 and yum, three configurations leave the entries in a lock list without effect, and the check reports none of them: `enabled = 0` in the plugin configuration, `plugins = 0` in the main configuration, and a plugin configuration that names no `locklist` at all. The last one is worth fixing on its own, because the package manager then refuses to install or upgrade anything with `Error: Locklist not set`.
+* None of that applies to dnf 5. It locks without a plugin, so `plugins = 0` does not switch its locks off and the check reports them regardless.
 * `--match` and `--ignore` filter on the package name, not on the version the package is locked to
 * `--check-excludes` is off by default because an exclusion is also used legitimately to keep two repositories apart, for example to stop a third-party repository from replacing distribution packages. Turn it on where every exclusion on the host is meant to be temporary.
 
@@ -18,7 +19,7 @@ Reports the packages that the RPM package manager holds back at a fixed version.
 The check reads the version lock configuration itself rather than asking the package manager for it. On dnf 4 `dnf versionlock list` refreshes repository metadata over the network and fails outright when the metadata cache is empty, and reading the files keeps the check free of a subprocess on every generation.
 
 * dnf 4 and yum: reads the lock list named by `locklist` in `/etc/dnf/plugins/versionlock.conf`, conventionally `/etc/dnf/plugins/versionlock.list`. There is no built-in default for it, so a configuration that names none is read as "no locks". The `/etc/yum/pluginconf.d/` layout is followed as well, and a lock reachable under both paths is counted once.
-* dnf 5: reads `/etc/dnf/versionlock.toml`, because that generation keeps its configuration in TOML rather than in a plain list.
+* dnf 5: reads `/etc/dnf/versionlock.toml`, because that generation keeps its configuration in TOML rather than in a plain list. That file is read unconditionally, since dnf 5 applies its locks from its own library rather than from a plugin.
 * `--check-excludes` additionally reads `exclude` / `excludepkgs` from `/etc/dnf/dnf.conf` and from every `.repo` file in the directories `reposdir` names, which defaults to `/etc/yum.repos.d`, `/etc/yum/repos.d`, `/etc/distro.repos.d` and, on dnf 5, `/usr/share/dnf5/repos.d`. A `main` section inside a `.repo` file is skipped, since the package manager reads its main configuration from one file only.
 
 Entries the package manager marks as an exclusion (a `!` prefix in the lock list, `evr !=` on dnf 5) are reported as type `exclude`, everything else as `versionlock`. The summary counts the two kinds separately, because an exclusion keeps a package off the host rather than at a version.
@@ -170,14 +171,14 @@ su icinga -s /bin/bash -c "cat /etc/dnf/plugins/versionlock.list"
 
 A file the monitoring user cannot read holds no locks the check could report, so it is treated as empty rather than as an error.
 
-Three settings switch version locking off, and the check follows all three. Verify none of them applies:
+On dnf 4 and yum, three settings switch version locking off, and the check follows all three. Verify none of them applies:
 
 ```bash
 grep -E '^\s*(enabled|locklist)' /etc/dnf/plugins/versionlock.conf
 grep -E '^\s*plugins' /etc/dnf/dnf.conf
 ```
 
-`enabled = 0`, `plugins = 0` or a missing `locklist` each mean the package manager applies no locks, so the check reports none either.
+`enabled = 0`, `plugins = 0` or a missing `locklist` each mean the package manager applies no locks, so the check reports none either. On dnf 5 none of this matters: it locks from its own library, and `/etc/dnf/versionlock.toml` is read whatever those settings say.
 
 ### A lock is reported that nobody set
 

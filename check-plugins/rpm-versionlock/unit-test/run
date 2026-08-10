@@ -212,9 +212,9 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['2 version locks in place.', 'kernel*', 'kernel-devel-*'],
     },
-    # A lock list the package manager does not apply holds nothing back, whether the
-    # plugin is switched off, plugins are switched off wholesale, or no lock list is
-    # named at all. The last one even makes the package manager refuse to transact.
+    # A lock list dnf 4 does not apply holds nothing back, whether the plugin is
+    # switched off, plugins are switched off wholesale, or no lock list is named at
+    # all. The last one even makes the package manager refuse to transact.
     {
         'id': 'ok-versionlock-disabled',
         'test': '',
@@ -269,6 +269,19 @@ TESTS = [
         'params': '--config-root=config/fedora-dnf5-no-locks',
         'assert-retc': STATE_OK,
         'assert-in': ['No version locks in place.'],
+    },
+    # dnf 5 locks without a plugin, so the switch that takes dnf 4 locking out of
+    # service leaves these in force and they have to be reported all the same.
+    {
+        'id': 'warn-dnf5-locks-survive-disabled-plugins',
+        'test': '',
+        'params': '--config-root=config/dnf5-plugins-disabled',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 1 exclusion in place.',
+            'bash',
+            '= 5.3.9-3.fc44',
+        ],
     },
     # dnf 5 also looks for repository files in a directory dnf 4 does not know.
     {
