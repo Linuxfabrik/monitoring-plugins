@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081007'
+__version__ = '2026081008'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -56,14 +56,15 @@ DEFAULT_GROUPS = (
 # Groups LibreNMS leaves out of a default run. Each one is requested with its own `-g`
 # call, which is what keeps every sudoers entry a literal command without a wildcard. Two
 # of them have side effects an admin has to know about, see the README. Requesting a group
-# always runs it, whether LibreNMS would have included it on its own or not: `webserver`
-# never runs on the command line, and `distributedpoller` is part of a default run exactly
-# where distributed polling is enabled.
+# always runs it, whether LibreNMS would have included it on its own or not:
+# `distributedpoller` is part of a default run exactly where distributed polling is
+# enabled. `webserver` is deliberately absent from both lists, because it only validates
+# the request that reached the web interface and reports nothing at all on the command
+# line, where a check that offered it would stay green without validating anything.
 OPTIONAL_GROUPS = (
     'distributedpoller',
     'mail',
     'rrdcheck',
-    'webserver',
 )
 
 # Keeps the message column narrow enough that the table still fits a terminal next to the
@@ -82,8 +83,11 @@ DEFAULT_USER = 'librenms'
 # A result line, as ValidationResult::consolePrint() writes it: the status in brackets,
 # padded to twelve columns, then the message. Applied after the escape sequences are gone.
 # The status is not restricted to the four LibreNMS currently prints, so a status a later
-# release adds reaches the report instead of being dropped as an unparsable line.
-RESULT_REGEX = re.compile(r'^\[([A-Za-z]+)\]\s+(.*)$')
+# release adds reaches the report instead of being dropped as an unparsable line. The
+# separator is optional for the same reason: the padding is measured before the escape
+# sequences are removed, so a status of six characters or more fills the twelve columns on
+# its own and its message follows without a space in between.
+RESULT_REGEX = re.compile(r'^\[([A-Za-z]+)\]\s*(.*)$')
 
 # The group marker `-s` adds in front of each group's results. The status LibreNMS appends
 # to it is deliberately not captured: it lands on a later line whenever the group printed
@@ -103,17 +107,41 @@ STATE_BY_STATUS = {
 # graph keeps its series even on a run where a status did not occur.
 KNOWN_STATUSES = ('FAIL', 'INFO', 'OK', 'WARN')
 
-# Aborts that leave the exit code at 0 and would otherwise be read as a clean run.
+# Everything that stops the validation before it reaches its first group. LibreNMS prints
+# these the same way it prints a finding, so without this list they would arrive as a
+# single failed validation of an installation that is in fact not validated at all.
 ABORT_HINTS = (
+    (
+        'Composer has not been run',
+        'The LibreNMS installation is incomplete, its PHP dependencies are missing. '
+        'Run "./scripts/composer_wrapper.php install --no-dev" as the LibreNMS user.',
+    ),
+    (
+        "config.php doesn't start with a <?php",
+        'The LibreNMS configuration file does not start with an opening PHP tag, so its '
+        'contents are served as text instead of being executed. Make "<?php" the first '
+        'line of "config.php".',
+    ),
     (
         'Do not run validate.php as root',
         'LibreNMS refuses to validate itself as root. Point --user at the LibreNMS '
         'system user.',
     ),
     (
-        'Composer has not been run',
-        'The LibreNMS installation is incomplete, its PHP dependencies are missing. '
-        'Run "./scripts/composer_wrapper.php install --no-dev" as the LibreNMS user.',
+        "'install_dir' config setting is not set correctly",
+        'LibreNMS does not know where it is installed and cannot validate itself. Set '
+        '"install_dir" to the installation directory in its configuration.',
+    ),
+    (
+        'Remove the ?> at the end of config.php',
+        'The LibreNMS configuration file ends with a closing PHP tag, which lets stray '
+        'whitespace behind it break every page and every poller run. Remove the "?>" at '
+        'the end of "config.php".',
+    ),
+    (
+        'Syntax error in config.php',
+        'The LibreNMS configuration file does not parse, which stops the installation '
+        'from starting at all. Check it with "php -l config.php".',
     ),
 )
 
@@ -272,36 +300,39 @@ def get_validate_script(path):
     return (True, script)
 
 
-def load_test_fixture(test_args, path):
-    """Read one test fixture, replacing the path in a copy of `--test`.
-
-    A check run consists of one default run plus one run per requested optional group, so
-    a single fixture cannot represent it. The default run reads the path given on the
-    command line, each optional group the same path suffixed with the group name.
-    """
-    if not lib.disk.file_exists(path, allow_empty=True):
-        lib.base.cu(f'Test fixture not found: "{path}".')
-    test_args = list(test_args)
-    test_args[0] = path
-    stdout, _, _ = lib.lftest.test(test_args)
-    return stdout
-
-
-def run_validation(php, script, user, group, timeout):
+def run_validation(args, php, script, user, group):
     """Run LibreNMS' validation script and return its stdout.
 
     `group` is the single validation group to request, or None for a default run.
-    Returns (True, stdout) or (False, errormessage).
+    Returns (True, stdout) or (False, errormessage). A run that hit the timeout ends the
+    check right here: it was killed before it printed anything, so there is nothing to
+    report but the timeout itself.
     """
-    cmd = ['sudo', '-u', user, php, script, '-s']
+    cmd = [php, script, '-s']
     if group is not None:
         cmd += ['-g', group]
 
     # TERM: readline asks whether to apply a suggested fix whenever a result ships one.
     # Standard input is closed, so it never blocks, but unless it recognises the terminal
     # it writes a complaint about it into the output we are about to parse.
-    success, result = lib.shell.shell_exec(cmd, env={'TERM': 'dumb'}, timeout=timeout)
+    #
+    # run_as_session: the sudo rule names the permitted command with its exact arguments,
+    # and exporting the session runtime directory would put an `env` in front of it.
+    success, result = lib.shell.shell_exec(
+        cmd,
+        env={'TERM': 'dumb'},
+        timeout=args.TIMEOUT,
+        run_as=user,
+        run_as_session=False,
+    )
     if not success:
+        if result.startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while validating "{args.PATH}". Raise '
+                '--timeout, or ask for fewer validation groups.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         return (False, result)
     stdout, stderr, _ = result
     # The exit code is not a usable signal: it only separates "at least one failure" from
@@ -319,7 +350,7 @@ def run_validation(php, script, user, group, timeout):
             return (
                 False,
                 f'Not allowed to run the validation as "{user}". Add a sudo rule for '
-                f'"{" ".join(cmd[3:])}" as that user, or correct --path and --user.',
+                f'"{" ".join(cmd)}" as that user, or correct --path and --user.',
             )
         return (
             False,
@@ -437,23 +468,22 @@ def main():
         for group in OPTIONAL_GROUPS
         if args.GROUP is not None and group in args.GROUP
     ]
+    stdouts = []
     if args.TEST is None:
         script = lib.base.coe(get_validate_script(path))
-        stdouts = []
         if default_run:
-            stdouts.append(
-                lib.base.coe(run_validation(php, script, user, None, args.TIMEOUT))
-            )
+            stdouts.append(lib.base.coe(run_validation(args, php, script, user, None)))
         for group in optional_runs:
-            stdouts.append(
-                lib.base.coe(run_validation(php, script, user, group, args.TIMEOUT))
-            )
+            stdouts.append(lib.base.coe(run_validation(args, php, script, user, group)))
     else:
-        stdouts = []
+        # A check run consists of one default run plus one run per requested optional
+        # group, so a single fixture cannot represent it. The default run reads the path
+        # given on the command line, each optional group the same path suffixed with the
+        # group name.
         if default_run:
-            stdouts.append(load_test_fixture(args.TEST, args.TEST[0]))
+            stdouts.append(lib.lftest.test_text(args.TEST))
         for group in optional_runs:
-            stdouts.append(load_test_fixture(args.TEST, f'{args.TEST[0]}-{group}'))
+            stdouts.append(lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-{group}'))
 
     # init some vars
     msg = ''

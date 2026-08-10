@@ -13,15 +13,16 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 * **The sudo rule lists its commands with their exact arguments.** That is deliberate: a wildcard would hand the LibreNMS account a PHP interpreter with free arguments. An installation somewhere other than `/opt/librenms`, or a PHP binary somewhere other than `/usr/bin/php`, therefore has to be set on both sides: `--path` and `--php-path` on the check, and the same two paths in the sudoers file. Without a matching rule `sudo` asks for a password and the check reports UNKNOWN.
 * **`--group=mail` sends a real e-mail.** LibreNMS tests its mail transport by delivering a message to the configured alerting address. On a check that runs hourly that is an hourly e-mail. Only request this group deliberately.
 * **`--group=rrdcheck` reads every RRD file.** On a grown installation that is a six-figure number of files and a runtime of minutes. Raise `--timeout` and the command timeout in the service definition before requesting it, and keep the check interval long.
-* **`--timeout` applies per validation run, not to the check as a whole.** The default run plus all four optional groups are five runs, so the worst case is five times `--timeout`. The shipped service template allows the command 90 seconds in total; raise that too when requesting optional groups.
-* **Containerised LibreNMS installations are only partly covered.** The official image marks itself as such through an environment variable that `sudo` removes again, so the `dependencies` and `updates` groups report what a package installation would rather than what the container actually is.
+* **`--timeout` applies per validation run, not to the check as a whole.** The default run plus all three optional groups are four runs, so the worst case is four times `--timeout`, well past the 90 seconds the shipped service template allows the command. Raise both when requesting optional groups.
+* **On a containerised LibreNMS the `dependencies` and `updates` groups report as if it were a package installation.** Their findings are not actionable there, because the container image is what decides both. Drop them with `--ignore-regex`, or restrict the check to the groups that do apply with `--group`.
 
 **Data Collection:**
 
 * Runs LibreNMS' own `validate.php` as the LibreNMS system user and reads its report
-* Groups LibreNMS runs by default come out of a single run; the groups it leaves out (`distributedpoller`, `mail`, `rrdcheck`, `webserver`) each cost an additional run and are only started when `--group` asks for them. Asking only for those groups skips the default run altogether
+* Groups LibreNMS runs by default come out of a single run; the groups it leaves out (`distributedpoller`, `mail`, `rrdcheck`) each cost an additional run and are only started when `--group` asks for them. Asking only for those groups skips the default run altogether
 * A requested group is always run, whether LibreNMS would have included it on its own or not. `distributedpoller` is worth knowing about here: on an installation with distributed polling enabled a default run already covers it, so asking for it explicitly buys nothing but a second run
 * Without `--group` everything the default run reports is checked, including a validation group a later LibreNMS release adds. `--group` restricts the report to the named groups
+* LibreNMS' `webserver` group is not offered. It validates the request that reached the web interface and reports nothing at all on the command line, so a check asking for it would stay green without validating anything
 * The exit code of the validation is deliberately not used. It only separates "at least one failure" from everything else: it stays `0` when every finding is a warning and when no group matched, and it is `1` both for a run that found a problem and for one that never started, so only the report itself tells the check what happened
 * Findings that are known and accepted can be filtered out with `--ignore-regex`; they then no longer influence the check state
 * Validation messages are redacted before they are printed, so a connection error quoting a data source name does not carry a credential into the plugin output
@@ -45,7 +46,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 ```text
 usage: librenms-validate [-h] [-V] [--always-ok] [--brief]
                          [--fail-severity {ok,warn,crit,unknown}]
-                         [--group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user,webserver}]
+                         [--group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user}]
                          [--ignore-regex IGNORE_REGEX] [--lengthy]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--path PATH] [--php-path PHP_PATH]
@@ -74,12 +75,12 @@ options:
                         installation is broken in a way that stops it from
                         working correctly, which is worth acting on but rarely
                         worth waking somebody up for. Default: warn
-  --group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user,webserver}
+  --group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user}
                         Validation group to check. Can be specified multiple
-                        times. The groups distributedpoller, mail, rrdcheck,
-                        webserver are left out of a default run and each costs
-                        an additional run of the validation when it is asked
-                        for. "distributedpoller" is the exception: where
+                        times. The groups distributedpoller, mail, rrdcheck
+                        are left out of a default run and each costs an
+                        additional run of the validation when it is asked for.
+                        "distributedpoller" is the exception: where
                         distributed polling is enabled, a default run already
                         covers it. Two of them have side effects: "mail" sends
                         a real test message to the configured alerting address
@@ -232,8 +233,9 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 
 * OK if every validation reports success or an informational result.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
+* WARN if a validation run did not finish within `--timeout`. It is killed before it prints anything, so there is nothing to report but the timeout itself.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* UNKNOWN if LibreNMS refuses to run the validation as the configured `--user`, if its PHP dependencies are missing, if `--path` does not hold a LibreNMS installation, or if the validation produced no report at all. The exit code of the validation cannot tell these apart from an ordinary finding, so the state comes from the report rather than from the exit code.
+* UNKNOWN if LibreNMS cannot validate the installation at all: it refuses to run as the configured `--user`, its PHP dependencies are missing, its configuration file is broken or does not name the installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. The exit code of the validation cannot tell these apart from an ordinary finding, so the state comes from the report rather than from the exit code.
 * UNKNOWN if a validation reports a status this check has no meaning for. The summary counts those results separately, so an UNKNOWN never appears next to a line claiming nothing was found. This is what a LibreNMS release that introduced a new status looks like; update the check.
 * OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
 * Always OK if `--always-ok` is set.
@@ -277,6 +279,34 @@ This one arrives as a normal finding rather than as an error, because LibreNMS r
 ### `The LibreNMS installation is incomplete, its PHP dependencies are missing.`
 
 LibreNMS cannot start because its PHP libraries were never installed or were removed. Run `./scripts/composer_wrapper.php install --no-dev` as the LibreNMS user in the installation directory.
+
+### The configuration file does not parse
+
+`The LibreNMS configuration file does not parse, which stops the installation from starting at all.`
+
+Nothing works on this host, not the web interface and not the poller. Run `php -l config.php` in the installation directory to get the line number, and fix it there.
+
+### The configuration file is missing its opening PHP tag
+
+`The LibreNMS configuration file does not start with an opening PHP tag, so its contents are served as text instead of being executed.`
+
+The first line of `config.php` has to be `<?php`. Anything before it, an empty line or a byte order mark included, ends up in the output of every page.
+
+### The configuration file ends with a closing PHP tag
+
+`The LibreNMS configuration file ends with a closing PHP tag, which lets stray whitespace behind it break every page and every poller run.`
+
+Delete the trailing `?>` from `config.php`. A newline after it is sent to the client before anything else and breaks headers, redirects and JSON responses alike.
+
+### The installation directory is not configured
+
+`LibreNMS does not know where it is installed and cannot validate itself.`
+
+The `install_dir` setting does not point at the directory the installation actually lives in, so LibreNMS cannot find its own files. Set it to the path that holds `.env`, usually `/opt/librenms`.
+
+### `Timeout after 30s while validating "/opt/librenms".`
+
+A single validation run did not finish in time and was killed. The `rrdcheck` group is the usual reason, it reads every RRD file. Raise `--timeout`, raise the command timeout in the service definition with it (the timeout applies per run, and every optional group costs a run of its own), or drop the group from `--group`. A default run that suddenly takes this long instead points at a database or a disk that has become slow.
 
 ### `Nothing checked. None of the requested validation groups was run.`
 

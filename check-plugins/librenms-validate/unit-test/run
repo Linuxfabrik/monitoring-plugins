@@ -25,13 +25,14 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # the fixtures follow the same split: `--test=stdout/all-ok` feeds the default run, and
 # `stdout/all-ok-distributedpoller` the run that `--group=distributedpoller` triggers.
 #
-# Four fixtures are synthetic, because they capture a state an installation only reaches
-# while it is broken or has not shipped yet: default-run-unlisted-group is a captured
-# default run with a group appended that no LibreNMS release currently reports, which is
-# how a future validation group would arrive; unrecognised-status does the same for a
-# status LibreNMS does not print today; composer-not-run reproduces the bootstrap failure
-# validate.php prints before it can load anything; empty-output is the run that printed
-# nothing at all.
+# The rest are synthetic, because they capture a state an installation only reaches while
+# it is broken or has not shipped yet: default-run-unlisted-group is a captured default
+# run with a group appended that no LibreNMS release currently reports, which is how a
+# future validation group would arrive; unrecognised-status and
+# unrecognised-status-unpadded do the same for a status LibreNMS does not print today,
+# once in each of the two shapes its own padding produces; composer-not-run, config-* and
+# install-dir-not-set reproduce the aborts validate.php prints before it reaches its first
+# validation group; empty-output is the run that printed nothing at all.
 
 TESTS = [
     # A healthy installation with one real finding. The exit code of validate.php is 1
@@ -248,6 +249,40 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['composer_wrapper.php install --no-dev'],
     },
+    # The configuration file aborts the validation the same way, and validate.php prints
+    # the abort in the shape of an ordinary finding. Without that being recognised, an
+    # installation that cannot start at all would arrive as a single failed validation.
+    {
+        'id': 'unknown-config-does-not-parse',
+        'test': 'stdout/config-syntax-error,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['php -l config.php'],
+    },
+    {
+        'id': 'unknown-config-without-opening-tag',
+        'test': 'stdout/config-missing-php-open-tag,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['<?php'],
+    },
+    {
+        'id': 'unknown-config-with-closing-tag',
+        'test': 'stdout/config-trailing-php-close-tag,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['?>'],
+    },
+    # This one aborts after the header and the dependency pre-check have already printed,
+    # so the abort has to win over the two results standing above it.
+    {
+        'id': 'unknown-install-dir-not-configured',
+        'test': 'stdout/install-dir-not-set,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['install_dir'],
+        'assert-not-in': ['Dependencies up-to-date.'],
+    },
     # A run that printed nothing at all cannot be reported on, and an empty report is not
     # a clean one.
     {
@@ -289,6 +324,16 @@ TESTS = [
     {
         'id': 'unknown-status-the-check-does-not-know',
         'test': 'stdout/unrecognised-status,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Schema migration scheduled', 'Checked 2 validations'],
+    },
+    # The same status without the padding LibreNMS puts between it and the message. It
+    # measures that padding before it colorizes the status, so a name of six characters or
+    # more fills the column on its own and the message follows right behind it.
+    {
+        'id': 'unknown-status-without-padding',
+        'test': 'stdout/unrecognised-status-unpadded,,0',
         'params': '',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Schema migration scheduled', 'Checked 2 validations'],
