@@ -234,6 +234,22 @@ TESTS = [
         'assert-regex': r'twentytwentyfive.*1\.5.*outdated, 1\.6 is available',
         'assert-in': ["'themes_outdated'=1"],
     },
+    # 60 findings against a table that shows 50. The state and the perfdata still count
+    # every one of them, only the table is cut off.
+    {
+        'id': 'warn-many-findings-are-truncated',
+        'test': 'stdout/many-findings,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '60 hardening findings',
+            "'hardening_findings'=60",
+            "'plugins_outdated'=60",
+            '... and 10 more findings.',
+            'demo-plugin-01',
+        ],
+        'assert-not-in': ['demo-plugin-60'],
+    },
     # Filters.
     {
         'id': 'ok-vuln-ignored',
@@ -819,9 +835,8 @@ class TestRedirectTarget(unittest.TestCase):
 
 class TestAbortReason(unittest.TestCase):
     """The scanner reports an aborted run under one of two keys, picking the second one
-    while it is refreshing its vulnerability database. Telling the two apart is what
-    decides whether the run is worth repeating, and the retry itself only happens
-    against a real scanner, so it is the decision that is covered here.
+    while it is refreshing its vulnerability database. Reading only the first one leaves
+    the admin without an explanation for the one failure the check can recover from.
     """
 
     @classmethod
@@ -843,31 +858,64 @@ class TestAbortReason(unittest.TestCase):
     def test_no_abort_at_all(self):
         self.assertEqual(self.check.get_abort_reason({'version': {}}), '')
 
-    # Three refusals are about the vulnerability lookup and say nothing about the site,
-    # so the scan is worth repeating without the token. Everything else is about the
-    # target and repeating it would only scan a site that already refused once.
-    def test_recognises_a_rejected_lookup(self):
-        for reason in (
-            'The API token provided is invalid',
-            'Your API limit has been reached',
-            'Unable to connect to the WPScan API: HTTP Error: ... (status: 401). '
-            'Please check https://status.wpscan.com/ for service status.',
-        ):
-            with self.subTest(reason=reason):
-                self.assertTrue(self.check.is_vuln_api_failure(reason))
 
-    def test_a_target_problem_is_not_a_lookup_problem(self):
-        for reason in (
-            'The remote website is up, but does not seem to be running WordPress.',
-            'The URL supplied redirects to https://example.com/.',
-            'Max Scan Duration Reached',
-            '',
-        ):
-            with self.subTest(reason=reason):
-                self.assertFalse(self.check.is_vuln_api_failure(reason))
+# Three refusals are about the vulnerability lookup and say nothing about the site, so the
+# scan is worth repeating without the token. Everything else is about the target, and
+# repeating it would only scan a site that already refused once. One test method per
+# reason, so `./run -v` names the one that broke.
+VULN_API_REFUSALS = [
+    ('invalid-token', 'The API token provided is invalid'),
+    ('quota-exhausted', 'Your API limit has been reached'),
+    (
+        'api-unreachable',
+        'Unable to connect to the WPScan API: HTTP Error: ... (status: 401). '
+        'Please check https://status.wpscan.com/ for service status.',
+    ),
+]
+
+TARGET_PROBLEMS = [
+    (
+        'not-wordpress',
+        'The remote website is up, but does not seem to be running WordPress.',
+    ),
+    ('redirect', 'The URL supplied redirects to https://example.com/.'),
+    ('scan-timeout', 'Max Scan Duration Reached'),
+    ('no-abort-at-all', ''),
+]
+
+
+class TestVulnApiFailure(unittest.TestCase):
+    """Telling a refused vulnerability lookup from a problem with the target is what
+    decides whether the scan is repeated without the token. The retry itself only happens
+    against a real scanner, so it is the decision that is covered here.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+
+def _is_a_lookup_problem(test, item):
+    test.assertTrue(test.check.is_vuln_api_failure(item[1]))
+
+
+def _is_not_a_lookup_problem(test, item):
+    test.assertFalse(test.check.is_vuln_api_failure(item[1]))
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(
+    TestVulnApiFailure,
+    VULN_API_REFUSALS,
+    _is_a_lookup_problem,
+    id_func=lambda it: f'lookup-refused-{it[0]}',
+)
+lib.lftest.attach_each(
+    TestVulnApiFailure,
+    TARGET_PROBLEMS,
+    _is_not_a_lookup_problem,
+    id_func=lambda it: f'target-problem-{it[0]}',
+)
 
 
 if __name__ == '__main__':

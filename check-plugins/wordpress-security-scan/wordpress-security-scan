@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081003'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -129,6 +129,13 @@ SCAN_TIMEOUT_HEADROOM = 30
 # Whatever it really takes is subtracted from the scan budget afterwards, so the check
 # as a whole still keeps to --scan-timeout.
 VULNDB_UPDATE_TIMEOUT = 120
+
+# How many findings the table shows before it is cut off. A neglected site carries a
+# vulnerability per outdated component and several per unpatched plugin, and the full list
+# would be hundreds of lines that Icinga stores and mails on with every notification. Not
+# tied to `--lengthy`, which decides how wide a row is rather than how many there are, and
+# which the shipped Director service template switches on anyway.
+MAX_TABLE_ROWS = 50
 
 # How much of the enumerable user names is printed. A site can expose hundreds of them,
 # and the full list would widen the finding column past anything readable while adding
@@ -273,9 +280,14 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Skip findings whose component or title matches. '
-        + lib.args.help('--ignore-regex')
-        + ' Example: `^akismet$` to accept the risk of one component.',
+        help='Skip findings whose component or title matches this Python regular '
+        'expression. '
+        'Matched against the component and against the finding title separately, so an '
+        'anchored expression still works on either of the two. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^akismet$"` to accept the risk of one component. '
+        'Example: `--ignore="(?i)readme"` to accept a reachable readme.',
         dest='IGNORE',
         action='append',
         default=None,
@@ -299,7 +311,16 @@ def parse_args():
 
     parser.add_argument(
         '--match',
-        help=lib.args.help('--match'),
+        help='Only report findings whose component or title matches this Python regular '
+        'expression. '
+        'Matched against the component and against the finding title separately, so an '
+        'anchored expression still works on either of the two. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
+        'a finding must match `--match` AND not match `--ignore` to be reported '
+        '(include first, exclude second). '
+        'Example: `--match="^WordPress$"` to watch the core alone. '
+        'Example: `--match="(?i)backup"` to watch the exposed backups alone.',
         dest='MATCH',
         action='append',
         default=None,
@@ -773,7 +794,10 @@ def get_vuln_data_status(data, has_enterprise):
     # A document without a `vuln_api` section at all predates the section or was cut
     # short. Saying nothing would be the same silent all-clear this branch exists to
     # avoid, so it counts as missing data.
-    return (False, 'the scan did not report whether the vulnerability database was used')
+    return (
+        False,
+        'the scan did not report whether the vulnerability database was used',
+    )
 
 
 def get_scan_budget(args, spent=0):
@@ -807,7 +831,10 @@ def refresh_vulndb(timeout):
         except (json.JSONDecodeError, ValueError):
             pass
         reason = get_abort_reason(data) if isinstance(data, dict) else ''
-        return (False, from_wpscan(reason or extract_error('\n'.join((stdout, stderr)))))
+        return (
+            False,
+            from_wpscan(reason or extract_error('\n'.join((stdout, stderr)))),
+        )
     return (True, '')
 
 
@@ -1195,10 +1222,10 @@ def main():
     if args.WPSCAN_OPTION is None:  # case 1: default to empty list
         args.WPSCAN_OPTION = []
 
-    # The finding filters are compiled here, ahead of everything else, so an invalid
-    # expression fails within a second instead of after a scan that runs for half an hour.
-    # Case-sensitive by default, matching the lib.args convention; opt into case-insensitive
-    # matching with an inline `(?i)`.
+    # compile user-supplied regex patterns
+    # Ahead of everything else, so an invalid expression fails within a second instead of
+    # after a scan that runs for half an hour. Case-sensitive by default, matching the
+    # lib.args convention; opt into case-insensitive matching with an inline `(?i)`.
     ignore_patterns = [
         lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
@@ -1455,7 +1482,10 @@ def main():
     findings += collect_interesting_findings(data)
     findings += collect_user_findings(users)
 
-    # apply the --match / --ignore filter pair over component and title
+    # Both filters are tested against the component and against the finding title, so a
+    # pattern reaches a finding either by the thing it is about or by what it says. How
+    # many there were beforehand is kept, so a run whose filters swallowed every last
+    # finding can be told apart from a site that has none.
     findings_before_filter = len(findings)
     findings = [
         item
@@ -1626,14 +1656,19 @@ def main():
         # and hardening notes would otherwise get whole columns of "-", which push the
         # text that matters off to the right for nothing.
         msg += '\n\n' + lib.base.get_table(
-            table_data, keys, header=headers, hide_empty=True
+            table_data,
+            keys,
+            header=headers,
+            hide_empty=True,
+            max_rows=MAX_TABLE_ROWS,
+            max_rows_label='finding',
         )
 
-    # --verbose: show the command the plugin runs to collect its data. The API token is
-    # never part of it, it is handed over through the environment. The HTTP credentials
-    # and a proxy address are, because the scanner takes those on its command line and
-    # nowhere else, so they are redacted before the line is printed: plugin output is
-    # routinely mailed and stored, and a secret must not travel with it.
+    # The scanner call itself is worth seeing while working out why a scan found what it
+    # found. The API token is never part of it, it is handed over through the environment.
+    # The HTTP credentials and a proxy address are, because the scanner takes those on its
+    # command line and nowhere else, so they are redacted before the line is printed:
+    # plugin output is routinely mailed and stored, and a secret must not travel with it.
     # Quoted the way a shell needs it, so the line can be pasted into a terminal as it
     # stands. The command itself never goes through a shell; the user agent carries
     # spaces and would otherwise be shown as several arguments.

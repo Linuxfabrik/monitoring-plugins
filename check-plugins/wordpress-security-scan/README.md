@@ -9,7 +9,11 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * Requires the command-line tool `wpscan` in `PATH`. It is a Ruby gem: `sudo gem install wpscan`. Install it system-wide, not for a single account: a gem in a user's home is invisible to the monitoring agent and to `sudo`. Version 4.0.0 or newer is recommended; on an older release the backup folder enumeration is skipped automatically.
 * A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
 * A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 1800 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
-* Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. See the API Token section below.
+* Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. A free token with a small daily request quota is available at <https://wpscan.com/register>.
+* The token is looked up in three places, in this order: `--api-token`, `--api-token-file` (first line of the file), and an already exported `WPSCAN_API_TOKEN` environment variable. Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`: it keeps the token out of the monitoring configuration and out of the Director basket. Whichever way it is supplied, the check hands it to `wpscan` through the environment and never on the command line, so it does not appear in the process list of the scanning host.
+* Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
+* The time limit is `--scan-timeout`, not the `--timeout` the other checks use. It bounds the whole scan, which runs for minutes, rather than a single network read of a few seconds, and the two would be read as the same thing under one name.
+* The finding table stops after 50 rows and states how many were left out. That is a display limit only: the state is determined by every finding, and the performance data counts them all.
 * The scan sends a large number of requests to the target and probes for backup files and admin endpoints. Run it against your own sites only, and expect it to show up in the access log and in any WAF or fail2ban rule set.
 * On a stock WordPress the check reports WARNING out of the box: `readme.html` is reachable, the external WP-Cron is enabled and at least one username is usually enumerable. These are genuine hardening findings, not false alarms. Address them, or accept them with `--ignore`.
 * `--path` is optional in practice. If it points nowhere, or at an installation the monitoring user cannot read, the check falls back to pure black box mode and says so. It never turns a finished scan into an UNKNOWN, so a permission change on the web root cannot hide a critical finding.
@@ -112,21 +116,30 @@ options:
                         vulnerability is reported as CRITICAL instead of
                         WARNING. Vulnerabilities without a score are governed
                         by --unscored-severity. Default: 7.0
-  --ignore IGNORE       Skip findings whose component or title matches. Any
-                        item matching this Python regex will be ignored. Can
-                        be specified multiple times. Example:
-                        `(?i)linuxfabrik` for a case-insensitive match.
-                        Example: `^akismet$` to accept the risk of one
-                        component.
+  --ignore IGNORE       Skip findings whose component or title matches this
+                        Python regular expression. Matched against the
+                        component and against the finding title separately, so
+                        an anchored expression still works on either of the
+                        two. Case-sensitive by default; use `(?i)` for case-
+                        insensitive matching. Can be specified multiple times.
+                        Example: `--ignore="^akismet$"` to accept the risk of
+                        one component. Example: `--ignore="(?i)readme"` to
+                        accept a reachable readme.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --match MATCH         Filter by this Python regular expression. Case-
-                        sensitive by default; use `(?i)` for case-insensitive
-                        matching. Can be specified multiple times. Examples:
-                        `(?i)example` to match "example" regardless of case.
-                        `^(?!.*example).*$` to match any string except
-                        "example" (negative lookahead).
+  --match MATCH         Only report findings whose component or title matches
+                        this Python regular expression. Matched against the
+                        component and against the finding title separately, so
+                        an anchored expression still works on either of the
+                        two. Case-sensitive by default; use `(?i)` for case-
+                        insensitive matching. Can be specified multiple times.
+                        If both `--match` and `--ignore` are given, a finding
+                        must match `--match` AND not match `--ignore` to be
+                        reported (include first, exclude second). Example:
+                        `--match="^WordPress$"` to watch the core alone.
+                        Example: `--match="(?i)backup"` to watch the exposed
+                        backups alone.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -364,6 +377,8 @@ Findings fall into three classes, and the worst of them determines the result:
 | Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, a backup folder, a debug log, a `SearchReplaceDB2` or Duplicator installer left behind, an emergency password reset script, or a site still sitting on its installer. | CRIT, except for a backup folder the scanner could not read any entry out of, which is WARN. |
 | Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, an enabled external WP-Cron, upload directory listing, full path disclosure, enumerable usernames, a reachable timthumb script, and any finding type the scanner may add in the future. | WARN. |
 
+`--critical-cvss` takes a plain score rather than a Nagios range, unlike the `--warning` and `--critical` thresholds of the other checks. CVSS is a published scale with fixed severity bands, so the only thing worth configuring is where CRITICAL starts.
+
 In detail:
 
 * OK if nothing in any of the three classes was found.
@@ -382,6 +397,8 @@ In detail:
 A message beginning with `Output from wpscan:` is the scanner's own wording, passed through unchanged. The options such a message suggests are `wpscan` options: `--wpscan-follow-redirect` and `--wpscan-ignore-main-redirect` are parameters of this check as well, everything else reaches the scanner through `--wpscan-option`.
 
 The coverage numbers ("Detected by the scan: 4 plugins") never influence the state. A component the scanner cannot fingerprint is a limit of black box scanning, not something the administrator can fix on the monitored site.
+
+The table lists at most 50 findings and states how many were left out. That is a display limit only: the state is determined by every finding, and the performance data counts them all. A neglected site would otherwise produce hundreds of lines that Icinga stores and mails on with every notification.
 
 
 ## Perfdata / Metrics
@@ -402,23 +419,6 @@ The coverage numbers ("Detected by the scan: 4 plugins") never influence the sta
 | vulndb_age | Seconds | Age of the local vulnerability database. Only emitted once `wpscan` has updated it at least once. |
 | vulnerabilities | Number | Number of known vulnerabilities found. |
 | vulnerabilities_critical | Number | Number of those vulnerabilities at or above `--critical-cvss`. |
-
-
-## API Token
-
-The WPScan vulnerability database is only queried when an API token is present. A free token with a small daily request quota is available at <https://wpscan.com/register>.
-
-The token can be supplied in three ways, checked in this order:
-
-1. `--api-token=<token>`
-2. `--api-token-file=<path>`, which reads the first line of the file
-3. the `WPSCAN_API_TOKEN` environment variable, if it is already exported
-
-Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`. It keeps the token out of the monitoring configuration and out of the Director basket.
-
-Whichever way it is supplied, the check hands the token to `wpscan` through the environment and never on the command line, so it does not appear in the process list of the scanning host.
-
-Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
 
 
 ## Troubleshooting
@@ -568,7 +568,7 @@ Otherwise raise `--scan-timeout` and the Director command timeout together, sinc
 
 The vulnerability database needs an API token. Without one the check still finds exposures and outdated components, but the vulnerability class stays empty and `vulnerabilities=0` in the perfdata regardless of the actual state of the site. That is why the check says so rather than reporting a clean result, and why `vuln_data_available=0` marks the run in the perfdata.
 
-Supply a token as described in the API Token section. To have the check alert while no token is configured, set `--no-vuln-data-severity=warn`.
+Register for a free token at <https://wpscan.com/register> and supply it as described in the Important Notes above, preferably through `--api-token-file`. To have the check alert while no token is configured, set `--no-vuln-data-severity=warn`.
 
 The same message with `the vulnerability database was unreachable` means the token is fine but wpscan.com could not be reached during the scan.
 
