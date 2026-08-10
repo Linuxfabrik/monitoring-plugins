@@ -79,7 +79,10 @@ options:
   --match MATCH         Only check items whose name matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
-                        multiple times.
+                        multiple times. If both `--match` and `--ignore` are
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second).
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted

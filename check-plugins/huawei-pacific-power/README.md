@@ -68,16 +68,18 @@ options:
                         Use it once the endpoint presents a publicly trusted
                         certificate, or once its CA has been added to the
                         system trust store.
-  --match MATCH         Filter by power supplies. Filter by this Python
-                        regular expression. Case-sensitive by default; use
-                        `(?i)` for case-insensitive matching. Can be specified
-                        multiple times. Examples: `(?i)example` to match
-                        "example" regardless of case. `^(?!.*example).*$` to
-                        match any string except "example" (negative
-                        lookahead). The regex is anchored at the start of the
-                        string (Python `re.match`) and is matched against
-                        `frame_sn`, `name`, so prefix with `.*` to match
-                        anywhere.
+  --match MATCH         Limit to power supplies. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. If both `--match` and `--ignore` are given, an
+                        item must match `--match` AND not match `--ignore` to
+                        be reported (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead). The regex is anchored
+                        at the start of the string (Python `re.match`) and is
+                        matched against `frame_sn`, `name`, so prefix with
+                        `.*` to match anywhere.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

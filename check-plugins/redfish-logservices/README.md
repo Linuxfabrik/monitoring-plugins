@@ -73,8 +73,10 @@ options:
   --match MATCH         Only consider SEL entries whose message matches this
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. Can be
-                        specified multiple times. Example:
-                        `--match="(?i)temperature"`.
+                        specified multiple times. If both `--match` and
+                        `--ignore` are given, an item must match `--match` AND
+                        not match `--ignore` to be reported (include first,
+                        exclude second). Example: `--match="(?i)temperature"`.
   --max-age MAX_AGE     Age out SEL entries older than this many days: they
                         are no longer alerted on, only counted in the summary.
                         A controller keeps an entry until the log is cleared,

@@ -109,6 +109,7 @@ Grafana:
 
 Monitoring Plugins:
 
+* the `--help` of `--match` says how the parameter combines with `--ignore`, on the 46 checks that offer both (deb-versionlock, disk-smart, disk-usage, docker-container, ...)
 * about-me: recognizes an installed Apache Tomcat when guessing Icinga Director tags
 * all plugins: a version range like `< 5.3.2`, a threshold like `<= 10` and a shell snippet like `echo 1 > /proc/sys/...` appear verbatim in the output instead of as `&lt;`, `&gt;` and `&amp;`. Web interfaces render them unchanged, so only the command line and log files see a difference
 * all plugins: the internal `--test` parameter is no longer shown in `--help`
@@ -162,6 +163,7 @@ Monitoring Plugins:
 * cert: a subnet scan that runs out of file descriptors reports UNKNOWN instead of OK for targets it never probed
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-io: no longer produces false CRITICAL alerts from I/O wait on healthy systems, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
+* disk-io: the `--match` help no longer claims the parameter can be given several times, since it takes a single expression
 * disk-smart: `--ignore` matches the drives again
 * disk-smart: a drive smartctl cannot open is reported with the real reason instead of a misleading parse error, and no longer aborts the whole check ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-smart: a failed drive scan reports the reason smartctl gives instead of inventing a device out of it

@@ -92,16 +92,19 @@ options:
                         which is why this defaults to not alerting. Default:
                         ok
   --lengthy             Extended reporting.
-  --match MATCH         Filter by optical modules. Filter by this Python
+  --match MATCH         Limit to optical modules. Filter by this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
-                        multiple times. Examples: `(?i)example` to match
-                        "example" regardless of case. `^(?!.*example).*$` to
-                        match any string except "example" (negative
-                        lookahead). The regex is anchored at the start of the
-                        string (Python `re.match`) and is matched against the
-                        module identifier, its location, vendor, model and
-                        serial number, so prefix with `.*` to match anywhere.
+                        multiple times. If both `--match` and `--ignore` are
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second). Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against the module
+                        identifier, its location, vendor, model and serial
+                        number, so prefix with `.*` to match anywhere.
                         Default: None
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.

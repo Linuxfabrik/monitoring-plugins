@@ -91,8 +91,8 @@ options:
                         --full-name). Case-sensitive by default; use `(?i)`
                         for case-insensitive matching. Can be specified
                         multiple times. If both `--match` and `--ignore` are
-                        given, a container must match `--match` AND not match
-                        `--ignore` to be checked (include first, exclude
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
                         second). Example: `--match="^traefik$"` to pin a
                         service to one specific container. Example:
                         `--match="(?i)^web"` (case-insensitive) to check every

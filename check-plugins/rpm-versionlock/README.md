@@ -74,7 +74,10 @@ options:
   --lengthy             Extended reporting.
   --match MATCH         Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
-                        matching. Can be specified multiple times. Examples:
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Examples:
                         `(?i)example` to match "example" regardless of case.
                         `^(?!.*example).*$` to match any string except
                         "example" (negative lookahead).

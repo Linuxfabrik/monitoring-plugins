@@ -106,16 +106,19 @@ options:
                         that is simply not cabled reports the same thing,
                         which is why this defaults to not alerting. Default:
                         ok
-  --match MATCH         Filter by ports. Filter by this Python regular
+  --match MATCH         Limit to ports. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
-                        times. Examples: `(?i)example` to match "example"
-                        regardless of case. `^(?!.*example).*$` to match any
-                        string except "example" (negative lookahead). The
-                        regex is anchored at the start of the string (Python
-                        `re.match`) and is matched against the port
-                        identifier, its location and its name, so prefix with
-                        `.*` to match anywhere. Default: None
+                        times. If both `--match` and `--ignore` are given, an
+                        item must match `--match` AND not match `--ignore` to
+                        be reported (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead). The regex is anchored
+                        at the start of the string (Python `re.match`) and is
+                        matched against the port identifier, its location and
+                        its name, so prefix with `.*` to match anywhere.
+                        Default: None
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted

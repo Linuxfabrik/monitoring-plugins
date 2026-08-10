@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071302'
+__version__ = '2026081001'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
@@ -162,16 +162,20 @@ def parse_args():
     )
     parser.add_argument(
         '--match',
-        help='Filter by disk name. '
-        + lib.args.help('--match')
-        + ' '
-        + 'The regex is anchored at the start of the string (Python `re.match`) and matched '
+        # Written inline rather than taken from lib.args: this check takes a single
+        # expression and has no --ignore, so neither the "can be specified multiple
+        # times" nor the --ignore precedence sentence of the shared text applies here.
+        help='Only check disks whose path or mountpoint matches this Python regular '
+        'expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'The regex is anchored at the start of the string (Python `re.match`) and matched '
         'against the full device path (e.g. `/dev/sda`), the device-mapper path '
         '(e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere '
         '(`.*sda$` instead of `^sda$`). '
         'On Linux only block devices with a mounted filesystem are considered by default; add '
         '`--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw '
-        'LUNs). ' + 'Default: %(default)s',
+        'LUNs). '
+        'Default: %(default)s',
         dest='MATCH',
         default=DEFAULT_MATCH,
     )

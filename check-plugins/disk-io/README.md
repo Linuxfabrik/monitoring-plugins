@@ -107,13 +107,10 @@ options:
                         unmounted device shows up. Pseudo devices (loop, ram,
                         zram, floppy, optical) are always excluded. Default:
                         False
-  --match MATCH         Filter by disk name. Filter by this Python regular
-                        expression. Case-sensitive by default; use `(?i)` for
-                        case-insensitive matching. Can be specified multiple
-                        times. Examples: `(?i)example` to match "example"
-                        regardless of case. `^(?!.*example).*$` to match any
-                        string except "example" (negative lookahead). The
-                        regex is anchored at the start of the string (Python
+  --match MATCH         Only check disks whose path or mountpoint matches this
+                        Python regular expression. Case-sensitive by default;
+                        use `(?i)` for case-insensitive matching. The regex is
+                        anchored at the start of the string (Python
                         `re.match`) and matched against the full device path
                         (e.g. `/dev/sda`), the device-mapper path (e.g.
                         `/dev/mapper/vg-lv`) and the mountpoint, so prefix

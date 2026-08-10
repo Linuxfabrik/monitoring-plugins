@@ -62,9 +62,9 @@ options:
   --match MATCH    Only check connections whose VICI key matches this Python
                    regular expression. Case-sensitive by default; use `(?i)`
                    for case-insensitive matching. Can be specified multiple
-                   times. If both `--match` and `--ignore` are given, a
-                   connection must match `--match` AND not match `--ignore` to
-                   be checked (include first, exclude second). Example:
+                   times. If both `--match` and `--ignore` are given, an item
+                   must match `--match` AND not match `--ignore` to be
+                   reported (include first, exclude second). Example:
                    `--match="^S2S_SITE-XY$"` to pin an Icinga service to one
                    specific site-to-site peer. Example: `--match="(?i)^s2s_"`
                    (case-insensitive) to check every site-to-site peer on a

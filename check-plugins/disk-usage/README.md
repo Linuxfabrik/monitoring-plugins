@@ -86,7 +86,10 @@ options:
                         drive letters and paths are case-insensitive; use
                         drive letters such as `C:` or `C`). For case-sensitive
                         matching, wrap the pattern in `(?-i:...)`, e.g.
-                        `(?-i:Data)`. Can be specified multiple times.
+                        `(?-i:Data)`. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second).
   --mount MOUNT         Override the global --warning/--critical thresholds
                         for a single mountpoint, in the form
                         `<mountpoint>,<warning>,<critical>`. Each threshold

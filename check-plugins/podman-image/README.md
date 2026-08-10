@@ -65,8 +65,8 @@ options:
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. Can be
                         specified multiple times. If both `--match` and
-                        `--ignore` are given, an image must match `--match`
-                        AND not match `--ignore` to be checked (include first,
+                        `--ignore` are given, an item must match `--match` AND
+                        not match `--ignore` to be reported (include first,
                         exclude second). Example:
                         `--match="^docker.io/library/nginx"` to check only the
                         nginx images. Default: None
