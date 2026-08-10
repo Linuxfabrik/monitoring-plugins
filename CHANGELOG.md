@@ -14,43 +14,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
-* cumulative counters are reported as per-second rates instead of ever-growing totals. Some performance-data metric names change, so re-import the affected Grafana dashboards after updating (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* cumulative counters are reported as per-second rates instead of totals, and some metric names change. Re-import the affected Grafana dashboards (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: is WARN-only and no longer measures I/O wait. `--critical`, `--iowait-warning` and `--iowait-critical` are ignored, and the Grafana dashboard has to be re-imported
-* huawei-dorado-\*: performance data metric names are lower case with underscores, capacities are reported in bytes and voltages in volts. Re-import the affected Grafana dashboards after updating
-* redfish-\*: the Redfish API URL is a mandatory `--url`, replacing the localhost default. Add `--url` to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+* huawei-dorado-\*: performance data metric names, capacity units and voltage units changed. Re-import the affected Grafana dashboards
+* redfish-\*: `--url` is mandatory, the localhost default is gone. Add it to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
 ### Added
 
 Monitoring Plugins:
 
 * apache-tomcat-version: check for an end-of-life or outdated Apache Tomcat ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
-* deb-versionlock: check alerting on packages APT holds back at their installed version
+* deb-versionlock: check alerting on packages APT holds back
 * docker-container, podman-container: check for unhealthy, unexpected-state, frequently restarting or too-young containers
-* docker-image, podman-image: check listing images and alerting on images older than a configurable age
+* docker-image, podman-image: check alerting on images older than a configurable age
 * docker-service: check alerting when a Docker Swarm service runs fewer tasks than expected
 * docker-swarm: check alerting on swarm membership, a down node, or lost manager quorum
-* huawei-dorado-alarm: check listing the current alarms of a Huawei OceanStor Dorado storage system
+* huawei-dorado-alarm: check listing the current alarms
 * huawei-dorado-expboard: check alerting on a faulty expansion board
 * huawei-dorado-lun: check alerting on a faulty LUN, and on a thin LUN filling up
-* huawei-dorado-port: check alerting on a faulty or too slowly negotiated front-end port, covering FC, Ethernet, SAS and bond ports
+* huawei-dorado-port: check alerting on a faulty or too slowly negotiated front-end port
 * huawei-dorado-sfp: check alerting on a faulty optical module, or one whose light levels leave its operating range
-* huawei-dorado-storagepool: check alerting on a faulty storage pool, and on a pool filling up
-* huawei-pacific-alarm: check listing the current alarms of a Huawei OceanStor Pacific storage system
-* huawei-pacific-disk: check alerting on a faulty disk of a Huawei OceanStor Pacific storage system, and on one running out of remaining life
+* huawei-dorado-storagepool: check alerting on a faulty storage pool, and on one filling up
+* huawei-pacific-alarm: check listing the current alarms
+* huawei-pacific-disk: check alerting on a faulty disk, and on one running out of remaining life
 * huawei-pacific-fan: check alerting on a faulty fan
-* huawei-pacific-node: check alerting on a faulty cluster node, on the error codes it reports and on an expired warranty
+* huawei-pacific-node: check alerting on a faulty cluster node and on an expired warranty
 * huawei-pacific-power: check alerting on a faulty power supply
-* huawei-pacific-quota: check alerting when a share on a Huawei OceanStor Pacific storage system fills up its quota
-* huawei-pacific-system: check reporting product model, system version and cluster name, and alerting on cluster capacity usage
-* kdump: check alerting when the kernel crash dump mechanism cannot capture a panic, or when a previous panic left a crash dump behind
+* huawei-pacific-quota: check alerting when a share fills up its quota
+* huawei-pacific-system: check alerting on cluster capacity usage
+* kdump: check alerting when a kernel panic cannot be captured, or when a previous panic left a crash dump behind
 * librenms-validate: check alerting on the problems LibreNMS reports about its own installation ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
 * network-errors: check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
-* nextcloud-app-updates: check alerting when a Nextcloud app update has been pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
-* nextcloud-status: check alerting when a Nextcloud instance is blocked by a pending database upgrade or sits in maintenance mode ([#329](https://github.com/Linuxfabrik/monitoring-plugins/issues/329))
-* rpm-versionlock: check alerting on packages the RPM package manager holds back at a fixed version
+* nextcloud-app-updates: check alerting when a Nextcloud app update is pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
+* nextcloud-status: check alerting on a pending database upgrade or on maintenance mode ([#329](https://github.com/Linuxfabrik/monitoring-plugins/issues/329))
+* rpm-versionlock: check alerting on packages the RPM package manager holds back
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
-* wordpress-checksums: check verifying the core and plugin files of a WordPress installation against the checksums wordpress.org publishes
-* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and for files that expose credentials or the database. Needs a free WPScan API token for the vulnerability lookup
+* wordpress-checksums: check verifying core and plugin files against the checksums wordpress.org publishes
+* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and exposed credentials. Needs a (free) WPScan API token
 
 ### Changed
 
@@ -61,12 +61,12 @@ Monitoring Plugins:
 * cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but stays reported and graphed
 * disk-usage: runs every minute instead of every 5 minutes
 * huawei-dorado-\*: a failed disk, power supply, fan, backup power module or interface module is CRITICAL instead of WARNING
-* huawei-dorado-\*: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok"
 * huawei-dorado-\*: a dead power feed, a component that is not running, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
+* huawei-dorado-\*: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok"
 * huawei-dorado-\*: `--device-id` is optional, the appliance reports its own at login
-* huawei-dorado-disk: no longer graphs the operating time, a counter that only ever grows
+* huawei-dorado-disk: no longer graphs the operating time
 * huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges
-* mysql-innodb-log-waits: alerts only on real InnoDB log waits, no longer on a low write-log efficiency
+* mysql-innodb-log-waits: alerts only on real InnoDB log waits
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, which silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 
@@ -83,25 +83,25 @@ Monitoring Plugins:
 * cert: a subnet scan needs far less memory, and one that runs out of file descriptors reports UNKNOWN instead of OK
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
 * disk-io: no longer produces false CRITICAL alerts from I/O wait, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
-* disk-smart: drives behind a hardware RAID controller, external USB drives and hosts with `POSIXLY_CORRECT` are read again, `--ignore` matches, an unreadable drive no longer aborts the check, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
+* disk-smart: drives behind a hardware RAID controller and external USB drives are read again, `--ignore` matches, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume no longer aborts the check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * haproxy-status: the `--username` / `--password` migration hint is readable again
-* huawei-dorado-\*: a firmware that omits a field, sends a status code as a number or reports success as text no longer takes the check to UNKNOWN or into a Python error
-* huawei-dorado-\*: capacities, wear levels and health scores are read in the unit and range the appliance means, instead of being off by a factor or graphed as -1, 255 or a fake zero
-* huawei-dorado-\*: every object is read instead of only the first page, so a large array no longer reports a smaller but healthy inventory
-* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set, and is left out of the graph
-* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected, it was read through the wrong status table
+* huawei-dorado-\*: a firmware that reports a field or a status code in an unexpected way no longer takes the check to UNKNOWN
+* huawei-dorado-\*: capacities, wear levels and health scores are read in the unit and range the appliance means
+* huawei-dorado-\*: every object is read instead of only the first page, so a large array reports its full inventory
+* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set
+* huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
-* lynis: audits produce a report on distributions that keep lynis outside `/usr/share`, and the lynis error is shown when they do not ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
+* lynis: audits produce a report on distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
 * mysql-replica-status: works on MySQL 8.4, and an account that may not list replicas no longer turns the check UNKNOWN
 * mysql-user-security: the suggested `ALTER USER` runs on MariaDB 11.6 and newer, which needs a one-time `INSTALL SONAME`
 * ping: checksum-corrupted packets are counted correctly, and a corrupted reply no longer turns the check UNKNOWN
-* redfish-\*: the checks on a host share one session and the fetched data, and read each collection in one request, so servers with many components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* redfish-\*: servers with many components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * snmp: a harmless net-snmp warning no longer aborts the check, string-indexed OIDs are read correctly, and the bundled device profiles work on current net-snmp
-* statusiq: a page that intermittently answers with an error page instead of its feed is retried instead of flapping into UNKNOWN
-* strongswan-connections: a rekeying, shared, still-connecting or 3DES connection no longer raises a false alarm or crashes, and re-keying and re-authentication are graphed separately ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
+* statusiq: a page that intermittently answers with an error page instead of its feed no longer flaps into UNKNOWN
+* strongswan-connections: a rekeying, shared, still-connecting or 3DES connection no longer raises a false alarm or crashes ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
 * systemd-unit: the bundled Ubuntu service sets check `ssh.service` ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
 
 Grafana:
@@ -110,32 +110,32 @@ Grafana:
 
 Tools:
 
-* a source install on a host with too-old system Python picks the newest installed Python and rebuilds cleanly, and switches that turn an option off, such as `--no-insecure`, end up in the Director basket instead of being dropped with an error
+* a source install on a host with too-old system Python rebuilds cleanly, and switches that turn an option off, such as `--no-insecure`, end up in the Director basket
 
 ### Security
 
 Monitoring Plugins:
 
 * all plugins: the internal `--test` argument can no longer be abused to read arbitrary root-owned files on hosts that grant the checks passwordless sudo ([GHSA-rh9c-rqvg-f7pr](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-rh9c-rqvg-f7pr))
-* keycloak-memory-usage, keycloak-stats, keycloak-version: a malicious or compromised Keycloak can no longer make the check send its admin credentials to another host (SSRF / credential leak) ([GHSA-88fj-95f7-w68m](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-88fj-95f7-w68m))
-* logfile: closed a local privilege-escalation path in the legacy state-database migration, exploitable only with the non-default `fs.protected_symlinks=0`. The first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
-* logfile, mysql-logfile, openvpn-client-list: the log file to read is confined to `/var/log` (mysql-logfile also allows `/var/lib/mysql`), closing a path to arbitrary root-owned files. Bind-mount a log stored elsewhere under `/var/log` ([GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c))
-* redfish-\*: a malicious controller can no longer redirect a check to another host (SSRF / auth-token leak) ([GHSA-96fx-pqc3-28xv](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-96fx-pqc3-28xv))
-* virustotal-scan-url: the scan report is fetched from the VirusTotal API address instead of from a link in the API response, so the API key cannot end up at another host
+* keycloak-memory-usage, keycloak-stats, keycloak-version: a malicious Keycloak can no longer make the check send its admin credentials to another host ([GHSA-88fj-95f7-w68m](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-88fj-95f7-w68m))
+* logfile: closed a local privilege-escalation path, exploitable only with the non-default `fs.protected_symlinks=0`. The first run after updating re-scans the whole logfile once ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
+* logfile, mysql-logfile, openvpn-client-list: the log file to read is confined to `/var/log` (mysql-logfile also allows `/var/lib/mysql`). Bind-mount a log stored elsewhere under `/var/log` ([GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c))
+* redfish-\*: a malicious controller can no longer redirect a check to another host ([GHSA-96fx-pqc3-28xv](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-96fx-pqc3-28xv))
+* virustotal-scan-url: the API key can no longer end up at another host
 
 Notification Plugins:
 
-* notify-host-mail, notify-service-mail: the notification email HTML-escapes host and service output, comments and other values, so a monitored service can no longer inject markup into the mail
+* notify-host-mail, notify-service-mail: a monitored service can no longer inject markup into the notification email
 
 Tools:
 
 * installer: a source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv, closing a local root code-execution path
-* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities in `h2` (request smuggling), `cryptography` (a padding oracle) and `soupsieve` (denial of service). On RHEL 8, RHEL 9 and Debian 11 no fixed `h2` release exists that still supports their Python 3.9
+* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities in `h2`, `cryptography` and `soupsieve`. On RHEL 8, RHEL 9 and Debian 11 no fixed `h2` release exists that still supports their Python 3.9
 
 
 ## [v6.0.0] - 2026-06-14
 
-**Highlights:** A local privilege escalation through crafted plugin arguments is closed, which on its own makes this update worth doing. The Redfish checks are renamed to match their API endpoints and gain five new checks, so every Icinga command referencing an old name has to be updated. `cert` can scan a whole subnet instead of a single endpoint, and `lynis` audits the security hardening of a whole subnet over SSH.
+**Highlights:** A local privilege escalation through crafted plugin arguments is closed, which on its own makes this update worth doing. The Redfish checks are renamed to match their API endpoints and gain five new checks, so update every Icinga command referencing an old name. `cert` and `lynis` audit a whole subnet instead of a single host.
 
 ### Breaking Changes
 
@@ -160,7 +160,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * by-ssh: `--shell` is deprecated and ignored, and remote commands using pipes, globs or variables always work
-* cert: scans a whole subnet across many common ports when run without parameters, thresholds also accept a percentage of the lifetime or a duration, and the full certificate chain is checked
+* cert: scans a whole subnet across many common ports, checks the full certificate chain, and thresholds also accept a percentage of the lifetime or a duration
 * ipmi-sensor: performance data is grouped by sensor type, which resets the existing IPMI graph history once ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
 * nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
 * php-status: OPcache alerting warns at 95% and flags cache thrashing, a full interned strings buffer no longer warns, and the raw hits and misses counters are gone from the performance data
@@ -196,7 +196,7 @@ Tools:
 
 Monitoring Plugins:
 
-* every plugin that runs an external command builds it as an argument list instead of a shell command string, closing a local privilege escalation where crafted plugin arguments could execute arbitrary commands, most seriously on hosts where a plugin is allowed to run via sudo ([GHSA-798h-hpph-m24j](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-798h-hpph-m24j))
+* all plugins: crafted plugin arguments can no longer execute arbitrary commands, most seriously on hosts where a plugin is allowed to run via sudo ([GHSA-798h-hpph-m24j](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-798h-hpph-m24j))
 
 
 ## [v5.2.0] - 2026-06-02
@@ -211,13 +211,13 @@ Icinga Director:
 
 Tools:
 
-* installer: source-install lockfiles pin every build dependency including `setuptools` with hashes, so `pip install --require-hashes` no longer relies on the build host having `setuptools` preinstalled ([#1138](https://github.com/Linuxfabrik/monitoring-plugins/issues/1138))
+* installer: a source install no longer relies on the build host having `setuptools` preinstalled ([#1138](https://github.com/Linuxfabrik/monitoring-plugins/issues/1138))
 
 ### Security
 
 Monitoring Plugins:
 
-* plugins that cache trend data in the system temporary directory keep their SQLite databases, and the `csv-values` staging file, in a private per-user directory instead of directly in the shared, world-writable `/tmp`, closing a local symlink attack where an unprivileged user could redirect writes from a check running as root to arbitrary files ([GHSA-r35r-fpx2-jgr4](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-r35r-fpx2-jgr4), thanks to [OoYo0uto](https://github.com/OoYo0uto))
+* plugins that cache trend data keep their SQLite databases, and the `csv-values` staging file, in a private per-user directory instead of the shared `/tmp`, closing a local symlink attack against a check running as root ([GHSA-r35r-fpx2-jgr4](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-r35r-fpx2-jgr4), thanks to [OoYo0uto](https://github.com/OoYo0uto))
 
 
 ## [v5.1.0] - 2026-05-30
@@ -237,11 +237,11 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * all plugins: no longer abort on RHEL 8's default Python 3.6 when importing `lib.url`, while the officially supported minimum stays Python 3.9
-* about-me: `--tags` distinguishes MariaDB from MySQL, package-based detection works on Debian, Ubuntu, SUSE, Arch and Alpine and is fixed on the Red Hat family, and "User-Installed Software" lists every package instead of just the first one
+* about-me: `--tags` distinguishes MariaDB from MySQL, package-based detection works on Debian, Ubuntu, SUSE, Arch, Alpine and the Red Hat family, and "User-Installed Software" lists every package instead of just the first one
 * fail2ban: a banned jail no longer mislabels the following jails with its state
 * mysql-\*: queries against `mysql.user` and `mysql.global_priv` no longer abort with "Illegal mix of collations" ([#1139](https://github.com/Linuxfabrik/monitoring-plugins/issues/1139))
 * mysql-innodb-buffer-pool-size: no longer aborts on MySQL 9.3 and newer, where `innodb_log_file_size` was removed in favour of `innodb_redo_log_capacity`
-* mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, and the `innodb_io_capacity` check no longer raises false alarms on virtualised or network-backed storage such as Ceph and cloud volumes
+* mysql-perf-metrics: no longer flags `innodb_log_file_size` and `innodb_log_files_in_group` as obsolete on MySQL 9.0 to 9.2, and `innodb_io_capacity` no longer raises false alarms on virtualised or network-backed storage such as Ceph and cloud volumes
 * mysql-table-definition-cache: recommends a concrete value above the table count instead of the incorrect `table_definition_cache = -1`
 * snmp: a malformed "Perfdata Alert Thresholds" entry in a device CSV is reported as UNKNOWN instead of being silently ignored ([#768](https://github.com/Linuxfabrik/monitoring-plugins/discussions/768))
 
@@ -249,7 +249,7 @@ Monitoring Plugins:
 
 Assets:
 
-* Debian sudoers: the `apt-get` rule is restricted to the exact command the `deb-updates` plugin runs, closing a local privilege escalation where the monitoring user could obtain a root shell by passing extra arguments to `apt-get` ([GHSA-8w6w-23mq-h8rg](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-8w6w-23mq-h8rg), thanks to [OoYo0uto](https://github.com/OoYo0uto))
+* Debian sudoers: the monitoring user can no longer obtain a root shell through the `apt-get` rule, which is restricted to the exact command `deb-updates` runs ([GHSA-8w6w-23mq-h8rg](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-8w6w-23mq-h8rg), thanks to [OoYo0uto](https://github.com/OoYo0uto))
 
 
 ## [v5.0.0] - 2026-05-15
@@ -282,10 +282,10 @@ Monitoring Plugins:
 * mysql-open-files, mysql-slow-queries, mysql-sorts, mysql-table-cache, mysql-table-locks, mysql-temp-tables, mysql-thread-cache: the hardcoded limits are replaced by `--warning`/`--critical` thresholds
 * mysql-perf-metrics: the duplicate `innodb_file_per_table` check is gone, a deprecated variable only warns when it was set explicitly, and the storage-type-aware InnoDB knobs are checked
 * mysql-replica-status: the required privilege is narrowed to `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5 and newer
-* mysql-storage-engines: the AUTO_INCREMENT check uses each column's own type ceiling instead of always assuming BIGINT UNSIGNED
+* mysql-storage-engines: the AUTO_INCREMENT check uses each column's own type ceiling
 * mysql-system: warns on `fs.nr_open < 1M`, counts only ports in LISTEN state, and renames its `kernel.*` and `mysql_opened_ports` perfdata
 * mysql-table-indexes: rewritten, and InnoDB base tables without a user-defined `PRIMARY KEY` are flagged
-* mysql-user-security: flags accounts on legacy authentication plugins and weak passwords from a dictionary of common defaults, excludes MariaDB roles, and skips the username-as-password check when `validate_password` is active
+* mysql-user-security: flags accounts on legacy authentication plugins and with common default passwords, and excludes MariaDB roles
 
 Icinga Director:
 
@@ -293,13 +293,13 @@ Icinga Director:
 
 Build, CI/CD:
 
-* one hash-pinned lockfile per supported Python LTS in `lockfiles/pyXX/`, replacing the single `requirements.txt`. `INSTALL.md` documents how a source install on RHEL 8 can opt out of the frozen `py39` lockfile by installing AppStream `python3.12`
+* one hash-pinned lockfile per supported Python LTS in `lockfiles/pyXX/`. `INSTALL.md` documents how a source install on RHEL 8 can opt out of the frozen `py39` lockfile by installing AppStream `python3.12`
 
 ### Fixed
 
 Monitoring Plugins:
 
-* docker-stats, podman-stats: per-container CPU and memory perfdata restored, which the previous release had reduced to aggregate values ([#1104](https://github.com/Linuxfabrik/monitoring-plugins/issues/1104))
+* docker-stats, podman-stats: per-container CPU and memory perfdata is back ([#1104](https://github.com/Linuxfabrik/monitoring-plugins/issues/1104))
 * mysql-database-metrics: the index-vs-data-size check no longer misjudges a table
 * mysql-logfile: the docker, podman and kubectl sources read container logs again
 * mysql-memory: `max_tmp_table_size` is accounted for correctly
@@ -308,7 +308,7 @@ Monitoring Plugins:
 * mysql-temp-tables: no longer crashes on idle servers, and the effective temp-table cap is the smaller of `tmp_table_size` and `max_heap_table_size`
 * mysql-thread-cache: the `mysql_thread_cache_size` perfdata carries the correct unit
 * mysql-traffic: no longer reports "100% writes" on idle servers
-* veeam-status: works again against Veeam Enterprise Manager v13, which serialises REST-API JSON keys in camelCase ([#1001](https://github.com/Linuxfabrik/monitoring-plugins/issues/1001))
+* veeam-status: works again against Veeam Enterprise Manager v13 ([#1001](https://github.com/Linuxfabrik/monitoring-plugins/issues/1001))
 
 Grafana:
 
@@ -328,7 +328,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* sap-open-concur-com: the default `--datacenter` is `eu2`, because the legacy `eu` endpoint returns HTTP 500, and the default timeout is longer, so a slow but healthy response no longer flips to UNKNOWN
+* sap-open-concur-com: the default `--datacenter` is `eu2`, the legacy `eu` endpoint returns HTTP 500, and a slow but healthy response no longer flips to UNKNOWN
 * systemd-units-failed: in OK state, the output names the last failed unit since the last reboot, its timestamp and how long ago
 
 Icinga Director:
@@ -439,7 +439,7 @@ Monitoring Plugins:
 * librenms-alerts, librenms-health: support device-type `management`
 * nextcloud-version: `occ` no longer has to be executable, `php occ <cmd>` is invoked under the owner of `config/config.php`
 * php-status: defaults to `http://localhost/monitoring.php` and tolerates its absence
-* scanrootkit: 52 further signatures for modern Linux rootkits and implants, exact per-symbol kernel symbol matching for fewer false positives, and the `rootkit_items` / `rootkit_possible` perfdata count distinct rootkits instead of indicators
+* scanrootkit: 52 further signatures for modern Linux rootkits and implants, fewer false positives, and the `rootkit_items` / `rootkit_possible` perfdata count distinct rootkits instead of indicators
 * statuspal: also detects the `emergency-maintenance` state
 
 Assets:
@@ -483,7 +483,7 @@ Monitoring Plugins:
 * fs-ro: ignores `/run/credentials`
 * keycloak-stats: the check runs again, its library symlink was wrong
 * librenms-alerts: reports `WORSE`, `BETTER` and `CHANGED` alerts too, which LibreNMS 25.2 and newer produce for many alerts ([#882](https://github.com/Linuxfabrik/monitoring-plugins/issues/882))
-* logfile: several services on the same logfile with different patterns no longer interfere with each other, the read offset no longer resets on every run after the state-database rename, and an inode beyond the SQLite integer range on Windows no longer raises an `OverflowError` ([#698](https://github.com/Linuxfabrik/monitoring-plugins/issues/698), [#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
+* logfile: several services on the same logfile with different patterns no longer interfere with each other, the read offset no longer resets on every run, and the check no longer aborts on Windows ([#698](https://github.com/Linuxfabrik/monitoring-plugins/issues/698), [#1035](https://github.com/Linuxfabrik/monitoring-plugins/issues/1035))
 * mysql-joins, mysql-traffic: no longer crash on a server booted less than one second ago
 * mysql-memory: no longer crashes in "other process memory" on hosts with psutil older than 5.3.0
 * needs-restarting: shows "Running Kernel X != Installed Kernel Y" on Debian-based systems when `needrestart` reports a pending kernel upgrade
