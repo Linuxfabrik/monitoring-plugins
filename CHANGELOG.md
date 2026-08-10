@@ -165,6 +165,7 @@ Monitoring Plugins:
 * disk-usage: performance data carries the warning and critical thresholds again ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * disk-usage: the filesystem table is sorted by usage (fullest first) instead of raw mount order
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume that requires root no longer aborts the whole check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
+* haproxy-status: the `--username` / `--password` migration hint is readable again
 * huawei-dorado-\*, huawei-pacific-\*: a firmware that reports success as a text `0` instead of a number no longer takes 18 of the checks to UNKNOWN on every run
 * huawei-dorado-\*, huawei-pacific-\*: a missing or non-numeric temperature, runtime, wear level, voltage, synchronization time, alarm severity or quota value no longer ends the check in a Python error
 * huawei-dorado-\*, huawei-pacific-\*: the READMEs state the real retry behaviour and the real state file each check uses

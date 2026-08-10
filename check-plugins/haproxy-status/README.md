@@ -97,10 +97,10 @@ options:
                        HTTP basic auth, embed the credentials in the URL
                        itself; the plugin strips them from the netloc before
                        the request is sent and carries them in an
-                       `Authorization: Basic` header. Example: `--url
-                       https://webserver:8443/server-status`. Example: `--url
-                       https://stats:s3cret@webserver:8443/server-status`.
-                       Default: unix:///run/haproxy.sock
+                       `Authorization: Basic` header. Example:
+                       `--url=https://webserver:8443/server-status`. Example:
+                       `--url=https://stats:linuxfabrik@webserver:8443/server-
+                       status`. Default: unix:///run/haproxy.sock
   -w, --warning WARN   WARN threshold in percent. Default: >= 80
 
 Documentation:
