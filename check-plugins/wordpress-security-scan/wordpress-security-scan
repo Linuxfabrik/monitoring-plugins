@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080715'
+__version__ = '2026081001'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -1195,8 +1195,10 @@ def main():
     if args.WPSCAN_OPTION is None:  # case 1: default to empty list
         args.WPSCAN_OPTION = []
 
-    # compile the finding filter regexes once (case-sensitive by default, matching the
-    # lib.args convention; opt into case-insensitive matching with inline `(?i)`)
+    # The finding filters are compiled here, ahead of everything else, so an invalid
+    # expression fails within a second instead of after a scan that runs for half an hour.
+    # Case-sensitive by default, matching the lib.args convention; opt into case-insensitive
+    # matching with an inline `(?i)`.
     ignore_patterns = [
         lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
@@ -1388,8 +1390,9 @@ def main():
         reason = aborted if aborted else extract_error(output)
         lib.base.cu(from_wpscan(reason))
 
-    # read the local installation. An unreadable path is not an error: the check then
-    # falls back to what the remote scan alone could see.
+    # The second source, read after the scan because the scan is what may end the check
+    # early. An unreadable path is not an error: the check then falls back to what the
+    # remote scan alone could see.
     lib.base.verbose(args.VERBOSE, f'Reading the local installation at {args.PATH}...')
     installed_core = ''
     installed_plugins = {}
