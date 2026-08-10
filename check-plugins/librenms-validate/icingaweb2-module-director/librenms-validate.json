@@ -15,12 +15,16 @@
                     "value": "$librenms_validate_group$",
                     "repeat_key": true
                 },
-                "--ignore-regex": {
-                    "value": "$librenms_validate_ignore_regex$",
+                "--ignore": {
+                    "value": "$librenms_validate_ignore$",
                     "repeat_key": true
                 },
                 "--lengthy": {
                     "set_if": "$librenms_validate_lengthy$"
+                },
+                "--match": {
+                    "value": "$librenms_validate_match$",
+                    "repeat_key": true
                 },
                 "--no-match-severity": {
                     "value": "$librenms_validate_no_match_severity$"
@@ -103,6 +107,11 @@
                     "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -161,8 +170,9 @@
                 "librenms_validate_brief": false,
                 "librenms_validate_fail_severity": "warn",
                 "librenms_validate_group": [],
-                "librenms_validate_ignore_regex": [],
+                "librenms_validate_ignore": [],
                 "librenms_validate_lengthy": false,
+                "librenms_validate_match": [],
                 "librenms_validate_no_match_severity": "ok",
                 "librenms_validate_no_perfdata": false,
                 "librenms_validate_path": "/opt/librenms",
@@ -388,15 +398,15 @@
             "uuid": "23176cf9-4862-45fc-93e4-aadfd1400278"
         },
         "5": {
-            "varname": "librenms_validate_ignore_regex",
-            "caption": "LibreNMS Validate: Ignore Regex",
+            "varname": "librenms_validate_ignore",
+            "caption": "LibreNMS Validate: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "c29e5fbe-647d-43db-aa79-42fc79c519de"
+            "uuid": "d3f82952-eacd-484c-9619-62717cf5dd73"
         },
         "6": {
             "varname": "librenms_validate_lengthy",
@@ -408,6 +418,17 @@
             "uuid": "eda2e140-56bb-4db8-b591-63accb79be01"
         },
         "7": {
+            "varname": "librenms_validate_match",
+            "caption": "LibreNMS Validate: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ede91f0e-7aef-44dd-b6b8-ef7991e06511"
+        },
+        "8": {
             "varname": "librenms_validate_no_match_severity",
             "caption": "LibreNMS Validate: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -420,7 +441,7 @@
             },
             "uuid": "738f7b9b-526b-4eac-975a-70819fbc0e84"
         },
-        "8": {
+        "9": {
             "varname": "librenms_validate_no_perfdata",
             "caption": "LibreNMS Validate: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -429,7 +450,7 @@
             "settings": {},
             "uuid": "6e6f1135-316f-4044-a959-3473a037fba5"
         },
-        "9": {
+        "10": {
             "varname": "librenms_validate_path",
             "caption": "LibreNMS Validate: Path",
             "description": "Local path to the installation.",
@@ -440,7 +461,7 @@
             },
             "uuid": "fc507321-ad4f-43fe-92e7-cd86fb8becb8"
         },
-        "10": {
+        "11": {
             "varname": "librenms_validate_php_path",
             "caption": "LibreNMS Validate: PHP Path",
             "description": "Local path to your PHP binary. Has to be the binary the sudo rule names, because that rule lists the permitted command with its exact arguments.",
@@ -451,7 +472,7 @@
             },
             "uuid": "5f5f137c-7f34-4023-8982-0364dfb5877e"
         },
-        "11": {
+        "12": {
             "varname": "librenms_validate_timeout",
             "caption": "LibreNMS Validate: Timeout",
             "description": "Seconds to wait for a single run of the validation to finish.",
@@ -462,7 +483,7 @@
             },
             "uuid": "5a2f986f-6a1e-4da6-837e-1cee0775e623"
         },
-        "12": {
+        "13": {
             "varname": "librenms_validate_user",
             "caption": "LibreNMS Validate: User",
             "description": "System user to run the validation as. LibreNMS refuses to validate itself as root and reports a failure when any other user runs it, so this has to name the user that owns the installation. Requires the right to `sudo -u <user>` (root has this by default).",

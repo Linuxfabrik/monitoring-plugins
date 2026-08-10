@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081008'
+__version__ = '2026081009'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -205,9 +205,9 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--ignore-regex',
+        '--ignore',
         help=lib.args.help('--ignore-regex'),
-        dest='IGNORE_REGEX',
+        dest='IGNORE',
         action='append',
         default=None,
     )
@@ -218,6 +218,14 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -304,17 +312,20 @@ def run_validation(args, php, script, user, group):
     """Run LibreNMS' validation script and return its stdout.
 
     `group` is the single validation group to request, or None for a default run.
-    Returns (True, stdout) or (False, errormessage). A run that hit the timeout ends the
-    check right here: it was killed before it printed anything, so there is nothing to
-    report but the timeout itself.
+    Returns (True, stdout) or (False, errormessage). A run that hit the timeout is
+    reported as `(True, None)` instead: it printed nothing, but the runs around it did,
+    and dropping their findings to report the timeout alone would hide a real problem.
+    The caller turns the None into a finding of its own.
     """
     cmd = [php, script, '-s']
     if group is not None:
         cmd += ['-g', group]
 
-    # TERM: readline asks whether to apply a suggested fix whenever a result ships one.
-    # Standard input is closed, so it never blocks, but unless it recognises the terminal
-    # it writes a complaint about it into the output we are about to parse.
+    # TERM: a result that ships a programmatic fixer - the database schema and the
+    # storage engine of its tables are the two - makes LibreNMS ask through readline
+    # whether to apply it. Standard input is not a terminal, so readline returns right
+    # away and writes nothing, but an unknown TERM makes it complain to stderr, and that
+    # complaint would be quoted back at the admin as the reason a run produced no output.
     #
     # run_as_session: the sudo rule names the permitted command with its exact arguments,
     # and exporting the session runtime directory would put an `env` in front of it.
@@ -327,12 +338,7 @@ def run_validation(args, php, script, user, group):
     )
     if not success:
         if result.startswith('Timeout after'):
-            lib.base.oao(
-                f'Timeout after {args.TIMEOUT}s while validating "{args.PATH}". Raise '
-                '--timeout, or ask for fewer validation groups.',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
+            return (True, None)
         return (False, result)
     stdout, stderr, _ = result
     # The exit code is not a usable signal: it only separates "at least one failure" from
@@ -447,8 +453,10 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # set default values for append parameters that were not specified
-    if args.IGNORE_REGEX is None:
-        args.IGNORE_REGEX = []
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
     # args.GROUP is not set here: None means "report everything that ran".
 
     # fetch data
@@ -469,12 +477,19 @@ def main():
         if args.GROUP is not None and group in args.GROUP
     ]
     stdouts = []
+    # The runs that were killed before they printed anything. A run per requested
+    # optional group means one slow group must not cost the findings of the runs that
+    # did finish, so they are collected here and named in the summary instead.
+    timed_out = []
     if args.TEST is None:
         script = lib.base.coe(get_validate_script(path))
-        if default_run:
-            stdouts.append(lib.base.coe(run_validation(args, php, script, user, None)))
-        for group in optional_runs:
-            stdouts.append(lib.base.coe(run_validation(args, php, script, user, group)))
+        runs = ([None] if default_run else []) + optional_runs
+        for group in runs:
+            stdout = lib.base.coe(run_validation(args, php, script, user, group))
+            if stdout is None:
+                timed_out.append(group)
+                continue
+            stdouts.append(stdout)
     else:
         # A check run consists of one default run plus one run per requested optional
         # group, so a single fixture cannot represent it. The default run reads the path
@@ -491,14 +506,31 @@ def main():
     perfdata = ''
     table_data = []
     counts = dict.fromkeys(KNOWN_STATUSES, 0)
+    filtered_out = 0
 
     # compile user-supplied regex patterns
-    try:
-        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
-    except re.error:
-        lib.base.cu('Unable to compile regex.')
+    compiled_match = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
+    # Nothing was checked at all, so the timeout is the whole result. Reported here
+    # rather than as a finding among others, because there are no others.
+    if timed_out and not stdouts:
+        lib.base.oao(
+            f'Timeout after {args.TIMEOUT}s while validating "{args.PATH}". Raise '
+            '--timeout, or ask for fewer validation groups.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    if timed_out:
+        # A part of the installation was not looked at. That is worth a warning on its
+        # own, and a failure another run did find still outranks it.
+        state = lib.base.get_worst(state, STATE_WARN)
+
     for stdout in stdouts:
         for hint, explanation in ABORT_HINTS:
             if hint in stdout:
@@ -544,7 +576,14 @@ def main():
         if args.GROUP is not None and result['group'] not in args.GROUP:
             continue
         message = lib.txt.sanitize_sensitive_data(result['message'])
-        if any(item.search(message) for item in compiled_ignore_regex):
+        # Filter by validation message. --match (include) is applied first, then --ignore
+        # (exclude), so a message hit by --ignore is dropped even if it also matches
+        # --match. Both use case-sensitive Python regex.
+        if compiled_match and not any(item.search(message) for item in compiled_match):
+            filtered_out += 1
+            continue
+        if any(item.search(message) for item in compiled_ignore):
+            filtered_out += 1
             continue
         if result['status'] == 'FAIL':
             item_state = lib.base.str2state(args.FAIL_SEVERITY)
@@ -552,7 +591,10 @@ def main():
             item_state = STATE_BY_STATUS.get(result['status'], STATE_UNKNOWN)
         state = lib.base.get_worst(state, item_state)
         counts[result['status']] = counts.get(result['status'], 0) + 1
-        if args.BRIEF and result['status'] in ('INFO', 'OK'):
+        # --brief hides what needs no attention. That is the state the result ends up
+        # with, not the status LibreNMS gave it: --fail-severity=ok turns a failure into
+        # a row an admin has decided not to act on, and it goes with the rest of them.
+        if args.BRIEF and item_state == STATE_OK:
             continue
         row = {
             'group': result['group'],
@@ -575,6 +617,18 @@ def main():
         count for status, count in counts.items() if status not in KNOWN_STATUSES
     )
 
+    # --match and --ignore dropped every result there was, so nothing was evaluated. A
+    # pattern that is too wide looks exactly like an installation with nothing to
+    # report, which is why this is worth saying out loud. A group that simply found
+    # nothing is not this case and stays a clean result. A run that timed out is not
+    # either: it has to be named, so that case falls through to the full summary.
+    if filtered_out and not checked and not timed_out:
+        lib.base.oao(
+            'Nothing checked. The filters dropped every validation result.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
     # build the message
     findings = []
     if counts['FAIL']:
@@ -587,13 +641,18 @@ def main():
         )
     if unrecognised:
         findings.append(
-            f'{unrecognised} {lib.txt.pluralize("result", unrecognised)} this check '
-            'does not understand'
+            f'{unrecognised} {lib.txt.pluralize("result", unrecognised)} with an '
+            'unknown status'
         )
     if findings:
         msg += f'{" and ".join(findings)} found. '
     else:
         msg += 'No failures found. No warnings found. '
+    # Named right after the verdict, because it says how much of the installation the
+    # verdict actually covers.
+    if timed_out:
+        names = ', '.join(group or 'the default run' for group in timed_out)
+        msg += f'Timed out after {args.TIMEOUT}s and not checked: {names}. '
     msg += (
         f'Checked {checked} {lib.txt.pluralize("validation", checked)} '
         f'in {len(groups)} {lib.txt.pluralize("group", len(groups))}.'

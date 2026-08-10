@@ -81,14 +81,67 @@ TESTS = [
         'assert-in': ['1 failure found.', 'Checked 17 validations'],
         'assert-not-in': ['Database Connected'],
     },
+    # A failure an admin has decided not to act on is a row like any other OK row, so
+    # --brief hides it. It still counts, and it still emits performance data.
+    {
+        'id': 'ok-brief-hides-a-downgraded-failure',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--brief --fail-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 failure found.', 'Checked 17 validations'],
+        'assert-not-in': ['rrdcached', 'Database Connected'],
+    },
     # An accepted finding is filtered out, which takes the whole check back to OK.
     {
-        'id': 'ok-ignore-regex-drops-the-finding',
+        'id': 'ok-ignore-drops-the-finding',
         'test': 'stdout/git-install-rrdcached-missing,,1',
-        'params': '--ignore-regex=rrdcached',
+        'params': '--ignore=rrdcached',
         'assert-retc': STATE_OK,
         'assert-in': ['No failures found. No warnings found.'],
         'assert-not-in': ['rrdcached'],
+    },
+    # --match restricts the report to what it names, so everything else stops counting.
+    {
+        'id': 'warn-match-keeps-only-the-finding',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--match=rrdcached',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 failure found.', 'Checked 1 validation'],
+        'assert-not-in': ['Database Connected'],
+    },
+    # --ignore wins over --match, so a result hit by both is dropped.
+    {
+        'id': 'ok-ignore-overrules-match',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--match=rrdcached --ignore=connectivity',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    # Filters that drop every result leave nothing to judge. That is quiet by default,
+    # because a pattern kept deliberately wide looks exactly the same.
+    {
+        'id': 'ok-filters-drop-everything',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-filters-drop-everything-severity-raised',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A group that simply found nothing is not the same thing as a filter that dropped
+    # everything, and it stays a clean result rather than "Nothing checked.".
+    {
+        'id': 'ok-group-without-results-is-not-nothing-checked',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--group=disk --no-match-severity=unknown',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No failures found. No warnings found.', 'Checked 0 validations'],
+        'assert-not-in': ['Nothing checked.'],
     },
     # Every group reported OK and nothing else.
     {
@@ -361,13 +414,21 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['--user'],
     },
-    # A pattern that is not a valid regex is a parameter error, not a finding.
+    # A pattern that is not a valid regex is a parameter error, not a finding. The
+    # message names the parameter, so it is clear which of the two is at fault.
     {
-        'id': 'unknown-invalid-ignore-regex',
+        'id': 'unknown-invalid-ignore-pattern',
         'test': 'stdout/git-install-rrdcached-missing,,1',
-        'params': '--ignore-regex=[',
+        'params': '--ignore=[',
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['Unable to compile regex.'],
+        'assert-in': ['--ignore'],
+    },
+    {
+        'id': 'unknown-invalid-match-pattern',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--match=[',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--match'],
     },
     # Performance data covers every result, including the ones --brief hides.
     {

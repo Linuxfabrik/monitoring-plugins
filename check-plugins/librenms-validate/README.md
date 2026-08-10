@@ -14,7 +14,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 * **`--group=mail` sends a real e-mail.** LibreNMS tests its mail transport by delivering a message to the configured alerting address. On a check that runs hourly that is an hourly e-mail. Only request this group deliberately.
 * **`--group=rrdcheck` reads every RRD file.** On a grown installation that is a six-figure number of files and a runtime of minutes. Raise `--timeout` and the command timeout in the service definition before requesting it, and keep the check interval long.
 * **`--timeout` applies per validation run, not to the check as a whole.** The default run plus all three optional groups are four runs, so the worst case is four times `--timeout`, well past the 90 seconds the shipped service template allows the command. Raise both when requesting optional groups.
-* **On a containerised LibreNMS the `dependencies` and `updates` groups report as if it were a package installation.** Their findings are not actionable there, because the container image is what decides both. Drop them with `--ignore-regex`, or restrict the check to the groups that do apply with `--group`.
+* **On a containerised LibreNMS the `dependencies` and `updates` groups report as if it were a package installation.** Their findings are not actionable there, because the container image is what decides both. Drop them with `--ignore`, or restrict the check to the groups that do apply with `--group`.
 
 **Data Collection:**
 
@@ -24,7 +24,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 * Without `--group` everything the default run reports is checked, including a validation group a later LibreNMS release adds. `--group` restricts the report to the named groups
 * LibreNMS' `webserver` group is not offered. It validates the request that reached the web interface and reports nothing at all on the command line, so a check asking for it would stay green without validating anything
 * The exit code of the validation is deliberately not used. It only separates "at least one failure" from everything else: it stays `0` when every finding is a warning and when no group matched, and it is `1` both for a run that found a problem and for one that never started, so only the report itself tells the check what happened
-* Findings that are known and accepted can be filtered out with `--ignore-regex`; they then no longer influence the check state
+* `--match` restricts the report to the validation messages it names, `--ignore` drops the ones it names, and `--ignore` wins where both hit the same message. Findings that are known and accepted are filtered out this way and then no longer influence the check state
 * Validation messages are redacted before they are printed, so a connection error quoting a data source name does not carry a credential into the plugin output
 
 
@@ -47,7 +47,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 usage: librenms-validate [-h] [-V] [--always-ok] [--brief]
                          [--fail-severity {ok,warn,crit,unknown}]
                          [--group {configuration,database,dependencies,disk,distributedpoller,mail,php,poller,programs,python,rrd,rrdcheck,scheduler,system,updates,user}]
-                         [--ignore-regex IGNORE_REGEX] [--lengthy]
+                         [--ignore IGNORE] [--lengthy] [--match MATCH]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--path PATH] [--php-path PHP_PATH]
                          [--timeout TIMEOUT] [--user USER]
@@ -88,11 +88,19 @@ options:
                         file, which takes minutes on a grown installation. If
                         not specified, everything the default run reports is
                         checked. Example: `--group=database --group=poller`
-  --ignore-regex IGNORE_REGEX
-                        Any item matching this Python regex will be ignored.
+  --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
   --lengthy             Extended reporting.
+  --match MATCH         Filter by this Python regular expression. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead).
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -188,7 +196,7 @@ distributedpoller ! You have not enabled distributed_poller ! lnms config:set di
 Accepting a known finding, so it stops driving the check state:
 
 ```bash
-./librenms-validate --ignore-regex='rrdcached connectivity'
+./librenms-validate --ignore='rrdcached connectivity'
 ```
 
 Output:
@@ -216,10 +224,26 @@ poller       ! Redis is unavailable                       ! [OK]
 rrd          ! rrdtool version ok                         ! [OK]
 ```
 
+Watching one thing in particular, with a second service covering the rest. The group count still names every group LibreNMS ran, while the validation count is what survived the filter:
+
+```bash
+./librenms-validate --brief --match=rrdcached
+```
+
+Output:
+
+```text
+1 failure found. Checked 1 validation in 13 groups.
+
+Group ! Message                                                                ! State
+------+------------------------------------------------------------------------+----------
+rrd   ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
+```
+
 An installation where nothing needs attention, reduced to a single line:
 
 ```bash
-./librenms-validate --brief --ignore-regex='rrdcached connectivity'
+./librenms-validate --brief --ignore='rrdcached connectivity'
 ```
 
 Output:
@@ -233,14 +257,15 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 
 * OK if every validation reports success or an informational result.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
-* WARN if a validation run did not finish within `--timeout`. It is killed before it prints anything, so there is nothing to report but the timeout itself.
+* WARN if a validation run did not finish within `--timeout`. The runs that did finish keep their findings and the summary names the group that was left unchecked, so a slow group cannot hide a problem another group reported. A run that finds a failure still wins over the timeout.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
 * UNKNOWN if LibreNMS cannot validate the installation at all: it refuses to run as the configured `--user`, its PHP dependencies are missing, its configuration file is broken or does not name the installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. The exit code of the validation cannot tell these apart from an ordinary finding, so the state comes from the report rather than from the exit code.
 * UNKNOWN if a validation reports a status this check has no meaning for. The summary counts those results separately, so an UNKNOWN never appears next to a line claiming nothing was found. This is what a LibreNMS release that introduced a new status looks like; update the check.
 * OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
+* OK if `--match` and `--ignore` dropped every validation result there was, for the same reason and controlled by the same `--no-match-severity`. A group that ran and found nothing is not this case and stays a clean result.
 * Always OK if `--always-ok` is set.
 
-`--brief` and `--lengthy` change what is printed, never the state: a finding that `--brief` hides still drives the result. `--ignore-regex` does change the state, since an ignored finding is dropped before it is evaluated.
+`--brief` and `--lengthy` change what is printed, never the state: a finding that `--brief` hides still drives the result. `--brief` hides every row that ended up OK, which includes a failure that `--fail-severity=ok` took out of the alerting. `--match` and `--ignore` do change the state, since a filtered finding is dropped before it is evaluated.
 
 
 ## Perfdata / Metrics
@@ -268,7 +293,9 @@ The rule lists each permitted command with its exact arguments, so the same mess
 
 `--user` points at `root` and the sudo rule permits it, so the validation started and LibreNMS exited rather than run under that account. Set `--user` to the account that owns the installation, which `stat --format='%U' /opt/librenms` will name.
 
-### `No LibreNMS installation found at "..."`
+### No LibreNMS installation found at the given path
+
+`No LibreNMS installation found at "/opt/librenms".`
 
 `--path` does not contain a `validate.php`. Point it at the directory that holds the LibreNMS installation, usually `/opt/librenms`. Note that changing it also means adjusting the sudo rule, which names the path literally.
 
@@ -304,9 +331,17 @@ Delete the trailing `?>` from `config.php`. A newline after it is sent to the cl
 
 The `install_dir` setting does not point at the directory the installation actually lives in, so LibreNMS cannot find its own files. Set it to the path that holds `.env`, usually `/opt/librenms`.
 
-### `Timeout after 30s while validating "/opt/librenms".`
+### A validation run timed out
 
-A single validation run did not finish in time and was killed. The `rrdcheck` group is the usual reason, it reads every RRD file. Raise `--timeout`, raise the command timeout in the service definition with it (the timeout applies per run, and every optional group costs a run of its own), or drop the group from `--group`. A default run that suddenly takes this long instead points at a database or a disk that has become slow.
+`Timed out after 30s and not checked: rrdcheck.`
+
+A validation run did not finish in time and was killed. The `rrdcheck` group is the usual reason, it reads every RRD file. Raise `--timeout`, raise the command timeout in the service definition with it (the timeout applies per run, and every optional group costs a run of its own), or drop the group from `--group`. A default run that suddenly takes this long instead points at a database or a disk that has become slow.
+
+Everything the other runs found is still reported and still drives the state, so the timeout does not hide a problem elsewhere. Where every run timed out there is nothing left to report and the message becomes `Timeout after 30s while validating "/opt/librenms".` instead.
+
+### `Nothing checked. The filters dropped every validation result.`
+
+`--match` and `--ignore` between them removed every result LibreNMS reported, so nothing was evaluated. A pattern kept deliberately wide looks the same as one that is wider than intended, which is why this is OK by default. Narrow the pattern, or set `--no-match-severity=warn` on hosts where an empty report means the check is misconfigured. A group that ran and simply found nothing does not produce this message.
 
 ### `Nothing checked. None of the requested validation groups was run.`
 
@@ -314,10 +349,10 @@ Every group named with `--group` was skipped, which is reported as OK by default
 
 ### The check reports a finding that is known and accepted
 
-Some findings are permanent facts of a given deployment, for example a poller running without Redis, or an installation deliberately kept off the update channel. Pass `--ignore-regex` with a pattern matching the message to drop it, for example `--ignore-regex='Redis is unavailable'`. Ignored findings no longer appear in the output and no longer affect the state, so keep the pattern narrow enough that a genuinely new problem is not swallowed with it.
+Some findings are permanent facts of a given deployment, for example a poller running without Redis, or an installation deliberately kept off the update channel. Pass `--ignore` with a pattern matching the message to drop it, for example `--ignore='Redis is unavailable'`. Ignored findings no longer appear in the output and no longer affect the state, so keep the pattern narrow enough that a genuinely new problem is not swallowed with it. `--match` works the other way round and keeps only what it names, which suits a check that is meant to watch one thing.
 
 
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
-* License: The Unlicense, see [LICENSE file](https://unlicense.org/)
+* License: The Unlicense, see [LICENSE file](https://unlicense.org/).
