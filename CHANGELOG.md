@@ -8,14 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Six checks that aborted with a Python error on every run work again, `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on servers with many components. Thirty checks are new, covering Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Cumulative counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating.
+**Highlights:** Six checks that aborted with a Python error work again, `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on large servers. Thirty new checks cover Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating.
 
 ### Breaking Changes
 
 Monitoring Plugins:
 
-* cumulative counters are reported as per-second rates instead of totals, and some metric names change. Re-import the affected Grafana dashboards (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
-* disk-io: is WARN-only and no longer measures I/O wait. `--critical`, `--iowait-warning` and `--iowait-critical` are ignored, and the Grafana dashboard has to be re-imported
+* counters are reported as per-second rates, and some metric names change. Re-import the affected Grafana dashboards (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* disk-io: no longer measures I/O wait and is WARN-only, so `--critical` and the `--iowait-*` thresholds are ignored. Re-import the Grafana dashboard
 * huawei-dorado-\*: performance data metric names, capacity units and voltage units changed. Re-import the affected Grafana dashboards
 * redfish-\*: `--url` is mandatory, the localhost default is gone. Add it to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
@@ -56,13 +56,12 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* all plugins: a version range like `< 5.3.2` or a shell snippet appears verbatim in the output instead of as `&lt;`, `&gt;` and `&amp;`
-* cert: a `/24` scan on the default ports finishes within the check timeout, and its parallelism is bounded with `--max-workers`
-* cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but stays reported and graphed
+* all plugins: output shows `<`, `>` and `&` verbatim instead of escaped
+* cert: a `/24` scan finishes within the check timeout, and `--max-workers` bounds its parallelism
+* cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but keeps reporting and graphing it
 * disk-usage: runs every minute instead of every 5 minutes
-* huawei-dorado-\*: a failed disk, power supply, fan, backup power module or interface module is CRITICAL instead of WARNING
-* huawei-dorado-\*: a dead power feed, a component that is not running, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
-* huawei-dorado-\*: a response that lists no hardware at all reports UNKNOWN instead of "Everything is ok"
+* huawei-dorado-\*: a faulty or dead component, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
+* huawei-dorado-\*: an empty hardware inventory reports UNKNOWN instead of "Everything is ok"
 * huawei-dorado-\*: `--device-id` is optional, the appliance reports its own at login
 * huawei-dorado-disk: no longer graphs the operating time
 * huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges
@@ -87,10 +86,10 @@ Monitoring Plugins:
 * disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume no longer aborts the check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * haproxy-status: the `--username` / `--password` migration hint is readable again
-* huawei-dorado-\*: a firmware that reports a field or a status code in an unexpected way no longer takes the check to UNKNOWN
-* huawei-dorado-\*: capacities, wear levels and health scores are read in the unit and range the appliance means
-* huawei-dorado-\*: every object is read instead of only the first page, so a large array reports its full inventory
-* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL as soon as a temperature threshold is set
+* huawei-dorado-\*: an unexpected firmware response no longer turns the check UNKNOWN
+* huawei-dorado-\*: capacities, wear levels and health scores are reported in the right unit
+* huawei-dorado-\*: a large array reports its full inventory
+* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL when a temperature threshold is set
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
@@ -100,7 +99,7 @@ Monitoring Plugins:
 * ping: checksum-corrupted packets are counted correctly, and a corrupted reply no longer turns the check UNKNOWN
 * redfish-\*: servers with many components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * snmp: a harmless net-snmp warning no longer aborts the check, string-indexed OIDs are read correctly, and the bundled device profiles work on current net-snmp
-* statusiq: a page that intermittently answers with an error page instead of its feed no longer flaps into UNKNOWN
+* statusiq: a status page that intermittently answers with an error no longer flaps into UNKNOWN
 * strongswan-connections: a rekeying, shared, still-connecting or 3DES connection no longer raises a false alarm or crashes ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
 * systemd-unit: the bundled Ubuntu service sets check `ssh.service` ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
 
@@ -110,7 +109,8 @@ Grafana:
 
 Tools:
 
-* a source install on a host with too-old system Python rebuilds cleanly, and switches that turn an option off, such as `--no-insecure`, end up in the Director basket
+* build-basket: switches that turn an option off, such as `--no-insecure`, end up in the Director basket
+* installer: a source install on a host with too-old system Python rebuilds cleanly
 
 ### Security
 
@@ -129,8 +129,8 @@ Notification Plugins:
 
 Tools:
 
-* installer: a source install no longer makes the monitoring user own the plugins, the bundled library and the dependency venv, closing a local root code-execution path
-* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities in `h2`, `cryptography` and `soupsieve`. On RHEL 8, RHEL 9 and Debian 11 no fixed `h2` release exists that still supports their Python 3.9
+* installer: a source install no longer hands the monitoring user ownership of the installed files, closing a local root code-execution path
+* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities, except `h2` on RHEL 8, RHEL 9 and Debian 11, where no fixed release supports their Python 3.9
 
 
 ## [v6.0.0] - 2026-06-14
