@@ -257,9 +257,10 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['2 holds and 9 pins in place.', "'holds'=11"],
     },
-    # A line that lost its colon opens no field, so the indented line below it continues
-    # nothing. APT drops that stanza and reads the rest of the file, which is what the
-    # stanzas on either side of it verify.
+    # A line that lost its colon does not merely open no field, it swallows the next one
+    # into its own field name. Here that is the `Pin` below it, so the stanza keeps its
+    # `Package` header, APT finds no pin type and skips it, and the file carries on -
+    # which is what the stanzas on either side verify.
     {
         'id': 'warn-preferences-line-without-colon',
         'test': 'stdout/no-holds,,0',
@@ -274,6 +275,49 @@ TESTS = [
             'missing-colon-package',
             'continuation-of-nothing',
         ],
+    },
+    # The same rule, with the swallowed field spelled out: the `Pin` disappears into the
+    # field name above it, so its stanza pins nothing while both neighbours still do.
+    {
+        'id': 'warn-preferences-swallowed-pin',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-colon-before-pin --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 pins in place.',
+            'valid-package',
+            'after-the-swallowed-stanza-package',
+        ],
+        'assert-not-in': ['no-pin-left-package'],
+    },
+    # The same rule one line higher up costs the stanza its `Package` header instead,
+    # and that is the one APT refuses outright: it abandons the file and every command
+    # that works out package priorities fails afterwards.
+    {
+        'id': 'warn-preferences-swallowed-package-header',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-colon-before-package --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'APT refuses 1 preferences file',
+            'no Package header',
+        ],
+        'assert-not-in': ['nginx', 'after-the-error-package'],
+    },
+    # Only a truly empty line separates two stanzas. A line carrying a single space
+    # continues the value above it, so APT merges the two stanzas into one record and
+    # keeps the last value of every field it then holds twice.
+    {
+        'id': 'warn-preferences-whitespace-line-is-no-separator',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/whitespace-line --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 pin in place.',
+            'second-package',
+            'version 2.0* priority 1002',
+        ],
+        'assert-not-in': ['first-package'],
     },
     # APT reads its package list for `showhold` and nothing else, so a non-zero exit
     # means that list is unusable and the check cannot say anything about the host.

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081101'
+__version__ = '2026081102'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -32,8 +32,8 @@ unpatched version for good, while the update check stays green because APT no lo
 offers the update. Alerts as soon as one hold is in place; raise --warning to tolerate
 a number of deliberate holds, or filter the ones you keep on purpose with --ignore.
 Optionally also reports the packages pinned in the APT preferences via --check-pinning,
-and then alerts as well on a preferences file APT refuses, which stops every package
-operation on the host. Supports extended reporting via --lengthy."""
+and then alerts as well on a preferences file APT refuses, which stops the host from
+installing or upgrading anything. Supports extended reporting via --lengthy."""
 
 DEFAULT_CRIT = None
 DEFAULT_LENGTHY = False
@@ -50,8 +50,9 @@ APT_PREFERENCES_DIR = 'etc/apt/preferences.d'
 # must not be reported as a pin that is in force.
 APT_PREFERENCES_EXTENSIONS = ('', '.pref')
 
-# Pin types APT understands. A stanza naming any other one is skipped with a warning,
-# so it pins nothing, but the rest of the file still applies.
+# Pin types APT understands. A stanza naming any other one is skipped with a warning, so
+# it pins nothing, but the rest of the file still applies. A stanza with no `Pin` at all
+# is skipped the same way, only without the warning.
 APT_PIN_TYPES = ('origin', 'release', 'source-version', 'version')
 
 # The subset of those that pins a package to a version rather than giving a whole
@@ -81,6 +82,12 @@ DEB_NAME_REGEX = re.compile(r'^[a-z0-9][a-z0-9+.-]*(:[a-z0-9][a-z0-9-]*)?$')
 # is the only exception, and those files are already out because a glob does not match
 # them.
 APT_FILENAME_REGEX = re.compile(r'^[A-Za-z0-9_:.-]*[A-Za-z0-9_:-]$')
+
+# Where the value of a field whose name APT never managed to terminate is parked. A field
+# name is everything up to a colon, so a name carrying one cannot occur, and nothing in a
+# real file collides with this. Parking the value rather than dropping it keeps an
+# indented line below it attached to the right place.
+SWALLOWED_FIELD = 'no-colon:'
 
 
 def parse_args():
@@ -299,10 +306,11 @@ def stanza_verdict(packages, named, pin, priority):
     Returns `'pin'` when APT applies it, `'skip'` when APT ignores just this stanza,
     and a message when APT refuses it in a way that costs it the rest of the file.
 
-    A stanza without a `Pin`, or with a pin type APT does not understand, is skipped
-    with a warning and the file carries on. A missing, zero or out-of-range priority,
-    a missing package name, or the special `never` on a named package are errors, and
-    an error abandons the file at that stanza and makes every APT run fail.
+    A stanza without a `Pin` is skipped silently, one with a pin type APT does not
+    understand with a warning, and the file carries on either way. A missing, zero or
+    out-of-range priority, a missing package name, or the special `never` on a named
+    package are errors, and an error abandons the rest of that file and makes every APT
+    command that builds a policy fail.
 
     The order matters: APT reads the pin type before it reads the priority, so a stanza
     it skips over the type never has its priority looked at and cannot be the one that
@@ -339,7 +347,7 @@ def parse_preferences(content, origin):
 
     Returns the entries and, if APT would refuse the file, what it stumbles over.
 
-    The file holds one stanza per pin, stanzas separated by blank lines, and a stanza
+    The file holds one stanza per pin, stanzas separated by an empty line, and a stanza
     may name more than one package. A line starting with whitespace continues the
     value of the field above it, so the two spellings below pin the same two packages:
 
@@ -351,10 +359,26 @@ def parse_preferences(content, origin):
          nginx-full
         Pin: version 1.24.*
         Pin-Priority: 1001
+
+    Two of APT's rules read like parser trivia and are anything but, because each of them
+    decides whether a pin is in force at all:
+
+    - Only a truly empty line separates two stanzas. A line carrying a space or a tab
+      continues the value above it instead, which merges the stanzas around it into one,
+      and a field the merged stanza holds twice keeps its last value.
+    - A line without a colon does not merely fail to open a field, it takes the next one
+      with it. APT looks for the colon that ends a field name across everything that
+      follows rather than to the end of the line, so such a line opens a field whose name
+      runs on until the next colon below it. The field that would have stood there is
+      gone, which is how an `Explanation` line that lost its colon costs its stanza the
+      `Pin` underneath - or the `Package`, and with it the whole file.
     """
     entries = []
     fields = {}
     key = ''
+    # Whether a field name is still looking for the colon that ends it. While it is,
+    # everything read belongs to that name, empty lines included, so no stanza ends here.
+    swallowing = False
 
     def flush():
         if not fields:
@@ -380,30 +404,49 @@ def parse_preferences(content, origin):
             )
         return 'pin'
 
-    for line in content.splitlines():
-        if not line.strip():
+    # Split on newlines alone: APT knows no other line break, and a stray carriage
+    # return is an ordinary character to it except right before a stanza separator.
+    for raw_line in content.split('\n'):
+        line = raw_line.rstrip('\r')
+        # only a `#` in the first column starts a comment, and a comment does not end
+        # the stanza it sits in. APT cuts these out before it parses anything, so one
+        # cannot supply the colon a field name above it is still waiting for either.
+        if line.startswith('#'):
+            continue
+        if swallowing:
+            _, separator, value = line.partition(':')
+            if not separator:
+                continue
+            swallowing = False
+            key = SWALLOWED_FIELD
+            fields[key] = value.strip()
+            continue
+        if not line:
             # APT reads the stanzas before it, so the entries collected so far stay
             verdict = flush()
             if verdict not in ('pin', 'skip'):
                 return entries, verdict
             fields, key = {}, ''
             continue
-        # only a `#` in the first column starts a comment, and a comment does not end
-        # the stanza it sits in
-        if line.startswith('#'):
-            continue
-        if line[:1].isspace() and key:
-            fields[key] += f'\n{line.strip()}'
+        if line[:1].isspace():
+            if key:
+                # APT keeps the value's own bounds and trims the whitespace off both
+                # ends, so a value that starts on the line below its field name arrives
+                # without a leading break rather than with one
+                fields[key] = f'{fields[key]}\n{line.strip()}'.strip()
             continue
         key, separator, value = line.partition(':')
         if not separator:
-            # not a field at all, so there is nothing an indented line below it could
-            # continue. Forgetting the field above it is what APT does too: a line that
-            # opens no field cannot be extended by the next one.
             key = ''
+            swallowing = True
             continue
         key = key.strip().lower()
         fields[key] = value.strip()
+    if swallowing:
+        # The file ended while a field name was still looking for its colon, so APT
+        # never finished the stanza and never applied it. Not an error to it: it stops
+        # reading there and keeps what the stanzas before delivered.
+        return entries, ''
     verdict = flush()
     if verdict not in ('pin', 'skip'):
         return entries, verdict
@@ -432,8 +475,10 @@ def get_pins(root):
     """Return the packages pinned in the APT preferences, and the files APT refuses.
 
     A refused file is worth its own line: APT abandons it at the offending stanza and
-    then fails every run, so the host cannot install or upgrade anything at all until
-    the file is fixed.
+    then fails every command that works out package priorities, so the host cannot
+    install or upgrade anything until the file is fixed. The other files in
+    `preferences.d` are still read, and so is the package list, which is what keeps this
+    check able to report the holds while the pinning is broken.
     """
     entries = []
     refused = []
@@ -552,13 +597,13 @@ def main():
             counted.append(f'{pins_count} {lib.txt.pluralize("pin", pins_count)}')
         msg = f'{" and ".join(counted)} in place.'
     if refused:
-        # APT gives up on such a file and then fails every run, so the host cannot
-        # install or upgrade anything until it is fixed
+        # APT gives up on such a file and then fails every command that works out package
+        # priorities, so the host cannot install or upgrade anything until it is fixed
         state = lib.base.get_worst(state, STATE_WARN)
         msg += (
             f' APT refuses '
             f'{len(refused)} preferences {lib.txt.pluralize("file", len(refused))}, '
-            f'so no package operation works on this host.'
+            f'so installing and upgrading fails on this host.'
         )
     msg += lib.base.state2str(state, prefix=' ')
     perfdata += lib.base.get_perfdata(
