@@ -71,6 +71,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* huawei-dorado-disk, -host and -hypermetropair hide the items within their thresholds, so re-import the basket
 * the WordPress service set, its services and the WordPress host tag are spelled the way WordPress spells itself, so re-tag the affected hosts after importing the basket
 
 ### Fixed
