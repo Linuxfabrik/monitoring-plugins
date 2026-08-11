@@ -95,6 +95,18 @@ TESTS = [
         'assert-not-in': ['node02'],
     },
     {
+        # A chassis is sold with more fan bays than it is usually populated with. The
+        # bays nobody ordered a part for report "absent" on every run, so alerting on
+        # them would mean a permanent warning on hardware that is behaving exactly as
+        # bought.
+        'id': 'ok-unpopulated-bays-are-not-a-fault',
+        'test': 'stdout/fans-unpopulated-bays,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Fan2 ! absent ! [OK]'],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
         # The filter selects a subset; what it drops must not be checked either.
         'id': 'ok-match-filters-fans',
         'test': 'stdout/fans-healthy,,0',

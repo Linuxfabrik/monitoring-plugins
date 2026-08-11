@@ -161,6 +161,7 @@ node02 ! 2102355GLC10N9100002 ! PSU1 ! fault  ! [CRITICAL]
 ## States
 
 * OK if all power supplies report a status of "normal".
+* OK for a power supply reporting "absent". A chassis is sold with more power supply bays than it is usually populated with, and an empty bay reports this on every run.
 * WARN if any power supply reports a status this check does not know.
 * CRIT if any power supply reports a status of "fault".
 * UNKNOWN if the appliance lists no power supplies at all, which points at the query rather than at the hardware.

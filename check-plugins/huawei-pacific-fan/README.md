@@ -159,7 +159,8 @@ node02 ! 2102355GLC10N9100002 ! Fan1 ! fault  ! [CRITICAL]
 ## States
 
 * OK if all fans report a status of "normal".
-* WARN if any fan reports a status this check does not know (for example "absent" or "unknown").
+* OK for a fan reporting "absent". A chassis is sold with more fan bays than it is usually populated with, and an empty bay reports this on every run.
+* WARN if any fan reports a status this check does not know.
 * CRIT if any fan reports a status of "fault".
 * UNKNOWN if the appliance lists no fans at all, which points at the query rather than at the hardware.
 * UNKNOWN on invalid API responses or responses with error codes.
