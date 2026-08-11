@@ -16,7 +16,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * The time limit is `--scan-timeout`, not the `--timeout` the other checks use. It bounds the whole scan, which runs for minutes, rather than a single network read of a few seconds, and the two would be read as the same thing under one name.
 * The finding table stops after 50 rows and states how many were left out. That is a display limit only: the state is determined by every finding, and the performance data counts them all.
 * The scan sends a large number of requests to the target and probes for backup files and admin endpoints. Run it against your own sites only, and expect it to show up in the access log and in any WAF or fail2ban rule set.
-* On a stock WordPress the check reports WARNING out of the box: `readme.html` is reachable and at least one username is usually enumerable. These are genuine hardening findings, not false alarms. Address them, or accept them with `--ignore`.
+* On a stock WordPress the check reports WARNING out of the box: `readme.html` is reachable, the external WP-Cron is enabled and at least one username is usually enumerable. These are genuine hardening findings, not false alarms. Address them, or accept them with `--ignore`.
 * `--path` is optional in practice. If it points nowhere, or at an installation the monitoring user cannot read, the check falls back to pure black box mode and says so. It never turns a finished scan into an UNKNOWN, so a permission change on the web root cannot hide a critical finding.
 * `--url` is optional where the installation pins its own address. If it is not given, the check reads `WP_HOME` or `WP_SITEURL` from `wp-config.php` below `--path`. Most installations keep the address in the database instead, and `wp-config.php` is usually not readable for the monitoring user, so pass `--url` unless you know both apply.
 * The check is part of the WordPress Service Set, so tagging a host `wordpress` activates it. The service it creates carries no `--url` and therefore reports UNKNOWN until one is set. That is deliberate: the address is per instance and cannot be guessed, and a check that says nothing is worse than one that asks to be configured.
@@ -363,17 +363,18 @@ Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 theme
 Output on a site with findings:
 
 ```text
-0 vulnerabilities (0 critical), 3 exposures, 3 hardening findings on https://www.example.com.
+0 vulnerabilities (0 critical), 3 exposures, 4 hardening findings on https://www.example.com.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 
-Component                                    ! Installed ! Finding                             ! State
----------------------------------------------+-----------+-------------------------------------+-----------
-contact-form-7                               ! 5.0       ! outdated, 6.1.6 is available        ! [WARNING]
-https://www.example.com/wp-config.bak        ! -         ! Readable wp-config backup           ! [CRITICAL]
-https://www.example.com/wordpress.sql        ! -         ! Readable database export            ! [CRITICAL]
-https://www.example.com/readme.html          ! -         ! WordPress readme found              ! [WARNING]
-https://www.example.com/wp-content/debug.log ! -         ! Debug Log found                     ! [CRITICAL]
-site                                         ! -         ! 1 username enumerable (linuxfabrik) ! [WARNING]
+Component                                    ! Installed ! Finding                                  ! State
+---------------------------------------------+-----------+------------------------------------------+-----------
+contact-form-7                               ! 5.0       ! outdated, 6.1.6 is available             ! [WARNING]
+https://www.example.com/wp-config.bak        ! -         ! Readable wp-config backup                ! [CRITICAL]
+https://www.example.com/wordpress.sql        ! -         ! Readable database export                 ! [CRITICAL]
+https://www.example.com/readme.html          ! -         ! WordPress readme found                   ! [WARNING]
+https://www.example.com/wp-content/debug.log ! -         ! Debug Log found                          ! [CRITICAL]
+https://www.example.com/wp-cron.php          ! -         ! The external WP-Cron seems to be enabled ! [WARNING]
+site                                         ! -         ! 1 username enumerable (linuxfabrik)      ! [WARNING]
 ```
 
 With `--lengthy`, which adds the finding type, the CVSS score and the release that fixes it:
@@ -462,14 +463,14 @@ Findings fall into three classes, and the worst of them determines the result:
 |----|----|----|
 | Vulnerability | A known vulnerability from the WPScan vulnerability database, attached to the core, a plugin, a theme or a timthumb script. | CRIT if its CVSS v3 base score is >= `--critical-cvss` (default 7.0), otherwise WARN. An entry without a score follows `--unscored-severity` (default `warn`). |
 | Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, a backup folder, a debug log, a `SearchReplaceDB2` or Duplicator installer left behind, an emergency password reset script, or a site still sitting on its installer. | CRIT, except for a backup folder the scanner could not read any entry out of, which is WARN. |
-| Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, upload directory listing, full path disclosure, enumerable usernames, a reachable timthumb script, and any finding type the scanner reports that is not listed above. | WARN. |
+| Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, an enabled external WP-Cron, upload directory listing, full path disclosure, enumerable usernames, a reachable timthumb script, and any finding type the scanner reports that is not listed above. | WARN. |
 
 `--critical-cvss` takes a plain score rather than a Nagios range, unlike the `--warning` and `--critical` thresholds of the other checks. CVSS is a published scale with fixed severity bands, so the only thing worth configuring is where CRITICAL starts.
 
 In detail:
 
 * OK if nothing in any of the three classes was found.
-* OK for findings that only describe how the site is set up rather than a weakness, which are never reported: HTTP headers, a multisite install, must-use plugins, a disabled PHP, open user registration, `robots.txt`, a reachable `wp-cron.php` and an enabled XML-RPC endpoint. All of them are WordPress defaults or deliberate choices, so alerting on them would leave the check permanently non-OK on every installation.
+* OK for findings that only describe how the site is set up rather than a weakness, which are never reported: HTTP headers, a multisite install, must-use plugins, a disabled PHP, `robots.txt` and an enabled XML-RPC endpoint. All six are WordPress defaults or deliberate choices, so alerting on them would leave the check permanently non-OK on every installation.
 * OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` changes that state. Such a run still emits every metric and still reports a scan that could not consult the vulnerability database, so `--no-vuln-data-severity` keeps working and a dashboard shows a zero rather than a gap.
 * WARN if the core version the scan sees differs from the one installed below `--path`. That means the scan did not look at this installation: a wrong virtual host, a stale cache, or a CDN in between.
 * WARN when the scan does not finish in time. The output then names how many requests it managed and how long they took, which distinguishes too small a budget from a target that answers slowly.
@@ -690,7 +691,7 @@ Suppress them per component or per finding title with `--ignore`, which takes a 
 
 ```bash
 ./wordpress-security-scan --url=https://www.example.com \
-  --ignore="^akismet$" --ignore="(?i)readme"
+  --ignore="^akismet$" --ignore="(?i)wp-cron"
 ```
 
 Ignored findings are removed from the state, from the table and from the counters in the perfdata, so a suppressed finding cannot come back through a metric.
