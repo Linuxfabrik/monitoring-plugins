@@ -26,7 +26,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 
 `wpscan` is a Ruby gem. No distribution packages it, so it is installed with `gem install` and needs three things on the host: Ruby 3.3 or newer, `libcurl` at runtime, and a C compiler while the gem is being installed.
 
-The compiler is the part worth spelling out, because putting one on a production server is a hardening question. Four of the gem's dependencies have no prebuilt binary and are compiled during `gem install`; everything else, `nokogiri` above all, arrives prebuilt. The compiler is therefore only needed while installing, not while scanning, and it can be removed again afterwards. Only put it back for a `gem update wpscan`. Note that the scanner's own documentation asks for the distribution's full development group, which installs several hundred packages; none of them beyond the three below are required here.
+The compiler is the part worth spelling out, because putting one on a production server is a hardening question. Four of the gem's dependencies have no prebuilt binary and are compiled during `gem install`; everything else, `nokogiri` above all, arrives prebuilt. The compiler is therefore only needed while installing, not while scanning, and the last line of each block below removes it again. Only put it back for a `gem update wpscan`. Note that the scanner's own documentation asks for the distribution's full development group, which installs several hundred packages; nothing beyond the handful named below is needed.
 
 On RHEL 10, Rocky 10, AlmaLinux 10 and Fedora, where the distribution's Ruby is already new enough:
 
@@ -36,7 +36,7 @@ gem install --no-document wpscan
 dnf remove ruby-devel gcc make
 ```
 
-On RHEL 9 and AlmaLinux 9 the default Ruby is too old, so select a current module stream first. The rest is identical:
+On RHEL 9, Rocky 9 and AlmaLinux 9 the default Ruby is too old, so select a current module stream first, before anything is installed with `gem`. Switching the stream afterwards leaves the already installed gems linked against the Ruby that is gone, and they then fail to load:
 
 ```bash
 dnf module reset ruby
@@ -46,12 +46,12 @@ gem install --no-document wpscan
 dnf remove ruby-devel gcc make
 ```
 
-On Debian and Ubuntu, `libcurl` has to be asked for explicitly, because nothing in the dependency chain pulls it in. Without it the gem installs cleanly and the scanner then fails to start with `Could not open library 'libcurl'`:
+On Debian and Ubuntu, two packages have to be asked for that nothing else pulls in. `libcurl` comes with `curl`; without it the gem installs cleanly and the scanner then fails to start with `Could not open library 'libcurl'`. And the C library headers come with `libc6-dev`; without them the compile stops at `fatal error: limits.h: No such file or directory`, which on some releases `ruby-dev` happens to cover and on others does not:
 
 ```bash
-apt install ruby ruby-dev gcc make curl
+apt install ruby ruby-dev gcc make libc6-dev curl
 gem install --no-document wpscan
-apt remove ruby-dev gcc make
+apt remove ruby-dev gcc make libc6-dev
 ```
 
 Afterwards, confirm what actually landed on the host:
@@ -60,9 +60,19 @@ Afterwards, confirm what actually landed on the host:
 wpscan --version --no-update
 ```
 
-That last step is the one to not skip. Where Ruby is older than 3.3, `gem` does not report an error: it quietly falls back to the newest scanner release that still runs on that Ruby, which is several years old and misses the backup folder enumeration among other things. The check works with it and skips what it cannot use, so nothing in the output says the scanner is behind. Four current releases ship a Ruby that is too old for this and need a newer one from elsewhere before `gem install` is worth running: RHEL 8, Debian 12, Ubuntu 22.04 and Ubuntu 24.04.
+That last step is the one to not skip. Where Ruby is older than 3.3, `gem` does not report an error: it quietly falls back to the newest scanner release that still runs on that Ruby, which is several years old and misses the backup folder enumeration among other things. The check works with it and skips what it cannot use, so nothing in the output says the scanner is behind.
 
-Two further limits on RHEL 8, on top of the Ruby version: its `libcurl` predates the version the scanner asks for, which shows up as HTTP/2 framing errors against some targets, and its glibc is too old for the prebuilt `nokogiri`. Run the check from a newer host against RHEL 8 sites rather than on them.
+Releases whose own Ruby is too old for the current scanner, and what `gem install` produces on them:
+
+| Release | Result |
+|----|----|
+| RHEL 8 | A current Ruby is available as a module stream, but the prebuilt `nokogiri` then refuses to load on its glibc, so the scanner installs and does not start. Its `libcurl` also predates the version the scanner asks for, which shows up as HTTP/2 framing errors against some targets. Run the check from a newer host against RHEL 8 sites rather than on them. |
+| RHEL 9 | Fixed by the module stream above. |
+| Debian 11 | Installs an old scanner that then fails to start on a dependency conflict. |
+| Debian 12 | The install fails outright, because the prebuilt `nokogiri` does not cover its Ruby and building it from source needs far more than the packages above. |
+| Ubuntu 22.04, Ubuntu 24.04 | Installs and runs, but with the old scanner described above. |
+
+Everything else in current use is fine as it stands: RHEL 10, Rocky 10, AlmaLinux 10, Fedora, Debian 13 and Ubuntu 26.04 all ship a Ruby the current scanner accepts.
 
 **Data Collection:**
 
@@ -665,7 +675,7 @@ wpscan --version --no-update
 gem update wpscan
 ```
 
-If `gem update` leaves the version where it was, the host's Ruby is older than the current scanner requires and `gem` is holding it on the newest release that still runs there. That is the common cause on RHEL 8, Debian 12, Ubuntu 22.04 and Ubuntu 24.04. See "Installing wpscan" in the Overview for which Ruby is needed and how to get one.
+If `gem update` leaves the version where it was, the host's Ruby is older than the current scanner requires and `gem` is holding it on the newest release that still runs there. See "Installing wpscan" in the Overview, which lists the releases this affects and what each of them needs.
 
 ### The scan aborts on an unknown `--wpscan-enumerate` choice
 
