@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081101'
 
 DESCRIPTION = """Lists the current alarms of a Huawei OceanStor Dorado storage system via the REST
 API (/alarm/currentalarm endpoint). Alerts when alarms are present: critical if any critical alarm
@@ -339,20 +339,20 @@ def main():
         msg += 'There are alarms.'
     else:
         msg += 'Everything is ok.'
-    msg += '\n\n'
+
     if truncated:
         msg += (
-            'The appliance reports more alarms than this check reads in one run;'
-            ' the list below is incomplete.\n\n'
+            '\n\nThe appliance reports more alarms than this check reads in one run;'
+            ' the list below is incomplete.'
         )
 
     # build table output
     if table_data:
         keys = ['sequence', 'startTime', 'level', 'name', 'location', 'state']
         headers = ['Sequence', 'Time', 'Severity', 'Name', 'Location', 'State']
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
-    else:
-        msg += 'No current alarms.'
+        msg += '\n\n' + lib.base.get_table(
+            table_data, keys, header=headers, missing='--'
+        )
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()
