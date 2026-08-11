@@ -44,9 +44,9 @@ usage: huawei-pacific-system [-h] [-V] [--always-ok]
                              [-w WARN] [-v]
 
 Reports the product model, system version and cluster name of a Huawei
-OceanStor Pacific storage system via the REST API (/cluster/product and
-/system_capacity endpoints). Alerts when the used cluster capacity in percent
-reaches the warning or critical threshold.
+OceanStor Pacific storage system via the REST API (/cluster/product,
+/system_capacity and /cluster/servers/count endpoints). Alerts when the used
+cluster capacity in percent reaches the warning or critical threshold.
 
 options:
   -h, --help            show this help message and exit
@@ -56,7 +56,7 @@ options:
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
-                        Default: 90
+                        Default: 95
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --no-insecure         Verify the TLS certificate against the system trust
@@ -83,7 +83,7 @@ options:
   -u, --url URL         Huawei OceanStor Pacific API URL. URL to the endpoint.
   --username USERNAME   Huawei OceanStor Pacific API username. Username.
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
-                        Default: 80
+                        Default: 92
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -107,16 +107,20 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-sy
 Output:
 
 ```text
-OceanStor 100D (OceanStor Pacific) 8.2.0 SPH03, Cluster Name: cluster_01
-Capacity: 42% used (391.2GiB/931.3GiB)
+OceanStor Pacific V800R001C20 SPC100 (V800R001C20SPH105), Cluster Name: cluster01, 10 nodes
+Capacity: 1% used (70.9TiB/5.0PiB usable, 9.2PiB raw)
 ```
+
+The usable figure is what the cluster can store once erasure coding has taken its
+share, and it is what the thresholds judge. The raw figure next to it is the capacity
+of the disks themselves, so the difference between the two is visible at a glance.
 
 
 ## States
 
 * OK if the used capacity in percent is below the warning threshold.
-* WARN if the used capacity in percent is at or above `--warning` (default: 80).
-* CRIT if the used capacity in percent is at or above `--critical` (default: 90).
+* WARN if the used capacity in percent is at or above `--warning` (default: 92).
+* CRIT if the used capacity in percent is at or above `--critical` (default: 95).
 * OK with "Capacity: no capacity data available yet" if the API reports a total capacity of zero. Model, version and cluster name are still reported.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -127,8 +131,8 @@ Capacity: 42% used (391.2GiB/931.3GiB)
 | Name | Type | Description |
 |----|----|----|
 | usage_percent | Percentage | Used cluster capacity in percent. |
-| used_capacity | Bytes | Used cluster capacity (sum of the per-media used capacities). |
-| total_capacity | Bytes | Total cluster capacity. |
+| used_capacity | Bytes | Used cluster capacity, behind the erasure coding. |
+| total_capacity | Bytes | Usable cluster capacity, behind the erasure coding. |
 
 
 ## Troubleshooting

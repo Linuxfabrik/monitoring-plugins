@@ -63,6 +63,35 @@ TESTS = [
         'assert-regex': r'50% used.*\[CRITICAL\]',
     },
     {
+        # The live firmware leaves `used_raw_capacity` at zero even on a cluster holding
+        # tens of TiB, so reading the fill level off it reported 0% for ever and put the
+        # thresholds out of reach. The per-service fields carry the real figures, in
+        # mebibytes, and describe the capacity behind the erasure coding.
+        'id': 'ok-capacity-from-the-per-service-figures',
+        'test': 'stdout/system-converged-capacity,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: 1% used (70.9TiB/5.0PiB usable, 9.2PiB raw)'],
+        'assert-not-in': ['0% used', '0.0B'],
+    },
+    {
+        # Those figures have to reach the thresholds, which is the whole point of them.
+        'id': 'crit-capacity-from-the-per-service-figures',
+        'test': 'stdout/system-converged-capacity,,0',
+        'params': f'{COMMON} --warning 0 --critical 0',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'1% used.*\[CRITICAL\]',
+    },
+    {
+        # The hotpatch level is the string a support case is opened with, and the node
+        # count says how much hardware the summary above covers.
+        'id': 'ok-full-version-and-node-count',
+        'test': 'stdout/system-converged-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['(V800R001C20SPH105)', 'Cluster Name: cluster01, 10 nodes'],
+    },
+    {
         # A firmware with nothing to say answers with a JSON null instead of an object.
         'id': 'ok-capacity-reported-as-null',
         'test': 'stdout/system-null-capacity,,0',

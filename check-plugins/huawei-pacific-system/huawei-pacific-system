@@ -21,19 +21,34 @@ import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080704'
+__version__ = '2026081101'
 
 DESCRIPTION = """Reports the product model, system version and cluster name of a Huawei OceanStor
-Pacific storage system via the REST API (/cluster/product and /system_capacity endpoints).
+Pacific storage system via the REST API (/cluster/product, /system_capacity and
+/cluster/servers/count endpoints).
 Alerts when the used cluster capacity in percent reaches the warning or critical threshold."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes
-DEFAULT_CRIT = '90'
+# A cluster of this class is measured in petabytes, where the usual 80/90 would alert
+# with a petabyte still free. At 92 and 95 percent of five usable petabytes there are
+# still around 400 and 250 TiB left, which is enough runway to order and rack more
+# hardware and little enough to be worth acting on.
+DEFAULT_CRIT = '95'
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = '80'
+DEFAULT_WARN = '92'
+
+# The capacity fields the appliance really fills in, counted in mebibytes. Verified on two
+# clusters: `sata_total_capacity_converged` times one MiB matches, to the rounding of the
+# MiB value, the `tier_perf_cap` that a dtree of the same cluster reports in bytes.
+# The fields without a service suffix are deliberately not summed: both clusters leave
+# them at zero, and the firmware that does fill them counts in a unit that does not match
+# the cluster totals next to them.
+CAPACITY_MEDIA = ('sas', 'sata', 'ssd')
+CAPACITY_SERVICES = ('converged', 'file', 'hdfs', 'object')
+MIB = 1024 * 1024
 
 
 def parse_args():
@@ -198,7 +213,36 @@ def get_product_string(data):
     patch = data.get('patch_version')
     if patch:
         version = f'{version} {patch}'
+    # The full version carries the hotpatch level, which is the string a support case is
+    # opened with. It repeats the base version, so it only earns its place next to it.
+    full = data.get('full_version')
+    if full and full not in (data.get('version'), version):
+        version = f'{version} ({full})'
     return f'{model} {version}'
+
+
+def get_usable_capacity(data, kind):
+    """
+    Sum the per-service capacity fields of every storage medium, in bytes.
+
+    ### Parameters
+    - **data** (`dict`): The `system_capacity` response as the API returned it.
+    - **kind** (`str`): Either `'used'` or `'total'`.
+
+    ### Returns
+    - **float**: The capacity in bytes, `0` where the appliance fills none of the fields.
+
+    ### Example
+    >>> get_usable_capacity({'sata_used_capacity_converged': 1}, 'used')
+    1048576.0
+    """
+    total = 0.0
+    for medium in CAPACITY_MEDIA:
+        for service in CAPACITY_SERVICES:
+            value = get_capacity(data, f'{medium}_{kind}_capacity_{service}')
+            if value and value > 0:
+                total += value
+    return total * MIB
 
 
 def get_capacity(data, field):
@@ -252,16 +296,20 @@ def main():
     if args.TEST is None:
         product = lib.huawei_pacific.get_data('cluster/product', args)
         capacity = lib.huawei_pacific.get_data('system_capacity', args)
+        count = lib.huawei_pacific.get_data('cluster/servers/count', args)
     else:
         # do not call the API, put in test data. Each API call has its own fixture
         # suffix, so the fixture file names describe what they contain.
         test_base = args.TEST[0]
         product = lib.lftest.test_json(args.TEST, f'{test_base}-product')
         capacity = lib.lftest.test_json(args.TEST, f'{test_base}-capacity')
+        count = lib.lftest.test_json(args.TEST, f'{test_base}-count')
 
     # no valuable result?
     lib.huawei_pacific.assert_ok(product, 'the product information')
     lib.huawei_pacific.assert_ok(capacity, 'the cluster capacity')
+    # The node count is decoration next to the model and the fill level, so a firmware
+    # that does not serve the endpoint must not take the whole check down with it.
 
     # init some vars
     msg = ''
@@ -276,8 +324,18 @@ def main():
     # for the cluster as a whole: used raw disk capacity against the total capacity of
     # all disk types. The per-media fields next to them are not in the same unit, so
     # summing those and dividing by this total would compare two different scales.
-    total = get_capacity(capacity_data, 'totalClusterCapacity')
-    used = get_capacity(capacity_data, 'used_raw_capacity')
+    # What the appliance itself accounts for, which is the capacity behind the erasure
+    # coding rather than the raw disks. `used_raw_capacity` reads zero on a healthy
+    # cluster of this firmware generation, which left the check reporting 0% for ever
+    # and put its thresholds out of reach.
+    raw_total = get_capacity(capacity_data, 'totalClusterCapacity')
+    total = get_usable_capacity(capacity_data, 'total')
+    used = get_usable_capacity(capacity_data, 'used')
+    usable = total > 0
+    if not usable:
+        # A firmware that fills none of them: fall back to the documented raw pair.
+        total = raw_total
+        used = get_capacity(capacity_data, 'used_raw_capacity')
     # A cluster that has not reported its capacity yet still has a model and a
     # version worth printing, so this is not a reason to abort the check.
     used_percent = None
@@ -291,16 +349,25 @@ def main():
         )
 
     # build the message
+    node_count = lib.huawei_pacific.as_code((count.get('data') or {}).get('count'))
+    nodes = '' if node_count is None else f', {node_count} nodes'
     msg += (
         f'{get_product_string(product_data)},'
-        f' Cluster Name: {product_data.get("cluster_name")}\n'
+        f' Cluster Name: {product_data.get("cluster_name")}{nodes}\n'
     )
     if used_percent is None:
         msg += 'Capacity: no capacity data available yet\n'
     else:
+        # The raw figure is named alongside so the difference between what the disks
+        # hold and what the cluster can store on them is visible at a glance.
+        scale = ''
+        if usable:
+            scale = ' usable'
+            if raw_total and raw_total > 0:
+                scale += f', {lib.human.bytes2human(raw_total)} raw'
         msg += (
             f'Capacity: {used_percent}% used'
-            f' ({lib.human.bytes2human(used)}/{lib.human.bytes2human(total)})'
+            f' ({lib.human.bytes2human(used)}/{lib.human.bytes2human(total)}{scale})'
             f'{lib.base.state2str(state, prefix=" ")}\n'
         )
         perfdata += lib.base.get_perfdata(
