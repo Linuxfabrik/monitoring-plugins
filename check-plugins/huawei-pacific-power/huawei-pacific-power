@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import json
 import re
 import sys
 
@@ -23,10 +22,11 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081101'
 
 DESCRIPTION = """Checks the status of all power supplies on a Huawei OceanStor Pacific storage system
-via the REST API (/hwm/power endpoint). Alerts when any power supply reports a non-normal status."""
+via the REST API (/hwm/power endpoint). Alerts when any power supply reports a non-normal status.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_INSECURE = True
@@ -36,7 +36,7 @@ DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 
 # Fields `--match` is applied to.
-MATCH_FIELDS = ('frame_sn', 'name')
+MATCH_FIELDS = ('frame_sn', 'name', 'node')
 
 
 def parse_args():
@@ -75,7 +75,7 @@ def parse_args():
         help='Skip power supplies. '
         + lib.args.help('--ignore-regex')
         + ' The regex is anchored at the start of the string (Python `re.match`) and is '
-        'matched against `frame_sn`, `name`, so prefix with `.*` to match anywhere.',
+        'matched against `frame_sn`, `name`, `node`, so prefix with `.*` to match anywhere.',
         dest='IGNORE',
         action='append',
         default=None,
@@ -87,6 +87,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -102,7 +110,7 @@ def parse_args():
         help='Limit to power supplies. '
         + lib.args.help('--match')
         + ' The regex is anchored at the start of the string (Python `re.match`) and is '
-        'matched against `frame_sn`, `name`, so prefix with `.*` to match anywhere.',
+        'matched against `frame_sn`, `name`, `node`, so prefix with `.*` to match anywhere.',
         dest='MATCH',
         action='append',
         default=None,
@@ -226,16 +234,24 @@ def main():
     if args.TEST is None:
         # the hardware endpoint is node-scoped: enumerate the cluster nodes and
         # query the power supplies on all of them
-        server_list = lib.huawei_pacific.get_management_ips(args)
+        nodes = lib.huawei_pacific.get_cluster_nodes(args)
         result = lib.huawei_pacific.get_data(
             'hwm/power',
             args,
-            payload={'server_list': server_list},
+            payload={'server_list': [node['management_ip'] for node in nodes]},
         )
     else:
-        # do not call the command, put in test data
-        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
+        # do not call the API, put in test data. Each API call has its own fixture
+        # suffix, so the fixture file names describe what they contain.
+        test_base = args.TEST[0]
+        nodes = (
+            lib.lftest.test_json(args.TEST, f'{test_base}-servers').get('data') or []
+        )
+        result = lib.lftest.test_json(args.TEST, f'{test_base}-power-supplies')
+
+    # The hardware endpoint names the chassis by its serial number only, so the node an
+    # operator would go and look at has to come from the cluster listing.
+    node_names = lib.huawei_pacific.get_node_names_by_ip(nodes)
 
     # no valuable result?
     lib.huawei_pacific.assert_ok(result, 'the power supplies')
@@ -279,6 +295,15 @@ def main():
         ):
             continue
 
+        power['node'] = next(
+            (
+                node_names[ip]
+                for ip in power.get('management_ips') or []
+                if ip in node_names
+            ),
+            '--',
+        )
+
         power_state = lib.huawei_pacific.get_component_status_state(
             power.get('status')
         )
@@ -317,8 +342,12 @@ def main():
 
     # build table output
     if table_data:
-        keys = ['frame_sn', 'name', 'status', 'state']
-        headers = ['Chassis SN', 'Name', 'Status', 'State']
+        if args.LENGTHY:
+            keys = ['node', 'frame_sn', 'name', 'status', 'state']
+            headers = ['Node', 'Chassis SN', 'Name', 'Status', 'State']
+        else:
+            keys = ['node', 'name', 'status', 'state']
+            headers = ['Node', 'Name', 'Status', 'State']
         msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
     else:
         msg += 'Nothing checked.'

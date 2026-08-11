@@ -36,7 +36,8 @@ Checks the status of all power supplies on a Huawei OceanStor Pacific storage sy
 ```text
 usage: huawei-pacific-power [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                            [--insecure] [--no-insecure] [--match MATCH]
+                            [--insecure] [--lengthy] [--no-insecure]
+                            [--match MATCH]
                             [--no-match-severity {ok,warn,crit,unknown}]
                             [--no-perfdata] [--no-proxy] [--password PASSWORD]
                             [--password-file PASSWORD_FILE] [--scope SCOPE]
@@ -45,7 +46,7 @@ usage: huawei-pacific-power [-h] [-V] [--always-ok]
 
 Checks the status of all power supplies on a Huawei OceanStor Pacific storage
 system via the REST API (/hwm/power endpoint). Alerts when any power supply
-reports a non-normal status.
+reports a non-normal status. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -59,10 +60,11 @@ options:
                         times. Example: `(?i)linuxfabrik` for a case-
                         insensitive match. The regex is anchored at the start
                         of the string (Python `re.match`) and is matched
-                        against `frame_sn`, `name`, so prefix with `.*` to
-                        match anywhere.
+                        against `frame_sn`, `name`, `node`, so prefix with
+                        `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -78,8 +80,8 @@ options:
                         `^(?!.*example).*$` to match any string except
                         "example" (negative lookahead). The regex is anchored
                         at the start of the string (Python `re.match`) and is
-                        matched against `frame_sn`, `name`, so prefix with
-                        `.*` to match anywhere.
+                        matched against `frame_sn`, `name`, `node`, so prefix
+                        with `.*` to match anywhere.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -124,12 +126,35 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-po
 Output:
 
 ```text
-Everything is ok.
+There are critical errors.
 
-Chassis SN            ! Name ! Status ! State
-----------------------+------+--------+------
-2102355GLC10N9100002  ! PSU0 ! normal ! [OK]
-2102355GLC10N9100002  ! PSU1 ! normal ! [OK]
+Node   ! Name ! Status ! State
+-------+------+--------+-----------
+node01 ! PSU0 ! normal ! [OK]
+node01 ! PSU1 ! normal ! [OK]
+node02 ! PSU0 ! normal ! [OK]
+node02 ! PSU1 ! fault  ! [CRITICAL]
+```
+
+The check covers every node of the cluster, and each chassis numbers its power
+supplies from zero, so the node is what tells the two `PSU0` rows apart.
+`--lengthy` puts the chassis serial number next to it:
+
+```bash
+./huawei-pacific-power --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik --lengthy
+```
+
+Output:
+
+```text
+There are critical errors.
+
+Node   ! Chassis SN           ! Name ! Status ! State
+-------+----------------------+------+--------+-----------
+node01 ! 2102355GLC10N9100001 ! PSU0 ! normal ! [OK]
+node01 ! 2102355GLC10N9100001 ! PSU1 ! normal ! [OK]
+node02 ! 2102355GLC10N9100002 ! PSU0 ! normal ! [OK]
+node02 ! 2102355GLC10N9100002 ! PSU1 ! fault  ! [CRITICAL]
 ```
 
 

@@ -15,6 +15,9 @@
                 "--insecure": {
                     "set_if": "$huawei_pacific_fan_insecure$"
                 },
+                "--lengthy": {
+                    "set_if": "$huawei_pacific_fan_lengthy$"
+                },
                 "--no-insecure": {
                     "set_if": "$huawei_pacific_fan_no_insecure$"
                 },
@@ -123,7 +126,7 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -133,6 +136,11 @@
                 },
                 {
                     "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -178,7 +186,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the status of all fans on a Huawei OceanStor Pacific storage system via the REST API (/hwm/fan endpoint). Alerts when any fan reports a non-normal status.",
+            "notes": "Checks the status of all fans on a Huawei OceanStor Pacific storage system via the REST API (/hwm/fan endpoint). Alerts when any fan reports a non-normal status. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-fan/",
             "object_name": "tpl-service-huawei-pacific-fan",
             "object_type": "template",
@@ -193,6 +201,7 @@
                 "huawei_pacific_fan_cache_expire": 15,
                 "huawei_pacific_fan_ignore": [],
                 "huawei_pacific_fan_insecure": true,
+                "huawei_pacific_fan_lengthy": true,
                 "huawei_pacific_fan_match": [],
                 "huawei_pacific_fan_no_match_severity": "ok",
                 "huawei_pacific_fan_no_perfdata": false,
@@ -263,7 +272,7 @@
         "3": {
             "varname": "huawei_pacific_fan_ignore",
             "caption": "Huawei Pacific Fan: Ignore",
-            "description": "Skip fans. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `frame_sn`, `name`, so prefix with `.*` to match anywhere.",
+            "description": "Skip fans. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `frame_sn`, `name`, `node`, so prefix with `.*` to match anywhere.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -281,6 +290,15 @@
             "uuid": "7343db0f-57c8-494d-8a3c-3c04e648a0d4"
         },
         "5": {
+            "varname": "huawei_pacific_fan_lengthy",
+            "caption": "Huawei Pacific Fan: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "31b25705-43a0-4081-8529-604c880f42f0"
+        },
+        "6": {
             "varname": "huawei_pacific_fan_no_insecure",
             "caption": "Huawei Pacific Fan: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -289,10 +307,10 @@
             "settings": {},
             "uuid": "80d7a159-8bba-46e9-bcef-176e0c03e6be"
         },
-        "6": {
+        "7": {
             "varname": "huawei_pacific_fan_match",
             "caption": "Huawei Pacific Fan: Match",
-            "description": "Limit to fans. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `frame_sn`, `name`, so prefix with `.*` to match anywhere.",
+            "description": "Limit to fans. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `frame_sn`, `name`, `node`, so prefix with `.*` to match anywhere.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -300,7 +318,7 @@
             },
             "uuid": "fc81ea25-655a-445f-98ed-4396d37f3b2b"
         },
-        "7": {
+        "8": {
             "varname": "huawei_pacific_fan_no_match_severity",
             "caption": "Huawei Pacific Fan: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -313,7 +331,7 @@
             },
             "uuid": "a0272fed-ac34-4e61-919f-55916f2cbed0"
         },
-        "8": {
+        "9": {
             "varname": "huawei_pacific_fan_no_perfdata",
             "caption": "Huawei Pacific Fan: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -322,7 +340,7 @@
             "settings": {},
             "uuid": "e787c1c9-21c4-4a03-ba34-9f7a79d796f0"
         },
-        "9": {
+        "10": {
             "varname": "huawei_pacific_fan_no_proxy",
             "caption": "Huawei Pacific Fan: No Proxy?",
             "description": "Do not use a proxy.",
@@ -331,7 +349,7 @@
             "settings": {},
             "uuid": "0394b121-4757-4ebf-89bd-84e828954bc8"
         },
-        "10": {
+        "11": {
             "varname": "huawei_pacific_fan_password",
             "caption": "Huawei Pacific Fan: Password",
             "description": "Huawei OceanStor Pacific API password. Password.",
@@ -342,7 +360,7 @@
             },
             "uuid": "fbc332e1-5ab7-4849-a8ae-fcaa44ea7659"
         },
-        "11": {
+        "12": {
             "varname": "huawei_pacific_fan_password_file",
             "caption": "Huawei Pacific Fan: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -353,7 +371,7 @@
             },
             "uuid": "0be08a59-756c-4c4b-954a-95183f91e1d9"
         },
-        "12": {
+        "13": {
             "varname": "huawei_pacific_fan_scope",
             "caption": "Huawei Pacific Fan: Scope",
             "description": "Huawei OceanStor Pacific API scope.",
@@ -364,7 +382,7 @@
             },
             "uuid": "9212cfcd-4f4b-4595-b0a8-c5550ba39507"
         },
-        "13": {
+        "14": {
             "varname": "huawei_pacific_fan_timeout",
             "caption": "Huawei Pacific Fan: Timeout",
             "description": "Network timeout in seconds.",
@@ -375,7 +393,7 @@
             },
             "uuid": "8774ef28-90c0-44ff-b5f1-d32e94b24d93"
         },
-        "14": {
+        "15": {
             "varname": "huawei_pacific_fan_url",
             "caption": "Huawei Pacific Fan: URL",
             "description": "Huawei OceanStor Pacific API URL. URL to the endpoint.",
@@ -386,7 +404,7 @@
             },
             "uuid": "bcfb96f4-6c28-4587-b869-0e83ff6aeeaf"
         },
-        "15": {
+        "16": {
             "varname": "huawei_pacific_fan_username",
             "caption": "Huawei Pacific Fan: Username",
             "description": "Huawei OceanStor Pacific API username. Username.",
@@ -397,7 +415,7 @@
             },
             "uuid": "96e47a71-3035-4849-b765-f8fd8a9a2811"
         },
-        "16": {
+        "17": {
             "varname": "huawei_pacific_fan_verbose",
             "caption": "Huawei Pacific Fan: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
