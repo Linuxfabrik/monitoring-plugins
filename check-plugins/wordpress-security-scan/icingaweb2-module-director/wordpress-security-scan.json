@@ -46,8 +46,8 @@
                 "--path": {
                     "value": "$wordpress_security_scan_path$"
                 },
-                "--scan-timeout": {
-                    "value": "$wordpress_security_scan_scan_timeout$"
+                "--total-timeout": {
+                    "value": "$wordpress_security_scan_total_timeout$"
                 },
                 "--unscored-severity": {
                     "value": "$wordpress_security_scan_unscored_severity$"
@@ -312,7 +312,7 @@
                 "wordpress_security_scan_no_perfdata": false,
                 "wordpress_security_scan_no_vuln_data_severity": "ok",
                 "wordpress_security_scan_path": "/var/www/html/wordpress",
-                "wordpress_security_scan_scan_timeout": 1800,
+                "wordpress_security_scan_total_timeout": 1800,
                 "wordpress_security_scan_unscored_severity": "warn",
                 "wordpress_security_scan_verbose": false,
                 "wordpress_security_scan_wpscan_detection_mode": "mixed",
@@ -595,20 +595,20 @@
             "uuid": "50384668-fb06-4304-9fb6-3ff00a057882"
         },
         "15": {
-            "varname": "wordpress_security_scan_scan_timeout",
-            "caption": "WordPress Security Scan: Scan Timeout",
-            "description": "Seconds to wait for the scan to finish. A full scan of a site with many plugins takes minutes, so this is much higher than the network timeout of other checks. Keep it below the timeout the monitoring agent grants the check.",
+            "varname": "wordpress_security_scan_total_timeout",
+            "caption": "WordPress Security Scan: Total Timeout",
+            "description": "Seconds the run may spend scanning, across the refresh of the vulnerability database, the version probe and the scan itself. A full scan of a site with many plugins takes minutes, so this is much higher than the network timeout of other checks. The scanner is asked to give up shortly before the budget is out, so it still reports what it found rather than being killed with nothing to show. Keep it below the timeout the monitoring agent grants the check. Raise it on a large site, or narrow the scan with --wpscan-enumerate.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "89c19269-ebc2-425d-b1ec-41664be96245"
+            "uuid": "966dafb5-a50d-4977-b776-6f07c5a10338"
         },
         "16": {
             "varname": "wordpress_security_scan_unscored_severity",
             "caption": "WordPress Security Scan: Unscored Severity",
-            "description": "State to report for a known vulnerability that carries no CVSS score. The vulnerability database has no score for a large share of its entries, so treating them all as critical would page for every one of them.",
+            "description": "State to report for a finding that carries no severity score of its own. A source that scores its findings rarely scores all of them, and the unrated ones need a state of their own rather than the one a score would have earned them. Applies to a known vulnerability that carries no CVSS score. The vulnerability database leaves a large share of its entries unrated, so treating them all as critical would page for every one of them.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -641,7 +641,7 @@
         "19": {
             "varname": "wordpress_security_scan_wpscan_detection_mode",
             "caption": "WordPress Security Scan: WPScan Detection Mode",
-            "description": "How hard the scan looks for components. `passive` only reads what the site shows on its own, `aggressive` requests known file locations directly and finds the most, `mixed` does both. Aggressive detection produces far more requests and takes correspondingly longer, so raise --scan-timeout with it.",
+            "description": "How hard the scan looks for components. `passive` only reads what the site shows on its own, `aggressive` requests known file locations directly and finds the most, `mixed` does both. Aggressive detection produces far more requests and takes correspondingly longer, so raise --total-timeout with it.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -745,7 +745,7 @@
         "29": {
             "varname": "wordpress_security_scan_wpscan_throttle",
             "caption": "WordPress Security Scan: WPScan Throttle",
-            "description": "Milliseconds to wait between requests, to keep the scan from overwhelming the target or tripping a rate limit. Has to be greater than zero. Setting it makes the scanner use a single thread instead of five, so the scan takes considerably longer; raise --scan-timeout with it. Not throttled when unset. Example: `--wpscan-throttle=200`.",
+            "description": "Milliseconds to wait between requests, to keep the scan from overwhelming the target or tripping a rate limit. Has to be greater than zero. Setting it makes the scanner use a single thread instead of five, so the scan takes considerably longer; raise --total-timeout with it. Not throttled when unset. Example: `--wpscan-throttle=200`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081102'
+__version__ = '2026081103'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -55,7 +55,7 @@ DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_VULN_DATA_SEVERITY = 'ok'
 DEFAULT_PATH = '/var/www/html/wordpress'
-DEFAULT_SCAN_TIMEOUT = 1800
+DEFAULT_TOTAL_TIMEOUT = 1800
 DEFAULT_UNSCORED_SEVERITY = 'warn'
 DEFAULT_VERBOSE = False
 DEFAULT_WPSCAN_DETECTION_MODE = 'mixed'
@@ -114,21 +114,21 @@ WPSCAN_OPTION_ALIASES = {
 }
 
 # Seconds granted to the version probe. It prints a constant and exits, so anything
-# beyond this means the scanner is not going to answer, and the budget of --scan-timeout
+# beyond this means the scanner is not going to answer, and the budget of --total-timeout
 # has to stay with the scan itself rather than being spent waiting here.
 VERSION_PROBE_TIMEOUT = 30
 
-# Seconds subtracted from --scan-timeout to get wpscan's own --max-scan-duration, so
+# Seconds subtracted from --total-timeout to get wpscan's own --max-scan-duration, so
 # wpscan aborts itself and still writes a valid JSON document. Only if that fails does
 # the hard subprocess timeout hit, which leaves us without any output at all.
-SCAN_TIMEOUT_HEADROOM = 30
+TOTAL_TIMEOUT_HEADROOM = 30
 
 # Seconds granted to the refresh of the vulnerability database. It runs as a call of its
 # own rather than as part of the scan, because wpscan counts its own database download
 # against --max-scan-duration: refreshing inside the scan would spend the site's time
 # budget on a download, and a slow mirror would show up as a scan that did not finish.
 # Whatever it really takes is subtracted from the scan budget afterwards, so the check
-# as a whole still keeps to --scan-timeout.
+# as a whole still keeps to --total-timeout.
 VULNDB_UPDATE_TIMEOUT = 120
 
 # How many findings the table shows before it is cut off. A neglected site carries a
@@ -411,18 +411,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--scan-timeout',
-        help='Seconds to wait for the scan to finish. '
-        'A full scan of a site with many plugins takes minutes, so this is much higher '
-        'than the network timeout of other checks. '
-        'Keep it below the timeout the monitoring agent grants the check. '
-        'Default: %(default)s (seconds)',
-        dest='SCAN_TIMEOUT',
-        type=int,
-        default=DEFAULT_SCAN_TIMEOUT,
-    )
-
-    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -430,9 +418,26 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--total-timeout',
+        help='Seconds the run may spend scanning, across the refresh of the '
+        'vulnerability database, the version probe and the scan itself. '
+        'A full scan of a site with many plugins takes minutes, so this is much higher '
+        'than the network timeout of other checks. '
+        'The scanner is asked to give up shortly before the budget is out, so it still '
+        'reports what it found rather than being killed with nothing to show. '
+        'Keep it below the timeout the monitoring agent grants the check. '
+        'Raise it on a large site, or narrow the scan with --wpscan-enumerate. '
+        'Default: %(default)s (seconds)',
+        dest='TOTAL_TIMEOUT',
+        type=int,
+        default=DEFAULT_TOTAL_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--unscored-severity',
-        help='State to report for a known vulnerability that carries no CVSS score. '
-        'The vulnerability database has no score for a large share of its entries, so '
+        help=lib.args.help('--unscored-severity')
+        + ' Applies to a known vulnerability that carries no CVSS score. '
+        'The vulnerability database leaves a large share of its entries unrated, so '
         'treating them all as critical would page for every one of them. '
         'Default: %(default)s',
         dest='UNSCORED_SEVERITY',
@@ -467,7 +472,7 @@ def parse_args():
         '`passive` only reads what the site shows on its own, `aggressive` requests '
         'known file locations directly and finds the most, `mixed` does both. '
         'Aggressive detection produces far more requests and takes correspondingly '
-        'longer, so raise --scan-timeout with it. '
+        'longer, so raise --total-timeout with it. '
         'Default: %(default)s',
         dest='WPSCAN_DETECTION_MODE',
         choices=['aggressive', 'mixed', 'passive'],
@@ -597,7 +602,7 @@ def parse_args():
         'the target or tripping a rate limit. '
         'Has to be greater than zero. '
         'Setting it makes the scanner use a single thread instead of five, so the scan '
-        'takes considerably longer; raise --scan-timeout with it. '
+        'takes considerably longer; raise --total-timeout with it. '
         'Not throttled when unset. '
         'Example: `--wpscan-throttle=200`.',
         dest='WPSCAN_THROTTLE',
@@ -914,9 +919,9 @@ def get_scan_budget(args, spent=0):
     before the hard subprocess timeout, so it still writes a result rather than being
     killed with nothing to report. `spent` is what the check has already used up on the
     database refresh, the version probe and any earlier scan attempt, so the check as a
-    whole keeps to --scan-timeout.
+    whole keeps to --total-timeout.
     """
-    return max(1, args.SCAN_TIMEOUT - spent - SCAN_TIMEOUT_HEADROOM)
+    return max(1, args.TOTAL_TIMEOUT - spent - TOTAL_TIMEOUT_HEADROOM)
 
 
 def refresh_vulndb(token, enterprise_token, timeout):
@@ -963,7 +968,7 @@ def build_wpscan_command(args, enumerate_opts, http_auth='', spent=0):
 
     The scan itself never refreshes the vulnerability database; that has happened before
     it, in a call of its own. `spent` is what the check has used up by now, so the scan
-    gets the rest of --scan-timeout.
+    gets the rest of --total-timeout.
     """
     cmd = [
         'wpscan',
@@ -1016,7 +1021,7 @@ def run_scan(args, enumerate_opts, http_auth, token, enterprise_token, *, spent=
     """
     cmd = build_wpscan_command(args, enumerate_opts, http_auth, spent=spent)
     success, result = run_wpscan(
-        cmd, token, enterprise_token, max(1, args.SCAN_TIMEOUT - spent)
+        cmd, token, enterprise_token, max(1, args.TOTAL_TIMEOUT - spent)
     )
     if not success:
         # A scan killed by the hard subprocess timeout leaves us without any output, so
@@ -1025,7 +1030,7 @@ def run_scan(args, enumerate_opts, http_auth, token, enterprise_token, *, spent=
         # host rather than with the monitored site.
         if result.startswith('Timeout after'):
             lib.base.oao(
-                f'Timeout after {args.SCAN_TIMEOUT}s while scanning {args.URL}.',
+                f'Timeout after {args.TOTAL_TIMEOUT}s while scanning {args.URL}.',
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
@@ -1438,7 +1443,7 @@ def main():
         # When the check started spending time. Everything that follows comes off the
         # scan budget: the refresh of the vulnerability database, the version probe, and
         # any scan that had to be repeated. Without that, a repeated scan would grant
-        # itself the full budget a second time, the check would overrun --scan-timeout
+        # itself the full budget a second time, the check would overrun --total-timeout
         # and the monitoring agent would kill it with nothing to report.
         started = lib.time.now()
         # The refresh runs as a call of its own. A failure here is not the site's fault
@@ -1450,7 +1455,7 @@ def main():
             refreshed, vulndb_note = refresh_vulndb(
                 token,
                 enterprise_token,
-                min(VULNDB_UPDATE_TIMEOUT, args.SCAN_TIMEOUT),
+                min(VULNDB_UPDATE_TIMEOUT, args.TOTAL_TIMEOUT),
             )
             if refreshed:
                 vulndb_note = ''
@@ -1563,7 +1568,7 @@ def main():
                 f'Scan did not finish within {get_scan_budget(args, spent)}s, '
                 f'stopping at '
                 f'{done} {lib.txt.pluralize("request", done)} in '
-                f'{lib.human.seconds2human(elapsed)}. Raise --scan-timeout, or narrow '
+                f'{lib.human.seconds2human(elapsed)}. Raise --total-timeout, or narrow '
                 f'the scan with --wpscan-enumerate. Scanned {args.URL}.',
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
