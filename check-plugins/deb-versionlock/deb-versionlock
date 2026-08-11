@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081102'
+__version__ = '2026081103'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -578,8 +578,14 @@ def main():
 
     # build the message
     if not entries:
-        # nothing is held back, which is what a healthy host looks like
-        msg = 'No holds in place.'
+        # Nothing is held back, which is what a healthy host looks like. Both searches are
+        # named where both ran, so the admin sees that --check-pinning took effect rather
+        # than wondering whether it did.
+        msg = (
+            'No holds and no pins in place.'
+            if args.CHECK_PINNING
+            else 'No holds in place.'
+        )
         state = STATE_OK
     elif not table_data:
         # holds exist, but the filters dropped all of them
