@@ -32,11 +32,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # unrecognised-status-unpadded do the same for a status LibreNMS does not print today,
 # once in each of the two shapes its own padding produces; composer-not-run, config-* and
 # install-dir-not-set reproduce the aborts validate.php prints before it reaches its first
-# validation group; composer-binary-missing and dependencies-missing reproduce the two
-# ways the dependency group aborts it, which happens one step later but leaves just as
-# much unchecked; schema-out-of-date reproduces the one result that carries a multi-line
-# message, a fix and a detail list at once; empty-output is the run that printed nothing
-# at all.
+# validation group; composer-binary-missing, dependencies-missing and
+# dependencies-outdated reproduce the three ways the dependency group aborts it, which
+# happens one step later but leaves just as much unchecked; schema-out-of-date reproduces
+# the one result that carries a multi-line message, a fix and a detail list at once;
+# empty-output is the run that printed nothing at all.
 
 TESTS = [
     # A healthy installation with one real finding. The exit code of validate.php is 1
@@ -341,6 +341,20 @@ TESTS = [
     {
         'id': 'warn-dependencies-missing-aborts-the-run',
         'test': 'stdout/dependencies-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'stops before it validates anything else',
+            'composer_wrapper.php install --no-dev',
+        ],
+        'assert-not-in': ['Checked 1 validation'],
+    },
+    # Dependencies that are merely behind abort the run just as completely as missing
+    # ones, so they get the same treatment rather than being reported as the single
+    # failed validation they look like.
+    {
+        'id': 'warn-dependencies-outdated-aborts-the-run',
+        'test': 'stdout/dependencies-outdated,,1',
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [

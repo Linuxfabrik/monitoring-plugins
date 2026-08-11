@@ -312,13 +312,15 @@ This one arrives as a normal finding rather than as an error, because LibreNMS r
 
 LibreNMS cannot start because its PHP libraries were never installed or were removed. Run `./scripts/composer_wrapper.php install --no-dev` as the LibreNMS user in the installation directory.
 
-### The PHP dependencies are missing or Composer is not installed
+### The PHP dependencies are missing or outdated, or Composer is not installed
 
 `The LibreNMS installation is missing some of its PHP dependencies, so it stops before it validates anything else.`
 
+`Some of the PHP dependencies of the LibreNMS installation are behind the versions it asks for, so it stops before it validates anything else.`
+
 `LibreNMS cannot check its PHP dependencies because Composer is missing, so it stops before it validates anything else.`
 
-LibreNMS checks its own dependencies before it validates anything else and gives up on the whole run when that check fails, so nothing at all was looked at. The first message means a dependency update never completed; run `./scripts/composer_wrapper.php install --no-dev` as the LibreNMS user in the installation directory. The second means Composer itself is not on the host; install it from <https://getcomposer.org/> and run the same command afterwards. Both are normal after an upgrade that was interrupted.
+LibreNMS checks its own dependencies before it validates anything else and gives up on the whole run when that check fails, so nothing at all was looked at. The first two messages mean a dependency update never completed or never ran; run `./scripts/composer_wrapper.php install --no-dev` as the LibreNMS user in the installation directory. The third means Composer itself is not on the host; install it from <https://getcomposer.org/> and run the same command afterwards. All three are normal after an upgrade that was interrupted.
 
 ### The configuration file does not parse
 
