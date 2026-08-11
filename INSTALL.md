@@ -285,6 +285,7 @@ The archives keep the repository layout, so flatten the plugins into the plugin 
 `notification-plugins/<name>/<name>`) and copy the `lib` modules alongside them:
 
 ```bash
+umask 022
 sudo mkdir -p /usr/lib64/nagios/plugins/lib
 for dir in monitoring-plugins-${ref}/check-plugins/*/ monitoring-plugins-${ref}/notification-plugins/*/; do
     name=$(basename "${dir}")
@@ -294,15 +295,67 @@ sudo cp -a lib-${ref}/. /usr/lib64/nagios/plugins/lib/
 sudo rm -rf /usr/lib64/nagios/plugins/lib/tests /usr/lib64/nagios/plugins/lib/lockfiles
 ```
 
-Then install the Python dependencies for the user that runs the plugins (`icinga` on RHEL,
-`nagios` on Debian/Ubuntu), using the lockfile from the extracted tree that matches the host
-Python:
+Set `umask 022` before you start. A host hardened to `umask 027` or `077` otherwise produces
+a plugin directory and a library the monitoring user cannot read, and every check fails with a
+permission error.
+
+Then install the Python dependencies into a root-owned virtual environment. Do not install
+them into the monitoring user's home with `pip install --user`: the whitelisted plugins run as
+root through sudo, so anything the monitoring user can write is a way to run code as root.
+Pick the lockfile from the extracted tree that matches the host Python:
 
 ```bash
 PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
-sudo -u icinga python3 -m pip install --user --upgrade pip
-sudo -u icinga python3 -m pip install --user \
+sudo python3 -m venv /usr/lib64/linuxfabrik-monitoring-plugins/venv
+sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install --upgrade pip
+sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install \
     --requirement monitoring-plugins-${ref}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
+sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install \
+    --requirement lib-${ref}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
+```
+
+Both lockfiles are needed, and in this order: the plugin lockfile resolves the dependencies of
+the released library, while the `lib` archive you just unpacked can be ahead of that release.
+They pin a few shared packages to different versions, so they have to go into separate `pip`
+calls. A single call with both files aborts with a resolution conflict.
+
+The lockfile also carries the released library as `linuxfabrik-lib`. Remove it, so that the
+`lib` you copied next to the plugins is the only one Python can find. With both present, a
+library the monitoring user cannot read is silently replaced by the released one, and the
+plugins then fail with a missing attribute or module instead of a permission error:
+
+```bash
+sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip uninstall --yes linuxfabrik-lib
+```
+
+Point the plugins at that interpreter, then hand the library and the virtual environment to
+root. The plugins themselves are already root-owned, `install` placed them:
+
+```bash
+for dir in monitoring-plugins-${ref}/check-plugins/*/ monitoring-plugins-${ref}/notification-plugins/*/; do
+    name=$(basename "${dir}")
+    [ -f "/usr/lib64/nagios/plugins/${name}" ] && sudo sed -i \
+        '1s|^#!.*python3.*|#!/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3|' \
+        "/usr/lib64/nagios/plugins/${name}"
+done
+sudo chown -R root:root /usr/lib64/nagios/plugins/lib /usr/lib64/linuxfabrik-monitoring-plugins
+sudo chmod -R u=rwX,go=rX /usr/lib64/nagios/plugins/lib /usr/lib64/linuxfabrik-monitoring-plugins
+```
+
+The monitoring user needs to read and execute the plugins, the library and the virtual
+environment, but must never own or be able to write them. Directories and plugins end up at
+`0755`, library modules at `0644`, everything owned by `root:root`.
+
+The plugin directory also holds your distribution's own Nagios plugins, some of which are
+setuid root. Never let a bulk operation loose on all of it: a recursive `chmod` clears the
+setuid bit, and `sed -i` rewrites a file rather than editing it in place, which clears the bit
+just as effectively. Both loops above therefore name only the plugins you just installed.
+
+Finally, confirm that the monitoring user can actually use the result. This is worth doing
+explicitly, because an installation can look complete and still be unusable:
+
+```bash
+sudo -u icinga /usr/lib64/nagios/plugins/load
 ```
 
 
@@ -344,7 +397,7 @@ extra steps are required.
 For the source-zip and GitHub source installs, apply the minimal settings manually:
 
 ```bash
-sudo restorecon -Fvr /usr/lib64/nagios
+sudo restorecon -Fvr /usr/lib64/nagios /usr/lib64/linuxfabrik-monitoring-plugins
 sudo setsebool -P nagios_run_sudo on
 ```
 

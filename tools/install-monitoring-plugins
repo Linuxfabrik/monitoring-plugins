@@ -31,6 +31,12 @@
 
 set -eu -o pipefail
 
+# Everything we create has to stay readable and traversable for the monitoring user, which is
+# never the user running this script. Hardened hosts carry a restrictive umask (027 or 077),
+# and sudo hands the more restrictive of the caller's and the sudoers umask to us, so relying
+# on the inherited value leaves an unreadable venv and library behind.
+umask 022
+
 # --- constants ---------------------------------------------------------------------------
 
 REPO_BASE_URL='https://repo.linuxfabrik.ch'
@@ -331,30 +337,191 @@ install_sudoers() {
     done
 }
 
-# Final ownership and SELinux fix-ups, mirroring the package: the monitoring user owns the
-# plugins, the tree is relabelled, and plugins may call sudo. Each step is applied only when its
-# user or tool is present, so the install still succeeds on a host without a monitoring agent.
+# Final ownership, mode and SELinux fix-ups, mirroring the package: root owns the plugins, the
+# monitoring user may read and execute them, the tree is relabelled, and plugins may call sudo.
+# Each step is applied only when its tool is present, so the install still succeeds on a host
+# without a monitoring agent.
+#
+# The monitoring user must be able to traverse, read and execute the plugins, the bundled lib
+# and the dependency venv, but must NOT own or be able to write them: the whitelisted plugins
+# run as root via sudo, so a writable plugin, lib module or venv interpreter would be arbitrary
+# root code execution.
+#
+# Ownership and modes are set explicitly rather than left to the install-time defaults, so that
+# re-running the installer repairs a host that an earlier version, a restrictive umask or a
+# manual chown left behind in a broken state.
 finalize_permissions() {
-    # The monitoring user must be able to traverse, read and execute the plugins, the bundled
-    # lib and the dependency venv, but must NOT own or be able to write them: the whitelisted
-    # plugins run as root via sudo, so a writable plugin, lib module or venv interpreter would
-    # be arbitrary root code execution. Force root ownership (the earlier `cp -a` may have
-    # preserved a non-root owner from the source tree) and leave the install-time modes
-    # (0755 directories and executables, 0644 lib files) in place.
-    if command -v chown >/dev/null 2>&1; then
-        log "setting ownership of ${PLUGIN_DIR} and ${STATE_DIR} to root"
-        run chown --recursive root:root "${PLUGIN_DIR}" || warn 'chown to root failed'
-        [ -d "${STATE_DIR}" ] \
-            && { run chown --recursive root:root "${STATE_DIR}" || warn 'chown of the venv to root failed'; }
+    if [ "${DRY_RUN}" = '1' ]; then
+        printf '    [dry-run] chown root:root and chmod every recorded path plus %s\n' \
+            "${STATE_DIR}" >&2
+        return 0
     fi
+    command -v chown >/dev/null 2>&1 || return 0
+
+    log 'setting ownership and modes of the installed files'
+    # Only ever touch what this installer recorded. The plugin directory is shared with the
+    # distro's own Nagios plugins, some of which are setuid root (check_icmp), so a recursive
+    # chmod across it would silently disarm them.
+    chmod a+rx "${PLUGIN_DIR}" || warn "could not make ${PLUGIN_DIR} traversable"
+    local p
+    if [ -f "${MANIFEST}" ]; then
+        while IFS= read -r p; do
+            [ -n "${p}" ] || continue
+            # The sudoers drop-in was installed and validated with its own mandatory 0440.
+            [ "${p}" = "${SUDOERS_DEST}" ] && continue
+            [ -e "${p}" ] || continue
+            chown --recursive root:root "${p}" || warn "chown of ${p} to root failed"
+            if [ -d "${p}" ]; then
+                # 'X' keeps the executable bit on directories and on files that already carry
+                # one (the venv interpreters), without granting it to plain library modules.
+                chmod --recursive u=rwX,go=rX "${p}" || warn "chmod of ${p} failed"
+            else
+                chmod 0755 "${p}" || warn "chmod of ${p} failed"
+            fi
+        done < "${MANIFEST}"
+    fi
+    # The venv is recorded only once the dependencies were installed, so fix it up separately.
+    if [ -d "${STATE_DIR}" ]; then
+        chown --recursive root:root "${STATE_DIR}" || warn 'chown of the venv to root failed'
+        chmod --recursive u=rwX,go=rX "${STATE_DIR}" || warn 'chmod of the venv failed'
+    fi
+
     if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then
         if command -v restorecon >/dev/null 2>&1; then
-            log "restoring SELinux labels on ${PLUGIN_DIR}"
+            log "restoring SELinux labels on ${PLUGIN_DIR} and ${STATE_DIR}"
             run restorecon -Fr "${PLUGIN_DIR}" || warn 'restorecon failed'
+            [ -d "${STATE_DIR}" ] \
+                && { run restorecon -Fr "${STATE_DIR}" || warn 'restorecon of the venv failed'; }
         fi
         command -v setsebool >/dev/null 2>&1 \
             && { run setsebool -P nagios_run_sudo on || warn 'setsebool nagios_run_sudo failed'; }
     fi
+    # Every step above is best-effort and warns on its own. Return success explicitly so that a
+    # skipped optional step does not abort the install through `set -e`.
+    return 0
+}
+
+# Shell-quote the arguments into a single command line, for the `su -c` fallback.
+quote_args() {
+    local arg out=''
+    for arg in "$@"; do
+        out="${out}'${arg//\'/\'\\\'\'}' "
+    done
+    printf '%s' "${out% }"
+}
+
+# Run CMD as the monitoring user, leaving its combined output in AS_USER_OUTPUT and its exit
+# code in AS_USER_RC. Call it directly, never through a command substitution: that would run it
+# in a subshell and throw both results away. A monitoring account usually has nologin as its
+# shell, so `su` needs one named explicitly; `runuser` bypasses the shell and is preferred.
+AS_USER_RC=0
+AS_USER_OUTPUT=''
+as_user() {
+    local user="$1"
+    shift
+    AS_USER_RC=0
+    if command -v runuser >/dev/null 2>&1; then
+        AS_USER_OUTPUT="$(runuser -u "${user}" -- "$@" 2>&1)" || AS_USER_RC=$?
+    else
+        AS_USER_OUTPUT="$(su -s /bin/sh -c "$(quote_args "$@")" "${user}" 2>&1)" || AS_USER_RC=$?
+    fi
+}
+
+# Verify that the monitoring user can actually use what was just installed. Everything here is
+# installed by root but always executed by the monitoring user, so an install can report success
+# and still be unusable: an unreadable venv interpreter, a library directory the user cannot
+# traverse, or a library dependency no lockfile covers. Say so here instead of leaving it to the
+# first check that runs. This is a report, not a gate: a host without a monitoring agent installs
+# the plugins perfectly legitimately, so the exit code stays 0 either way.
+smoke_test() {
+    [ "${DRY_RUN}" = '1' ] && return 0
+    command -v runuser >/dev/null 2>&1 || command -v su >/dev/null 2>&1 || {
+        warn 'neither runuser nor su is available, skipping the smoke test'
+        return 0
+    }
+
+    local user='' candidate
+    for candidate in icinga nagios; do
+        if id "${candidate}" >/dev/null 2>&1; then
+            user="${candidate}"
+            break
+        fi
+    done
+    if [ -z "${user}" ]; then
+        log 'no icinga or nagios user on this host, skipping the smoke test'
+        return 0
+    fi
+    [ -x "${VENV_DIR}/bin/python3" ] || return 0
+
+    local failed=0
+
+    # Import every bundled library module the way a plugin does. This is the authoritative
+    # check: it exercises the venv interpreter, the traversal into the library and the
+    # dependencies, and its exit code is unambiguous. Plugins deliberately turn --help into
+    # UNKNOWN and report a crash the same way, so their exit code alone proves nothing.
+    #
+    # The module list is collected here, as root, and handed over as arguments. Letting the
+    # unprivileged side discover the modules itself would make an unreadable library look like
+    # an empty one, and the check would pass on exactly the host it is meant to catch.
+    local -a modules=()
+    local module name
+    for module in "${PLUGIN_DIR}"/lib/*.py; do
+        [ -f "${module}" ] || continue
+        name="${module##*/}"
+        name="${name%.py}"
+        [ "${name}" = '__init__' ] && continue
+        modules+=("${name}")
+    done
+    if [ "${#modules[@]}" -eq 0 ]; then
+        warn "found no library modules in ${PLUGIN_DIR}/lib, skipping the import check"
+    else
+        log "checking that user ${user} can import the library"
+        as_user "${user}" "${VENV_DIR}/bin/python3" -c "
+import importlib, sys
+sys.path.insert(0, '${PLUGIN_DIR}')
+for module in sys.argv[1:]:
+    importlib.import_module('lib.' + module)
+" "${modules[@]}"
+        if [ "${AS_USER_RC}" -ne 0 ]; then
+            failed=1
+            warn "user ${user} cannot import the library:"
+            printf '%s\n' "${AS_USER_OUTPUT}" >&2
+        fi
+    fi
+
+    # Second, that a plugin file itself is reachable and executable for that user. Ask `test`
+    # rather than running the plugin: plugins report --help as UNKNOWN and a crash the same
+    # way, so their exit code cannot tell the two apart. Take the first plugin this run
+    # recorded, so the check never lands on a distro plugin.
+    local plugin='' p
+    if [ -f "${MANIFEST}" ]; then
+        while IFS= read -r p; do
+            case "${p}" in "${PLUGIN_DIR}"/*) ;; *) continue ;; esac
+            if [ -f "${p}" ] && [ -x "${p}" ]; then
+                plugin="${p}"
+                break
+            fi
+        done < "${MANIFEST}"
+    fi
+    if [ -n "${plugin}" ]; then
+        log "checking that user ${user} can execute ${plugin##*/}"
+        as_user "${user}" test -x "${plugin}"
+        if [ "${AS_USER_RC}" -ne 0 ]; then
+            failed=1
+            warn "user ${user} cannot execute ${plugin}"
+        fi
+        # And that the shebang rewrite landed, so the plugin uses the venv rather than a
+        # system Python that has none of the dependencies.
+        if ! head -n 1 "${plugin}" | grep -qxF "#!${VENV_DIR}/bin/python3"; then
+            failed=1
+            warn "${plugin} does not point at ${VENV_DIR}/bin/python3"
+        fi
+    fi
+
+    if [ "${failed}" -ne 0 ]; then
+        warn 'the files are installed, but your monitoring agent will not be able to run them.'
+    fi
+    return 0
 }
 
 # `python -m venv` needs ensurepip to bootstrap pip. Debian/Ubuntu ship ensurepip in a separate
@@ -374,12 +541,19 @@ ensure_venv_support() {
 # Install the Python dependencies into a self-contained venv and point every flattened plugin
 # at that interpreter. This keeps the dependencies independent of any user account (no ~/.local,
 # no sudo -u) and isolated from the system Python (no PEP 668 externally-managed conflict),
-# matching the venv the RPM/DEB packages ship. <reqs_dir> holds a lockfiles/pyXX/ tree.
+# matching the venv the RPM/DEB packages ship.
+#
+# <reqs_dir> holds the monitoring-plugins lockfiles/pyXX/ tree. <lib_reqs_dir> optionally holds
+# the same tree from the shared lib, and is applied on top: the monitoring-plugins lockfile
+# resolves the dependencies of the RELEASED linuxfabrik-lib, while source and zip installs ship
+# a lib that can be ahead of that release and may need a package no release declares yet.
 install_dependencies() {
-    local reqs_dir="$1" pyver py_tag lockfile
+    local reqs_dir="$1" lib_reqs_dir="${2:-}" pyver py_tag lockfile lib_lockfile
     pyver="$("${PYBIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
     py_tag="py${pyver//./}"
     lockfile="${reqs_dir}/lockfiles/${py_tag}/requirements.txt"
+    lib_lockfile=''
+    [ -n "${lib_reqs_dir}" ] && lib_lockfile="${lib_reqs_dir}/lockfiles/${py_tag}/requirements.txt"
 
     if [ ! -f "${lockfile}" ] && [ "${DRY_RUN}" != '1' ]; then
         warn "no lockfile for ${py_tag}; skipping dependencies, plugins may fail to import"
@@ -398,19 +572,44 @@ install_dependencies() {
     run "${VENV_DIR}/bin/python3" -m pip install --quiet \
         --requirement "${lockfile}" --require-hashes
 
+    # The two lockfiles overlap and pin a handful of shared packages to different versions, so
+    # they have to go into separate pip calls: one call with both would abort with
+    # ResolutionImpossible. Applying the lib lockfile second lets its pins win, which is what
+    # the bundled lib was tested against. Both are hash-pinned, so nothing unverified enters.
+    if [ -n "${lib_lockfile}" ] && [ -f "${lib_lockfile}" ]; then
+        log 'installing the dependencies of the bundled library'
+        run "${VENV_DIR}/bin/python3" -m pip install --quiet \
+            --requirement "${lib_lockfile}" --require-hashes
+    elif [ -n "${lib_lockfile}" ] && [ "${DRY_RUN}" != '1' ]; then
+        warn "the bundled library ships no lockfile for ${py_tag}; relying on the plugin lockfile"
+    fi
+
+    # Source and zip installs place the library next to the plugins, where it takes precedence
+    # over anything in the venv. Drop the released copy the lockfile pulled in, so that exactly
+    # one library is importable: with both present, a library the caller cannot read falls back
+    # to the released one silently and the plugins fail far from the cause, with a missing
+    # attribute or module rather than a permission error.
+    log 'removing the released library from the venv in favour of the bundled one'
+    run "${VENV_DIR}/bin/python3" -m pip uninstall --quiet --yes linuxfabrik-lib \
+        || warn 'could not remove the released library from the venv'
+
     # Point the plugins at the venv interpreter so they pick up the dependencies no matter who
-    # runs them. Only the flattened executables in the plugin dir are touched, not lib/.
+    # runs them. Only the files this run recorded are rewritten: the plugin directory is shared
+    # with the distro's own Nagios plugins, and `sed -i` replaces a file rather than editing it
+    # in place, which would drop the setuid bit some of them carry (check_icmp).
     log 'pointing plugins at the venv interpreter'
     if [ "${DRY_RUN}" = '1' ]; then
-        printf '    [dry-run] rewrite python3 shebang of %s/* -> #!%s/bin/python3\n' \
-            "${PLUGIN_DIR}" "${VENV_DIR}" >&2
+        printf '    [dry-run] rewrite the shebang of every installed plugin -> #!%s/bin/python3\n' \
+            "${VENV_DIR}" >&2
         return 0
     fi
+    [ -f "${MANIFEST}" ] || return 0
     local f
-    for f in "${PLUGIN_DIR}"/*; do
+    while IFS= read -r f; do
+        case "${f}" in "${PLUGIN_DIR}"/*) ;; *) continue ;; esac
         [ -f "${f}" ] || continue
         sed -i "1s|^#!.*python3.*|#!${VENV_DIR}/bin/python3|" "${f}"
-    done
+    done < "${MANIFEST}"
 }
 
 # True if BIN is a Python 3.9+ interpreter (the oldest version we ship a dependency lockfile for).
@@ -497,9 +696,12 @@ install_from_source() {
     flatten_plugins "${mp_dir}/notification-plugins"
     install_lib "${lib_dir}"
 
-    install_dependencies "${mp_dir}"
+    # Pass the extracted lib tree, not the installed copy: install_lib() strips the lockfiles
+    # while copying, because they are of no use to a plugin at runtime.
+    install_dependencies "${mp_dir}" "${lib_dir}"
     install_sudoers "${mp_dir}"
     finalize_permissions
+    smoke_test
 
     log "installed ${GH_MP_REPO}@${SOURCE_REF} into ${PLUGIN_DIR}"
 }
@@ -512,8 +714,17 @@ verify_download() {
     local file="$1" url="$2" workdir="$3"
     require_cmd sha256sum
     require_cmd gpg
-    download "${url}.sha256" "${file}.sha256"
-    download "${url}.asc" "${file}.asc"
+    # Name a missing checksum or signature for what it is. Without this, the bare transfer
+    # error from curl or wget is all the operator sees, and it reads like a network problem.
+    if ! download "${url}.sha256" "${file}.sha256"; then
+        warn "no checksum published next to ${url##*/}"
+        die 'refusing to install unverified code'
+    fi
+    if ! download "${url}.asc" "${file}.asc"; then
+        warn "no GPG signature published next to ${url##*/}"
+        warn 'install from the package repository (the default mode) or with --source instead'
+        die 'refusing to install unverified code'
+    fi
     if [ "${DRY_RUN}" = '1' ]; then
         printf '    [dry-run] sha256sum -c %s.sha256 && gpg --verify %s.asc %s\n' \
             "${file}" "${file}" "${file}" >&2
@@ -582,9 +793,10 @@ install_from_zip() {
         done
     fi
 
-    install_dependencies "${PLUGIN_DIR}"
+    install_dependencies "${PLUGIN_DIR}" "${PLUGIN_DIR}/lib"
     install_sudoers "${PLUGIN_DIR}"
     finalize_permissions
+    smoke_test
 
     log "installed ${zip_name} into ${PLUGIN_DIR}"
 }
