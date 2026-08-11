@@ -146,12 +146,12 @@ Output:
 ```text
 There are critical errors.
 
-UUID       ! Location    ! In (V) ! Out (V) ! Temp ! Health     ! Running   
------------+-------------+--------+---------+------+------------+-----------
-23:23.0.0  ! CTE0.PSU0   ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
-23:23.0.1  ! CTE0.PSU1   ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
-23:23.64.0 ! DAE000.PSU0 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
-23:0.0B.0  ! CTE0.PSU 0  ! 0.0    ! 0.0     ! --   ! [CRITICAL] ! [CRITICAL]
+UUID       ! Location    ! In (V) ! Out (V) ! Health        ! Running      ! State
+-----------+-------------+--------+---------+---------------+--------------+-----------
+23:23.0.0  ! CTE0.PSU0   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.1  ! CTE0.PSU1   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.2  ! CTE0.PSU2   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.3  ! CTE0.PSU3   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
 ```
 
 `--lengthy` adds the manufacturer, the model, the serial number and the manufacturing date, which is what an RMA case needs:
@@ -165,12 +165,12 @@ Output:
 ```text
 There are critical errors.
 
-UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (V) ! Out (V) ! Temp ! Health     ! Running   
------------+-------------+--------------+---------------+----------------------+------------+--------+---------+------+------------+-----------
-23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
-23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
-23:23.64.0 ! DAE000.PSU0 ! Huawei       ! PAC2000S12-BG ! 12345678             ! 2020-12-02 ! 0.0    ! 0.0     ! --   ! [OK]       ! [OK]      
-23:0.0B.0  ! CTE0.PSU 0  ! VAPEL        ! HSP960-D1205D ! 21022701328NE5000004 ! 2014-05-03 ! 0.0    ! 0.0     ! --   ! [CRITICAL] ! [CRITICAL]
+UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (V) ! Out (V) ! Health        ! Running      ! State
+-----------+-------------+--------------+---------------+----------------------+------------+--------+---------+---------------+--------------+-----------
+23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-21 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
 ```
 
 

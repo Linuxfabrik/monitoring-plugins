@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081101'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
@@ -358,12 +358,15 @@ def main():
             node.get('oam_agent_status'),
         )
         node['error_code'] = '--' if error_code in (None, '') else str(error_code)
-        node['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        node['oam_state'] = lib.base.state2str(oam_state, empty_ok=False)
-        node['error_state'] = lib.base.state2str(error_state, empty_ok=False)
-        node['warranty'] = (
-            f'{lib.huawei_pacific.get_warranty_status(warranty)}'
-            f'{lib.base.state2str(node_warranty_state, prefix=" ")}'
+        node['warranty'] = lib.huawei_pacific.get_warranty_status(warranty)
+        # One state per node, in the last column. IcingaWeb replaces a state with an icon,
+        # which shifts everything to the right of it, so a second one mid-row would break
+        # the table. Which aspect is at fault stays readable in the columns in front of it.
+        node['state'] = lib.base.state2str(
+            lib.base.get_worst(
+                running_state, oam_state, error_state, node_warranty_state
+            ),
+            empty_ok=False,
         )
 
         table_data.append(node)
@@ -399,9 +402,7 @@ def main():
                 'oam_agent_status',
                 'error_code',
                 'warranty',
-                'running_state',
-                'oam_state',
-                'error_state',
+                'state',
             ]
             headers = [
                 'Name',
@@ -413,9 +414,7 @@ def main():
                 'OAM Agent',
                 'Error Code',
                 'Warranty',
-                'Running State',
-                'OAM State',
-                'Error State',
+                'State',
             ]
         else:
             keys = [
@@ -424,9 +423,7 @@ def main():
                 'oam_agent_status',
                 'error_code',
                 'warranty',
-                'running_state',
-                'oam_state',
-                'error_state',
+                'state',
             ]
             headers = [
                 'Name',
@@ -434,12 +431,12 @@ def main():
                 'OAM Agent',
                 'Error Code',
                 'Warranty',
-                'Running State',
-                'OAM State',
-                'Error State',
+                'State',
             ]
 
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(
+            table_data, keys, header=headers, missing='--', hide_empty=True
+        )
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_pacific.format_responses()

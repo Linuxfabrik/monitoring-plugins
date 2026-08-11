@@ -194,11 +194,11 @@ Output:
 ```text
 Everything is ok.
 
-UUID         ! Location ! Usage  ! Wear% ! Health# ! Temp ! Health ! Running
--------------+----------+--------+-------+---------+------+--------+--------
-10:134234112 ! DAE000.0 ! in use ! 67    ! --      ! 36   ! [OK]   ! [OK]   
-10:134234113 ! DAE000.1 ! in use ! 70    ! --      ! 37   ! [OK]   ! [OK]   
-10:0         ! CTE0.0   ! free   ! 0     ! --      ! 37   ! [OK]   ! [OK]
+UUID         ! Location ! Usage  ! Wear% ! Temp ! Health     ! Running     ! State
+-------------+----------+--------+-------+------+------------+-------------+------
+10:134234112 ! DAE000.0 ! in use ! 67    ! 36   ! Normal (1) ! Online (27) ! [OK]
+10:134234113 ! DAE000.1 ! in use ! 70    ! 37   ! Normal (1) ! Online (27) ! [OK]
+10:0         ! CTE0.0   ! free   ! 0     ! 37   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 `--lengthy` adds the model, the serial number and the rebuild progress, which is what an RMA case and a running rebuild need:
@@ -212,11 +212,11 @@ Output:
 ```text
 Everything is ok.
 
-UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Usage  ! Wear% ! Health# ! Progress% ! Runtime ! Temp ! Health ! Running
--------------+----------+--------------+------------------+----------------------+--------+-------+---------+-----------+---------+------+--------+--------
-10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! in use ! 67    ! --      ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]   
-10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! in use ! 70    ! --      ! 0         ! 4M 2W   ! 37   ! [OK]   ! [OK]   
-10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! free   ! 0     ! --      ! 0         ! 1Y 4M   ! 37   ! [OK]   ! [OK]
+UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Usage  ! Wear% ! Progress% ! Runtime ! Temp ! Health     ! Running     ! State
+-------------+----------+--------------+------------------+----------------------+--------+-------+-----------+---------+------+------------+-------------+------
+10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! in use ! 67    ! 0         ! 4M 2W   ! 36   ! Normal (1) ! Online (27) ! [OK]
+10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! in use ! 70    ! 0         ! 4M 2W   ! 37   ! Normal (1) ! Online (27) ! [OK]
+10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! free   ! 0     ! 0         ! 1Y 4M   ! 37   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 

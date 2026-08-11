@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081101'
+__version__ = '2026081102'
 
 DESCRIPTION = """Checks the status of all fans on a Huawei OceanStor Pacific storage system via the
 REST API (/hwm/fan endpoint). Alerts when any fan reports a non-normal status.
@@ -348,7 +348,9 @@ def main():
         else:
             keys = ['node', 'name', 'status', 'state']
             headers = ['Node', 'Name', 'Status', 'State']
-        msg += lib.base.get_table(table_data, keys, header=headers, missing='--')
+        msg += lib.base.get_table(
+            table_data, keys, header=headers, missing='--', hide_empty=True
+        )
     else:
         msg += 'Nothing checked.'
 

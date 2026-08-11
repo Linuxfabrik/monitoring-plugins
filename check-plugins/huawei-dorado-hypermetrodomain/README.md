@@ -133,10 +133,10 @@ Output:
 ```text
 Everything is ok.
 
-UUID                   ! Name               ! QuorumSrv ! QuorumType    ! Running 
------------------------+--------------------+-----------+---------------+---------
-15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server ! [OK]    
-15362:8038bc14bd750100 ! test               !           ! None          ! [OK] 
+UUID                   ! Name               ! QuorumSrv ! QuorumType    ! Running
+-----------------------+--------------------+-----------+---------------+--------
+15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server ! [OK]
+15362:8038bc14bd750100 ! test               !           ! None          ! [OK]
 ```
 
 

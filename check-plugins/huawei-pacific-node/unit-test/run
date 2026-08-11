@@ -46,6 +46,27 @@ TESTS = [
         'assert-not-in': ['Pacific (STL6SPCM)', 'Management IP', 'Software Version'],
     },
     {
+        # An appliance that fills in neither the software version nor an error code
+        # would otherwise cost two columns of nothing on every row. What it does not
+        # report is not worth the width.
+        'id': 'ok-columns-the-appliance-never-fills-are-dropped',
+        'test': 'stdout/nodes-no-lifecycle-data,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Model', 'lifecycle information missing (4)'],
+        'assert-not-in': ['Software Version', 'Error Code'],
+    },
+    {
+        # One state per node, in the last column, whatever the aspect that decided it.
+        'id': 'ok-single-state-column-last',
+        'test': 'stdout/nodes-no-lifecycle-data,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'! State\n[-+]+\n.*! \[OK\] *\n',
+        'assert-not-in': ['Running State', 'OAM State', 'Error State'],
+    },
+    {
         # A node that left the cluster took its share of the storage with it,
         # so an offline node has to reach CRITICAL. Its OAM agent reporting
         # faulty stays a warning: that is the management path, not the data one.

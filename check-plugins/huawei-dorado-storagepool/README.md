@@ -178,10 +178,10 @@ Output:
 ```text
 Everything is ok.
 
-UUID  ! Name           ! Used     ! Total    ! Usage ! Overprov ! Usage State ! Health ! Running
-------+----------------+----------+----------+-------+----------+-------------+--------+--------
-216:0 ! StoragePool001 ! 303.3GiB ! 1.5TiB   ! 20%   ! 100%     ! [OK]        ! [OK]   ! [OK]   
-216:1 ! StoragePool002 ! 37.9GiB  ! 758.3GiB ! 5%    ! 200%     ! [OK]        ! [OK]   ! [OK]
+UUID  ! Name           ! Used     ! Total    ! Usage ! Overprov ! Health     ! Running     ! State
+------+----------------+----------+----------+-------+----------+------------+-------------+------
+216:0 ! StoragePool001 ! 303.3GiB ! 1.5TiB   ! 20%   ! 100%     ! Normal (1) ! Online (27) ! [OK]
+216:1 ! StoragePool002 ! 37.9GiB  ! 758.3GiB ! 5%    ! 200%     ! Normal (1) ! Online (27) ! [OK]
 ```
 
 `--lengthy` adds the disk domain, the fill threshold configured on the appliance and the data reduction ratio:
@@ -195,10 +195,10 @@ Output:
 ```text
 Everything is ok.
 
-UUID  ! Name           ! Disk Domain   ! Used     ! Total    ! Usage ! Device Limit ! Overprov ! Reduction ! Usage State ! Health ! Running
-------+----------------+---------------+----------+----------+-------+--------------+----------+-----------+-------------+--------+--------
-216:0 ! StoragePool001 ! DiskDomain000 ! 303.3GiB ! 1.5TiB   ! 20%   ! 80%          ! 100%     ! 3.2:1     ! [OK]        ! [OK]   ! [OK]   
-216:1 ! StoragePool002 ! DiskDomain000 ! 37.9GiB  ! 758.3GiB ! 5%    ! 80%          ! 200%     ! 3.2:1     ! [OK]        ! [OK]   ! [OK]
+UUID  ! Name           ! Disk Domain   ! Used     ! Total    ! Usage ! Device Limit ! Overprov ! Reduction ! Health     ! Running     ! State
+------+----------------+---------------+----------+----------+-------+--------------+----------+-----------+------------+-------------+------
+216:0 ! StoragePool001 ! DiskDomain000 ! 303.3GiB ! 1.5TiB   ! 20%   ! 80%          ! 100%     ! 3.2:1     ! Normal (1) ! Online (27) ! [OK]
+216:1 ! StoragePool002 ! DiskDomain000 ! 37.9GiB  ! 758.3GiB ! 5%    ! 80%          ! 200%     ! 3.2:1     ! Normal (1) ! Online (27) ! [OK]
 ```
 
 Alert earlier than the defaults, and only on the pools of one disk domain:

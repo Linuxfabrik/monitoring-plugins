@@ -154,15 +154,12 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-bac
 Output:
 
 ```text
-There are warnings.
+Everything is ok.
 
-UUID       ! Location   ! Remain ! Volt ! Health ! Running  
------------+------------+--------+------+--------+----------
-210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]
-210:0.0A.0 ! CTE0.A.BBU ! --     ! 15.9 ! [OK]   ! [OK]     
-210:0.0B.0 ! CTE0.B.BBU ! --     ! 15.8 ! [OK]   ! [OK]     
-210:0.0C.0 ! CTE0.C.BBU ! --     ! 15.8 ! [OK]   ! [OK]     
-210:0.0D.0 ! CTE0.D.BBU ! --     ! 16.0 ! [OK]   ! [OK]
+UUID       ! Location   ! Remain ! Volt ! Health     ! Running       ! State
+-----------+------------+--------+------+------------+---------------+------
+210:0.0A.0 ! CTE0.A.BBU ! 5Y 4M  ! 15.8 ! Normal (1) ! Charging (48) ! [OK]
+210:0.0B.0 ! CTE0.B.BBU ! --     ! 15.8 ! Normal (1) ! Online (27)   ! [OK]
 ```
 
 `--lengthy` adds the manufacturing date, the owning controller and the number of discharge cycles, which is what an RMA case needs:
@@ -174,15 +171,12 @@ UUID       ! Location   ! Remain ! Volt ! Health ! Running
 Output:
 
 ```text
-There are warnings.
+Everything is ok.
 
-UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Volt ! Health ! Running  
------------+------------+------------+--------------+-------------+--------+------+--------+----------
-210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7           ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]
-210:0.0A.0 ! CTE0.A.BBU ! 2020-10-18 ! 0A           ! 1           ! --     ! 15.9 ! [OK]   ! [OK]     
-210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1           ! --     ! 15.8 ! [OK]   ! [OK]     
-210:0.0C.0 ! CTE0.C.BBU ! 2020-10-18 ! 0C           ! 1           ! --     ! 15.8 ! [OK]   ! [OK]     
-210:0.0D.0 ! CTE0.D.BBU ! 2020-10-18 ! 0D           ! 1           ! --     ! 16.0 ! [OK]   ! [OK]
+UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Volt ! Health     ! Running       ! State
+-----------+------------+------------+--------------+-------------+--------+------+------------+---------------+------
+210:0.0A.0 ! CTE0.A.BBU ! 2020-10-18 ! 0A           ! 3           ! 5Y 4M  ! 15.8 ! Normal (1) ! Charging (48) ! [OK]
+210:0.0B.0 ! CTE0.B.BBU ! 2020-10-18 ! 0B           ! 1           ! --     ! 15.8 ! Normal (1) ! Online (27)   ! [OK]
 ```
 
 

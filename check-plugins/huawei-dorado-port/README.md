@@ -188,12 +188,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID     ! Type     ! Location       ! Link           ! Health ! Link State
----------+----------+----------------+----------------+--------+-----------
-212:0A.0 ! FC       ! CTE0.A.IOM0.P0 ! Link up (10)   ! [OK]   ! [OK]
-212:0A.1 ! FC       ! CTE0.A.IOM0.P1 ! Link up (10)   ! [OK]   ! [OK]
-213:0A.2 ! Ethernet ! CTE0.A.IOM1.P0 ! Link up (10)   ! [OK]   ! [OK]
-213:0A.3 ! Ethernet ! CTE0.A.IOM1.P1 ! Link down (11) ! [OK]   ! [OK]
+UUID     ! Type     ! Location       ! Mbit/s ! Link           ! Health     ! State
+---------+----------+----------------+--------+----------------+------------+------
+212:0A.0 ! FC       ! CTE0.A.IOM0.P0 ! 32000  ! Link up (10)   ! Normal (1) ! [OK]
+212:0A.1 ! FC       ! CTE0.A.IOM0.P1 ! 32000  ! Link up (10)   ! Normal (1) ! [OK]
+213:0A.2 ! Ethernet ! CTE0.A.IOM1.P0 ! 25000  ! Link up (10)   ! Normal (1) ! [OK]
+213:0A.3 ! Ethernet ! CTE0.A.IOM1.P1 ! --     ! Link down (11) ! Normal (1) ! [OK]
 ```
 
 On an array where every front-end port is cabled, alert on a lost link, and look at the FC ports only:

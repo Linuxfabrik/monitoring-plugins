@@ -128,13 +128,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID            ! Location      ! Runlevel   ! Health ! Running 
-----------------+---------------+------------+--------+---------
-211:211.0.0.00  ! CTE0.A.FAN0   ! normal (1) ! [OK]   ! [OK]    
-211:211.0.0.01  ! CTE0.A.FAN1   ! normal (1) ! [OK]   ! [OK]    
-211:211.64.0.00 ! DAE000.A.FAN0 ! low (0)    ! [OK]   ! [OK]    
-211:211.64.0.01 ! DAE000.A.FAN1 ! low (0)    ! [OK]   ! [OK]    
-211:0.0B.0      ! CTE0.PSU 0    ! low (0)    ! [OK]   ! [OK]    
+UUID            ! Location      ! Runlevel   ! Health     ! Running     ! State
+----------------+---------------+------------+------------+-------------+------
+211:211.0.0.00  ! CTE0.A.FAN0   ! normal (1) ! Normal (1) ! Running (2) ! [OK]
+211:211.0.0.01  ! CTE0.A.FAN1   ! normal (1) ! Normal (1) ! Running (2) ! [OK]
+211:211.0.0.02  ! CTE0.A.FAN2   ! normal (1) ! Normal (1) ! Running (2) ! [OK]
+211:211.0.0.03  ! CTE0.A.FAN3   ! normal (1) ! Normal (1) ! Running (2) ! [OK]
 ```
 
 

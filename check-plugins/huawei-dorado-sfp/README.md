@@ -177,10 +177,9 @@ Output:
 ```text
 Everything is ok.
 
-Location       ! Sits In          ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link           ! Health ! Link State
----------------+------------------+--------+----------+----------+----------------+--------+-----------
-CTE0.A.IOM0.P0 ! interface module ! 32000  ! --       ! --       ! Link up (10)   ! [OK]   ! [OK]      
-CTE0.A.IOM0.P1 ! interface module ! 32000  ! --       ! --       ! Link down (11) ! [OK]   ! [OK]
+Location       ! Sits In          ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link         ! Health     ! State
+---------------+------------------+--------+----------+----------+--------------+------------+------
+CTE0.A.IOM0.P0 ! interface module ! 32000  ! 0.0      ! 3.01     ! Link up (10) ! Normal (1) ! [OK]
 ```
 
 `--lengthy` adds the vendor, the model and the fibre mode of every transceiver:
@@ -194,10 +193,9 @@ Output:
 ```text
 Everything is ok.
 
-Location       ! Sits In          ! Vendor ! Model      ! Mode        ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link           ! Health ! Link State
----------------+------------------+--------+------------+-------------+--------+----------+----------+----------------+--------+-----------
-CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! --       ! --       ! Link up (10)   ! [OK]   ! [OK]      
-CTE0.A.IOM0.P1 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! --       ! --       ! Link down (11) ! [OK]   ! [OK]
+Location       ! Sits In          ! Vendor ! Model      ! Mode        ! Mbit/s ! Rx (dBm) ! Tx (dBm) ! Link         ! Health     ! State
+---------------+------------------+--------+------------+-------------+--------+----------+----------+--------------+------------+------
+CTE0.A.IOM0.P0 ! interface module ! HUAWEI ! SFP-32G-FC ! single-mode ! 32000  ! 0.0      ! 3.01     ! Link up (10) ! Normal (1) ! [OK]
 ```
 
 Alert on a module that lost its link, and look at one vendor's modules only:

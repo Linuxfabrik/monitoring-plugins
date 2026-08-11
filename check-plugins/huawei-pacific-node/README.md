@@ -135,11 +135,16 @@ Output:
 ```text
 Everything is ok.
 
-Name  ! Running ! OAM Agent   ! Error Code ! Warranty                                  ! Running State ! OAM State ! Error State
-------+---------+-------------+------------+-------------------------------------------+---------------+-----------+------------
-FSM01 ! online  ! healthy (0) ! --         ! normal, more than six months (1)          ! [OK]          ! [OK]      ! [OK]       
-HN00  ! online  ! healthy (0) ! --         ! about to expire, less than six months (2) ! [OK]          ! [OK]      ! [OK]
+Name  ! Running ! OAM Agent   ! Warranty                                  ! State
+------+---------+-------------+-------------------------------------------+------
+FSM01 ! online  ! healthy (0) ! normal, more than six months (1)          ! [OK]
+HN00  ! online  ! healthy (0) ! about to expire, less than six months (2) ! [OK]
 ```
+
+The state in the last column is the worst of everything the check judges about that
+node. Which aspect decided it is readable from the columns in front of it. A column
+the appliance fills in for no node at all, such as the error code above, is left out
+rather than printed as a row of hyphens.
 
 `--lengthy` adds the management IP, the hardware model and the software version of every node:
 
@@ -152,10 +157,10 @@ Output:
 ```text
 Everything is ok.
 
-Name  ! Management IP ! Model             ! Base Board         ! Software Version ! Running ! OAM Agent   ! Error Code ! Warranty                                  ! Running State ! OAM State ! Error State
-------+---------------+-------------------+--------------------+------------------+---------+-------------+------------+-------------------------------------------+---------------+-----------+------------
-FSM01 ! 192.0.2.11    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! --         ! normal, more than six months (1)          ! [OK]          ! [OK]      ! [OK]       
-HN00  ! 192.0.2.12    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! --         ! about to expire, less than six months (2) ! [OK]          ! [OK]      ! [OK]
+Name  ! Management IP ! Model             ! Base Board         ! Software Version ! Running ! OAM Agent   ! Warranty                                  ! State
+------+---------------+-------------------+--------------------+------------------+---------+-------------+-------------------------------------------+------
+FSM01 ! 192.0.2.11    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! normal, more than six months (1)          ! [OK]
+HN00  ! 192.0.2.12    ! OceanStor Pacific ! Pacific (STL6SPCM) ! 8.2.0            ! online  ! healthy (0) ! about to expire, less than six months (2) ! [OK]
 ```
 
 

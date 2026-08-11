@@ -136,22 +136,12 @@ Output:
 ```text
 There are warnings.
 
-UUID  ! Location ! Name      ! OS         ! Health    ! Running 
-------+----------+-----------+------------+-----------+---------
-21:1  !          ! host1     ! Solaris    ! [OK]      ! [OK]    
-21:2  !          ! host2     ! Linux      ! [WARNING] ! [OK]    
-21:0  !          ! site01-01 ! VMware ESX ! [OK]      ! [OK]    
-21:1  !          ! site01-02 ! VMware ESX ! [OK]      ! [OK]    
-21:2  !          ! site01-03 ! VMware ESX ! [OK]      ! [OK]    
-21:3  !          ! site01-04 ! VMware ESX ! [OK]      ! [OK]    
-21:4  !          ! site01-05 ! VMware ESX ! [OK]      ! [OK]    
-21:5  !          ! site01-06 ! VMware ESX ! [OK]      ! [OK]    
-21:6  !          ! site02-01 ! VMware ESX ! [OK]      ! [OK]    
-21:7  !          ! site02-02 ! VMware ESX ! [OK]      ! [OK]    
-21:8  !          ! site02-03 ! VMware ESX ! [OK]      ! [OK]    
-21:9  !          ! site02-04 ! VMware ESX ! [OK]      ! [OK]    
-21:10 !          ! site02-05 ! VMware ESX ! [OK]      ! [OK]    
-21:11 !          ! site02-06 ! VMware ESX ! [OK]      ! [OK] 
+UUID  ! Name      ! OS         ! Allocated ! Health                               ! Running    ! State
+------+-----------+------------+-----------+--------------------------------------+------------+----------
+21:1  ! host1     ! Solaris    ! 535.7MiB  ! Normal (1)                           ! Normal (1) ! [OK]
+21:2  ! host2     ! Linux      ! 535.7MiB  ! Single link / No redundant link (17) ! Normal (1) ! [WARNING]
+21:0  ! site01-01 ! VMware ESX ! 25.5TiB   ! Normal (1)                           ! Normal (1) ! [OK]
+21:1  ! site01-02 ! VMware ESX ! 25.5TiB   ! Normal (1)                           ! Normal (1) ! [OK]
 ```
 
 

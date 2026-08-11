@@ -132,16 +132,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID       ! Location     ! Model                                 ! RunMode  ! LED ! Health ! Running 
------------+--------------+---------------------------------------+----------+-----+--------+---------
-209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC       ! Off ! [OK]   ! [OK]    
-209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]    
-209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]    
-209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     ! Off ! [OK]   ! [OK]    
-209:0.135  ! CTE0.IOM.H7  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     ! Off ! [OK]   ! [OK]    
-209:0.64   ! CTE0.SMM0    ! System Management Module              ! Unknown  ! Off ! [OK]   ! [OK]    
-209:0.65   ! CTE0.SMM1    ! System Management Module              ! Unknown  ! Off ! [OK]   ! [OK]    
-209:0A.130 ! CTE0.IOM.H2  ! AI Accelerator Card                   ! Unknown  ! Off ! [OK]   ! [OK]    
+UUID       ! Location     ! Model                                 ! RunMode   ! LED ! Health     ! Running     ! State
+-----------+--------------+---------------------------------------+-----------+-----+------------+-------------+------
+209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC        ! Off ! Normal (1) ! Running (2) ! [OK]
+209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK]
+209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK]
+209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RDMA/RoCE ! Off ! Normal (1) ! Running (2) ! [OK]
 ```
 
 

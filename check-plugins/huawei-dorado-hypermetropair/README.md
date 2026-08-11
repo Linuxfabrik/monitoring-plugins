@@ -142,11 +142,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID                                   ! Last Sync                       ! Progr (%) ! LocalJob  ! RemoteJob ! Link          ! Health ! Running
----------------------------------------+---------------------------------+-----------+-----------+-----------+---------------+--------+--------
-15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47 (3M 6D ago) ! 100       ! LUN01-BLH ! LUN01-COL ! Connected (1) ! [OK]   ! [OK]   
-15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50 (3M 6D ago) ! 100       ! LUN02-BLH ! LUN02-COL ! Connected (1) ! [OK]   ! [OK]   
-15361:2100f4b78d046ec60000000000000002 ! 2021-08-18 10:38:29 (3M 6D ago) ! 100       ! LUN03-BLH ! LUN03-COL ! Connected (1) ! [OK]   ! [OK]
+UUID                                   ! Last Sync                        ! Progr (%) ! LocalJob  ! RemoteJob ! Link          ! Health     ! Running    ! State
+---------------------------------------+----------------------------------+-----------+-----------+-----------+---------------+------------+------------+------
+15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47 (4Y 11M ago) ! 100       ! LUN01-BLH ! LUN01-COL ! Connected (1) ! Normal (1) ! Normal (1) ! [OK]
+15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50 (4Y 11M ago) ! 100       ! LUN02-BLH ! LUN02-COL ! Connected (1) ! Normal (1) ! Normal (1) ! [OK]
+15361:2100f4b78d046ec60000000000000002 ! 2021-08-18 10:38:29 (4Y 11M ago) ! 100       ! LUN03-BLH ! LUN03-COL ! Connected (1) ! Normal (1) ! Normal (1) ! [OK]
+15361:2100f4b78d046ec60000000000000003 ! 2021-08-18 10:39:03 (4Y 11M ago) ! 100       ! LUN04-BLH ! LUN04-COL ! Connected (1) ! Normal (1) ! Normal (1) ! [OK]
 ```
 
 `--lengthy` adds how long the last synchronisation ran, the host access state of both sides and whether their data is consistent:
@@ -160,11 +161,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID                                   ! Last Sync                       ! Duration ! Progr (%) ! LocalJob  ! Access     ! RemoteJob ! Access     ! Link          ! Local Data     ! Remote Data    ! Health ! Running
----------------------------------------+---------------------------------+----------+-----------+-----------+------------+-----------+------------+---------------+----------------+----------------+--------+--------
-15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47 (3M 6D ago) ! 2m 1s    ! 100       ! LUN01-BLH ! Read/write ! LUN01-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! [OK]   ! [OK]   
-15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50 (3M 6D ago) ! 2m 3s    ! 100       ! LUN02-BLH ! Read/write ! LUN02-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! [OK]   ! [OK]   
-15361:2100f4b78d046ec60000000000000002 ! 2021-08-18 10:38:29 (3M 6D ago) ! 42s      ! 100       ! LUN03-BLH ! Read/write ! LUN03-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! [OK]   ! [OK]
+UUID                                   ! Last Sync                        ! Duration ! Progr (%) ! LocalJob  ! Access     ! RemoteJob ! Access     ! Link          ! Local Data     ! Remote Data    ! Health     ! Running    ! State
+---------------------------------------+----------------------------------+----------+-----------+-----------+------------+-----------+------------+---------------+----------------+----------------+------------+------------+------
+15361:2100f4b78d046ec60000000000000000 ! 2021-08-18 10:39:47 (4Y 11M ago) ! 2m 1s    ! 100       ! LUN01-BLH ! Read/write ! LUN01-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! Normal (1) ! Normal (1) ! [OK]
+15361:2100f4b78d046ec60000000000000001 ! 2021-08-18 10:39:50 (4Y 11M ago) ! 2m 3s    ! 100       ! LUN02-BLH ! Read/write ! LUN02-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! Normal (1) ! Normal (1) ! [OK]
+15361:2100f4b78d046ec60000000000000002 ! 2021-08-18 10:38:29 (4Y 11M ago) ! 42s      ! 100       ! LUN03-BLH ! Read/write ! LUN03-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! Normal (1) ! Normal (1) ! [OK]
+15361:2100f4b78d046ec60000000000000003 ! 2021-08-18 10:39:03 (4Y 11M ago) ! 1m 16s   ! 100       ! LUN04-BLH ! Read/write ! LUN04-COL ! Read/write ! Connected (1) ! Consistent (1) ! Consistent (1) ! Normal (1) ! Normal (1) ! [OK]
 ```
 
 

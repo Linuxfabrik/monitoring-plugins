@@ -133,10 +133,10 @@ Output:
 ```text
 Everything is ok.
 
-UUID  ! Location ! Model       ! Health ! Running
-------+----------+-------------+--------+--------
-208:0 ! DAE000.A ! EXP-12G-SAS ! [OK]   ! [OK]
-208:1 ! DAE000.B ! EXP-12G-SAS ! [OK]   ! [OK]
+UUID  ! Location ! Model       ! Health     ! Running     ! State
+------+----------+-------------+------------+-------------+------
+208:0 ! DAE000.A ! EXP-12G-SAS ! Normal (1) ! Online (27) ! [OK]
+208:1 ! DAE000.B ! EXP-12G-SAS ! Normal (1) ! Online (27) ! [OK]
 ```
 
 

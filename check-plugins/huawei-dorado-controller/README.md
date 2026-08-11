@@ -161,13 +161,12 @@ Output:
 ```text
 There are critical errors.
 
-UUID   ! Location ! Master ! CPU (%) ! Mem (%) ! Temp ! Health     ! Running
--------+----------+--------+---------+---------+------+------------+--------
-207:0A ! CTE0.A   ! -      ! 3       ! 75      ! --   ! [CRITICAL] ! [OK]   
-207:0E ! CTE0.E   ! -      ! 33      ! 87      ! --   ! [OK]       ! [OK]   
-207:0B ! CTE0.B   ! x      ! 17      ! 87      ! --   ! [OK]       ! [OK]   
-207:0C ! CTE0.C   ! -      ! 33      ! 86      ! --   ! [OK]       ! [OK]   
-207:0D ! CTE0.D   ! -      ! 32      ! 92      ! --   ! [OK]       ! [OK]
+UUID   ! Location ! Master ! CPU (%) ! Mem (%) ! Health     ! Running     ! State
+-------+----------+--------+---------+---------+------------+-------------+-----------
+207:0A ! CTE0.A   ! -      ! 3       ! 75      ! Faulty (2) ! Online (27) ! [CRITICAL]
+207:0E ! CTE0.E   ! -      ! 33      ! 87      ! Normal (1) ! Online (27) ! [OK]
+207:0B ! CTE0.B   ! x      ! 17      ! 87      ! Normal (1) ! Online (27) ! [OK]
+207:0C ! CTE0.C   ! -      ! 33      ! 86      ! Normal (1) ! Online (27) ! [OK]
 ```
 
 `--lengthy` adds the board model, its role in the pair and the board voltage:
@@ -181,13 +180,12 @@ Output:
 ```text
 There are critical errors.
 
-UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Temp ! Health     ! Running
--------+----------+--------------------+-----------+--------+---------+---------+------+------+------------+--------
-207:0A ! CTE0.A   ! Unknown            ! Primary   ! -      ! 3       ! 75      ! 12.0 ! --   ! [CRITICAL] ! [OK]   
-207:0E ! CTE0.E   ! 4U4C control board ! Secondary ! -      ! 33      ! 87      ! 12.0 ! --   ! [OK]       ! [OK]   
-207:0B ! CTE0.B   ! 4U4C control board ! Primary   ! x      ! 17      ! 87      ! 12.0 ! --   ! [OK]       ! [OK]   
-207:0C ! CTE0.C   ! 4U4C control board ! Secondary ! -      ! 33      ! 86      ! 12.0 ! --   ! [OK]       ! [OK]   
-207:0D ! CTE0.D   ! 4U4C control board ! Secondary ! -      ! 32      ! 92      ! 12.0 ! --   ! [OK]       ! [OK]
+UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) ! Mem (%) ! Volt ! Health     ! Running     ! State
+-------+----------+--------------------+-----------+--------+---------+---------+------+------------+-------------+-----------
+207:0A ! CTE0.A   ! Unknown            ! Primary   ! -      ! 3       ! 75      ! 12.0 ! Faulty (2) ! Online (27) ! [CRITICAL]
+207:0E ! CTE0.E   ! 4U4C control board ! Secondary ! -      ! 33      ! 87      ! 12.0 ! Normal (1) ! Online (27) ! [OK]
+207:0B ! CTE0.B   ! 4U4C control board ! Primary   ! x      ! 17      ! 87      ! 12.0 ! Normal (1) ! Online (27) ! [OK]
+207:0C ! CTE0.C   ! 4U4C control board ! Secondary ! -      ! 33      ! 86      ! 12.0 ! Normal (1) ! Online (27) ! [OK]
 ```
 
 

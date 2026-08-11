@@ -181,10 +181,10 @@ Output:
 ```text
 Everything is ok. Checked 2 LUNs.
 
-UUID ! Name   ! Pool           ! Allocated ! Capacity ! Usage ! Health ! Running
------+--------+----------------+-----------+----------+-------+--------+--------
-11:0 ! LUN001 ! StoragePool001 ! 30.0GiB   ! 100.0GiB ! 30%   ! [OK]   ! [OK]
-11:1 ! LUN002 ! StoragePool001 ! 10.0GiB   ! 100.0GiB ! 10%   ! [OK]   ! [OK]
+UUID ! Name   ! Pool           ! Allocated ! Capacity ! Usage ! Health     ! Running     ! State
+-----+--------+----------------+-----------+----------+-------+------------+-------------+------
+11:0 ! LUN001 ! StoragePool001 ! 30.0GiB   ! 100.0GiB ! 30%   ! Normal (1) ! Online (27) ! [OK]
+11:1 ! LUN002 ! StoragePool001 ! 10.0GiB   ! 100.0GiB ! 10%   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 On an array with many LUNs, list only the ones that alert, and watch how full the thin LUNs get:

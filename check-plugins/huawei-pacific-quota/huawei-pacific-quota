@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081101'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -598,7 +598,9 @@ def main():
         keys = ['share', 'used', 'quota', 'used_percent', 'state']
         headers = ['Share', 'Used', 'Quota', 'Use%', 'State']
     if display_rows:
-        msg += '\n\n' + lib.base.get_table(display_rows, keys, header=headers)
+        msg += '\n\n' + lib.base.get_table(
+            display_rows, keys, header=headers, hide_empty=True
+        )
 
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_pacific.format_responses()

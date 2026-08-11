@@ -147,13 +147,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID   ! Location ! Name   ! Temp ! Health ! Running
--------+----------+--------+------+--------+--------
-206:0  ! 0.1      ! CTE0   ! 30   ! [OK]   ! [OK]   
-206:0  ! --       ! CTE0   ! 22   ! [OK]   ! [OK]   
-206:64 ! --       ! DAE000 ! 27   ! [OK]   ! [OK]   
-206:65 ! --       ! DAE010 ! 27   ! [OK]   ! [OK]   
-206:66 ! --       ! DAE020 ! 28   ! [OK]   ! [OK]
+UUID   ! Location ! Name   ! Temp ! Health     ! Running     ! State
+-------+----------+--------+------+------------+-------------+------
+206:0  ! 0.1      ! CTE0   ! 30   ! Normal (1) ! Online (27) ! [OK]
+206:0  ! --       ! CTE0   ! 22   ! Normal (1) ! Online (27) ! [OK]
+206:64 ! --       ! DAE000 ! 27   ! Normal (1) ! Online (27) ! [OK]
+206:65 ! --       ! DAE010 ! 27   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 `--lengthy` adds the enclosure model, its serial number, its role in the array and the MAC address of its management port:
@@ -167,13 +166,12 @@ Output:
 ```text
 Everything is ok.
 
-UUID   ! Location ! Name   ! Model                                 ! SerialNumber         ! Logic                                ! MacAddress        ! Switch ! Temp ! Health ! Running
--------+----------+--------+---------------------------------------+----------------------+--------------------------------------+-------------------+--------+------+--------+--------
-206:0  ! 0.1      ! CTE0   ! Unknown                               ! 210235843910E6000009 ! Controller Enclosure                 ! 30:d1:7e:b4:f7:61 ! Off    ! 30   ! [OK]   ! [OK]   
-206:0  ! --       ! CTE0   ! 4 U 4-controller controller enclosure ! 0815                 ! Controller Enclosure                 ! f4:b7:8d:f4:fe:ff ! Off    ! 22   ! [OK]   ! [OK]   
-206:64 ! --       ! DAE000 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:ff:ff:ab:0f:f3 ! Off    ! 27   ! [OK]   ! [OK]   
-206:65 ! --       ! DAE010 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:ff:ff:7a:1f:5d ! Off    ! 27   ! [OK]   ! [OK]   
-206:66 ! --       ! DAE020 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:ff:ff:ab:f4:a5 ! Off    ! 28   ! [OK]   ! [OK]
+UUID   ! Location ! Name   ! Model                                 ! SerialNumber         ! Logic                                ! MacAddress        ! Switch ! Temp ! Health     ! Running     ! State
+-------+----------+--------+---------------------------------------+----------------------+--------------------------------------+-------------------+--------+------+------------+-------------+------
+206:0  ! 0.1      ! CTE0   ! Unknown                               ! 210235843910E6000009 ! Controller Enclosure                 ! 30:d1:7e:b4:f7:61 ! Off    ! 30   ! Normal (1) ! Online (27) ! [OK]
+206:0  ! --       ! CTE0   ! 4 U 4-controller controller enclosure ! 0815                 ! Controller Enclosure                 ! f4:b7:8d:f4:fe:ff ! Off    ! 22   ! Normal (1) ! Online (27) ! [OK]
+206:64 ! --       ! DAE000 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:ff:ff:ab:0f:f3 ! Off    ! 27   ! Normal (1) ! Online (27) ! [OK]
+206:65 ! --       ! DAE010 ! 2 U 36-slot smart NVMe disk enclosure ! 4711                 ! Expansion Enclosure (Disk Enclosure) ! f4:ff:ff:7a:1f:5d ! Off    ! 27   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 

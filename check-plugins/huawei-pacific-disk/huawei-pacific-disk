@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081101'
+__version__ = '2026081102'
 
 DESCRIPTION = """Checks every disk of a Huawei OceanStor Pacific storage system via the REST API
 (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo endpoints). Alerts when a disk is
@@ -475,6 +475,7 @@ def main():
             ['name', 'media', 'status', 'state'],
             header=['Pool', 'Media', 'Status', 'State'],
             missing='--',
+            hide_empty=True,
         )
         msg += '\n'
 
@@ -526,7 +527,9 @@ def main():
                 'Status',
                 'State',
             ]
-        msg += lib.base.get_table(display_rows, keys, header=headers, missing='--')
+        msg += lib.base.get_table(
+            display_rows, keys, header=headers, missing='--', hide_empty=True
+        )
     elif not table_data:
         # `--brief` on a healthy cluster leaves nothing to print, and that is the point
         # of the switch. Only say something when the appliance really listed no disk.

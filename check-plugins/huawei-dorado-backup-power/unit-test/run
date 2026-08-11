@@ -38,12 +38,12 @@ TESTS = [
         'assert-in': [
             'There are warnings.',
             'UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain '
-            '! Volt ! Health ! Running  ',
+            '! Volt ! Health     ! Running          ! State',
             '-----------+------------+------------+--------------+-------------+--------'
-            '+------+--------+----------',
+            '+------+------------+------------------+----------',
             # The voltage is documented as tenths of a volt, so 161 reads as 16.1.
             '210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7           ! 5Y 4M  '
-            '! 16.1 ! [OK]   ! [WARNING]',
+            '! 16.1 ! Normal (1) ! Discharging (50) ! [WARNING]',
         ],
     },
     {
@@ -54,8 +54,8 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'UUID       ! Location   ! Remain ! Volt ! Health ! Running  ',
-            '210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! [OK]   ! [WARNING]',
+            'UUID       ! Location   ! Remain ! Volt ! Health     ! Running          ! State',
+            '210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! Normal (1) ! Discharging (50) ! [WARNING]',
         ],
         'assert-not-in': ['ControllerID', '#Discharged'],
     },

@@ -27,13 +27,13 @@ TESTS = [
         'assert-in': [
             'There are critical errors.',
             'UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) '
-            '! Mem (%) ! Volt ! Temp ! Health     ! Running',
+            '! Mem (%) ! Volt ! Health     ! Running',
             '-------+----------+--------------------+-----------+--------+---------+'
-            '---------+------+------+------------+--------',
-            # The board voltage reads as tenths of a volt, and a board without a
-            # temperature sensor prints the appliance's own placeholder.
+            '---------+------+------------+--------',
+            # The board voltage reads as tenths of a volt. No board in this listing
+            # has a temperature sensor, so that column is left out entirely.
             '207:0A ! CTE0.A   ! Unknown            ! Primary   ! -      ! 3       '
-            '! 75      ! 12.0 ! --   ! [CRITICAL] ! [OK]   ',
+            '! 75      ! 12.0 ! Faulty (2) ! Online (27) ! [CRITICAL]',
         ],
     },
     {
@@ -44,8 +44,8 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'UUID   ! Location ! Master ! CPU (%) ! Mem (%) ! Temp ! Health     ! Running',
-            '207:0A ! CTE0.A   ! -      ! 3       ! 75      ! --   ! [CRITICAL] ! [OK]   ',
+            'UUID   ! Location ! Master ! CPU (%) ! Mem (%) ! Health     ! Running',
+            '207:0A ! CTE0.A   ! -      ! 3       ! 75      ! Faulty (2) ! Online (27) ! [CRITICAL]',
         ],
         'assert-not-in': ['Volt'],
     },
@@ -69,7 +69,7 @@ TESTS = [
         'params': '--password=linuxfabrik --url=https://localhost --username=admin '
         '--lengthy',
         'assert-retc': STATE_OK,
-        'assert-in': ['207:0E ! CTE0.E   ! Unknown ! Unknown ! -      ! --      ! --'],
+        'assert-in': ['207:0E ! CTE0.E   ! Unknown ! Unknown ! Normal (1) ! Online (27) ! [OK]'],
         'assert-not-in': ['Unknown column'],
     },
     {
