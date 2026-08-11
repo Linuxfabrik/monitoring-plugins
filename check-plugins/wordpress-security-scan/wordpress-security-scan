@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081008'
+__version__ = '2026081101'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -217,6 +217,12 @@ INFO_FINDING_TYPES = (
 # through from the vulnerability metadata unchanged and falls back to the literal
 # `Unknown` for a release the metadata does not list. Anything but `latest` means the
 # installed core is behind; `insecure` additionally means the database flags it.
+#
+# Matched by prefix rather than as whole words, because the metadata qualifies a state
+# with a suffix where it has one to add - `outdated-via-api` occurs today, and the
+# scanner's own output rewrites the separator instead of assuming there is none. A
+# qualified state carries the same meaning as its plain form, so an outdated core has to
+# be reported as outdated whichever of the two the database happens to spell.
 CORE_STATUS_INSECURE = ('insecure',)
 CORE_STATUS_OUTDATED = ('outdated',)
 
@@ -559,6 +565,7 @@ def parse_args():
         '--wpscan-throttle',
         help='Milliseconds to wait between requests, to keep the scan from overwhelming '
         'the target or tripping a rate limit. '
+        'Has to be greater than zero. '
         'Setting it makes the scanner use a single thread instead of five, so the scan '
         'takes considerably longer; raise --scan-timeout with it. '
         'Not throttled when unset. '
@@ -644,11 +651,16 @@ def get_redirect_target(aborted):
     """Return the address the scanner says the target redirects to, or the empty string
     when its message is about something else.
 
-    The scanner refuses to follow the redirect itself even when asked to: its scope check
-    calls a method that current releases of its own public_suffix dependency no longer
-    provide, and the resulting error is swallowed and read as "out of scope". It does
-    name the destination in the message, though, which is enough to run the scan against
-    it directly.
+    The scanner refuses to follow the redirect itself even when asked to. Its scope check
+    splits the destination into its parts and trips over a host that has no subdomain, so
+    a redirect from `www.example.com` to `example.com` raises inside that check, the error
+    is swallowed and the destination is read as "out of scope". It does name the
+    destination in the message, though, which is enough to run the scan against it
+    directly.
+
+    Only that direction is affected. A plain HTTP address redirecting to HTTPS on the
+    same host never reaches the scope check at all, because the scanner handles a change
+    of scheme before it gets there.
     """
     match = re.search(
         rf'{re.escape(REDIRECT_MARKER)}(https?://[^\s]+?)\.?(?:\s|$)', aborted
@@ -677,12 +689,31 @@ def normalize_url(url):
 
     Starting on HTTPS also saves the redirect that a plain HTTP address answers with on
     any site worth scanning, and a redirect is where the scanner is fragile: its scope
-    check silently fails against current releases of its own public_suffix dependency,
-    so --follow-redirect does not help there either.
+    check silently fails on a destination without a subdomain, so --follow-redirect does
+    not help there either.
     """
     if not url or '://' in url:
         return url
     return f'https://{url}'
+
+
+def get_enterprise_db_options(args):
+    """Return the raw options that configure a locally held copy of the vulnerability
+    database, in the order they were given.
+
+    The scanner reads that token twice, once to download the dumps and once to use them,
+    and it has to see the same value both times or the download never happens. Passing it
+    through the environment covers that on its own; passing it as a raw option does not,
+    which is why the refresh has to be given the same options back.
+    """
+    options = []
+    for index, option in enumerate(args.WPSCAN_OPTION):
+        if option.startswith(f'{ENTERPRISE_TOKEN_OPTION}='):
+            options.append(option)
+        elif option == ENTERPRISE_TOKEN_OPTION:
+            # spelled with the value in the next element, the way argparse also accepts it
+            options += args.WPSCAN_OPTION[index : index + 2]
+    return options
 
 
 def has_enterprise_db(args):
@@ -693,11 +724,7 @@ def has_enterprise_db(args):
     """
     if os.environ.get(ENTERPRISE_TOKEN_ENV, '').strip():
         return True
-    return any(
-        option == ENTERPRISE_TOKEN_OPTION
-        or option.startswith(f'{ENTERPRISE_TOKEN_OPTION}=')
-        for option in args.WPSCAN_OPTION
-    )
+    return bool(get_enterprise_db_options(args))
 
 
 def get_wpscan_version():
@@ -830,7 +857,7 @@ def get_scan_budget(args, spent=0):
     return max(1, args.SCAN_TIMEOUT - spent - SCAN_TIMEOUT_HEADROOM)
 
 
-def refresh_vulndb(timeout):
+def refresh_vulndb(args, timeout):
     """Refresh the local copy of the vulnerability database. Returns (success, note),
     where `note` explains a failure.
 
@@ -839,8 +866,19 @@ def refresh_vulndb(timeout):
     its prompt (`Controller::Core#update_db_required?`), so a run reading JSON never
     refreshes; and a refresh it does perform counts against its own `--max-scan-duration`,
     which would spend the site's time budget on a download.
+
+    The option that names a locally held copy of the vulnerability database is passed on,
+    because the scanner decides from it whether to download that copy at all. Without it
+    here, nothing is downloaded and the scan then fails over a database it was told to
+    use and never got.
     """
-    cmd = ['wpscan', '--update', '--format=json', '--no-banner']
+    cmd = [
+        'wpscan',
+        '--update',
+        '--format=json',
+        '--no-banner',
+        *get_enterprise_db_options(args),
+    ]
     success, result = lib.shell.shell_exec(cmd, timeout=timeout)
     if not success:
         return (False, result)
@@ -1060,7 +1098,7 @@ def collect_core_findings(data, args, installed_core, core_version):
     # vulnerability could be looked up: without an API token, or with the matching
     # entries excluded. There is then no score to grade the finding by, so it is treated
     # like any other unscored entry.
-    if status in CORE_STATUS_INSECURE and not version.get('vulnerabilities'):
+    if status.startswith(CORE_STATUS_INSECURE) and not version.get('vulnerabilities'):
         findings.append(
             finding(
                 'WordPress',
@@ -1071,7 +1109,7 @@ def collect_core_findings(data, args, installed_core, core_version):
                 installed=core_version,
             )
         )
-    elif status in CORE_STATUS_OUTDATED:
+    elif status.startswith(CORE_STATUS_OUTDATED):
         findings.append(
             finding(
                 'WordPress',
@@ -1256,6 +1294,12 @@ def main():
     if args.WPSCAN_OPTION is None:  # case 1: default to empty list
         args.WPSCAN_OPTION = []
 
+    # The scanner rejects a throttle of zero or less on its own command line, which costs
+    # a scan that runs for minutes before it ever starts. Said here instead, in words that
+    # name the parameter this check offers.
+    if args.WPSCAN_THROTTLE is not None and args.WPSCAN_THROTTLE < 1:
+        lib.base.cu('--wpscan-throttle has to be greater than zero.')
+
     # Compile the user-supplied regex patterns ahead of everything else, so an invalid
     # expression fails within a second instead of after a scan that runs for half an
     # hour. Case-sensitive by default, matching the lib.args convention; opt into
@@ -1337,7 +1381,7 @@ def main():
         if not args.WPSCAN_NO_UPDATE:
             lib.base.verbose(args.VERBOSE, 'Refreshing the vulnerability database...')
             refreshed, vulndb_note = refresh_vulndb(
-                min(VULNDB_UPDATE_TIMEOUT, args.SCAN_TIMEOUT)
+                args, min(VULNDB_UPDATE_TIMEOUT, args.SCAN_TIMEOUT)
             )
             if refreshed:
                 vulndb_note = ''

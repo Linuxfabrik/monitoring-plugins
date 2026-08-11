@@ -11,6 +11,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
 * A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 1800 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
 * Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. A free token with a small daily request quota is available at <https://wpscan.com/register>.
+* A WPScan enterprise subscription replaces the API token with a locally held copy of the vulnerability database, which has no daily quota. Configure it either through the `WPSCAN_ENTERPRISE_DB_TOKEN` environment variable or with `--wpscan-option=--enterprise-db-token=<token>`; the check recognizes both and then keeps the vulnerable-plugins and vulnerable-themes enumeration even though no API token is set. Do not combine it with `--api-token`, which the scanner refuses.
 * The token is looked up in three places, in this order: `--api-token-file` (first line of the file), `--api-token`, and an already exported `WPSCAN_API_TOKEN` environment variable. Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`: a token passed as `--api-token` is visible to every user on the scanning host for as long as the check runs, because command-line arguments show up in the process list, and it additionally sits in the monitoring configuration and in the Director basket. Whichever way it is supplied, the check hands it on to `wpscan` through the environment, so it never reaches the scanner's own command line. The same order applies to `--wpscan-http-auth-file` and `--wpscan-http-auth`.
 * Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
 * The time limit is `--scan-timeout`, not the `--timeout` the other checks use. It bounds the whole scan, which runs for minutes, rather than a single network read of a few seconds, and the two would be read as the same thing under one name.
@@ -330,10 +331,11 @@ options:
   --wpscan-throttle WPSCAN_THROTTLE
                         Milliseconds to wait between requests, to keep the
                         scan from overwhelming the target or tripping a rate
-                        limit. Setting it makes the scanner use a single
-                        thread instead of five, so the scan takes considerably
-                        longer; raise --scan-timeout with it. Not throttled
-                        when unset. Example: `--wpscan-throttle=200`.
+                        limit. Has to be greater than zero. Setting it makes
+                        the scanner use a single thread instead of five, so
+                        the scan takes considerably longer; raise --scan-
+                        timeout with it. Not throttled when unset. Example:
+                        `--wpscan-throttle=200`.
   --wpscan-user-agent WPSCAN_USER_AGENT
                         How the scan identifies itself to the target. The
                         default names the monitoring rather than the scanner,
@@ -462,7 +464,7 @@ Findings fall into three classes, and the worst of them determines the result:
 | Class | What it is | State |
 |----|----|----|
 | Vulnerability | A known vulnerability from the WPScan vulnerability database, attached to the core, a plugin, a theme or a timthumb script. | CRIT if its CVSS v3 base score is >= `--critical-cvss` (default 7.0), otherwise WARN. An entry without a score follows `--unscored-severity` (default `warn`). |
-| Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, a backup folder, a debug log, a `SearchReplaceDB2` or Duplicator installer left behind, an emergency password reset script, or a site still sitting on its installer. | CRIT, except for a backup folder the scanner could not read any entry out of, which is WARN. |
+| Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, an SQL dump in the upload directory, a backup directory or a backup folder with a listing, a debug log, a `SearchReplaceDB2`, Duplicator or ThemeMakers migration file left behind, an emergency password reset script, or a site still sitting on its installer. | CRIT, except for a backup folder the scanner could not read any entry out of, which is WARN. |
 | Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, an enabled external WP-Cron, upload directory listing, full path disclosure, enumerable usernames, a reachable timthumb script, and any finding type the scanner reports that is not listed above. | WARN. |
 
 `--critical-cvss` takes a plain score rather than a Nagios range, unlike the `--warning` and `--critical` thresholds of the other checks. CVSS is a published scale with fixed severity bands, so the only thing worth configuring is where CRITICAL starts.
@@ -470,7 +472,7 @@ Findings fall into three classes, and the worst of them determines the result:
 In detail:
 
 * OK if nothing in any of the three classes was found.
-* OK for findings that only describe how the site is set up rather than a weakness, which are never reported: HTTP headers, a multisite install, must-use plugins, a disabled PHP, `robots.txt` and an enabled XML-RPC endpoint. All six are WordPress defaults or deliberate choices, so alerting on them would leave the check permanently non-OK on every installation.
+* OK for findings that only describe how the site is set up rather than a weakness, which are never reported: HTTP headers, a multisite install, must-use plugins, a disabled PHP, open user registration, `robots.txt` and an enabled XML-RPC endpoint. All seven are WordPress defaults or deliberate choices - open registration is what a shop or a membership site is for - so alerting on them would leave the check permanently non-OK on the installations that want them.
 * OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` changes that state. Such a run still emits every metric and still reports a scan that could not consult the vulnerability database, so `--no-vuln-data-severity` keeps working and a dashboard shows a zero rather than a gap.
 * WARN if the core version the scan sees differs from the one installed below `--path`. That means the scan did not look at this installation: a wrong virtual host, a stale cache, or a CDN in between.
 * WARN when the scan does not finish in time. The output then names how many requests it managed and how long they took, which distinguishes too small a budget from a target that answers slowly.

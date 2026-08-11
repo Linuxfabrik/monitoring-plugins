@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, '..')
 
+import argparse
 import importlib.machinery
 import importlib.util
 import os
@@ -202,6 +203,16 @@ TESTS = [
     {
         'id': 'warn-core-outdated',
         'test': 'stdout/core-outdated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['core version is outdated', "'hardening_findings'=1"],
+    },
+    # The vulnerability database qualifies the state with a suffix where it has one to
+    # add. That says how it knows, not something different, so the core still has to be
+    # reported as outdated rather than falling through unreported.
+    {
+        'id': 'warn-core-outdated-qualified-status',
+        'test': 'stdout/core-outdated-qualified-status,,0',
         'params': BASE_PARAMS,
         'assert-retc': STATE_WARN,
         'assert-in': ['core version is outdated', "'hardening_findings'=1"],
@@ -790,6 +801,16 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
     },
+    # The scanner rejects a throttle of zero or less on its own command line, which would
+    # cost a scan that runs for minutes before it ever starts. Rejected here instead, in
+    # words that name the parameter this check offers.
+    {
+        'id': 'unknown-throttle-not-positive',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --wpscan-throttle=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--wpscan-throttle has to be greater than zero.'],
+    },
     # An API token keeps the vulnerable-plugins and vulnerable-themes choices too.
     {
         'id': 'ok-api-token-keeps-enumeration',
@@ -1027,6 +1048,44 @@ class TestTokenEnvironment(unittest.TestCase):
         args.WPSCAN_OPTION = []
         self.assertNotIn(
             'linuxfabrik', ' '.join(self.check.build_wpscan_command(args, 'u'))
+        )
+
+
+class TestEnterpriseDbToken(unittest.TestCase):
+    """A locally held copy of the vulnerability database is downloaded by the refresh
+    call and used by the scan, and the scanner decides both times from the same option.
+    Given it only for the scan, it downloads nothing and the scan then fails over a
+    database it was told to use and never got. The refresh only runs on a real scan, so
+    the fixture-driven tests above cannot reach it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def _refresh_command(self, options):
+        args = argparse.Namespace(WPSCAN_OPTION=options)
+        with mock.patch.object(
+            self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
+        ) as fake:
+            self.check.refresh_vulndb(args, 60)
+        return fake.call_args.args[0]
+
+    def test_the_token_reaches_the_refresh(self):
+        self.assertIn(
+            '--enterprise-db-token=linuxfabrik',
+            self._refresh_command(['--enterprise-db-token=linuxfabrik']),
+        )
+
+    def test_the_token_reaches_the_refresh_when_spelled_with_a_space(self):
+        cmd = self._refresh_command(['--enterprise-db-token', 'linuxfabrik'])
+        self.assertEqual(cmd[-2:], ['--enterprise-db-token', 'linuxfabrik'])
+
+    def test_an_unrelated_option_stays_out_of_the_refresh(self):
+        # The refresh has no target, so a scan option would only make it fail.
+        self.assertNotIn(
+            '--plugins-detection=aggressive',
+            self._refresh_command(['--plugins-detection=aggressive']),
         )
 
 
