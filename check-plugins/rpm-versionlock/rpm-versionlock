@@ -30,7 +30,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081004'
+__version__ = '2026081101'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -43,6 +43,7 @@ packages excluded in the package manager configuration via --check-excludes. Sup
 extended reporting via --lengthy."""
 
 DEFAULT_CRIT = None
+DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_WARN = '0'
 
@@ -68,7 +69,10 @@ REPO_DIRS = (
 DNF5_COMPARATORS = ('!=', '<', '<=', '=', '>', '>=')
 DNF5_KEYS = ('arch', 'epoch', 'evr')
 
-# A configuration file that grew beyond this is not a lock configuration anymore.
+# A configuration file that grew beyond this is not a lock configuration anymore. Such a
+# file is skipped whole rather than read up to the cap: a prefix of a lock list is a lock
+# list with entries missing and a last line cut in half, and reporting that as the locks
+# that are in place would be worse than saying nothing about the file.
 MAX_CONFIG_BYTES = 1024 * 1024
 
 # Section name that stands in for the one Python would otherwise treat as a template for
@@ -154,7 +158,7 @@ def parse_args():
         help=lib.args.help('--lengthy'),
         dest='LENGTHY',
         action='store_true',
-        default=False,
+        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -238,11 +242,16 @@ def read_config_file(filename):
 
     An unreadable configuration file is reported as "no entries" rather than as an
     error: the check is about the locks that are in place, and a file the monitoring
-    user cannot read holds none it could report.
+    user cannot read holds none it could report. A file above MAX_CONFIG_BYTES is
+    treated the same way, and its size is checked before it is opened rather than
+    capping the read, so no half-read line reaches the parser.
     """
     if not lib.disk.file_exists(filename, allow_empty=True):
         return ''
-    success, content = lib.disk.read_file(filename, max_bytes=MAX_CONFIG_BYTES)
+    info = lib.disk.stat(filename)
+    if info is None or info.st_size > MAX_CONFIG_BYTES:
+        return ''
+    success, content = lib.disk.read_file(filename)
     if not success:
         return ''
     return content
