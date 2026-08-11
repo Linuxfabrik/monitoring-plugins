@@ -261,8 +261,8 @@ TESTS = [
         'assert-in': ['1 version lock in place.', 'java-1.8.0-openjdk'],
     },
     # A lock list dnf 4 does not apply holds nothing back, whether the plugin is
-    # switched off, plugins are switched off wholesale, or no lock list is named at
-    # all. The last one even makes the package manager refuse to transact.
+    # switched off or plugins are switched off wholesale. Neither is a problem: the
+    # package manager simply never loads the plugin.
     {
         'id': 'ok-versionlock-disabled',
         'test': '',
@@ -279,13 +279,48 @@ TESTS = [
         'assert-in': ['No version locks in place.'],
         'assert-not-in': ['bash', 'glibc'],
     },
+    # Three configurations that hold nothing back and stop the package manager from
+    # installing or upgrading anything, verified against dnf 4.14 on Rocky 9:
+    # `Error: Locklist not set`, `Error: Unable to read version lock configuration`
+    # and `Error: Parsing file failed`. The locks such a host still carries on paper
+    # are deliberately not reported - none of them is in force.
     {
-        'id': 'ok-locklist-not-set',
+        'id': 'warn-locklist-not-set',
         'test': '',
         'params': '--config-root=config/locklist-not-set',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The package manager refuses 1 lock configuration',
+            'it names no lock list',
+        ],
+        'assert-not-in': ['bash', 'glibc'],
+    },
+    {
+        'id': 'warn-locklist-missing-file',
+        'test': '',
+        'params': '--config-root=config/locklist-missing-file',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'so installing and upgrading fails on this host',
+            'does not exist',
+        ],
+    },
+    {
+        'id': 'warn-locklist-conf-unparsable',
+        'test': '',
+        'params': '--config-root=config/locklist-conf-unparsable',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['it does not parse'],
+    },
+    # The same broken configuration, but with the plugin switched off: the package
+    # manager never loads it, so nothing is wrong with the host.
+    {
+        'id': 'ok-locklist-not-set-but-disabled',
+        'test': '',
+        'params': '--config-root=config/locklist-not-set-but-disabled',
         'assert-retc': STATE_OK,
         'assert-in': ['No version locks in place.'],
-        'assert-not-in': ['bash', 'glibc'],
+        'assert-not-in': ['refuses'],
     },
     # Rubbish in the lock list is skipped instead of being reported as a package.
     {
@@ -342,12 +377,43 @@ TESTS = [
             'kernel-experimental',
         ],
     },
+    # dnf 5 does not fail gracefully on a lock file it cannot read: it aborts with an
+    # unhandled parser error (SIGABRT, exit 134 on dnf5 5.4.2.1), so nothing can be
+    # installed at all until the file is fixed.
     {
-        'id': 'ok-dnf5-broken-toml',
+        'id': 'warn-dnf5-broken-toml',
         'test': '',
         'params': '--config-root=config/fedora-dnf5-broken-toml',
-        'assert-retc': STATE_OK,
-        'assert-in': ['No version locks in place.'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The package manager refuses 1 lock configuration',
+            'it does not parse as TOML',
+        ],
+    },
+    {
+        'id': 'warn-dnf5-version-not-a-string',
+        'test': '',
+        'params': '--config-root=config/dnf5-version-not-a-string',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['its version is not a string'],
+        'assert-not-in': ['bash'],
+    },
+    # A lock file dnf 5 reads and then applies to nothing. `1.0` is the only version it
+    # acts on; with any other one it installs and upgrades as if the file were not
+    # there, so the locks in it must not be reported as being in place.
+    {
+        'id': 'warn-dnf5-version-not-applied',
+        'test': '',
+        'params': '--config-root=config/dnf5-version-not-applied',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 lock configuration is not applied at all',
+            'it carries version "2.0"',
+            'the 2 locks in it are not applied',
+            # what is in force is still nothing, and that is what the verdict says
+            'No version locks in place.',
+        ],
+        'assert-not-in': ['bash', 'glibc'],
     },
     # Deployed on a host that does not use RPM packages at all.
     {
