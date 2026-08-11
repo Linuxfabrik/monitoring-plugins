@@ -122,7 +122,32 @@ TESTS = [
         'test': 'stdout/disks-one-faulty,,0',
         'params': f'{COMMON} --brief',
         'assert-retc': STATE_CRIT,
-        'assert-in': ["'FSM01_0_1_status'=0", "'FSM01_0_2_status'=1"],
+        'assert-in': ["'FSM01_SN_A1_status'=0", "'FSM01_SN_A2_status'=1"],
+    },
+    {
+        # A node numbers its SATA slots and its SSD card slots from zero each, so two
+        # disks of one node sit in "slot 0". Keying the perfdata on the slot would give
+        # them one label and drop one of the two from the graph.
+        'id': 'warn-slot-numbers-repeat-per-media-type',
+        'test': 'stdout/disks-slot-reuse,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'NODE01_SN_SATA_A0_status'=0",
+            "'NODE01_SN_SSD_A0_status'=0",
+            "'NODE02_SN_SATA_B0_status'=101",
+            "'NODE02_SN_SSD_B0_status'=0",
+        ],
+        'assert-not-in': ["'NODE01_0_status'", "'NODE02_0_status'"],
+    },
+    {
+        # The disk the appliance pulled out of its pool is the one worth naming.
+        'id': 'warn-removed-disk-is-the-only-finding',
+        'test': 'stdout/disks-slot-reuse,,0',
+        'params': f'{COMMON} --brief --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['SN-SATA-B0', 'removed from the storage pool (101)'],
+        'assert-not-in': ['SN-SATA-A0', 'SN-SSD-A0'],
     },
     {
         # Nothing to report on a healthy cluster, so `--brief` prints the summary
