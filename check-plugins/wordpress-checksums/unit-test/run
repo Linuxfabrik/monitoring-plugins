@@ -218,6 +218,28 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['No checksum violations found.'],
     },
+    # wordpress.org publishes several digests for a file whenever the same released
+    # version was uploaded more than once with differing content. Any of them was
+    # published for that version, so matching any one of them is not a finding.
+    {
+        'id': 'ok-file-matches-one-of-several-published-digests',
+        'test': 'stdout/multi-digest,,0',
+        'params': f'{SITE}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No checksum violations found.', "'plugins_modified'=0"],
+    },
+    # Matching none of them is a finding like any other, and the column shows one digest
+    # rather than the whole list.
+    {
+        'id': 'warn-file-matches-none-of-several-published-digests',
+        'test': 'stdout/multi-digest-mismatch,,0',
+        'params': f'{SITE} --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 modified', "'plugins_modified'=1", '0000000000000000'],
+        # the opening of a Python list, which is what the column held before the
+        # published digests were normalized
+        'assert-not-in': ["['"],
+    },
     # The plugin directory rewrites a plugin's readme without the plugin changing, so a
     # readme that no longer matches is not a finding. Plugins ship the file as
     # `README.txt` just as often as lowercase, and the same rewrite must not be a finding

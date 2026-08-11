@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081008'
+__version__ = '2026081101'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -353,6 +353,24 @@ def is_soft_file(relative_path):
     return relative_path.lower() in PLUGIN_SOFT_FILES
 
 
+def digests(published):
+    """Return the digests a file is allowed to match, as a tuple.
+
+    wordpress.org publishes either one digest per file or several, and it publishes
+    several whenever the same released version was uploaded more than once with
+    differing content. Any of them was published for that version, so a file matching
+    any of them is the file wordpress.org shipped and is not a finding. Treating the
+    list as a single value would compare a digest against a list, which never matches
+    and would report an untouched file as modified - the one verdict this check must
+    not get wrong.
+    """
+    if isinstance(published, str):
+        return (published,)
+    if isinstance(published, (list, tuple)):
+        return tuple(item for item in published if isinstance(item, str))
+    return ()
+
+
 def get_digest(root, relative_path, algorithm):
     """Return the digest of a whole file below `root`, or the empty string when it cannot
     be read.
@@ -497,18 +515,31 @@ def compare(
     bundled = bundled or {}
     findings = []
     for relative_path in sorted(wanted & present):
-        expected = checksums[relative_path]
+        expected = digests(checksums[relative_path])
+        if not expected:
+            # Nothing readable was published for this file, so there is nothing to hold
+            # it to. Saying "modified" here would accuse an untouched installation of
+            # having been tampered with on the strength of an answer we could not read.
+            continue
         found = get_digest(root, relative_path, algorithm)
-        if found == expected:
+        if found in expected:
             continue
         if relative_path in bundled and (
             get_digest(root, relative_path, CORE_CHECKSUM_ALGORITHM)
-            == bundled[relative_path]
+            in digests(bundled[relative_path])
         ):
             continue
         findings.append(
             finding(
-                component, relative_path, ISSUE_MODIFIED, expected, found, bucket=bucket
+                component,
+                relative_path,
+                ISSUE_MODIFIED,
+                # Only the first of several accepted digests. The column is there to
+                # tell two contents apart, not to enumerate everything wordpress.org
+                # would have accepted.
+                expected[0],
+                found,
+                bucket=bucket,
             )
         )
     for relative_path in sorted(wanted - present):
