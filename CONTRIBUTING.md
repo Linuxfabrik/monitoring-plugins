@@ -884,6 +884,17 @@ check-plugins/my-check/unit-test/
 
 Name the hook so that `--test` cannot abbreviate into it. `--config-root` works, `--test-config-root` does not: once `--test` itself is gone from the parser, argparse resolves `--test=` to the longer option and the fixture root silently becomes the empty string. Reference implementations: `check-plugins/rpm-versionlock` (files only) and `check-plugins/deb-versionlock` (both hooks side by side, `--test` for the commands and `--config-root` for the files).
 
+The directory a fixture lives in says what the plugin reads it as, so pick the name by the shape of the input rather than by the plugin:
+
+| Directory | Holds | Reached through |
+|---|---|---|
+| `stdout/`, `stderr/`, `retc/` | one file per stream of a command | `--test` |
+| `config/` | directory trees standing in for the host's `/etc` | a hidden root hook such as `--config-root` |
+| `<app>/` | directory trees standing in for an installation the plugin inspects, named after the application (`wordpress/`) | a normal path parameter such as `--path` |
+| `fixtures/` | single files the plugin opens by path, a token file for example | a normal path parameter such as `--api-token-file` |
+
+The last two hold input an administrator points the plugin at deliberately, which is why they sit behind a documented parameter instead of a hidden hook. Reference implementations: `check-plugins/wordpress-checksums` (`wordpress/`) and `check-plugins/wordpress-security-scan` (`wordpress/` and `fixtures/` side by side).
+
 
 #### Test data file naming
 
