@@ -35,6 +35,15 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['No version locks in place.', "'locks'=0"],
     },
+    # A clean host names both searches where both ran, so the summary shows that
+    # --check-excludes took effect rather than leaving the admin to wonder.
+    {
+        'id': 'ok-no-locks-and-no-excludes',
+        'test': '',
+        'params': '--config-root=config/no-locks --check-excludes',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks and no exclusions in place.', "'locks'=0"],
+    },
     {
         'id': 'ok-no-versionlock-plugin',
         'test': '',
@@ -153,6 +162,7 @@ TESTS = [
         'params': '--config-root=config/excludes',
         'assert-retc': STATE_OK,
         'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['exclusions'],
     },
     {
         'id': 'warn-excludes-checked',
@@ -195,6 +205,17 @@ TESTS = [
         'params': '--config-root=config/custom-locklist',
         'assert-retc': STATE_WARN,
         'assert-in': ['1 version lock in place.', 'httpd'],
+    },
+    # The plugin configuration itself moved elsewhere by `pluginconfpath`. It replaces
+    # the default search path rather than adding to it, so the lock in the conventional
+    # directory is not in force and must not be reported.
+    {
+        'id': 'warn-custom-pluginconfpath',
+        'test': '',
+        'params': '--config-root=config/custom-pluginconfpath',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['must-not-be-read'],
     },
     # Hand-written entries, which carry no epoch.
     {

@@ -30,7 +30,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081102'
+__version__ = '2026081103'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -47,12 +47,15 @@ DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_WARN = '0'
 
-# Plugin configuration paths, relative to the configuration root. The `yum` one covers
-# hosts that still carry the pre-dnf layout, where it is a symlink into the dnf one.
-LOCKLIST_CONFIGS = (
-    'etc/dnf/plugins/versionlock.conf',
-    'etc/yum/pluginconf.d/versionlock.conf',
+# The package manager's own default for `pluginconfpath`, used unless the main
+# configuration names another one. The `yum` entry covers hosts that still carry the
+# pre-dnf layout, where it is a symlink into the dnf one.
+PLUGIN_CONF_DIRS = (
+    'etc/dnf/plugins',
+    'etc/yum/pluginconf.d',
 )
+# File name the version lock plugin is configured under, below each of those directories.
+LOCKLIST_CONFIG = 'versionlock.conf'
 DNF5_LOCKFILE = 'etc/dnf/versionlock.toml'
 MAIN_CONFIGS = ('etc/dnf/dnf.conf', 'etc/yum.conf')
 # The package manager's own default for `reposdir`, used unless the main configuration
@@ -280,7 +283,36 @@ def plugins_enabled(root):
     return True
 
 
-def get_locklists(root):
+def get_main_dirs(root, main_configs, option, defaults):
+    """Return the directories a list option of the main configuration names, or the
+    package manager's own defaults where it names none.
+
+    `pluginconfpath` and `reposdir` are both spelled this way and both have to be
+    honoured: a host that moved either of them keeps its plugin configuration and its
+    repository files where the option says, and looking in the conventional place would
+    report an empty configuration instead of the one that is in force.
+
+    The main configuration is read from one file only, so the first readable candidate
+    decides, whether it names the option or not.
+    """
+    for config in main_configs:
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            value = parser.get('main', option, fallback='')
+        except configparser.Error:
+            continue
+        if value:
+            # a list option, so separated by commas or whitespace
+            return [rooted(root, item) for item in value.replace(',', ' ').split()]
+        break
+    return [rooted(root, item) for item in defaults]
+
+
+def get_locklists(root, main_configs):
     """Return the lock list files the package manager reads.
 
     Only a list the plugin configuration names explicitly is read. There is no
@@ -290,8 +322,13 @@ def get_locklists(root):
     off is left out for the same reason.
     """
     locklists = []
-    for config in LOCKLIST_CONFIGS:
-        content = read_config_file(rooted(root, config))
+    plugin_conf_dirs = get_main_dirs(
+        root, main_configs, 'pluginconfpath', PLUGIN_CONF_DIRS
+    )
+    for config in unique_paths(
+        [os.path.join(directory, LOCKLIST_CONFIG) for directory in plugin_conf_dirs]
+    ):
+        content = read_config_file(config)
         if not content:
             continue
         parser = new_parser()
@@ -470,30 +507,11 @@ def get_dnf5_locks(root):
     return entries
 
 
-def get_repo_dirs(root, main_configs):
-    """Return the directories the package manager reads its repository files from."""
-    for config in main_configs:
-        content = read_config_file(config)
-        if not content:
-            continue
-        parser = new_parser()
-        try:
-            parser.read_string(content)
-            reposdir = parser.get('main', 'reposdir', fallback='')
-        except configparser.Error:
-            continue
-        if reposdir:
-            # a list option, so separated by commas or whitespace
-            return [rooted(root, d) for d in reposdir.replace(',', ' ').split()]
-    return [rooted(root, repo_dir) for repo_dir in REPO_DIRS]
-
-
-def get_excludes(root):
+def get_excludes(root, main_configs):
     """Return the packages excluded in the package manager and repository configuration."""
     entries = []
-    main_configs = [rooted(root, config) for config in MAIN_CONFIGS]
     configs = list(main_configs)
-    for repo_dir in get_repo_dirs(root, main_configs):
+    for repo_dir in get_main_dirs(root, main_configs, 'reposdir', REPO_DIRS):
         configs += lib.disk.glob(os.path.join(repo_dir, '*.repo'))
 
     for config in unique_paths(configs):
@@ -554,9 +572,13 @@ def main():
             'This check belongs on a host that installs its packages with dnf or yum.'
         )
 
+    # Where the plugin configuration and the repository files live is itself configurable,
+    # and both options are read out of the main configuration, so it is resolved once.
+    main_configs = [rooted(root, config) for config in MAIN_CONFIGS]
+
     entries = []
     if plugins_enabled(root):
-        for locklist in get_locklists(root):
+        for locklist in get_locklists(root, main_configs):
             entries += parse_locklist(read_config_file(locklist), locklist)
     # dnf 5 does not lock through a plugin: the lock file and the code that applies it
     # belong to the package manager's own library, and the switch that turns plugins off
@@ -566,7 +588,7 @@ def main():
     if args.CHECK_EXCLUDES:
         # an exclusion is part of the package manager's own configuration, so it stays
         # in force no matter what happens to the plugins
-        entries += get_excludes(root)
+        entries += get_excludes(root, main_configs)
 
     # init some vars
     perfdata = ''
@@ -598,8 +620,14 @@ def main():
 
     # build the message
     if not entries:
-        # nothing is locked, which is what a healthy host looks like
-        msg = 'No version locks in place.'
+        # Nothing is locked, which is what a healthy host looks like. Both searches are
+        # named where both ran, so the admin sees that --check-excludes took effect
+        # rather than wondering whether it did.
+        msg = (
+            'No version locks and no exclusions in place.'
+            if args.CHECK_EXCLUDES
+            else 'No version locks in place.'
+        )
         state = STATE_OK
     elif not table_data:
         # locks exist, but the filters dropped all of them
