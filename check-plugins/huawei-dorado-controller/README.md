@@ -114,7 +114,7 @@ options:
   --performance         Additionally report the I/O counters of every
                         controller. Costs one API request per object, so a
                         large appliance may need a higher --timeout.
-  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -125,8 +125,8 @@ options:
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Dorado API username. Username.
+  -u, --url URL         Huawei OceanStor Dorado API URL.
+  --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for CPU and memory usage, as a Nagios
                         range in percent. Off by default, because a controller
                         under load is doing its job; set it once you know what

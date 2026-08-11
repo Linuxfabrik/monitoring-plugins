@@ -94,7 +94,7 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -105,8 +105,8 @@ options:
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Dorado API username. Username.
+  -u, --url URL         Huawei OceanStor Dorado API URL.
+  --username USERNAME   Huawei OceanStor Dorado API username.
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the

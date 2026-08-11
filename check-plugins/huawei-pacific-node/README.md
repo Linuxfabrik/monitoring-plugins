@@ -90,7 +90,7 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Pacific API password. Password.
+  --password PASSWORD   Huawei OceanStor Pacific API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -101,8 +101,8 @@ options:
                         file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Pacific API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Pacific API username. Username.
+  -u, --url URL         Huawei OceanStor Pacific API URL.
+  --username USERNAME   Huawei OceanStor Pacific API username.
   --warranty-severity {ok,warn,crit,unknown}
                         State to report for a node whose warranty has expired
                         or is about to. This is a commercial fact rather than

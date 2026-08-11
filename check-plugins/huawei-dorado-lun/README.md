@@ -130,7 +130,7 @@ options:
   --performance         Additionally report the I/O counters of every LUN.
                         Costs one API request per object, so a large appliance
                         may need a higher --timeout.
-  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -149,8 +149,8 @@ options:
                         where every LUN is meant to be in use, so a LUN that
                         dropped out of its mapping view is noticed. Default:
                         ok
-  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Dorado API username. Username.
+  -u, --url URL         Huawei OceanStor Dorado API URL.
+  --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for the used capacity of a thin LUN, as
                         a Nagios range in percent. Off by default, because a
                         thin LUN that is full is doing what it was created

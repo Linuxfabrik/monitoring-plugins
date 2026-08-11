@@ -135,7 +135,7 @@ options:
   --performance         Additionally report the I/O counters of every front-
                         end port. Costs one API request per object, so a large
                         appliance may need a higher --timeout.
-  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -153,8 +153,8 @@ options:
                         switch port show up this way long before the link
                         drops. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Dorado API username. Username.
+  -u, --url URL         Huawei OceanStor Dorado API URL.
+  --username USERNAME   Huawei OceanStor Dorado API username.
   --warning-errors WARN_ERRORS
                         WARN threshold for the link errors of a port, as a
                         Nagios range in errors per second, summed over every

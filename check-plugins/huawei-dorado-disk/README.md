@@ -129,7 +129,7 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Dorado API password. Password.
+  --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -146,8 +146,8 @@ options:
                         silently dropped out of its pool is noticed. Default:
                         ok
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Dorado API username. Username.
+  -u, --url URL         Huawei OceanStor Dorado API URL.
+  --username USERNAME   Huawei OceanStor Dorado API username.
   -w, --warning WARN    WARN threshold for the remaining life of a disk, as a
                         Nagios range in days. Default: 180:
   --warning-health-mark WARN_HEALTH_MARK

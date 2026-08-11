@@ -107,7 +107,7 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --no-proxy            Do not use a proxy.
-  --password PASSWORD   Huawei OceanStor Pacific API password. Password.
+  --password PASSWORD   Huawei OceanStor Pacific API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
                         first line. Keeps the password out of the process
@@ -122,8 +122,8 @@ options:
                         type=user`. Default: directory
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
-  -u, --url URL         Huawei OceanStor Pacific API URL. URL to the endpoint.
-  --username USERNAME   Huawei OceanStor Pacific API username. Username.
+  -u, --url URL         Huawei OceanStor Pacific API URL.
+  --username USERNAME   Huawei OceanStor Pacific API username.
   -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
                         Default: 80
   -v, --verbose         Makes this plugin verbose during the operation. Useful
