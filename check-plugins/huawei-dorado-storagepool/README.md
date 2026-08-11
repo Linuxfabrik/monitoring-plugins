@@ -69,7 +69,7 @@ options:
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold for the used capacity of a pool, as a
-                        Nagios range in percent. Default: 90
+                        Nagios range in percent. Default: 95
   --critical-overprovisioning CRIT_OVERPROVISIONING
                         CRIT threshold for the overprovisioning of a pool, as
                         a Nagios range in percent of its total capacity that
@@ -144,7 +144,7 @@ options:
   -u, --url URL         Huawei OceanStor Dorado API URL. URL to the endpoint.
   --username USERNAME   Huawei OceanStor Dorado API username. Username.
   -w, --warning WARN    WARN threshold for the used capacity of a pool, as a
-                        Nagios range in percent. Default: 80
+                        Nagios range in percent. Default: 92
   --warning-overprovisioning WARN_OVERPROVISIONING
                         WARN threshold for the overprovisioning of a pool, as
                         a Nagios range in percent of its total capacity that
@@ -215,10 +215,10 @@ Alert earlier than the defaults, and only on the pools of one disk domain:
 * WARN if a pool is busy rather than online (pre-copy, rebuilding, balancing, initializing or deleting).
 * `--device-threshold-severity` decides what a pool that reached the capacity threshold configured on the appliance itself reports (default: WARNING). That threshold is what the storage administrator set in the management GUI, so the check and the appliance agree on when a pool is full. A pool that carries no threshold is not affected.
 * WARN or CRIT if a pool's overprovisioning reaches `--warning-overprovisioning` or `--critical-overprovisioning`, that is how much capacity it handed out to LUNs relative to the disks behind it. Both are off by default; above 100 percent a pool is thin provisioned, which is what thin provisioning is for.
-* WARN if a pool's used capacity reaches `--warning` (default: 80%).
+* WARN if a pool's used capacity reaches `--warning` (default: 92%).
 * CRIT if a pool reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if a pool's running status is "Offline".
-* CRIT if a pool's used capacity reaches `--critical` (default: 90%).
+* CRIT if a pool's used capacity reaches `--critical` (default: 95%).
 * WARN if the appliance reports more storage pools than the check reads in one run, because the list is then incomplete.
 * UNKNOWN if the appliance lists no storage pools at all, which points at the query rather than at the array.
 * UNKNOWN on invalid API responses or responses with error codes.

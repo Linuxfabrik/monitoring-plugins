@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081102'
+__version__ = '2026081103'
 
 DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
@@ -33,7 +33,10 @@ and when it reaches the threshold the storage administrator configured on the ap
 Supports extended reporting via --lengthy, and reporting the I/O counters via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
-DEFAULT_CRIT = '90'
+# A pool of this class is measured in petabytes, where the usual 80/90 would alert with
+# hundreds of terabytes still free. At 92 and 95 percent there is enough runway left to
+# order and rack more hardware, and little enough to be worth acting on.
+DEFAULT_CRIT = '95'
 DEFAULT_CRIT_OVERPROVISIONING = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_DEVICE_THRESHOLD_SEVERITY = 'warn'
@@ -42,7 +45,7 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = '80'
+DEFAULT_WARN = '92'
 DEFAULT_WARN_OVERPROVISIONING = ''
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It

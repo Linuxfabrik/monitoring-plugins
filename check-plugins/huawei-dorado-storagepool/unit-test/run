@@ -49,12 +49,26 @@ TESTS = [
     },
     {
         # The appliance computes the usage percentage itself, so the check alerts
-        # on the same number the storage administrator sees in DeviceManager.
+        # on the same number the storage administrator sees in DeviceManager. The
+        # thresholds are spelled out so this keeps testing that, not the defaults.
         'id': 'crit-pool-nearly-full',
         'test': 'stdout/pools-nearly-full,,0',
-        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=80 --critical=90',
         'assert-retc': STATE_CRIT,
         'assert-in': ['There are critical errors.', '[CRITICAL]'],
+    },
+    {
+        # A pool of this class holds petabytes, so the default pair sits at 92 and 95
+        # rather than the usual 80 and 90: alerting with hundreds of terabytes still
+        # free is not a capacity problem. A pool at 95 percent warns, it is not yet
+        # critical.
+        'id': 'warn-default-thresholds-suit-a-petabyte-pool',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['95%'],
+        'assert-not-in': ['There are critical errors.'],
     },
     {
         # A pool that is faulty and offline: both readings have to reach CRITICAL,
