@@ -11,7 +11,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 
 * **Requires a sudo rule.** LibreNMS refuses to validate itself as `root`, and it reports a failure when any user other than its own runs the validation. The check therefore runs the validation as the LibreNMS system user (`--user`, default `librenms`). Ship the `LF_LIBRENMS_VALIDATE` block from the [sudoers files](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers) for this to work. The check itself never runs as root.
 * **The sudo rule lists its commands with their exact arguments.** That is deliberate: a wildcard would hand the LibreNMS account a PHP interpreter with free arguments. An installation somewhere other than `/opt/librenms`, or a PHP binary somewhere other than `/usr/bin/php`, therefore has to be set on both sides: `--path` and `--php-path` on the check, and the same two paths in the sudoers file. Without a matching rule `sudo` asks for a password and the check reports UNKNOWN.
-* **`--group=mail` sends a real e-mail.** LibreNMS tests its mail transport by delivering a message to the configured alerting address. On a check that runs hourly that is an hourly e-mail. Only request this group deliberately.
+* **`--group=mail` sends a real e-mail.** LibreNMS tests its mail transport by delivering a message to the configured alerting address. On a check that runs hourly that is an hourly e-mail. Only request this group deliberately. Where the mail transport is not enabled in LibreNMS at all, the group reports nothing whatsoever and the check stays green without having tested anything.
 * **`--group=rrdcheck` reads every RRD file.** On a grown installation that is a six-figure number of files and a runtime of minutes. Raise `--timeout` and the command timeout in the service definition before requesting it, and keep the check interval long.
 * **`--timeout` applies per validation run, not to the check as a whole.** The default run plus all three optional groups are four runs, so the worst case is four times `--timeout`, well past the 90 seconds the shipped service template allows the command. Raise both when requesting optional groups.
 * **On a containerised LibreNMS the `dependencies` and `updates` groups report as if it were a package installation.** Their findings are not actionable there, because the container image is what decides both. Drop them with `--ignore`, or restrict the check to the groups that do apply with `--group`.
@@ -26,6 +26,7 @@ This is the same set of checks LibreNMS shows under "Validate Config" in its web
 * The exit code of the validation is deliberately not used. It only separates "at least one failure" from everything else: it stays `0` when every finding is a warning and when no group matched, and it is `1` both for a run that found a problem and for one that never started, so only the report itself tells the check what happened
 * `--match` restricts the report to the validation messages it names, `--ignore` drops the ones it names, and `--ignore` wins where both hit the same message. Findings that are known and accepted are filtered out this way and then no longer influence the check state
 * Validation messages are redacted before they are printed, so a connection error quoting a data source name does not carry a credential into the plugin output
+* A finding may come with a list of what exactly is wrong - the tables of an outdated schema, the files an update modified, the packages a dependency check misses. That list is part of the message and is filtered on by `--match` and `--ignore` like the rest of it. The commands that repair the finding go into the separate `Suggested Fix` column that `--lengthy` adds
 
 
 ## Fact Sheet
@@ -140,25 +141,25 @@ Output:
 ```text
 1 failure found. Checked 17 validations in 13 groups.
 
-Group        ! Message                                                                ! State
--------------+------------------------------------------------------------------------+----------
-dependencies ! Composer Version: 2.10.2                                               ! [OK]
-dependencies ! Dependencies up-to-date.                                               ! [OK]
-database     ! Database Connected                                                     ! [OK]
-database     ! Database Schema is current                                             ! [OK]
-database     ! SQL Server meets minimum requirements                                  ! [OK]
-database     ! lower_case_table_names is enabled                                      ! [OK]
-database     ! MySQL engine is optimal                                                ! [OK]
-database     ! Database and column collations are correct                             ! [OK]
-database     ! Database schema correct                                                ! [OK]
-database     ! MySQL and PHP time match                                               ! [OK]
-poller       ! Active pollers found                                                   ! [OK]
-poller       ! Dispatcher Service not detected                                        ! [OK]
-poller       ! Locks are functional                                                   ! [OK]
-poller       ! Python poller wrapper is polling                                       ! [OK]
-poller       ! Redis is unavailable                                                   ! [OK]
-rrd          ! rrdtool version ok                                                     ! [OK]
-rrd          ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
+Group        ! Status ! Message                                                                ! State
+-------------+--------+------------------------------------------------------------------------+----------
+dependencies ! OK     ! Composer Version: 2.10.2                                               ! [OK]
+dependencies ! OK     ! Dependencies up-to-date.                                               ! [OK]
+database     ! OK     ! Database Connected                                                     ! [OK]
+database     ! OK     ! Database Schema is current                                             ! [OK]
+database     ! OK     ! SQL Server meets minimum requirements                                  ! [OK]
+database     ! OK     ! lower_case_table_names is enabled                                      ! [OK]
+database     ! OK     ! MySQL engine is optimal                                                ! [OK]
+database     ! OK     ! Database and column collations are correct                             ! [OK]
+database     ! OK     ! Database schema correct                                                ! [OK]
+database     ! OK     ! MySQL and PHP time match                                               ! [OK]
+poller       ! OK     ! Active pollers found                                                   ! [OK]
+poller       ! OK     ! Dispatcher Service not detected                                        ! [OK]
+poller       ! OK     ! Locks are functional                                                   ! [OK]
+poller       ! OK     ! Python poller wrapper is polling                                       ! [OK]
+poller       ! OK     ! Redis is unavailable                                                   ! [OK]
+rrd          ! OK     ! rrdtool version ok                                                     ! [OK]
+rrd          ! FAIL   ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
 ```
 
 The same run reduced to what needs attention:
@@ -172,9 +173,9 @@ Output:
 ```text
 1 failure found. Checked 17 validations in 13 groups.
 
-Group ! Message                                                                ! State
-------+------------------------------------------------------------------------+----------
-rrd   ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
+Group ! Status ! Message                                                                ! State
+------+--------+------------------------------------------------------------------------+----------
+rrd   ! FAIL   ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
 ```
 
 With the full message and the command LibreNMS suggests for the finding:
@@ -188,9 +189,9 @@ Output:
 ```text
 1 failure found. Checked 1 validation in 1 group.
 
-Group             ! Message                                 ! Suggested Fix                           ! State
-------------------+-----------------------------------------+-----------------------------------------+----------
-distributedpoller ! You have not enabled distributed_poller ! lnms config:set distributed_poller true ! [WARNING]
+Group             ! Status ! Message                                 ! Suggested Fix                           ! State
+------------------+--------+-----------------------------------------+-----------------------------------------+----------
+distributedpoller ! FAIL   ! You have not enabled distributed_poller ! lnms config:set distributed_poller true ! [WARNING]
 ```
 
 Accepting a known finding, so it stops driving the check state:
@@ -204,24 +205,24 @@ Output:
 ```text
 No failures found. No warnings found. Checked 16 validations in 13 groups.
 
-Group        ! Message                                    ! State
--------------+--------------------------------------------+------
-dependencies ! Composer Version: 2.10.2                   ! [OK]
-dependencies ! Dependencies up-to-date.                   ! [OK]
-database     ! Database Connected                         ! [OK]
-database     ! Database Schema is current                 ! [OK]
-database     ! SQL Server meets minimum requirements      ! [OK]
-database     ! lower_case_table_names is enabled          ! [OK]
-database     ! MySQL engine is optimal                    ! [OK]
-database     ! Database and column collations are correct ! [OK]
-database     ! Database schema correct                    ! [OK]
-database     ! MySQL and PHP time match                   ! [OK]
-poller       ! Active pollers found                       ! [OK]
-poller       ! Dispatcher Service not detected            ! [OK]
-poller       ! Locks are functional                       ! [OK]
-poller       ! Python poller wrapper is polling           ! [OK]
-poller       ! Redis is unavailable                       ! [OK]
-rrd          ! rrdtool version ok                         ! [OK]
+Group        ! Status ! Message                                    ! State
+-------------+--------+--------------------------------------------+------
+dependencies ! OK     ! Composer Version: 2.10.2                   ! [OK]
+dependencies ! OK     ! Dependencies up-to-date.                   ! [OK]
+database     ! OK     ! Database Connected                         ! [OK]
+database     ! OK     ! Database Schema is current                 ! [OK]
+database     ! OK     ! SQL Server meets minimum requirements      ! [OK]
+database     ! OK     ! lower_case_table_names is enabled          ! [OK]
+database     ! OK     ! MySQL engine is optimal                    ! [OK]
+database     ! OK     ! Database and column collations are correct ! [OK]
+database     ! OK     ! Database schema correct                    ! [OK]
+database     ! OK     ! MySQL and PHP time match                   ! [OK]
+poller       ! OK     ! Active pollers found                       ! [OK]
+poller       ! OK     ! Dispatcher Service not detected            ! [OK]
+poller       ! OK     ! Locks are functional                       ! [OK]
+poller       ! OK     ! Python poller wrapper is polling           ! [OK]
+poller       ! OK     ! Redis is unavailable                       ! [OK]
+rrd          ! OK     ! rrdtool version ok                         ! [OK]
 ```
 
 Watching one thing in particular, with a second service covering the rest. The group count still names every group LibreNMS ran, while the validation count is what survived the filter:
@@ -235,9 +236,9 @@ Output:
 ```text
 1 failure found. Checked 1 validation in 13 groups.
 
-Group ! Message                                                                ! State
-------+------------------------------------------------------------------------+----------
-rrd   ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
+Group ! Status ! Message                                                                ! State
+------+--------+------------------------------------------------------------------------+----------
+rrd   ! FAIL   ! /run/rrdcached.sock does not appe...rrdcached connectivity test failed ! [WARNING]
 ```
 
 An installation where nothing needs attention, reduced to a single line:
@@ -259,12 +260,14 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
 * WARN if a validation run did not finish within `--timeout`. The runs that did finish keep their findings and the summary names the group that was left unchecked, so a slow group cannot hide a problem another group reported. A run that finds a failure still wins over the timeout.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, or its configuration file does not parse, does not start with an opening PHP tag, or ends with a closing one. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart.
+* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, Composer is not installed at all, or its configuration file does not parse, does not start with an opening PHP tag, or ends with a closing one. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart. The two dependency findings are worth knowing about separately: LibreNMS runs that group ahead of everything else and gives up on the whole run when it fails, so what looks like a single failed validation means no other group was looked at.
 * UNKNOWN if the check cannot reach a validation at all: LibreNMS refuses to run as the configured `--user`, it does not know its own installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. These say nothing about the installation and are usually a matter of `--path`, `--php-path` or `--user`.
 * UNKNOWN if a validation reports a status this check has no meaning for. The summary counts those results separately, so an UNKNOWN never appears next to a line claiming nothing was found. This is what a LibreNMS release that introduced a new status looks like; update the check.
 * OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
 * OK if `--match` and `--ignore` dropped every validation result there was, for the same reason and controlled by the same `--no-match-severity`. A group that ran and found nothing is not this case and stays a clean result.
 * Always OK if `--always-ok` is set. That covers the WARN and CRIT states above, including the aborted validation of a broken installation. It does not cover UNKNOWN, which is reported whatever else is set.
+
+The `Status` column carries the status LibreNMS itself gave the result, which the `State` column cannot stand in for: at the default `--fail-severity=warn` a failure and a warning both end up as `[WARNING]`, while the summary counts the two apart.
 
 `--brief` and `--lengthy` change what is printed, never the state: a finding that `--brief` hides still drives the result. `--brief` hides every row that ended up OK, which includes a failure that `--fail-severity=ok` took out of the alerting. `--match` and `--ignore` do change the state, since a filtered finding is dropped before it is evaluated.
 
@@ -308,6 +311,14 @@ This one arrives as a normal finding rather than as an error, because LibreNMS r
 ### `The LibreNMS installation is incomplete, its PHP dependencies are missing.`
 
 LibreNMS cannot start because its PHP libraries were never installed or were removed. Run `./scripts/composer_wrapper.php install --no-dev` as the LibreNMS user in the installation directory.
+
+### The PHP dependencies are missing or Composer is not installed
+
+`The LibreNMS installation is missing some of its PHP dependencies, so it stops before it validates anything else.`
+
+`LibreNMS cannot check its PHP dependencies because Composer is missing, so it stops before it validates anything else.`
+
+LibreNMS checks its own dependencies before it validates anything else and gives up on the whole run when that check fails, so nothing at all was looked at. The first message means a dependency update never completed; run `./scripts/composer_wrapper.php install --no-dev` as the LibreNMS user in the installation directory. The second means Composer itself is not on the host; install it from <https://getcomposer.org/> and run the same command afterwards. Both are normal after an upgrade that was interrupted.
 
 ### The configuration file does not parse
 

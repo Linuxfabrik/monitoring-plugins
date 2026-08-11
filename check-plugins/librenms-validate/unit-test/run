@@ -32,7 +32,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # unrecognised-status-unpadded do the same for a status LibreNMS does not print today,
 # once in each of the two shapes its own padding produces; composer-not-run, config-* and
 # install-dir-not-set reproduce the aborts validate.php prints before it reaches its first
-# validation group; empty-output is the run that printed nothing at all.
+# validation group; composer-binary-missing and dependencies-missing reproduce the two
+# ways the dependency group aborts it, which happens one step later but leaves just as
+# much unchecked; schema-out-of-date reproduces the one result that carries a multi-line
+# message, a fix and a detail list at once; empty-output is the run that printed nothing
+# at all.
 
 TESTS = [
     # A healthy installation with one real finding. The exit code of validate.php is 1
@@ -47,6 +51,33 @@ TESTS = [
             'Checked 17 validations in 13 groups.',
             'rrdcached',
         ],
+    },
+    # A result may carry a fix and a detail list at once, and LibreNMS prints the list
+    # behind the fix. The list explains the finding and belongs to the message, the fix
+    # holds the commands that repair it, and the message of the schema check additionally
+    # runs over several unindented lines of its own.
+    {
+        'id': 'warn-fix-and-detail-list-are-filed-apart',
+        'test': 'stdout/schema-out-of-date,,1',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 failure found.',
+            # the unindented continuation of the message
+            'Database: missing column (devices/disable_notify)',
+            # the detail list, which stands behind the fix in the output
+            'ALTER TABLE `devices` ADD `disable_notify`',
+            'Run the following SQL statements to fix it',
+        ],
+    },
+    # The same result, filtered on a word that only appears in the detail list. `--match`
+    # sees the message, so a list filed under the fix would make this find nothing.
+    {
+        'id': 'warn-detail-list-is-part-of-the-message',
+        'test': 'stdout/schema-out-of-date,,1',
+        'params': '--match=ifIndex_2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 failure found.', 'Checked 1 validation'],
     },
     # A group that finds nothing prints its marker and no result, which is the normal
     # case. Counting groups from the results alone would report 4 instead of 13.
@@ -303,6 +334,33 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': ['composer_wrapper.php install --no-dev'],
+    },
+    # LibreNMS runs the dependency group ahead of everything else and gives up on the
+    # whole run when it fails, so every other group stays unchecked. Reported as an abort
+    # rather than as the single failed validation it looks like from the output alone.
+    {
+        'id': 'warn-dependencies-missing-aborts-the-run',
+        'test': 'stdout/dependencies-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'stops before it validates anything else',
+            'composer_wrapper.php install --no-dev',
+        ],
+        'assert-not-in': ['Checked 1 validation'],
+    },
+    # The same abort with Composer itself missing, which is the other way that group can
+    # fail.
+    {
+        'id': 'warn-composer-binary-missing-aborts-the-run',
+        'test': 'stdout/composer-binary-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Composer is missing',
+            'stops before it validates anything else',
+        ],
+        'assert-not-in': ['Checked 1 validation'],
     },
     # The configuration file aborts the validation the same way, and validate.php prints
     # the abort in the shape of an ordinary finding. Without that being recognised, an

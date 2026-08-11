@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081010'
+__version__ = '2026081101'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -53,9 +53,11 @@ DEFAULT_GROUPS = (
     'user',
 )
 
-# Groups LibreNMS leaves out of a default run. Each one is requested with its own `-g`
-# call, which is what keeps every sudoers entry a literal command without a wildcard. Two
-# of them have side effects an admin has to know about, see the README. Requesting a group
+# Groups LibreNMS leaves out of a default run. `-g` would take all three at once as a
+# comma-separated list, but each one is requested with a call of its own anyway: a sudoers
+# rule spells out the permitted command with its exact arguments, and one rule per group
+# is three literal lines where one rule per possible combination would be seven. Two of
+# them have side effects an admin has to know about, see the README. Requesting a group
 # always runs it, whether LibreNMS would have included it on its own or not:
 # `distributedpoller` is part of a default run exactly where distributed polling is
 # enabled. `webserver` is deliberately absent from both lists, because it only validates
@@ -86,13 +88,17 @@ DEFAULT_USER = 'librenms'
 # release adds reaches the report instead of being dropped as an unparsable line. The
 # separator is optional for the same reason: the padding is measured before the escape
 # sequences are removed, so a status of six characters or more fills the twelve columns on
-# its own and its message follows without a space in between.
+# its own and its message follows without a space in between. A message that runs past the
+# line is continued indented by a single space, which the aborts before the first group
+# use; the results themselves are printed on one line however long they get.
 RESULT_REGEX = re.compile(r'^\[([A-Za-z]+)\]\s*(.*)$')
 
 # The group marker `-s` adds in front of each group's results. The status LibreNMS appends
 # to it is deliberately not captured: it lands on a later line whenever the group printed
-# something first, so the state comes from the result lines instead.
-GROUP_REGEX = re.compile(r'^Checking ([a-z]+):')
+# something first, so the state comes from the result lines instead. LibreNMS derives the
+# group name from a class file name, which is lower case but not restricted to letters, so
+# the digits and the underscore are accepted as well.
+GROUP_REGEX = re.compile(r'^Checking ([a-z0-9_]+):')
 
 # LibreNMS status -> the state the check reports for it. FAIL is not in here because it is
 # configurable via --fail-severity. A status that is in neither place is reported as
@@ -109,7 +115,10 @@ KNOWN_STATUSES = ('FAIL', 'INFO', 'OK', 'WARN')
 
 # Everything that stops the validation before it reaches its first group. LibreNMS prints
 # these the same way it prints a finding, so without this list they would arrive as a
-# single failed validation of an installation that is in fact not validated at all.
+# single failed validation of an installation that is in fact not validated at all. The
+# two dependency findings belong here for the same reason even though they come out of a
+# validation group: LibreNMS runs that group ahead of everything else and gives up on the
+# whole run when it fails, so every other group stays unchecked.
 #
 # Each entry carries the state it is worth. An installation that is broken - dependencies
 # missing, a configuration file that does not parse or is delimited wrongly - is something
@@ -142,6 +151,20 @@ ABORT_HINTS = (
         STATE_UNKNOWN,
         'LibreNMS does not know where it is installed and cannot validate itself. Set '
         '"install_dir" to the installation directory in its configuration.',
+    ),
+    (
+        'Missing dependencies!',
+        STATE_WARN,
+        'The LibreNMS installation is missing some of its PHP dependencies, so it stops '
+        'before it validates anything else. Run "./scripts/composer_wrapper.php install '
+        '--no-dev" as the LibreNMS user.',
+    ),
+    (
+        'No composer available, please install composer',
+        STATE_WARN,
+        'LibreNMS cannot check its PHP dependencies because Composer is missing, so it '
+        'stops before it validates anything else. Install Composer, see '
+        'https://getcomposer.org/.',
     ),
     (
         'Remove the ?> at the end of config.php',
@@ -356,7 +379,7 @@ def run_validation(args, php, script, user, group):
     stdout, stderr, _ = result
     # The exit code is not a usable signal: it only separates "at least one failure" from
     # everything else. It stays 0 when every finding is a warning and when no group
-    # matched at all, and it is 1 both for a run that found something and for one that
+    # matched at all, and it is 1 both for a run that found a failure and for one that
     # never started. Only the parsed output tells us what happened.
     #
     # An empty stdout is the one case the report cannot explain, because the validation
@@ -391,6 +414,13 @@ def parse_validation(stdout):
     The groups are collected separately because a group that found nothing to report
     prints its marker and no result at all, which is the normal case on a healthy
     installation. Counting groups from the results would understate what was checked.
+
+    A result may carry a fix and a detail list at once, and LibreNMS prints the list
+    behind the fix, not in front of it. The two are told apart by their indentation: a
+    fix command is written with a leading tab, an item of the detail list with a tab and
+    a space. What separates them is the list's description, which carries a tab like a
+    fix command and only turns out to be the description once the first item follows it.
+    It is therefore held back for one line before it is filed.
     """
     results = []
     groups = set()
@@ -402,9 +432,23 @@ def parse_validation(stdout):
     # continuation, and without the reset that status would extend the last result of the
     # group before it.
     current_result = None
+    # The tab-indented line whose meaning the next line decides: another fix command, or
+    # the description of the detail list that follows it.
+    pending = ''
+
+    def add(result, field, text):
+        result[field] = f'{result[field]} {text}'.strip()
 
     for raw_line in stdout.splitlines():
         line = lib.txt.strip_ansi(raw_line)
+
+        if not line.startswith('\t'):
+            # The fix block is over. A command still held back turns out to have been
+            # one after all, because no detail list followed it.
+            if pending:
+                add(current_result, 'fix', pending)
+                pending = ''
+            collecting_fix = False
 
         group_match = GROUP_REGEX.match(line)
         if group_match:
@@ -436,22 +480,45 @@ def parse_validation(stdout):
             collecting_fix = True
             continue
 
+        if line.startswith('\t '):
+            # Tab plus a space: an item of the result's detail list, which explains the
+            # finding and belongs to its message. The line held back above it is the
+            # list's description and goes there too, and the fix block is over.
+            if pending:
+                add(current_result, 'message', pending)
+                pending = ''
+            collecting_fix = False
+            addition = line.strip()
+            if addition:
+                add(current_result, 'message', addition)
+            continue
+
         if line.startswith('\t'):
-            # Tab-indented and after the FIX marker: one of the commands that repair the
-            # finding. Tab-indented without it: the description and the items of the
-            # result's detail list, which explain the finding and belong to its message.
             addition = line.strip()
             if not addition:
                 continue
-            field = 'fix' if collecting_fix else 'message'
-            current_result[field] = f'{current_result[field]} {addition}'.strip()
+            if not collecting_fix:
+                # No fix was announced, so this is the description of a detail list that
+                # comes on its own, and it belongs to the message like its items.
+                add(current_result, 'message', addition)
+                continue
+            if pending:
+                add(current_result, 'fix', pending)
+            pending = addition
             continue
 
-        if line.startswith(' '):
-            # A message too long for one line continues indented by a single space.
-            addition = line.strip()
-            if addition:
-                current_result['message'] = f'{current_result["message"]} {addition}'
+        # Everything else that follows a result belongs to its message. A message that
+        # carries newlines of its own is printed across several lines without any
+        # indentation, which is how the database schema check spells out what is wrong
+        # with each table, and a message too long for one line continues indented by a
+        # single space. Neither can be confused with a group's own progress output,
+        # because LibreNMS writes that before it prints any of that group's results.
+        addition = line.strip()
+        if addition:
+            add(current_result, 'message', addition)
+
+    if pending:
+        add(current_result, 'fix', pending)
 
     return results, groups
 
@@ -616,6 +683,10 @@ def main():
             'message': message
             if args.LENGTHY
             else lib.txt.shorten(message, MAX_MESSAGE_LEN),
+            # The status LibreNMS gave the result, which the state column cannot stand in
+            # for: --fail-severity maps a failure and a warning onto the same state by
+            # default, and the summary counts the two apart.
+            'status': result['status'],
             'state': lib.base.state2str(item_state, empty_ok=False),
         }
         if args.LENGTHY:
@@ -684,11 +755,11 @@ def main():
     # build table output
     if table_data:
         if args.LENGTHY:
-            keys = ['group', 'message', 'fix', 'state']
-            headers = ['Group', 'Message', 'Suggested Fix', 'State']
+            keys = ['group', 'status', 'message', 'fix', 'state']
+            headers = ['Group', 'Status', 'Message', 'Suggested Fix', 'State']
         else:
-            keys = ['group', 'message', 'state']
-            headers = ['Group', 'Message', 'State']
+            keys = ['group', 'status', 'message', 'state']
+            headers = ['Group', 'Status', 'Message', 'State']
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
 
     # over and out
