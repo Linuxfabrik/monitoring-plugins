@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081101'
+__version__ = '2026081102'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -70,13 +70,12 @@ DEFAULT_WPSCAN_RANDOM_USER_AGENT = False
 # target's access log, and gives the operator something stable to allow-list.
 DEFAULT_WPSCAN_USER_AGENT = 'Linuxfabrik Monitoring Plugins'
 
-# Name of the environment variable wpscan reads its API token from. The token is handed
-# over this way instead of on the command line so it never shows up in the process list.
+# Names of the environment variables wpscan reads its two credentials from: the API token
+# for the hosted vulnerability database, and the token for a locally held copy of it. Both
+# are handed over this way instead of on the command line, so neither ever shows up in the
+# process list. The scanner reads either of them from the environment on its own and
+# refuses to run with both, which is why one place decides what it gets to see.
 API_TOKEN_ENV = 'WPSCAN_API_TOKEN'  # nosec B105
-
-# The counterpart for a locally held copy of the vulnerability database. It rules the API
-# token out and supplies vulnerability data on its own, so the enumeration must not be
-# downgraded when it is set.
 ENTERPRISE_TOKEN_ENV = 'WPSCAN_ENTERPRISE_DB_TOKEN'  # nosec B105
 # The name of an option, not a secret. The reason for the marker below stays on its own
 # line, because bandit reads whatever follows the marker as further test ids.
@@ -269,6 +268,8 @@ def parse_args():
         'prefer --api-token-file. '
         'It is handed on to wpscan through the environment either way, so it never '
         "reaches the scanner's own command line. "
+        'Ignored where --enterprise-db-token names a locally held copy of the '
+        'vulnerability database, because the scanner refuses to run with both. '
         f'Falls back to the {API_TOKEN_ENV} environment variable when neither this nor '
         '--api-token-file is given.',
         dest='API_TOKEN',
@@ -294,6 +295,35 @@ def parse_args():
         dest='CRITICAL_CVSS',
         type=float,
         default=DEFAULT_CRITICAL_CVSS,
+    )
+
+    parser.add_argument(
+        '--enterprise-db-token',
+        help='Token for a locally held copy of the vulnerability database, used instead of '
+        'the hosted one. '
+        'The scanner downloads the database dumps with it and then looks vulnerabilities up '
+        'locally, so the scan makes no request per finding and no daily quota applies. '
+        'Rules --api-token out; where both are given, this one wins. '
+        'Passed here, the token is visible to every user on this host for as long as the '
+        'check runs, because a command-line argument shows up in the process list; '
+        'prefer --enterprise-db-token-file. '
+        'It is handed on to wpscan through the environment either way, so it never '
+        "reaches the scanner's own command line. "
+        f'Falls back to the {ENTERPRISE_TOKEN_ENV} environment variable when neither this '
+        'nor --enterprise-db-token-file is given.',
+        dest='ENTERPRISE_DB_TOKEN',
+    )
+
+    parser.add_argument(
+        '--enterprise-db-token-file',
+        help='Path to a file holding the token for a locally held copy of the vulnerability '
+        'database, read from its first line. '
+        'Keeps the token out of the process list, where a command-line argument is '
+        'visible to every user on the host, and out of the monitoring configuration. '
+        'Takes precedence over `--enterprise-db-token`. '
+        'Keep the file readable only by the monitoring user. '
+        'Example: `--enterprise-db-token-file=/etc/icinga2/secrets/wpscan-enterprise`.',
+        dest='ENTERPRISE_DB_TOKEN_FILE',
     )
 
     parser.add_argument(
@@ -629,6 +659,49 @@ def resolve_api_token(args):
     return os.environ.get(API_TOKEN_ENV, '').strip()
 
 
+def take_enterprise_token_option(args):
+    """Pull a locally held copy of the vulnerability database out of the raw options and
+    return the token it names, or the empty string where the options name none.
+
+    Configuring it that way predates the parameter of its own and has to keep working, but
+    the option must not stay in the passthrough: an argument is readable by every user on
+    the host for as long as the scan runs, and it would be printed with the command
+    --verbose shows. It is removed here and the token handed over through the environment
+    instead, which is where the scanner looks for it anyway.
+    """
+    token = ''  # nosec B105
+    remaining = []
+    values = iter(args.WPSCAN_OPTION)
+    for option in values:
+        if option.startswith(f'{ENTERPRISE_TOKEN_OPTION}='):
+            token = option.split('=', 1)[1]
+            continue
+        if option == ENTERPRISE_TOKEN_OPTION:
+            # spelled with the value in the next element, the way argparse also accepts it
+            token = next(values, '')
+            continue
+        remaining.append(option)
+    args.WPSCAN_OPTION = remaining
+    return token
+
+
+def resolve_enterprise_token(args, passed_through=''):
+    """Return the token naming a locally held copy of the vulnerability database, looked up
+    in the same order as the API token, with the raw option in between: file, command line,
+    raw option, environment. Returns the empty string when none is configured, which is the
+    normal case.
+    """
+    if args.ENTERPRISE_DB_TOKEN_FILE:
+        return lib.args.load_secret(
+            args.ENTERPRISE_DB_TOKEN_FILE, '--enterprise-db-token-file'
+        )
+    if args.ENTERPRISE_DB_TOKEN:
+        return args.ENTERPRISE_DB_TOKEN
+    if passed_through:
+        return passed_through
+    return os.environ.get(ENTERPRISE_TOKEN_ENV, '').strip()
+
+
 def get_abort_reason(data):
     """Return what the scanner says about an aborted run, whichever of its two sections
     it put the explanation in, or the empty string when the run was not aborted.
@@ -697,37 +770,24 @@ def normalize_url(url):
     return f'https://{url}'
 
 
-def get_enterprise_db_options(args):
-    """Return the raw options that configure a locally held copy of the vulnerability
-    database, in the order they were given.
+def wpscan_env(token, enterprise_token):
+    """Return the environment the scanner is handed, which is where both of its credentials
+    travel. Neither reaches its command line, where every user on the host could read them
+    off the process list for as long as the scan runs.
 
-    The scanner reads that token twice, once to download the dumps and once to use them,
-    and it has to see the same value both times or the download never happens. Passing it
-    through the environment covers that on its own; passing it as a raw option does not,
-    which is why the refresh has to be given the same options back.
+    A credential that is not configured is removed from the environment rather than left
+    alone. The monitoring user may export one, and a run that deliberately goes without it
+    has to go without that one too: an empty value is a rejected credential to the scanner
+    rather than none at all, and an API token it was never meant to use aborts the run
+    outright once a locally held database is configured beside it.
     """
-    options = []
-    for index, option in enumerate(args.WPSCAN_OPTION):
-        if option.startswith(f'{ENTERPRISE_TOKEN_OPTION}='):
-            options.append(option)
-        elif option == ENTERPRISE_TOKEN_OPTION:
-            # spelled with the value in the next element, the way argparse also accepts it
-            options += args.WPSCAN_OPTION[index : index + 2]
-    return options
+    return {
+        API_TOKEN_ENV: token or None,
+        ENTERPRISE_TOKEN_ENV: enterprise_token or None,
+    }
 
 
-def has_enterprise_db(args):
-    """Return True if a locally held copy of the vulnerability database is configured.
-    It rules out the API token and supplies vulnerability data on its own, so the
-    vulnerable-plugins and vulnerable-themes choices must not be downgraded even though
-    no token is given.
-    """
-    if os.environ.get(ENTERPRISE_TOKEN_ENV, '').strip():
-        return True
-    return bool(get_enterprise_db_options(args))
-
-
-def get_wpscan_version():
+def get_wpscan_version(token, enterprise_token):
     """Ask wpscan for its own version and the age of its vulnerability database. Returns
     (version, last_db_update, note), all of them strings. `note` explains why the version
     is empty, if it is.
@@ -738,7 +798,9 @@ def get_wpscan_version():
     the scan's job, and doing it twice would only cost a second download.
     """
     cmd = ['wpscan', '--version', '--format=json', '--no-banner', '--no-update']
-    success, result = lib.shell.shell_exec(cmd, timeout=VERSION_PROBE_TIMEOUT)
+    success, result = lib.shell.shell_exec(
+        cmd, env=wpscan_env(token, enterprise_token), timeout=VERSION_PROBE_TIMEOUT
+    )
     if not success:
         return ('', '', result)
     stdout, _, retc = result
@@ -857,7 +919,7 @@ def get_scan_budget(args, spent=0):
     return max(1, args.SCAN_TIMEOUT - spent - SCAN_TIMEOUT_HEADROOM)
 
 
-def refresh_vulndb(args, timeout):
+def refresh_vulndb(token, enterprise_token, timeout):
     """Refresh the local copy of the vulnerability database. Returns (success, note),
     where `note` explains a failure.
 
@@ -867,19 +929,13 @@ def refresh_vulndb(args, timeout):
     refreshes; and a refresh it does perform counts against its own `--max-scan-duration`,
     which would spend the site's time budget on a download.
 
-    The option that names a locally held copy of the vulnerability database is passed on,
-    because the scanner decides from it whether to download that copy at all. Without it
-    here, nothing is downloaded and the scan then fails over a database it was told to
-    use and never got.
+    It gets the same credentials as the scan, through the same environment. The token
+    naming a locally held copy of the vulnerability database decides here whether that
+    copy is downloaded at all, so a refresh without it leaves the scan to fail over a
+    database it was told to use and never got.
     """
-    cmd = [
-        'wpscan',
-        '--update',
-        '--format=json',
-        '--no-banner',
-        *get_enterprise_db_options(args),
-    ]
-    success, result = lib.shell.shell_exec(cmd, timeout=timeout)
+    cmd = ['wpscan', '--update', '--format=json', '--no-banner']
+    success, result = run_wpscan(cmd, token, enterprise_token, timeout)
     if not success:
         return (False, result)
     stdout, stderr, retc = result
@@ -941,21 +997,17 @@ def build_wpscan_command(args, enumerate_opts, http_auth='', spent=0):
     return cmd
 
 
-def run_wpscan(cmd, token, timeout):
-    """Run wpscan and return (success, (stdout, stderr, retc)). The API token is passed
-    through the environment so it stays out of the process list.
-
-    Without a token the variable is removed rather than left alone. The monitoring user
-    may export one, and a scan that is deliberately run without a token has to be run
-    without that one too: the scanner reads the variable on its own, and an empty value
-    is a rejected token to it rather than no token at all.
+def run_wpscan(cmd, token, enterprise_token, timeout):
+    """Start the scanner and return (success, (stdout, stderr, retc)). Every call that runs
+    wpscan goes through here, so its credentials are decided in exactly one place - see
+    wpscan_env() for what that decision is.
     """
     return lib.shell.shell_exec(
-        cmd, env={API_TOKEN_ENV: token or None}, timeout=timeout
+        cmd, env=wpscan_env(token, enterprise_token), timeout=timeout
     )
 
 
-def run_scan(args, enumerate_opts, http_auth, token, *, spent=0):
+def run_scan(args, enumerate_opts, http_auth, token, enterprise_token, *, spent=0):
     """Run one scan and return (cmd, data, retc, output).
 
     Ends the check on a timeout and on a scanner that could not be started at all,
@@ -963,7 +1015,9 @@ def run_scan(args, enumerate_opts, http_auth, token, *, spent=0):
     act on, an aborted run above all, comes back in `data`.
     """
     cmd = build_wpscan_command(args, enumerate_opts, http_auth, spent=spent)
-    success, result = run_wpscan(cmd, token, max(1, args.SCAN_TIMEOUT - spent))
+    success, result = run_wpscan(
+        cmd, token, enterprise_token, max(1, args.SCAN_TIMEOUT - spent)
+    )
     if not success:
         # A scan killed by the hard subprocess timeout leaves us without any output, so
         # there is nothing to report but the timeout itself. Every other failure here
@@ -1328,8 +1382,21 @@ def main():
             )
     args.URL = normalize_url(args.URL)
 
+    # The raw options give up their copy of the token before anything else, whether a
+    # parameter of its own names one too: a copy left in the passthrough would put the
+    # token on the scanner's command line, and with it in the process list and in the
+    # command --verbose prints.
+    passed_through = take_enterprise_token_option(args)
+    enterprise_token = resolve_enterprise_token(args, passed_through)
     token = resolve_api_token(args)
-    enterprise = has_enterprise_db(args)
+    if enterprise_token and token:
+        # The scanner refuses to run with both and gives up before it looks at the site,
+        # a plain `--update` included. It reads either of them from the environment on
+        # its own, so an API token the monitoring user happens to export would abort a
+        # check nobody configured one for. The locally held copy supplies the
+        # vulnerability data by itself, which is why it is the one that survives.
+        token = ''  # nosec B105
+    enterprise = bool(enterprise_token)
     # The scanner takes these on its command line and nowhere else, so reading them from
     # a file only keeps them out of the monitoring configuration, not out of the process
     # list. That is still worth having, since the configuration is the copy that persists,
@@ -1381,14 +1448,18 @@ def main():
         if not args.WPSCAN_NO_UPDATE:
             lib.base.verbose(args.VERBOSE, 'Refreshing the vulnerability database...')
             refreshed, vulndb_note = refresh_vulndb(
-                args, min(VULNDB_UPDATE_TIMEOUT, args.SCAN_TIMEOUT)
+                token,
+                enterprise_token,
+                min(VULNDB_UPDATE_TIMEOUT, args.SCAN_TIMEOUT),
             )
             if refreshed:
                 vulndb_note = ''
             else:
                 lib.base.verbose(args.VERBOSE, f'Could not refresh it: {vulndb_note}')
         # After the refresh, so the reported age is the one the scan actually used.
-        wpscan_version, last_db_update, version_note = get_wpscan_version()
+        wpscan_version, last_db_update, version_note = get_wpscan_version(
+            token, enterprise_token
+        )
         if version_note:
             lib.base.verbose(
                 args.VERBOSE, f'Cannot determine the wpscan version: {version_note}'
@@ -1411,7 +1482,7 @@ def main():
         # 5 means at least one vulnerability was found; both are results. Everything
         # else is a broken run.
         cmd, data, retc, output = run_scan(
-            args, enumerate_opts, http_auth, token, spent=spent
+            args, enumerate_opts, http_auth, token, enterprise_token, spent=spent
         )
         spent = int(lib.time.now() - started)
         # A token the API rejected, an exhausted daily quota or an unreachable API stop
@@ -1436,7 +1507,7 @@ def main():
                 args.WPSCAN_ENUMERATE, enterprise, wpscan_version
             )
             cmd, data, retc, output = run_scan(
-                args, enumerate_opts, http_auth, token, spent=spent
+                args, enumerate_opts, http_auth, token, enterprise_token, spent=spent
             )
             spent = int(lib.time.now() - started)
     else:
@@ -1473,7 +1544,7 @@ def main():
         args.URL = lib.base.coe(lib.shell.safe_cli_value(target, '--url'))
         # The aborted run cost one request, so the hop keeps what is left of the budget.
         cmd, data, retc, output = run_scan(
-            args, enumerate_opts, http_auth, token, spent=spent
+            args, enumerate_opts, http_auth, token, enterprise_token, spent=spent
         )
         spent = int(lib.time.now() - started)
 

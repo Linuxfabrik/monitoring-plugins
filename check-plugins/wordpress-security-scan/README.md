@@ -11,7 +11,7 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * A missing `wpscan` is reported as WARNING, not as UNKNOWN. WordPress is a preferred target, so the scanner belongs on a host serving it, and its absence is a state the administrator has to fix rather than an internal problem of this check.
 * A full scan takes minutes, not seconds. `--scan-timeout` therefore defaults to 1800 seconds instead of the 8 seconds other checks use, and the shipped Director command raises its own timeout accordingly. Schedule the check once per day.
 * Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. A free token with a small daily request quota is available at <https://wpscan.com/register>.
-* A WPScan enterprise subscription replaces the API token with a locally held copy of the vulnerability database, which has no daily quota. Configure it either through the `WPSCAN_ENTERPRISE_DB_TOKEN` environment variable or with `--wpscan-option=--enterprise-db-token=<token>`; the check recognizes both and then keeps the vulnerable-plugins and vulnerable-themes enumeration even though no API token is set. Do not combine it with `--api-token`, which the scanner refuses.
+* A WPScan enterprise subscription replaces the API token with a locally held copy of the vulnerability database, which has no daily quota. Configure it with `--enterprise-db-token-file` (or `--enterprise-db-token`, or the `WPSCAN_ENTERPRISE_DB_TOKEN` environment variable). The check then keeps the vulnerable-plugins and vulnerable-themes enumeration even though no API token is set, and downloads the database dumps before every scan. `--api-token` is ignored alongside it, because the scanner refuses to run with both.
 * The token is looked up in three places, in this order: `--api-token-file` (first line of the file), `--api-token`, and an already exported `WPSCAN_API_TOKEN` environment variable. Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`: a token passed as `--api-token` is visible to every user on the scanning host for as long as the check runs, because command-line arguments show up in the process list, and it additionally sits in the monitoring configuration and in the Director basket. Whichever way it is supplied, the check hands it on to `wpscan` through the environment, so it never reaches the scanner's own command line. The same order applies to `--wpscan-http-auth-file` and `--wpscan-http-auth`.
 * Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
 * The time limit is `--scan-timeout`, not the `--timeout` the other checks use. It bounds the whole scan, which runs for minutes, rather than a single network read of a few seconds, and the two would be read as the same thing under one name.
@@ -106,6 +106,8 @@ Findings can be narrowed from both ends: `--match` keeps only what matches, `--i
 usage: wordpress-security-scan [-h] [-V] [--always-ok] [--api-token API_TOKEN]
                                [--api-token-file API_TOKEN_FILE]
                                [--critical-cvss CRITICAL_CVSS]
+                               [--enterprise-db-token ENTERPRISE_DB_TOKEN]
+                               [--enterprise-db-token-file ENTERPRISE_DB_TOKEN_FILE]
                                [--ignore IGNORE] [--insecure] [--lengthy]
                                [--match MATCH]
                                [--no-match-severity {ok,warn,crit,unknown}]
@@ -157,9 +159,12 @@ options:
                         runs, because a command-line argument shows up in the
                         process list; prefer --api-token-file. It is handed on
                         to wpscan through the environment either way, so it
-                        never reaches the scanner's own command line. Falls
-                        back to the WPSCAN_API_TOKEN environment variable when
-                        neither this nor --api-token-file is given.
+                        never reaches the scanner's own command line. Ignored
+                        where --enterprise-db-token names a locally held copy
+                        of the vulnerability database, because the scanner
+                        refuses to run with both. Falls back to the
+                        WPSCAN_API_TOKEN environment variable when neither
+                        this nor --api-token-file is given.
   --api-token-file API_TOKEN_FILE
                         Path to a file holding the WPScan API token, read from
                         its first line. Keeps the token out of the process
@@ -174,6 +179,32 @@ options:
                         vulnerability is reported as CRITICAL instead of
                         WARNING. Vulnerabilities without a score are governed
                         by --unscored-severity. Default: 7.0
+  --enterprise-db-token ENTERPRISE_DB_TOKEN
+                        Token for a locally held copy of the vulnerability
+                        database, used instead of the hosted one. The scanner
+                        downloads the database dumps with it and then looks
+                        vulnerabilities up locally, so the scan makes no
+                        request per finding and no daily quota applies. Rules
+                        --api-token out; where both are given, this one wins.
+                        Passed here, the token is visible to every user on
+                        this host for as long as the check runs, because a
+                        command-line argument shows up in the process list;
+                        prefer --enterprise-db-token-file. It is handed on to
+                        wpscan through the environment either way, so it never
+                        reaches the scanner's own command line. Falls back to
+                        the WPSCAN_ENTERPRISE_DB_TOKEN environment variable
+                        when neither this nor --enterprise-db-token-file is
+                        given.
+  --enterprise-db-token-file ENTERPRISE_DB_TOKEN_FILE
+                        Path to a file holding the token for a locally held
+                        copy of the vulnerability database, read from its
+                        first line. Keeps the token out of the process list,
+                        where a command-line argument is visible to every user
+                        on the host, and out of the monitoring configuration.
+                        Takes precedence over `--enterprise-db-token`. Keep
+                        the file readable only by the monitoring user.
+                        Example: `--enterprise-db-token-
+                        file=/etc/icinga2/secrets/wpscan-enterprise`.
   --ignore IGNORE       Ignore findings whose component or title matches this
                         Python regular expression. Matched against the
                         component and against the finding title separately, so
@@ -667,6 +698,10 @@ A stale token therefore costs the vulnerability class, not the whole result. It 
 The free tier's allowance is shown as the "Daily API request limit" on the wpscan.com profile page, and one request is spent per plugin, per theme and per core version looked up. A site with two dozen plugins therefore exhausts it in a single scan. The allowance refills daily, so this passes on its own; it is a reason to wait rather than to buy a plan, unless it happens every day. Keep the check interval at once per day, use one token per site, or move to a paid plan. The remaining quota is visible in the output under `--lengthy`, which names it as the daily one.
 
 `The API token provided is invalid` behaves the same way and means the token was rejected outright.
+
+### `You cannot use both --api-token and --enterprise-db-token`
+
+The scanner refuses to run with both credentials and gives up before it looks at the site, the download of the database dumps included. The check therefore drops the API token as soon as a locally held copy of the vulnerability database is configured, so the message only appears where the token reaches the scanner past the check, for example from a `WPSCAN_API_TOKEN` exported inside a wrapper script that runs it. Remove the token there; the local copy supplies the vulnerability data on its own.
 
 ### The backup folder enumeration is missing from the scan
 

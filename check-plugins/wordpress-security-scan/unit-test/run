@@ -12,7 +12,6 @@ import sys
 
 sys.path.insert(0, '..')
 
-import argparse
 import importlib.machinery
 import importlib.util
 import os
@@ -795,11 +794,42 @@ TESTS = [
         'id': 'ok-enterprise-db-keeps-enumeration',
         'test': 'stdout/clean-site,,0',
         'params': (
-            f'{BASE_PARAMS} --verbose '
-            '--wpscan-option=--enterprise-db-token=linuxfabrik'
+            f'{BASE_PARAMS} --verbose --enterprise-db-token=linuxfabrik'
         ),
         'assert-retc': STATE_OK,
         'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # Configuring it as a raw option predates the parameter of its own and has to keep
+    # working, down to the spelling that puts the value in the next element.
+    {
+        'id': 'ok-enterprise-db-raw-option-keeps-enumeration',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-option=--enterprise-db-token --wpscan-option=linuxfabrik'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # Like the API token, it travels through the environment, so neither the parameter
+    # nor the raw option may leave it in the command the check prints. Only the `=` form
+    # of the raw option is redacted there, which is why it must not reach the line at all.
+    {
+        'id': 'ok-enterprise-db-token-not-in-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --enterprise-db-token=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['linuxfabrik'],
+    },
+    {
+        'id': 'ok-enterprise-db-raw-option-not-in-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-option=--enterprise-db-token --wpscan-option=linuxfabrik'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['linuxfabrik'],
     },
     # The scanner rejects a throttle of zero or less on its own command line, which would
     # cost a scan that runs for minutes before it ever starts. Rejected here instead, in
@@ -1005,27 +1035,31 @@ def _is_not_a_lookup_problem(test, item):
 
 
 class TestTokenEnvironment(unittest.TestCase):
-    """The API token reaches the scanner through the environment, never through its
-    command line. What matters just as much is the opposite case: a scan the check runs
-    deliberately without a token has to run without the one the monitoring user may have
+    """Both credentials reach the scanner through the environment, never through its
+    command line. What matters just as much is the opposite case: a run the check makes
+    deliberately without one has to run without the one the monitoring user may have
     exported, or the retry after a rejected token repeats the very failure it exists to
-    get past.
+    get past, and a locally held database aborts over an API token nobody configured.
     """
 
     @classmethod
     def setUpClass(cls):
         cls.check = load_check()
 
-    def _env_of_a_run(self, token):
+    def _env_of_a_run(self, token, enterprise_token=''):
         with mock.patch.object(
             self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
         ) as fake:
-            self.check.run_wpscan(['wpscan'], token, 60)
+            self.check.run_wpscan(['wpscan'], token, enterprise_token, 60)
         return fake.call_args.kwargs['env']
 
     def test_a_token_is_handed_over_through_the_environment(self):
         env = self._env_of_a_run('linuxfabrik')
         self.assertEqual(env[self.check.API_TOKEN_ENV], 'linuxfabrik')
+
+    def test_an_enterprise_token_is_handed_over_through_the_environment(self):
+        env = self._env_of_a_run('', 'linuxfabrik')
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
 
     def test_no_token_removes_an_exported_one(self):
         # None is what lib.shell.shell_exec() reads as "remove this variable". An empty
@@ -1033,6 +1067,7 @@ class TestTokenEnvironment(unittest.TestCase):
         # value for a rejected token rather than for no token at all.
         env = self._env_of_a_run('')
         self.assertIsNone(env[self.check.API_TOKEN_ENV])
+        self.assertIsNone(env[self.check.ENTERPRISE_TOKEN_ENV])
 
     def test_the_token_never_reaches_the_command_line(self):
         with mock.patch.object(
@@ -1052,41 +1087,115 @@ class TestTokenEnvironment(unittest.TestCase):
 
 
 class TestEnterpriseDbToken(unittest.TestCase):
-    """A locally held copy of the vulnerability database is downloaded by the refresh
-    call and used by the scan, and the scanner decides both times from the same option.
-    Given it only for the scan, it downloads nothing and the scan then fails over a
-    database it was told to use and never got. The refresh only runs on a real scan, so
-    the fixture-driven tests above cannot reach it.
+    """A locally held copy of the vulnerability database is downloaded by the refresh call
+    and used by the scan, and the scanner decides both times from the same token. It also
+    refuses to run at all when an API token is set beside it, and it reads either of them
+    from the environment on its own. Neither the refresh nor the mutual exclusion is
+    reachable from the fixture-driven tests above, because both only happen on a real scan.
     """
 
     @classmethod
     def setUpClass(cls):
         cls.check = load_check()
 
-    def _refresh_command(self, options):
-        args = argparse.Namespace(WPSCAN_OPTION=options)
+    def _resolve(self, argv):
+        """Return (token, enterprise_token, remaining raw options) the way main() works
+        them out from the command line.
+        """
+        with mock.patch.object(sys, 'argv', ['wordpress-security-scan', *argv]):
+            args = self.check.parse_args()
+        if args.WPSCAN_OPTION is None:
+            args.WPSCAN_OPTION = []
+        # An exported credential would otherwise decide the outcome of these tests on the
+        # machine running them, which is the very fallback under test here.
+        with mock.patch.dict(os.environ, {}, clear=True):
+            enterprise_token = self.check.resolve_enterprise_token(
+                args, self.check.take_enterprise_token_option(args)
+            )
+            token = self.check.resolve_api_token(args)
+        if enterprise_token and token:
+            token = ''
+        return token, enterprise_token, args.WPSCAN_OPTION
+
+    def _refresh_env(self, token, enterprise_token):
         with mock.patch.object(
             self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
         ) as fake:
-            self.check.refresh_vulndb(args, 60)
-        return fake.call_args.args[0]
+            self.check.refresh_vulndb(token, enterprise_token, 60)
+        return fake.call_args.kwargs['env']
 
-    def test_the_token_reaches_the_refresh(self):
-        self.assertIn(
-            '--enterprise-db-token=linuxfabrik',
-            self._refresh_command(['--enterprise-db-token=linuxfabrik']),
+    def test_the_parameter_reaches_the_refresh(self):
+        _, enterprise_token, _ = self._resolve(
+            ['--url=https://www.example.com', '--enterprise-db-token=linuxfabrik']
         )
+        env = self._refresh_env('', enterprise_token)
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
 
-    def test_the_token_reaches_the_refresh_when_spelled_with_a_space(self):
-        cmd = self._refresh_command(['--enterprise-db-token', 'linuxfabrik'])
-        self.assertEqual(cmd[-2:], ['--enterprise-db-token', 'linuxfabrik'])
+    def test_the_raw_option_still_reaches_the_refresh(self):
+        # The spelling that predates the parameter of its own has to keep working.
+        _, enterprise_token, _ = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--wpscan-option=--enterprise-db-token=linuxfabrik',
+            ]
+        )
+        env = self._refresh_env('', enterprise_token)
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
+
+    def test_the_raw_option_still_reaches_it_when_spelled_with_a_space(self):
+        _, enterprise_token, _ = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--wpscan-option=--enterprise-db-token',
+                '--wpscan-option=linuxfabrik',
+            ]
+        )
+        env = self._refresh_env('', enterprise_token)
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
+
+    def test_the_raw_option_leaves_the_command_line(self):
+        # Either spelling: an argument is readable by every user on the host while the
+        # scan runs, and only the `=` form is redacted in what --verbose prints.
+        for argv in (
+            ['--wpscan-option=--enterprise-db-token=linuxfabrik'],
+            ['--wpscan-option=--enterprise-db-token', '--wpscan-option=linuxfabrik'],
+        ):
+            with self.subTest(argv=argv):
+                _, _, remaining = self._resolve(
+                    ['--url=https://www.example.com', *argv]
+                )
+                self.assertEqual(remaining, [])
+
+    def test_an_unrelated_option_survives_the_strip(self):
+        _, _, remaining = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--wpscan-option=--enterprise-db-token=linuxfabrik',
+                '--wpscan-option=--plugins-detection=aggressive',
+            ]
+        )
+        self.assertEqual(remaining, ['--plugins-detection=aggressive'])
 
     def test_an_unrelated_option_stays_out_of_the_refresh(self):
         # The refresh has no target, so a scan option would only make it fail.
-        self.assertNotIn(
-            '--plugins-detection=aggressive',
-            self._refresh_command(['--plugins-detection=aggressive']),
+        with mock.patch.object(
+            self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
+        ) as fake:
+            self.check.refresh_vulndb('', 'linuxfabrik', 60)
+        self.assertNotIn('--plugins-detection=aggressive', fake.call_args.args[0])
+
+    def test_an_api_token_is_dropped_beside_a_local_database(self):
+        # The scanner raises ConflictingApiTokens and gives up before it looks at the
+        # site, a plain `--update` included. The local copy supplies the data anyway.
+        token, enterprise_token, _ = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--api-token=linuxfabrik',
+                '--enterprise-db-token=linuxfabrik',
+            ]
         )
+        self.assertEqual(token, '')
+        self.assertEqual(enterprise_token, 'linuxfabrik')
 
 
 def run_without_test_mode(params, path=None):

@@ -50,7 +50,7 @@ Monitoring Plugins:
 * rpm-versionlock: check alerting on packages the RPM package manager holds back
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 * wordpress-checksums: check verifying core and plugin files against the checksums wordpress.org publishes
-* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and exposed credentials. Needs a (free) WPScan API token
+* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and exposed credentials
 
 ### Changed
 
