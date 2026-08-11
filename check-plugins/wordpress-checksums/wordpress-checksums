@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081101'
+__version__ = '2026081102'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -110,7 +110,8 @@ PLUGIN_SOFT_FILES = ('readme.md', 'readme.txt')
 # published under the same version number, the core's and the plugin directory's, and only
 # the core list says which one an installation is entitled to. Where that list is missing,
 # a mismatch cannot be decided either way and is reported as a gap in coverage instead of
-# as a finding. WordPress has bundled these two and nothing else since 2005.
+# as a finding. WordPress has bundled these two and nothing else since 2006, when the
+# database backup plugin it used to ship along with them was dropped.
 CORE_BUNDLED_PLUGINS = ('akismet', 'hello-dolly')
 
 # How long a path may get before it is abbreviated for display. Chosen so the widest column
@@ -685,6 +686,24 @@ def remaining_timeout(args, deadline):
     return max(0, min(args.TIMEOUT, int(deadline - lib.time.now())))
 
 
+def unwrap_core_checksums(checksums, version):
+    """Return the digest map out of what the core endpoint answered, or None where it
+    published nothing.
+
+    The answer is normally a flat `{path: digest}` map, but it arrives wrapped in another
+    layer keyed by the version whenever the endpoint decides to answer for a whole
+    release rather than for the request. WordPress carries the same unwrapping in its own
+    updater, and without it every file of the installation would be reported as one the
+    release never shipped.
+    """
+    if not isinstance(checksums, dict) or not checksums:
+        return None
+    inner = checksums.get(version)
+    if isinstance(inner, dict) and inner:
+        return inner
+    return checksums
+
+
 def fetch_core_checksums(args, version, locale, timeout):
     """Return the digests wordpress.org publishes for a released core version, or the
     fixture standing in for them in test mode.
@@ -701,7 +720,7 @@ def fetch_core_checksums(args, version, locale, timeout):
         endpoint=f'{CORE_CHECKSUM_URL}?{query}',
         # The endpoint says "I do not know this version or locale" by answering 200 with
         # `"checksums": false`, where the plugin endpoint answers 404. Same meaning.
-        extract=lambda data: data.get('checksums') or None,
+        extract=lambda data: unwrap_core_checksums(data.get('checksums'), version),
         algorithm=CORE_CHECKSUM_ALGORITHM,
         timeout=timeout,
     )
@@ -795,7 +814,10 @@ def main():
     unreachable = []
     unreachable_reason = ''
     # Components served from an expired cache entry because wordpress.org could not be
-    # reached, and the oldest such entry, which is what the age is stated from.
+    # reached, and the entry that ran out first, which is what the output states from.
+    # That is when the copy stopped being current, not when it was fetched: the cache
+    # keeps the expiry and nothing else, and how long a copy was good for is --cache-expire
+    # rather than something the entry remembers.
     stale = []
     stale_since = 0
     counts = {
@@ -961,12 +983,14 @@ def main():
     if stale:
         # What was verified is still correct - the digests of a released version never
         # change - but a component updated since the outage began has no published checksums
-        # here yet and shows up as unverified rather than as verified clean.
+        # here yet and shows up as unverified rather than as verified clean. The age states
+        # how long the copy has been out of date, which is how long wordpress.org has been
+        # out of reach, and that is the number an admin acts on.
         share = 'all' if len(stale) == components else f'{len(stale)} of'
         msg += (
             f'\nwordpress.org is unreachable, {share} {components} '
             f'{lib.txt.pluralize("component", components)} verified against cached data '
-            f'up to {lib.human.seconds2human(lib.time.now() - stale_since)} old.'
+            f'that expired {lib.human.seconds2human(lib.time.now() - stale_since)} ago.'
         )
     if unverified:
         # What it means for the result comes before why it happened, and each of the two

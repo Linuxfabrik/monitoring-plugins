@@ -248,7 +248,7 @@ wordpress.org unreachable, verified against the cached copy:
 
 ```text
 No checksum violations found. WordPress v6.8.2 (en_US). 2834 files verified in 3 of 3 components.
-wordpress.org is unreachable, all 3 components verified against cached data up to 3D old.
+wordpress.org is unreachable, all 3 components verified against cached data that expired 3D ago.
 ```
 
 
@@ -258,7 +258,7 @@ wordpress.org is unreachable, all 3 components verified against cached data up t
 * OK if every verified file matches what wordpress.org published, or matches the copy the core release shipped for a bundled plugin.
 * By default OK when wordpress.org publishes no checksums for a component, so it could not be verified at all. `--no-checksum-data-severity` raises that to `warn`, `crit` or `unknown`. This is the permanent case: a commercial plugin, one from outside the plugin directory, or a core release predating the checksum archive.
 * By default OK with "Nothing checked." when `--match` or `--ignore` filtered every finding away. `--no-match-severity` raises that to `warn`, `crit` or `unknown`. An installation that simply matches its published checksums is reported as clean instead, so the two cases stay distinguishable. A filtered run still emits every metric and still reports an unverifiable component, so `--no-checksum-data-severity` and `--unreachable-severity` keep working and a dashboard shows a zero rather than a gap.
-* By default OK when wordpress.org could not be reached, whether an expired cached copy filled in or the component stayed unverified. `--unreachable-severity` raises that to `warn`, `crit` or `unknown`. This is the fixable case, so it is graded apart from the one above: raise it where the host is expected to reach wordpress.org and a broken egress rule should surface instead of quietly reducing what the check covers. The output says on its own line which of the two happened, and how old the cached data is.
+* By default OK when wordpress.org could not be reached, whether an expired cached copy filled in or the component stayed unverified. `--unreachable-severity` raises that to `warn`, `crit` or `unknown`. This is the fixable case, so it is graded apart from the one above: raise it where the host is expected to reach wordpress.org and a broken egress rule should surface instead of quietly reducing what the check covers. The output says on its own line which of the two happened, and how long ago the cached copy ran out, which is how long wordpress.org has been out of reach.
 * UNKNOWN if `--path` holds no WordPress installation, meaning no readable `wp-includes/version.php` below it.
 * UNKNOWN if not a single checksum could be obtained, from wordpress.org or from the cache, so nothing at all was compared. The reason is part of the message, including the case where `--total-timeout` ran out before anything could be asked. This is deliberately not an OK: a check that could not run says nothing about the installation, and a green result would claim otherwise.
 * Always OK with `--always-ok`.
@@ -306,7 +306,7 @@ A `URL error` or a timeout means the host cannot reach `api.wordpress.org` and `
 
 `ran out of the 45s that --total-timeout grants a run` means the same thing seen from the other side: the requests were not refused, they were not answered in time, and the budget for the whole run was used up before the remaining components could be asked about. See "The first run takes too long" below.
 
-Once a single run has succeeded, the cache carries the check over a later outage, and it then reports the age of the cached data instead of failing. `--unreachable-severity` decides whether an outage alerts at all; it defaults to OK.
+Once a single run has succeeded, the cache carries the check over a later outage, and it then reports how long ago the cached copy ran out instead of failing. That number is how long the outage has been going on, not the age of the digests, which never change once a release is published. `--unreachable-severity` decides whether an outage alerts at all; it defaults to OK.
 
 ### `Not verified: core`
 

@@ -277,7 +277,7 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-regex': r'^No checksum violations found\. WordPress v6\.8\.2 \(en_US\)\..*'
         r'\nwordpress\.org is unreachable, all 2 components verified against cached data '
-        r'up to .* old\.',
+        r'that expired .* ago\.',
     },
     # Nothing published for this release, so nothing could be verified.
     {
@@ -557,6 +557,41 @@ class TestRemainingTimeout(unittest.TestCase):
     def test_a_spent_budget_is_zero_rather_than_negative(self):
         deadline = lib.time.now() - 60
         self.assertEqual(self.check.remaining_timeout(FetchArgs, deadline), 0)
+
+
+class TestCoreChecksumShape(unittest.TestCase):
+    """The core endpoint answers with a flat map of paths to digests, but it wraps that
+    map in another layer keyed by the version when it answers for a whole release rather
+    than for the request. WordPress carries the same unwrapping in its own updater.
+
+    Without it the version number itself reads as a file the release shipped and is
+    reported as missing, while every real file of the installation is reported as one
+    the release never shipped - thousands of findings on an untouched installation.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_a_flat_map_is_passed_through(self):
+        flat = {'wp-admin/about.php': 'd41d8cd98f00b204e9800998ecf8427e'}
+        self.assertEqual(self.check.unwrap_core_checksums(flat, '6.8.2'), flat)
+
+    def test_a_map_wrapped_in_the_version_is_unwrapped(self):
+        inner = {'wp-admin/about.php': 'd41d8cd98f00b204e9800998ecf8427e'}
+        self.assertEqual(
+            self.check.unwrap_core_checksums({'6.8.2': inner}, '6.8.2'), inner
+        )
+
+    def test_a_path_that_looks_like_a_version_is_not_unwrapped(self):
+        # The wrapper is keyed by the version that was asked for, so a map that happens
+        # to hold a different key of that shape stays what it is.
+        flat = {'6.8.1': 'd41d8cd98f00b204e9800998ecf8427e'}
+        self.assertEqual(self.check.unwrap_core_checksums(flat, '6.8.2'), flat)
+
+    def test_nothing_published_stays_nothing_published(self):
+        for answer in (False, None, {}, [], 'no'):
+            self.assertIsNone(self.check.unwrap_core_checksums(answer, '6.8.2'))
 
 
 class TestGetChecksums(unittest.TestCase):
