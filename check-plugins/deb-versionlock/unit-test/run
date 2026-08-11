@@ -257,6 +257,24 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['2 holds and 9 pins in place.', "'holds'=11"],
     },
+    # A line that lost its colon opens no field, so the indented line below it continues
+    # nothing. APT drops that stanza and reads the rest of the file, which is what the
+    # stanzas on either side of it verify.
+    {
+        'id': 'warn-preferences-line-without-colon',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/missing-colon --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 pins in place.',
+            'valid-package',
+            'after-the-broken-stanza-package',
+        ],
+        'assert-not-in': [
+            'missing-colon-package',
+            'continuation-of-nothing',
+        ],
+    },
     # APT reads its package list for `showhold` and nothing else, so a non-zero exit
     # means that list is unusable and the check cannot say anything about the host.
     {

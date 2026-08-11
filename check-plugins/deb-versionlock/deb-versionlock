@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081004'
+__version__ = '2026081101'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -36,6 +36,7 @@ and then alerts as well on a preferences file APT refuses, which stops every pac
 operation on the host. Supports extended reporting via --lengthy."""
 
 DEFAULT_CRIT = None
+DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '0'
@@ -63,7 +64,10 @@ APT_PACKAGE_PIN_TYPES = ('source-version', 'version')
 APT_PRIORITY_MIN = -32768
 APT_PRIORITY_MAX = 32767
 
-# A preferences file that grew beyond this is not a pinning configuration anymore.
+# A preferences file that grew beyond this is not a pinning configuration anymore. Such a
+# file is skipped whole rather than read up to the cap: a prefix of a preferences file is
+# a pin list with stanzas missing and a last one cut in half, and reporting that as the
+# pins that are in force would be worse than saying nothing about the file.
 MAX_CONFIG_BYTES = 1024 * 1024
 
 # Package name as APT hands it out: lower case (APT folds mixed case itself), starting
@@ -145,7 +149,7 @@ def parse_args():
         help=lib.args.help('--lengthy'),
         dest='LENGTHY',
         action='store_true',
-        default=False,
+        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -393,6 +397,10 @@ def parse_preferences(content, origin):
             continue
         key, separator, value = line.partition(':')
         if not separator:
+            # not a field at all, so there is nothing an indented line below it could
+            # continue. Forgetting the field above it is what APT does too: a line that
+            # opens no field cannot be extended by the next one.
+            key = ''
             continue
         key = key.strip().lower()
         fields[key] = value.strip()
@@ -441,7 +449,12 @@ def get_pins(root):
     for filename in files:
         if not lib.disk.file_exists(filename, allow_empty=True):
             continue
-        success, content = lib.disk.read_file(filename, max_bytes=MAX_CONFIG_BYTES)
+        # Checked before the file is opened rather than capping the read, so no half-read
+        # stanza reaches the parser.
+        info = lib.disk.stat(filename)
+        if info is None or info.st_size > MAX_CONFIG_BYTES:
+            continue
+        success, content = lib.disk.read_file(filename)
         if not success:
             continue
         found, reason = parse_preferences(content, filename)

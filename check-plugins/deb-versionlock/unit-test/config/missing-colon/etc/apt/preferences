@@ -1,0 +1,18 @@
+# The stanza APT applies.
+Package: valid-package
+Pin: version 1.24.*
+Pin-Priority: 1001
+
+# `Pin` lost its colon, so it opens no field, and the line below it continues
+# nothing. Verified against Debian 13: APT drops the pin (the package keeps
+# priority 100 instead of the 1001 asked for here) and carries on with an exit
+# code of 0 rather than refusing the file.
+Package: missing-colon-package
+Pin version 1.24.*
+ continuation-of-nothing
+Pin-Priority: 1001
+
+# The stanza behind it is applied like any other, because APT did not stumble.
+Package: after-the-broken-stanza-package
+Pin: version 7.1*
+Pin-Priority: 1001
