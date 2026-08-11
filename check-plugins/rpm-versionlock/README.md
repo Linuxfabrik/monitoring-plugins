@@ -20,9 +20,11 @@ The check reads the version lock configuration itself rather than asking the pac
 
 * dnf 4 and yum: reads the lock list named by `locklist` in `/etc/dnf/plugins/versionlock.conf`, conventionally `/etc/dnf/plugins/versionlock.list`. There is no built-in default for it, so a configuration that names none is read as "no locks". The `/etc/yum/pluginconf.d/` layout is followed as well, and a lock reachable under both paths is counted once.
 * dnf 5: reads `/etc/dnf/versionlock.toml`, because that generation keeps its configuration in TOML rather than in a plain list. That file is read unconditionally, since dnf 5 applies its locks from its own library rather than from a plugin.
-* `--check-excludes` additionally reads `exclude` / `excludepkgs` from `/etc/dnf/dnf.conf` and from every `.repo` file in the directories `reposdir` names, which defaults to `/etc/yum.repos.d`, `/etc/yum/repos.d`, `/etc/distro.repos.d` and, on dnf 5, `/usr/share/dnf5/repos.d`. A `main` section inside a `.repo` file is skipped, since the package manager reads its main configuration from one file only.
+* `--check-excludes` additionally reads `exclude` / `excludepkgs` from `/etc/dnf/dnf.conf` and from every `.repo` file in the directories `reposdir` names. Where it names none, all four default directories are searched: `/etc/yum.repos.d`, `/etc/yum/repos.d`, `/etc/distro.repos.d` and `/usr/share/dnf5/repos.d`. The last two generations disagree on one entry each, dnf 4 not reading the dnf 5 directory and dnf 5 not reading `/etc/yum/repos.d`, so an exclusion left in the directory belonging to the other generation is reported although nothing applies it. A `main` section inside a `.repo` file is skipped, since the package manager reads its main configuration from one file only.
 
-Entries the package manager marks as an exclusion (a `!` prefix in the lock list, `evr !=` on dnf 5) are reported as type `exclude`, everything else as `versionlock`. The summary counts the two kinds separately, because an exclusion keeps a package off the host rather than at a version.
+Entries the package manager marks as an exclusion (a `!` prefix in the lock list, `evr !=` on dnf 5) are reported as type `exclude`, everything else as `versionlock`. The summary counts the two kinds separately, because an exclusion keeps a package off the host rather than at a version. The `locks` metric and the `--warning` / `--critical` thresholds count both together.
+
+A lock list entry is read the way the package manager reads it, which matters wherever the name and the version cannot be told apart by eye. `bash-0:4.4.20-6.el8_10.*` is the spelling the package manager writes; `0:bash-4.4.20-6.el8_10.*` puts the same epoch in front and is accepted as well. An entry with no epoch is split on its last two dash-separated fields only when both of them start with a digit, so `python3-foo-1.2-3.el9` is a version lock while `java-1.8.0-openjdk` and `kernel-devel-*` stay whole package names.
 
 
 ## Fact Sheet
@@ -155,7 +157,7 @@ redis   ! [main]                ! exclude     ! /etc/dnf/dnf.conf
 
 | Name | Type | Description |
 |----|----|----|
-| locks | Number | Number of version locks after `--match` and `--ignore` were applied. |
+| locks | Number | Number of version locks, plus exclusions with `--check-excludes`, after `--match` and `--ignore` were applied. |
 
 
 ## Troubleshooting
@@ -190,6 +192,8 @@ dnf versionlock delete <package>
 ```
 
 An entry that names a `.repo` file or `/etc/dnf/dnf.conf` is not a version lock but an exclusion, which only shows up with `--check-excludes`. Those are removed by editing the `exclude` or `excludepkgs` line in the file the column names, not with `dnf versionlock`.
+
+An exclusion in `/etc/yum/repos.d` on a dnf 5 host, or in `/usr/share/dnf5/repos.d` on a dnf 4 host, is reported although that generation never reads the directory. Move it to `/etc/yum.repos.d`, which both of them read, or delete it.
 
 
 ## Credits, License

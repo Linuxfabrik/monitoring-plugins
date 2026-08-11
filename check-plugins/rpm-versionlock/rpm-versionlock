@@ -30,7 +30,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081101'
+__version__ = '2026081102'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -57,7 +57,10 @@ DNF5_LOCKFILE = 'etc/dnf/versionlock.toml'
 MAIN_CONFIGS = ('etc/dnf/dnf.conf', 'etc/yum.conf')
 # The package manager's own default for `reposdir`, used unless the main configuration
 # names another one. Kept in search order rather than sorted, and holding the union of
-# what dnf 4 and dnf 5 look at, so the same list serves both generations.
+# what dnf 4 and dnf 5 look at, so the same list serves both generations. The two differ
+# in one entry each - dnf 4 does not read the dnf 5 directory and dnf 5 does not read
+# `etc/yum/repos.d` - so on a host running only one of them, an exclusion left in the
+# other's directory is reported by --check-excludes although nothing applies it.
 REPO_DIRS = (
     'etc/yum.repos.d',
     'etc/yum/repos.d',
@@ -344,21 +347,35 @@ def split_entry(spec):
     """Split `bash-0:4.4.20-6.el8_10.*` into the package name and the version it is locked to.
 
     The package name itself may contain dashes, so the split is anchored on the epoch
-    the package manager always writes. Entries edited by hand may carry no epoch, in
-    which case the last two dash-separated fields are taken as version and release,
-    but only where the version field starts with a digit - otherwise `kernel-devel-*`
-    would be read as the package `kernel` locked to `devel-*` instead of as a glob over
-    the package name.
+    wherever the entry carries one. The package manager writes it behind the name, but
+    it also accepts it in front of the whole spec, and an entry in that spelling holds
+    its package just as firmly.
+
+    Entries edited by hand may carry no epoch at all, in which case the last two
+    dash-separated fields are taken as version and release - but only where both of them
+    start with a digit, because that is what tells a version apart from a name that
+    merely has digits in the middle of it. Without the second half of that test
+    `java-1.8.0-openjdk` reads as the package `java` locked to `1.8.0-openjdk`, and
+    `kernel-devel-*` as `kernel` locked to `devel-*`, when both are package names.
     """
+    epoch = ''
+    match = re.match(r'^(?P<epoch>\d+):(?P<rest>.+)$', spec)
+    if match:
+        epoch, spec = match.group('epoch'), match.group('rest')
+
     match = re.match(r'^(?P<package>.+?)-(?P<lock>\d+:.+)$', spec)
     if match:
         package, lock = match.group('package'), match.group('lock')
     else:
         fields = spec.rsplit('-', 2)
-        if len(fields) == 3 and fields[1][:1].isdigit():
+        if len(fields) == 3 and fields[1][:1].isdigit() and fields[2][:1].isdigit():
             package, lock = fields[0], '-'.join(fields[1:])
         else:
             package, lock = spec, ''
+    if epoch and lock:
+        # spelled the way the package manager writes it itself, so the same lock reads
+        # the same in the output whichever notation the entry used
+        lock = f'{epoch}:{lock}'
     if not RPM_NAME_REGEX.match(package):
         return '', ''
     return package, lock

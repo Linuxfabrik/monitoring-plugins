@@ -212,6 +212,33 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['2 version locks in place.', 'kernel*', 'kernel-devel-*'],
     },
+    # The spellings a hand-written list carries. `java-1.8.0-openjdk` and
+    # `java-17-openjdk` are package names whose second-to-last dash-separated field
+    # starts with a digit and must stay whole, and an entry may put its epoch in front
+    # of the whole spec instead of behind the name.
+    {
+        'id': 'warn-hand-written-specs',
+        'test': '',
+        'params': '--config-root=config/hand-written-specs --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '5 version locks in place.',
+            'java-1.8.0-openjdk',
+            'java-17-openjdk',
+            'python3-foo',
+        ],
+        # The epoch reads the same whichever notation the entry used.
+        'assert-regex': r'glibc\s+!\s+0:2\.28-251\.el8_10\.\*',
+    },
+    # A name that was cut in half would report a package that does not exist, and a
+    # filter written for the real name would then never fire.
+    {
+        'id': 'warn-hand-written-specs-not-cut-in-half',
+        'test': '',
+        'params': '--config-root=config/hand-written-specs --match=^java-1\\.8\\.0-openjdk$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'java-1.8.0-openjdk'],
+    },
     # A lock list dnf 4 does not apply holds nothing back, whether the plugin is
     # switched off, plugins are switched off wholesale, or no lock list is named at
     # all. The last one even makes the package manager refuse to transact.
