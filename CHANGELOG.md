@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Six checks that aborted with a Python error work again, `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on large servers. Thirty new checks cover Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating.
+**Highlights:** Six checks that aborted with a Python error work again, `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on large servers. Thirty new checks cover Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating. The Icinga Director templates now keep configuration on the master, which stops deployments on setups with a satellite tier.
 
 ### Breaking Changes
 
@@ -18,6 +18,10 @@ Monitoring Plugins:
 * disk-io: no longer measures I/O wait and is WARN-only, so `--critical` and the `--iowait-*` thresholds are ignored. Re-import the Grafana dashboard
 * huawei-dorado-\*: performance data metric names, capacity units and voltage units changed. Re-import the affected Grafana dashboards
 * redfish-\*: `--url` is mandatory, the localhost default is gone. Add it to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
+
+Icinga Director:
+
+* the Host and Service templates are pinned to the master zone, so credentials stay on the master instead of reaching every agent. Setups with a satellite tier no longer deploy; unset the zone on `tpl-host-generic` and `tpl-service-generic` to restore the previous behaviour ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
 
 ### Added
 

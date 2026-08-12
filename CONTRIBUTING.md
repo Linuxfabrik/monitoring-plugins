@@ -221,6 +221,14 @@ Ship the Service Template in `build-basket` either way. Add a Service Set entry 
 There is one deliberate exception. A per-instance check may join a Set anyway when its subject is important enough that an unconfigured host should not stay silent about it. The service the tag creates then reports UNKNOWN until the missing parameter is supplied, which is the point: the tag says the host runs the thing, and the UNKNOWN says nobody has finished setting up the check for it. Document the behaviour in the plugin's README so the state is not read as a defect. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) in the WordPress Service Set, where `--url` cannot be guessed.
 
 
+### Icinga Director: Cluster Zones
+
+The shipped base templates `tpl-host-generic` and `tpl-service-generic` pin `"zone": "master"` in `all-the-rest.json`. Every other host and service template, including the per-plugin and `-no-agent` templates, sets no zone and inherits master through the template imports, so those two base templates are the single control point for the zone of the whole shipped configuration. This is a deliberate security default: it keeps host and service configuration, and any credentials on a host or service object, on the master and its HA peers instead of on every agent. When editing templates:
+
+* Keep the two base templates pinned to `master` and leave every other template's zone unset, so the whole tree inherits from that single control point. A distributed site that needs the checks on satellite- or agent-authoritative hosts unsets the zone on the two base templates (moving them to the global zone), accepting that host and service configuration is then distributed to every agent. That trade-off is documented in ICINGA.md.
+* Never put a credential (password, SNMP community, API token) on a template or on a Service Set. A secret on a shared template applies to every service that imports it, and a Service Set copies its variables onto every service it generates. Both are distributed to every agent as soon as a site unsets the base-template zone. Keep secrets on the concrete host or service object, which is deployed only to the zone that runs the check.
+
+
 ### Rules of Thumb
 
 * Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter. If the default output still grows unbounded on large systems (thousands of disk mounts, DHCP scopes, backends, services), also support a `--brief` parameter that hides rows within the thresholds. See "Verbosity parameter convention" below.

@@ -166,20 +166,22 @@ Most checks run on the Icinga Agent of the monitored host (the plugin files are 
 
 ### Distributed Monitoring (master / satellite / agent)
 
-In a distributed Icinga 2 setup the checks execute on satellites or agents, not on the master. Icinga validates that a checkable's `command_endpoint` is in the same zone as the checkable or in a *direct child zone*; otherwise it rejects the configuration with:
+The shipped base templates `tpl-host-generic` and `tpl-service-generic` pin `"zone": "master"`. Every other host and service template sets no zone and inherits master through the template imports, so those two are the single control point for the zone of the whole shipped configuration.
+
+This is a security default. Icinga's config sync distributes a zone's configuration to every endpoint in that zone and below it, and a global zone to every endpoint there is. Without the master pin, the services a Service Set generates end up in the global zone, so any credential on them is written to disk on every agent in the network. With the pin they stay on the master, where the check is scheduled anyway: the master resolves the command and hands it to the agent over the cluster connection at execution time, so an agent never needs a credential on disk. All it needs locally is the check command, which lives in the global zone and carries no secrets.
+
+The trade-off is Icinga's topology rule. A checkable's `command_endpoint` has to be in the checkable's own zone or in a *direct child* of it, otherwise the deployment is rejected:
 
 ```text
-Error: ... Attribute 'command_endpoint': Command endpoint must be in zone 'X' or in a direct child zone thereof.
+critical/config: Error: Validation failed for object 'host.example.com!Load' of type 'Service'; Attribute 'command_endpoint': Command endpoint must be in zone 'master' or in a direct child zone thereof.
 ```
 
-The templates are built so this works in any topology:
+* **Single node, and master → agent.** Works. The agent zone is a direct child of the master, so the rule holds: the configuration and its credentials stay on the master and the check still executes on the agent. The plugin files themselves still have to be installed on the agent.
+* **master → satellite → agent.** Rejected at deploy with the error above, because the agent zone is a grandchild of the master zone. Icinga offers no way to keep the configuration on the master and still execute two tiers down, so this is a deliberate refusal rather than a defect. To run the checks anyway, unset the zone on `tpl-host-generic` and `tpl-service-generic`. Both move to the global zone, every import resolves again, and you accept that host and service configuration, credentials included, is distributed to every agent.
 
-* **Check commands** must exist on every endpoint that runs a check. Deploy them through a global zone (`director-global`), which the Icinga config sync distributes to all endpoints.
-* **Hosts** carry their own zone and `command_endpoint`. Set them per host in Director (enable the *Icinga Agent* and pick the host's cluster zone); the host then lives in its agent or satellite zone.
-* **Service templates do not pin a zone.** `tpl-service-generic` has no zone, so every service inherits the host's zone and `command_endpoint` and runs on the host's agent, no matter how many tiers sit between master and agent (master → agent, master → satellite → agent, and deeper).
-* Only the agentless `-no-agent` variants (`tpl-service-cert-no-agent`, `tpl-service-url-no-agent`) pin `"zone": "master"`, because they run centrally from the master.
+If you pinned individual hosts to their own cluster zone, remove that zone so their configuration returns to the master.
 
-Do **not** force an agent-based service into a fixed zone or a global zone. A service that sets a `command_endpoint` can never satisfy the zone rule from a global zone (global zones have no child zones), and pinning it to `master` breaks every setup where the agent is not a direct child of the master, such as a three-tier master → satellite → agent topology.
+Never put a credential on a template or on a Service Set. A template applies to every object that imports it, and a Service Set's variables are copied onto every service it generates. Secrets belong on the concrete host or service object.
 
 
 ### Notes URL
@@ -364,7 +366,7 @@ Trade-off: without UUIDs, Director falls back to name-based object matching, whi
 
 ### Master zone is not named `master`
 
-The agentless central Service Templates (`tpl-service-cert-no-agent`, `tpl-service-url-no-agent`) carry `"zone": "master"` because they run on the master. The agent-based templates do not pin a zone (they inherit the host's zone, see the "Distributed Monitoring" section under Core Concepts). If your Icinga 2 master zone has a different name, replace the literal before importing so the agentless checks still target your master:
+The shipped base templates `tpl-service-generic` and `tpl-host-generic` carry `"zone": "master"`, and every other template inherits it (see the "Distributed Monitoring" section under Core Concepts for the reasoning). If your Icinga 2 master zone has a different name, replace the literal before importing so the checks still target your master:
 
 ```bash
 sed --in-place 's/"zone": "master"/"zone": "icinga-master-zone"/g' \
