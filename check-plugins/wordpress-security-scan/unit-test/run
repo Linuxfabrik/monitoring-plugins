@@ -719,6 +719,23 @@ TESTS = [
         'assert-in': ['Output from wpscan:', 'Unable to connect to the WPScan API'],
         'assert-not-in': ['no usable output'],
     },
+    # The scanner refusing the vulnerable-plugins and vulnerable-themes choices for want
+    # of a token is the same class of abort: it happens before the site is looked at, and
+    # against a live scanner the scan is repeated with those choices downgraded. A
+    # release predating --enterprise-db-token reports this after ignoring the token, and
+    # so does a `vp` handed in raw through --wpscan-option. The fixture path cannot replay
+    # the second run, so what is asserted is that the reason survives verbatim.
+    {
+        'id': 'unknown-vulnerable-enumeration-needs-a-token',
+        'test': 'stdout/vuln-enumeration-needs-token,,4',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan:',
+            'An API token is required for vulnerable plugin/theme enumeration',
+        ],
+        'assert-not-in': ['no usable output'],
+    },
     # A run that fails while refreshing the vulnerability database reports under its own
     # JSON key, not under the one every other abort uses. Reading only the latter left
     # the admin with a generic "no usable output" instead of the scanner's own reason.

@@ -724,6 +724,12 @@ gem update wpscan
 
 If `gem update` leaves the version where it was, the host's Ruby is older than the current scanner requires and `gem` is holding it on the newest release that still runs there. See "Installing wpscan" in the Overview, which lists the releases this affects and what each of them needs.
 
+### `An API token is required for vulnerable plugin/theme enumeration`
+
+The scanner found the `vp` or `vt` choice of `--wpscan-enumerate` without a credential for the vulnerability database, and gives up before it looks at the site. The check repeats the scan with those two choices downgraded to `p` and `t`, so the exposures are still reported and only the vulnerability class is missing; `--no-vuln-data-severity` decides whether that alerts.
+
+Two situations produce it. Either the installed `wpscan` predates `--enterprise-db-token` and therefore ignores the locally held copy of the vulnerability database that was configured for it - `wpscan --version --no-update` names the release, and updating the gem fixes it. Or `vp` or `vt` reached the scanner through `--wpscan-option` on a run that has no token at all, in which case pass them through `--wpscan-enumerate`, which the check adjusts on its own.
+
 ### The scan aborts on an unknown `--wpscan-enumerate` choice
 
 ```text
