@@ -217,6 +217,27 @@ TESTS = [
         'assert-in': ['1 version lock in place.', 'bash'],
         'assert-not-in': ['must-not-be-read'],
     },
+    # Two plugin configuration directories, each with a versionlock.conf of its own. The
+    # package manager merges them into one configuration instead of reading each on its
+    # own, so only the `locklist` of the last one is in force and only its locks exist.
+    {
+        'id': 'warn-merged-pluginconfpath',
+        'test': '',
+        'params': '--config-root=config/merged-pluginconfpath',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['must-not-be-read', 'refuses'],
+    },
+    # The same merge decides `enabled`: the second directory switches the plugin off, so
+    # the lock list the first one names is not applied and the host is healthy.
+    {
+        'id': 'ok-merged-pluginconfpath-disabled',
+        'test': '',
+        'params': '--config-root=config/merged-pluginconfpath-disabled',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['must-not-be-read', 'refuses'],
+    },
     # Hand-written entries, which carry no epoch.
     {
         'id': 'warn-lock-without-epoch',

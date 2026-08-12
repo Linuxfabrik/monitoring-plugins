@@ -30,7 +30,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081104'
+__version__ = '2026081201'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -349,8 +349,14 @@ def missing_locklist(path):
 
 
 def get_locklists(root, main_configs):
-    """Return the lock list files the package manager reads, and the configurations it
+    """Return the lock list file the package manager reads, and the configurations it
     chokes on.
+
+    Every `versionlock.conf` below `pluginconfpath` is merged into a single configuration,
+    later files overriding earlier ones, so there is exactly one `enabled` and exactly one
+    `locklist` in force however many of those files a host carries - and therefore exactly
+    one lock list. Reading each file on its own would report the locks of a configuration
+    the package manager has overridden.
 
     Only a list the plugin configuration names explicitly is read: there is no built-in
     default for it. A configuration that names none, or names one that is not there, does
@@ -361,11 +367,18 @@ def get_locklists(root, main_configs):
     but all of them leave the host unable to take a package, which is worth more than the
     silence they used to get. Verified against dnf 4.14 on Rocky 9.
 
+    The parse error is the one case that is not merged away: the package manager raises it
+    while it is still reading the configuration, so a file below the offending one is never
+    read and nothing is in force at all.
+
     A configuration that turns the plugin off is a different thing and stays quiet: the
     package manager then never loads the plugin, so none of the above can happen.
     """
-    locklists = []
-    refused = []
+    parser = new_parser()
+    # The files that were merged, and the last one to have set `locklist`, so a report
+    # names the configuration that is actually in force rather than the first one found.
+    configs = []
+    locklist_origin = ''
     plugin_conf_dirs = get_main_dirs(
         root, main_configs, 'pluginconfpath', PLUGIN_CONF_DIRS
     )
@@ -375,30 +388,31 @@ def get_locklists(root, main_configs):
         content = read_config_file(config)
         if not content:
             continue
-        parser = new_parser()
+        previous = parser.get('main', 'locklist', fallback='')
         try:
             parser.read_string(content)
         except configparser.Error:
-            refused.append(f'{config}: it does not parse')
-            continue
-        try:
-            if not parser.getboolean('main', 'enabled', fallback=True):
-                continue
-        except ValueError:
-            # An `enabled` that is not a boolean. What the package manager makes of it
-            # is not established, so the file is left alone rather than reported.
-            continue
-        locklist = parser.get('main', 'locklist', fallback='')
-        if not locklist:
-            refused.append(f'{config}: it names no lock list')
-            continue
-        path = rooted(root, locklist)
-        reason = missing_locklist(path)
-        if reason:
-            refused.append(f'{config}: {reason}')
-            continue
-        locklists.append(path)
-    return unique_paths(locklists), refused
+            return [], [f'{config}: it does not parse']
+        configs.append(config)
+        if parser.get('main', 'locklist', fallback='') != previous:
+            locklist_origin = config
+    if not configs:
+        return [], []
+    try:
+        if not parser.getboolean('main', 'enabled', fallback=True):
+            return [], []
+    except ValueError:
+        # An `enabled` that is not a boolean. What the package manager makes of it is not
+        # established, so the configuration is left alone rather than reported.
+        return [], []
+    locklist = parser.get('main', 'locklist', fallback='')
+    if not locklist:
+        return [], [f'{", ".join(configs)}: it names no lock list']
+    path = rooted(root, locklist)
+    reason = missing_locklist(path)
+    if reason:
+        return [], [f'{locklist_origin}: {reason}']
+    return [path], []
 
 
 def parse_locklist(content, origin):
