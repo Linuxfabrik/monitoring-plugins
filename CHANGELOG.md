@@ -38,6 +38,7 @@ Monitoring Plugins:
 * huawei-pacific-alarm: check listing the current alarms
 * huawei-pacific-disk: check alerting on a faulty disk, and on one running out of remaining life
 * huawei-pacific-fan: check alerting on a faulty fan
+* huawei-pacific-namespace: check alerting when a namespace cannot be reached or turned read-only
 * huawei-pacific-node: check alerting on a faulty cluster node and on an expired warranty
 * huawei-pacific-power: check alerting on a faulty power supply
 * huawei-pacific-quota: check alerting when a share fills up its quota
