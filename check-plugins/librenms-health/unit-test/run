@@ -164,6 +164,46 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-regex': r'71\.7 \(35\.0\.\.65\.0/30\.0\.\.70\.0\).*\[CRITICAL\]',
     },
+    {
+        # The same sensor can arrive more than once. A device in several device groups
+        # gets a full set of copies from the join, and a device can also discover the
+        # same physical sensor several times with an id of its own each - four rows
+        # here, two sensors in truth. Every copy would otherwise be counted, graphed and
+        # printed.
+        'id': 'crit-duplicates-counted-once',
+        'test': 'stdout/duplicates,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 2 sensors.', 'There is 1 alert.'],
+    },
+    {
+        # Where a device reports the same sensor twice and the copies disagree, the
+        # worse reading has to survive - otherwise a healthy copy hides the alert.
+        'id': 'crit-duplicate-keeps-the-worse-reading',
+        'test': 'stdout/duplicates,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        # The healthy copy of that same sensor carries 21.0 and must not be the one
+        # that survived. Its sibling, Sensor#1, legitimately reads 21.0 and stays.
+        'assert-regex': r'Sensor#2, RED.*71\.0.*\[CRITICAL\]',
+        'assert-not-in': ['Sensor#2, RED   ! temperature ! None    ! 21.0'],
+    },
+    {
+        # Worst first, so the row to act on is at the top. Deliberately not the Nagios
+        # numbering, which would put the unreadable sensor above the critical one, and
+        # deliberately against the alphabetical order of the hostnames, which is what
+        # the fixture's names are for.
+        'id': 'crit-worst-rows-come-first',
+        'test': 'stdout/sort-order,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': (
+            r'a critical sensor.*\[CRITICAL\][\s\S]*'
+            r'a warning sensor.*\[WARNING\][\s\S]*'
+            r'an unreadable sensor.*\[UNKNOWN\][\s\S]*'
+            r'an ok sensor.*\[OK\]'
+        ),
+    },
 ]
 
 

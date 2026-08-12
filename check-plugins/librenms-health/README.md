@@ -19,6 +19,8 @@ Retrieves hardware sensor information (temperature, humidity, voltage, power, st
 * For state-class sensors, displays the state description instead of the raw numeric value
 * For numeric sensors, compares the value against its four configured limits the same way LibreNMS does on its device health pages (warning and critical, low and high) and displays the value together with its low/high range
 * Supports filtering by device group (`--device-group`, with SQL wildcards), device hostname (`--device-hostname`, repeatable), and device type (`--device-type`, repeatable)
+* Reports each sensor once. A device that belongs to several device groups otherwise arrives with a full set of copies, and some hardware, Cisco switches above all, discovers the same physical sensor more than once. Where two copies of one sensor disagree, the worse reading is the one reported, so a healthy copy cannot hide an alert
+* Orders the table by severity, worst first, then by device and sensor name. The row to act on is therefore the top one, and the order is stable between runs
 * In default (compact) mode, only sensors with alerts are shown; use `--lengthy` to display all sensors with extended details (type, location, sensor class, last update time)
 
 
@@ -135,8 +137,9 @@ Warning (and critical) limits can be set per sensor in LibreNMS: open the device
 * OK if all sensors are within their LibreNMS-configured limits.
 * Numeric sensors (temperature, humidity, voltage, power, etc.) report CRIT when the value is at or beyond its critical low/high limit, and WARN when it is at or beyond its warning low/high limit.
 * Discrete state sensors (fan, power supply, disk state, etc.) report the severity LibreNMS assigned to the current state: WARN, CRIT or UNKNOWN.
-* A sensor without a current reading is UNKNOWN.
+* A sensor without a current reading is UNKNOWN, and so is a state sensor whose value LibreNMS has no translation for.
 * Sensors with alerting disabled in LibreNMS are excluded and do not affect the check state.
+* The table is ordered CRITICAL, WARNING, UNKNOWN, OK. That is deliberately not the order of the return codes, which put UNKNOWN last: an unreadable sensor is a gap in coverage, a critical one is a fire, and the fire belongs at the top.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

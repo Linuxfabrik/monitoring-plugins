@@ -37,6 +37,22 @@ DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_LENGTHY = False
 DEFAULT_TIMEOUT = 3
 
+# The values LibreNMS stores in `state_generic_value`, which happen to be the Nagios
+# numbering (`LibreNMS\Enum\SensorState`: 0 ok, 1 warning, 2 error, 3 unknown). Kept as a
+# set rather than assumed, because a device can put anything in there and the check may
+# only ever exit 0, 1, 2 or 3.
+STATE_BY_GENERIC_VALUE = (STATE_OK, STATE_WARN, STATE_CRIT, STATE_UNKNOWN)
+
+# How the table is ordered: worst first, so the row an admin has to act on is the one at
+# the top. Nagios numbers UNKNOWN above CRITICAL, which is the wrong way round for
+# reading - an unreadable sensor is a gap, a critical one is a fire.
+STATE_SORT_RANK = {
+    STATE_CRIT: 0,
+    STATE_WARN: 1,
+    STATE_UNKNOWN: 2,
+    STATE_OK: 3,
+}
+
 
 def parse_args():
     """Parse command line arguments using argparse."""
@@ -148,6 +164,35 @@ def parse_args():
     return args
 
 
+def deduplicate(sensors):
+    """Return one row per sensor, in two passes.
+
+    The query joins the device groups so `--device-group` can filter on them, and that
+    join multiplies every row of a device that sits in more than one group. Those copies
+    are identical and are dropped on `sensor_id`.
+
+    What survives that is a device having discovered the same physical sensor more than
+    once, each copy with a `sensor_id` of its own - Cisco hardware does this. They are
+    folded together on the name the sensor reports itself under, and the worst reading
+    wins, so a device that reports the same sensor twice cannot hide an alert behind a
+    healthy copy of itself.
+
+    Both passes keep the order the database returned, which is what the display order
+    below builds on.
+    """
+    by_id = {}
+    for sensor in sensors:
+        by_id.setdefault(sensor['sensor_id'], sensor)
+
+    by_sensor = {}
+    for sensor in by_id.values():
+        key = (sensor['hostname'], sensor['sensor_descr'])
+        kept = by_sensor.get(key)
+        if kept is None or severity_rank(sensor) < severity_rank(kept):
+            by_sensor[key] = sensor
+    return list(by_sensor.values())
+
+
 def get_sensor_state(sensor):
     """Determine the Nagios state for a single LibreNMS sensor row.
 
@@ -167,7 +212,13 @@ def get_sensor_state(sensor):
     """
     if sensor['sensor_class'] == 'state':
         generic = sensor['state_generic_value']
-        return int(generic) if generic is not None else STATE_UNKNOWN
+        if generic is None:
+            return STATE_UNKNOWN
+        # LibreNMS maps its own three values and calls everything else unknown
+        # (`StateTranslation::severity()`), so anything a device invented is
+        # reported as such rather than being passed on as an exit code that is
+        # not one of the four a plugin may return.
+        return int(generic) if int(generic) in STATE_BY_GENERIC_VALUE else STATE_UNKNOWN
 
     current = sensor['sensor_current']
     if current is None:
@@ -189,6 +240,11 @@ def get_sensor_state(sensor):
         return STATE_WARN
 
     return STATE_OK
+
+
+def severity_rank(sensor):
+    """Return how far up the table a sensor belongs, worst first. See STATE_SORT_RANK."""
+    return STATE_SORT_RANK[get_sensor_state(sensor)]
 
 
 def format_sensor_range(sensor):
@@ -242,6 +298,7 @@ def main():
                 d.sysDescr,
                 d.type,
                 l.location,
+                s.sensor_id,
                 s.sensor_descr,
                 s.sensor_current,
                 s.sensor_limit,
@@ -283,7 +340,7 @@ def main():
         if args.DEVICE_TYPE:
             sql += f' AND d.type IN ({", ".join("%s" for _ in args.DEVICE_TYPE)}) '
             data += args.DEVICE_TYPE
-        sql += ' ORDER BY d.hostname, s.sensor_class'
+        sql += ' ORDER BY d.hostname, s.sensor_descr'
         sensors = lib.base.coe(lib.db_mysql.select(conn, sql, data))
         lib.db_mysql.close(conn)
     else:
@@ -291,6 +348,20 @@ def main():
         # shaped exactly like the SELECT above returns them)
         stdout, _, _ = lib.lftest.test(args.TEST)
         sensors = json.loads(stdout)
+
+    # Before anything is counted: the same sensor can arrive several times, and every
+    # copy would otherwise be counted, graphed and printed as one more sensor.
+    sensors = deduplicate(sensors)
+    # Worst first, then by device and sensor name so the order is stable between runs
+    # and two hosts stay comparable. Applied before the display strings are built, so
+    # the sort sees the readings rather than the text they turn into.
+    sensors.sort(
+        key=lambda item: (
+            severity_rank(item),
+            item['hostname'] or '',
+            item['sensor_descr'] or '',
+        )
+    )
 
     # init some vars
     state = STATE_OK
