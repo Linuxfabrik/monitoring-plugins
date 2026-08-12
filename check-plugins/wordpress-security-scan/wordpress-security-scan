@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081202'
+__version__ = '2026081203'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -231,11 +231,11 @@ INFO_FINDING_TYPES = (
 # `Unknown` for a release the metadata does not list. Anything but `latest` means the
 # installed core is behind; `insecure` additionally means the database flags it.
 #
-# Matched by prefix rather than as whole words, because the metadata qualifies a state
-# with a suffix where it has one to add - `outdated-via-api` occurs today, and the
-# scanner's own output rewrites the separator instead of assuming there is none. A
-# qualified state carries the same meaning as its plain form, so an outdated core has to
-# be reported as outdated whichever of the two the database happens to spell.
+# Matched by prefix rather than as whole words. No qualified state occurs today - the
+# database spells the three plainly - but the scanner's own output rewrites a separator
+# in the value before printing it, which is the shape a qualified state would arrive in.
+# A qualified state would carry the same meaning as its plain form, so an outdated core
+# has to be reported as outdated whichever of the two the database happens to spell.
 CORE_STATUS_INSECURE = ('insecure',)
 CORE_STATUS_OUTDATED = ('outdated',)
 
@@ -500,7 +500,9 @@ def parse_args():
         '`ap` every one known. '
         'Themes: `vt`, `t` and `at` in the same order. '
         'Further: `tt` timthumb scripts, `cb` wp-config backups, `dbe` database '
-        'exports, `bf` backup folders, `u` user names, `m` media files. '
+        'exports, `bf` backup folders, `u` user names. '
+        '`m` enumerates media files and is accepted, but this check reports nothing '
+        'from it, so it only lengthens the scan. '
         'Only one choice per group: `vp`, `p` and `ap` rule each other out, as do '
         '`vt`, `t` and `at`. '
         'The wider the choice, the longer the scan takes, since each one probes for '
@@ -555,8 +557,7 @@ def parse_args():
         help='Scan the address given in --url even though it redirects elsewhere. '
         'Use it where the redirect is the very thing to look behind, for example a '
         'compromised site redirecting its visitors away. '
-        'Mutually exclusive with --wpscan-follow-redirect in effect, since the two ask '
-        'for opposite behaviour.',
+        'Has no effect where --wpscan-follow-redirect is set as well, which wins.',
         dest='WPSCAN_IGNORE_MAIN_REDIRECT',
         action='store_true',
         default=DEFAULT_WPSCAN_IGNORE_MAIN_REDIRECT,
@@ -569,8 +570,11 @@ def parse_args():
         'current data rather than against whatever was last downloaded. '
         'Use this where something else keeps the database current, or to save the '
         'download on a host that is scanned several times an hour. '
-        'A refresh that fails is not an error either way: the scan runs against the '
-        'local copy, and the check says so.',
+        'A refresh that fails is not an error: the scan runs against the local copy, '
+        'and the check says so. '
+        'A local copy that was never downloaded at all is different - the scanner then '
+        'refuses to scan rather than fetching it, so run `wpscan --update` once by hand '
+        'before setting this.',
         dest='WPSCAN_NO_UPDATE',
         action='store_true',
         default=False,
@@ -751,8 +755,8 @@ def get_redirect_target(aborted):
     directly.
 
     Only that direction is affected. A plain HTTP address redirecting to HTTPS on the
-    same host never reaches the scope check at all, because the scanner handles a change
-    of scheme before it gets there.
+    same host reaches the same scope check but passes it, because the host does not
+    change and the comparison short-circuits before it gets to the part that raises.
     """
     match = re.search(
         rf'{re.escape(REDIRECT_MARKER)}(https?://[^\s]+?)\.?(?:\s|$)', aborted
@@ -943,10 +947,17 @@ def refresh_vulndb(token, enterprise_token, timeout):
     where `note` explains a failure.
 
     This is a call of its own, without a target. Two reasons it is not left to the scan:
-    wpscan only refreshes on its own when its output format is `cli` and a user answers
-    its prompt (`Controller::Core#update_db_required?`), so a run reading JSON never
-    refreshes; and a refresh it does perform counts against its own `--max-scan-duration`,
-    which would spend the site's time budget on a download.
+    left to itself the scanner only refreshes when it is asked to, when its database
+    files are missing outright, or when its output format is `cli` and a user answers its
+    prompt (`Controller::Core#update_db_required?`) - so a run reading JSON and passing
+    `--no-update`, which is what the scan below does, never refreshes on its own. And a
+    refresh it does perform counts against its own `--max-scan-duration`, which would
+    spend the site's time budget on a download.
+
+    The missing-files case is the one an administrator can walk into: with `--no-update`
+    the scanner does not quietly download what it lacks, it raises `MissingDatabaseFile`
+    and scans nothing at all. That is why skipping this call is the admin's choice and
+    not the default, see `--wpscan-no-update`.
 
     It gets the same credentials as the scan, through the same environment. The token
     naming a locally held copy of the vulnerability database decides here whether that
@@ -1498,8 +1509,10 @@ def main():
         )
         # wpscan writes a valid JSON document even when it aborts, so the document is
         # parsed first and only then is the exit code looked at. 0 means a clean scan,
-        # 5 means at least one vulnerability was found; both are results. Everything
-        # else is a broken run.
+        # 5 means the site is vulnerable - a known vulnerability, or an installer nobody
+        # has finished; both are results. Everything else is a broken run, and most of
+        # those still carry a document explaining themselves, which is why it is read
+        # before the code is judged.
         cmd, data, retc, output = run_scan(
             args, enumerate_opts, http_auth, token, enterprise_token, spent=spent
         )

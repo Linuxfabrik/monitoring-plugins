@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081102'
+__version__ = '2026081201'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -80,16 +80,22 @@ MAX_URL_COMPONENT = 128
 # installation to the list they were shipped with only produces noise.
 CORE_DIRS = ('wp-admin/', 'wp-includes/')
 
-# Files in the installation root that are left alone even though the checksums cover them:
+# Files in the installation root that are left alone even though the checksums cover them.
+# The first three are named for the reader's sake rather than out of necessity: none of
+# them is part of a release, so none of them is in the published list to begin with.
 #
 # - `wp-config.php` holds the credentials and is written per installation. It is not in the
 #   list either way, `wp-config-sample.php` is.
 # - `.htaccess` is rewritten by WordPress itself whenever the permalink structure changes,
-#   and `.maintenance` exists only while an update is running.
+#   and `.maintenance` exists only while an update is running. Neither ships in a release.
 # - `readme.html` and `license.txt` are documentation and are routinely deleted as a
-#   hardening step, which must not read as a damaged installation.
+#   hardening step, which must not read as a damaged installation. WordPress's own updater
+#   skips them too, along with every other `.html` and `.txt` in the installation root.
 # - `index.php` is copied and edited by WordPress's own procedure for serving a site from a
-#   subdirectory, so a modified one is a documented setup rather than a finding.
+#   subdirectory, so a modified one is a documented setup rather than a finding. This is
+#   the one exception WordPress itself does not make, and it is a deliberate trade: the
+#   file is a one-line stub, but it is also a classic place to hide a backdoor, so it is
+#   named in the README as something this check does not cover.
 CORE_ROOT_EXCLUDED = (
     '.htaccess',
     '.maintenance',
@@ -100,10 +106,12 @@ CORE_ROOT_EXCLUDED = (
 )
 
 # Files inside a plugin that the plugin directory rewrites without the plugin itself
-# changing, which is why the reference implementation calls them soft changes. Matched
-# without regard to case: the plugin directory reads the file either way, so plugins ship
-# it as `readme.txt` and as `README.txt`, and the same rewrite must not be a finding in
-# one plugin and not in the next.
+# changing. The convention comes from wp-cli's `plugin verify-checksums`, which calls them
+# soft changes and offers `--strict` to report them anyway; neither WordPress itself nor
+# the vulnerability scanners know it. Matched without regard to case, the way wp-cli
+# matches them: the plugin directory reads the file either way, so plugins ship it as
+# `readme.txt` and as `README.txt`, and the same rewrite must not be a finding in one
+# plugin and not in the next.
 PLUGIN_SOFT_FILES = ('readme.md', 'readme.txt')
 
 # The plugins WordPress ships along with the core. For these, two different contents are

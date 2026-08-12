@@ -297,10 +297,12 @@ options:
                         popular ones, `ap` every one known. Themes: `vt`, `t`
                         and `at` in the same order. Further: `tt` timthumb
                         scripts, `cb` wp-config backups, `dbe` database
-                        exports, `bf` backup folders, `u` user names, `m`
-                        media files. Only one choice per group: `vp`, `p` and
-                        `ap` rule each other out, as do `vt`, `t` and `at`.
-                        The wider the choice, the longer the scan takes, since
+                        exports, `bf` backup folders, `u` user names. `m`
+                        enumerates media files and is accepted, but this check
+                        reports nothing from it, so it only lengthens the
+                        scan. Only one choice per group: `vp`, `p` and `ap`
+                        rule each other out, as do `vt`, `t` and `at`. The
+                        wider the choice, the longer the scan takes, since
                         each one probes for every location it knows: `ap` and
                         `at` walk tens of thousands of them. `vp` and `vt`
                         need vulnerability data and are downgraded to `p` and
@@ -337,9 +339,9 @@ options:
                         Scan the address given in --url even though it
                         redirects elsewhere. Use it where the redirect is the
                         very thing to look behind, for example a compromised
-                        site redirecting its visitors away. Mutually exclusive
-                        with --wpscan-follow-redirect in effect, since the two
-                        ask for opposite behaviour.
+                        site redirecting its visitors away. Has no effect
+                        where --wpscan-follow-redirect is set as well, which
+                        wins.
   --wpscan-no-update    Skip the refresh of the local vulnerability database
                         before scanning. The check refreshes it on every run
                         by default, so a site is graded against current data
@@ -347,8 +349,11 @@ options:
                         this where something else keeps the database current,
                         or to save the download on a host that is scanned
                         several times an hour. A refresh that fails is not an
-                        error either way: the scan runs against the local
-                        copy, and the check says so.
+                        error: the scan runs against the local copy, and the
+                        check says so. A local copy that was never downloaded
+                        at all is different - the scanner then refuses to scan
+                        rather than fetching it, so run `wpscan --update` once
+                        by hand before setting this.
   --wpscan-option WPSCAN_OPTION
                         Additional raw option to pass to the wpscan call, for
                         options that have no dedicated parameter here. Use it
@@ -506,7 +511,7 @@ Findings fall into three classes, and the worst of them determines the result:
 |----|----|----|
 | Vulnerability | A known vulnerability from the WPScan vulnerability database, attached to the core, a plugin, a theme or a timthumb script. | CRIT if its CVSS v3 base score is >= `--critical-cvss` (default 7.0), otherwise WARN. An entry without a score follows `--unscored-severity` (default `warn`). |
 | Exposure | Something reachable over HTTP that hands an attacker credentials, the database or an account outright: a readable `wp-config` backup, a database export, an SQL dump in the upload directory, a backup directory or a backup folder with a listing, a debug log, a `SearchReplaceDB2`, Duplicator or ThemeMakers migration file left behind, an emergency password reset script, or a site still sitting on its installer. | CRIT, except for a backup folder the scanner could not read any entry out of, which is WARN. |
-| Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, an enabled external WP-Cron, upload directory listing, full path disclosure, enumerable usernames, a reachable timthumb script, and any finding type the scanner reports that is not listed above. | WARN. |
+| Hardening | Everything else the scan reports: outdated core, plugins or themes, a reachable readme, an enabled external WP-Cron, upload directory listing, full path disclosure, a Fantastico file list, enumerable usernames, a reachable timthumb script, and any finding type the scanner reports that is not listed above. | WARN. |
 
 `--critical-cvss` takes a plain score rather than a Nagios range, unlike the `--warning` and `--critical` thresholds of the other checks. CVSS is a published scale with fixed severity bands, so the only thing worth configuring is where CRITICAL starts.
 

@@ -654,7 +654,7 @@
         "20": {
             "varname": "wordpress_security_scan_wpscan_enumerate",
             "caption": "WordPress Security Scan: WPScan Enumerate",
-            "description": "What the scan looks for, comma-separated. Plugins: `vp` only the ones with a known vulnerability, `p` the popular ones, `ap` every one known. Themes: `vt`, `t` and `at` in the same order. Further: `tt` timthumb scripts, `cb` wp-config backups, `dbe` database exports, `bf` backup folders, `u` user names, `m` media files. Only one choice per group: `vp`, `p` and `ap` rule each other out, as do `vt`, `t` and `at`. The wider the choice, the longer the scan takes, since each one probes for every location it knows: `ap` and `at` walk tens of thousands of them. `vp` and `vt` need vulnerability data and are downgraded to `p` and `t` when none is available. `bf` needs wpscan 4.0.0 or newer and is skipped on older releases. Example: `--wpscan-enumerate=cb,dbe,bf,u` looks only for exposed files and user names, which is the fastest useful scan.",
+            "description": "What the scan looks for, comma-separated. Plugins: `vp` only the ones with a known vulnerability, `p` the popular ones, `ap` every one known. Themes: `vt`, `t` and `at` in the same order. Further: `tt` timthumb scripts, `cb` wp-config backups, `dbe` database exports, `bf` backup folders, `u` user names. `m` enumerates media files and is accepted, but this check reports nothing from it, so it only lengthens the scan. Only one choice per group: `vp`, `p` and `ap` rule each other out, as do `vt`, `t` and `at`. The wider the choice, the longer the scan takes, since each one probes for every location it knows: `ap` and `at` walk tens of thousands of them. `vp` and `vt` need vulnerability data and are downgraded to `p` and `t` when none is available. `bf` needs wpscan 4.0.0 or newer and is skipped on older releases. Example: `--wpscan-enumerate=cb,dbe,bf,u` looks only for exposed files and user names, which is the fastest useful scan.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -696,7 +696,7 @@
         "24": {
             "varname": "wordpress_security_scan_wpscan_ignore_main_redirect",
             "caption": "WordPress Security Scan: WPScan Ignore Main Redirect?",
-            "description": "Scan the address given in --url even though it redirects elsewhere. Use it where the redirect is the very thing to look behind, for example a compromised site redirecting its visitors away. Mutually exclusive with --wpscan-follow-redirect in effect, since the two ask for opposite behaviour.",
+            "description": "Scan the address given in --url even though it redirects elsewhere. Use it where the redirect is the very thing to look behind, for example a compromised site redirecting its visitors away. Has no effect where --wpscan-follow-redirect is set as well, which wins.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -705,7 +705,7 @@
         "25": {
             "varname": "wordpress_security_scan_wpscan_no_update",
             "caption": "WordPress Security Scan: WPScan No Update?",
-            "description": "Skip the refresh of the local vulnerability database before scanning. The check refreshes it on every run by default, so a site is graded against current data rather than against whatever was last downloaded. Use this where something else keeps the database current, or to save the download on a host that is scanned several times an hour. A refresh that fails is not an error either way: the scan runs against the local copy, and the check says so.",
+            "description": "Skip the refresh of the local vulnerability database before scanning. The check refreshes it on every run by default, so a site is graded against current data rather than against whatever was last downloaded. Use this where something else keeps the database current, or to save the download on a host that is scanned several times an hour. A refresh that fails is not an error: the scan runs against the local copy, and the check says so. A local copy that was never downloaded at all is different - the scanner then refuses to scan rather than fetching it, so run `wpscan --update` once by hand before setting this.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
