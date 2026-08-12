@@ -30,7 +30,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026081202'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -601,6 +601,42 @@ def get_dnf5_locks(root):
     return entries, [], []
 
 
+def get_disable_excludes(root, main_configs):
+    """Return the scopes the main configuration switches exclusion off for.
+
+    `disable_excludes` names `all`, `main`, or a repository id, and dnf 4 honours it from
+    the configuration file. dnf 5 does not: it knows neither the option nor a command line
+    switch for it and excludes regardless. Measured against dnf 4.14 on Rocky 9 and dnf5
+    5.4.2.1 on Fedora 44.
+    """
+    for config in main_configs:
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            value = parser.get('main', 'disable_excludes', fallback='')
+        except configparser.Error:
+            return set()
+        return set(value.replace(',', ' ').split())
+    return set()
+
+
+def section_is_enabled(parser, section):
+    """Say whether a repository section is switched on.
+
+    A repository that is off contributes no exclusion, because the package manager walks
+    the enabled repositories only (`dnf/base.py:_setup_excludes_includes`). A value that
+    is not a boolean is treated as enabled, which is the reading that keeps an exclusion
+    in the report rather than dropping it on a configuration nobody can predict.
+    """
+    try:
+        return parser.getboolean(section, 'enabled', fallback=True)
+    except ValueError:
+        return True
+
+
 def get_excludes(root, main_configs):
     """Return the packages excluded in the package manager and repository configuration.
 
@@ -612,8 +648,16 @@ def get_excludes(root, main_configs):
     The plugin configuration below is deliberately not treated this way. There the
     package manager really does read every directory `pluginconfpath` names and merges
     what it finds, so all of them are searched.
+
+    Each entry carries whether dnf 4 applies it. Two configurations take an exclusion out
+    of force there without removing it from the file: a repository that is switched off,
+    which the package manager skips entirely, and `disable_excludes`. Both were measured,
+    see get_disable_excludes(). The entry stays in the report either way, because dnf 5
+    applies it regardless and because an exclusion written down is worth seeing; the
+    summary names how many of them dnf 4 leaves alone.
     """
     entries = []
+    disabled = get_disable_excludes(root, main_configs)
     configs = [config for config in main_configs if read_config_file(config)][:1]
     for repo_dir in get_main_dirs(root, main_configs, 'reposdir', REPO_DIRS):
         configs += lib.disk.glob(os.path.join(repo_dir, '*.repo'))
@@ -630,6 +674,11 @@ def get_excludes(root, main_configs):
                 # so a `main` section in a repository file configures nothing
                 if section == 'main' and config not in main_configs:
                     continue
+                applied = not (
+                    'all' in disabled
+                    or section in disabled
+                    or (section != 'main' and not section_is_enabled(parser, section))
+                )
                 # `excludepkgs` is the current spelling, `exclude` the historical one
                 for option in ('excludepkgs', 'exclude'):
                     value = parser.get(section, option, fallback='')
@@ -642,6 +691,7 @@ def get_excludes(root, main_configs):
                                 'lock': f'[{section}]',
                                 'source': 'exclude',
                                 'origin': config,
+                                'dnf4_applies': applied,
                             }
                         )
         except configparser.Error:
@@ -757,6 +807,18 @@ def main():
         if excludes:
             counted.append(f'{excludes} {lib.txt.pluralize("exclusion", excludes)}')
         msg = f'{" and ".join(counted)} in place.'
+    # Exclusions the configuration writes down but dnf 4 does not act on, because the
+    # repository they sit in is switched off or `disable_excludes` covers them. They stay
+    # in the report rather than being dropped, because dnf 5 applies them regardless and
+    # the two generations must not produce a different list from the same files. No state
+    # of its own: both configurations are deliberate, and the rows already count towards
+    # the thresholds.
+    inert = sum(1 for row in table_data if not row.get('dnf4_applies', True))
+    if inert:
+        msg += (
+            f' dnf 4 leaves {inert} of the exclusions out of force (a switched-off '
+            'repository, or "disable_excludes"), while dnf 5 applies them regardless.'
+        )
     if refused:
         # The package manager stops at such a configuration and then fails every install
         # and every upgrade, so the host cannot take a package until it is fixed. That

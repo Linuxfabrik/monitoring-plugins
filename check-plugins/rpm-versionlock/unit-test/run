@@ -155,6 +155,37 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['Configured in', 'versionlock.list'],
     },
+    # Three configurations take an exclusion out of force on dnf 4 without removing it
+    # from the file: `disable_excludes` naming the main configuration, the same option
+    # naming a repository, and a repository that is switched off. The entries stay in the
+    # report, because dnf 5 applies them regardless, and the summary says how many of them
+    # dnf 4 leaves alone.
+    {
+        'id': 'warn-excludes-not-applied-by-dnf4',
+        'test': '',
+        'params': '--config-root=config/excludes-not-applied --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 exclusions in place.',
+            'dnf 4 leaves 3 of the exclusions out of force',
+            'live-repo-package',
+            'main-config-package',
+            'named-repo-package',
+            'off-repo-package',
+        ],
+    },
+    # `disable_excludes = all` covers every scope at once, so nothing is left that dnf 4
+    # applies.
+    {
+        'id': 'warn-excludes-disabled-wholesale',
+        'test': '',
+        'params': '--config-root=config/excludes-disabled-all --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 exclusions in place.',
+            'dnf 4 leaves 2 of the exclusions out of force',
+        ],
+    },
     # Package exclusions, off unless asked for.
     {
         'id': 'ok-excludes-not-checked',
@@ -186,6 +217,9 @@ TESTS = [
             # the main configuration comes from one file only, so a `main` section
             # in a repository file configures nothing
             'must-not-be-read-from-a-repo-file',
+            # every exclusion here sits in a switched-on repository and nothing
+            # disables it, so the note about the ones dnf 4 skips stays away
+            'out of force',
         ],
     },
     # Repository files are read from where `reposdir` points, not from a fixed path.
