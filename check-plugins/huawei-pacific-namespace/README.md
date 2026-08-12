@@ -7,8 +7,8 @@ Checks the namespaces of a Huawei OceanStor Pacific storage system via the REST 
 **Important Notes:**
 
 * Create a read-only API user that can perform queries only
-* **This check does not alert on how full a namespace is**, because a namespace has no size of its own to fill up. Where a limit is configured, it is a quota, and `huawei-pacific-quota` is the check that watches those. The used space is reported and graphed here so its growth is visible
-* A namespace that is read-only is not a fault by itself: an archive that must not change any more looks exactly like this. It warns by default, tunable with `--read-only-severity`
+* **This check does not alert on how full a namespace is.** Most namespaces have no size of their own to fill up. Where one does, the limit is a quota (`space_hard_quota`, and the appliance gives the namespace a `quota_id` alongside it), and `huawei-pacific-quota` is the check that watches those, for namespaces and dtrees alike. Duplicating it here would mean two services alerting on the same limit. The used space is reported and graphed here so its growth is visible
+* A namespace that is read-only is not a fault by itself, and on a disaster recovery cluster it is the normal state: a namespace that is replicated as a whole is held read-only at the receiving end. An archive that must not change any more looks the same. It warns by default, so that a namespace which turns read-only unexpectedly is noticed; set `--read-only-severity=ok` on the services where it is the intended state, or exclude those namespaces with `--ignore`
 * The vendor documents only the normal running status (`0`) and no name for any other value. The check therefore treats every other code as worth a look rather than as a failure it cannot name, and passes the code through. Look an unfamiliar code up with Huawei support
 * On this appliance a namespace and a file system are the same object. `huawei-pacific-quota` reads the same objects through the file system endpoint to find their quotas
 * The credential/session token is cached in a local SQLite database between runs; `--cache-expire` controls how long it is reused before a fresh login
@@ -214,7 +214,9 @@ Nothing reaches this namespace, so whatever it holds is out of service. Check th
 
 `read-only (1)`
 
-An appliance also sets a namespace read-only on its own when it protects data it can no longer safely write, so this is worth checking rather than acknowledging. Compare it against the storage pool: a write-protected pool makes its namespaces read-only. Where the read-only state is intended and permanent, set `--read-only-severity=ok` on that service, or exclude the namespace with `--ignore`, so the alert does not become noise everyone learns to skip.
+Check first whether the namespace is the receiving end of a replication. A namespace that is replicated as a whole is held read-only there, which `huawei-pacific-replicationpair` shows as a pair whose local resource is the namespace itself rather than a dtree inside it. On a disaster recovery cluster that is the intended state, and the service belongs on `--read-only-severity=ok`.
+
+Where replication does not explain it, compare against the storage pool: a write-protected pool makes its namespaces read-only, and then the pool is the thing to fix (`huawei-pacific-storagepool` reports that separately). An appliance also sets a namespace read-only on its own when it protects data it can no longer safely write, so this is worth checking rather than acknowledging away.
 
 ### The used space does not match what the storage pool reports
 
