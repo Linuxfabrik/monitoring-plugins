@@ -1,0 +1,14 @@
+variants:
+  - linux
+
+overwrites:
+  # The vendor documents a timeout period of 30 seconds for the process endpoint, so
+  # the command has to outlast the request rather than cut it off.
+  '["Command"]["cmd-check-huawei-pacific-service"]["timeout"]': 60
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-service"]["check_interval"]': 300
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-service"]["retry_interval"]': 30
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-service"]["use_agent"]': false
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-service"]["vars"]["criticality"]': 'A'
+  # A node runs a dozen to two dozen processes, so a service listing all of them
+  # alongside the one that is down is unreadable. Perfdata and alerting are unaffected.
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-service"]["vars"]["huawei_pacific_service_brief"]': true
