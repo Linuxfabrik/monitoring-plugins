@@ -10,7 +10,7 @@ Reports the packages that APT holds back at their installed version. A hold set 
 * Debian-based distributions (Debian, Ubuntu, etc.)
 * `--match` and `--ignore` filter on the package name, not on the version the package is held at
 * A package that is held but no longer installed is reported with the version `not installed`. The hold survives the removal and applies again as soon as the package comes back.
-* A held package of a foreign architecture is reported the way APT names it, with the architecture qualifier attached (`libgcc-s1:i386`). `--match` and `--ignore` see that name as well.
+* A held package of a foreign architecture is reported the way APT names it, with the architecture qualifier attached (`libgcc-s1:i386`). `--match` and `--ignore` see that name as well. A package of the host's own architecture is reported without the qualifier, the way APT names it there, even where `dpkg` spells it out.
 * `--check-pinning` is off by default because a pin is also used legitimately to give a repository like backports a priority of its own. A stanza with `Package: *` sets such an archive-wide priority and is never reported, since it holds no individual package. A clean host then reports "No holds and no pins in place.", so the summary shows that both searches ran.
 * With `--check-pinning`, a preferences file APT refuses gets a line of its own and raises WARN. APT gives up on such a file at the offending stanza and then fails every command that works out package priorities, so the host cannot install or upgrade anything until it is fixed. The other files in `preferences.d` are still read, and so is the package list, which is why the holds are still reported while the pinning is broken.
 

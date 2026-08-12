@@ -155,27 +155,28 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['Configured in', 'versionlock.list'],
     },
-    # Three configurations take an exclusion out of force on dnf 4 without removing it
-    # from the file: `disable_excludes` naming the main configuration, the same option
-    # naming a repository, and a repository that is switched off. The entries stay in the
-    # report, because dnf 5 applies them regardless, and the summary says how many of them
-    # dnf 4 leaves alone.
+    # Three configurations take an exclusion out of force without removing it from the
+    # file: `disable_excludes` naming the main configuration, the same option naming a
+    # repository, and a repository that is switched off. Both generations honour all
+    # three. The entries stay in the report, because an exclusion written down is worth
+    # seeing, and the summary says how many of them are not acted on.
     {
-        'id': 'warn-excludes-not-applied-by-dnf4',
+        'id': 'warn-excludes-not-applied',
         'test': '',
         'params': '--config-root=config/excludes-not-applied --check-excludes',
         'assert-retc': STATE_WARN,
         'assert-in': [
             '4 exclusions in place.',
-            'dnf 4 leaves 3 of the exclusions out of force',
+            '3 of the exclusions are written down but not in force',
             'live-repo-package',
             'main-config-package',
             'named-repo-package',
             'off-repo-package',
         ],
     },
-    # `disable_excludes = all` covers every scope at once, so nothing is left that dnf 4
-    # applies.
+    # `disable_excludes = all` covers every scope at once, so nothing is left in force.
+    # dnf 5 spells the same thing `*`, which the check accepts as well - see
+    # 'warn-excludes-disabled-wholesale-dnf5'.
     {
         'id': 'warn-excludes-disabled-wholesale',
         'test': '',
@@ -183,7 +184,19 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             '2 exclusions in place.',
-            'dnf 4 leaves 2 of the exclusions out of force',
+            '2 of the exclusions are written down but not in force',
+        ],
+    },
+    # The same configuration in dnf 5's spelling. Reading only `all` would report both
+    # exclusions as being in force on every Fedora host that switched them off.
+    {
+        'id': 'warn-excludes-disabled-wholesale-dnf5',
+        'test': '',
+        'params': '--config-root=config/excludes-disabled-all-dnf5 --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 exclusions in place.',
+            '2 of the exclusions are written down but not in force',
         ],
     },
     # Package exclusions, off unless asked for.
@@ -298,13 +311,29 @@ TESTS = [
         'params': '--config-root=config/hand-written-specs --lengthy',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '5 version locks in place.',
+            '4 version locks in place.',
             'java-1.8.0-openjdk',
             'java-17-openjdk',
             'python3-foo',
         ],
-        # The epoch reads the same whichever notation the entry used.
-        'assert-regex': r'glibc\s+!\s+0:2\.28-251\.el8_10\.\*',
+    },
+    # A spec carrying its epoch in front of the package name is one the package manager
+    # cannot read: it logs "could not parse pattern" on every transaction and holds
+    # nothing. Reporting it as a lock in place would tell the admin the host is held at a
+    # version when it is not, so it is named as the dead entry it is instead. Verified
+    # against dnf 4.14 on RHEL 9.
+    {
+        'id': 'warn-hand-written-specs-unparsable-epoch',
+        'test': '',
+        'params': '--config-root=config/hand-written-specs',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 lock entry the package manager cannot parse, so it holds nothing.',
+            'The package manager cannot parse these entries:',
+            '0:glibc-2.28-251.el8_10.*',
+        ],
+        # Not counted as a lock, and not reported under a package name of its own.
+        'assert-not-in': ['glibc  '],
     },
     # A name that was cut in half would report a package that does not exist, and a
     # filter written for the real name would then never fire.
@@ -366,6 +395,21 @@ TESTS = [
         'params': '--config-root=config/locklist-conf-unparsable',
         'assert-retc': STATE_WARN,
         'assert-in': ['it does not parse'],
+    },
+    # An `enabled` that is not a boolean is the harshest configuration of the lot: the
+    # package manager's own parser raises while it is loading its plugins, and nothing
+    # catches it, so every command ends in a traceback rather than only a transaction.
+    {
+        'id': 'warn-enabled-not-a-boolean',
+        'test': '',
+        'params': '--config-root=config/enabled-not-a-boolean',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'so installing and upgrading fails on this host',
+            'its "enabled" setting is not a boolean',
+        ],
+        # The locks behind it are not in place, because the plugin never loads.
+        'assert-not-in': ['bash', 'glibc'],
     },
     # The same broken configuration, but with the plugin switched off: the package
     # manager never loads it, so nothing is wrong with the host.
@@ -469,6 +513,18 @@ TESTS = [
             'No version locks in place.',
         ],
         'assert-not-in': ['bash', 'glibc'],
+    },
+    # A single entry the package manager marks invalid holds nothing, whether the reason
+    # is a condition key it does not know or a package name with no condition at all.
+    # `dnf5 versionlock list` names both itself, so neither may be counted as a lock in
+    # place, while the well-formed entry beside them still is.
+    {
+        'id': 'warn-dnf5-invalid-entries',
+        'test': '',
+        'params': '--config-root=config/dnf5-invalid-entries',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['zsh', 'nano'],
     },
     # Deployed on a host that does not use RPM packages at all.
     {

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026081202'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -255,7 +255,27 @@ def get_holds(args):
 
 
 def get_versions(args, packages):
-    """Return the installed version per package, so a hold shows what it holds on to."""
+    """Return the installed version per package, so a hold shows what it holds on to.
+
+    Keyed by the names `apt-mark showhold` uses, which is not always how dpkg spells
+    them. The two disagree on exactly one class of package, and it is a common one:
+
+    - `apt-mark` appends the architecture only where it is neither the host's own nor
+      `all`/`any` (`apt-pkg/pkgcache.cc`, `FullName(Pretty=true)`).
+    - `dpkg-query`'s `binary:Package` appends it there too, but additionally for every
+      package marked `Multi-Arch: same`.
+
+    So a held `libc6` on an amd64 host arrives as `libc6` from one command and as
+    `libc6:amd64` from the other, and that covers most shared libraries. Verified on
+    Debian 12 with dpkg 1.21.22 and apt 2.6.1.
+
+    Rather than ask for the host's architecture in a third command, the two spellings
+    are reconciled here: every name that matches exactly is settled first, and a name
+    left over without an architecture then takes the one remaining entry that carries
+    one. Settling the exact matches first is what keeps that unambiguous where a package
+    is held for two architectures at once - `libc6:i386` claims its own entry, so the
+    bare `libc6` can only be the host's own.
+    """
     if not packages:
         return {}
 
@@ -264,9 +284,6 @@ def get_versions(args, packages):
             [
                 'dpkg-query',
                 '--show',
-                # `binary:Package` spells the name the same way apt-mark does,
-                # architecture qualifier and all, so a hold on a package of a foreign
-                # architecture finds its version instead of looking uninstalled
                 '--showformat=${binary:Package} ${Version}\n',
                 *packages,
             ],
@@ -281,11 +298,21 @@ def get_versions(args, packages):
     # still reporting the others, so the return code is not fatal here
     stdout, _, _ = result
 
-    versions = {}
+    reported = {}
     for line in stdout.splitlines():
         fields = line.split()
         if len(fields) == 2:
-            versions[fields[0]] = fields[1]
+            reported[fields[0]] = fields[1]
+
+    versions = {name: reported[name] for name in packages if name in reported}
+    unclaimed = {name for name in reported if name not in versions}
+    for name in packages:
+        if name in versions or ':' in name:
+            continue
+        qualified = [item for item in unclaimed if item.startswith(f'{name}:')]
+        if len(qualified) == 1:
+            versions[name] = reported[qualified[0]]
+            unclaimed.discard(qualified[0])
     return versions
 
 
@@ -295,9 +322,18 @@ def parse_priority(priority):
     APT converts the value with `strtol`, which takes the leading integer and ignores
     whatever follows, so `1001abc` is a priority of 1001 and not a typo APT rejects.
     A value with no leading integer counts as zero.
+
+    The lowest value of the range is reserved for the `never` keyword, so a stanza that
+    writes it out as a number is silently moved one up rather than refused, and the pin
+    applies at that priority ("Silently clamp the never pin to never pin + 1",
+    `apt-pkg/policy.cc`). Reported the way APT ends up using it, not the way the file
+    spells it, because the file's number is not the one in force.
     """
     match = re.match(r'^\s*([+-]?\d+)', priority)
-    return int(match.group(1)) if match else 0
+    value = int(match.group(1)) if match else 0
+    if value == APT_PRIORITY_MIN:
+        return APT_PRIORITY_MIN + 1
+    return value
 
 
 def stanza_verdict(packages, named, pin, priority):
@@ -555,8 +591,9 @@ def main():
     # init some vars
     perfdata = ''
     table_data = []
-
-    # compile user-supplied regex patterns
+    # compile user-supplied regex patterns. lib.txt.compile_regex() returns a
+    # (success, result) tuple per pattern and names the parameter in its error
+    # message, so an invalid pattern exits UNKNOWN via lib.base.coe().
     compiled_match = [
         lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
     ]
