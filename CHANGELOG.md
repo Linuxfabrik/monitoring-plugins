@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Icinga Director:
+
+* the Host and Service templates are pinned to the master zone, so credentials stay on the master instead of reaching every agent. Setups with a satellite tier no longer deploy; unset the zone on `tpl-host-generic` and `tpl-service-generic` to restore the previous behaviour ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
+
 ### Added
 
 Monitoring Plugins:
@@ -29,10 +35,6 @@ Monitoring Plugins:
 Build, CI/CD:
 
 * Bump pinned `linuxfabrik-lib` to 5.1.0
-
-Icinga Director:
-
-* the shipped Service and Host templates default to the master zone, so host and service configuration, including credentials on those objects, stays on the master instead of being distributed to every agent. Single-node and flat master to agent setups are unaffected; distributed setups with satellite- or agent-authoritative hosts must unset the zone on the two base templates and accept that configuration is then distributed to every agent (see ICINGA.md) ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
 
 Monitoring Plugins:
 
