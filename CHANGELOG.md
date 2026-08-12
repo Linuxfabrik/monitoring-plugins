@@ -41,6 +41,7 @@ Monitoring Plugins:
 * huawei-pacific-node: check alerting on a faulty cluster node and on an expired warranty
 * huawei-pacific-power: check alerting on a faulty power supply
 * huawei-pacific-quota: check alerting when a share fills up its quota
+* huawei-pacific-storagepool: check alerting on a faulty storage pool, and on one filling up
 * huawei-pacific-system: check alerting on cluster capacity usage
 * kdump: check alerting when a kernel panic cannot be captured, or when a previous panic left a crash dump behind
 * librenms-validate: check alerting on the problems LibreNMS reports about its own installation ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))

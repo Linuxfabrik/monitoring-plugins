@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+TESTS = [
+    {
+        'id': 'ok-pools-healthy',
+        'test': 'stdout/pools-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. (warn=92 crit=95) Checked 2 storage pools.',
+            'Name  ! Used     ! Total    ! Usage ! Status',
+            'pool0 ! 71.4TiB  ! 5.0PiB   ! 1%    ! normal (0)',
+        ],
+    },
+    {
+        # The capacities arrive in mebibytes and have to be reported in bytes.
+        'id': 'ok-capacity-is-counted-in-mebibytes',
+        'test': 'stdout/pools-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ["'pool0_total_capacity'=5629499534213120B"],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-core-columns',
+        'test': 'stdout/pools-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Redundancy', 'Security Level', 'Rebuild', 'Reduction'],
+    },
+    {
+        'id': 'ok-lengthy-columns',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'EC, 4 parity, 4 node failures allowed',
+            'node level',
+            '3.2:1',
+        ],
+    },
+    {
+        # Nothing is being rebuilt, so the column that says how far along a rebuild is
+        # would only read as one in progress.
+        'id': 'ok-no-rebuild-column-on-a-healthy-cluster',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Rebuild'],
+    },
+    {
+        # A replication pool has no parity fragments, so the EC-only detail must
+        # not be tacked onto it.
+        'id': 'ok-replication-pool-without-parity',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['replication'],
+        'assert-not-in': ['replication,'],
+    },
+    {
+        # A pool that saved nothing reports a ratio of 1.0, and says so rather than
+        # leaving the cell empty as if the figure were unavailable.
+        'id': 'ok-pool-without-data-reduction',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1.0:1'],
+    },
+    {
+        'id': 'warn-pool-above-warning-threshold',
+        'test': 'stdout/pools-full,,0',
+        'params': f'{COMMON} --critical=99',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'93%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-pool-above-critical-threshold',
+        'test': 'stdout/pools-full,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'97%.*\[CRITICAL\]',
+    },
+    {
+        # Thresholds are Nagios ranges, not plain numbers.
+        'id': 'ok-threshold-range',
+        'test': 'stdout/pools-full,,0',
+        'params': f'{COMMON} --warning=~:98 --critical=~:99',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-faulty-pool',
+        'test': 'stdout/pools-faulty,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'faulty \(1\).*\[CRITICAL\]',
+    },
+    {
+        # A pool that is rebuilding is busy, not broken. It warns, and says how far
+        # along it is.
+        'id': 'warn-pool-reconstructing-data',
+        'test': 'stdout/pools-faulty,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['rebuilding data (8)', '42%'],
+    },
+    {
+        # The pool still serves reads, so this must not wake anybody up.
+        'id': 'warn-write-protected-pool',
+        'test': 'stdout/pools-write-protected,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['write-protected (2)'],
+    },
+    {
+        # A cluster that serves storage has at least one pool, so an empty list is a
+        # query that never reached them.
+        'id': 'unknown-no-pools',
+        'test': 'stdout/pools-none,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no storage pools'],
+    },
+    {
+        'id': 'unknown-permission-denied',
+        'test': 'stdout/pools-forbidden,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The user does not have the permission.'],
+    },
+    {
+        # A firmware that reports no capacity at all still has to report the status.
+        'id': 'ok-pool-without-capacity',
+        'test': 'stdout/pools-without-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['normal (0)'],
+    },
+    {
+        # A total without a used capacity leaves nothing to calculate a fill level
+        # from, and must not divide by a value that is not there.
+        'id': 'ok-pool-with-total-capacity-only',
+        'test': 'stdout/pools-total-capacity-only,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1.0GiB', 'normal (0)'],
+        'assert-not-in': ['Usage'],
+    },
+    {
+        'id': 'ok-match',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --match=pool1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 storage pool.', 'pool1'],
+        'assert-not-in': ['pool0 '],
+    },
+    {
+        'id': 'ok-ignore',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --ignore=pool1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 storage pool.'],
+        'assert-not-in': ['pool1'],
+    },
+    {
+        # --ignore wins over --match, the way it does in every sibling check.
+        'id': 'ok-ignore-beats-match',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --match=pool --ignore=pool0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 storage pool.'],
+        'assert-not-in': ['pool0'],
+    },
+    {
+        'id': 'ok-match-by-pool-id',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --match=1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 storage pool.', 'pool1'],
+    },
+    {
+        'id': 'ok-nothing-matched',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --match=nonexistent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No storage pools matched `nonexistent`.'],
+    },
+    {
+        'id': 'warn-nothing-matched-with-severity',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --match=nonexistent --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/pools-faulty,,0',
+        'params': f'{COMMON} --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/pools-healthy,,0',
+        'params': f'{COMMON} --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-storagepool'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
