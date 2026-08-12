@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+TESTS = [
+    {
+        'id': 'ok-namespaces-healthy',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked 3 namespaces, all healthy.',
+            'readable and writable (0)',
+            'normal (0)',
+        ],
+    },
+    {
+        # The appliance counts the used space in the unit it names next to it, which is
+        # KiB on both clusters. Reading it as bytes would understate it 1024-fold.
+        'id': 'ok-space-is-counted-in-the-unit-the-appliance-names',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ["'ns_r_f01_001_space_used'=72288901599232B;;;0", '65.7TiB'],
+    },
+    {
+        'id': 'ok-file-count-is-reported',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ["'ns_r_f01_001_file_used'=79424072;;;0", '79.4M'],
+    },
+    {
+        # A namespace nobody can reach is an outage, whatever its running status says.
+        'id': 'crit-inaccessible-namespace',
+        'test': 'stdout/namespaces-unavailable,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['inaccessible (2) [CRITICAL]', '2 not healthy.'],
+    },
+    {
+        # Being read-only can be the point of an archive, so it is a parameter rather
+        # than a verdict.
+        'id': 'warn-read-only-namespace',
+        'test': 'stdout/namespaces-unavailable,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['read-only (1) [WARNING]'],
+    },
+    {
+        'id': 'ok-read-only-severity-lowered',
+        'test': 'stdout/namespaces-unavailable,,0',
+        'params': f'{COMMON} --read-only-severity=ok --ignore=82',
+        'assert-retc': STATE_OK,
+        'assert-in': ['read-only (1)'],
+        'assert-not-in': ['read-only (1) [WARNING]'],
+    },
+    {
+        'id': 'crit-read-only-severity-raised',
+        'test': 'stdout/namespaces-unavailable,,0',
+        'params': f'{COMMON} --read-only-severity=crit --ignore=82',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        # Only the normal running status is documented, so anything else is passed
+        # through rather than called a failure the vendor never named. It warns rather
+        # than alerting, because the mode column covers the outage case on its own.
+        'id': 'warn-undocumented-running-status',
+        'test': 'stdout/namespaces-undocumented-status,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['not normal (7)'],
+    },
+    {
+        # A namespace whose status is unknown is not necessarily unreachable, so the
+        # count must not claim it is unavailable.
+        'id': 'warn-unknown-status-is-not-called-unavailable',
+        'test': 'stdout/namespaces-undocumented-status,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['readable and writable (0)'],
+        'assert-not-in': ['not available'],
+    },
+    {
+        # The API sends the maximum of the field's data type where it has nothing to
+        # report. That must not surface as a namespace holding 16 exbibytes.
+        'id': 'ok-placeholder-values-are-not-measurements',
+        'test': 'stdout/namespaces-invalid-values,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['EiB', '18446744073709551615', "'ns_r_o01_001_space_used'"],
+    },
+    {
+        'id': 'ok-protocols',
+        'test': 'stdout/namespaces-protocols,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['NAS', 'HDFS', 'protocol interworking'],
+    },
+    {
+        'id': 'ok-protocol-only-with-lengthy',
+        'test': 'stdout/namespaces-protocols,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Protocol'],
+    },
+    {
+        # A cluster that serves storage has at least one namespace, so an empty list is
+        # a query that never reached them.
+        'id': 'unknown-no-namespaces',
+        'test': 'stdout/namespaces-none,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no namespaces'],
+    },
+    {
+        # The cluster counts its own namespaces. A listing short of that count was capped
+        # somewhere, and reporting only what arrived would present a partial inventory as
+        # a complete one.
+        'id': 'warn-listing-short-of-the-cluster-count',
+        'test': 'stdout/namespaces-capped,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The cluster counts 137 namespaces and listed 3'],
+    },
+    {
+        'id': 'unknown-permission-denied',
+        'test': 'stdout/namespaces-forbidden,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The user does not have the permission.'],
+    },
+    {
+        'id': 'ok-match',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --match=ns-r-f01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 namespace, all healthy.'],
+        'assert-not-in': ['ns-r-o01-001'],
+    },
+    {
+        'id': 'ok-match-by-id',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --match=87',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 namespace', 'ns-nr-f01-001'],
+    },
+    {
+        'id': 'ok-ignore',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --ignore=ns-r-f01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 2 namespaces'],
+        'assert-not-in': ['ns-r-f01-001'],
+    },
+    {
+        # --ignore wins over --match, the way it does in every sibling check.
+        'id': 'ok-ignore-beats-match',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --match=ns- --ignore=ns-r-f01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 2 namespaces'],
+    },
+    {
+        'id': 'ok-nothing-matched',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --match=nonexistent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No namespaces matched `nonexistent`.'],
+    },
+    {
+        'id': 'warn-nothing-matched-with-severity',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --match=nonexistent --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/namespaces-unavailable,,0',
+        'params': f'{COMMON} --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/namespaces-healthy,,0',
+        'params': f'{COMMON} --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-namespace'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
