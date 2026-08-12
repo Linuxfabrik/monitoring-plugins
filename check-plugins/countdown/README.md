@@ -47,6 +47,9 @@ options:
   --input INPUT  Countdown item in the format "Display Name, YYYY-MM-DD, warn,
                  crit". Can be specified multiple times. Example: `--input
                  "Supermicro SYS1, 2025-01-10, 50, 30"`.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/countdown/
 ```
 
 

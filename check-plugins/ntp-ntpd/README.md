@@ -32,7 +32,8 @@ Checks the clock offset of ntpd in milliseconds compared to the configured NTP s
 ## Help
 
 ```text
-usage: ntp-ntpd [-h] [-V] [-c CRIT] [--stratum STRATUM] [-w WARN]
+usage: ntp-ntpd [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+                [--stratum STRATUM] [-w WARN]
 
 Checks the clock offset of ntpd in milliseconds compared to the configured NTP
 servers. Alerts when the offset exceeds the configured thresholds.
@@ -40,8 +41,12 @@ servers. Alerts when the offset exceeds the configured thresholds.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the NTP time offset, in
                        milliseconds. Default: 86400000ms
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --stratum STRATUM    Warns if the determined stratum of the time server is
                        greater than or equal to this value. Stratum 1
                        indicates a computer with a locally attached reference
@@ -51,6 +56,9 @@ options:
                        and so on. Default: 6
   -w, --warning WARN   WARN threshold for the NTP time offset, in
                        milliseconds. Default: 800ms
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ntp-ntpd/
 ```
 
 

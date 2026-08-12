@@ -23,6 +23,12 @@ updates:
   # >= 3.11 (Ubuntu 22.04, e.g. oslo-config 10.5.0). Both lockfiles
   # are regenerated manually via `pip-compile` on a matching Python
   # host when an actual fix lands that still supports them.
+  #
+  # A missing entry stops version bumps only. Dependabot security
+  # updates scan every manifest in the repository regardless of this
+  # file, so a security PR against a frozen lockfile still shows up.
+  # `.github/workflows/dependabot-auto-merge.yml` leaves it open for
+  # a human.
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py311'
     schedule:
@@ -57,6 +63,14 @@ updates:
 
   - package-ecosystem: 'pip'
     directory: '/lockfiles/py313-windows'
+    schedule:
+      interval: 'weekly'
+      day: 'friday'
+      time: '05:00'
+      timezone: 'Etc/UTC'
+
+  - package-ecosystem: 'pip'
+    directory: '/.github/docs'
     schedule:
       interval: 'weekly'
       day: 'friday'

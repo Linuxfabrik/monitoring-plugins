@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+# One fixture pair (42% used) drives three threshold combinations.
+TESTS = [
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/system-42-percent,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'OceanStor 100D (OceanStor Pacific) 8.2.0 SPH03, Cluster Name: cluster_01',
+            'Capacity: 42% used',
+        ],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/system-42-percent,,0',
+        'params': f'{COMMON} --warning 40 --critical 90',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'42% used.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/system-42-percent,,0',
+        'params': f'{COMMON} --warning 30 --critical 40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'42% used.*\[CRITICAL\]',
+    },
+    {
+        # The vendor's own example: the per-media capacities are on a different scale
+        # than the cluster totals next to them. Summing those and dividing by the total
+        # reported a permanent 0% that could never reach a threshold.
+        'id': 'ok-capacity-from-the-raw-cluster-figures',
+        'test': 'stdout/system-mixed-units,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: 50% used (4.3TiB/8.5TiB)'],
+    },
+    {
+        'id': 'crit-capacity-from-the-raw-cluster-figures',
+        'test': 'stdout/system-mixed-units,,0',
+        'params': f'{COMMON} --warning 30 --critical 40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'50% used.*\[CRITICAL\]',
+    },
+    {
+        # The live firmware leaves `used_raw_capacity` at zero even on a cluster holding
+        # tens of TiB, so reading the fill level off it reported 0% for ever and put the
+        # thresholds out of reach. The per-service fields carry the real figures, in
+        # mebibytes, and describe the capacity behind the erasure coding.
+        'id': 'ok-capacity-from-the-per-service-figures',
+        'test': 'stdout/system-converged-capacity,,0',
+        'params': f'{COMMON} --warning 80 --critical 90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: 1% used (70.9TiB/5.0PiB usable, 9.2PiB raw)'],
+        'assert-not-in': ['0% used', '0.0B'],
+    },
+    {
+        # Those figures have to reach the thresholds, which is the whole point of them.
+        'id': 'crit-capacity-from-the-per-service-figures',
+        'test': 'stdout/system-converged-capacity,,0',
+        'params': f'{COMMON} --warning 0 --critical 0',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'1% used.*\[CRITICAL\]',
+    },
+    {
+        # The hotpatch level is the string a support case is opened with, and the node
+        # count says how much hardware the summary above covers.
+        'id': 'ok-full-version-and-node-count',
+        'test': 'stdout/system-converged-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['(V800R001C20SPH105)', 'Cluster Name: cluster01, 10 nodes'],
+    },
+    {
+        # A firmware with nothing to say answers with a JSON null instead of an object.
+        'id': 'ok-capacity-reported-as-null',
+        'test': 'stdout/system-null-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: no capacity data available yet'],
+    },
+    {
+        # ... and one answers with a dash where a number belongs.
+        'id': 'ok-capacity-reported-as-dash',
+        'test': 'stdout/system-dash-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Capacity: no capacity data available yet'],
+    },
+    {
+        # A cluster that reports no capacity yet still has a model and a version.
+        # The OEM name matches the model here, so it is not repeated in brackets.
+        'id': 'ok-without-capacity',
+        'test': 'stdout/system-without-capacity,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'OceanStor Pacific 8.2.0, Cluster Name: cluster_01',
+            'Capacity: no capacity data available yet',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-system'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

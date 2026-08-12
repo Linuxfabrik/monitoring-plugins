@@ -35,11 +35,12 @@ except ImportError:
         from psutil._common import sfan
     except ImportError:
         from collections import namedtuple
+
         sfan = namedtuple('sfan', ['label', 'current'])
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026071201'
 
 DESCRIPTION = """Reports hardware fan speeds in RPM (rounds per minute). Alerts when fan speeds fall
 outside the thresholds reported by the hardware sensors."""
@@ -50,7 +51,11 @@ DEFAULT_CRIT = 20000  # RPM
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -74,6 +79,14 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -129,14 +142,12 @@ def main():
     if not fans:
         lib.base.oao('No fans detected.', STATE_OK, always_ok=args.ALWAYS_OK)
 
-
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
 
     for name, entries in fans.items():
-
         # build the message
         msg += f'{name}: '
         for entry in entries:
@@ -153,7 +164,13 @@ def main():
         msg = msg[:-2] + '; '
 
     # over and out
-    lib.base.oao(msg[:-2], state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg[:-2],
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

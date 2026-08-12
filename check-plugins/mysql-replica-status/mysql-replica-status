@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the replication status of a MySQL/MariaDB replica: I/O thread state, SQL
 thread state, replication lag (`Seconds_Behind_Master` / `Seconds_Behind_Source`),
@@ -38,7 +38,11 @@ DEFAULT_TIMEOUT = 3
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -46,7 +50,6 @@ def parse_args():
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
-
     parser.add_argument(
         '--always-ok',
         help=lib.args.help('--always-ok'),
@@ -54,7 +57,6 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
     parser.add_argument(
         '--defaults-file',
         help='MySQL/MariaDB cnf file to read user, host and password from. '
@@ -63,14 +65,20 @@ def parse_args():
         dest='DEFAULTS_FILE',
         default=DEFAULT_DEFAULTS_FILE,
     )
-
     parser.add_argument(
         '--defaults-group',
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
     )
-
+    parser.add_argument(
+        '--lag-critical',
+        help='Seconds of replication lag at which the CRIT flag is raised. '
+        'If omitted, lag never escalates to CRIT.',
+        dest='LAG_CRIT',
+        type=int,
+        default=None,
+    )
     parser.add_argument(
         '--lag-warning',
         help='Seconds of replication lag at which the WARN flag is raised. '
@@ -81,16 +89,13 @@ def parse_args():
         type=int,
         default=DEFAULT_LAG_WARN,
     )
-
     parser.add_argument(
-        '--lag-critical',
-        help='Seconds of replication lag at which the CRIT flag is raised. '
-        'If omitted, lag never escalates to CRIT.',
-        dest='LAG_CRIT',
-        type=int,
-        default=None,
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
-
     parser.add_argument(
         '--severity',
         help='Severity for alerts that do not depend on thresholds '
@@ -101,7 +106,6 @@ def parse_args():
         default=DEFAULT_SEVERITY,
         choices=['warn', 'crit'],
     )
-
     parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
@@ -158,11 +162,6 @@ def either(myvar, *names, default=None):
     return default
 
 
-def is_mariadb(myvar):
-    version = myvar.get('version', '')
-    return 'MariaDB' in version
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -182,6 +181,10 @@ def main():
         'timeout': args.TIMEOUT,
     }
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
+    # Any one of these suffices. `BINLOG MONITOR` (what MariaDB 10.5+ renames a
+    # `GRANT REPLICATION CLIENT` to) is deliberately NOT accepted: it does not
+    # authorize `SHOW REPLICA STATUS`, so the check would pass this gate and
+    # then mistake a real replica for a standalone server.
     lib.base.coe(
         lib.db_mysql.check_privileges(
             conn,
@@ -190,12 +193,18 @@ def main():
     )
 
     myvar = lib.db_mysql.lod2dict(get_vars(conn))
+    # Captured before the connection closes; the parallel-replication
+    # section below runs after `close()`.
+    flavor, _ = lib.db_mysql.get_version(conn)
 
     # Returns first row (a dict) or None when the server is not a replica.
     # Tries `SHOW REPLICA STATUS` (MariaDB 10.5+ / MySQL 8.0.22+) and silently
     # falls back to `SHOW SLAVE STATUS` on older servers.
     myrepl = lib.db_mysql.get_replica_status(conn)
-    myslaves = lib.base.coe(lib.db_mysql.select(conn, 'show slave hosts;'))
+    # Tries `SHOW REPLICAS` (MySQL 8.0.22+, the only form MySQL 8.4 still
+    # parses) and falls back to `SHOW SLAVE HOSTS` (MariaDB, older MySQL).
+    # Empty when the account may not list replicas.
+    myslaves = lib.db_mysql.get_replica_hosts(conn)
 
     lib.db_mysql.close(conn)
 
@@ -335,7 +344,7 @@ def main():
         # Parallel-replication knobs (MariaDB 10.5+). mysqltuner skips these on
         # non-MariaDB servers, so we do too. The variable pair was renamed in
         # MariaDB 11.x; mysqltuner reads the first defined name.
-        if is_mariadb(myvar):
+        if flavor == 'mariadb':
             parallel_threads_raw = either(
                 myvar,
                 'replica_parallel_threads',
@@ -411,7 +420,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

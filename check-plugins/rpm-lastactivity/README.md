@@ -25,7 +25,7 @@ Checks how long ago the last RPM package manager activity occurred (install, upd
 ## Help
 
 ```text
-usage: rpm-lastactivity [-h] [-V] [-c CRIT] [-w WARN]
+usage: rpm-lastactivity [-h] [-V] [--always-ok] [-c CRIT] [-w WARN]
 
 Checks how long ago the last RPM package manager activity occurred (install,
 update, or remove via yum/dnf). Alerts if no package management activity has
@@ -35,10 +35,14 @@ have not been patched in a long time.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the time since the last RPM
                        activity, in days. Default: 365
   -w, --warning WARN   WARN threshold for the time since the last RPM
                        activity, in days. Default: 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-lastactivity/
 ```
 
 

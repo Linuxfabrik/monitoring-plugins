@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors the Infomaniak status page for open events and incidents. Alerts when active
 events are reported."""
@@ -37,7 +37,11 @@ DEFAULT_TIMEOUT = 28
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -45,7 +49,6 @@ def parse_args():
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
-
     parser.add_argument(
         '--always-ok',
         help=lib.args.help('--always-ok'),
@@ -53,7 +56,6 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
     parser.add_argument(
         '--ignore-regex',
         help='Any English event title matching this Python regex will be ignored. '
@@ -63,7 +65,6 @@ def parse_args():
         default=None,
         dest='IGNORE_REGEX',
     )
-
     parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
@@ -71,7 +72,13 @@ def parse_args():
         action='store_true',
         default=DEFAULT_INSECURE,
     )
-
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
     parser.add_argument(
         '--no-proxy',
         help=lib.args.help('--no-proxy'),
@@ -79,7 +86,6 @@ def parse_args():
         action='store_true',
         default=DEFAULT_NO_PROXY,
     )
-
     parser.add_argument(
         '--service',
         help='Only report events for this service category. '
@@ -90,7 +96,12 @@ def parse_args():
         action='append',
         default=None,
     )
-
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
     parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
@@ -98,19 +109,11 @@ def parse_args():
         type=int,
         default=DEFAULT_TIMEOUT,
     )
-
     parser.add_argument(
         '--token',
         help='Infomaniak API token.',
         dest='TOKEN',
         required=True,
-    )
-
-    parser.add_argument(
-        '--test',
-        help=lib.args.help('--test'),
-        dest='TEST',
-        type=lib.args.csv,
     )
 
     args, _ = parser.parse_known_args()
@@ -239,7 +242,9 @@ def main():
         msg += lib.base.get_table(table_data, keys, header=headers)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

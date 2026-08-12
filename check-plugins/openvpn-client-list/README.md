@@ -8,6 +8,7 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 **Important Notes:**
 
 * Requires root or sudo to read the OpenVPN status log file.
+* `--filename` is confined to `/var/log`. The check runs as root via sudo, so it refuses a path that resolves outside the system log directory, which stops it from being turned into an arbitrary root file read. To read a status file stored elsewhere, bind-mount that location under `/var/log` (a symlink is rejected); see the [Troubleshooting section](https://github.com/Linuxfabrik/monitoring-plugins#troubleshooting).
 
 **Data Collection:**
 
@@ -31,7 +32,8 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 ## Help
 
 ```text
-usage: openvpn-client-list [-h] [-V] [-c CRIT] [--filename FILENAME] [-w WARN]
+usage: openvpn-client-list [-h] [-V] [--always-ok] [-c CRIT]
+                           [--filename FILENAME] [--no-perfdata] [-w WARN]
 
 Lists all clients currently connected to an OpenVPN server by parsing the
 status log file. Reports client name, remote address, bytes received and sent,
@@ -40,12 +42,19 @@ and connection time. Requires root or sudo.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of connected clients.
                        Default: None
   --filename FILENAME  Path to the OpenVPN status log file. Default:
                        /var/log/openvpn-status.log
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for the number of connected clients.
                        Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openvpn-client-list/
 ```
 
 

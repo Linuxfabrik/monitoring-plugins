@@ -65,6 +65,44 @@ If there is a related issue, append `(fix #N)`:
 
 Document all changes in `CHANGELOG.md` following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Sort entries within sections alphabetically.
 
+The audience is a Linux system engineer with 30 seconds to decide whether an update is worth it. That reader needs four answers: which plugins are new, what behaves differently or is no longer evaluated, what is gone, and which bugs and security holes are closed. Write for that reader:
+
+* **What goes where.** `Breaking Changes` covers everything that requires manual work after the update. `Added` covers new plugins and new tools, nothing else. `Changed` covers changed behaviour, including a parameter that now produces a different result, is deprecated, or is no longer evaluated. `Removed` covers dropped plugins, parameters, service sets and metrics. `Fixed` covers bugs, `Security` covers closed holes with their GHSA link.
+* **What stays out.** New parameters and options on existing plugins, help text, README and `DESCRIPTION` wording, Grafana dashboards and Director service sets that ship with a new plugin, lockfile and pin bumps, Dependabot and pre-commit configuration, GitHub Actions bumps, test infrastructure and refactorings without a visible effect. An administrator looks a parameter up in the plugin's README when a concrete use case calls for it.
+* **Relevance test.** Before writing an entry, answer what it changes for an administrator running the plugins on Icinga, Nagios or Shinken, and whether it makes the update worth doing. No answer, no entry. Two entries that fail the test: "installer: a source install no longer prints Python `RuntimeWarning` messages about tarfile extraction on RHEL 9 family hosts" and "cloudflare-security-level: no longer requires the `requests` Python module". Dependency, import and packaging internals stay out until an installation visibly succeeds or fails because of them. `Tools:` and `Build, CI/CD:` are almost always a single line or none at all; bundle several tool changes into one entry.
+* **Nothing under `Changed`, `Fixed` or `Breaking Changes` for a plugin that the same section lists under `Added`.** Nobody has ever seen it in a release, so it has no changed behaviour, no bug and no migration. This also applies to family wildcards: drop the entry when the family consists of new plugins only, and narrow it to the already released ones otherwise (`huawei-dorado-*` instead of `huawei-dorado-*, huawei-pacific-*`). Check which plugins are really new against the last tag instead of trusting the existing section.
+* **Grafana and Icinga Director only when the administrator has to act.** Re-import a dashboard, activate a service set, repair a broken import. A dashboard that comes with a new plugin is not an entry.
+* **Lead with highlights.** Begin every release section with two to four sentences of running text, directly below the version heading and above the first `###` section. Cover what drives the update decision, including any manual step it requires. No bullet list, no issue links, no repetition of the individual entries. A release with only a handful of entries does not need one, since the entries themselves already fit on a screen.
+* **State the change before its scope.** Up to five affected components keep the `component: what changed` form. From six on, put the statement first and close it with a family wildcard (`huawei-dorado-*`, `mysql-*`, `all *-version checks`, `all plugins`) instead of listing every component in parentheses. These broad entries come first in their subsection, ahead of the alphabetically sorted per-component entries.
+* **One entry per component and topic, one sentence each.** Several fixes to the same plugin are bundled into one sentence instead of being listed one by one. `Added`, `Changed` and `Fixed` say what an administrator notices. Root cause, reproduction steps, defaults and internal reasoning belong in the commit body and the issue. Aim for one line of about 120 characters.
+* **No documentation links inside an entry.** Issue, pull request and GHSA references only.
+* **Migration instructions only under `Breaking Changes`.** Wording such as "rename x to y" or "set z to restore the previous behaviour" anywhere else means the entry sits in the wrong section. Entries under `Breaking Changes` may run longer than one sentence.
+
+A release section starts like this:
+
+```markdown
+## [v6.1.0] - 2026-09-15
+
+**Highlights:** Two long-standing sources of false alarms are gone, and container workloads are now covered. Cumulative counters are reported as rates instead of totals, so any dashboard built on them has to be re-imported.
+
+### Added
+```
+
+
+### Changelog Groups
+
+Within a subsection, entries are grouped by the part of the project they belong to. Use a plain heading line ending in a colon, followed by a blank line and the entries. Group headings are, in this order:
+
+* `Monitoring Plugins:`
+* `Notification Plugins:`
+* `Event Plugins:`
+* `Icinga Director:`
+* `Grafana:`
+* `Assets:`
+* `Tools:`
+
+Omit a group that has no entries, and do not invent new ones.
+
 
 ### Language
 
@@ -161,7 +199,7 @@ When creating a new plugin, make sure to deliver:
 * Optional: extend the repo-root `requirements.in` with new Python deps; the per-Python lockfiles under `lockfiles/pyXX/requirements.txt` are regenerated from it
 * If providing performance data: Grafana dashboard (see [GRAFANA.md](GRAFANA.md)) and `.ini` file for the Icinga Web 2 Grafana Module
 * Icinga Director Basket Config for the check plugin. Run `tools/build-basket --auto` before every commit (not just for new plugins) so all basket JSONs stay in sync; a forgotten regeneration after a parameter change leaves a stale basket that only surfaces as an unrelated diff in a later contributor's `--auto` run.
-* Icinga Service Set in `all-the-rest.json` if appropriate (see [Service Set vs. Service Template](#service-set-vs-service-template))
+* Icinga Service Set in `all-the-rest.json` if appropriate (see the "Icinga Director: Service Set vs. Service Template" section below)
 * Optional: sudoers file (see [sudoers File](#sudoers-file))
 * Optional: A screenshot of the plugins' output from within Icinga, resized to 423x106, using background-color `#f5f9fa`, hosted on [download.linuxfabrik.ch](https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/), and listed alphabetically in [POSTER.md](POSTER.md).
 * Update `CHANGELOG.md`.
@@ -179,6 +217,8 @@ Use:
 * **Service Template only** when the check is per-instance parametrized (URL, account, token, hostname). Admins create services manually or via Apply rules, choosing the template and providing the values. Examples: `atlassian-statuspage`, `kemp-services`, `uptimerobot`, `virustotal-scan-url`.
 
 Ship the Service Template in `build-basket` either way. Add a Service Set entry to `all-the-rest.json` only if the check fits the generic or bundled shape.
+
+There is one deliberate exception. A per-instance check may join a Set anyway when its subject is important enough that an unconfigured host should not stay silent about it. The service the tag creates then reports UNKNOWN until the missing parameter is supplied, which is the point: the tag says the host runs the thing, and the UNKNOWN says nobody has finished setting up the check for it. Document the behaviour in the plugin's README so the state is not read as a defect. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) in the WordPress Service Set, where `--url` cannot be guessed.
 
 
 ### Icinga Director: Cluster Zones
@@ -225,6 +265,7 @@ Guidelines:
 * `STATE_WARN` and `STATE_CRIT` typically trigger notifications (email, SMS, paging) to operators, so pick them deliberately. Reserve them for conditions the user genuinely needs to act on, and avoid raising them for plugin-internal problems that are not the monitored service's fault.
 * Return `STATE_UNKNOWN` on missing dependencies, wrong parameters, or when `--help`/`--version` is requested.
 * Report internal plugin failures such as unhandled exceptions or tracebacks as `STATE_UNKNOWN`. A broken plugin says nothing about the monitored service, and routing these to UNKNOWN keeps them off the operators' alert path instead of spamming them with false CRITs.
+* One exception to the missing-dependency rule: where the missing thing is an external tool that belongs on the host by the very fact that the check was deployed there, `STATE_WARN` is the better answer, because it puts the gap on the list of things to fix instead of on the UNKNOWN pile nobody reads. Use this sparingly, only for a tool the administrator installs (not for a Python module the package pulls in), and say so in the plugin's README. Reference implementation: [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan) reporting a missing `wpscan`.
 * Return `STATE_WARN` for most alert conditions. Only return `STATE_CRIT` if the situation requires immediate human intervention ("wake up at night").
 * Never return any exit code other than 0, 1, 2, or 3.
 * Use `lib.base.oao()` (output and out) to print the result and exit with the appropriate state in a single call.
@@ -282,8 +323,20 @@ There are a few Nagios-compatible reserved options that should not be used for o
 
 Every plugin must support at least `--help` and `--version`:
 
-* `--help` (`-h`): Print a short usage statement followed by a detailed description of all options with their defaults. Keep the output within 80 characters width. Exit with `STATE_UNKNOWN` (3).
+* `--help` (`-h`): Print a short usage statement followed by a detailed description of all options with their defaults, ending with a link to the plugin's online documentation. Keep the output within 80 characters width. Exit with `STATE_UNKNOWN` (3).
 * `--version` (`-V`): Print the plugin name and version (`__version__`). Exit with `STATE_UNKNOWN` (3).
+
+The documentation link comes from `lib.args`, so build the parser like this:
+
+```python
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+```
+
+`lib.args.epilog()` derives the URL from the plugin's file name, `lib.args.HelpFormatter` keeps that URL on one line instead of breaking it at its hyphens. Notification and event plugins name their family, for example `lib.args.epilog(__file__, section='notification-plugins')`.
 
 Positional arguments are not allowed. All parameters must be named options.
 
@@ -336,6 +389,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --latest
 --lengthy
 --loadstate
+--match
 --message
 --message-key
 --metric
@@ -345,6 +399,8 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --module
 --mount
 --no-kthreads
+--no-match-severity
+--no-perfdata
 --no-proxy
 --no-summary
 --node
@@ -419,7 +475,11 @@ Hints:
 def parse_args():
     """Parse command line arguments using argparse.
     """
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '--my-old-and-deprecated-parameter',
@@ -474,7 +534,7 @@ parser.add_argument(
 
 Rules:
 
-* Use `%(default)s` for defaults, never hardcode the value. Omit the default for `store_true`/`store_false` switches (e.g. `--always-ok`, `--insecure`, `--no-proxy`, `--lengthy`) since they are always False when not specified.
+* Use `%(default)s` for defaults, never hardcode the value. Omit the default for `store_true`/`store_false` switches (e.g. `--always-ok`, `--insecure`, `--no-perfdata`, `--no-proxy`, `--lengthy`) since they are always False when not specified.
 * Defaults and examples go on their own lines.
 * Say "Can be specified multiple times." for `action='append'` parameters (not "(repeating)").
 * Say "Supports Nagios ranges." when `lib.base.get_state()` is used with the value.
@@ -508,6 +568,10 @@ state = lib.base.get_worst(state, item_state)
 ```
 
 The library parses the range expression and returns `STATE_OK`, `STATE_WARN`, or `STATE_CRIT`. Never reimplement range parsing per plugin. See `check-plugins/procs/procs` and the `example` plugin for reference implementations with multiple metrics and per-row worst-state aggregation.
+
+The rule covers every bound the operator picks for themselves: a percentage, a count, an age, a temperature, whatever the admin decides is too much on their systems. That is what ranges are for, and it is the case a plugin must never solve on its own.
+
+A parameter that names a fixed classification boundary defined outside the plugin is a different thing and keeps a plain numeric type (`type=float`, `type=int`) with a direct comparison. A CVSS base score is scored on a published scale whose severity bands are given, so "at or above this score" is the whole semantic, and a range expression there would offer syntax (`@10:20`, `~:50`) that means nothing for the value. Reference implementation: `--critical-cvss` in [wordpress-security-scan](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wordpress-security-scan). Say so in the README, so the missing range support reads as a decision rather than as an omission.
 
 Multi-threshold worked example: `--warning 2:100 --critical 1:150`. The per-value state the library will return:
 
@@ -572,6 +636,27 @@ Plugins have a limited runtime - typically 10 seconds max. Every plugin must han
 * **Symlinks**: If a plugin opens or reads files, ensure it does not follow symlinks to unintended locations.
 * **Credentials**: Never log or print passwords, tokens, or other secrets in plugin output - not even in verbose mode.
 * **Network communication**: Use HTTPS by default. Support `--insecure` to allow self-signed certificates where needed, but never make insecure the default.
+* **Internal management endpoints**: Checks that talk to an internal management endpoint are the one exception to the rule above. An Icinga API port, a BMC, a storage controller or a backup appliance practically always presents a certificate signed by its own CA, which no host trusts out of the box, so verifying by default would break every deployment of the check. Those plugins may set `DEFAULT_INSECURE = True`, and then must offer `--no-insecure` as the counterpart so an admin who added the CA to the system trust store can enforce verification:
+
+```python
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+```
+
+Both arguments share the `INSECURE` destination and repeat the same `default`, so the outcome does not depend on the order in which they are declared. Checks against public or customer-facing endpoints keep `DEFAULT_INSECURE = False` and offer `--insecure` only, where a `--no-insecure` counterpart would be a no-op.
 
 
 ### Plugin Output
@@ -794,6 +879,29 @@ check-plugins/my-check/unit-test/
 ```
 
 Only create `stderr/` if a test actually needs to inject stderr data. Do not create empty `retc/` or `stderr/` directories.
+
+A plugin that reads configuration files instead of command output cannot be driven by `--test`, because there is no command whose stdout a fixture could stand in for. Those plugins take a second, `argparse.SUPPRESS`ed hook that prefixes every path they open, and their fixtures are whole directory trees under `config/` that stand in for the host's `/etc`:
+
+```text
+check-plugins/my-check/unit-test/
+├── run
+└── config/
+    ├── no-locks/etc/dnf/plugins/versionlock.list
+    └── two-locks/etc/dnf/plugins/versionlock.list
+```
+
+Name the hook so that `--test` cannot abbreviate into it. `--config-root` works, `--test-config-root` does not: once `--test` itself is gone from the parser, argparse resolves `--test=` to the longer option and the fixture root silently becomes the empty string. Reference implementations: `check-plugins/rpm-versionlock` (files only) and `check-plugins/deb-versionlock` (both hooks side by side, `--test` for the commands and `--config-root` for the files).
+
+The directory a fixture lives in says what the plugin reads it as, so pick the name by the shape of the input rather than by the plugin:
+
+| Directory | Holds | Reached through |
+|---|---|---|
+| `stdout/`, `stderr/`, `retc/` | one file per stream of a command | `--test` |
+| `config/` | directory trees standing in for the host's `/etc` | a hidden root hook such as `--config-root` |
+| `<app>/` | directory trees standing in for an installation the plugin inspects, named after the application (`wordpress/`) | a normal path parameter such as `--path` |
+| `fixtures/` | single files the plugin opens by path, a token file for example | a normal path parameter such as `--api-token-file` |
+
+The last two hold input an administrator points the plugin at deliberately, which is why they sit behind a documented parameter instead of a hidden hook. Reference implementations: `check-plugins/wordpress-checksums` (`wordpress/`) and `check-plugins/wordpress-security-scan` (`wordpress/` and `fixtures/` side by side).
 
 
 #### Test data file naming

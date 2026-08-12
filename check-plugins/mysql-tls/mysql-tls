@@ -17,13 +17,13 @@ import sys
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.disk
 import lib.time
 import lib.txt
-import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051802'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the
 server's TLS capability (`have_ssl`), enforcement (`require_secure_transport`), enabled TLS
@@ -45,7 +45,11 @@ DEFAULT_CRIT_CERT_EXPIRY = '7:'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -87,6 +91,14 @@ def parse_args():
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -184,9 +196,10 @@ def cert_days_until_expiry(path):
         from cryptography import x509
     except ImportError:
         return None, 'python module "cryptography" not installed'
+    success, data = lib.disk.read_file(path, binary=True)
+    if not success:
+        return None, data
     try:
-        with open(path, 'rb') as fh:
-            data = fh.read()
         if b'-----BEGIN CERTIFICATE-----' in data:
             cert = x509.load_pem_x509_certificate(data)
         else:
@@ -253,10 +266,8 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
     myvar = lib.db_mysql.get_all_variables(conn)
-    version = (myvar.get('version') or '').lower()
-    is_mariadb_10_4_plus = (
-        'mariadb' in version and lib.version.version(version) >= (10, 4, 0)
-    )
+    flavor, server_version = lib.db_mysql.get_version(conn)
+    is_mariadb_10_4_plus = flavor == 'mariadb' and server_version >= (10, 4, 0)
 
     session_cipher = get_session_cipher(conn)
     have_ssl = (myvar.get('have_ssl') or '').upper()
@@ -311,8 +322,7 @@ def main():
     if have_ssl == 'DISABLED':
         state = lib.base.get_worst(state, severity_state)
         findings.append(
-            f'`have_ssl` = DISABLED'
-            f'{lib.base.state2str(severity_state, prefix=" ")}'
+            f'`have_ssl` = DISABLED{lib.base.state2str(severity_state, prefix=" ")}'
         )
         recommendations.append(
             'Enable SSL support on the server: configure `ssl_cert`, '
@@ -366,8 +376,7 @@ def main():
                 f'{lib.base.state2str(severity_state, prefix=" ")}'
             )
             recommendations.append(
-                'Enable TLSv1.2 and/or TLSv1.3 via `tls_version` in your '
-                'server config.'
+                'Enable TLSv1.2 and/or TLSv1.3 via `tls_version` in your server config.'
             )
         if not weak_tls and modern_tls:
             findings.append(f'TLS versions: {tls_versions_display}')
@@ -392,7 +401,10 @@ def main():
     if ssl_cert_path:
         if cert_days is not None:
             cert_state = lib.base.get_state(
-                cert_days, args.WARN, args.CRIT, _operator='range',
+                cert_days,
+                args.WARN,
+                args.CRIT,
+                _operator='range',
             )
             if cert_days < 0:
                 cert_state = STATE_CRIT
@@ -410,8 +422,7 @@ def main():
                 )
             if cert_state != STATE_OK:
                 recommendations.append(
-                    f'Renew `ssl_cert` ({ssl_cert_path}) and reload the '
-                    'server.'
+                    f'Renew `ssl_cert` ({ssl_cert_path}) and reload the server.'
                 )
         else:
             findings.append(
@@ -423,7 +434,10 @@ def main():
     if ssl_ca_path:
         if ca_days is not None:
             ca_state = lib.base.get_state(
-                ca_days, args.WARN, args.CRIT, _operator='range',
+                ca_days,
+                args.WARN,
+                args.CRIT,
+                _operator='range',
             )
             if ca_days < 0:
                 ca_state = STATE_CRIT
@@ -444,8 +458,7 @@ def main():
                 )
         else:
             findings.append(
-                f'`ssl_ca` ({ssl_ca_path}) expiry check skipped '
-                f'({ca_skip_reason})'
+                f'`ssl_ca` ({ssl_ca_path}) expiry check skipped ({ca_skip_reason})'
             )
 
     # 7. Remote users without REQUIRE SSL.
@@ -527,7 +540,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

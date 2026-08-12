@@ -33,10 +33,10 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 ## Help
 
 ```text
-usage: metabase-stats [-h] [-V] [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                      [--insecure] [--no-proxy] -p PASSWORD
-                      [--timeout TIMEOUT] [--url URL] [--username USERNAME]
-                      [-w WARN]
+usage: metabase-stats [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+                      [-c CRIT] [--insecure] [--no-perfdata] [--no-proxy]
+                      -p PASSWORD [--timeout TIMEOUT] [--url URL]
+                      [--username USERNAME] [-w WARN]
 
 Retrieves recent activity and usage statistics from a Metabase instance via
 its API. Reports active users, executed queries, dashboards, and other
@@ -45,12 +45,17 @@ operational metrics. Credentials are cached to reduce API calls.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         Time after which the credential cache expires, in
                         hours. Default: 335
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Password for authenticating against the Metabase API.
@@ -60,6 +65,9 @@ options:
   --username USERNAME   Username for authenticating against the Metabase API.
                         Default: metabase-admin
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/metabase-stats/
 ```
 
 

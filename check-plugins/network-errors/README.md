@@ -10,7 +10,7 @@ Packet drops and collisions are intentionally not monitored. Per the [Linux kern
 
 On a healthy host this check is boring on purpose: it normally reports nothing but `0` rates, which is exactly what you want to see. The zeros are mainly there for graphing, so a rising error rate stands out immediately on the dashboard. As long as the values stay at zero, everything is ok.
 
-The receive and transmit error types are not symmetric, because the underlying hardware errors are direction-specific and the data source exposes exactly that. Generic errors and FIFO over/underruns occur in both directions, frame errors (an aggregate of length, overrun, CRC and frame-alignment errors) only happen while receiving, and carrier errors (an aggregate of carrier, aborted, window and heartbeat errors) only happen while transmitting. The set of counters also differs by platform: Linux exposes the full breakdown from `/proc/net/dev`, whereas Windows only exposes the receive and transmit error totals. The exact counters and their official definitions are listed per platform under [Perfdata / Metrics](#perfdata--metrics).
+The receive and transmit error types are not symmetric, because the underlying hardware errors are direction-specific and the data source exposes exactly that. Generic errors and FIFO over/underruns occur in both directions, frame errors (an aggregate of length, overrun, CRC and frame-alignment errors) only happen while receiving, and carrier errors (an aggregate of carrier, aborted, window and heartbeat errors) only happen while transmitting. The set of counters also differs by platform: Linux exposes the full breakdown from `/proc/net/dev`, whereas Windows only exposes the receive and transmit error totals. The exact counters and their official definitions are listed per platform in the Perfdata / Metrics section below.
 
 **Important Notes:**
 
@@ -46,7 +46,8 @@ The receive and transmit error types are not symmetric, because the underlying h
 ```text
 usage: network-errors [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                       [--match MATCH]
-                      [--no-match-severity {ok,warn,crit,unknown}] [-w WARN]
+                      [--no-match-severity {ok,warn,crit,unknown}]
+                      [--no-perfdata] [-w WARN]
 
 Monitors network interface errors per interface and alerts on receive and
 transmit errors. On Linux it additionally shows the receive and transmit error
@@ -71,12 +72,22 @@ options:
   --match MATCH         Only check items whose name matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
-                        multiple times.
+                        multiple times. If both `--match` and `--ignore` are
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second).
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -w, --warning WARN    WARN threshold for the combined per-second error rate
                         of an interface. Supports Nagios ranges. Default: 0
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-errors/
 ```
 
 

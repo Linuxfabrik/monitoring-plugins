@@ -14,6 +14,9 @@
                 "--defaults-group": {
                     "value": "$mysql_tls_defaults_group$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$mysql_tls_no_perfdata$"
+                },
                 "--severity": {
                     "value": "$mysql_tls_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -119,6 +127,7 @@
                 "mysql_tls_critical": "7:",
                 "mysql_tls_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_tls_defaults_group": "client",
+                "mysql_tls_no_perfdata": false,
                 "mysql_tls_severity": "warn",
                 "mysql_tls_timeout": 3,
                 "mysql_tls_warning": "30:"
@@ -193,6 +202,15 @@
             "uuid": "dab3e19d-f997-4c9f-9358-24a19bde7cbd"
         },
         "5": {
+            "varname": "mysql_tls_no_perfdata",
+            "caption": "MySQL Tls: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5e768709-69bd-4c26-9a30-edb965023c5f"
+        },
+        "6": {
             "varname": "mysql_tls_severity",
             "caption": "MySQL Tls: Severity",
             "description": "Severity for the threshold-less TLS findings (session not encrypted, `have_ssl=DISABLED`, `require_secure_transport=OFF`, weak TLS versions, missing cert/key, remote users without `REQUIRE SSL`). One of `warn` or `crit`.",
@@ -205,7 +223,7 @@
             },
             "uuid": "ebf0c8a5-0299-4946-96f0-75eea2b85524"
         },
-        "6": {
+        "7": {
             "varname": "mysql_tls_timeout",
             "caption": "MySQL Tls: Timeout",
             "description": "Network timeout in seconds.",
@@ -216,7 +234,7 @@
             },
             "uuid": "2458aded-dee3-4d87-ae00-4010c97bcd14"
         },
-        "7": {
+        "8": {
             "varname": "mysql_tls_warning",
             "caption": "MySQL Tls: Warning",
             "description": "Days until local `ssl_cert` / `ssl_ca` expiry that trigger WARN. Supports Nagios ranges. Example: `--warning=60:`.",

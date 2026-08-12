@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -22,22 +23,41 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026081102'
 
 DESCRIPTION = """Checks the health and running status of all interface modules on a Huawei OceanStor
 Dorado storage system via the REST API (/intf_module endpoint). Alerts when any
 module reports a non-normal state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION')
+
+# RUNNINGSTATUS codes a healthy interface module reports: normal (1), running (2),
+# powering on (12) and online (27).
+OK_RUNNING_STATUS = (1, 2, 12, 27)
 
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -64,9 +84,22 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip interface modules. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -75,6 +108,41 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to interface modules. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -89,7 +157,12 @@ def parse_args():
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -129,6 +202,19 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -142,6 +228,17 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
@@ -154,12 +251,15 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
+    lib.huawei_dorado.assert_ok(result, 'the interface modules')
+
+    # An appliance always has interface modules, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
         lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
+            f'{args.URL} reported no interface modules.'
+            ' Verify that the API user is allowed to query them.',
             STATE_UNKNOWN,
         )
 
@@ -167,51 +267,97 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for iface in result.get('data'):
-        health_state = STATE_OK
-        if lib.huawei_dorado.get_health_status(iface.get('HEALTHSTATUS')) != 'Normal (1)':
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS')) != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Running (2)'
-            and lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Powering on (12)'
-            and lib.huawei_dorado.get_running_status(iface.get('RUNNINGSTATUS'))
-            != 'Online (27)'
-        ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
-
+    for iface in result.get('data') or []:
         iface['UUID'] = lib.huawei_dorado.get_uuid(iface)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', iface['UUID'])
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(iface.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(iface.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            iface.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            iface.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
 
         perfdata += lib.base.get_perfdata(
-            f'{iface["UUID"]}_HEALTHSTATUS',
-            iface['HEALTHSTATUS'],
-            crit=2,
+            f'{label}_health_status',
+            iface.get('HEALTHSTATUS'),
+            uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
-            f'{iface["UUID"]}_RUNNINGSTATUS',
-            iface['RUNNINGSTATUS'],
+            f'{label}_running_status',
+            iface.get('RUNNINGSTATUS'),
             _min=0,
         )
 
-        iface['health_state'] = lib.base.state2str(health_state, empty_ok=False)
-        iface['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        iface['MODEL'] = lib.huawei_dorado.get_interface_model(iface['MODEL'])
-        iface['RUNMODE'] = lib.huawei_dorado.get_interface_runmode(iface['RUNMODE'])
-        iface['LIGHTSTATUS'] = lib.huawei_dorado.get_led_status(iface['LIGHTSTATUS'])
+        iface['health'] = lib.huawei_dorado.get_health_status(
+            iface.get('HEALTHSTATUS')
+        )
+        iface['running'] = lib.huawei_dorado.get_running_status(
+            iface.get('RUNNINGSTATUS')
+        )
+        # One state per row, in the last column. IcingaWeb replaces a state with an
+        # icon, which shifts everything to the right of it, so a second one mid-row
+        # would break the table. What decided it stays readable in the two columns
+        # in front of it.
+        iface['state'] = lib.base.state2str(
+            lib.base.get_worst(health_state, running_state), empty_ok=False
+        )
+        iface['MODEL'] = lib.huawei_dorado.get_interface_model(iface.get('MODEL'))
+        iface['RUNMODE'] = lib.huawei_dorado.get_interface_runmode(iface.get('RUNMODE'))
+        iface['LIGHTSTATUS'] = lib.huawei_dorado.get_led_status(iface.get('LIGHTSTATUS'))
 
         table_data.append(iface)
 
+    # The appliance listed interface modules and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No interface modules matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
     if table_data:
         keys = [
             'UUID',
@@ -219,26 +365,23 @@ def main():
             'MODEL',
             'RUNMODE',
             'LIGHTSTATUS',
-            'health_state',
-            'running_state',
+            'health',
+            'running',
+            'state',
         ]
-        headers = ['UUID', 'Location', 'Model', 'RunMode', 'LED', 'Health', 'Running']
+        headers = ['UUID', 'Location', 'Model', 'RunMode', 'LED', 'Health', 'Running', 'State']
 
-        # build the message
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(
+            table_data, keys, header=headers, missing='--', hide_empty=True
+        )
 
-    counter = result.get('counter', 0)
-    msg += f'\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
-
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

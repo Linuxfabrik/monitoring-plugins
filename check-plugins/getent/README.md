@@ -30,7 +30,7 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 ## Help
 
 ```text
-usage: getent [-h] [-V] [--database DATABASE] [--key KEY]
+usage: getent [-h] [-V] [--always-ok] [--database DATABASE] [--key KEY]
 
 Queries the Name Service Switch (NSS) for entries in system databases such as
 group, hosts, networks, passwd, protocols, or services. Alerts if the lookup
@@ -39,12 +39,16 @@ fails or if a specific key is not found.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   --database DATABASE  NSS database to query. May be any database supported by
                        "getent". Example: `--database passwd`. Default: group
   --key KEY            Lookup key to search for in the database. If not
                        specified, all entries are fetched (unless the database
                        does not support enumeration). Can be specified
                        multiple times. Example: `--key root --key nobody`.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/getent/
 ```
 
 

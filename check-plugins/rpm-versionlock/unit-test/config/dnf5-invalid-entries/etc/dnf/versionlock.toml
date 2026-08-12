@@ -1,0 +1,27 @@
+version = "1.0"
+
+# A condition key the package manager does not know. It does not merely drop the
+# condition, it marks the whole entry invalid: `dnf5 versionlock list` prints
+# `invalid condition key "bogus"` next to it and the package is not held.
+# Observed with dnf5 5.4.2.1 on Fedora 44.
+[[packages]]
+name = "zsh"
+
+[[packages.conditions]]
+key = "bogus"
+comparator = "="
+value = "5.9-19.fc44"
+
+# A package name with no conditions at all, which the same report answers with
+# `entry is invalid: missing package conditions`.
+[[packages]]
+name = "nano"
+
+# A well-formed entry beside them, so the file is not simply thrown away as a whole.
+[[packages]]
+name = "bash"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.3.9-3.fc44"

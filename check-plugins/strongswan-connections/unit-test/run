@@ -56,7 +56,9 @@ TESTS = [
         'id': 'warn-one-inactive-connection',
         'test': 'stdout/one-inactive-connection,,0',
         'assert-retc': STATE_WARN,
-        'assert-in': ['One or more connections are configured but not active [WARNING].'],
+        'assert-in': [
+            'One or more connections are configured but not active [WARNING].'
+        ],
     },
     {
         'id': 'ok-all-connections-active',
@@ -64,7 +66,6 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.'],
     },
-
     # #738: --match and --ignore filter on the VICI connection key.
     # The mixed-s2s-and-ra-one-ra-inactive fixture has two permanent
     # site-to-site peers (S2S_SITE-A, S2S_SITE-B, both active) plus
@@ -123,11 +124,98 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Invalid regular expression'],
     },
+    # #806: VICI omits optional keys instead of sending them empty.
+    # An SA that has not negotiated a proposal yet carries none of the
+    # algorithm keys, and no `established`/`rekey-time` either, which
+    # used to crash the check with a KeyError. The connection has no
+    # child SA yet, so the check warns; the point of the test is that
+    # it renders at all, and that the two absent timers are left out
+    # of the performance data instead of being emitted non-numeric.
+    {
+        'id': 'warn-connecting-connection-has-no-algorithms',
+        'test': 'stdout/connecting-connection,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['S2S_SITE-A not connected at child level'],
+        'assert-not-in': [
+            'S2S_SITE-A_established',
+            'S2S_SITE-A_rekey-time',
+            'Traceback',
+        ],
+    },
+    # #806: a fixed-key cipher such as 3DES has no key size, so VICI
+    # omits `encr-keysize` even for an established SA. The algorithm
+    # has to render without a dangling dash.
+    {
+        'id': 'ok-fixed-key-cipher-omits-keysize',
+        'test': 'stdout/fixed-key-cipher-connection,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '3DES/HMAC_SHA2_256_128/'],
+        'assert-not-in': ['3DES-/'],
+    },
+    # A CHILD SA that never expires: VICI omits `rekey-time` and
+    # `life-time`, which are unknown rather than zero. Neither may be
+    # trended as 0 ("expires right now"), while the timers VICI does
+    # send are reported as usual.
+    {
+        'id': 'ok-child-without-lifetime-omits-timers',
+        'test': 'stdout/child-without-lifetime,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', "'conn2_xxxx_install-time'=22444s;;;0"],
+        'assert-not-in': [
+            'conn2_xxxx_life-time',
+            'conn2_xxxx_rekey-time',
+        ],
+    },
+    # VICI sends `rekey-time` and `reauth-time` as two independent
+    # values; they must not be conflated. The IKE SA renews by rekeying
+    # in 3600s and re-authenticating in 86000s, so both have to appear
+    # in the performance data with their own value.
+    {
+        'id': 'ok-reauth-and-rekey-reported-separately',
+        'test': 'stdout/reauth-and-rekey-connection,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            "'conn2_rekey-time'=3600s",
+            "'conn2_reauth-time'=86000s",
+        ],
+    },
+    # An IKE SA is keyed by its non-unique connection name, so a
+    # rekeying SA appears twice under the same name. The check must not
+    # report the duplicate as "configured but not active", and must not
+    # emit the same performance data label twice: only the primary
+    # (established) SA drives the perfdata, while the table lists both.
+    {
+        'id': 'ok-rekeying-duplicate-sa-no-false-alarm',
+        'test': 'stdout/rekeying-duplicate-sa,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', "'conn2_xxxx_bytes-in'=114397277B"],
+        'assert-not-in': [
+            'configured',
+            "'conn2_xxxx_bytes-in'=9000000B",
+        ],
+    },
+    # A CHILD SA that is not yet installed carries no traffic counters
+    # at all. An absent counter is unknown, not zero: emitting 0 would
+    # read as "this SA has carried no traffic", so it is left out.
+    {
+        'id': 'ok-child-not-installed-omits-counters',
+        'test': 'stdout/child-not-installed-omits-counters,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': [
+            'conn2_xxxx_bytes-in',
+            'conn2_xxxx_bytes-out',
+        ],
+    },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../strongswan-connections'
 
 
@@ -199,7 +287,8 @@ def _python_invocation(container):
     )
     if b'venv' in probe.output:
         return [
-            'sh', '-c',
+            'sh',
+            '-c',
             '. /tmp/venv/bin/activate && cd /tmp && python3 ./strongswan-connections',
         ]
     return ['sh', '-c', 'cd /tmp && python3 ./strongswan-connections']
@@ -234,11 +323,13 @@ def _check_containerfile(test, containerfile):
             # open the VICI socket. charon does not fork itself;
             # redirect stdio and wrap in `sh -c ... &` so the exec
             # call returns immediately.
-            container.exec([
-                'sh',
-                '-c',
-                '/usr/libexec/strongswan/charon > /tmp/charon.log 2>&1 &',
-            ])
+            container.exec(
+                [
+                    'sh',
+                    '-c',
+                    '/usr/libexec/strongswan/charon > /tmp/charon.log 2>&1 &',
+                ]
+            )
 
             # Poll for the VICI socket (up to 10s). RHEL EPEL
             # strongswan writes it to /run/strongswan/charon.vici
@@ -248,7 +339,11 @@ def _check_containerfile(test, containerfile):
             socket_ready = False
             while time.time() < deadline:
                 probe = container.exec(
-                    ['sh', '-c', f'test -S {socket_path} && echo ready || echo waiting'],
+                    [
+                        'sh',
+                        '-c',
+                        f'test -S {socket_path} && echo ready || echo waiting',
+                    ],
                 )
                 if b'ready' in (probe.output or b''):
                     socket_ready = True

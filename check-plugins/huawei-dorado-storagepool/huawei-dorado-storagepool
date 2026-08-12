@@ -1,0 +1,705 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_dorado
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081104'
+
+DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
+Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
+reports a non-normal state, when its used capacity reaches the warning or critical threshold,
+and when it reaches the threshold the storage administrator configured on the appliance itself.
+Supports extended reporting via --lengthy, and reporting the I/O counters via --performance."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+# A pool of this class is measured in petabytes, where the usual 80/90 would alert with
+# hundreds of terabytes still free. At 92 and 95 percent there is enough runway left to
+# order and rack more hardware, and little enough to be worth acting on.
+DEFAULT_CRIT = '95'
+DEFAULT_CRIT_OVERPROVISIONING = ''
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
+DEFAULT_DEVICE_THRESHOLD_SEVERITY = 'warn'
+DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '92'
+DEFAULT_WARN_OVERPROVISIONING = ''
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
+
+# Performance indicators this object supports, from the vendor's performance
+# indicator tables. Read only when --performance is given.
+PERFORMANCE_INDICATORS = (19, 21, 22, 23, 24, 25, 26, 27, 28, 370)
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
+
+# RUNNINGSTATUS code a healthy storage pool reports: online (27). The other codes
+# the pool enumeration knows are pre-copy (14), rebuilding (16), balancing (32),
+# initializing (53) and deleting (106), all of which describe a pool that is busy
+# rather than one that is serving normally, plus offline (28).
+OK_RUNNING_STATUS = (27,)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the used capacity of a pool, as a Nagios range in '
+        'percent. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-overprovisioning',
+        help='CRIT threshold for the overprovisioning of a pool, as a Nagios range in '
+        'percent of its total capacity that is handed out to LUNs. '
+        'Above 100 percent the pool is thin provisioned, which is what thin provisioning '
+        'is for; what matters is how far the promise exceeds the disks behind it. '
+        'Off by default. '
+        'Example: `--critical-overprovisioning=300`',
+        dest='CRIT_OVERPROVISIONING',
+        default=DEFAULT_CRIT_OVERPROVISIONING,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
+        dest='DEVICE_ID',
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--device-threshold-severity',
+        help='State to report for a pool that reached the capacity threshold configured '
+        'on the appliance itself. That threshold is what the storage administrator set in '
+        'the management GUI, so the check and the appliance agree on when a pool is full '
+        'instead of each having their own opinion. A pool that carries no threshold is '
+        'not affected. '
+        'Default: %(default)s',
+        dest='DEVICE_THRESHOLD_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_DEVICE_THRESHOLD_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip storage pools. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the pool identifier, the pool name and the name of its disk '
+        'domain, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to storage pools. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the pool identifier, the pool name and the name of its disk '
+        'domain, so prefix with `.*` to match anywhere. Default: %(default)s',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--performance',
+        help='Additionally report the I/O counters of every storage pool. '
+        'Costs one API request per object, so a large appliance may need a '
+        'higher --timeout.',
+        dest='PERFORMANCE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the used capacity of a pool, as a Nagios range in '
+        'percent. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-overprovisioning',
+        help='WARN threshold for the overprovisioning of a pool, as a Nagios range in '
+        'percent of its total capacity that is handed out to LUNs. '
+        'Above 100 percent the pool is thin provisioned, which is what thin provisioning '
+        'is for; what matters is how far the promise exceeds the disks behind it. '
+        'Off by default. '
+        'Example: `--warning-overprovisioning=200`',
+        dest='WARN_OVERPROVISIONING',
+        default=DEFAULT_WARN_OVERPROVISIONING,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_reduction_ratio(pool):
+    """
+    Return a pool's data reduction ratio, or `None` if it does not report a usable one.
+
+    The appliance reports the ratio as a JSON document with a numerator and a
+    denominator rather than as a number, so it has to be parsed and divided out.
+
+    ### Parameters
+    - **pool** (`dict`): One storage pool as the API returned it.
+
+    ### Returns
+    - **float** or **None**: The ratio, for example `3.2` for 3.2:1. `None` if the
+      field is missing, is not the documented document, or carries a zero denominator.
+
+    ### Example
+    >>> rate = '{"numerator": "3200", "denominator": "1000"}'
+    >>> get_reduction_ratio({'SPACEREDUCTIONRATE': rate})
+    3.2
+    """
+    try:
+        rate = json.loads(pool.get('SPACEREDUCTIONRATE', ''))
+        numerator = float(rate['numerator'])
+        denominator = float(rate['denominator'])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+    if denominator == 0:
+        return None
+    return round(numerator / denominator, 2)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    truncated = False
+    if args.TEST is None:
+        result, truncated = lib.huawei_dorado.get_all_data('storagepool', args)
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    lib.huawei_dorado.assert_ok(result, 'the storage pools')
+
+    # An array that serves storage has at least one storage pool, so an empty list is a
+    # query that never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
+        lib.base.oao(
+            f'{args.URL} reported no storage pools.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    device_threshold_state = lib.base.str2state(args.DEVICE_THRESHOLD_SEVERITY)
+
+    # analyze data
+    table_data = []
+    for pool in result.get('data') or []:
+        pool['UUID'] = lib.huawei_dorado.get_uuid(pool)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same when
+        # a pool is renamed, unlike its name.
+        label = re.sub(r'\W+', '_', pool['UUID'])
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(pool.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(pool.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            pool.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            pool.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
+
+        # The appliance computes the usage percentage itself, so the check reports
+        # the same number the storage administrator sees in DeviceManager.
+        try:
+            usage_percent = float(pool.get('USERCONSUMEDCAPACITYPERCENTAGE'))
+        except (TypeError, ValueError):
+            usage_percent = None
+
+        usage_state = STATE_OK
+        if usage_percent is not None:
+            usage_state = lib.base.get_state(
+                usage_percent, args.WARN, args.CRIT, _operator='range'
+            )
+            state = lib.base.get_worst(state, usage_state)
+
+        # The appliance carries the threshold the storage administrator set for this
+        # pool in the management GUI. Honouring it keeps the check and the appliance from
+        # each having their own opinion on when a pool is full.
+        device_threshold = lib.huawei_dorado.as_code(
+            pool.get('USERCONSUMEDCAPACITYTHRESHOLD')
+        )
+        device_state = STATE_OK
+        if (
+            usage_percent is not None
+            and device_threshold
+            and 0 < device_threshold <= 100
+            and usage_percent >= device_threshold
+        ):
+            device_state = device_threshold_state
+            state = lib.base.get_worst(state, device_state)
+
+        # How much capacity the pool has promised to its LUNs. Above 100 percent it is
+        # thin provisioned, which is the point of thin provisioning; what an operator
+        # watches is how far the promise runs ahead of the disks behind it.
+        configured_capacity = lib.huawei_dorado.sectors2bytes(
+            pool.get('LUNCONFIGEDCAPACITY')
+        )
+        overprovisioning = None
+        overprovisioning_state = STATE_OK
+
+        total_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERTOTALCAPACITY'))
+        if configured_capacity is not None and total_capacity:
+            overprovisioning = round(configured_capacity / total_capacity * 100, 1)
+            if args.WARN_OVERPROVISIONING or args.CRIT_OVERPROVISIONING:
+                overprovisioning_state = lib.base.get_state(
+                    overprovisioning,
+                    args.WARN_OVERPROVISIONING or None,
+                    args.CRIT_OVERPROVISIONING or None,
+                    _operator='range',
+                )
+                state = lib.base.get_worst(state, overprovisioning_state)
+
+        used_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERCONSUMEDCAPACITY'))
+        free_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERFREECAPACITY'))
+        reduction_ratio = get_reduction_ratio(pool)
+
+        perfdata += lib.base.get_perfdata(
+            f'{label}_health_status',
+            pool.get('HEALTHSTATUS'),
+            uom=None,
+            _min=0,
+            _max=HEALTH_STATUS_MAX,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{label}_running_status',
+            pool.get('RUNNINGSTATUS'),
+            uom=None,
+            _min=0,
+        )
+        if usage_percent is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_usage_percent',
+                usage_percent,
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
+        if overprovisioning is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_overprovisioning_percent',
+                overprovisioning,
+                uom='%',
+                warn=args.WARN_OVERPROVISIONING or None,
+                crit=args.CRIT_OVERPROVISIONING or None,
+                _min=0,
+            )
+        for perf_label, value, maximum in (
+            ('total_capacity', total_capacity, None),
+            # No maximum: this is what the pool promised, which routinely exceeds the
+            # capacity it actually has.
+            ('lun_configured_capacity', configured_capacity, None),
+            ('used_capacity', used_capacity, total_capacity),
+            ('free_capacity', free_capacity, total_capacity),
+        ):
+            if value is None:
+                continue
+            perfdata += lib.base.get_perfdata(
+                f'{label}_{perf_label}',
+                value,
+                uom='B',
+                _min=0,
+                _max=maximum,
+            )
+        if reduction_ratio is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_data_reduction_ratio',
+                reduction_ratio,
+                uom=None,
+                _min=0,
+            )
+
+        # The counters come from a second endpoint, which a fixture cannot stand
+        # in for. `lib.huawei_dorado.get_performance()` covers that path.
+        if args.PERFORMANCE and args.TEST is None:
+            samples = lib.huawei_dorado.get_performance(
+                pool['UUID'], PERFORMANCE_INDICATORS, args
+            )
+            perfdata += lib.huawei_dorado.get_performance_perfdata(label, samples)
+
+        pool['health'] = lib.huawei_dorado.get_health_status(pool.get('HEALTHSTATUS'))
+        pool['running'] = lib.huawei_dorado.get_running_status(
+            pool.get('RUNNINGSTATUS')
+        )
+        # One state per pool, in the last column. IcingaWeb replaces a state with an
+        # icon, which shifts everything to the right of it, so a second one mid-row
+        # would break the table. The capacity columns in front of it say whether it
+        # was the fill level rather than the pool itself.
+        pool['state'] = lib.base.state2str(
+            lib.base.get_worst(
+                lib.base.get_worst(health_state, running_state),
+                lib.base.get_worst(usage_state, device_state),
+            ),
+            empty_ok=False,
+        )
+        pool['usage'] = (
+            f'{usage_percent:.0f}%' if usage_percent is not None else 'not reported'
+        )
+        pool['device_threshold'] = (
+            '--'
+            if not device_threshold
+            else f'{device_threshold}%{lib.base.state2str(device_state, prefix=" ")}'
+        )
+        pool['overprovisioning'] = (
+            '--'
+            if overprovisioning is None
+            else f'{overprovisioning:.0f}%'
+            f'{lib.base.state2str(overprovisioning_state, prefix=" ")}'
+        )
+        pool['total'] = (
+            lib.human.bytes2human(total_capacity)
+            if total_capacity is not None
+            else 'not reported'
+        )
+        pool['used'] = (
+            lib.human.bytes2human(used_capacity)
+            if used_capacity is not None
+            else 'not reported'
+        )
+        pool['reduction'] = (
+            f'{reduction_ratio}:1' if reduction_ratio is not None else 'not reported'
+        )
+
+        table_data.append(pool)
+
+    # The appliance listed storage pools and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No storage pools matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    # The truncated walk raises the state before the summary is written, so a
+    # partially read appliance does not open with "Everything is ok." and then exit
+    # WARNING.
+    if truncated:
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n'
+    if truncated:
+        # The walk hit its page cap, so pools beyond it were never looked at.
+        msg += (
+            'The appliance reports more storage pools than this check reads in one run;'
+            ' the list below is incomplete.\n'
+        )
+    msg += '\n'
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'NAME',
+                'PARENTNAME',
+                'used',
+                'total',
+                'usage',
+                'device_threshold',
+                'overprovisioning',
+                'reduction',
+                'health',
+                'running',
+                'state',
+            ]
+            headers = [
+                'UUID',
+                'Name',
+                'Disk Domain',
+                'Used',
+                'Total',
+                'Usage',
+                'Device Limit',
+                'Overprov',
+                'Reduction',
+                'Health',
+                'Running',
+                'State',
+            ]
+        else:
+            # `Overprov` stays in the core view because it is the only cell that marks
+            # an overprovisioning breach; the appliance's own fill limit is already
+            # folded into `Usage State`.
+            keys = [
+                'UUID',
+                'NAME',
+                'used',
+                'total',
+                'usage',
+                'overprovisioning',
+                'health',
+                'running',
+                'state',
+            ]
+            headers = [
+                'UUID',
+                'Name',
+                'Used',
+                'Total',
+                'Usage',
+                'Overprov',
+                'Health',
+                'Running',
+                'State',
+            ]
+
+        msg += lib.base.get_table(
+            table_data, keys, header=headers, missing='--', hide_empty=True
+        )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

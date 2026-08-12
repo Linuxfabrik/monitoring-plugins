@@ -43,8 +43,9 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 usage: podman-stats [-h] [-V] [--always-ok] [--count COUNT]
                     [--critical-cpu CRIT_CPU] [--critical-mem CRIT_MEM]
                     [--full-name] [--ignore IGNORE] [--match MATCH]
-                    [--no-match-severity {ok,warn,crit,unknown}] [--user USER]
-                    [--warning-cpu WARN_CPU] [--warning-mem WARN_MEM]
+                    [--no-match-severity {ok,warn,crit,unknown}]
+                    [--no-perfdata] [--user USER] [--warning-cpu WARN_CPU]
+                    [--warning-mem WARN_MEM]
 
 Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts
@@ -84,8 +85,8 @@ options:
                         --full-name). Case-sensitive by default; use `(?i)`
                         for case-insensitive matching. Can be specified
                         multiple times. If both `--match` and `--ignore` are
-                        given, a container must match `--match` AND not match
-                        `--ignore` to be checked (include first, exclude
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
                         second). Example: `--match="^traefik$"` to pin the
                         check to one specific container. Example:
                         `--match="(?i)^web"` (case-insensitive) to check every
@@ -93,6 +94,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --user USER           Report on the rootless containers of this user instead
                         of those visible to the executing user. Podman keeps
                         each user's rootless containers in that user's own
@@ -107,6 +112,9 @@ options:
   --warning-mem WARN_MEM
                         WARN threshold for memory usage, in percent. Default:
                         >= 90
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-stats/
 ```
 
 

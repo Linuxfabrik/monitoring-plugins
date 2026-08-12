@@ -32,7 +32,8 @@ Retrieves and displays information about an installed Nextcloud Enterprise subsc
 ## Help
 
 ```text
-usage: nextcloud-enterprise [-h] [-V] [--path PATH]
+usage: nextcloud-enterprise [-h] [-V] [--always-ok] [--no-perfdata]
+                            [--path PATH]
 
 Retrieves and displays information about an installed Nextcloud Enterprise
 subscription, including license status, expiration date, and supported user
@@ -42,8 +43,15 @@ root or sudo.
 options:
   -h, --help     show this help message and exit
   -V, --version  show program's version number and exit
+  --always-ok    Always returns OK.
+  --no-perfdata  Suppress the performance data section from the output. The
+                 status message and the exit code are unaffected, so alerting
+                 keeps working while trending data is dropped.
   --path PATH    Local path to the Nextcloud installation, typically the web
                  server document root. Default: /var/www/html/nextcloud
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-enterprise/
 ```
 
 

@@ -21,6 +21,10 @@ functions directly, by importing the hyphen-named plugin as a module:
     and its default compare equal regardless of the unit they were written in
   - render_ini_section(): render one php.ini section, annotating a value with
     its upstream default only when the two differ
+  - parse_cli_ini_values(): pull post_max_size and upload_max_filesize out of
+    `php --info` output
+  - upload_limit_warning(): warn when post_max_size is not larger than
+    upload_max_filesize
 """
 
 import importlib.machinery
@@ -172,6 +176,72 @@ class TestRenderIniSection(unittest.TestCase):
             '[Session]\nsession.cookie_httponly = On'
             + lib.base.state2str(STATE_WARN, prefix=' '),
         )
+
+
+class TestParseCliIniValues(unittest.TestCase):
+    """parse_cli_ini_values() pulls the local value of post_max_size and
+    upload_max_filesize out of `php --info` output."""
+
+    def test_reads_local_value(self):
+        # `php --info` prints "name => local => master"; the local value wins.
+        php_info = (
+            'memory_limit => 128M => 128M\n'
+            'post_max_size => 8M => 8M\n'
+            'upload_max_filesize => 20M => 20M\n'
+        )
+        self.assertEqual(
+            php_status.parse_cli_ini_values(php_info),
+            {'post_max_size': '8M', 'upload_max_filesize': '20M'},
+        )
+
+    def test_local_differs_from_master(self):
+        php_info = 'upload_max_filesize => 64M => 2M\n'
+        self.assertEqual(
+            php_status.parse_cli_ini_values(php_info),
+            {'upload_max_filesize': '64M'},
+        )
+
+    def test_missing_directives_absent(self):
+        self.assertEqual(
+            php_status.parse_cli_ini_values('memory_limit => 128M => 128M'), {}
+        )
+
+
+class TestUploadLimitWarning(unittest.TestCase):
+    """upload_limit_warning() warns when post_max_size is not strictly larger
+    than upload_max_filesize, and stays silent otherwise."""
+
+    def test_post_larger_than_upload_is_ok(self):
+        php_ini = {'post_max_size': '8M', 'upload_max_filesize': '2M'}
+        self.assertEqual(php_status.upload_limit_warning(php_ini), '')
+
+    def test_equal_limits_warn(self):
+        # a file the size of upload_max_filesize plus the multipart framing
+        # exceeds an equal post_max_size, so the upload is rejected.
+        php_ini = {'post_max_size': '2M', 'upload_max_filesize': '2M'}
+        self.assertIn('post_max_size', php_status.upload_limit_warning(php_ini))
+
+    def test_post_smaller_than_upload_warns(self):
+        php_ini = {'post_max_size': '2M', 'upload_max_filesize': '8M'}
+        self.assertIn('must be larger than', php_status.upload_limit_warning(php_ini))
+
+    def test_units_are_compared_by_size_not_string(self):
+        # 4096K == 4M, so post_max_size is not larger and this must warn.
+        php_ini = {'post_max_size': '4096K', 'upload_max_filesize': '4M'}
+        self.assertIn('post_max_size', php_status.upload_limit_warning(php_ini))
+
+    def test_unlimited_post_is_ok(self):
+        # post_max_size=0 disables the POST limit, so any upload size is fine.
+        php_ini = {'post_max_size': '0', 'upload_max_filesize': '8M'}
+        self.assertEqual(php_status.upload_limit_warning(php_ini), '')
+
+    def test_missing_or_unknown_values_are_skipped(self):
+        for php_ini in (
+            {'upload_max_filesize': '2M'},
+            {'post_max_size': 'N/A', 'upload_max_filesize': '2M'},
+            {'post_max_size': '8M', 'upload_max_filesize': False},
+        ):
+            self.assertEqual(php_status.upload_limit_warning(php_ini), '')
 
 
 if __name__ == '__main__':

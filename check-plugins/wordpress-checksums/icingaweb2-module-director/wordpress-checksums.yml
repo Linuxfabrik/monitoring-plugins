@@ -1,0 +1,14 @@
+---
+overwrites:
+  # Hashing a whole installation is bound by disk, not by the network. A stock WordPress
+  # takes well under a second on warm cache, but a site with a hundred plugins on a busy
+  # shared host is a different measurement, and there is nothing to gain from cutting it
+  # off early.
+  '["Command"]["cmd-check-wordpress-checksums"]["timeout"]': 60
+  '["ServiceTemplate"]["tpl-service-wordpress-checksums"]["check_interval"]': 86400
+  '["ServiceTemplate"]["tpl-service-wordpress-checksums"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-wordpress-checksums"]["retry_interval"]': 3600
+  # Extended reporting on by default: the check runs once a day, so whoever opens it is
+  # looking at a finding and wants the full path and the digests right away, not after
+  # editing the service and waiting another day.
+  '["ServiceTemplate"]["tpl-service-wordpress-checksums"]["vars"]["wordpress_checksums_lengthy"]': true

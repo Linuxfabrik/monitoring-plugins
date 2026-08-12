@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026081103'
 
 DESCRIPTION = """Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system via
 the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are present: critical if any
@@ -31,22 +31,22 @@ critical alarm exists, warning for major or warning alarms."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 
-# Map the alarm severity code to the state the plugin reports for it.
-SEVERITY_STATE = {
-    6: STATE_CRIT,  # critical
-    5: STATE_WARN,  # major
-    3: STATE_WARN,  # warning
-    2: STATE_OK,  # information
-}
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('alarm_id', 'alarm_name', 'description')
 
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -72,11 +72,57 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Skip alarms. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `alarm_id`, `alarm_name`, `description`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to alarms. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `alarm_id`, `alarm_name`, `description`, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -91,7 +137,12 @@ def parse_args():
         '--password',
         help='Huawei OceanStor Pacific API password.',
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -131,6 +182,19 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -144,15 +208,30 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # fetch data
+    truncated = False
     if args.TEST is None:
-        # only unrecovered alarms (alarmStatus::1)
-        result = lib.huawei_pacific.get_data(
-            'common/alarms?range=[0-100]&filter=alarmStatus::1',
+        # Only unrecovered alarms (alarmStatus::1), walked page by page: an appliance hands
+        # out one page per request, and stopping after the first would hide every alarm
+        # beyond it behind a shorter, healthier-looking list.
+        result, truncated = lib.huawei_pacific.get_all_data(
+            'common/alarms?filter=alarmStatus::1',
             args,
+            range_style='bracket',
         )
     else:
         # do not call the command, put in test data
@@ -160,59 +239,111 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('result', {}).get('code') != 0:
-        lib.base.oao(
-            f'{result.get("result", {}).get("description")}'
-            f' {result.get("result", {}).get("suggestion", "")}'.strip(),
-            STATE_UNKNOWN,
-        )
+    lib.huawei_pacific.assert_ok(result, 'the current alarms')
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    counts = {6: 0, 5: 0, 3: 0, 2: 0}
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    # Every severity the API documents is counted, so a listing of minor alarms is
+    # visible in the graph instead of only in the exit code.
+    counts = {2: 0, 3: 0, 4: 0, 5: 0, 6: 0}
 
     # analyze data
     table_data = []
-    for alarm in result.get('data', []):
-        severity = int(alarm.get('severity', -1))
+    for alarm in result.get('data') or []:
+        # The appliance embeds HTML entities in the texts it generates, so `&#40;` would
+        # otherwise reach the output as those five characters instead of the bracket it
+        # stands for. Decoded before filtering, so `--match` sees what the reader sees.
+        for field in ('alarm_name', 'description'):
+            alarm[field] = str(alarm.get(field, ''))
+        alarm = lib.txt.unescape(alarm, keys=('alarm_name', 'description'))
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(alarm.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(alarm.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        severity = lib.huawei_pacific.as_code(alarm.get('severity'))
         counts[severity] = counts.get(severity, 0) + 1
-        alarm_state = SEVERITY_STATE.get(severity, STATE_WARN)
+        alarm_state = lib.huawei_pacific.get_alarm_severity_state(severity)
         state = lib.base.get_worst(state, alarm_state)
 
         alarm['severity'] = lib.huawei_pacific.get_alarm_severity(severity)
+        # `create_time` is documented as UTC seconds, so it needs no timezone correction.
         alarm['create_time'] = lib.time.epoch2iso(alarm.get('create_time', 0))
         alarm['state'] = lib.base.state2str(alarm_state, empty_ok=False)
 
         table_data.append(alarm)
 
+    # The appliance listed alarms and the filter selected none of them.
+    if not table_data and args.MATCH:
+        lib.base.oao(
+            f'No alarms matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
     # build the message
+    perfdata += lib.base.get_perfdata(
+        'critical_alarms', counts[6], uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata('major_alarms', counts[5], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('minor_alarms', counts[4], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('warning_alarms', counts[3], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'informational_alarms', counts[2], uom=None, _min=0
+    )
+
+    if truncated:
+        # The walk hit its page cap, so this is a floor on the alarm count, not the count.
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    if state == STATE_CRIT:
+        msg += 'There are critical alarms.'
+    elif state == STATE_WARN:
+        msg += 'There are alarms.'
+    else:
+        msg += 'Everything is ok.'
+
+    if truncated:
+        msg += (
+            '\n\nThe appliance reports more alarms than this check reads in one run;'
+            ' the list below is incomplete.'
+        )
+
+    # build table output
     if table_data:
         keys = ['alarm_id', 'create_time', 'severity', 'alarm_name', 'state']
         headers = ['Alarm ID', 'Time', 'Severity', 'Name', 'State']
-        msg += lib.base.get_table(table_data, keys, header=headers)
-    else:
-        msg += 'No active alarms.'
+        msg += '\n\n' + lib.base.get_table(
+            table_data, keys, header=headers, missing='--', hide_empty=True
+        )
 
-    counter = result.get('counter', 0)
-    msg += f'\n\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
-
-    perfdata += lib.base.get_perfdata('critical_alarms', counts[6], _min=0)
-    perfdata += lib.base.get_perfdata('major_alarms', counts[5], _min=0)
-    perfdata += lib.base.get_perfdata('warning_alarms', counts[3], _min=0)
-
-    if state == STATE_CRIT:
-        msg = 'There are critical alarms.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are alarms.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_pacific.format_responses()
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

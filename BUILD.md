@@ -42,6 +42,7 @@ lf-build-linux-x86_64.yml  /  lf-build-linux-aarch64.yml
 ├── debug.sh                            # env dump
 ├── install-podman.sh                   # installs podman on the runner
 └── matrix-package.sh                   # one container per target distro
+    ├── verify-version.sh               # checkout must contain vLFMP_VERSION
     └── create-package.sh               # branches on $LFMP_TARGET_DISTRO
         ├── create-src-tarball.sh       # upstream source archive
         ├── create-vendor-tarball.sh    # pinned third-party deps
@@ -52,6 +53,14 @@ lf-build-linux-x86_64.yml  /  lf-build-linux-aarch64.yml
 Every workflow run takes three inputs: `target-distros` (space-separated list;
 default is every supported distribution), `version` (e.g. `2.2.1`),
 `package-iteration` (e.g. `1`).
+
+Before any container starts, `matrix-package.sh` runs `verify-version.sh` on the
+host to confirm the checkout actually contains the code tagged `vLFMP_VERSION`.
+The workflows build `main` HEAD (the checkout step has no `ref:`), so HEAD is
+allowed to sit ahead of the tag, but a checkout that predates or diverges from
+the tag fails the build instead of silently shipping outdated code under a newer
+version label. Set `LFMP_SKIP_VERSION_CHECK=1` to bypass this for an intentional
+build of an untagged development checkout.
 
 The shared `monitoring-plugins` source tarball and `vendor.tar.gz` (pip-downloaded,
 hash-pinned third-party wheels) are produced once per workflow run.
@@ -106,6 +115,13 @@ bash $LFMP_DIR_REPO_MP/build/matrix-package.sh
 From each container's perspective, the Python source code is at
 `/repos/monitoring-plugins`.
 
+`matrix-package.sh` first runs `verify-version.sh`, which requires the
+`vLFMP_VERSION` tag to be reachable from the checkout's HEAD. A fresh `git
+clone` fetches all tags, so the recipe above works as long as that tag exists.
+To cut a real release from an exact tree, `git checkout v$LFMP_VERSION` after
+cloning. To package an untagged development checkout under a placeholder
+version, prefix the build with `LFMP_SKIP_VERSION_CHECK=1`.
+
 After the build, the packages directory looks like this:
 
 ```text
@@ -134,6 +150,7 @@ artifacts are signed by SignPath before they leave the runner.
 lf-build-windows-x86_64.yml
 ├── debug.sh                             # env dump
 ├── compile-multiple.sh                  # loops plugins, calls compile-one.sh
+│   ├── verify-version.sh                # checkout must contain vLFMP_VERSION
 │   └── compile-one.sh                   # python3 -m nuitka --standalone
 ├── SignPath submit-signing-request      # signs the compiled ZIP
 ├── create-wxs.sh                        # emits lfmp.wxs
@@ -143,6 +160,12 @@ lf-build-windows-x86_64.yml
 
 Workflow inputs: `compile-plugins` (optional, space-separated allowlist;
 empty means all plugins), `version`, `package-iteration`.
+
+Like the Linux build, `compile-multiple.sh` runs `verify-version.sh` first, so
+a checkout that predates or diverges from the `vLFMP_VERSION` tag fails the
+build instead of compiling outdated code under a newer version label. Set
+`LFMP_SKIP_VERSION_CHECK=1` to bypass this for an intentional build of an
+untagged development checkout.
 
 
 ### Code Signing
@@ -197,7 +220,10 @@ bash "$LFMP_DIR_REPOS/monitoring-plugins/build/compile-one.sh" check-plugins cpu
 
 For a full dry run of the compilation step, call
 `compile-multiple.sh` instead; it loops over every plugin the workflow would
-build. The MSI and the signing steps have no local fallback, so stop there.
+build. It runs `verify-version.sh` first, so export `LFMP_VERSION` (with the
+matching `vLFMP_VERSION` tag reachable from HEAD) or prefix the call with
+`LFMP_SKIP_VERSION_CHECK=1`. The MSI and the signing steps have no local
+fallback, so stop there.
 
 
 ## Appendix: Packaging Decisions

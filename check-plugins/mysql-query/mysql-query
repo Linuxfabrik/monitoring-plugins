@@ -19,7 +19,7 @@ import lib.db_mysql
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051101'
+__version__ = '2026071201'
 
 DESCRIPTION = """Runs up to two admin-supplied SQL SELECT statements against MySQL/MariaDB
 and checks each result against a Nagios range expression. One statement is paired
@@ -49,7 +49,11 @@ MAX_QUERY_DISPLAY = 80
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -95,6 +99,14 @@ def parse_args():
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -214,11 +226,17 @@ def main():
 
     # analyze data
     state_warn, value_warn, rows_warn, shortened_warn = evaluate_query(
-        conn, args.WARNING_QUERY, args.WARN, 'warn',
+        conn,
+        args.WARNING_QUERY,
+        args.WARN,
+        'warn',
     )
     state = lib.base.get_worst(state, state_warn)
     state_crit, value_crit, rows_crit, shortened_crit = evaluate_query(
-        conn, args.CRITICAL_QUERY, args.CRIT, 'crit',
+        conn,
+        args.CRITICAL_QUERY,
+        args.CRIT,
+        'crit',
     )
     state = lib.base.get_worst(state, state_crit)
 
@@ -259,7 +277,9 @@ def main():
     msg += render_result_table(rows_crit, shortened_crit)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

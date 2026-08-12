@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -25,29 +25,63 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'There are warnings.',
-            'UUID  ! Location ! Name      ! OS         ! Health    ! Running',
-            '------+----------+-----------+------------+-----------+--------',
-            '21:1  !          ! host1     ! Solaris    ! [OK]      ! [OK]   ',
-            '21:2  !          ! host2     ! Linux      ! [WARNING] ! [OK]   ',
-            '21:0  !          ! site01-01 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:1  !          ! site01-02 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:2  !          ! site01-03 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:3  !          ! site01-04 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:4  !          ! site01-05 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:5  !          ! site01-06 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:6  !          ! site02-01 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:7  !          ! site02-02 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:8  !          ! site02-03 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:9  !          ! site02-04 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:10 !          ! site02-05 ! VMware ESX ! [OK]      ! [OK]   ',
-            '21:11 !          ! site02-06 ! VMware ESX ! [OK]      ! [OK]   ',
+            # Column widths follow the widest value in each column, so the header is
+            # asserted per column rather than as one fixed-width line. `Location` is
+            # not among them: no host in this listing carries one, so the column is
+            # left out instead of printed as a wall of hyphens.
+            'UUID',
+            'Name',
+            'OS',
+            'Allocated',
+            'Health',
+            'Running',
+            '21:1  ! host1     ! Solaris',
+            '21:2  ! host2     ! Linux',
+            '21:0  ! site01-01 ! VMware ESX',
+            '21:11 ! site02-06 ! VMware ESX',
+            '[WARNING]',
         ],
+        # The allocated capacity is a sector count in the response and goes out in
+        # bytes, like every other capacity in this plugin family. 54858341776 sectors
+        # of 512 bytes is about 25 TiB, not the 55 G a raw sector count would graph.
+        'assert-regex': r'_allocated_capacity'"'"'=28087470989312B',
+    },
+    {
+        # An appliance may legitimately have no hosts configured. Without a filter
+        # that is a healthy reading, not a query that went wrong.
+        'id': 'ok-no-hosts-configured',
+        'test': 'stdout/no-hosts,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No hosts configured.'],
+    },
+    {
+        'id': 'warn-no-match',
+        'test': 'stdout/hosts-one-warning,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin '
+        '--match=NOSUCHHOST --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No hosts matched `NOSUCHHOST`.'],
+    },
+    {
+        # The appliance reports success as the string '0' on some endpoints. Reading
+        # that as an error used to take the whole check to UNKNOWN.
+        'id': 'ok-success-code-as-string',
+        'test': 'stdout/hosts-success-code-as-string,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-api-error',
+        'test': 'stdout/api-error,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['the hosts', '-401'],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-host'
 
 

@@ -20,10 +20,10 @@ import lib.keycloak
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026073001'
 
 DESCRIPTION = """Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP API.
-Alerts when memory usage exceeds the configured thresholds. Tested with Keycloak 18
+Alerts when memory usage exceeds the configured thresholds. Tested with Keycloak 17
 and later."""
 
 DEFAULT_CLIENT_ID = 'admin-cli'
@@ -41,7 +41,11 @@ DEFAULT_WARN = 80
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -78,6 +82,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -213,7 +225,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

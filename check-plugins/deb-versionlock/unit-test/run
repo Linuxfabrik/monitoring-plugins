@@ -1,0 +1,388 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# deb-versionlock runs two commands, so a testcase points at a fixture base name and
+# the plugin appends `-showhold` and `-dpkg-query` to it. The fixtures were captured
+# on real podman containers after `apt-mark hold bash coreutils`, one per supported
+# Debian and Ubuntu release, so a changed output format fails here.
+#
+# APT pinning is read from files instead, which the `config/` trees stand in for via
+# `--config-root`.
+TESTS = [
+    # A host with nothing held back.
+    {
+        'id': 'ok-no-holds',
+        'test': 'stdout/no-holds,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No holds in place.', "'holds'=0"],
+        'assert-not-in': ['pins'],
+    },
+    # A clean host names both searches where both ran, so the summary shows that
+    # --check-pinning took effect rather than leaving the admin to wonder.
+    {
+        'id': 'ok-no-holds-and-no-pins',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-pins --check-pinning',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No holds and no pins in place.', "'holds'=0"],
+    },
+    # One testcase per supported release.
+    {
+        'id': 'warn-debian10-holds-present',
+        'test': 'stdout/debian10-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', 'bash', '5.0-4', 'coreutils', "'holds'=2"],
+    },
+    {
+        'id': 'warn-debian11-holds-present',
+        'test': 'stdout/debian11-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.1-2+deb11u1'],
+    },
+    {
+        'id': 'warn-debian12-holds-present',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.2.15-2+b13'],
+    },
+    {
+        'id': 'warn-debian13-holds-present',
+        'test': 'stdout/debian13-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.2.37-2+b9'],
+    },
+    {
+        'id': 'warn-ubuntu2004-holds-present',
+        'test': 'stdout/ubuntu2004-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.0-6ubuntu1.2'],
+    },
+    {
+        'id': 'warn-ubuntu2204-holds-present',
+        'test': 'stdout/ubuntu2204-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.1-6ubuntu1.1'],
+    },
+    {
+        'id': 'warn-ubuntu2404-holds-present',
+        'test': 'stdout/ubuntu2404-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.2.21-2ubuntu4'],
+    },
+    {
+        'id': 'warn-ubuntu2604-holds-present',
+        'test': 'stdout/ubuntu2604-two-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', '5.3-2ubuntu1'],
+    },
+    # Thresholds are Nagios ranges over the number of holds.
+    {
+        'id': 'ok-warning-raised',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--warning 5',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 holds in place.'],
+    },
+    {
+        'id': 'crit-above-critical',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--warning 0 --critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'2 holds in place\.\s*\[CRITICAL\]',
+    },
+    # Filtering by package name.
+    {
+        'id': 'warn-match-single-package',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--match=^bash$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 hold in place.', 'bash'],
+        'assert-not-in': ['coreutils'],
+    },
+    {
+        'id': 'warn-ignore-single-package',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--ignore=^coreutils$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 hold in place.'],
+        'assert-not-in': ['coreutils'],
+    },
+    {
+        'id': 'ok-nothing-checked',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--match=^nothing-here$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', "'holds'=0"],
+    },
+    {
+        'id': 'warn-nothing-checked',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--match=^nothing-here$ --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # Extended reporting adds where the hold has to be removed.
+    {
+        'id': 'warn-lengthy-shows-origin',
+        'test': 'stdout/debian12-two-holds,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Configured in', 'apt-mark'],
+    },
+    # A hold survives the removal of the package it holds.
+    {
+        'id': 'warn-hold-without-package',
+        'test': 'stdout/hold-without-package,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', 'removed-package', 'not installed'],
+    },
+    # APT appends the architecture to a package that is not of the host's own, so a
+    # hold on a multi-arch package arrives as `libgcc-s1:i386`.
+    {
+        'id': 'warn-multiarch-hold',
+        'test': 'stdout/multiarch-holds,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds in place.', 'libgcc-s1:i386', '12.2.0-14+deb12u1'],
+    },
+    # The two commands spell a `Multi-Arch: same` package of the host's own architecture
+    # differently: apt-mark says `libc6`, dpkg-query says `libc6:amd64`. That covers most
+    # shared libraries, so a version has to be found for it all the same. Captured from a
+    # debian:12 container holding libc6, libc6:i386, libgcc-s1:i386 and bash, which is
+    # also the case that proves the match stays unambiguous when the same package is held
+    # for two architectures at once.
+    {
+        'id': 'warn-multiarch-same-native-hold',
+        'test': 'stdout/multiarch-same-native,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 holds in place.',
+            '5.2.15-2+b13',
+            '2.36-9+deb12u14',
+            '12.2.0-14+deb12u1',
+        ],
+        'assert-not-in': ['not installed'],
+    },
+    # Rubbish from apt-mark is skipped instead of being reported as a package.
+    {
+        'id': 'ok-malformed-showhold',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No holds in place.'],
+    },
+    # APT pinning, off unless asked for.
+    {
+        'id': 'ok-pinning-not-checked',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/pinning',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No holds in place.'],
+    },
+    {
+        'id': 'warn-pinning-checked',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/pinning --check-pinning --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '9 pins in place.',
+            'nginx',
+            'version 1.24.* priority 1001',
+            'borgbackup',
+            'borgmatic',
+            '99-backports',
+            # APT reads a file in preferences.d whose name starts with a dash, and one
+            # that is a single character, so their pins are in force like any other. A
+            # leading colon is accepted by APT too, but a fixture for it cannot be
+            # checked out on Windows, so only the expression covers that case.
+            'dash-file-package',
+            'single-char-file-package',
+            # APT takes the leading integer of a priority and ignores the rest, so this
+            # is a pin at 1001 rather than a value it rejects
+            'trailing-garbage-package',
+            'version 7.1* priority 1001',
+            # a line starting with whitespace continues the field above it, so this
+            # stanza names two packages
+            'continued-first-package',
+            'continued-second-package',
+            # APT applies the stanzas that precede the one it stumbles over
+            'before-the-error-package',
+        ],
+        'assert-not-in': [
+            # `Package: *` gives an archive a priority, it does not hold a package
+            'bookworm-backports priority 100 ',
+            # APT ignores a `.dpkg-old` left behind by an upgrade, so its pin is not
+            # in force and must not be reported
+            'ignored-by-apt',
+            # a stanza without a Pin is not a pin, and APT skips it too
+            'no-pin-package',
+            # APT does not understand this pin type and skips the stanza
+            'bogus-type-package',
+            # the stanza APT stumbles over, and everything behind it in the same file
+            'no-priority-package',
+            'after-the-error-package',
+            # a priority that does not fit a short costs APT the whole file
+            'out-of-range-package',
+        ],
+    },
+    # A preferences file APT refuses is worth saying out loud: APT abandons it at the
+    # offending stanza and then fails every run, so the host cannot install or upgrade
+    # anything until it is fixed.
+    {
+        'id': 'warn-preferences-refused-by-apt',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/pinning --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'APT refuses 2 preferences files',
+            'no priority (or zero) specified for pin',
+            'priority 50000 outside the valid range (-32768 to 32767)',
+            '60-nopriority.pref',
+            '72-out-of-range.pref',
+        ],
+    },
+    # APT reads the pin type before the priority, so a version pin on a whole archive is
+    # skipped over the type and its zero priority never costs the file.
+    {
+        'id': 'warn-version-pin-on-archive-is-skipped',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/pinning --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['APT refuses 2 preferences files'],
+        'assert-not-in': ['75-version-pin-on-archive.pref'],
+    },
+    # Holds and pins are counted separately, so the summary does not call a pin a hold.
+    {
+        'id': 'warn-holds-and-pins-counted-apart',
+        'test': 'stdout/debian13-two-holds,,0',
+        'params': '--config-root=config/pinning --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 holds and 9 pins in place.', "'holds'=11"],
+    },
+    # A line that lost its colon does not merely open no field, it swallows the next one
+    # into its own field name. Here that is the `Pin` below it, so the stanza keeps its
+    # `Package` header, APT finds no pin type and skips it, and the file carries on -
+    # which is what the stanzas on either side verify.
+    {
+        'id': 'warn-preferences-line-without-colon',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/missing-colon --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 pins in place.',
+            'valid-package',
+            'after-the-broken-stanza-package',
+        ],
+        'assert-not-in': [
+            'missing-colon-package',
+            'continuation-of-nothing',
+        ],
+    },
+    # The same rule, with the swallowed field spelled out: the `Pin` disappears into the
+    # field name above it, so its stanza pins nothing while both neighbours still do.
+    {
+        'id': 'warn-preferences-swallowed-pin',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-colon-before-pin --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 pins in place.',
+            'valid-package',
+            'after-the-swallowed-stanza-package',
+        ],
+        'assert-not-in': ['no-pin-left-package'],
+    },
+    # The same rule one line higher up costs the stanza its `Package` header instead,
+    # and that is the one APT refuses outright: it abandons the file and every command
+    # that works out package priorities fails afterwards.
+    {
+        'id': 'warn-preferences-swallowed-package-header',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-colon-before-package --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'APT refuses 1 preferences file',
+            'no Package header',
+        ],
+        'assert-not-in': ['nginx', 'after-the-error-package'],
+    },
+    # The same rule again, this time with nothing below the broken line: the field name it
+    # opens never finds its colon. APT refuses the file for that alone, so the stanzas it
+    # did read stay reported while the refusal is named alongside them.
+    {
+        'id': 'warn-preferences-no-colon-at-eof',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-colon-at-eof --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'APT refuses 1 preferences file',
+            'a field name at the end of the file is never closed by a colon',
+            'valid-package',
+        ],
+    },
+    # Only a truly empty line separates two stanzas. A line carrying a single space
+    # continues the value above it, so APT merges the two stanzas into one record and
+    # keeps the last value of every field it then holds twice.
+    {
+        'id': 'warn-preferences-whitespace-line-is-no-separator',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/whitespace-line --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 pin in place.',
+            'second-package',
+            'version 2.0* priority 1002',
+        ],
+        'assert-not-in': ['first-package'],
+    },
+    # APT reads its package list for `showhold` and nothing else, so a non-zero exit
+    # means that list is unusable and the check cannot say anything about the host.
+    {
+        'id': 'unknown-apt-mark-failed',
+        'test': 'stdout/no-holds,stderr/apt-mark-broken-cache,100',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            '`apt-mark showhold` returned with error 100.',
+            'The package cache file is corrupted',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../deb-versionlock'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

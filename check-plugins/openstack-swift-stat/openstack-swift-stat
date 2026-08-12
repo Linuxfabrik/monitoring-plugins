@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks OpenStack Swift object storage account statistics, including total container
 count, object count, and bytes used. Alerts when storage usage exceeds the configured
@@ -44,7 +44,11 @@ DEFAULT_WARN = 50  # GiB free space left
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -68,6 +72,14 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -144,19 +156,15 @@ def main():
     else:
         # do not call the command, put in test data
         # general statistics
-        stat_account = json.loads(
-            lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-stat_account'))
-        )
+        stat_account = json.loads(lib.lftest.test([f'{args.TEST[0]}-stat_account'])[0])
         # get stat for each container
         containers = {}
         list_account_part = json.loads(
-            lib.base.coe(lib.disk.read_file(f'{args.TEST[0]}-list_account_part'))
+            lib.lftest.test([f'{args.TEST[0]}-list_account_part'])[0]
         )
         for lap in list_account_part['listing']:
             stat_container = json.loads(
-                lib.base.coe(
-                    lib.disk.read_file(f'{args.TEST[0]}-stat_container-{lap["name"]}')
-                )
+                lib.lftest.test([f'{args.TEST[0]}-stat_container-{lap["name"]}'])[0]
             )
             if stat_container['success']:
                 containers[lap['name']] = stat_container['headers']
@@ -286,7 +294,9 @@ def main():
         msg += '. Nothing checked.'
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -21,8 +21,8 @@ Returns a freely configurable message, state, and perfdata. Useful for testing m
 ## Help
 
 ```text
-usage: dummy [-h] [-V] [--always-ok] [--message MESSAGE] [--perfdata PERFDATA]
-             [--state {ok,warn,crit,unk}]
+usage: dummy [-h] [-V] [--always-ok] [--message MESSAGE] [--no-perfdata]
+             [--perfdata PERFDATA] [--state {ok,warn,crit,unk}]
 
 Returns a freely configurable message, state, and perfdata. Useful for testing
 monitoring configurations, simulating alerts, or generating placeholder data.
@@ -32,10 +32,17 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --message MESSAGE     Message to return. Default: Everything is ok.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --perfdata PERFDATA   Perfdata to return, formatted according to the Nagios
                         guidelines. Default: None
   --state {ok,warn,crit,unk}
                         State to return (ok, warn, crit, unk). Default: ok
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dummy/
 ```
 
 

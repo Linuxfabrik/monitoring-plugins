@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2025021702
+# 2026072501
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -8,6 +8,12 @@ set -e -x
 if uname -a | grep -q "_NT"; then
     # We are on Windows.
     REPO_DIR="$LFMP_DIR_REPOS"
+
+    # Fail fast if the checkout does not contain the code tagged vLFMP_VERSION,
+    # so a stale checkout cannot ship outdated code under a newer version label
+    # (fix #1406). Only on Windows, where git is available; the container path
+    # below has no git binary.
+    bash "$REPO_DIR/monitoring-plugins/build/verify-version.sh" "$REPO_DIR/monitoring-plugins"
 else
     # We are in a container.
     REPO_DIR="/repos"

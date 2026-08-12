@@ -24,7 +24,7 @@ import lib.human
 import lib.time
 import lib.txt
 import lib.version
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
     import psutil
@@ -34,28 +34,27 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026081001'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
 short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
 and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the
-maximum ever observed for that disk (RWmax). WARN/CRIT trigger if the period average exceeds
-the configured percentage of RWmax for COUNT consecutive runs.
+maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds
+--warning percent of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O
+is a signal to investigate, not an emergency you have to react to at night.
 
-On Linux, the check also monitors how much I/O wait the system accumulates (CPU time spent
-waiting for I/O). The machine-wide iowait is normalized to a per-core basis and reported as
-saturated cores, where 1.0 cores means the equivalent of one CPU core spent the whole interval
-waiting for I/O. Because the value is per-core, a single fleet-wide threshold works on every
-host regardless of its core count: --iowait-warning and --iowait-critical are given in percent
-of one core (default 80/90, i.e. alert near one saturated core). Like bandwidth alerts, iowait
-alerts require COUNT consecutive threshold violations.
+The check also reports per-disk I/O latency (await): the average time a read or write took to
+complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust
+against device parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD and
+RAID as well. Optional --await-warning and --await-critical thresholds alert on sustained
+latency; both are disabled by default. A critical latency threshold is the place to catch a
+disk that is effectively hung.
 
-Perfdata is emitted for each disk (read/write throughput per second and disk busy percentage)
-and for iowait, so you can graph trends. On Linux the check focuses on block devices with a
-mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices
-such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top`
-lists the processes that generated the most I/O traffic (read/write totals) to help identify
-offenders.
+Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus disk
+busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted
+filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as
+multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the
+processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems.
 The check stores its short trend state locally in an SQLite DB to evaluate sustained load across
@@ -66,21 +65,20 @@ DEFAULT_CACHE_EXPIRE = 90
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute interval
 )
-DEFAULT_CRIT = 90  # %
 DEFAULT_INCLUDE_UNMOUNTED = False
 DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TOP = 5
 DEFAULT_WARN = 80  # %
 
-DEFAULT_IOWAIT_CRIT = 90  # % of one core; 100 = one fully I/O-saturated core
-DEFAULT_IOWAIT_WARN = 80  # % of one core
-cpu_count = os.cpu_count() or 1
-
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -88,7 +86,6 @@ def parse_args():
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
-
     parser.add_argument(
         '--always-ok',
         help=lib.args.help('--always-ok'),
@@ -96,7 +93,31 @@ def parse_args():
         action='store_true',
         default=False,
     )
-
+    parser.add_argument(
+        '--await-critical',
+        help='CRIT threshold for per-disk I/O latency (await) in milliseconds, '
+        'averaged over the last `--count` runs. '
+        'await is the average time a read or write took to complete. '
+        'Use this to catch a disk that is effectively hung (sustained latency of '
+        'seconds), not a merely busy one. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='AWAIT_CRIT',
+        default=None,
+    )
+    parser.add_argument(
+        '--await-warning',
+        help='WARN threshold for per-disk I/O latency (await) in milliseconds, '
+        'averaged over the last `--count` runs. '
+        'await is the average time a read or write took to complete. '
+        'A good value depends on the storage (an SSD is well below a millisecond, '
+        'a busy HDD can sustain tens of milliseconds), so set it to what is '
+        'abnormal for your disks. '
+        'Supports Nagios ranges. '
+        'Disabled by default.',
+        dest='AWAIT_WARN',
+        default=None,
+    )
     parser.add_argument(
         '--count',
         help=lib.args.help('--count') + ' Default: %(default)s',
@@ -104,43 +125,14 @@ def parse_args():
         type=int,
         default=DEFAULT_COUNT,
     )
-
+    # Deprecated: this check is a saturation/trending check and only ever warns.
+    # A busy disk is a signal to investigate, not to react to at night, so there
+    # is no CRIT tier. Kept for backward compatibility, silently ignored.
     parser.add_argument(
         '--critical',
-        help='CRIT threshold for disk bandwidth saturation as a percentage of the observed maximum, '
-        'measured over the last `--count` runs. '
-        'Default: >= %(default)s',
+        help=argparse.SUPPRESS,
         dest='CRIT',
-        type=int,
-        default=DEFAULT_CRIT,
     )
-
-    parser.add_argument(
-        '--iowait-critical',
-        help='CRIT threshold for iowait, in percent of a single CPU core (Linux only). '
-        '100 means the equivalent of one core spent the whole interval waiting for I/O, '
-        'independent of the host total core count, so the same threshold works fleet-wide '
-        'regardless of how many cores a host has. '
-        'The measured value is reported as saturated cores (e.g. 1.02 cores). '
-        'Default: >= %(default)s',
-        dest='IOWAIT_CRIT',
-        type=int,
-        default=DEFAULT_IOWAIT_CRIT,
-    )
-
-    parser.add_argument(
-        '--iowait-warning',
-        help='WARN threshold for iowait, in percent of a single CPU core (Linux only). '
-        '100 means the equivalent of one core spent the whole interval waiting for I/O, '
-        'independent of the host total core count, so the same threshold works fleet-wide '
-        'regardless of how many cores a host has. '
-        'The measured value is reported as saturated cores (e.g. 1.02 cores). '
-        'Default: >= %(default)s',
-        dest='IOWAIT_WARN',
-        type=int,
-        default=DEFAULT_IOWAIT_WARN,
-    )
-
     parser.add_argument(
         '--include-unmounted',
         help='Also monitor block devices that have no mounted filesystem (Linux only). '
@@ -154,23 +146,39 @@ def parse_args():
         action='store_true',
         default=DEFAULT_INCLUDE_UNMOUNTED,
     )
-
+    # Deprecated and removed: the check no longer measures iowait at all. Linux
+    # iowait is relabelled idle time and, per the kernel, "broken/meaningless" on
+    # SMP, so it is neither a saturation measure nor a reliable signal. Both
+    # thresholds are kept for backward compatibility and silently ignored.
+    parser.add_argument(
+        '--iowait-critical',
+        help=argparse.SUPPRESS,
+        dest='IOWAIT_CRIT',
+    )
+    parser.add_argument(
+        '--iowait-warning',
+        help=argparse.SUPPRESS,
+        dest='IOWAIT_WARN',
+    )
     parser.add_argument(
         '--match',
-        help='Filter by disk name. '
-        + lib.args.help('--match')
-        + ' '
-        + 'The regex is anchored at the start of the string (Python `re.match`) and matched '
+        # Written inline rather than taken from lib.args: this check takes a single
+        # expression and has no --ignore, so neither the "can be specified multiple
+        # times" nor the --ignore precedence sentence of the shared text applies here.
+        help='Only check disks whose path or mountpoint matches this Python regular '
+        'expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'The regex is anchored at the start of the string (Python `re.match`) and matched '
         'against the full device path (e.g. `/dev/sda`), the device-mapper path '
         '(e.g. `/dev/mapper/vg-lv`) and the mountpoint, so prefix with `.*` to match anywhere '
         '(`.*sda$` instead of `^sda$`). '
         'On Linux only block devices with a mounted filesystem are considered by default; add '
         '`--include-unmounted` to also match raw, unmounted devices (multipath SAN volumes, raw '
-        'LUNs). ' + 'Default: %(default)s',
+        'LUNs). '
+        'Default: %(default)s',
         dest='MATCH',
         default=DEFAULT_MATCH,
     )
-
     parser.add_argument(
         '--no-match-severity',
         help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
@@ -178,7 +186,13 @@ def parse_args():
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
     )
-
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
     parser.add_argument(
         '--top',
         help='Number of top processes to list by I/O traffic. '
@@ -188,7 +202,6 @@ def parse_args():
         type=int,
         default=DEFAULT_TOP,
     )
-
     parser.add_argument(
         '--warning',
         help='WARN threshold for disk bandwidth saturation as a percentage of the observed maximum, '
@@ -233,93 +246,20 @@ def get_rate(ts1, ts2, r1, r2, w1, w2):
     return timediff, r, w, r + w
 
 
-def get_iowait(conn):
-    """Compute the system-wide iowait percentage non-blockingly.
+def get_await(time1, time2, count1, count2):
+    """Average latency of the completed I/Os between two snapshots, in milliseconds.
 
-    Stores a raw psutil.cpu_times() snapshot in the ``iowait_raw`` table on
-    each call and derives iowait% from the delta to the previous snapshot.
-    Returns None on the first run (no previous snapshot) or on platforms that
-    do not expose iowait (e.g. Windows).
+    This is iostat's await: the time counter (ms an I/O spent between issue and
+    completion, a cumulative counter) divided by the number of I/Os completed in
+    the interval. Unlike disk-busy percent (%util), latency is robust against
+    device parallelism: it is real time per I/O on any device, whereas %util
+    only tells whether at least one I/O was in flight. Returns 0.0 when no I/O
+    completed in the interval (no latency to report).
     """
-    if not lib.base.LINUX:
-        return None
-
-    definition = """
-        ts REAL NOT NULL,
-        guest REAL DEFAULT 0,
-        guest_nice REAL DEFAULT 0,
-        idle REAL DEFAULT 0,
-        iowait REAL DEFAULT 0,
-        irq REAL DEFAULT 0,
-        nice REAL DEFAULT 0,
-        softirq REAL DEFAULT 0,
-        steal REAL DEFAULT 0,
-        system REAL DEFAULT 0,
-        user REAL DEFAULT 0
-    """
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='iowait_raw'))
-
-    last = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            'SELECT * FROM iowait_raw LIMIT 1',
-            fetchone=True,
-        )
-    )
-
-    now_ct = psutil.cpu_times()
-    now = lib.time.now()
-    fields = (
-        'guest',
-        'guest_nice',
-        'idle',
-        'iowait',
-        'irq',
-        'nice',
-        'softirq',
-        'steal',
-        'system',
-        'user',
-    )
-    now_d = {f: getattr(now_ct, f, 0.0) for f in fields}
-
-    if last:
-        total = 0.0
-        iowait_delta = 0.0
-        for k, v in now_d.items():
-            dv = max(0.0, v - float(last.get(k, 0.0)))
-            total += dv
-            if k == 'iowait':
-                iowait_delta = dv
-
-        lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM iowait_raw WHERE 1=1'))
-        lib.base.coe(
-            lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='iowait_raw')
-        )
-        lib.base.coe(lib.db_sqlite.commit(conn))
-
-        if total <= 0.0:
-            return None
-
-        return round((iowait_delta / total) * 100.0, 1)
-
-    # first run: store snapshot, no result yet
-    lib.base.coe(lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='iowait_raw'))
-    lib.base.coe(lib.db_sqlite.commit(conn))
-    return None
-
-
-def get_iowait_from_db(conn, threshold):
-    """Return the number of iowait_trend rows where iowait exceeds the given threshold."""
-    result = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            'SELECT count(*) as cnt FROM iowait_trend WHERE iowait > :threshold',
-            {'threshold': threshold},
-            fetchone=True,
-        )
-    )
-    return int(result['cnt'])
+    count_delta = abs(count1 - count2)
+    if count_delta <= 0:
+        return 0.0
+    return round(abs(time1 - time2) / count_delta, 1)
 
 
 def top(count):
@@ -445,49 +385,29 @@ def main():
     except Exception:
         pass
 
-    # same structure for Linux and Windows, makes life easier
+    # same structure for Linux and Windows, makes life easier.
+    # read_count/write_count are the number of completed I/Os and feed the await
+    # (latency) calculation together with read_time/write_time. On an existing
+    # cache DB from an older release these columns are missing; lib.db_sqlite
+    # detects the schema mismatch on insert and rebuilds the DB, so the check
+    # self-heals after a single "Waiting for more data." run.
     definition = """
         bd TEXT NOT NULL,
         dmd TEXT,
         mp TEXT,
         busy_time INT DEFAULT 0,
         read_bytes INT DEFAULT 0,
+        read_count INT DEFAULT 0,
         read_merged_count INT DEFAULT 0,
         read_time INT DEFAULT 0,
         write_bytes INT DEFAULT 0,
+        write_count INT DEFAULT 0,
         write_merged_count INT DEFAULT 0,
         write_time INT DEFAULT 0,
         timestamp INT DEFAULT 0
     """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'bd'))
-
-    # iowait tracking (Linux only)
-    lib.base.coe(
-        lib.db_sqlite.create_table(
-            conn,
-            'iowait REAL NOT NULL',
-            table='iowait_trend',
-        )
-    )
-    iowait_pct = get_iowait(conn)
-    if iowait_pct is not None:
-        # Normalize to "per one core": multiply the raw machine-wide iowait%
-        # by cpu_count so that 100 = one fully I/O-saturated core, independent of
-        # the host's total core count. This is what lets a single fleet-wide
-        # threshold (--iowait-warning/--iowait-critical, in percent of one core)
-        # mean the same thing on every host, no matter how many cores the VM has
-        # or how that count changes over time. Stored here in percent-of-one-core
-        # so the threshold comparison stays in percent; the value is shown to the
-        # admin as saturated cores further down.
-        iowait_pct = round(iowait_pct * cpu_count, 1)
-        lib.base.coe(
-            lib.db_sqlite.insert(
-                conn,
-                {'iowait': iowait_pct},
-                table='iowait_trend',
-            )
-        )
 
     # init some vars
     msg = f'No I/O on `{args.MATCH}`.' if args.MATCH else 'No I/O.'
@@ -497,6 +417,8 @@ def main():
     compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
     now = lib.time.now()
     busiest_disk = 0  # disk with the highest sum of r/w: show this on top later on
+    alert_state = STATE_OK  # most severe per-disk finding, for the first line
+    alert_msg = ''
     disks = []
 
     # fetch data
@@ -514,18 +436,17 @@ def main():
             ):
                 continue
 
-            # read_count and write_count are the same value for all disks, so simply ignore them
             data = {}
             data['bd'] = disk
             data['dmd'] = ''
             data['mp'] = ''
             data['busy_time'] = getattr(values, 'busy_time', 0)
             data['read_bytes'] = getattr(values, 'read_bytes', 0)
-            # data['read_count'] = getattr(values, 'read_count', 0)
+            data['read_count'] = getattr(values, 'read_count', 0)
             data['read_merged_count'] = getattr(values, 'read_merged_count', 0)
             data['read_time'] = getattr(values, 'read_time', 0)
             data['write_bytes'] = getattr(values, 'write_bytes', 0)
-            # data['write_count'] = getattr(values, 'write_count', 0)
+            data['write_count'] = getattr(values, 'write_count', 0)
             data['write_merged_count'] = getattr(values, 'write_merged_count', 0)
             data['write_time'] = getattr(values, 'write_time', 0)
             data['timestamp'] = now
@@ -558,9 +479,9 @@ def main():
             data['bd'] = disk['bd']
             data['dmd'] = disk['dmd']
             data['mp'] = disk['mp']
-            # read_count and write_count are the same value over all disks, so simply ignore them
             data['busy_time'] = getattr(disk_io_counters[psutil_name], 'busy_time', 0)
             data['read_bytes'] = getattr(disk_io_counters[psutil_name], 'read_bytes', 0)
+            data['read_count'] = getattr(disk_io_counters[psutil_name], 'read_count', 0)
             data['read_merged_count'] = getattr(
                 disk_io_counters[psutil_name],
                 'read_merged_count',
@@ -569,6 +490,9 @@ def main():
             data['read_time'] = getattr(disk_io_counters[psutil_name], 'read_time', 0)
             data['write_bytes'] = getattr(
                 disk_io_counters[psutil_name], 'write_bytes', 0
+            )
+            data['write_count'] = getattr(
+                disk_io_counters[psutil_name], 'write_count', 0
             )
             data['write_merged_count'] = getattr(
                 disk_io_counters[psutil_name],
@@ -589,11 +513,11 @@ def main():
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             '',
             always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
         )
 
     # truncate old data (just keep args.COUNT for each disk) and commit
     lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT * len(disks)))
-    lib.base.coe(lib.db_sqlite.cut(conn, table='iowait_trend', _max=args.COUNT))
     lib.base.coe(lib.db_sqlite.commit(conn))
 
     # from here on just working on the database
@@ -667,13 +591,69 @@ def main():
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
-        # get state based on max measured I/O values
+        # bandwidth state, WARN-only (crit=None): sustained bandwidth near the
+        # disk's own observed maximum is a saturation/trending signal to
+        # investigate, not a wake-up-at-night event.
         local_state = lib.base.get_state(
             bandwidth15,
             bandwidth_max * args.WARN / 100,
-            bandwidth_max * args.CRIT / 100,
+            None,
         )
         state = lib.base.get_worst(local_state, state)
+
+        # I/O latency (await) over the period, averaged across reads and writes.
+        # Unlike bandwidth this CAN go critical: --await-critical is meant for a
+        # disk that is effectively hung (sustained multi-second latency). Both
+        # await thresholds are off by default, so with no thresholds set
+        # get_state() returns OK and await is reported for trending only.
+        await_ms = get_await(
+            data[0]['read_time'] + data[0]['write_time'],
+            data[args.COUNT - 1]['read_time'] + data[args.COUNT - 1]['write_time'],
+            data[0]['read_count'] + data[0]['write_count'],
+            data[args.COUNT - 1]['read_count'] + data[args.COUNT - 1]['write_count'],
+        )
+        read_await_ms = get_await(
+            data[0]['read_time'],
+            data[args.COUNT - 1]['read_time'],
+            data[0]['read_count'],
+            data[args.COUNT - 1]['read_count'],
+        )
+        write_await_ms = get_await(
+            data[0]['write_time'],
+            data[args.COUNT - 1]['write_time'],
+            data[0]['write_count'],
+            data[args.COUNT - 1]['write_count'],
+        )
+        await_state = lib.base.get_state(
+            await_ms, args.AWAIT_WARN, args.AWAIT_CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(await_state, state)
+
+        # Remember the most severe disk for the first line: notifications only
+        # show the first line, and a hung disk (await CRIT) is often not the
+        # busiest one, so it must not get buried under a benign busy disk.
+        disk_state = lib.base.get_worst(local_state, await_state)
+        if (
+            lib.base.get_worst(disk_state, alert_state) == disk_state
+            and disk_state != alert_state
+        ):
+            alert_state = disk_state
+            reasons = []
+            if local_state != STATE_OK:
+                reasons.append(
+                    f'{lib.human.bytes2human(bandwidth15)}/s of '
+                    f'{lib.human.bytes2human(bandwidth_max)}/s max'
+                )
+            if await_state != STATE_OK:
+                reasons.append(f'{await_ms:.1f}ms latency')
+            alert_msg = (
+                f'{disk["bd"]}: '
+                + ', '.join(reasons)
+                + lib.base.state2str(disk_state, prefix=' ')
+            )
+            if args.MATCH:
+                alert_msg += f' (disks matching `{args.MATCH}`)'
+            alert_msg += '.'
 
         bd = disk['bd'].replace('/dev/', '')
         table_values.append(
@@ -688,24 +668,15 @@ def main():
                 'w15': lib.human.bytes2human(write_bytes_per_second15),
                 't15': lib.human.bytes2human(bandwidth15)
                 + lib.base.state2str(local_state, prefix=' '),
+                'await': f'{await_ms:.1f}ms'
+                + lib.base.state2str(await_state, prefix=' '),
             }
         )
 
-        # disk utilization (iostat's %util): share of wall-clock time the
-        # device was busy with I/O over the last interval. busy_time is a
-        # cumulative millisecond counter, so derive the value from the delta
-        # here rather than emitting the raw counter (see CONTRIBUTING: no
-        # continuous counters in perfdata).
-        busy_delta = data[0]['busy_time'] - data[1]['busy_time']
-        busy_percent = round(
-            max(0.0, min(100.0, busy_delta / (timediff1 * 1000) * 100)),
-            1,
-        )
-
-        # perfdata: emit per-second rates and utilization as gauges, never the
-        # raw cumulative counters. "throughput" is read + write per second; its
-        # _15 average carries the per-disk alerting threshold (a percentage of
-        # the observed maximum bandwidth).
+        # perfdata: emit per-second rates as gauges, never the raw cumulative
+        # counters. "throughput" is read + write per second; its _15 average
+        # carries the per-disk alerting threshold (a percentage of the observed
+        # maximum bandwidth).
         perfdata += lib.base.get_perfdata(
             f'{bd}_read_bytes_per_second1',
             read_bytes_per_second1,
@@ -741,53 +712,67 @@ def main():
             bandwidth15,
             uom='B',
             warn=int(bandwidth_max * args.WARN / 100),
-            crit=int(bandwidth_max * args.CRIT / 100),
+            _min=0,
+        )
+        # I/O latency (await) in ms, cross-platform: read_time/write_time are
+        # exposed on Windows too, unlike busy_time. warn/crit carry the optional
+        # latency thresholds and are simply omitted when unset (None).
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_await',
+            await_ms,
+            uom='ms',
+            warn=args.AWAIT_WARN,
+            crit=args.AWAIT_CRIT,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
-            f'{bd}_busy_percent',
-            busy_percent,
-            uom='%',
+            f'{bd}_read_await',
+            read_await_ms,
+            uom='ms',
             _min=0,
-            _max=100,
         )
-
-    # check iowait alerting (only if enough consecutive values collected)
-    iowait_state = STATE_OK
-    if iowait_pct is not None:
-        if get_iowait_from_db(conn, args.IOWAIT_CRIT) == args.COUNT:
-            iowait_state = STATE_CRIT
-        elif get_iowait_from_db(conn, args.IOWAIT_WARN) == args.COUNT:
-            iowait_state = STATE_WARN
-        state = lib.base.get_worst(iowait_state, state)
+        perfdata += lib.base.get_perfdata(
+            f'{bd}_write_await',
+            write_await_ms,
+            uom='ms',
+            _min=0,
+        )
+        # disk utilization (iostat's %util), Linux only: psutil exposes busy_time
+        # (the underlying /proc/diskstats field 13 "io_ticks", in ms) only on
+        # Linux and FreeBSD, so on Windows it is a constant 0 and must not be
+        # emitted. busy_time is a cumulative counter, so derive the value from the
+        # delta rather than emitting the raw counter (see CONTRIBUTING: no
+        # continuous counters in perfdata).
+        # Grounding (busy_time and %util are the same underlying counter):
+        # - psutil: busy_time is /proc/diskstats field 13 "io_ticks" in ms,
+        #   Linux/FreeBSD only (psutil sdiskio in _ntuples.py).
+        # - sysstat: iostat %util = delta(io_ticks)/interval*100, identical
+        #   formula (compute_ext_disk_stats in rd_stats.c, field "tot_ticks").
+        # - kernel: io_ticks counts wall-clock time with >=1 request in flight,
+        #   NOT queue depth (update_io_ticks in block/blk-core.c), so %util is
+        #   only an idle detector, not a saturation measure on parallel devices
+        #   (NVMe, SSD, dm/md, ZFS). See Documentation/admin-guide/iostats.rst.
+        if lib.base.LINUX:
+            busy_delta = data[0]['busy_time'] - data[1]['busy_time']
+            busy_percent = round(
+                max(0.0, min(100.0, busy_delta / (timediff1 * 1000) * 100)),
+                1,
+            )
+            perfdata += lib.base.get_perfdata(
+                f'{bd}_busy_percent',
+                busy_percent,
+                uom='%',
+                _min=0,
+                _max=100,
+            )
 
     lib.db_sqlite.close(conn)
 
-    # prepend iowait to the message
-    if iowait_pct is not None:
-        # iowait_pct is normalized so that 100 = one fully I/O-saturated core
-        # (see the cpu_count scaling above). Report it to the admin as saturated
-        # cores ("1.02 cores saturated") rather than a percentage that can exceed
-        # 100%, mirroring the load-average mental model. The thresholds stay in
-        # percent of one core (80/90), so perfdata warn/crit are their cores
-        # equivalents (0.8/0.9).
-        iowait_cores = round(iowait_pct / 100, 2)
-        # pluralize() decides on int(value), so a fractional value like 1.02
-        # would truncate to 1 and read "core"; only call it singular at exactly 1.
-        core_word = lib.txt.pluralize('core', 1 if iowait_cores == 1 else 2)
-        iowait_msg = (
-            f'iowait: {iowait_cores:.2f} {core_word} saturated'
-            f'{lib.base.state2str(iowait_state, prefix=" ")}'
-        )
-        msg = f'{iowait_msg}. {msg}'
-        perfdata += lib.base.get_perfdata(
-            'iowait',
-            iowait_cores,
-            warn=args.IOWAIT_WARN / 100,
-            crit=args.IOWAIT_CRIT / 100,
-            _min=0,
-            _max=None,
-        )
+    # first line: lead with the most severe disk when something is in WARN/CRIT
+    # (a hung disk on await is often not the busiest one, so it must not be
+    # buried); otherwise the busiest disk set in the loop above stays.
+    if alert_state != STATE_OK and alert_msg:
+        msg = alert_msg
 
     # build the message
     msg = msg + '\n\n'
@@ -804,6 +789,7 @@ def main():
                 'r15',
                 'w15',
                 't15',
+                'await',
             ],
             header=[
                 'Name',
@@ -815,6 +801,7 @@ def main():
                 f'R{args.COUNT}/s',
                 f'W{args.COUNT}/s',
                 f'RW{args.COUNT}/s',
+                'Await',
             ],
         )
 
@@ -823,7 +810,11 @@ def main():
 
     # over and out
     lib.base.oao(
-        msg.replace('\n\n\n', '\n\n'), state, perfdata, always_ok=args.ALWAYS_OK
+        msg.replace('\n\n\n', '\n\n'),
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
     )
 
 

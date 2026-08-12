@@ -45,11 +45,11 @@ captures from multiple sources whenever possible:
                                        introduced (the regex case
                                        starting with `from X.Y.Z`)
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/{mysql,mariadb}.json
-data. The EOL table drifts; assertions need re-pinning every few
-months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -59,165 +59,137 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     # ---- MariaDB 5.5 ----------------------------------------------
     {
-        'id': 'warn-mariadb-5-5-centos7-eol',
+        'id': 'parses-mariadb-5-5-centos7',
         'test': 'stdout/mariadb-5.5-centos7,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v5.5.68', 'EOL 2020-04-11', '[WARNING]'],
+        'assert-in': ['MariaDB v5.5.68'],
     },
     {
-        'id': 'warn-mariadb-5-5-debian-eol',
+        'id': 'parses-mariadb-5-5-debian',
         'test': 'stdout/mariadb-5.5-debian,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v5.5.64', 'EOL 2020-04-11', '[WARNING]'],
+        'assert-in': ['MariaDB v5.5.64'],
     },
     # ---- MariaDB 10.4 ---------------------------------------------
     {
-        'id': 'warn-mariadb-10-4-rocky8-eol',
+        'id': 'parses-mariadb-10-4-rocky8',
         'test': 'stdout/mariadb-10.4-rocky8,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v10.4.34', 'EOL 2024-06-18', '[WARNING]'],
+        'assert-in': ['MariaDB v10.4.34'],
     },
     {
-        'id': 'warn-mariadb-10-4-debian-eol',
+        'id': 'parses-mariadb-10-4-debian',
         'test': 'stdout/mariadb-10.4-debian,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v10.4.34', 'EOL 2024-06-18', '[WARNING]'],
+        'assert-in': ['MariaDB v10.4.34'],
     },
     # ---- MariaDB 10.5 ---------------------------------------------
     {
-        'id': 'warn-mariadb-10-5-c8s-eol',
+        'id': 'parses-mariadb-10-5-c8s',
         'test': 'stdout/mariadb-10.5-c8s,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v10.5.9', 'EOL 2025-06-24', '[WARNING]'],
+        'assert-in': ['MariaDB v10.5.9'],
     },
     {
-        'id': 'warn-mariadb-10-5-c9s-eol',
+        'id': 'parses-mariadb-10-5-c9s',
         'test': 'stdout/mariadb-10.5-c9s,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v10.5.29', 'EOL 2025-06-24', '[WARNING]'],
+        'assert-in': ['MariaDB v10.5.29'],
     },
     # ---- MariaDB 10.6 (near EOL) ----------------------------------
     {
-        'id': 'warn-mariadb-10-6-rocky9-near-eol',
+        'id': 'parses-mariadb-10-6-rocky9',
         'test': 'stdout/mariadb-10.6-rocky9,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v10.6.25', 'EOL 2026-07-06', '[WARNING]'],
+        'assert-in': ['MariaDB v10.6.25'],
     },
     {
-        'id': 'warn-mariadb-10-6-debian-near-eol',
+        'id': 'parses-mariadb-10-6-debian',
         'test': 'stdout/mariadb-10.6-debian,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v10.6.25', 'EOL 2026-07-06', '[WARNING]'],
+        'assert-in': ['MariaDB v10.6.25'],
     },
     # ---- MariaDB 10.11 (LTS) --------------------------------------
     {
-        'id': 'ok-mariadb-10-11-c10s-supported',
+        'id': 'parses-mariadb-10-11-c10s',
         'test': 'stdout/mariadb-10.11-c10s,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['MariaDB v10.11.15', 'EOL 2028-02-16'],
+        'assert-in': ['MariaDB v10.11.15'],
     },
     # ---- MariaDB 11.4 (LTS) ---------------------------------------
     {
-        'id': 'ok-mariadb-11-4-rocky9-supported',
+        'id': 'parses-mariadb-11-4-rocky9',
         'test': 'stdout/mariadb-11.4-rocky9,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['MariaDB v11.4.10', 'EOL 2029-05-29'],
+        'assert-in': ['MariaDB v11.4.10'],
     },
     {
         # Exercises the third parser regex (`from X.Y.Z, client...`)
         # introduced by MariaDB 11.4.
-        'id': 'ok-mariadb-11-4-debian-client-banner-supported',
+        'id': 'parses-mariadb-11-4-debian-client-banner',
         'test': 'stdout/mariadb-11.4-debian-client,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['MariaDB v11.4.10', 'EOL 2029-05-29'],
+        'assert-in': ['MariaDB v11.4.10'],
     },
     # ---- MariaDB 11.8 ---------------------------------------------
     {
-        'id': 'ok-mariadb-11-8-rocky9-supported',
+        'id': 'parses-mariadb-11-8-rocky9',
         'test': 'stdout/mariadb-11.8-rocky9,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['MariaDB v11.8.6', 'EOL 2028-06-04'],
+        'assert-in': ['MariaDB v11.8.6'],
     },
     {
-        'id': 'ok-mariadb-11-8-debian-client-banner-supported',
+        'id': 'parses-mariadb-11-8-debian-client-banner',
         'test': 'stdout/mariadb-11.8-debian-client,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['MariaDB v11.8.6', 'EOL 2028-06-04'],
+        'assert-in': ['MariaDB v11.8.6'],
     },
     # ---- MariaDB 12.0 ---------------------------------------------
     {
-        'id': 'warn-mariadb-12-0-rocky9-near-eol',
+        'id': 'parses-mariadb-12-0-rocky9',
         'test': 'stdout/mariadb-12.0-rocky9,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.0.2', 'EOL 2025-11-18', '[WARNING]'],
+        'assert-in': ['MariaDB v12.0.2'],
     },
     {
-        'id': 'warn-mariadb-12-0-debian-client-near-eol',
+        'id': 'parses-mariadb-12-0-debian-client',
         'test': 'stdout/mariadb-12.0-debian-client,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.0.2', 'EOL 2025-11-18', '[WARNING]'],
+        'assert-in': ['MariaDB v12.0.2'],
     },
     # ---- MariaDB 12.1 ---------------------------------------------
     {
-        'id': 'warn-mariadb-12-1-rocky9-near-eol',
+        'id': 'parses-mariadb-12-1-rocky9',
         'test': 'stdout/mariadb-12.1-rocky9,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.1.2', 'EOL 2026-02-13', '[WARNING]'],
+        'assert-in': ['MariaDB v12.1.2'],
     },
     {
-        'id': 'warn-mariadb-12-1-debian-client-near-eol',
+        'id': 'parses-mariadb-12-1-debian-client',
         'test': 'stdout/mariadb-12.1-debian-client,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.1.2', 'EOL 2026-02-13', '[WARNING]'],
+        'assert-in': ['MariaDB v12.1.2'],
     },
     # ---- MariaDB 12.2 ---------------------------------------------
     {
-        'id': 'warn-mariadb-12-2-rocky9-near-eol',
+        'id': 'parses-mariadb-12-2-rocky9',
         'test': 'stdout/mariadb-12.2-rocky9,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.2.2', 'EOL 2026-05-13', '[WARNING]'],
+        'assert-in': ['MariaDB v12.2.2'],
     },
     {
-        'id': 'warn-mariadb-12-2-rocky10-near-eol',
+        'id': 'parses-mariadb-12-2-rocky10',
         'test': 'stdout/mariadb-12.2-rocky10,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.2.2', 'EOL 2026-05-13', '[WARNING]'],
+        'assert-in': ['MariaDB v12.2.2'],
     },
     {
-        'id': 'warn-mariadb-12-2-debian-client-near-eol',
+        'id': 'parses-mariadb-12-2-debian-client',
         'test': 'stdout/mariadb-12.2-debian-client,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MariaDB v12.2.2', 'EOL 2026-05-13', '[WARNING]'],
+        'assert-in': ['MariaDB v12.2.2'],
     },
     # ---- MySQL 8.0 ------------------------------------------------
     {
-        'id': 'warn-mysql-8-0-c8s-near-eol',
+        'id': 'parses-mysql-8-0-c8s',
         'test': 'stdout/mysql-8.0-c8s,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': [
-            'MySQL v8.0.26',
-            'full support ended on 2025-04-30',
-            'EOL 2026-04-30',
-            '[WARNING]',
-        ],
+        'assert-in': ['MySQL v8.0.26'],
     },
     {
-        'id': 'warn-mysql-8-0-c9s-near-eol',
+        'id': 'parses-mysql-8-0-c9s',
         'test': 'stdout/mysql-8.0-c9s,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['MySQL v8.0.45', 'EOL 2026-04-30', '[WARNING]'],
+        'assert-in': ['MySQL v8.0.45'],
     },
     # ---- MySQL 8.4 (LTS) ------------------------------------------
     {
-        'id': 'ok-mysql-8-4-c10s-supported',
+        'id': 'parses-mysql-8-4-c10s',
         'test': 'stdout/mysql-8.4-c10s,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['MySQL v8.4.8', 'EOL 2032-04-30'],
+        'assert-in': ['MySQL v8.4.8'],
     },
     # ---- Edge case ------------------------------------------------
     {
@@ -230,7 +202,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../mysql-version'
 
 

@@ -35,15 +35,16 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 
 ```text
 usage: strongswan-connections [-h] [-V] [--always-ok] [--ignore IGNORE]
-                              [--lengthy] [--match MATCH] [--socket SOCKET]
+                              [--lengthy] [--match MATCH] [--no-perfdata]
+                              [--socket SOCKET]
 
 Checks IPSec connection states on a strongSwan VPN gateway. Connects to the
 charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states.
 Alerts on connections that are not in the expected established state.
 Connection names can be filtered out with --ignore, which is useful for
 gateways that mix permanent site-to-site peers with transient remote-access
-clients where only the site-to-site peers should drive the alert. Requires
-root or sudo.
+clients where only the site-to-site peers should drive the alert. Supports
+extended reporting via --lengthy. Requires root or sudo.
 
 options:
   -h, --help       show this help message and exit
@@ -61,15 +62,21 @@ options:
   --match MATCH    Only check connections whose VICI key matches this Python
                    regular expression. Case-sensitive by default; use `(?i)`
                    for case-insensitive matching. Can be specified multiple
-                   times. If both `--match` and `--ignore` are given, a
-                   connection must match `--match` AND not match `--ignore` to
-                   be checked (include first, exclude second). Example:
+                   times. If both `--match` and `--ignore` are given, an item
+                   must match `--match` AND not match `--ignore` to be
+                   reported (include first, exclude second). Example:
                    `--match="^S2S_SITE-XY$"` to pin an Icinga service to one
                    specific site-to-site peer. Example: `--match="(?i)^s2s_"`
                    (case-insensitive) to check every site-to-site peer on a
                    gateway. Default: None
+  --no-perfdata    Suppress the performance data section from the output. The
+                   status message and the exit code are unaffected, so
+                   alerting keeps working while trending data is dropped.
   --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
                    Default: /run/strongswan/charon.vici
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/strongswan-connections/
 ```
 
 
@@ -118,13 +125,14 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 
 | Name | Type | Description |
 |----|----|----|
-| \<connname\>\_established | Seconds | Seconds the IKE SA has been established |
-| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed |
-| \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed |
-| \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed |
-| \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed |
-| \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD SA expires |
-| \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD SA gets rekeyed |
+| \<connname\>\_established | Seconds | Seconds the IKE SA has been established. Only reported once the connection is established. |
+| \<connname\>\_reauth-time | Seconds | Seconds before the IKE SA gets re-authenticated, negative once it is overdue. Only reported once the connection is established, and only if the peer configuration re-authenticates it. |
+| \<connname\>\_rekey-time | Seconds | Seconds before IKE SA gets rekeyed, negative once the rekey is overdue. Only reported once the connection is established, and only if the peer configuration rekeys it. |
+| \<connname\>\_\<childname\>\_bytes-in | Bytes | Number of input bytes processed. Only reported once the CHILD SA is installed. |
+| \<connname\>\_\<childname\>\_bytes-out | Bytes | Number of output bytes processed. Only reported once the CHILD SA is installed. |
+| \<connname\>\_\<childname\>\_install-time | Seconds | Seconds the CHILD SA has been installed. Only reported once the CHILD SA is installed. |
+| \<connname\>\_\<childname\>\_life-time | Seconds | Seconds before CHILD SA expires, negative once it is overdue. Only reported for a CHILD SA that expires. |
+| \<connname\>\_\<childname\>\_rekey-time | Seconds | Seconds before CHILD SA gets rekeyed, negative once the rekey is overdue. Only reported for a CHILD SA that gets rekeyed. |
 
 
 ## Troubleshooting

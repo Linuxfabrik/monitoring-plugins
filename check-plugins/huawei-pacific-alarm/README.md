@@ -28,16 +28,20 @@ Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system v
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 
 ## Help
 
 ```text
 usage: huawei-pacific-alarm [-h] [-V] [--always-ok]
-                            [--cache-expire CACHE_EXPIRE] [--insecure]
-                            [--no-proxy] --password PASSWORD [--scope SCOPE]
+                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
+                            [--insecure] [--no-insecure] [--match MATCH]
+                            [--no-match-severity {ok,warn,crit,unknown}]
+                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                            [--password-file PASSWORD_FILE] [--scope SCOPE]
                             [--timeout TIMEOUT] -u URL --username USERNAME
+                            [-v]
 
 Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system
 via the REST API (/common/alarms endpoint). Alerts when unrecovered alarms are
@@ -51,21 +55,71 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
+  --ignore IGNORE       Skip alarms. Any item matching this Python regex will
+                        be ignored. Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match. The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against `alarm_id`,
+                        `alarm_name`, `description`, so prefix with `.*` to
+                        match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --match MATCH         Limit to alarms. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. If both `--match` and `--ignore` are given, an
+                        item must match `--match` AND not match `--ignore` to
+                        be reported (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead). The regex is anchored
+                        at the start of the string (Python `re.match`) and is
+                        matched against `alarm_id`, `alarm_name`,
+                        `description`, so prefix with `.*` to match anywhere.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Pacific API password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Pacific API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-alarm/
 ```
 
 
 ## Usage Examples
 
 ```bash
-./huawei-pacific-alarm --url=https://oceanstor:8088 --username=monitoring --password=mypass
+./huawei-pacific-alarm --url=https://oceanstor:8088 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -77,8 +131,6 @@ Alarm ID    ! Time                ! Severity     ! Name                   ! Stat
 ------------+---------------------+--------------+------------------------+-----------
 0xF00F40003 ! 2023-08-31 16:23:43 ! Critical (6) ! License Has Expired    ! [CRITICAL]
 0xF00F40010 ! 2023-08-31 16:25:00 ! Major (5)    ! Disk Predicted To Fail ! [WARNING]
-
-Fetched API 1 time
 ```
 
 
@@ -87,6 +139,7 @@ Fetched API 1 time
 * OK if there are no unrecovered alarms.
 * WARN if any unrecovered alarm has a "major" or "warning" severity.
 * CRIT if any unrecovered alarm has a "critical" severity.
+* WARN if the appliance reports more alarms than the check reads in one run, because the list is then incomplete.
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

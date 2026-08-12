@@ -31,8 +31,9 @@ Displays LibreNMS instance information including version, database schema, Pytho
 ## Help
 
 ```text
-usage: librenms-version [-h] [-V] [--insecure] [--no-proxy]
-                        [--timeout TIMEOUT] --token TOKEN [--url URL]
+usage: librenms-version [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                        [--no-proxy] [--timeout TIMEOUT] --token TOKEN
+                        [--url URL]
 
 Displays LibreNMS instance information including version, database schema,
 Python and RRDtool versions via the LibreNMS API. This check does not track
@@ -41,11 +42,18 @@ new releases since LibreNMS can update itself when running the Git version.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --token TOKEN      LibreNMS API token.
   --url URL          LibreNMS API URL. Default: http://localhost
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-version/
 ```
 
 

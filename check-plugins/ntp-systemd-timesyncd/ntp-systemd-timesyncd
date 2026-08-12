@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the state of systemd-timesyncd, including synchronization status, server
 reachability, and stratum level. Alerts if time synchronization is inactive or if
@@ -31,13 +31,33 @@ DEFAULT_STRATUM = 6
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -76,6 +96,7 @@ def main():
             lib.base.oao(
                 f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
                 STATE_WARN,
+                always_ok=args.ALWAYS_OK,
             )
     else:
         # do not call the command, put in test data
@@ -103,7 +124,7 @@ def main():
                     break
 
     if not peer_used:
-        lib.base.oao('No NTP server used.', STATE_WARN)
+        lib.base.oao('No NTP server used.', STATE_WARN, always_ok=args.ALWAYS_OK)
 
     # build the message
     msg += f'Stratum is {stratum}'
@@ -123,7 +144,13 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg + '\n\n' + stdout, state, perfdata)
+    lib.base.oao(
+        msg + '\n\n' + stdout,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

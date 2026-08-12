@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -23,22 +24,48 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026081102'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
-module reports a non-normal health state."""
+module reports a non-normal health state, when it runs out of remaining service life,
+and optionally when its voltage leaves the range you expect.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT = '30:'
+DEFAULT_CRIT_VOLTAGE = ''
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '180:'
+DEFAULT_WARN_VOLTAGE = ''
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'LOCATION')
+
+# RUNNINGSTATUS codes a healthy backup power module reports: normal (1), running (2),
+# online (27), charging (48) and charging completed (49). A module cycles through the
+# charging states in normal operation, so they are not a reason to alert.
+OK_RUNNING_STATUS = (1, 2, 27, 48, 49)
 
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -64,10 +91,43 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the remaining life of a backup power module, as a Nagios '
+        'range in days. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-voltage',
+        help=lib.args.help('--critical-voltage')
+        + ' Supports Nagios ranges. '
+        'Off by default, because the healthy range depends on the module and on how many '
+        'cells it has; read the label or watch the graph first. '
+        'Example: `--critical-voltage=13.5:18.5`',
+        dest='CRIT_VOLTAGE',
+        default=DEFAULT_CRIT_VOLTAGE,
+    )
+
+    parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip backup power modules. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -76,6 +136,49 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to backup power modules. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -90,7 +193,12 @@ def parse_args():
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -130,8 +238,54 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the remaining life of a backup power module, as a Nagios '
+        'range in days. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-voltage',
+        help=lib.args.help('--warning-voltage')
+        + ' Supports Nagios ranges. '
+        'Off by default, because the healthy range depends on the module and on how many '
+        'cells it has; read the label or watch the graph first. '
+        'Example: `--warning-voltage=15:17`',
+        dest='WARN_VOLTAGE',
+        default=DEFAULT_WARN_VOLTAGE,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_remaining_life_days(power):
+    """Return a module's remaining life in days, or `None` if it does not report one."""
+    # A module that does not track its remaining life answers with zero or a negative
+    # value. Read as a measurement that would alert on every such module forever.
+    try:
+        days = int(power.get('REMAINLIFEDAYS'))
+    except (TypeError, ValueError):
+        return None
+    if days <= 0:
+        return None
+    return days
 
 
 def main():
@@ -142,6 +296,17 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
 
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
@@ -155,12 +320,15 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
+    lib.huawei_dorado.assert_ok(result, 'the backup power modules')
+
+    # An appliance always has backup power modules, so an empty list is a query that
+    # never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    if not result.get('data'):
         lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
+            f'{args.URL} reported no backup power modules.'
+            ' Verify that the API user is allowed to query them.',
             STATE_UNKNOWN,
         )
 
@@ -168,118 +336,214 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for power in result.get('data'):
-        health_state = STATE_OK
-        if lib.huawei_dorado.get_health_status(power.get('HEALTHSTATUS')) != 'Normal (1)':
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
+    for power in result.get('data') or []:
         power['UUID'] = lib.huawei_dorado.get_uuid(power)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', power['UUID'])
 
-        running_state = STATE_OK
-        if (
-            lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS')) != 'Normal (1)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Running (2)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Online (27)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Charging (48)'
-            and lib.huawei_dorado.get_running_status(power.get('RUNNINGSTATUS'))
-            != 'Charging completed (49)'
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(power.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
         ):
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
+            continue
 
-        power['REMAINLIFEDAYS'] = int(power['REMAINLIFEDAYS'])
-        if power['REMAINLIFEDAYS'] > 0:
-            power['REMAINLIFEDAYS'] = power['REMAINLIFEDAYS'] * 24 * 60 * 60
-        power['VOLTAGE'] = float(power['VOLTAGE']) / 10
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(power.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            power.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            power.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
+
+        remaining_life_days = get_remaining_life_days(power)
+        if remaining_life_days is not None:
+            state = lib.base.get_worst(
+                state,
+                lib.base.get_state(
+                    remaining_life_days, args.WARN, args.CRIT, _operator='range'
+                ),
+            )
+            power['REMAINLIFEDAYS'] = remaining_life_days * 24 * 60 * 60
+        else:
+            power['REMAINLIFEDAYS'] = None
+        # The REST Interface References document this field as "Unit: V/10", so a healthy
+        # module reads as 16.1 rather than 161.
+        voltage = lib.huawei_dorado.as_code(power.get('VOLTAGE'))
+        power['VOLTAGE'] = None if voltage is None else round(voltage / 10, 1)
+        # A module that has lost a cell, or one being trickle-charged back up, sits
+        # outside its normal band long before its health status changes.
+        voltage_state = STATE_OK
+        if power['VOLTAGE'] is not None and (
+            args.WARN_VOLTAGE or args.CRIT_VOLTAGE
+        ):
+            voltage_state = lib.base.get_state(
+                power['VOLTAGE'],
+                args.WARN_VOLTAGE or None,
+                args.CRIT_VOLTAGE or None,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, voltage_state)
 
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_HEALTHSTATUS',
-            power['HEALTHSTATUS'],
-            crit=2,
+            f'{label}_health_status',
+            power.get('HEALTHSTATUS'),
+            uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_RUNNINGSTATUS',
-            power['RUNNINGSTATUS'],
+            f'{label}_running_status',
+            power.get('RUNNINGSTATUS'),
             _min=0,
         )
-        perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_CHARGETIMES',
-            power['CHARGETIMES'],
-            _min=0,
-        )
+        # No performance data for CHARGETIMES, the number of discharge cycles the module
+        # has been through. It only ever counts up, and a cumulative counter aggregates
+        # wrong in every Grafana panel that touches it
+        # ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)).
+        # The value stays in the table, where it reads as the wear of the module.
         perfdata += (
             lib.base.get_perfdata(
-                f'{power["UUID"]}_REMAINLIFEDAYS',
+                f'{label}_remaining_life',
                 power['REMAINLIFEDAYS'],
                 uom='s',
                 _min=0,
             )
-            if power['REMAINLIFEDAYS'] > 0
+            if power['REMAINLIFEDAYS']
             else ''
         )
         perfdata += lib.base.get_perfdata(
-            f'{power["UUID"]}_VOLTAGE',
-            power['VOLTAGE'],
+            f'{label}_voltage',
+            power.get('VOLTAGE'),
+            uom=None,
             _min=0,
         )
 
-        power['health_state'] = lib.base.state2str(health_state, empty_ok=False)
-        power['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        if power['REMAINLIFEDAYS'] > 0:
-            power['REMAINLIFEDAYS'] = lib.human.seconds2human(power['REMAINLIFEDAYS'])
+        power['health'] = lib.huawei_dorado.get_health_status(
+            power.get('HEALTHSTATUS')
+        )
+        power['running'] = lib.huawei_dorado.get_running_status(
+            power.get('RUNNINGSTATUS')
+        )
+        # One state per row, in the last column. IcingaWeb replaces a state with an
+        # icon, which shifts everything to the right of it, so a second one mid-row
+        # would break the table. What decided it stays readable in the two columns
+        # in front of it.
+        power['state'] = lib.base.state2str(
+            lib.base.get_worst(health_state, running_state), empty_ok=False
+        )
+        power['VOLTAGE'] = (
+            '--'
+            if power['VOLTAGE'] is None
+            else f'{power["VOLTAGE"]}'
+            f'{lib.base.state2str(voltage_state, prefix=" ")}'
+        )
+        # A module that does not track its remaining life gets a dash, as everywhere
+        # else in the family. A literal `0` would read as a dead battery.
+        power['REMAINLIFEDAYS'] = (
+            '--'
+            if not power['REMAINLIFEDAYS']
+            else lib.human.seconds2human(power['REMAINLIFEDAYS'])
+        )
 
         table_data.append(power)
 
-    if table_data:
-        keys = [
-            'UUID',
-            'LOCATION',
-            'MANUFACTUREDDATE',
-            'CONTROLLERID',
-            'CHARGETIMES',
-            'REMAINLIFEDAYS',
-            'VOLTAGE',
-            'health_state',
-            'running_state',
-        ]
-        headers = [
-            'UUID',
-            'Location',
-            'Produced',
-            'ControllerID',
-            '#Charged',
-            'Remain',
-            'Volt',
-            'Health',
-            'Running',
-        ]
+    # The appliance listed backup power modules and the filter selected none of them.
+    if not table_data:
+        lib.base.oao(
+            f'No backup power modules matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
-        # build the message
-        msg += lib.base.get_table(table_data, keys, header=headers)
-
-    msg += (
-        f'\nFetched API {result.get("counter", 0)}'
-        f' {lib.txt.pluralize("time", result.get("counter", 0))}'
-    )
-
+    # build the message
     if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
+        msg += 'There are critical errors.'
     elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
+        msg += 'There are warnings.'
     else:
-        msg = 'Everything is ok.\n\n' + msg
+        msg += 'Everything is ok.'
+    msg += '\n\n'
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'MANUFACTUREDDATE',
+                'CONTROLLERID',
+                'CHARGETIMES',
+                'REMAINLIFEDAYS',
+                'VOLTAGE',
+                'health',
+                'running',
+                'state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Produced',
+                'ControllerID',
+                '#Discharged',
+                'Remain',
+                'Volt',
+                'Health',
+                'Running',
+                'State',
+            ]
+        else:
+            keys = [
+                'UUID',
+                'LOCATION',
+                'REMAINLIFEDAYS',
+                'VOLTAGE',
+                'health',
+                'running',
+                'state',
+            ]
+            headers = [
+                'UUID',
+                'Location',
+                'Remain',
+                'Volt',
+                'Health',
+                'Running',
+                'State',
+            ]
+
+        msg += lib.base.get_table(
+            table_data, keys, header=headers, missing='--', hide_empty=True
+        )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

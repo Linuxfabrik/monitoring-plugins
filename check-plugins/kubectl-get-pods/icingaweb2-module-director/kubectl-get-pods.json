@@ -2,14 +2,17 @@
     "Command": {
         "cmd-check-kubectl-get-pods": {
             "arguments": {
-                "--always-ok": {
-                    "set_if": "$kubectl_get_pods_always_ok$"
-                },
                 "--all-namespaces": {
                     "set_if": "$kubectl_get_pods_all_namespaces$"
                 },
+                "--always-ok": {
+                    "set_if": "$kubectl_get_pods_always_ok$"
+                },
                 "--kubeconfig": {
                     "value": "$kubectl_get_pods_kubeconfig$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$kubectl_get_pods_no_perfdata$"
                 },
                 "--query": {
                     "value": "$kubectl_get_pods_query$"
@@ -43,6 +46,11 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -99,9 +107,10 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "kubectl_get_pods_always_ok": false,
                 "kubectl_get_pods_all_namespaces": false,
+                "kubectl_get_pods_always_ok": false,
                 "kubectl_get_pods_kubeconfig": "/var/spool/icinga2/.kubeconfig",
+                "kubectl_get_pods_no_perfdata": false,
                 "kubectl_get_pods_query": "1",
                 "kubectl_get_pods_severity": "crit"
             },
@@ -133,15 +142,6 @@
     },
     "Datafield": {
         "1": {
-            "varname": "kubectl_get_pods_always_ok",
-            "caption": "Kubectl Get Pods: Always OK?",
-            "description": "Always returns OK.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "d9246145-dd9c-42f0-acb6-c03d4b8a86a7"
-        },
-        "2": {
             "varname": "kubectl_get_pods_all_namespaces",
             "caption": "Kubectl Get Pods: All Namespaces?",
             "description": "List pods across all namespaces. Namespace in current context is ignored even if specified with `--namespace`.",
@@ -149,6 +149,15 @@
             "format": null,
             "settings": {},
             "uuid": "ef8bbc2b-58ea-4ae0-91c3-44db84fd2a9b"
+        },
+        "2": {
+            "varname": "kubectl_get_pods_always_ok",
+            "caption": "Kubectl Get Pods: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d9246145-dd9c-42f0-acb6-c03d4b8a86a7"
         },
         "3": {
             "varname": "kubectl_get_pods_kubeconfig",
@@ -162,6 +171,15 @@
             "uuid": "635283cf-4d19-45ae-9832-4413c0b47e58"
         },
         "4": {
+            "varname": "kubectl_get_pods_no_perfdata",
+            "caption": "Kubectl Get Pods: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "96d14e6b-2522-42ce-b2b6-48eb53d971f8"
+        },
+        "5": {
             "varname": "kubectl_get_pods_query",
             "caption": "Kubectl Get Pods: Query",
             "description": "SQL WHERE clause to narrow down results. Have a look at the README for a list of available columns. Example: `namespace = 'mynamespace' and name like 'prod-%' and status != 'running'`.",
@@ -172,7 +190,7 @@
             },
             "uuid": "6d98f760-1f67-4700-837b-2ff6a5042e45"
         },
-        "5": {
+        "6": {
             "varname": "kubectl_get_pods_severity",
             "caption": "Kubectl Get Pods: Severity",
             "description": "Severity for alerting.",

@@ -11,14 +11,34 @@
                 "--device-id": {
                     "value": "$huawei_dorado_fan_device_id$"
                 },
+                "--ignore": {
+                    "value": "$huawei_dorado_fan_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_dorado_fan_insecure$"
+                },
+                "--no-insecure": {
+                    "set_if": "$huawei_dorado_fan_no_insecure$"
+                },
+                "--match": {
+                    "value": "$huawei_dorado_fan_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$huawei_dorado_fan_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$huawei_dorado_fan_no_perfdata$"
                 },
                 "--no-proxy": {
                     "set_if": "$huawei_dorado_fan_no_proxy$"
                 },
                 "--password": {
                     "value": "$huawei_dorado_fan_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_fan_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_fan_scope$"
@@ -31,6 +51,9 @@
                 },
                 "--username": {
                     "value": "$huawei_dorado_fan_username$"
+                },
+                "--verbose": {
+                    "set_if": "$huawei_dorado_fan_verbose$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-dorado-fan",
@@ -48,7 +71,7 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -63,7 +86,7 @@
                 },
                 {
                     "datafield_id": 6,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -78,12 +101,47 @@
                 },
                 {
                     "datafield_id": 9,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
                     "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
                     "var_filter": null
                 }
             ],
@@ -141,14 +199,53 @@
                 "criticality": "A",
                 "huawei_dorado_fan_always_ok": false,
                 "huawei_dorado_fan_cache_expire": 15,
+                "huawei_dorado_fan_device_id": "",
+                "huawei_dorado_fan_ignore": [],
                 "huawei_dorado_fan_insecure": true,
+                "huawei_dorado_fan_match": [],
+                "huawei_dorado_fan_no_match_severity": "ok",
+                "huawei_dorado_fan_no_perfdata": false,
                 "huawei_dorado_fan_no_proxy": false,
-                "huawei_dorado_fan_scope": 0,
-                "huawei_dorado_fan_timeout": 3
+                "huawei_dorado_fan_scope": "0",
+                "huawei_dorado_fan_timeout": 3,
+                "huawei_dorado_fan_verbose": false
             },
             "volatile": null,
             "zone": null,
             "uuid": "a2ad3164-92c0-4b70-8992-792cd5d57f59"
+        }
+    },
+    "DataList": {
+        "huawei_dorado_fan_no_match_severity_list": {
+            "list_name": "huawei_dorado_fan_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "9f0958fa-15ef-4ee0-83fb-d09729798e3e"
         }
     },
     "Datafield": {
@@ -175,7 +272,7 @@
         "3": {
             "varname": "huawei_dorado_fan_device_id",
             "caption": "Huawei Dorado Fan: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -184,6 +281,17 @@
             "uuid": "91ec8e2f-4451-420a-aa18-ea21c052be6f"
         },
         "4": {
+            "varname": "huawei_dorado_fan_ignore",
+            "caption": "Huawei Dorado Fan: Ignore",
+            "description": "Skip fans. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "806b692f-4867-4767-8224-d565925c1ae0"
+        },
+        "5": {
             "varname": "huawei_dorado_fan_insecure",
             "caption": "Huawei Dorado Fan: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -192,7 +300,49 @@
             "settings": {},
             "uuid": "29d37520-f992-40b6-b963-810f57f361a3"
         },
-        "5": {
+        "6": {
+            "varname": "huawei_dorado_fan_no_insecure",
+            "caption": "Huawei Dorado Fan: No Insecure?",
+            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "183d0fda-d1ce-4800-b813-7df28de74048"
+        },
+        "7": {
+            "varname": "huawei_dorado_fan_match",
+            "caption": "Huawei Dorado Fan: Match",
+            "description": "Limit to fans. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0a9cbe3a-642c-4aa4-8b28-67b215bb22b1"
+        },
+        "8": {
+            "varname": "huawei_dorado_fan_no_match_severity",
+            "caption": "Huawei Dorado Fan: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_dorado_fan_no_match_severity_list"
+            },
+            "uuid": "854a76b0-b2d1-4892-ba0a-c3cee348829f"
+        },
+        "9": {
+            "varname": "huawei_dorado_fan_no_perfdata",
+            "caption": "Huawei Dorado Fan: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a756c2c8-20b7-473e-a25d-cdfa68d3100b"
+        },
+        "10": {
             "varname": "huawei_dorado_fan_no_proxy",
             "caption": "Huawei Dorado Fan: No Proxy?",
             "description": "Do not use a proxy.",
@@ -201,7 +351,7 @@
             "settings": {},
             "uuid": "65c96995-ebeb-409d-aeeb-dc881d14dfa6"
         },
-        "6": {
+        "11": {
             "varname": "huawei_dorado_fan_password",
             "caption": "Huawei Dorado Fan: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -212,7 +362,18 @@
             },
             "uuid": "08e37f90-703e-4623-aff7-0d037c850395"
         },
-        "7": {
+        "12": {
+            "varname": "huawei_dorado_fan_password_file",
+            "caption": "Huawei Dorado Fan: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "93da95ce-02d0-45b2-9ce2-74284e7623e2"
+        },
+        "13": {
             "varname": "huawei_dorado_fan_scope",
             "caption": "Huawei Dorado Fan: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -223,7 +384,7 @@
             },
             "uuid": "9dba22cb-7d76-4ce1-a77e-71f01098f335"
         },
-        "8": {
+        "14": {
             "varname": "huawei_dorado_fan_timeout",
             "caption": "Huawei Dorado Fan: Timeout",
             "description": "Network timeout in seconds.",
@@ -234,7 +395,7 @@
             },
             "uuid": "fb2844ef-bdfd-4710-be35-958ee9d9c4f4"
         },
-        "9": {
+        "15": {
             "varname": "huawei_dorado_fan_url",
             "caption": "Huawei Dorado Fan: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -245,7 +406,7 @@
             },
             "uuid": "6ce43af2-48ac-4ff2-8b4c-f1b71956cf6e"
         },
-        "10": {
+        "16": {
             "varname": "huawei_dorado_fan_username",
             "caption": "Huawei Dorado Fan: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -255,6 +416,15 @@
                 "visibility": "visible"
             },
             "uuid": "b921bbd5-20c0-40b8-9c9f-2cc906c1d45d"
+        },
+        "17": {
+            "varname": "huawei_dorado_fan_verbose",
+            "caption": "Huawei Dorado Fan: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "e5b7cae5-42e7-451c-8ff7-12828b5bd740"
         }
     }
 }

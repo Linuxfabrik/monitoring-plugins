@@ -7,6 +7,7 @@ Checks the time since last modification of one or more files or directories. Sup
 
 **Important Notes:**
 
+* By design this check inspects the metadata (existence, timestamps) of whatever path it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can probe any path on the system. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
 * SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
 * Recursive globs (`**`) can cause high memory usage on large directory trees
 * The `--filename` and `--url` parameters are mutually exclusive
@@ -41,9 +42,10 @@ Checks the time since last modification of one or more files or directories. Sup
 ```text
 usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
                 [--critical-count CRIT_COUNT] [--filename FILENAME]
-                [--only-dirs] [--only-files] [--password PASSWORD]
-                [--pattern PATTERN] [--perfdata-mode {mean,median,None}]
-                [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
+                [--no-perfdata] [--only-dirs] [--only-files]
+                [--password PASSWORD] [--pattern PATTERN]
+                [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
+                [-u URL] [--username USERNAME] [-w WARN]
                 [--warning-count WARN_COUNT]
 
 Checks the time since last modification of one or more files or directories.
@@ -63,6 +65,10 @@ options:
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --only-dirs           Only consider directories, ignoring files.
   --only-files          Only consider files, ignoring directories.
   --password PASSWORD   Password for SMB authentication.
@@ -81,6 +87,9 @@ options:
   --warning-count WARN_COUNT
                         WARN threshold for the number of files exceeding the
                         warning age. Default: > 0.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/
 ```
 
 

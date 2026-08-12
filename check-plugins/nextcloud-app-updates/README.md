@@ -39,7 +39,7 @@ Checks a Nextcloud installation for available app updates from the configured ap
 usage: nextcloud-app-updates [-h] [-V] [--always-ok] [-c CRIT]
                              [--ignore IGNORE] [--match MATCH]
                              [--no-match-severity {ok,warn,crit,unknown}]
-                             [--path PATH] [-v] [-w WARN]
+                             [--no-perfdata] [--path PATH] [-v] [-w WARN]
 
 Checks a Nextcloud installation for available app updates from the configured
 app store and alerts when an app update has been available for longer than the
@@ -62,10 +62,17 @@ options:
   --match MATCH         Only check apps whose app id matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
-                        multiple times.
+                        multiple times. If both `--match` and `--ignore` are
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second).
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --path PATH           Local path to the Nextcloud installation, typically
                         the web server document root. Default:
                         /var/www/html/nextcloud
@@ -75,6 +82,9 @@ options:
   -w, --warning WARN    WARN threshold for how long an app update may stay
                         available, in hours. Supports Nagios ranges. Default:
                         72
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-app-updates/
 ```
 
 

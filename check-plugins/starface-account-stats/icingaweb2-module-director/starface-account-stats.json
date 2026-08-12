@@ -2,20 +2,26 @@
     "Command": {
         "cmd-check-starface-account-stats": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$starface_account_stats_always_ok$"
+                },
                 "--cache-expire": {
                     "value": "$starface_account_stats_cache_expire$"
                 },
                 "--hostname": {
                     "value": "$starface_account_stats_hostname$"
                 },
+                "--ipv6": {
+                    "set_if": "$starface_account_stats_ipv6$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$starface_account_stats_no_perfdata$"
+                },
                 "--port": {
                     "value": "$starface_account_stats_port$"
                 },
                 "--timeout": {
                     "value": "$starface_account_stats_timeout$"
-                },
-                "--ipv6": {
-                    "set_if": "$starface_account_stats_ipv6$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/starface-account-stats",
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -99,11 +115,13 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "starface_account_stats_always_ok": false,
                 "starface_account_stats_cache_expire": 1,
                 "starface_account_stats_hostname": "localhost",
+                "starface_account_stats_ipv6": false,
+                "starface_account_stats_no_perfdata": false,
                 "starface_account_stats_port": 6556,
-                "starface_account_stats_timeout": 8,
-                "starface_account_stats_ipv6": false
+                "starface_account_stats_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -112,6 +130,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "starface_account_stats_always_ok",
+            "caption": "Starface Account Stats: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "2300a93b-1383-43ea-a9fd-0c4e192d692a"
+        },
+        "2": {
             "varname": "starface_account_stats_cache_expire",
             "caption": "Starface Account Stats: Cache Expire",
             "description": "The amount of time after which the credential/data cache expires, in minutes.",
@@ -122,7 +149,7 @@
             },
             "uuid": "868b9aed-7476-481f-968e-4bedd447b7bd"
         },
-        "2": {
+        "3": {
             "varname": "starface_account_stats_hostname",
             "caption": "Starface Account Stats: Hostname",
             "description": "Starface PBX hostname or IP address.",
@@ -133,7 +160,25 @@
             },
             "uuid": "10371745-be68-4aa6-82cf-f22a165a3a93"
         },
-        "3": {
+        "4": {
+            "varname": "starface_account_stats_ipv6",
+            "caption": "Starface Account Stats: IPv6?",
+            "description": "Use IPv6.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "153f01b9-19db-42f8-9e78-30e1136ff3a7"
+        },
+        "5": {
+            "varname": "starface_account_stats_no_perfdata",
+            "caption": "Starface Account Stats: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9373ae7f-193a-4443-a8a3-397870543b60"
+        },
+        "6": {
             "varname": "starface_account_stats_port",
             "caption": "Starface Account Stats: Port",
             "description": "Starface PBX monitoring port.",
@@ -144,7 +189,7 @@
             },
             "uuid": "e80fe7ec-10de-4e03-8e8f-a51a02d3d23a"
         },
-        "4": {
+        "7": {
             "varname": "starface_account_stats_timeout",
             "caption": "Starface Account Stats: Timeout",
             "description": "Network timeout in seconds.",
@@ -154,15 +199,6 @@
                 "visibility": "visible"
             },
             "uuid": "b29ff37f-5951-4094-9c6b-02e553bf808d"
-        },
-        "5": {
-            "varname": "starface_account_stats_ipv6",
-            "caption": "Starface Account Stats: IPv6?",
-            "description": "Use IPv6.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "153f01b9-19db-42f8-9e78-30e1136ff3a7"
         }
     }
 }

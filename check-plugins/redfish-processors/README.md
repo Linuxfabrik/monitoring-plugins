@@ -16,6 +16,7 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 
 * Queries `/redfish/v1/Systems` to enumerate system members
 * For each member, follows the `Processors` link and queries every processor for its model, core and thread count, speed, identification and health status
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates systems and processors in "Enabled" or "Quiesced" state, so absent or disabled sockets are skipped
 
@@ -30,6 +31,7 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -38,9 +40,9 @@ Checks the state of all processors (CPUs) in a Redfish-compatible server via the
 usage: redfish-processors [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                           [--insecure] [--inventory] [--match MATCH]
-                          [--no-proxy] [--password PASSWORD]
-                          [--retries RETRIES] [--timeout TIMEOUT] --url URL
-                          [--username USERNAME]
+                          [--no-insecure] [--no-perfdata] [--no-proxy]
+                          [--password PASSWORD] [--retries RETRIES]
+                          [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Checks the state of all processors (CPUs) in a Redfish-compatible server via
 the Redfish API. Alerts when any processor reports a degraded or failed state.
@@ -57,7 +59,7 @@ options:
                         still drive the overall check state. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore items whose name matches this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -74,7 +76,19 @@ options:
   --match MATCH         Only check items whose name matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
-                        multiple times.
+                        multiple times. If both `--match` and `--ignore` are
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second).
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish
@@ -84,6 +98,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-processors/
 ```
 
 

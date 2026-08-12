@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -37,7 +37,11 @@ DEFAULT_WARN = 1  # number of updatable packages
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -50,6 +54,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
         action='store_true',
         default=False,
     )
@@ -737,6 +749,7 @@ def main():
         state,
         perfdata,
         always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
     )
 
 

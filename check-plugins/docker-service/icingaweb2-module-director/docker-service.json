@@ -21,6 +21,9 @@
                 "--no-match-severity": {
                     "value": "$docker_service_no_match_severity$"
                 },
+                "--no-perfdata": {
+                    "set_if": "$docker_service_no_perfdata$"
+                },
                 "--service": {
                     "value": "$docker_service_service$",
                     "repeat_key": true
@@ -69,6 +72,11 @@
                 },
                 {
                     "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -131,6 +139,7 @@
                 "docker_service_ignore": [],
                 "docker_service_lengthy": false,
                 "docker_service_no_match_severity": "ok",
+                "docker_service_no_perfdata": false,
                 "docker_service_service": [],
                 "docker_service_warning": "100:"
             },
@@ -236,6 +245,15 @@
             "uuid": "2e8ef592-3ad9-470b-a674-24403727aded"
         },
         "7": {
+            "varname": "docker_service_no_perfdata",
+            "caption": "Docker Service: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fb75f607-4a1d-479c-8c43-74ea3e9a96c0"
+        },
+        "8": {
             "varname": "docker_service_service",
             "caption": "Docker Service: Service",
             "description": "Check this service and, optionally, the number of tasks it is expected to run, written as `name=count`. Without `=count` the service's own desired replica count is used as the expectation. Can be specified multiple times; if given at least once, only the named services are checked. Example: `--service=web=2` alerts when the `web` service does not run its two expected tasks, even after someone scaled it down to one. Example: `--service=traefik` checks `traefik` against its own desired count.",
@@ -246,7 +264,7 @@
             },
             "uuid": "be1a79e2-74ea-4ac4-aaec-8267bd4968e1"
         },
-        "8": {
+        "9": {
             "varname": "docker_service_warning",
             "caption": "Docker Service: Warning",
             "description": "WARN threshold for the percentage of expected tasks that are running, compared as a Nagios range.",

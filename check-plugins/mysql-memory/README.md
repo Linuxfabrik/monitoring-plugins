@@ -41,15 +41,15 @@ Estimates MySQL/MariaDB memory consumption and compares it to the host's physica
 usage: mysql-memory [-h] [-V] [--always-ok] [-c CRITICAL]
                     [--defaults-file DEFAULTS_FILE]
                     [--defaults-group DEFAULTS_GROUP] [--lengthy]
-                    [--timeout TIMEOUT] [-w WARNING]
+                    [--no-perfdata] [--timeout TIMEOUT] [-w WARNING]
 
 Estimates MySQL/MariaDB memory consumption and compares it to the host's
-physical RAM. Reports the currently-reached usage (server-wide buffers + per-
-thread buffers * `Max_used_connections` + Performance Schema memory + Galera
-GCache if present) and the theoretical worst-case peak (same formula but with
-`max_connections`). Also surfaces the RAM consumed by non-database processes
-on the host so admins can see when MySQL plus the rest of the system would
-exceed physical memory. Alerts when used or peak memory crosses the
+physical RAM. Reports the currently-reached usage (server-wide buffers +
+per-thread buffers * `Max_used_connections` + Performance Schema memory +
+Galera GCache if present) and the theoretical worst-case peak (same formula
+but with `max_connections`). Also surfaces the RAM consumed by non-database
+processes on the host so admins can see when MySQL plus the rest of the system
+would exceed physical memory. Alerts when used or peak memory crosses the
 `--warning` / `--critical` thresholds, when peak + other-process memory
 exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a
 32-bit system.
@@ -78,11 +78,18 @@ options:
                         max_used_memory and max_peak_memory). Useful when a
                         WARNING/CRITICAL fires and you need to see which
                         buffer dominates the footprint.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
                         WARN threshold for the percentage of physical RAM
                         consumed by the reached MySQL memory footprint.
                         Supports Nagios ranges. Default: 85
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-memory/
 ```
 
 

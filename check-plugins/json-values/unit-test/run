@@ -49,7 +49,6 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['Disk is full.'],
     },
-
     # state coercion: string-encoded integer is accepted, everything
     # else (non-numeric string, dict, out-of-range integer, missing
     # key) collapses to UNKNOWN so get_worst() never sees garbage
@@ -88,7 +87,6 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['State is a dict instead of an integer.'],
     },
-
     # dot-notation for nested keys: --state-key / --message-key /
     # --perfdata-key all walk the same path through the JSON object
     {
@@ -106,7 +104,6 @@ TESTS = [
             "'nested-metric'=42;80;90;0;100",
         ],
     },
-
     # key-level thresholds: --warning-key/--warning and
     # --critical-key/--critical evaluate numeric JSON values against a
     # Nagios range. @N:M alerts when the value is inside the range.
@@ -155,7 +152,6 @@ TESTS = [
         ),
         'assert-retc': STATE_UNKNOWN,
     },
-
     # parameter-pair validation: range without a key (or vice versa)
     # is rejected up front with an UNKNOWN instead of silently never
     # alerting
@@ -172,15 +168,13 @@ TESTS = [
         'id': 'unknown-critical-key-without-critical',
         'test': 'stdout/threshold.json,,0',
         'params': (
-            '--filename=stdout/threshold.json '
-            '--critical-key=detailedInfo.count1'
+            '--filename=stdout/threshold.json --critical-key=detailedInfo.count1'
         ),
         'assert-retc': STATE_UNKNOWN,
         'assert-in': [
             '--critical and --critical-key must be used together.',
         ],
     },
-
     # --always-ok masks the crit state but the rendered output still
     # shows the original [CRITICAL] marker so the admin knows what
     # the JSON source reported
@@ -191,7 +185,6 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Disk is full.'],
     },
-
     # Reporter example from #1005: a schema-free JSON response with
     # no dedicated state/message/perfdata keys. The admin opts out of
     # JSON-driven state by passing an empty --state-key and drives the
@@ -282,7 +275,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../json-values'
 
 

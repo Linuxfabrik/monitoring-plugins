@@ -15,12 +15,11 @@ captured from every Redis cycle that endoflife.date currently lists
 (5.0 through 8.6) using the official `redis:<tag>` images on Docker
 Hub. The plugin runs its regex parser against each one.
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/redis.json data. The EOL
-table drifts over time (releases hit EOL, new majors appear), so the
-`assert-retc` and `assert-in` strings will need to be re-pinned every
-few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -30,68 +29,58 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'warn-redis-5-0-eol',
+        'id': 'parses-redis-5-0',
         'test': 'stdout/redis-server-v5.0,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Redis v5.0.14', 'EOL 2022-04-27', '[WARNING]'],
+        'assert-in': ['Redis v5.0.14'],
     },
     {
-        'id': 'warn-redis-6-0-eol',
+        'id': 'parses-redis-6-0',
         'test': 'stdout/redis-server-v6.0,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Redis v6.0.20', 'EOL 2022-05-31', '[WARNING]'],
+        'assert-in': ['Redis v6.0.20'],
     },
     {
-        'id': 'ok-redis-6-2-full-support-ended',
+        'id': 'parses-redis-6-2',
         'test': 'stdout/redis-server-v6.2,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Redis v6.2.21', 'full support ended on 2022-04-27'],
+        'assert-in': ['Redis v6.2.21'],
     },
     {
-        'id': 'warn-redis-7-0-eol',
+        'id': 'parses-redis-7-0',
         'test': 'stdout/redis-server-v7.0,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Redis v7.0.15', 'EOL 2024-07-29', '[WARNING]'],
+        'assert-in': ['Redis v7.0.15'],
     },
     {
-        'id': 'ok-redis-7-2-full-support-ended',
+        'id': 'parses-redis-7-2',
         'test': 'stdout/redis-server-v7.2,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Redis v7.2.13', 'full support ended on 2024-07-29'],
+        'assert-in': ['Redis v7.2.13'],
     },
     {
-        'id': 'ok-redis-7-4-full-support-ended',
+        'id': 'parses-redis-7-4',
         'test': 'stdout/redis-server-v7.4,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Redis v7.4.8', 'full support ended on 2025-05-02'],
+        'assert-in': ['Redis v7.4.8'],
     },
     {
-        'id': 'warn-redis-8-0-eol',
+        'id': 'parses-redis-8-0',
         'test': 'stdout/redis-server-v8.0,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Redis v8.0.6', 'EOL 2026-02-11', '[WARNING]'],
+        'assert-in': ['Redis v8.0.6'],
     },
     {
-        'id': 'warn-redis-8-2-eol',
+        'id': 'parses-redis-8-2',
         'test': 'stdout/redis-server-v8.2,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Redis v8.2.5', 'EOL 2026-05-25', '[WARNING]'],
+        'assert-in': ['Redis v8.2.5'],
     },
     {
-        'id': 'ok-redis-8-4-full-support-ended',
+        'id': 'parses-redis-8-4',
         'test': 'stdout/redis-server-v8.4,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Redis v8.4.2', 'full support ended on 2026-02-11'],
+        'assert-in': ['Redis v8.4.2'],
     },
     {
-        'id': 'ok-redis-8-6-supported',
+        'id': 'parses-redis-8-6',
         'test': 'stdout/redis-server-v8.6,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Redis v8.6.2', 'EOL unknown'],
+        'assert-in': ['Redis v8.6.2'],
     },
     {
         'id': 'unknown-garbage-output',
@@ -103,7 +92,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../redis-version'
 
 

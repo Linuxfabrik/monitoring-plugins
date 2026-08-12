@@ -13,10 +13,10 @@
 import argparse
 import stat
 import sys
-from pathlib import Path
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
@@ -43,7 +43,11 @@ DEFAULT_TIMEOUT = 3
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -73,6 +77,14 @@ def parse_args():
         'Beware of recursive globs. '
         'Mutually exclusive with --url.',
         dest='FILENAME',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -205,12 +217,10 @@ def main():
     early_break_at = get_early_break_threshold(args.WARN, args.CRIT)
 
     if args.FILENAME:
-        path = Path(args.FILENAME)
-        for item in Path(path.anchor).glob(str(path.relative_to(path.anchor))):
+        for item in lib.disk.glob(args.FILENAME):
             # Get stat info once to avoid multiple syscalls
-            try:
-                stat_info = item.stat()
-            except (OSError, PermissionError):
+            stat_info = lib.disk.stat(item)
+            if stat_info is None:
                 # Skip files we can't stat
                 continue
 
@@ -310,7 +320,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

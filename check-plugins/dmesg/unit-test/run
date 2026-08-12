@@ -8,16 +8,30 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import datetime
+import hashlib
+import json
+import os
+import sqlite3
 import sys
 
 sys.path.insert(0, '..')
 
 import unittest
 
+import lib.db_sqlite
+import lib.disk
 import lib.lftest
+import lib.time
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
+    {
+        'id': 'ok-no-messages',
+        'test': 'stdout/no-messages,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
     {
         'id': 'ok-benign-messages-v1',
         'test': 'stdout/benign-ignored-messages-v1,,0',
@@ -124,11 +138,245 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../dmesg'
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# The two kernel messages carried in stdout/errors-blk-update-request-two. The
+# ack state DB is keyed by the sha256 of the complete line, so the tests below
+# need them verbatim. Keep this list aligned with that fixture.
+BLK_LINES = [
+    '[Fri Jul 30 11:26:11 2021] blk_update_request: critical target error, dev sda, sector 567760 op 0x3:(DISCARD) flags 0x800 phys_seg 1 prio class 0',
+    '[Fri Jul 30 11:26:11 2021] blk_update_request: critical target error, dev sda, sector 2719104 op 0x3:(DISCARD) flags 0x800 phys_seg 1 prio class 0',
+]
+
+# The ack tests run with a single, deliberately non-matching `--ignore` so the
+# state DB filename stays short and independent of the bundled default list.
+IGNORE = 'does-not-match-anything'
+
+
+def _callback_params():
+    return (
+        f'--ignore={IGNORE} '
+        '--icinga-callback '
+        '--icinga-url=https://icinga.example.invalid:5665 '
+        '--icinga-username=fake '
+        '--icinga-password=fake '
+        '--icinga-service-name=x!y '
+        '--timeout=1'
+    )
+
+
+# The hash algorithms below mirror the plugin's instance hash and line
+# fingerprint exactly. Keep them in sync if the plugin ever changes either.
+def _instance_db_path(ignore):
+    blob = json.dumps({'ignore': sorted(ignore)}, sort_keys=True).encode('utf-8')
+    instance_hash = hashlib.sha256(blob).hexdigest()[:10]
+    filename = f'linuxfabrik-monitoring-plugins-dmesg-{instance_hash}.db'
+    # Resolve via the lib so the test seeds and removes the exact file the plugin
+    # reads/writes, including the secured per-user directory.
+    ok, db_path = lib.db_sqlite.get_db_path(filename=filename)
+    return db_path if ok else os.path.join(lib.disk.get_tmpdir(), filename)
+
+
+def _line_fingerprint(line):
+    """Mirror of the plugin's own fingerprint algorithm. Must be kept in sync
+    with `dmesg`.
+    """
+    return hashlib.sha256(line.strip().encode()).hexdigest()
+
+
+def _recent_ack_timestamp():
+    """An acknowledgement timestamp inside the plugin's ACK_RETENTION_DAYS
+    window, so the seeded ack is not purged before the suppression check. A
+    hardcoded date would silently age out of the window and flip the test red.
+    """
+    return (lib.time.now(as_type='datetime') - datetime.timedelta(days=1)).strftime(
+        '%Y-%m-%d %H:%M:%S'
+    )
+
+
+def _seed_ack_db(db_path, lines, acknowledged_at=None):
+    """Create an ack DB with the given kernel messages pre-acknowledged,
+    using the exact schema the plugin expects.
+    """
+    if acknowledged_at is None:
+        acknowledged_at = _recent_ack_timestamp()
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("""
+            CREATE TABLE acknowledged_lines (
+                line_hash TEXT NOT NULL PRIMARY KEY,
+                acknowledged_at TIMESTAMP NOT NULL
+            )
+        """)
+        for line in lines:
+            conn.execute(
+                'INSERT INTO acknowledged_lines VALUES (?, ?)',
+                (_line_fingerprint(line), acknowledged_at),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class TestIcingaCallback(unittest.TestCase):
+    """Covers the Icinga callback plumbing introduced for issue #639."""
+
+    check = '../dmesg'
+
+    def setUp(self):
+        db = _instance_db_path([IGNORE])
+        if os.path.exists(db):
+            os.remove(db)
+
+    def tearDown(self):
+        db = _instance_db_path([IGNORE])
+        if os.path.exists(db):
+            os.remove(db)
+
+    def test_missing_callback_params_fail_unknown(self):
+        testcase = {
+            'id': 'cb-missing-params',
+            'test': 'stdout/errors-blk-update-request-two,,0',
+            'params': '--icinga-callback',
+            'assert-retc': STATE_UNKNOWN,
+            'assert-in': ['`--icinga-callback` requires'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_ok_state_skips_icinga_api_call(self):
+        # With state OK there is nothing to acknowledge, so the plugin must not
+        # attempt to talk to the (deliberately unreachable) Icinga API and must
+        # succeed cleanly.
+        testcase = {
+            'id': 'cb-ok-state',
+            'test': 'stdout/errors-blk-update-request-two,,0',
+            'params': (
+                "--ignore='sector [0-9]+ op' "
+                '--icinga-callback '
+                '--icinga-url=https://icinga.example.invalid:5665 '
+                '--icinga-username=fake '
+                '--icinga-password=fake '
+                '--icinga-service-name=x!y '
+                '--timeout=1'
+            ),
+            'assert-retc': STATE_OK,
+            'assert-in': ['Everything is ok.'],
+            'assert-not-in': ['Icinga API'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+
+class TestAckPersistence(unittest.TestCase):
+    """Thorough coverage of the ack persistence path: pre-seeded fingerprints
+    must suppress the exact matching kernel messages on subsequent runs,
+    partial acks must leave non-acknowledged messages alerting, state must
+    survive repeated runs, and the underlying column type must stay TEXT so
+    that the fingerprint comparison does not drift across runs (cross-check
+    against the logfile #1035-fallout bug)."""
+
+    check = '../dmesg'
+
+    def setUp(self):
+        db = _instance_db_path([IGNORE])
+        if os.path.exists(db):
+            os.remove(db)
+
+    def tearDown(self):
+        db = _instance_db_path([IGNORE])
+        if os.path.exists(db):
+            os.remove(db)
+
+    def test_all_messages_suppressed_when_all_fingerprints_acked(self):
+        _seed_ack_db(_instance_db_path([IGNORE]), BLK_LINES)
+
+        testcase = {
+            'id': 'ack-both-blk-errors',
+            'test': 'stdout/errors-blk-update-request-two,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_OK,
+            'assert-in': ['Everything is ok. 2 acknowledged messages suppressed.'],
+            'assert-not-in': ['blk_update_request'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_partial_ack_leaves_only_non_acked_messages_alerting(self):
+        # Ack the first message. Only the second one should alert.
+        _seed_ack_db(_instance_db_path([IGNORE]), BLK_LINES[:1])
+
+        testcase = {
+            'id': 'ack-one-of-two-blk-errors',
+            'test': 'stdout/errors-blk-update-request-two,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_CRIT,
+            'assert-in': [
+                '1 error in Kernel Ring Buffer. 1 acknowledged message suppressed.',
+                'sector 2719104',
+            ],
+            'assert-not-in': ['sector 567760'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_ack_state_survives_repeated_runs(self):
+        # Ack both messages. The plugin must report OK on the first run and
+        # keep reporting OK on every subsequent run without the ack state
+        # drifting - the fingerprint stored as TEXT must still compare equal
+        # to the freshly computed TEXT fingerprint coming from dmesg.
+        _seed_ack_db(_instance_db_path([IGNORE]), BLK_LINES)
+
+        ok_testcase = {
+            'id': 'ack-both-persistent-run',
+            'test': 'stdout/errors-blk-update-request-two,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_OK,
+            'assert-in': ['Everything is ok.'],
+            'assert-not-in': ['blk_update_request'],
+        }
+        # Run the plugin three times back to back with the same input. If the
+        # fingerprint round-trip via SQLite were lossy (e.g. affinity-coerced),
+        # the second or third run would flip to CRIT. All three must stay OK.
+        for _ in range(3):
+            lib.lftest.run(self, self.check, ok_testcase)
+
+    def test_acked_messages_that_left_the_ring_buffer_do_not_report(self):
+        # The ring buffer wrapped and no longer holds the acknowledged
+        # messages. The ack records are still there, but nothing must be
+        # reported as suppressed.
+        _seed_ack_db(_instance_db_path([IGNORE]), BLK_LINES)
+
+        testcase = {
+            'id': 'ack-messages-gone-from-ring-buffer',
+            'test': 'stdout/no-messages,,0',
+            'params': _callback_params(),
+            'assert-retc': STATE_OK,
+            'assert-in': ['Everything is ok.'],
+            'assert-not-in': ['suppressed'],
+        }
+        lib.lftest.run(self, self.check, testcase)
+
+    def test_line_hash_column_preserves_text_affinity(self):
+        # Seed a fingerprint (hex string) and verify that SQLite stores and
+        # returns it as TEXT. This is the type-consistency probe that guards
+        # against the #1035-style bug in the logfile plugin, where an INTEGER
+        # column silently converted numeric-looking strings to int on insert
+        # and broke future comparisons.
+        _seed_ack_db(_instance_db_path([IGNORE]), BLK_LINES[:1])
+
+        conn = sqlite3.connect(_instance_db_path([IGNORE]))
+        try:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                'SELECT line_hash, typeof(line_hash) AS t FROM acknowledged_lines'
+            ).fetchone()
+        finally:
+            conn.close()
+
+        self.assertEqual(row['t'], 'text')
+        self.assertEqual(row['line_hash'], _line_fingerprint(BLK_LINES[0]))
+        self.assertIsInstance(row['line_hash'], str)
 
 
 if __name__ == '__main__':

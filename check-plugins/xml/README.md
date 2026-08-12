@@ -58,6 +58,9 @@ options:
   --xpath XPATH         XPath expression to query. Must point to a single
                         value (attribute or node content). Lists/arrays are
                         not supported.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/xml/
 ```
 
 

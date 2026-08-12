@@ -21,7 +21,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070101'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks InnoDB redo log buffer health in MySQL/MariaDB.
 
@@ -52,7 +52,11 @@ SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-innodb-log-waits.db'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -83,6 +87,14 @@ def parse_args():
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -159,10 +171,7 @@ def main():
 
     # InnoDB engine availability. Mirror mysqltuner's `infoprint` semantic - missing or
     # disabled engine is a config decision, not an unknown state.
-    if (
-        not engines.get('have_innodb', '')
-        or engines['have_innodb'] != 'YES'
-    ):
+    if not engines.get('have_innodb', '') or engines['have_innodb'] != 'YES':
         lib.base.oao(
             'InnoDB Storage Engine not available or disabled.',
             STATE_OK,
@@ -198,12 +207,9 @@ def main():
     )
     if log_waits > 0:
         state = lib.base.get_worst(state, STATE_WARN)
-        sections.append(
-            f'{log_waits_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-        )
+        sections.append(f'{log_waits_msg}{lib.base.state2str(STATE_WARN, prefix=" ")}.')
         recommendations.append(
-            f'Set `innodb_log_buffer_size` >'
-            f' {lib.human.bytes2human(log_buffer_size)}'
+            f'Set `innodb_log_buffer_size` > {lib.human.bytes2human(log_buffer_size)}'
         )
     else:
         sections.append(f'{log_waits_msg}.')
@@ -217,9 +223,7 @@ def main():
     #    briefly appears only during counter resets, so it is reported as info.
     if log_write_requests is not None:
         if log_write_requests == 0:
-            sections.append(
-                'InnoDB Write Log efficiency: no log write requests yet.'
-            )
+            sections.append('InnoDB Write Log efficiency: no log write requests yet.')
         elif log_writes > log_write_requests:
             sections.append(
                 f'InnoDB Write Log efficiency: metrics are not reliable'
@@ -289,19 +293,23 @@ def main():
         _min=0,
         _max=100,
     )
-    if log_write_requests is not None and log_write_requests > 0 and log_writes <= log_write_requests:
+    if (
+        log_write_requests is not None
+        and log_write_requests > 0
+        and log_writes <= log_write_requests
+    ):
         perfdata += lib.base.get_perfdata(
             'mysql_innodb_write_log_efficiency_pct',
-            round(
-                (log_write_requests - log_writes) / log_write_requests * 100, 1
-            ),
+            round((log_write_requests - log_writes) / log_write_requests * 100, 1),
             uom='%',
             _min=0,
             _max=100,
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

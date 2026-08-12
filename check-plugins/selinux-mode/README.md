@@ -40,6 +40,9 @@ options:
                         Expected SELinux mode, one of "enforcing",
                         "permissive" or "disabled" (case-insensitive).
                         Default: enforcing
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/selinux-mode/
 ```
 
 

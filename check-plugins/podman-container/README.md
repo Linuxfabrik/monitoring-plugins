@@ -42,7 +42,7 @@ usage: podman-container [-h] [-V] [--always-ok]
                         [--critical-uptime CRIT_UPTIME] [--full-name]
                         [--ignore IGNORE] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
-                        [--status STATUS] [--user USER]
+                        [--no-perfdata] [--status STATUS] [--user USER]
                         [--warning-restarts WARN_RESTARTS]
                         [--warning-uptime WARN_UPTIME]
 
@@ -92,8 +92,8 @@ options:
                         --full-name). Case-sensitive by default; use `(?i)`
                         for case-insensitive matching. Can be specified
                         multiple times. If both `--match` and `--ignore` are
-                        given, a container must match `--match` AND not match
-                        `--ignore` to be checked (include first, exclude
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
                         second). Example: `--match="^traefik$"` to pin a
                         service to one specific container. Example:
                         `--match="(?i)^web"` (case-insensitive) to check every
@@ -101,6 +101,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --status STATUS       Desired container status, for example `running`,
                         `exited` or `paused`. A container whose status differs
                         is reported as CRITICAL. If not specified, the status
@@ -129,6 +133,9 @@ options:
                         a crash-looping or flapping container). By default,
                         the uptime is reported but not alerted on. Default:
                         None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-container/
 ```
 
 

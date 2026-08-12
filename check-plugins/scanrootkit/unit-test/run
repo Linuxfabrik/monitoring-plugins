@@ -127,10 +127,10 @@ class TestCheck(unittest.TestCase):
             'dir',
             (
                 "name: 'Test Directory Rootkit'\n"
-                "files: []\n"
+                'files: []\n'
                 f"dirs:\n  - '{target_dir}'\n"
-                "ksyms: []\n"
-                "cl: 100\n"
+                'ksyms: []\n'
+                'cl: 100\n'
             ),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
@@ -166,10 +166,10 @@ class TestCheck(unittest.TestCase):
             'ksym',
             (
                 "name: 'Test Kernel Symbol Rootkit'\n"
-                "files: []\n"
-                "dirs: []\n"
+                'files: []\n'
+                'dirs: []\n'
                 f"ksyms:\n  - '{real_sym}'\n"
-                "cl: 100\n"
+                'cl: 100\n'
             ),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
@@ -186,10 +186,10 @@ class TestCheck(unittest.TestCase):
             'ksym-substr',
             (
                 "name: 'Test Substring Should Not Match'\n"
-                "files: []\n"
-                "dirs: []\n"
+                'files: []\n'
+                'dirs: []\n'
                 "ksyms:\n  - 'prin'\n"
-                "cl: 100\n"
+                'cl: 100\n'
             ),
         )
         stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
@@ -203,9 +203,9 @@ class TestCheck(unittest.TestCase):
             (
                 "name: 'Test Possible Rootkit'\n"
                 f"files:\n  - '{target}'\n"
-                "dirs: []\n"
-                "ksyms: []\n"
-                "cl: 50\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 50\n'
             ),
         )
         # Even with --severity=crit (the default), a cl<100 hit is only WARN.
@@ -222,10 +222,10 @@ class TestCheck(unittest.TestCase):
             (
                 "name: 'Test Dated Rootkit'\n"
                 f"files:\n  - '{target}'\n"
-                "dirs: []\n"
-                "ksyms: []\n"
+                'dirs: []\n'
+                'ksyms: []\n'
                 "discovered: '2099'\n"
-                "cl: 100\n"
+                'cl: 100\n'
             ),
         )
         stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
@@ -240,9 +240,9 @@ class TestCheck(unittest.TestCase):
             (
                 "name: 'Test Undated Rootkit'\n"
                 f"files:\n  - '{target}'\n"
-                "dirs: []\n"
-                "ksyms: []\n"
-                "cl: 100\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 100\n'
             ),
         )
         stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
@@ -256,7 +256,7 @@ class TestCheck(unittest.TestCase):
         # else and return a baseline OK on a clean system.
         path = os.path.join(ASSETS_DIR, 'scanrootkit-utest-broken.yml')
         with open(path, 'w', encoding='utf-8') as fh:
-            fh.write("name: [unterminated\n")
+            fh.write('name: [unterminated\n')
         self._tmp_signatures.append(path)
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Scanfile Errors:', stdout)
@@ -270,12 +270,7 @@ class TestCheck(unittest.TestCase):
         # KeyError scanfile error, but the rest of the scan must still run.
         self._add_signature(
             'missing-key',
-            (
-                "name: 'Test Missing Key'\n"
-                "dirs: []\n"
-                "ksyms: []\n"
-                "cl: 100\n"
-            ),
+            ("name: 'Test Missing Key'\ndirs: []\nksyms: []\ncl: 100\n"),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn('Scanfile Errors:', stdout)
@@ -303,9 +298,9 @@ class TestCheck(unittest.TestCase):
             (
                 "name: 'Test Mix Confirmed'\n"
                 f"files:\n  - '{confirmed_target}'\n"
-                "dirs: []\n"
-                "ksyms: []\n"
-                "cl: 100\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 100\n'
             ),
         )
         self._add_signature(
@@ -313,9 +308,9 @@ class TestCheck(unittest.TestCase):
             (
                 "name: 'Test Mix Possible'\n"
                 f"files:\n  - '{possible_target}'\n"
-                "dirs: []\n"
-                "ksyms: []\n"
-                "cl: 50\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 50\n'
             ),
         )
         stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))

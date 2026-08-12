@@ -24,11 +24,11 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026071201'
 
-DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values against optional
-warning and critical thresholds. Supports SNMP v1, v2c, and v3 with authentication and
-privacy protocols."""
+DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values
+against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with
+authentication and privacy protocols."""
 
 
 CSV_COL_OID = 0
@@ -48,16 +48,32 @@ DEFAULT_HIDE_TABLE = False
 
 MAX_OIDS_PER_REQUEST = 25
 
+# net-snmp only loads a config file whose basename is one of these from each
+# directory on its search path; a differently named file is silently ignored.
+SNMP_CONF_FILENAMES = ('snmp.conf', 'snmpget.conf')
+
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -118,10 +134,19 @@ def parse_args():
 
     parser.add_argument(
         '--mib-dir',
-        help='Colon-separated list of directories to search for MIBs, behaves like the `-M` option of `snmpget`. '
+        help='Colon-separated list of directories to search for MIBs, '
+        'behaves like the `-M` option of `snmpget`. '
         'Default: %(default)s',
         dest='MIB_DIR',
         default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -130,6 +155,20 @@ def parse_args():
         dest='SNMP_VERSION',
         choices=['1', '2c', '3'],
         default='2c',
+    )
+
+    parser.add_argument(
+        '--snmpconf-path',
+        help='Colon-separated list of directories added to the net-snmp config search path '
+        '(`SNMPCONFPATH`), so the credentials are read from a config file instead of being '
+        'exposed on the command line and in the process list. '
+        'Put a file named `snmp.conf` (or `snmpget.conf`) into one of the directories and set '
+        '`defCommunity` (v1/v2c) or `defAuthPassphrase`/`defPrivPassphrase` (v3) in it. '
+        'When set, `--community`, `--v3-auth-prot-password` and `--v3-priv-prot-password` are '
+        'ignored. '
+        'Keep the file readable only by the monitoring user. '
+        'Example: `--snmpconf-path /var/spool/icinga2/.snmp`.',
+        dest='SNMPCONF_PATH',
     )
 
     parser.add_argument(
@@ -163,7 +202,9 @@ def parse_args():
 
     parser.add_argument(
         '--v3-boots-time',
-        help='SNMPv3 destination engine boots/time.',
+        help='SNMPv3 destination engine boots and time, as the comma-separated pair '
+        '`boots,time` expected by `snmpget -Z`. '
+        'Example: `--v3-boots-time 1,42`.',
         dest='V3_BOOTS_TIME',
     )
 
@@ -189,7 +230,9 @@ def parse_args():
 
     parser.add_argument(
         '--v3-priv-prot',
-        help='SNMPv3 privacy protocol.',
+        help='SNMPv3 privacy protocol. '
+        '`AES-192` and `AES-256` require a net-snmp built with Blumenthal AES draft support; '
+        'a stock build rejects them.',
         dest='V3_PRIV_PROT',
         choices=['DES', 'AES', 'AES-192', 'AES-256'],
     )
@@ -217,6 +260,19 @@ def parse_args():
     return args
 
 
+def snmpconf_files(snmpconf_path):
+    """Yield the candidate config file paths net-snmp would read for a given SNMPCONFPATH.
+
+    `snmpconf_path` is a colon-separated list of directories; net-snmp reads a file named
+    `snmp.conf` or `snmpget.conf` from each. Used to fail up front when none of them exist,
+    because net-snmp silently ignores a missing config, which then looks like an authentication
+    failure rather than a misconfigured path.
+    """
+    for directory in snmpconf_path.split(os.pathsep):
+        for filename in SNMP_CONF_FILENAMES:
+            yield os.path.join(directory, filename)
+
+
 def build_snmpget_call(args):
     """Build parameters for snmpget:
     -r 0: set the number of retries to zero
@@ -225,16 +281,19 @@ def build_snmpget_call(args):
         S:  print MIB module-id plus last element
         t:  print timeticks unparsed as numeric integers
         U:  don't print units
+
+    With --snmpconf-path the secret-bearing options (`-c`, `-A`, `-X`) are omitted; snmpget
+    reads them from the net-snmp config file instead (see snmpconf_files()).
     """
     if args.SNMP_VERSION in ['1', '2c']:
         cmd = ['snmpget', '-v', args.SNMP_VERSION]
-        if args.COMMUNITY:
+        if args.COMMUNITY and not args.SNMPCONF_PATH:
             cmd += ['-c', args.COMMUNITY]
     else:
         cmd = ['snmpget', '-v', '3']
         if args.V3_AUTH_PROT:
             cmd += ['-a', args.V3_AUTH_PROT]
-        if args.V3_AUTH_PROT_PASSWORD:
+        if args.V3_AUTH_PROT_PASSWORD and not args.SNMPCONF_PATH:
             cmd += ['-A', args.V3_AUTH_PROT_PASSWORD]
         if args.V3_SECURITY_ENGINE_ID:
             cmd += ['-e', args.V3_SECURITY_ENGINE_ID]
@@ -248,7 +307,7 @@ def build_snmpget_call(args):
             cmd += ['-u', args.V3_USERNAME]
         if args.V3_PRIV_PROT:
             cmd += ['-x', args.V3_PRIV_PROT]
-        if args.V3_PRIV_PROT_PASSWORD:
+        if args.V3_PRIV_PROT_PASSWORD and not args.SNMPCONF_PATH:
             cmd += ['-X', args.V3_PRIV_PROT_PASSWORD]
         if args.V3_BOOTS_TIME:
             cmd += ['-Z', args.V3_BOOTS_TIME]
@@ -265,14 +324,430 @@ def build_snmpget_call(args):
     return cmd
 
 
-def index_of_oid(snmp_objects, oid, start=0):
-    """Find the index of "b" in [ ["a", "x"], ["b", "y"], ["c", "z"] ] (would be 1)"""
-    idx = start
-    for snmp_object in snmp_objects[start:]:
-        if snmp_object[0] == oid:
-            return idx
-        idx += 1
+def build_oid_chunks(snmp_objects):
+    """Turn the CSV rows into chunks of OIDs to query via snmpget.
+
+    Rows with an empty OID column are computed rows (their value is derived
+    later from other rows via the Re-Calc column, e.g. total traffic = sent +
+    received). They must not reach snmpget: a bare "" argument is rejected by
+    current net-snmp with "Unknown Object Identifier (Sub-id not found: (top))",
+    which aborts the whole run.
+
+    Max. 128 object identifiers are allowed in one snmp get request, so we
+    divide them into chunks. To avoid "Error in packet. Reason: (tooBig)
+    Response message would have been too large.", we only ask for
+    MAX_OIDS_PER_REQUEST OIDs per request.
+    """
+    oid_chunks = []
+    chunk = []
+    for snmp_object in snmp_objects[1:]:  # ignore the header row in csv
+        oid = snmp_object[CSV_COL_OID]
+        if not oid:
+            # computed row, derived later without an snmpget call
+            continue
+        chunk.append(oid)
+        if len(chunk) == MAX_OIDS_PER_REQUEST:
+            oid_chunks.append(chunk)
+            chunk = []
+    if chunk:
+        oid_chunks.append(chunk)
+    return oid_chunks
+
+
+def snmpget_call_failed(retc):
+    """Decide whether an snmpget invocation must abort the whole check.
+
+    Only a non-zero return code is fatal: snmpget returns non-zero on a real
+    failure (timeout / host down, SNMPv3 authentication failure, a PDU-level
+    SNMP error). A zero return code with a non-empty stderr is NOT fatal:
+    net-snmp logs benign warnings to stderr (for example
+    "Cannot find module (FOO)" or MIB parse warnings) while stdout still holds
+    valid data. Missing OIDs are reported in-band on stdout ("No Such Object /
+    Instance") with a zero return code and are handled per row, not here.
+    """
+    return retc != 0
+
+
+def match_oid(snmp_objects, row, start=0):
+    """Find the queried OID a snmpget output line belongs to, returning `(index, value)`.
+
+    snmpget prints one line per OID as `<oid> <value>` (quick-print, `-Oq`). Matching by the
+    known OID prefix (the OID followed by the delimiter space) instead of splitting on the first
+    space keeps two cases correct: an OCTET STRING value may itself contain spaces, and a
+    string-indexed OID key contains spaces too (for example `IF-MIB::ifName."eth 0"`). The
+    trailing space in the prefix also stops `...ifName.1` from matching a `...ifName.10` line.
+    The search runs forward from `start` so responses stay aligned with the CSV order, skipping
+    computed rows (those have an empty OID column). Returns `None` for a line that starts with
+    no queried OID.
+    """
+    for idx in range(start, len(snmp_objects)):
+        oid = snmp_objects[idx][CSV_COL_OID]
+        if oid and row.startswith(oid + ' '):
+            return idx, row[len(oid) + 1 :]
     return None
+
+
+def read_device_oids(args):
+    """Read the OID list for the device from its CSV file.
+
+    A bare filename is resolved relative to the bundled `device-oids` directory; an absolute
+    path is used as-is so the OID definitions can live outside the plugin directory. In test
+    mode a CSV of the same base name in the `unit-test` directory overrides it when present.
+    """
+    # os.path.join() cannot resolve an absolute --device in one step, because an absolute path
+    # embedded in an f-string ("device-oids//etc/...") is no longer recognized as absolute.
+    plugin_path = os.path.dirname(os.path.realpath(__file__))
+    if os.path.isabs(args.DEVICE):
+        device_csvfile = args.DEVICE
+    else:
+        device_csvfile = os.path.join(plugin_path, 'device-oids', args.DEVICE)
+    snmp_objects = lib.base.coe(
+        lib.disk.read_csv(device_csvfile, as_dict=False, skip_empty_rows=True)
+    )
+    if args.TEST:
+        # in test mode, override with the CSV from the unit-test directory (if any)
+        test_csvfile = os.path.join(
+            plugin_path, 'unit-test', os.path.basename(args.TEST[0]) + '.csv'
+        )
+        if lib.disk.file_exists(test_csvfile):
+            snmp_objects = lib.base.coe(
+                lib.disk.read_csv(test_csvfile, as_dict=False, skip_empty_rows=True)
+            )
+    return snmp_objects
+
+
+def fetch_snmp_data(args, snmp_objects):
+    """Query the device for every OID via snmpget and return the combined stdout.
+
+    In test mode the snmpget calls are replaced with fixture data.
+    """
+    oid_chunks = build_oid_chunks(snmp_objects)
+
+    # the hostname reaches snmpget as a positional argument; reject a value that snmpget could
+    # read as an option (leading "-")
+    lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
+
+    # keep the credentials out of the process list by letting snmpget read them from a net-snmp
+    # config file on the given search path (see snmpconf_files())
+    snmpget_env = None
+    if args.SNMPCONF_PATH:
+        if not any(lib.disk.file_exists(f) for f in snmpconf_files(args.SNMPCONF_PATH)):
+            lib.base.cu(
+                f'no `snmp.conf` or `snmpget.conf` found under '
+                f'--snmpconf-path `{args.SNMPCONF_PATH}`'
+            )
+        snmpget_env = {'SNMPCONFPATH': args.SNMPCONF_PATH}
+
+    if args.TEST is not None:
+        # do not call the command, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        args.DEVICE = args.TEST[0]
+        return stdout
+
+    stdout = ''
+    cmd = build_snmpget_call(args)
+    for oids in oid_chunks:
+        tmp, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec([*cmd, *oids], env=snmpget_env)
+        )
+        if snmpget_call_failed(retc):
+            # stderr carries the reason (timeout, auth failure, PDU error); fall back to stdout
+            # if snmpget stayed silent on stderr
+            lib.base.cu(stderr or tmp)
+        stdout += tmp
+    return stdout
+
+
+def add_snmp_values(snmp_objects, stdout):
+    """Append each fetched value to its CSV row.
+
+    snmpget prints one line per OID as "<oid> <value>"; match each line against the queried OIDs
+    (see match_oid) instead of splitting on the first space, so a value containing spaces and a
+    string-indexed OID key are handled correctly. Lines that match no queried OID (the trailing
+    lines of a multi-line OCTET STRING such as a Cisco sysDescr) are ignored, keeping only the
+    first line of the value so the output table stays readable.
+    """
+    oid_index = 0
+    for row in stdout.splitlines():
+        if not row:
+            continue
+        matched = match_oid(snmp_objects, row, oid_index + 1)
+        if matched is not None:
+            oid_index, value = matched
+            value = value.replace('Wrong Type (should be Timeticks): ', '').strip()
+            snmp_objects[oid_index].append(value)
+
+
+def format_table_value(unit, value):
+    """Render a value for the output table in the human-readable form its unit calls for."""
+    if unit == 's':
+        return lib.human.seconds2human(value)
+    if unit.lower() == 'b':
+        return lib.human.bytes2human(value)
+    if unit.lower() == 'bps':
+        return lib.human.bps2human(value)
+    return f'{value}{unit}'
+
+
+def perfdata_uom(perfdata_unit):
+    """Map a CSV unit label to a performance-data unit of measurement and the default graph
+    maximum.
+
+    Percent pins the axis to 100; byte and time units leave the maximum open; an unknown label
+    yields no uom so no misleading suffix is emitted. An explicit min/max from the CSV overrides
+    the default upstream.
+    """
+    if perfdata_unit == '%':
+        return '%', 100
+    if perfdata_unit.upper() in ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']:
+        return perfdata_unit.upper(), None
+    if perfdata_unit.lower() in ['c', 's', 'ms', 'us']:
+        return perfdata_unit.lower(), None
+    # unknown perfdata suffix, so do not use it
+    return None, None
+
+
+def object_name(snmp_object):
+    """Return the display name for a CSV row: its Name column, or the OID when Name is empty."""
+    return snmp_object[CSV_COL_NAME] or snmp_object[CSV_COL_OID]
+
+
+def read_csv_row(snmp_object, csv_col_value):
+    """Parse one device-CSV row into its fields, tolerating the v1/v2/v3 CSV layouts.
+
+    v1 ends at CSV_COL_RCA, v2 adds the perfdata columns (2024052901), v3 adds the skip-output
+    column (2025052101). Missing trailing columns fall back to their defaults.
+    """
+    row = {
+        'recalc': '',
+        'unit': '',
+        'warn': '',
+        'crit': '',
+        'show_in_first_line': False,
+        'report_change': False,
+        'skip_output': False,
+        'ignore_perfdata': False,
+        'perf_thresholds': False,
+    }
+    try:
+        row['recalc'] = snmp_object[CSV_COL_RECALC]
+        row['unit'] = snmp_object[CSV_COL_UNIT]
+        row['warn'] = snmp_object[CSV_COL_WARN]
+        row['crit'] = snmp_object[CSV_COL_CRIT]
+        row['show_in_first_line'] = lib.base.str2bool(snmp_object[CSV_COL_SIFL])
+        row['report_change'] = snmp_object[CSV_COL_RCA]
+    except Exception:
+        pass
+    if csv_col_value > CSV_COL_SKIPOUTPUT:  # v3
+        try:
+            row['skip_output'] = lib.base.str2bool(snmp_object[CSV_COL_SKIPOUTPUT])
+        except IndexError:
+            # invalid csv definition
+            pass
+    if csv_col_value > CSV_COL_RCA:  # v2
+        try:
+            row['ignore_perfdata'] = lib.base.str2bool(snmp_object[CSV_COL_IGNPERF])
+            row['perf_thresholds'] = snmp_object[CSV_COL_PERFTHRSHLD]
+        except IndexError:
+            # invalid csv definition
+            pass
+    return row
+
+
+def check_thresholds(value, values, row, snmp_object, args):
+    """Check one value against its warning/critical thresholds and the report-change rule,
+    returning `(state, header)`.
+
+    eval() is the documented snmp plugin feature: admins provide boolean threshold expressions
+    (e.g. 'value > 80') in the check config. The first match wins; report-change compares against
+    the value cached from the previous run.
+    """
+    name = object_name(snmp_object)
+    unit = row['unit']
+    if row['crit'] and eval(row['crit'], {}, {'value': value, 'values': values}):  # nosec B307
+        return STATE_CRIT, f'{name}: {value}{unit} {lib.base.state2str(STATE_CRIT)}, '
+    if row['warn'] and eval(row['warn'], {}, {'value': value, 'values': values}):  # nosec B307
+        return STATE_WARN, f'{name}: {value}{unit} {lib.base.state2str(STATE_WARN)}, '
+    if row['report_change']:
+        cache_key = f'{args.DEVICE}::{snmp_object[CSV_COL_OID]}'
+        cache_value = lib.cache.get(
+            cache_key, filename='linuxfabrik-monitoring-plugins-snmp.db'
+        )
+        if not cache_value:  # no previous value yet
+            lib.cache.set(
+                cache_key, value, filename='linuxfabrik-monitoring-plugins-snmp.db'
+            )
+        elif cache_value != value:  # differs from the previous run
+            change_state = (
+                STATE_CRIT
+                if row['report_change'].lower().startswith('crit')
+                else STATE_WARN
+            )
+            return change_state, (
+                f'{name}: {value}{unit} '
+                f'({lib.base.state2str(change_state)}, changed from "{cache_value}"), '
+            )
+    return STATE_OK, ''
+
+
+def parse_perf_thresholds(perf_thresholds, name, args):
+    """Parse the CSV "perfdata alert thresholds" field.
+
+    Admins provide it as a Python tuple expression: "warn,crit" or, to also pin the graph axis,
+    "warn,crit,min,max". Min and max are optional and fall back to the per-unit defaults. An
+    empty field is the normal case and means "no thresholds". A non-empty but malformed entry
+    (syntax error, or not a tuple of two to four elements) is surfaced as UNKNOWN instead of
+    being silently dropped, so a typo does not just result in missing threshold lines without
+    feedback. Returns a dict with the get_perfdata keyword values plus a `header` fragment and an
+    `escalate_unknown` flag.
+    """
+    perf = {
+        'w': None,
+        'c': None,
+        'perf_min': None,
+        'perf_max': None,
+        'has_min': False,
+        'has_max': False,
+        'header': '',
+        'escalate_unknown': False,
+    }
+    if not perf_thresholds:
+        return perf
+    try:
+        # eval() is the documented feature here
+        parsed = eval(perf_thresholds, {})  # nosec B307
+        if not isinstance(parsed, (tuple, list)) or not 2 <= len(parsed) <= 4:
+            raise ValueError(
+                'expected a tuple of two to four elements (warn, crit[, min[, max]])'
+            )
+        perf['w'], perf['c'] = parsed[0], parsed[1]
+        if len(parsed) >= 3:
+            perf['perf_min'], perf['has_min'] = parsed[2], True
+        if len(parsed) == 4:
+            perf['perf_max'], perf['has_max'] = parsed[3], True
+    except Exception as e:
+        perf['header'] = (
+            f'{name}: invalid perfdata alert thresholds in {args.DEVICE} '
+            f'({type(e).__name__}: {e}) {lib.base.state2str(STATE_UNKNOWN)}, '
+        )
+        perf['escalate_unknown'] = True
+    return perf
+
+
+def evaluate_snmp_object(snmp_object, args, values, csv_col_value):
+    """Evaluate one CSV row against the value fetched for it.
+
+    Applies the recalc formula, checks the warning/critical thresholds and the report-change
+    rule, and produces the table row and the performance data for it. Returns a dict with the
+    keys `state`, `header` (first-line fragment), `table` (a table row dict or None) and
+    `perfdata`. `values` is updated in place so later rows can reference this row's value in
+    their formulas.
+    """
+    result = {'state': STATE_OK, 'header': '', 'table': None, 'perfdata': ''}
+    try:
+        value = snmp_object[csv_col_value]
+    except Exception:
+        # we got no value from snmpget
+        value = None
+    name = object_name(snmp_object)
+
+    # snmpget error handling: "No Such Instance ..." / "No Such Object ..."
+    if value is not None and value.lower().startswith('no such '):
+        result['state'] = STATE_UNKNOWN
+        result['table'] = {
+            'name': snmp_object[CSV_COL_OID],
+            'value': value,
+            'state': lib.base.state2str(STATE_UNKNOWN),
+        }
+        return result
+
+    row = read_csv_row(snmp_object, csv_col_value)
+
+    if row['recalc']:
+        # we got a formula. eval() is the documented snmp plugin feature: admins provide
+        # arithmetic recalculation formulas (e.g. 'value * 8') in the check config;
+        # ast.literal_eval cannot evaluate arithmetic
+        try:
+            value = eval(row['recalc'], {}, {'value': value, 'values': values})  # nosec B307
+        except Exception as e:
+            result['state'] = STATE_UNKNOWN
+            result['table'] = {
+                'name': name,
+                'value': f'The recalc in {args.DEVICE} failed with '
+                f"{type(e).__name__}: '{e}'.",
+                'state': lib.base.state2str(STATE_UNKNOWN),
+            }
+            return result
+    values[name] = value
+
+    # check the state
+    value_state, header = check_thresholds(value, values, row, snmp_object, args)
+    result['state'] = value_state
+    result['header'] += header
+
+    # create message body (the table)
+    unit = row['unit']
+    if ',' in unit:
+        # example: "b,c" - convert the first part to human readable bytes, but suffix the
+        # perfdata as a continous counter
+        unit, perfdata_unit = unit.split(',')
+    else:
+        perfdata_unit = unit
+    formatted = format_table_value(unit, value)
+    if row['show_in_first_line']:
+        result['header'] += (
+            f'{name}: {formatted}{lib.base.state2str(value_state, prefix=" ")}, '
+        )
+    if not row['skip_output'] and (not args.HIDEOK or value_state):
+        result['table'] = {
+            'name': name,
+            'value': formatted,
+            'state': lib.base.state2str(value_state, empty_ok=False),
+        }
+
+    # create perfdata for numeric values
+    perf = parse_perf_thresholds(row['perf_thresholds'], name, args)
+    result['header'] += perf['header']
+    if perf['escalate_unknown']:
+        result['state'] = lib.base.get_worst(result['state'], STATE_UNKNOWN)
+    if not row['ignore_perfdata'] and isinstance(
+        lib.base.guess_type(value), (int, float)
+    ):
+        # an explicit min/max from the CSV overrides the per-unit default
+        uom, default_max = perfdata_uom(perfdata_unit)
+        result['perfdata'] += lib.base.get_perfdata(
+            name,
+            value,
+            uom=uom,
+            warn=perf['w'],
+            crit=perf['c'],
+            _min=perf['perf_min'] if perf['has_min'] else 0,
+            _max=perf['perf_max'] if perf['has_max'] else default_max,
+        )
+    return result
+
+
+def analyze_snmp_objects(args, snmp_objects):
+    """Evaluate every fetched OID and accumulate the overall state, the first-line message, the
+    performance data and the table rows.
+    """
+    state = STATE_OK
+    msg_header, perfdata = '', ''
+    values = {}  # every value in a single dict, so a recalc/threshold formula can reference it
+    table_values = []
+    # the appended value sits in this (non-header) column
+    csv_col_value = len(snmp_objects[0])
+    for snmp_object in snmp_objects[1:]:
+        if len(snmp_object) <= 1:
+            # definitely an invalid csv line, ignore
+            continue
+        result = evaluate_snmp_object(snmp_object, args, values, csv_col_value)
+        state = lib.base.get_worst(state, result['state'])
+        msg_header += result['header']
+        perfdata += result['perfdata']
+        if result['table'] is not None:
+            table_values.append(result['table'])
+    return state, msg_header, perfdata, table_values
 
 
 def main():
@@ -284,389 +759,20 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # read oid list for our device from the CSV file. A bare filename is
-    # resolved relative to the bundled `device-oids` directory; an absolute
-    # path is used as-is so the OID definitions can live outside the plugin
-    # directory. os.path.join() cannot do this in one step, because an
-    # absolute path embedded in an f-string ("device-oids//etc/...") is no
-    # longer recognized as absolute.
-    plugin_path = os.path.join(os.path.dirname(os.path.realpath(__file__)))
-    if os.path.isabs(args.DEVICE):
-        device_csvfile = args.DEVICE
-    else:
-        device_csvfile = os.path.join(plugin_path, 'device-oids', args.DEVICE)
-    snmp_objects = lib.base.coe(
-        lib.disk.read_csv(
-            device_csvfile,
-            as_dict=False,
-            skip_empty_rows=True,
-        )
-    )
-    if args.TEST:
-        # in test mode, override with CSV from unit-test directory (if any), which
-        # has to be in unit-test directory
-        test_csvfile = os.path.join(
-            plugin_path,
-            'unit-test',
-            os.path.basename(args.TEST[0]) + '.csv',
-        )
-        if lib.disk.file_exists(test_csvfile):
-            snmp_objects = lib.base.coe(
-                lib.disk.read_csv(
-                    test_csvfile,
-                    as_dict=False,
-                    skip_empty_rows=True,
-                )
-            )
-
-    # Max. 128 object identifiers are allowed in one snmp get request, so divide them into chunks.
-    # To avoid "Error in packet. Reason: (tooBig) Response message would have been too large.", we
-    # only ask for 25 OIDs per request.
-    oid_chunks = []
-    chunk = []
-    for snmp_object in snmp_objects[1:]:  # ignore the header row in csv
-        chunk.append(snmp_object[CSV_COL_OID])
-        if len(chunk) == MAX_OIDS_PER_REQUEST:
-            oid_chunks.append(chunk)
-            chunk = []
-    if chunk:
-        oid_chunks.append(chunk)
-
-    # the hostname reaches snmpget as a positional argument; reject a value that
-    # snmpget could read as an option (leading "-")
-    lib.base.coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))
+    # read oid list for our device from the CSV file
+    snmp_objects = read_device_oids(args)
 
     # fetch data
-    stdout = ''
-    if args.TEST is None:
-        cmd = build_snmpget_call(args)
-        for oids in oid_chunks:
-            tmp, stderr, retc = lib.base.coe(lib.shell.shell_exec([*cmd, *oids]))
-            if stderr or retc != 0:
-                lib.base.cu(stderr)
-            stdout += tmp
-    else:
-        # do not call the command, put in test data
-        stdout, stderr, retc = lib.lftest.test(args.TEST)
-        args.DEVICE = args.TEST[0]
+    stdout = fetch_snmp_data(args, snmp_objects)
 
-    # enrich snmp_objects with results from snmpget run
-    value = ''
-    oid_index = 0
-    for row in stdout.splitlines():
-        if not row:
-            continue
-        space_index = row.find(
-            ' '
-        )  # find first space char (the delimiter used by snmpget)
-        oid = row[0:space_index]
-        oid_index = index_of_oid(snmp_objects, oid, oid_index + 1)
-        if oid_index is None:
-            # nothing found, oid_index is None
-            oid_index = 0
-        else:
-            value = (
-                row[space_index + 1 :]
-                .replace('Wrong Type (should be Timeticks): ', '')
-                .strip()
-            )
-            snmp_objects[oid_index].append(value)
+    # enrich snmp_objects with the fetched values
+    add_snmp_values(snmp_objects, stdout)
 
-    # init some vars
-    msg, msg_header = '', ''
-    state = STATE_OK
-    perfdata = ''
-    values = {}  # all values in a single dict, for re-calc column
-    table_values = []
+    # analyze data
+    state, msg_header, perfdata, table_values = analyze_snmp_objects(args, snmp_objects)
 
-    # the last (non-existent) column should contain the result
-    CSV_COL_VALUE = len(snmp_objects[0])
-
-    # evaluate results
-    for snmp_object in snmp_objects[1:]:
-        if len(snmp_object) <= 1:
-            # definitely an invalid csv line, ignore
-            continue
-        try:
-            value = snmp_object[CSV_COL_VALUE]
-        except Exception:
-            # we got no value from snmpget
-            value = None
-
-        name = (
-            snmp_object[CSV_COL_NAME]
-            if snmp_object[CSV_COL_NAME]
-            else snmp_object[CSV_COL_OID]
-        )
-        oid = snmp_object[CSV_COL_OID]
-
-        # snmpget error handling
-        if value is not None and value.lower().startswith('no such '):
-            # No Such Instance currently exists at this OID
-            # No Such Object available on this agent at this OID
-            table_values.append(
-                {
-                    'name': oid,
-                    'value': value,
-                    'state': lib.base.state2str(STATE_UNKNOWN),
-                }
-            )
-            state = lib.base.get_worst(state, STATE_UNKNOWN)
-            continue
-
-        recalc, unit, warn, crit = '', '', '', ''
-        show_in_first_line, report_change = False, False
-        try:
-            recalc = snmp_object[CSV_COL_RECALC]
-            unit = snmp_object[CSV_COL_UNIT]
-            warn = snmp_object[CSV_COL_WARN]
-            crit = snmp_object[CSV_COL_CRIT]
-            show_in_first_line = lib.base.str2bool(snmp_object[CSV_COL_SIFL])
-            report_change = snmp_object[CSV_COL_RCA]
-        except Exception:
-            pass
-
-        # manage different CSV formats
-        # v1: last column is CSV_COL_RCA
-        # v2: last column is CSV_COL_PERFTHRSHLD, added 2024052901
-        # v3: last column is CSV_COL_SKIPOUTPUT, added 2025052101
-        skip_output = False
-        ignore_perfdata = False
-        perf_thresholds = False
-        if CSV_COL_VALUE > CSV_COL_SKIPOUTPUT:
-            # v3
-            try:
-                skip_output = lib.base.str2bool(snmp_object[CSV_COL_SKIPOUTPUT])
-            except IndexError:
-                # invalid csv definition
-                pass
-        if CSV_COL_VALUE > CSV_COL_RCA:
-            # v2
-            try:
-                ignore_perfdata = lib.base.str2bool(snmp_object[CSV_COL_IGNPERF])
-                perf_thresholds = snmp_object[CSV_COL_PERFTHRSHLD]
-            except IndexError:
-                # invalid csv definition
-                pass
-
-        if recalc:
-            # we got a formula
-            # eval() is the documented snmp plugin feature: admins provide
-            # arithmetic recalculation formulas (e.g. 'value * 8') in the check
-            # config; ast.literal_eval cannot evaluate arithmetic
-            try:
-                value = eval(recalc, {}, {'value': value, 'values': values})  # nosec B307
-            except Exception as e:
-                table_values.append(
-                    {
-                        'name': name,
-                        'value': f"The recalc in {args.DEVICE} failed with {type(e).__name__}: '{e}'.",
-                        'state': lib.base.state2str(STATE_UNKNOWN),
-                    }
-                )
-                state = lib.base.get_worst(state, STATE_UNKNOWN)
-                continue
-        values[name] = value
-
-        # check the state
-        # eval() is the documented snmp plugin feature: admins provide
-        # boolean threshold expressions (e.g. 'value > 80') in the check config
-        check_state = True
-        value_state = STATE_OK
-        if check_state and crit:
-            if eval(crit, {}, {'value': value, 'values': values}):  # nosec B307
-                value_state = STATE_CRIT
-                msg_header += (
-                    f'{name}: {value}{unit} {lib.base.state2str(STATE_CRIT)}, '
-                )
-                check_state = False  # no more checks for this value necessary
-        if check_state and warn:
-            if eval(warn, {}, {'value': value, 'values': values}):  # nosec B307
-                value_state = STATE_WARN
-                msg_header += (
-                    f'{name}: {value}{unit} {lib.base.state2str(STATE_WARN)}, '
-                )
-                check_state = False
-        if check_state and report_change:
-            cache_key = f'{args.DEVICE}::{oid}'
-            cache_value = lib.cache.get(
-                cache_key,
-                filename='linuxfabrik-monitoring-plugins-snmp.db',
-            )
-            if cache_value:  # there is a previous value
-                if cache_value != value:  # that is different from the current one
-                    if report_change.lower().startswith('crit'):
-                        value_state = STATE_CRIT
-                        msg_header += (
-                            f'{name}: {value}{unit} '
-                            f'({lib.base.state2str(STATE_CRIT)}'
-                            f', changed from "{cache_value}"), '
-                        )
-                    else:
-                        value_state = STATE_WARN
-                        msg_header += (
-                            f'{name}: {value}{unit} '
-                            f'({lib.base.state2str(STATE_WARN)}'
-                            f', changed from "{cache_value}"), '
-                        )
-            else:
-                lib.cache.set(
-                    cache_key, value, filename='linuxfabrik-monitoring-plugins-snmp.db'
-                )
-        state = lib.base.get_worst(state, value_state)
-
-        # create message body (the table)
-        if ',' in unit:
-            # example: "b,c" - convert the first part to human readable bytes,
-            # but suffix the perfdata as a continous counter
-            unit, perfdata_unit = unit.split(',')
-        else:
-            perfdata_unit = unit
-        if unit == 's':
-            if show_in_first_line:
-                msg_header += (
-                    f'{name}: '
-                    f'{lib.human.seconds2human(value)}'
-                    f'{lib.base.state2str(value_state, prefix=" ")}'
-                    f', '
-                )
-            if not skip_output:
-                if not args.HIDEOK or value_state:
-                    table_values.append(
-                        {
-                            'name': name,
-                            'value': f'{lib.human.seconds2human(value)}',
-                            'state': lib.base.state2str(value_state, empty_ok=False),
-                        }
-                    )
-        elif unit.lower() == 'b':
-            if show_in_first_line:
-                msg_header += (
-                    f'{name}: '
-                    f'{lib.human.bytes2human(value)}'
-                    f'{lib.base.state2str(value_state, prefix=" ")}'
-                    f', '
-                )
-            if not skip_output:
-                if not args.HIDEOK or value_state:
-                    table_values.append(
-                        {
-                            'name': name,
-                            'value': f'{lib.human.bytes2human(value)}',
-                            'state': lib.base.state2str(value_state, empty_ok=False),
-                        }
-                    )
-        elif unit.lower() == 'bps':
-            if show_in_first_line:
-                msg_header += (
-                    f'{name}: '
-                    f'{lib.human.bps2human(value)}'
-                    f'{lib.base.state2str(value_state, prefix=" ")}'
-                    f', '
-                )
-            if not skip_output:
-                if not args.HIDEOK or value_state:
-                    table_values.append(
-                        {
-                            'name': name,
-                            'value': f'{lib.human.bps2human(value)}',
-                            'state': lib.base.state2str(value_state, empty_ok=False),
-                        }
-                    )
-        else:
-            if show_in_first_line:
-                msg_header += (
-                    f'{name}: {value}{unit}'
-                    f'{lib.base.state2str(value_state, prefix=" ")}'
-                    f', '
-                )
-            if not skip_output:
-                if not args.HIDEOK or value_state:
-                    table_values.append(
-                        {
-                            'name': name,
-                            'value': f'{value}{unit}',
-                            'state': lib.base.state2str(value_state, empty_ok=False),
-                        }
-                    )
-
-        # create perfdata for numeric values
-        value_type = lib.base.guess_type(value)
-        # admins provide the perfdata alert thresholds as a Python tuple
-        # expression in the check config: "warn,crit" or, to also pin the
-        # graph axis, "warn,crit,min,max". Min and max are optional and fall
-        # back to the per-unit defaults below. An empty field is the normal
-        # case and means "no thresholds". A non-empty but malformed entry
-        # (syntax error, or not a tuple of two to four elements) is surfaced as
-        # UNKNOWN instead of being silently dropped, so a typo does not just
-        # result in missing threshold lines without feedback.
-        w, c = None, None
-        perf_min, perf_max = None, None
-        has_min, has_max = False, False
-        if perf_thresholds:
-            try:
-                # eval() is the documented feature here
-                parsed = eval(perf_thresholds, {})  # nosec B307
-                if not isinstance(parsed, (tuple, list)) or not 2 <= len(parsed) <= 4:
-                    raise ValueError(
-                        'expected a tuple of two to four elements '
-                        '(warn, crit[, min[, max]])'
-                    )
-                w, c = parsed[0], parsed[1]
-                if len(parsed) >= 3:
-                    perf_min, has_min = parsed[2], True
-                if len(parsed) == 4:
-                    perf_max, has_max = parsed[3], True
-            except Exception as e:
-                msg_header += (
-                    f'{name}: invalid perfdata alert thresholds in {args.DEVICE} '
-                    f'({type(e).__name__}: {e}) '
-                    f'{lib.base.state2str(STATE_UNKNOWN)}, '
-                )
-                state = lib.base.get_worst(state, STATE_UNKNOWN)
-                w, c, perf_min, perf_max = None, None, None, None
-                has_min, has_max = False, False
-        if not ignore_perfdata and isinstance(value_type, (int, float)):
-            # pick the uom and the default graph axis (min, max) per unit; an
-            # explicit min/max from the CSV overrides the default
-            if perfdata_unit == '%':
-                uom, default_max = '%', 100
-            elif perfdata_unit.upper() in [
-                'B',
-                'KB',
-                'MB',
-                'GB',
-                'TB',
-                'PB',
-                'EB',
-                'ZB',
-                'YB',
-            ]:
-                uom, default_max = perfdata_unit.upper(), None
-            elif perfdata_unit.lower() in [
-                'c',
-                's',
-                'ms',
-                'us',
-            ]:
-                uom, default_max = perfdata_unit.lower(), None
-            else:
-                # unknown perfdata suffixes, so do not use them
-                uom, default_max = None, None
-            perfdata += lib.base.get_perfdata(
-                name,
-                value,
-                uom=uom,
-                warn=w,
-                crit=c,
-                _min=perf_min if has_min else 0,
-                _max=perf_max if has_max else default_max,
-            )
-
-    # create output
-    if msg_header:
-        # build the message
-        msg += msg_header[:-2]
+    # build the message
+    msg = msg_header[:-2] if msg_header else ''
     if not args.HIDE_TABLE and len(table_values) > 0:
         msg += '\n\n' + lib.base.get_table(
             table_values,
@@ -675,7 +781,9 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

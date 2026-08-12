@@ -32,8 +32,9 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 ## Help
 
 ```text
-usage: rocketchat-stats [-h] [-V] [--insecure] [--no-proxy] -p PASSWORD
-                        [--timeout TIMEOUT] [--url URL] --username USERNAME
+usage: rocketchat-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                        [--no-proxy] -p PASSWORD [--timeout TIMEOUT]
+                        [--url URL] --username USERNAME
 
 Monitors Rocket.Chat server statistics via the API, including total users,
 active users, online users, channels, messages, uploads, and file storage
@@ -42,8 +43,13 @@ usage. Requires a user with "view-statistics" permission.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Rocket.Chat API password.
@@ -51,6 +57,9 @@ options:
   --url URL             Rocket.Chat API URL. Default:
                         http://localhost:3000/api/v1
   --username USERNAME   Rocket.Chat API username. Default: rocket-stats
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/
 ```
 
 

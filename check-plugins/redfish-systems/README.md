@@ -17,6 +17,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 
 * Queries `/redfish/v1/Systems` to enumerate system members
 * For each member, reads the identification, compute summary and rolled-up health status
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 * Only evaluates systems in "Enabled" or "Quiesced" state
 
@@ -31,22 +32,24 @@ Checks the overall system health reported by a Redfish-compatible server via the
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
 
 ```text
 usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                       [--insecure] [--inventory] [--no-proxy]
-                       [--password PASSWORD] [--retries RETRIES]
-                       [--timeout TIMEOUT] --url URL [--username USERNAME]
+                       [--insecure] [--inventory] [--no-insecure]
+                       [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                       [--retries RETRIES] [--timeout TIMEOUT] --url URL
+                       [--username USERNAME]
 
 Checks the overall system health reported by a Redfish-compatible server via
 the Redfish API. Reports every enabled system member with its identification
 (manufacturer, model, hostname, SKU, serial number), compute summary
 (processors, BIOS version, power state, indicator LED) and rolled-up health
-status, and alerts whenever any system's status leaves `OK`. Use `redfish-
-storage` for drive- and storage-controller-specific monitoring.
+status, and alerts whenever any system's status leaves `OK`. Use
+`redfish-storage` for drive- and storage-controller-specific monitoring.
 
 options:
   -h, --help            show this help message and exit
@@ -54,7 +57,7 @@ options:
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --inventory           Output the parsed components as JSON on stdout and
@@ -63,6 +66,15 @@ options:
                         object keyed by component type, so the output of
                         several Redfish checks can be merged into one
                         inventory document with `jq --slurp`. Default: False
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish
@@ -72,6 +84,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-systems/
 ```
 
 

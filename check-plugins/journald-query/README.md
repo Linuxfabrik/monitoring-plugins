@@ -56,7 +56,8 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--icinga-username ICINGA_USERNAME]
                       [--identifier IDENTIFIER]
                       [--ignore-pattern IGNORE_PATTERN]
-                      [--ignore-regex IGNORE_REGEX] [--insecure] [--no-proxy]
+                      [--ignore-regex IGNORE_REGEX] [--insecure]
+                      [--no-insecure] [--no-perfdata] [--no-proxy]
                       [--priority PRIORITY] [--severity {warn,crit}]
                       [--since SINCE] [--timeout TIMEOUT] [--unit UNIT]
                       [--user-unit USER_UNIT]
@@ -104,6 +105,15 @@ options:
                         times. Example: `--ignore-regex='(?i)linuxfabrik'`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --priority PRIORITY   Filter output by message priorities or priority ranges
                         (passed to journalctl). Default: emerg..err
@@ -120,6 +130,9 @@ options:
                         Show messages for the specified user session unit
                         (passed to journalctl). Can be specified multiple
                         times. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/journald-query/
 ```
 
 

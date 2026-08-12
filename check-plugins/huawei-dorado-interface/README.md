@@ -15,7 +15,7 @@ Checks the health and running status of all interface modules (I/O modules) on a
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/intf_module`
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
-* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+* If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
 
 
 ## Fact Sheet
@@ -28,7 +28,7 @@ Checks the health and running status of all interface modules (I/O modules) on a
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 
 ## Help
@@ -36,9 +36,14 @@ Checks the health and running status of all interface modules (I/O modules) on a
 ```text
 usage: huawei-dorado-interface [-h] [-V] [--always-ok]
                                [--cache-expire CACHE_EXPIRE]
-                               --device-id DEVICE_ID [--insecure] [--no-proxy]
-                               --password PASSWORD [--scope SCOPE]
+                               [--device-id DEVICE_ID] [--ignore IGNORE]
+                               [--insecure] [--no-insecure] [--match MATCH]
+                               [--no-match-severity {ok,warn,crit,unknown}]
+                               [--no-perfdata] [--no-proxy]
+                               [--password PASSWORD]
+                               [--password-file PASSWORD_FILE] [--scope SCOPE]
                                [--timeout TIMEOUT] -u URL --username USERNAME
+                               [-v]
 
 Checks the health and running status of all interface modules on a Huawei
 OceanStor Dorado storage system via the REST API (/intf_module endpoint).
@@ -52,22 +57,74 @@ options:
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API device ID.
+                        Huawei OceanStor Dorado API device ID. Optional: the
+                        appliance reports its own at login, so this is only
+                        needed to override that answer.
+  --ignore IGNORE       Skip interface modules. Any item matching this Python
+                        regex will be ignored. Can be specified multiple
+                        times. Example: `(?i)linuxfabrik` for a case-
+                        insensitive match. The regex is anchored at the start
+                        of the string (Python `re.match`) and is matched
+                        against `UUID`, `LOCATION`, so prefix with `.*` to
+                        match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --match MATCH         Limit to interface modules. Filter by this Python
+                        regular expression. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times. If both `--match` and `--ignore` are
+                        given, an item must match `--match` AND not match
+                        `--ignore` to be reported (include first, exclude
+                        second). Examples: `(?i)example` to match "example"
+                        regardless of case. `^(?!.*example).*$` to match any
+                        string except "example" (negative lookahead). The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against `UUID`, `LOCATION`,
+                        so prefix with `.*` to match anywhere.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-interface/
 ```
 
 
 ## Usage Examples
 
 ```bash
-./huawei-dorado-interface --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-interface --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -75,26 +132,24 @@ Output:
 ```text
 Everything is ok.
 
-UUID       ! Location     ! Model                                 ! RunMode  ! LED ! Health ! Running 
------------+--------------+---------------------------------------+----------+-----+--------+---------
-209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC       ! Off ! [OK]   ! [OK]    
-209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]    
-209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet ! Off ! [OK]   ! [OK]    
-209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     ! Off ! [OK]   ! [OK]    
-209:0.135  ! CTE0.IOM.H7  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     ! Off ! [OK]   ! [OK]    
-209:0.64   ! CTE0.SMM0    ! System Management Module              ! Unknown  ! Off ! [OK]   ! [OK]    
-209:0.65   ! CTE0.SMM1    ! System Management Module              ! Unknown  ! Off ! [OK]   ! [OK]    
-209:0A.130 ! CTE0.IOM.H2  ! AI Accelerator Card                   ! Unknown  ! Off ! [OK]   ! [OK]    
-
-Fetched API 2 times
+UUID       ! Location     ! Model                                 ! RunMode   ! LED ! Health     ! Running     ! State
+-----------+--------------+---------------------------------------+-----------+-----+------------+-------------+------
+209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC        ! Off ! Normal (1) ! Running (2) ! [OK]
+209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK]
+209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK]
+209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RDMA/RoCE ! Off ! Normal (1) ! Running (2) ! [OK]
 ```
 
 
 ## States
 
 * OK if all interface modules report normal health and running status.
-* WARN if any interface module's health status is not "Normal".
-* WARN if any interface module's running status is not "Normal", "Running", "Powering on" or "Online".
+* WARN if any interface module reports a degraded health status, or one this check does not know.
+* WARN if any interface module's running status is not "Normal", "Running", "Powering on" or "Online", unless it reports an outright failure.
+* CRIT if any interface module reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any interface module's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
+* UNKNOWN if the appliance lists no interface modules at all, which points at the query rather than at the hardware.
+* `--match` limits the check to the interface modules whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -103,8 +158,8 @@ Fetched API 2 times
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_HEALTHSTATUS | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_RUNNINGSTATUS | Number | 0: unknown, 1: normal, 2: running, 12: powering on, 13: powered off, 27: online, 28: offline, 103: power-on failed. |
+| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
+| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 12: powering on, 13: powered off, 27: online, 28: offline, 103: power-on failed. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
@@ -119,7 +174,7 @@ Check the `--url`, `--device-id`, `--username` and `--password` parameters. Veri
 
 ### `This operation fails to be performed because of the unauthorized REST.`
 
-This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
+This is a known transient issue with the Huawei REST API. The check makes up to three attempts and forces a fresh login before the second one. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

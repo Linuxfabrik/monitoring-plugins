@@ -91,7 +91,6 @@ TESTS = [
             'Proxy name',
         ],
     },
-
     # #835: without --ignore, an on-demand certbot backend in MAINT/DOWN
     # produces a WARN; --ignore='^certbot/' filters the whole proxy and
     # the check comes back OK while still reporting the rest of the
@@ -144,12 +143,17 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Invalid regular expression'],
     },
-
     # --username and --password were removed in favour of HTTP basic
     # auth embedded in the URL itself. The flags stay registered with
     # argparse.SUPPRESS so we can hard-UNKNOWN here with a clear
     # migration pointer instead of letting parse_known_args silently
     # swallow them and surface a 401 from the haproxy stats endpoint.
+    #
+    # The message has to survive the redaction that every message passes
+    # through on its way out: a complete `scheme://user:password@host` and
+    # an `Authorization: Basic ...` are precisely what it masks, and a
+    # migration pointer arriving as `https://user:******@host` with its
+    # last sentence cut off helps nobody.
     {
         'id': 'unknown-legacy-username',
         'test': 'stdout/all-backends-up,,0',
@@ -157,8 +161,10 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': [
             '--username and --password were removed.',
-            'https://user:linuxfabrik@host',
+            'in front of the host name',
+            'HTTP basic authorization header.',
         ],
+        'assert-not-in': ['******'],
     },
     {
         'id': 'unknown-legacy-password',
@@ -167,14 +173,15 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': [
             '--username and --password were removed.',
-            'https://user:linuxfabrik@host',
+            'in front of the host name',
+            'HTTP basic authorization header.',
         ],
+        'assert-not-in': ['******'],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../haproxy-status'
 
 

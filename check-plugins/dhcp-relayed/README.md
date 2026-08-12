@@ -71,6 +71,9 @@ options:
                         allocation (RFC 3011). Example: `192.168.122.0`.
                         Default: None
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-relayed/
 ```
 
 

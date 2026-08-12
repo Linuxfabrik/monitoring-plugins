@@ -2,11 +2,17 @@
     "Command": {
         "cmd-check-mysql-traffic": {
             "arguments": {
+                "--always-ok": {
+                    "set_if": "$mysql_traffic_always_ok$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_traffic_defaults_file$"
                 },
                 "--defaults-group": {
                     "value": "$mysql_traffic_defaults_group$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$mysql_traffic_no_perfdata$"
                 },
                 "--timeout": {
                     "value": "$mysql_traffic_timeout$"
@@ -27,6 +33,16 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -83,8 +99,10 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "mysql_traffic_always_ok": false,
                 "mysql_traffic_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_traffic_defaults_group": "client",
+                "mysql_traffic_no_perfdata": false,
                 "mysql_traffic_timeout": 3
             },
             "volatile": null,
@@ -94,6 +112,15 @@
     },
     "Datafield": {
         "1": {
+            "varname": "mysql_traffic_always_ok",
+            "caption": "MySQL Traffic: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "03e247f0-1616-49da-b9bf-35b764111f3a"
+        },
+        "2": {
             "varname": "mysql_traffic_defaults_file",
             "caption": "MySQL Traffic: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -104,7 +131,7 @@
             },
             "uuid": "319ab0f3-fdfd-4edd-9722-7fc9487d5ade"
         },
-        "2": {
+        "3": {
             "varname": "mysql_traffic_defaults_group",
             "caption": "MySQL Traffic: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -115,7 +142,16 @@
             },
             "uuid": "f1b00bf7-a92f-472d-9e63-3901fc3ce459"
         },
-        "3": {
+        "4": {
+            "varname": "mysql_traffic_no_perfdata",
+            "caption": "MySQL Traffic: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f12229c6-1743-4fe2-80c6-494c5a362796"
+        },
+        "5": {
             "varname": "mysql_traffic_timeout",
             "caption": "MySQL Traffic: Timeout",
             "description": "Network timeout in seconds.",

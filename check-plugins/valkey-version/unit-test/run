@@ -18,12 +18,11 @@ yet, so we fall back to the upstream image. The plugin runs its
 starts with "Server v=" while 8.x and 9.x start with
 "Valkey server v=" - both shapes are covered.
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/valkey.json data. The
-EOL table drifts over time (releases hit EOL, new majors appear),
-so the `assert-retc` and `assert-in` strings will need to be
-re-pinned every few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -33,32 +32,28 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'ok-valkey-7-2',
+        'id': 'parses-valkey-7-2',
         'test': 'stdout/valkey-server-v7.2,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Valkey v7.2.12', 'EOL 2029-04-16'],
+        'assert-in': ['Valkey v7.2.12'],
     },
     {
-        'id': 'ok-valkey-8-0',
+        'id': 'parses-valkey-8-0',
         'test': 'stdout/valkey-server-v8.0,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Valkey v8.0.7', 'EOL 2027-09-15'],
+        'assert-in': ['Valkey v8.0.7'],
     },
     {
-        'id': 'ok-valkey-8-1',
+        'id': 'parses-valkey-8-1',
         'test': 'stdout/valkey-server-v8.1,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Valkey v8.1.6', 'EOL 2030-03-31'],
+        'assert-in': ['Valkey v8.1.6'],
     },
     {
-        'id': 'ok-valkey-9-0',
+        'id': 'parses-valkey-9-0',
         'test': 'stdout/valkey-server-v9.0,,0',
-        'assert-retc': STATE_OK,
-        'assert-in': ['Valkey v9.0.3', 'EOL 2028-10-21'],
+        'assert-in': ['Valkey v9.0.3'],
     },
     {
         'id': 'unknown-garbage-output',
@@ -70,7 +65,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../valkey-version'
 
 

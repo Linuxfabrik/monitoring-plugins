@@ -33,8 +33,8 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 
 ```text
 usage: nodebb-cache [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                    [--no-proxy] [--severity {warn,crit}] [--timeout TIMEOUT]
-                    -p TOKEN [--url URL] [-w WARN]
+                    [--no-perfdata] [--no-proxy] [--severity {warn,crit}]
+                    [--timeout TIMEOUT] -p TOKEN [--url URL] [-w WARN]
 
 Monitors NodeBB cache usage via the admin API. Alerts when cache utilization
 exceeds the configured thresholds.
@@ -46,6 +46,10 @@ options:
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
@@ -54,6 +58,9 @@ options:
   -p, --token TOKEN     NodeBB API bearer token.
   --url URL             NodeBB API URL. Default: http://localhost:4567/forum
   -w, --warning WARN    WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-cache/
 ```
 
 

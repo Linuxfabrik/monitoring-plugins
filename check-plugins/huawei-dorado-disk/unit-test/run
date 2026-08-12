@@ -15,29 +15,138 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
         'id': 'ok-disks-healthy',
         'test': 'stdout/disks-healthy,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
             'UUID         ! Location ! Manufacturer ! Model            '
-            '! SerialNumber         ! Abrasion% ! Progress% ! Runtime ! Temp ! Health ! ',
-            '-------------+----------+--------------+------------------'
-            '+----------------------+-----------+-----------+---------+------+--------+-----',
+            '! SerialNumber         ! Usage  ! Wear% ! Progress% ! Runtime '
+            '! Temp ! Health     ! Running     ! State',
             '10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E '
-            '! 12345678             ! 67        ! 0         ! 4M 2W   ! 36   ! [OK]   ! [OK]',
+            '! 12345678             ! in use ! 67    ! 0         ! 4M 2W   '
+            '! 36   ! Normal (1) ! Online (27) ! [OK]',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-disks-healthy-core-columns',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'UUID         ! Location ! Usage  ! Wear% ! Temp ! Health     ! Running     ! State',
+            '10:134234112 ! DAE000.0 ! in use ! 67    ! 36   ! Normal (1) ! Online (27) ! [OK]',
+        ],
+        'assert-not-in': ['Manufacturer', 'SerialNumber', 'Progress%', 'Runtime'],
+    },
+    {
+        # A worn SSD alerts on its wear level once the operator sets the threshold,
+        # long before the appliance itself declares the disk faulty.
+        'id': 'crit-disk-wear',
+        'test': 'stdout/disks-worn,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=1: --critical=1: --warning-wear=80 --critical-wear=90',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '99 [CRITICAL]'],
+    },
+    {
+        # The wear threshold is off by default, so an update cannot start alerting on
+        # a fleet nobody has looked at yet.
+        'id': 'ok-wear-threshold-off-by-default',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        # A disk that belongs to no pool is not serving anything. It stays quiet
+        # unless the operator asks for it, because a spare chassis slot is normal.
+        'id': 'warn-unused-disk',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --unused-disk-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.', 'free [WARNING]'],
+    },
+    {
+        # An appliance always has disks. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-disks',
+        'test': 'stdout/no-disks,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no disks.'],
+    },
+    {
+        # A worn SSD has to alert on its remaining life, not only once the
+        # appliance itself declares the disk faulty.
+        'id': 'crit-disk-worn',
+        'test': 'stdout/disks-worn,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.'],
+    },
+    {
+        # A spinning disk reports a remaining life of 0 because it has none to
+        # report. Read as a measurement that would alert on every HDD forever.
+        'id': 'ok-hdd-without-remaining-life',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['10_0_remaining_life'],
+    },
+    {
+        # Temperature thresholds are off unless the operator sets them.
+        'id': 'warn-disk-temperature',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning-temperature=35 --critical-temperature=50',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.'],
+    },
+    {
+        # The filter selects a subset; the disks it drops must not be checked.
+        'id': 'ok-match-filters-disks',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='.*DAE'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['DAE000.0'],
+        'assert-not-in': ['CTE0.0'],
+    },
+    {
+        # The filter is applied to the object's own TYPE:ID as well, which is
+        # only built during the walk and was invisible to the filter at first.
+        'id': 'ok-match-filters-on-uuid',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='10:0$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['10:0 ! CTE0.0'],
+        'assert-not-in': ['DAE000.0'],
+    },
+    {
+        # A filter that matches nothing reports OK by default, and whatever
+        # --no-match-severity says otherwise.
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/disks-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No disks matched `nonexistent`.'],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-disk'
 
 

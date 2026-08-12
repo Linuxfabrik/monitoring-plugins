@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070101'
+__version__ = '2026081001'
 
 DESCRIPTION = """Checks the lifecycle and health of Docker containers: the container status
 (running, exited, paused, ...), the result of the container health check (healthy,
@@ -39,7 +39,11 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -113,10 +117,9 @@ def parse_args():
         'Matched against the full container name, even when the displayed name is '
         'shortened (see --full-name). '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
-        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
-        'a container must match `--match` AND not match `--ignore` to be checked '
-        '(include first, exclude second). '
-        'Example: `--match="^traefik$"` to pin a service to one specific container. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Example: `--match="^traefik$"` to pin a service to one specific container. '
         'Example: `--match="(?i)^web"` (case-insensitive) to check every web container. '
         'Default: %(default)s',
         dest='MATCH',
@@ -130,6 +133,14 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -435,7 +446,9 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

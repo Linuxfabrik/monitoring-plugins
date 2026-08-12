@@ -1,0 +1,257 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+TESTS = [
+    {
+        'id': 'ok-healthy',
+        'test': 'stdout/healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked 63 processes on 3 nodes, all running.',
+            'Node   ! Process           ! Status      ! State',
+            'node01 ! MDC               ! running (0) ! [OK]',
+        ],
+    },
+    {
+        # Two dozen processes per node make the full table unreadable on a sizeable
+        # cluster, so --brief keeps only what is broken.
+        'id': 'ok-brief-hides-running-processes',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_OK,
+        # The perfdata still carries every node, which is what --brief promises.
+        'assert-in': ["'node01_processes_total'=21;;;0"],
+        'assert-not-in': ['running (0)', 'node01 !'],
+    },
+    {
+        'id': 'crit-process-not-running',
+        'test': 'stdout/one-down,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 not running.'],
+        'assert-regex': r'node02 ! MDC\s+! not running \(1\)\s+! \[CRITICAL\]',
+    },
+    {
+        # Neither REST Interface Reference documents an enumeration for the field, so
+        # an unknown code is passed through instead of translated into an invented name.
+        'id': 'crit-undocumented-status-is-passed-through',
+        'test': 'stdout/undocumented-status,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['not running (7)'],
+    },
+    {
+        # A node that is in the cluster and not in the answer is unmonitored, which is
+        # not the same as knowing its processes are down.
+        'id': 'warn-node-missing-from-the-answer',
+        'test': 'stdout/silent-node,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Checked 42 processes on 2 nodes',
+            'report no processes at all, so nothing is known about them: node03.',
+        ],
+    },
+    {
+        # A node that answers with an empty process list is the same blind spot.
+        'id': 'warn-node-answers-without-processes',
+        'test': 'stdout/empty-node,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['nothing is known about them: node03.'],
+    },
+    {
+        'id': 'ok-silent-node-severity-lowered',
+        'test': 'stdout/silent-node,,0',
+        'params': f'{COMMON} --silent-node-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['nothing is known about them: node03.'],
+    },
+    {
+        'id': 'crit-silent-node-severity-raised',
+        'test': 'stdout/silent-node,,0',
+        'params': f'{COMMON} --silent-node-severity=crit',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        # Nodes of one cluster do not run the same processes: which ones a node runs
+        # follows the roles it holds. A node with fewer processes than its neighbours
+        # is normal and must not be reported as a fault.
+        'id': 'ok-nodes-with-different-roles-run-different-processes',
+        'test': 'stdout/mixed-roles,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 48 processes on 3 nodes, all running.',
+            "'node01_processes_total'=21;;;0",
+            "'node02_processes_total'=14;;;0",
+            "'node03_processes_total'=13;;;0",
+        ],
+    },
+    {
+        # The node that holds neither the metadata nor the coordination role runs
+        # neither of their processes, which is what its role list says it should do.
+        'id': 'ok-storage-only-node-runs-neither-mdc-nor-zk',
+        'test': 'stdout/mixed-roles,,0',
+        'params': f'{COMMON} --match=node03',
+        'assert-retc': STATE_OK,
+        'assert-in': ['node03 ! OSD'],
+        'assert-not-in': ['node03 ! MDC', 'node03 ! ZK'],
+    },
+    {
+        # A process that stops being reported has no status to be non-zero, so the
+        # per-node total is the only thing that shows it went away.
+        'id': 'ok-vanished-process-shows-in-the-node-total',
+        'test': 'stdout/missing-process,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'node01_processes_total'=21;;;0",
+            "'node02_processes_total'=20;;;0",
+        ],
+    },
+    {
+        'id': 'ok-not-running-count-per-node',
+        'test': 'stdout/one-down,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            "'node01_processes_not_running'=0;;;0",
+            "'node02_processes_not_running'=1;;;0",
+        ],
+    },
+    {
+        # The OSD entry of a storage node carries one process ID per disk it serves.
+        'id': 'ok-osd-reports-its-instances',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'node01 ! OSD\s+! 50\s+!',
+    },
+    {
+        # A process the appliance tracks without a PID is running all the same.
+        'id': 'ok-process-without-a-pid',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'node01 ! JBODMNG\s+! 0\s+! running \(0\)',
+    },
+    {
+        'id': 'ok-instances-column-only-with-lengthy',
+        'test': 'stdout/healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Instances'],
+    },
+    {
+        # A cluster node always runs service processes, so an empty answer is a query
+        # that never reached them.
+        'id': 'unknown-no-processes-at-all',
+        'test': 'stdout/no-data,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no service processes'],
+    },
+    {
+        'id': 'unknown-permission-denied',
+        'test': 'stdout/forbidden,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The user does not have the permission.'],
+    },
+    {
+        'id': 'ok-match-by-process-name',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --match=OSD',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 3 processes on 3 nodes'],
+        'assert-not-in': ['MDC'],
+    },
+    {
+        'id': 'ok-match-by-node-name',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --match=node01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 21 processes on 3 nodes'],
+        'assert-not-in': ['node02 !'],
+    },
+    {
+        'id': 'ok-ignore',
+        'test': 'stdout/one-down,,0',
+        'params': f'{COMMON} --ignore=MDC --brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['all running.'],
+    },
+    {
+        # --ignore wins over --match, the way it does in every sibling check.
+        'id': 'ok-ignore-beats-match',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --match=node01 --ignore=OSD',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 20 processes on 3 nodes'],
+    },
+    {
+        'id': 'ok-nothing-matched',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --match=nonexistent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No processes matched `nonexistent`.'],
+    },
+    {
+        'id': 'warn-nothing-matched-with-severity',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --match=nonexistent --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        # A filter that matches nothing must not swallow a node nobody can see into.
+        'id': 'warn-silent-node-survives-a-filter-that-matches-nothing',
+        'test': 'stdout/silent-node,,0',
+        'params': f'{COMMON} --match=nonexistent',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['nothing is known about them: node03.'],
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/one-down,,0',
+        'params': f'{COMMON} --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/healthy,,0',
+        'params': f'{COMMON} --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-service'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

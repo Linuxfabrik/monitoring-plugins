@@ -15,10 +15,14 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK
 
 TESTS = [
     {
+        # A HyperMetro domain numbers its RUNNINGSTATUS from 0 up rather than
+        # sharing the enumeration the other objects use, so 0 is its normal
+        # state. Read through the shared enumeration this fixture used to be
+        # pinned with code 1, which means 'Recovering' on a domain.
         'id': 'ok-domains-healthy',
         'test': 'stdout/domains-healthy,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
@@ -31,15 +35,32 @@ TESTS = [
             '+--------',
             '15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server '
             '! [OK]   ',
+            # Last row of the table: the trailing padding is stripped, because
+            # the performance data is appended right behind it.
             '15362:8038bc14bd750100 ! test               !           ! None          '
-            '! [OK]   ',
+            '! [OK]',
+        ],
+    },
+    {
+        # A faulty domain no longer mirrors, so it has to reach CRITICAL. Read
+        # through the shared enumeration code 2 would render as 'Running (2)'
+        # and pass unnoticed.
+        'id': 'crit-domains-one-faulty',
+        'test': 'stdout/domains-one-faulty,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            '15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server '
+            '! [OK]      ',
+            '15362:8038bc14bd750100 ! test               !           ! None          '
+            '! [CRITICAL]',
         ],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-hypermetrodomain'
 
 

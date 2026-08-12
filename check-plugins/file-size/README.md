@@ -7,6 +7,7 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 
 **Important Notes:**
 
+* By design this check inspects the metadata (existence, size) of whatever path it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can probe any path on the system. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
 * SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
 * Recursive globs (`**`) can cause high memory usage on large directory trees
 * The `--filename` and `--url` parameters are mutually exclusive
@@ -38,7 +39,7 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 
 ```text
 usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                 [--pattern PATTERN] [--password PASSWORD]
+                 [--no-perfdata] [--password PASSWORD] [--pattern PATTERN]
                  [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
                  [-u URL] [--username USERNAME] [-w WARN]
 
@@ -62,11 +63,15 @@ options:
                         https://docs.python.org/3/library/glob.html. Recursive
                         globs can cause high memory usage. Mutually exclusive
                         with `-u` / `--url`. Example: `--filename /tmp/*.log`.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  --password PASSWORD   Password for SMB authentication.
   --pattern PATTERN     Search string to match against SMB directory or file
                         names. Use `*` as a wildcard for multiple characters
                         and `?` for a single character. Does not support regex
                         patterns. Default: *
-  --password PASSWORD   Password for SMB authentication.
   --perfdata-mode {mean,median,None}
                         Aggregation mode for performance data across matched
                         files. Default: None
@@ -80,6 +85,9 @@ options:
                         k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
                         ranges. Example: `:1G` alerts if size is greater than
                         1 GiB. Default: 25M
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/
 ```
 
 

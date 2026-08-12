@@ -11,19 +11,18 @@
 """See the check's README for more details."""
 
 import argparse
-import glob
 import os
 import sys
 
 import lib.args
 import lib.base
 import lib.db_mysql
+import lib.disk
 import lib.txt
-import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026052601'
+__version__ = '2026071201'
 
 DESCRIPTION = """Audits MySQL/MariaDB configuration knobs that have a measurable impact
 on performance or correctness but no metric of their own. Highlights settings that
@@ -145,7 +144,11 @@ _TRANSIENT_BLOCK_PREFIXES = ('loop', 'ram', 'nbd', 'zram')
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -176,6 +179,14 @@ def parse_args():
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -225,20 +236,19 @@ def detect_storage_type(override):
     if override == 'skip':
         return 'unknown'
     # 'auto' from here on.
-    if not os.path.isdir('/sys/block'):
+    if not lib.disk.dir_exists('/sys/block'):
         return 'unknown'
     has_ssd = False
     has_hdd = False
-    for block in glob.glob('/sys/block/*'):
+    for block in lib.disk.glob('/sys/block/*'):
         name = os.path.basename(block)
         if name.startswith(_TRANSIENT_BLOCK_PREFIXES):
             continue
         rotational_path = os.path.join(block, 'queue', 'rotational')
-        try:
-            with open(rotational_path, 'r', encoding='ascii') as f:
-                rotational = f.read().strip()
-        except (OSError, ValueError):
+        success, rotational = lib.disk.read_file(rotational_path)
+        if not success:
             continue
+        rotational = rotational.strip()
         if rotational == '0':
             has_ssd = True
         elif rotational == '1':
@@ -281,7 +291,7 @@ def find_deprecated_variables_mariadb(conn):
     return rows if success else []
 
 
-def find_deprecated_variables_mysql(conn, myvar):
+def find_deprecated_variables_mysql(conn, myvar, running):
     """Return the list of removed/deprecated MySQL variables that the
     admin has explicitly set. MySQL does not expose a deprecation flag at
     runtime, so we walk a static list ported from MySQLTuner and
@@ -289,12 +299,11 @@ def find_deprecated_variables_mysql(conn, myvar):
     skip compile-time defaults. On MySQL releases without
     `variables_info` (pre-8.0) we fall back to plain presence in
     `SHOW VARIABLES`, which matches mysqltuner's original behaviour.
-    The `removed_in` version on each entry gates the finding so a still-
+    The `removed_in` version on each entry gates the finding against
+    `running` (the server's `(major, minor, patch)` tuple) so a still-
     valid pre-removal release (e.g. `innodb_file_format` on MySQL 5.7)
     does not produce a false positive.
     """
-    running = lib.version.version((myvar.get('version') or '').lower())
-
     sources = {}
     success, rows = lib.db_mysql.select(
         conn,
@@ -354,11 +363,11 @@ def main():
     lib.base.coe(lib.db_mysql.check_privileges(conn))
 
     myvar = lib.db_mysql.get_all_variables(conn)
-    is_mariadb = 'mariadb' in (myvar.get('version') or '').lower()
-    if is_mariadb:
+    flavor, server_version = lib.db_mysql.get_version(conn)
+    if flavor == 'mariadb':
         removed_vars = find_deprecated_variables_mariadb(conn)
     else:
-        removed_vars = find_deprecated_variables_mysql(conn, myvar)
+        removed_vars = find_deprecated_variables_mysql(conn, myvar, server_version)
     lib.db_mysql.close(conn)
 
     # Block-device class behind the data directory. Drives the two
@@ -590,7 +599,9 @@ def main():
     msg = '\n\n'.join(sections)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

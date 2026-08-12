@@ -15,35 +15,57 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
         'id': 'ok-enclosures-healthy',
         'test': 'stdout/enclosures-healthy,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=pass --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
             'UUID   ! Location ! Name   ! Model                                 '
             '! SerialNumber         ! Logic                                '
-            '! MacAddress        ! Switch ! Temp ! Health ! Running',
+            '! MacAddress        ! Switch ! Temp ! Health     ! Running     ! State',
             '-------+----------+--------+---------------------------------------'
             '+----------------------+--------------------------------------'
-            '+-------------------+--------+------+--------+--------',
+            '+-------------------+--------+------+------------+-------------+------',
             '206:0  ! 0.1      ! CTE0   ! Unknown                               '
             '! 210235843910E6000009 ! Controller Enclosure                 '
-            '! 30:d1:7e:b4:f7:61 ! Off    ! 30   ! [OK]   ! [OK]   ',
+            '! 30:d1:7e:b4:f7:61 ! Off    ! 30   ! Normal (1) ! Online (27) ! [OK] ',
             '206:0  ! --       ! CTE0   ! 4 U 4-controller controller enclosure '
             '! 0815                 ! Controller Enclosure                 '
-            '! f4:b7:8d:f4:fe:ff ! Off    ! 22   ! [OK]   ! [OK]',
+            '! f4:b7:8d:f4:fe:ff ! Off    ! 22   ! Normal (1) ! Online (27) ! [OK] ',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-enclosures-healthy-core-columns',
+        'test': 'stdout/enclosures-healthy,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'UUID   ! Location ! Name   ! Temp ! Health     ! Running     ! State',
+            '206:0  ! 0.1      ! CTE0   ! 30   ! Normal (1) ! Online (27) ! [OK] ',
+        ],
+        'assert-not-in': ['MacAddress', 'SerialNumber'],
+    },
+    {
+        # An appliance always has enclosures. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-enclosures',
+        'test': 'stdout/no-enclosures,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no enclosures.'],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-enclosure'
 
 

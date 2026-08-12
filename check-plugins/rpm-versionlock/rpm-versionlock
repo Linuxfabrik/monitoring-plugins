@@ -1,0 +1,934 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import configparser
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+try:
+    import tomllib
+except ImportError:
+    # only dnf 5 keeps its locks in a TOML file, and every distribution that ships
+    # dnf 5 also ships a Python that has this module
+    tomllib = None
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081203'
+
+DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
+fixed version. A version lock set to work around a broken update and then forgotten
+keeps a host on an unpatched version for good, while the update check stays green
+because the package manager no longer offers the update. Only locks the package manager
+actually applies are reported, so a lock list it has switched off stays quiet. Alerts as
+soon as one lock is in place; raise --warning to tolerate a number of deliberate locks,
+or filter the ones you keep on purpose with --ignore. Alerts as well on a lock
+configuration the package manager refuses, which stops the host from installing or
+upgrading anything, and on one it reads without applying any of it. Optionally also
+reports the packages excluded in the package manager configuration via
+--check-excludes. Supports extended reporting via --lengthy."""
+
+DEFAULT_CRIT = None
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_WARN = '0'
+
+# Where the version lock plugin is configured, unless the main configuration names
+# another `pluginconfpath`. Only the first is the package manager's own default; the
+# second is the pre-dnf layout, which survives as a symlink into the first one that the
+# packaging creates. It is searched anyway so a host that kept the old path as a real
+# directory is not read as having no plugin configuration at all - unique_paths() takes
+# care of the symlink, so the usual host is read once, not twice.
+PLUGIN_CONF_DIRS = (
+    'etc/dnf/plugins',
+    'etc/yum/pluginconf.d',
+)
+# File name the version lock plugin is configured under, below each of those directories.
+LOCKLIST_CONFIG = 'versionlock.conf'
+DNF5_LOCKFILE = 'etc/dnf/versionlock.toml'
+MAIN_CONFIGS = ('etc/dnf/dnf.conf', 'etc/yum.conf')
+# The package manager's own default for `reposdir`, used unless the main configuration
+# names another one. Kept in search order rather than sorted, and holding the union of
+# what dnf 4 and dnf 5 look at, so the same list serves both generations. The two differ
+# in one entry each - dnf 4 does not read the dnf 5 directory and dnf 5 does not read
+# `etc/yum/repos.d` - so on a host running only one of them, an exclusion left in the
+# other's directory is reported by --check-excludes although nothing applies it.
+REPO_DIRS = (
+    'etc/yum.repos.d',
+    'etc/yum/repos.d',
+    'etc/distro.repos.d',
+    'usr/share/dnf5/repos.d',
+)
+
+# Comparators and condition keys dnf 5 accepts in its lock file.
+DNF5_COMPARATORS = ('!=', '<', '<=', '=', '>', '>=')
+DNF5_KEYS = ('arch', 'epoch', 'evr')
+
+# The only lock file format dnf 5 acts on. It reads the file whatever the version says,
+# but applies the locks in it solely for this one: any other string, and a file that
+# carries no version at all, leaves every entry in it inert while the package manager
+# installs and upgrades as if the file were not there. A version that is not a string at
+# all is a third case and aborts it outright. Verified against dnf5 5.4.2.1 on Fedora 44;
+# recheck it when dnf 5 bumps the format, because a lock that is in force must not be
+# reported as inert either.
+DNF5_LOCKFILE_VERSION = '1.0'
+
+# A configuration file that grew beyond this is not a lock configuration anymore. Such a
+# file is skipped whole rather than read up to the cap: a prefix of a lock list is a lock
+# list with entries missing and a last line cut in half, and reporting that as the locks
+# that are in place would be worse than saying nothing about the file.
+MAX_CONFIG_BYTES = 1024 * 1024
+
+# Section name that stands in for the one Python would otherwise treat as a template for
+# every other section. The package manager knows no such magic, and a NUL byte cannot
+# occur in a section name, so nothing in a real file collides with it.
+UNUSED_DEFAULT_SECTION = '\x00'
+
+# Package name as RPM defines it: alphanumerics plus `.-_+`, starting alphanumeric or
+# with an underscore, and never carrying the sequence `..`. Every generation accepts a
+# shell glob wherever it expects a package name, so the wildcard characters belong to
+# the expression as well - a lock on `kernel*` is a lock and has to be reported as one.
+# Anything else is not a package name and must not reach the output.
+RPM_NAME_REGEX = re.compile(r'^(?!.*\.\.)[A-Za-z0-9_*?\[][A-Za-z0-9_.+*?\[\]!^-]*$')
+# An exclusion is written as a package spec rather than as a plain name, so it may carry
+# the epoch separator on top of what a name is allowed to contain.
+RPM_EXCLUDE_REGEX = re.compile(r'^(?!.*\.\.)[A-Za-z0-9_*?\[][A-Za-z0-9_.+:*?\[\]!^-]*$')
+
+# A lock spec written with the epoch in front of the package name. The package manager
+# writes the epoch behind the name and understands no other position for it: none of the
+# NEVRA forms it tries matches this spelling, so it prints "could not parse pattern" on
+# every transaction and the entry holds nothing at all. Reported rather than skipped,
+# because whoever wrote the line believes the package is held. Verified against dnf 4.14
+# on RHEL 9, where `0:bash-5.1.8-9.el9.*` is refused and `bash-0:5.1.8-9.el9.*` is not.
+UNPARSABLE_SPEC_REGEX = re.compile(r'^\d+:')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--check-excludes',
+        help='Additionally report the packages excluded in the package manager '
+        'configuration. '
+        'An exclusion keeps a package off the host just as effectively as a version '
+        'lock, but it is also used legitimately to keep two repositories apart, which '
+        'is why it is not reported by default.',
+        dest='CHECK_EXCLUDES',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every configuration path, so a fixture tree can
+    # stand in for the host's /etc without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the number of version locks. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the number of version locks. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def rooted(root, path):
+    """Return `path` below the configuration root, for both absolute and relative paths."""
+    return os.path.join(root, path.lstrip('/'))
+
+
+def unique_paths(paths):
+    """Drop the paths that lead to a file already in the list.
+
+    The yum layout survives as symlinks into the dnf one (`/etc/yum.conf` points at
+    `/etc/dnf/dnf.conf`, `/etc/yum/pluginconf.d` at `/etc/dnf/plugins`), so reading
+    both candidates would report every lock twice.
+    """
+    seen = set()
+    result = []
+    for path in paths:
+        real = os.path.realpath(path)
+        if real in seen:
+            continue
+        seen.add(real)
+        result.append(path)
+    return result
+
+
+def new_parser():
+    """Return a parser that reads the package manager's configuration verbatim.
+
+    The package manager takes every value literally and knows no magic section, so
+    interpolation is off (a `%` in a package spec is a character, not a placeholder,
+    and Python would otherwise raise on it) and the section Python would treat as a
+    template for all others is renamed out of the way.
+    """
+    return configparser.ConfigParser(
+        default_section=UNUSED_DEFAULT_SECTION,
+        interpolation=None,
+        strict=False,
+    )
+
+
+def read_config_file(filename):
+    """Read a configuration file, or return an empty string if it is not readable.
+
+    An unreadable configuration file is reported as "no entries" rather than as an
+    error: the check is about the locks that are in place, and a file the monitoring
+    user cannot read holds none it could report. A file above MAX_CONFIG_BYTES is
+    treated the same way, and its size is checked before it is opened rather than
+    capping the read, so no half-read line reaches the parser.
+    """
+    if not lib.disk.file_exists(filename, allow_empty=True):
+        return ''
+    info = lib.disk.stat(filename)
+    if info is None or info.st_size > MAX_CONFIG_BYTES:
+        return ''
+    success, content = lib.disk.read_file(filename)
+    if not success:
+        return ''
+    return content
+
+
+def plugins_enabled(root):
+    """Say whether the package manager loads its plugins at all.
+
+    On dnf 4 and yum, version locking is a plugin, so turning plugins off in the main
+    configuration takes it with it and the entries in a lock list are not applied. It
+    says nothing about dnf 5, which locks without a plugin - see get_dnf5_locks().
+    """
+    for config in unique_paths([rooted(root, config) for config in MAIN_CONFIGS]):
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            return parser.getboolean('main', 'plugins', fallback=True)
+        except (configparser.Error, ValueError):
+            continue
+    return True
+
+
+def get_main_dirs(root, main_configs, option, defaults):
+    """Return the directories a list option of the main configuration names, or the
+    package manager's own defaults where it names none.
+
+    `pluginconfpath` and `reposdir` are both spelled this way and both have to be
+    honoured: a host that moved either of them keeps its plugin configuration and its
+    repository files where the option says, and looking in the conventional place would
+    report an empty configuration instead of the one that is in force.
+
+    The main configuration is read from one file only, so the first readable candidate
+    decides, whether it names the option or not.
+    """
+    for config in main_configs:
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            value = parser.get('main', option, fallback='')
+        except configparser.Error:
+            continue
+        if value:
+            # a list option, so separated by commas or whitespace
+            return [rooted(root, item) for item in value.replace(',', ' ').split()]
+        break
+    return [rooted(root, item) for item in defaults]
+
+
+def missing_locklist(path):
+    """Say why the package manager cannot read this lock list, or return the empty
+    string where it can.
+
+    Only the two cases that are the host's problem are named. A lock list that is
+    simply not readable for us is none of them: the package manager runs as root and
+    reads it fine, so the check reports no locks from it and stays quiet, which is what
+    a monitoring user without the right to read a file has to do.
+
+    `os.stat` rather than `lib.disk.stat()`, which collapses every failure into None.
+    The difference between "not there" and "not readable from here" is the whole
+    decision, and the library helper cannot express it.
+    """
+    try:
+        os.stat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return f'its lock list "{path}" does not exist'
+    except OSError:
+        # cannot look; the package manager may well be able to
+        return ''
+    if os.path.isdir(path):
+        return f'its lock list "{path}" is a directory'
+    return ''
+
+
+def get_locklists(root, main_configs):
+    """Return the lock list file the package manager reads, and the configurations it
+    chokes on.
+
+    Every `versionlock.conf` below `pluginconfpath` is merged into a single configuration,
+    later files overriding earlier ones, so there is exactly one `enabled` and exactly one
+    `locklist` in force however many of those files a host carries - and therefore exactly
+    one lock list. Reading each file on its own would report the locks of a configuration
+    the package manager has overridden.
+
+    Only a list the plugin configuration names explicitly is read: there is no built-in
+    default for it. A configuration that names none, or names one that is not there, does
+    not simply apply no locks - it makes the package manager refuse every install and
+    every upgrade on the host ("Error: Locklist not set", "Error: Unable to read version
+    lock configuration"), and a configuration that does not parse fails it just as hard
+    ("Error: Parsing file failed"). None of the three leaves a lock in place to report,
+    but all of them leave the host unable to take a package, which is worth more than the
+    silence they used to get. Verified against dnf 4.14 on Rocky 9.
+
+    The parse error is the one case that is not merged away: the package manager raises it
+    while it is still reading the configuration, so a file below the offending one is never
+    read and nothing is in force at all.
+
+    A configuration that turns the plugin off is a different thing and stays quiet: the
+    package manager then never loads the plugin, so none of the above can happen.
+    """
+    parser = new_parser()
+    # The files that were merged, and the last one to have set `locklist`, so a report
+    # names the configuration that is actually in force rather than the first one found.
+    configs = []
+    locklist_origin = ''
+    plugin_conf_dirs = get_main_dirs(
+        root, main_configs, 'pluginconfpath', PLUGIN_CONF_DIRS
+    )
+    for config in unique_paths(
+        [os.path.join(directory, LOCKLIST_CONFIG) for directory in plugin_conf_dirs]
+    ):
+        content = read_config_file(config)
+        if not content:
+            continue
+        previous = parser.get('main', 'locklist', fallback='')
+        try:
+            parser.read_string(content)
+        except configparser.Error:
+            return [], [f'{config}: it does not parse']
+        configs.append(config)
+        if parser.get('main', 'locklist', fallback='') != previous:
+            locklist_origin = config
+    if not configs:
+        return [], []
+    try:
+        if not parser.getboolean('main', 'enabled', fallback=True):
+            return [], []
+    except ValueError:
+        # An `enabled` that is not a boolean is the harshest of the lot. The package
+        # manager reads it while loading its plugins, its own parser raises
+        # ("Not a boolean"), and nothing on the way out catches that kind of error - so
+        # it dies with a Python traceback on every command, not just on a transaction.
+        # Verified against dnf 4.14 on RHEL 9, where `dnf list` ends in
+        # "ValueError: Not a boolean: maybe".
+        return [], [f'{", ".join(configs)}: its "enabled" setting is not a boolean']
+    locklist = parser.get('main', 'locklist', fallback='')
+    if not locklist:
+        return [], [f'{", ".join(configs)}: it names no lock list']
+    path = rooted(root, locklist)
+    reason = missing_locklist(path)
+    if reason:
+        return [], [f'{locklist_origin}: {reason}']
+    return [path], []
+
+
+def parse_locklist(content, origin):
+    """Parse a dnf 4 / yum version lock list.
+
+    One entry per line, in the package manager's `name-epoch:version-release.arch`
+    notation, with a `!` prefix marking an exclude. Only a `#` in the first column
+    starts a comment; an indented one is part of a package spec:
+
+        # Added lock on Mon Aug 10 11:57:28 2026
+        bash-0:4.4.20-6.el8_10.*
+        !curl-0:7.61.1-34.el8_10.11.*
+
+    Returns `(entries, unreadable)`. `unreadable` holds the specs the package manager
+    itself cannot make sense of, which hold nothing while looking like a lock in the
+    file - see UNPARSABLE_SPEC_REGEX.
+    """
+    entries = []
+    unreadable = []
+    for line in content.splitlines():
+        if line.startswith('#') or not line.strip():
+            continue
+        spec = line.strip()
+        source = 'versionlock'
+        if spec.startswith('!'):
+            # only the first `!` marks the exclude, any further one belongs to the spec
+            source = 'exclude'
+            spec = spec[1:]
+        if UNPARSABLE_SPEC_REGEX.match(spec):
+            unreadable.append(f'{origin}: {spec}')
+            continue
+        package, lock = split_entry(spec)
+        if not package:
+            # Not a package name by RPM's own rules, so nothing this check will print.
+            # Deliberately not reported as unreadable: RPM_NAME_REGEX is stricter than
+            # what the package manager accepts at runtime, so a spec dropped here may
+            # well be a lock that is in force, and claiming otherwise would be a false
+            # statement about the package manager.
+            continue
+        entries.append(
+            {
+                'package': package,
+                'lock': lock,
+                'source': source,
+                'origin': origin,
+            }
+        )
+    return entries, unreadable
+
+
+def split_entry(spec):
+    """Split `bash-0:4.4.20-6.el8_10.*` into the package name and the version it is locked to.
+
+    The package name itself may contain dashes, so the split is anchored on the epoch,
+    which the package manager writes behind the name. That is the only position it reads
+    an epoch in; a spec carrying it in front never reaches here, see
+    UNPARSABLE_SPEC_REGEX.
+
+    Entries edited by hand may carry no epoch at all, in which case the last two
+    dash-separated fields are taken as version and release - but only where both of them
+    start with a digit, because that is what tells a version apart from a name that
+    merely has digits in the middle of it. Without the second half of that test
+    `java-1.8.0-openjdk` reads as the package `java` locked to `1.8.0-openjdk`, and
+    `kernel-devel-*` as `kernel` locked to `devel-*`, when both are package names.
+    """
+    match = re.match(r'^(?P<package>.+?)-(?P<lock>\d+:.+)$', spec)
+    if match:
+        package, lock = match.group('package'), match.group('lock')
+    else:
+        fields = spec.rsplit('-', 2)
+        if len(fields) == 3 and fields[1][:1].isdigit() and fields[2][:1].isdigit():
+            package, lock = fields[0], '-'.join(fields[1:])
+        else:
+            package, lock = spec, ''
+    if not RPM_NAME_REGEX.match(package):
+        return '', ''
+    return package, lock
+
+
+def parse_dnf5_conditions(conditions):
+    """Turn the conditions of one dnf 5 lock entry into a readable term, its comparators
+    and whether the package manager accepts the entry at all.
+
+    Every condition has to hold for the entry to match, so they are joined into one
+    term. A condition the package manager does not understand does not merely drop out:
+    it invalidates the whole entry, and the same goes for an entry that carries no
+    condition. `dnf5 versionlock list` says so itself, printing `invalid condition key
+    "bogus"` next to such a condition and `entry is invalid: missing package conditions`
+    next to a bare package name. Observed with dnf5 5.4.2.1 on Fedora 44.
+    """
+    terms = []
+    comparators = []
+    for condition in conditions:
+        if not isinstance(condition, dict):
+            return [], [], False
+        key = condition.get('key')
+        comparator = condition.get('comparator')
+        value = condition.get('value')
+        if key not in DNF5_KEYS or comparator not in DNF5_COMPARATORS:
+            return [], [], False
+        if not isinstance(value, str):
+            return [], [], False
+        comparators.append(comparator)
+        # the key is spelled out for anything but the version, where it would only
+        # repeat what the column already says
+        prefix = '' if key == 'evr' else f'{key} '
+        terms.append(f'{prefix}{comparator} {value}')
+    return terms, comparators, bool(terms)
+
+
+def get_dnf5_locks(root):
+    """Return the version locks dnf 5 keeps in its TOML configuration.
+
+    dnf 5 is the only generation whose lock configuration is not plain text, and the
+    only one that locks without a plugin: the file and the code that applies it belong
+    to the package manager's own library, so a host that switched plugins off still has
+    every one of these locks in force. The format carries its own version number and is
+    documented, so it is read directly instead of through the package manager, which
+    keeps the check free of a subprocess:
+
+        version = "1.0"
+
+        [[packages]]
+        name = "bash"
+        [[packages.conditions]]
+        key = "evr"
+        comparator = "="
+        value = "5.3.9-3.fc44"
+
+    An entry whose conditions are all `!=` is an exclude, which is how the package
+    manager records one.
+
+    Returns `(entries, refused, ignored)`. `refused` names a file the package manager
+    gives up on, `ignored` one it reads and then acts on none of - see
+    DNF5_LOCKFILE_VERSION for the difference and for what was measured.
+    """
+    if tomllib is None:
+        return [], [], []
+
+    lockfile = rooted(root, DNF5_LOCKFILE)
+    content = read_config_file(lockfile)
+    if not content:
+        return [], [], []
+    try:
+        data = tomllib.loads(content)
+    except (tomllib.TOMLDecodeError, ValueError):
+        # Not a warning about locks that fail to apply: the package manager aborts on
+        # this file with an unhandled parser error, so nothing can be installed at all.
+        return [], [f'{lockfile}: it does not parse as TOML'], []
+
+    version = data.get('version')
+    if version is not None and not isinstance(version, str):
+        # Aborts the package manager the same way, on the type rather than the syntax.
+        return [], [f'{lockfile}: its version is not a string'], []
+
+    entries = []
+    packages = data.get('packages')
+    if not isinstance(packages, list):
+        return [], [], []
+    for package in packages:
+        if not isinstance(package, dict):
+            continue
+        name = package.get('name')
+        if not isinstance(name, str) or not RPM_NAME_REGEX.match(name):
+            continue
+        conditions = package.get('conditions')
+        terms, comparators, valid = parse_dnf5_conditions(
+            conditions if isinstance(conditions, list) else []
+        )
+        if not valid:
+            # The package manager marks the entry invalid and holds nothing with it, so
+            # reporting it as a lock in place would be the wrong way round.
+            continue
+        entries.append(
+            {
+                'package': name,
+                'lock': ', '.join(terms),
+                'source': 'exclude'
+                if comparators and all(c == '!=' for c in comparators)
+                else 'versionlock',
+                'origin': lockfile,
+            }
+        )
+    if entries and version != DNF5_LOCKFILE_VERSION:
+        # The file is well-formed and the package manager reads it, but it acts on none
+        # of it. Reporting these as locks that are in place would be the wrong way round:
+        # an admin who set one is entitled to hear that it is not holding anything.
+        spelled = 'no version' if version is None else f'version "{version}"'
+        return (
+            [],
+            [],
+            [
+                f'{lockfile}: it carries {spelled}, so the '
+                f'{len(entries)} {lib.txt.pluralize("lock", len(entries))} in it are '
+                'not applied'
+            ],
+        )
+    return entries, [], []
+
+
+def get_disable_excludes(main_configs):
+    """Return the scopes the main configuration switches exclusion off for.
+
+    `disable_excludes` names the main configuration, a repository id, or everything, and
+    both generations honour it from the configuration file. Only the spelling for
+    "everything" differs - dnf 4 writes `all`, dnf 5 writes `*` - and only dnf 5 lacks a
+    command line switch for it. Both spellings are accepted here, because the same
+    configuration has to be read the same way whichever generation is installed.
+
+    Measured against dnf 4.14 on RHEL 9 and dnf5 5.4.2.1 on Fedora 44: with
+    `excludepkgs` set, `disable_excludes=*` and `disable_excludes=main` each bring the
+    excluded package back, and `disable_excludes=<repoid>` does the same for an
+    exclusion written in that repository's own section.
+    """
+    for config in main_configs:
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            value = parser.get('main', 'disable_excludes', fallback='')
+        except configparser.Error:
+            return set()
+        return set(value.replace(',', ' ').split())
+    return set()
+
+
+def section_is_enabled(parser, section):
+    """Say whether a repository section is switched on.
+
+    A repository that is off contributes no exclusion, because the package manager walks
+    the enabled repositories only (`dnf/base.py:_setup_excludes_includes`). A value that
+    is not a boolean is treated as enabled, which is the reading that keeps an exclusion
+    in the report rather than dropping it on a configuration nobody can predict.
+    """
+    try:
+        return parser.getboolean(section, 'enabled', fallback=True)
+    except ValueError:
+        return True
+
+
+def get_excludes(root, main_configs):
+    """Return the packages excluded in the package manager and repository configuration.
+
+    The main configuration is one file, not two: the package manager reads the first
+    candidate it finds and never looks at the other. Where `/etc/yum.conf` is the
+    symlink into the dnf one that it usually is, that makes no difference, but where it
+    survives as a file of its own, everything it excludes is excluded by nothing.
+
+    The plugin configuration below is deliberately not treated this way. There the
+    package manager really does read every directory `pluginconfpath` names and merges
+    what it finds, so all of them are searched.
+
+    Each entry carries whether it is in force. Two configurations take an exclusion out
+    of force without removing it from the file: a repository that is switched off, whose
+    packages the package manager never looks at, and `disable_excludes`. Both were
+    measured on both generations, see get_disable_excludes(). The entry stays in the
+    report either way, because an exclusion written down is worth seeing and because the
+    same files have to produce the same list on either generation; the summary names how
+    many of them are not acted on.
+    """
+    entries = []
+    disabled = get_disable_excludes(main_configs)
+    configs = [config for config in main_configs if read_config_file(config)][:1]
+    for repo_dir in get_main_dirs(root, main_configs, 'reposdir', REPO_DIRS):
+        configs += lib.disk.glob(os.path.join(repo_dir, '*.repo'))
+
+    for config in unique_paths(configs):
+        content = read_config_file(config)
+        if not content:
+            continue
+        parser = new_parser()
+        try:
+            parser.read_string(content)
+            for section in parser.sections():
+                # the package manager reads its main configuration from one file only,
+                # so a `main` section in a repository file configures nothing
+                if section == 'main' and config not in main_configs:
+                    continue
+                # `all` is dnf 4's spelling for "every scope", `*` is dnf 5's
+                applied = not (
+                    'all' in disabled
+                    or '*' in disabled
+                    or section in disabled
+                    or (section != 'main' and not section_is_enabled(parser, section))
+                )
+                # `excludepkgs` is the current spelling, `exclude` the historical one
+                for option in ('excludepkgs', 'exclude'):
+                    value = parser.get(section, option, fallback='')
+                    for package in value.replace(',', ' ').split():
+                        if not RPM_EXCLUDE_REGEX.match(package):
+                            continue
+                        entries.append(
+                            {
+                                'package': package,
+                                'lock': f'[{section}]',
+                                'source': 'exclude',
+                                'origin': config,
+                                'applies': applied,
+                            }
+                        )
+        except configparser.Error:
+            continue
+    return entries
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    root = args.CONFIG_ROOT
+    if not (
+        lib.disk.dir_exists(rooted(root, 'etc/dnf'))
+        or lib.disk.dir_exists(rooted(root, 'etc/yum.repos.d'))
+        or lib.disk.file_exists(rooted(root, 'etc/yum.conf'), allow_empty=True)
+    ):
+        lib.base.cu(
+            'No RPM package manager configuration found. '
+            'This check belongs on a host that installs its packages with dnf or yum.'
+        )
+
+    # Where the plugin configuration and the repository files live is itself configurable,
+    # and both options are read out of the main configuration, so it is resolved once.
+    main_configs = [rooted(root, config) for config in MAIN_CONFIGS]
+
+    entries = []
+    # Configurations the package manager gives up on, ones it reads without acting on
+    # them, and single entries it cannot read. None of the three leaves a lock in place,
+    # and all of them are worth saying out loud.
+    refused = []
+    ignored = []
+    unreadable = []
+    if plugins_enabled(root):
+        locklists, locklist_refused = get_locklists(root, main_configs)
+        refused += locklist_refused
+        for locklist in locklists:
+            locklist_entries, locklist_unreadable = parse_locklist(
+                read_config_file(locklist), locklist
+            )
+            entries += locklist_entries
+            unreadable += locklist_unreadable
+    # dnf 5 does not lock through a plugin: the lock file and the code that applies it
+    # belong to the package manager's own library, and the switch that turns plugins off
+    # only covers the ones loaded from the plugin directory. Its locks therefore stay in
+    # force no matter what that switch says, and reporting them is not conditional either.
+    dnf5_entries, dnf5_refused, dnf5_ignored = get_dnf5_locks(root)
+    entries += dnf5_entries
+    refused += dnf5_refused
+    ignored += dnf5_ignored
+    if args.CHECK_EXCLUDES:
+        # an exclusion is part of the package manager's own configuration, so it stays
+        # in force no matter what happens to the plugins
+        entries += get_excludes(root, main_configs)
+
+    # init some vars
+    perfdata = ''
+    table_data = []
+    # compile user-supplied regex patterns. lib.txt.compile_regex() returns a
+    # (success, result) tuple per pattern and names the parameter in its error
+    # message, so an invalid pattern exits UNKNOWN via lib.base.coe().
+    compiled_match = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    for entry in entries:
+        # Filter by package name. --match (include) is applied first, then --ignore
+        # (exclude), so a package hit by --ignore is dropped even if it also matches
+        # --match. Both use case-sensitive Python regex.
+        if compiled_match and not any(
+            item.search(entry['package']) for item in compiled_match
+        ):
+            continue
+        if any(item.search(entry['package']) for item in compiled_ignore):
+            continue
+        table_data.append(entry)
+
+    table_data.sort(key=lambda row: (row['package'], row['lock']))
+    state = lib.base.get_state(len(table_data), args.WARN, args.CRIT, _operator='range')
+
+    # build the message
+    if not entries:
+        # Nothing is locked, which is what a healthy host looks like. Both searches are
+        # named where both ran, so the admin sees that --check-excludes took effect
+        # rather than wondering whether it did.
+        msg = (
+            'No version locks and no exclusions in place.'
+            if args.CHECK_EXCLUDES
+            else 'No version locks in place.'
+        )
+        state = STATE_OK
+    elif not table_data:
+        # locks exist, but the filters dropped all of them
+        msg = 'Nothing checked.'
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
+    else:
+        # an exclusion keeps a package off the host rather than at a version, so the
+        # two kinds are named separately instead of being summed up as version locks
+        locks = sum(1 for row in table_data if row['source'] == 'versionlock')
+        excludes = len(table_data) - locks
+        counted = []
+        if locks:
+            counted.append(f'{locks} {lib.txt.pluralize("version lock", locks)}')
+        if excludes:
+            counted.append(f'{excludes} {lib.txt.pluralize("exclusion", excludes)}')
+        msg = f'{" and ".join(counted)} in place.'
+    # Exclusions the configuration writes down but the package manager does not act on,
+    # because the repository they sit in is switched off or `disable_excludes` covers
+    # them. They stay in the report rather than being dropped, because an exclusion
+    # written down is worth seeing. No state of its own: both configurations are
+    # deliberate, and the rows already count towards the thresholds.
+    inert = sum(1 for row in table_data if not row.get('applies', True))
+    if inert:
+        msg += (
+            f' {inert} of the exclusions are written down but not in force (a '
+            'switched-off repository, or "disable_excludes").'
+        )
+    if refused:
+        # The package manager stops at such a configuration and then fails every install
+        # and every upgrade, so the host cannot take a package until it is fixed. That
+        # outranks the question of how many locks are in place.
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f' The package manager refuses {len(refused)} lock '
+            f'{lib.txt.pluralize("configuration", len(refused))}, '
+            'so installing and upgrading fails on this host.'
+        )
+    if ignored:
+        # Read and then acted on by nothing. Whoever set those locks believes the host is
+        # held at a version, and it is not.
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f' {len(ignored)} lock '
+            f'{lib.txt.pluralize("configuration", len(ignored))} '
+            f'{"is" if len(ignored) == 1 else "are"} not applied at all.'
+        )
+    if unreadable:
+        # Single lines the package manager cannot make sense of. Same reasoning as
+        # above, one level down: the line looks like a lock in the file, the package
+        # manager logs an error about it on every transaction, and nothing is held.
+        state = lib.base.get_worst(state, STATE_WARN)
+        holds = 'it holds' if len(unreadable) == 1 else 'they hold'
+        msg += (
+            f' {len(unreadable)} lock '
+            f'{lib.txt.pluralize("entr", len(unreadable), "y,ies")} the package '
+            f'manager cannot parse, so {holds} nothing.'
+        )
+    msg += lib.base.state2str(state, prefix=' ')
+    perfdata += lib.base.get_perfdata(
+        'locks',
+        len(table_data),
+        uom=None,
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = ['package', 'lock', 'source', 'origin']
+            headers = ['Package', 'Locked to', 'Type', 'Configured in']
+        else:
+            keys = ['package', 'lock', 'source']
+            headers = ['Package', 'Locked to', 'Type']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    if refused:
+        msg += '\n\nThe package manager stops at these configurations:\n'
+        msg += '\n'.join(refused)
+    if ignored:
+        msg += '\n\nThese configurations are read but applied to nothing:\n'
+        msg += '\n'.join(ignored)
+    if unreadable:
+        msg += '\n\nThe package manager cannot parse these entries:\n'
+        msg += '\n'.join(unreadable)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

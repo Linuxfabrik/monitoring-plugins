@@ -1,0 +1,277 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for huawei-pacific-replicationpair.
+
+The fixtures carry fixed synchronization timestamps, and the check ages them against
+the real clock, so the age they produce grows with every day that passes. No testcase
+may therefore assert a concrete age or a concrete "x ago" text. The threshold cases
+work either way: a threshold of one second is exceeded by a stamp in the past and stays
+exceeded, and a threshold of a century is not reached in any foreseeable run.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+# Large enough that no run reaches it, so the age never drives the state.
+NEVER_REACHED = 3153600000
+
+TESTS = [
+    {
+        'id': 'ok-pairs-healthy',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked 3 replication pairs, all mirroring.',
+            'normal (1)',
+        ],
+    },
+    {
+        # A pair transferring is doing its job, not failing at it.
+        'id': 'ok-synchronizing-pair-is-not-a-fault',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['synchronizing (23)'],
+    },
+    {
+        # The firmware names the outcome `error`, both references document `result`.
+        # The check has to read either.
+        'id': 'ok-documented-result-envelope',
+        'test': 'stdout/pairs-documented-envelope,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 replication pair, all mirroring.'],
+    },
+    {
+        'id': 'crit-interrupted-pair',
+        'test': 'stdout/pairs-broken,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'interrupted \(34\).*\[CRITICAL\]',
+    },
+    {
+        'id': 'crit-faulty-pair',
+        'test': 'stdout/pairs-broken,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'faulty \(2\).*\[CRITICAL\]',
+    },
+    {
+        # An administrator detached the first and the second waits to be resumed.
+        # Neither is mirroring, and neither is a surprise worth waking somebody for.
+        'id': 'warn-split-and-to-be-recovered',
+        'test': 'stdout/pairs-broken,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['split (26)', 'to be recovered (33)'],
+    },
+    {
+        'id': 'crit-counts-every-pair-that-is-not-mirroring',
+        'test': 'stdout/pairs-broken,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 4 replication pairs, 4 not mirroring.'],
+    },
+    {
+        # Neither reference documents this code, so it is passed through rather than
+        # translated into an invented name, and it is not "normal".
+        'id': 'warn-undocumented-status-is-passed-through',
+        'test': 'stdout/pairs-undocumented-status,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Unknown'],
+    },
+    {
+        # Without thresholds the age is reported and never alerts.
+        'id': 'ok-age-does-not-alert-without-thresholds',
+        'test': 'stdout/pairs-stale,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-age-above-the-threshold',
+        'test': 'stdout/pairs-stale,,0',
+        'params': f'{COMMON} --critical=1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 not mirroring.'],
+    },
+    {
+        'id': 'warn-age-above-the-warning-threshold-only',
+        'test': 'stdout/pairs-stale,,0',
+        'params': f'{COMMON} --warning=1 --critical={NEVER_REACHED}',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-age-below-the-threshold',
+        'test': 'stdout/pairs-stale,,0',
+        'params': f'{COMMON} --warning={NEVER_REACHED} --critical={NEVER_REACHED}',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # A pair that never synchronized has no age, so a threshold cannot make it
+        # critical and the cell says so instead of showing a date in 1970.
+        'id': 'ok-pair-that-never-synchronized',
+        'test': 'stdout/pairs-stale,,0',
+        'params': f'{COMMON} --critical={NEVER_REACHED}',
+        'assert-retc': STATE_OK,
+        'assert-in': ['never'],
+        'assert-not-in': ['1970-'],
+    },
+    {
+        'id': 'ok-no-age-perfdata-without-a-timestamp',
+        'test': 'stdout/pairs-stale,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'ns_r_f01_001_01_archive01_last_sync_age'"],
+    },
+    {
+        'id': 'ok-age-perfdata-with-a-timestamp',
+        'test': 'stdout/pairs-stale,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ["'ns_r_f01_001_01_archive02_last_sync_age'="],
+    },
+    {
+        # A pair whose transfer has not finished reports a hyphen as its end time. That
+        # is not the same as never having synchronized, and saying "never" would read as
+        # a replication that never ran.
+        'id': 'ok-transfer-in-progress-is-not-never',
+        'test': 'stdout/pairs-in-progress,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['in progress since 2026-08-11'],
+    },
+    {
+        # A synchronization that never completes leaves the far end just as stale as one
+        # that never starts, so the threshold has to reach it. Keying on the end time
+        # alone would leave such a pair below every threshold forever.
+        'id': 'crit-transfer-that-never-completes-reaches-the-threshold',
+        'test': 'stdout/pairs-in-progress,,0',
+        'params': f'{COMMON} --critical=1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 not mirroring.'],
+    },
+    {
+        # The pair that really never synchronized has no point in time to measure from,
+        # so no threshold may turn it critical.
+        'id': 'ok-pair-without-any-timestamp-is-never',
+        'test': 'stdout/pairs-in-progress,,0',
+        'params': f'{COMMON} --critical=1',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'archive10.*never\s+!\s+normal \(1\)\s+!\s+normal \(1\)\s+!\s+\[OK\]',
+    },
+    {
+        # On the disaster recovery side every pair is secondary, which is what it is
+        # supposed to be and not a fault.
+        'id': 'ok-secondary-side',
+        'test': 'stdout/pairs-secondary,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['secondary'],
+    },
+    {
+        'id': 'ok-lengthy-shows-the-schedule',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['HOURLY:00', 'Schedule'],
+    },
+    {
+        'id': 'ok-schedule-only-with-lengthy',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Schedule'],
+    },
+    {
+        # A cluster that replicates nothing is healthy, unlike the hardware endpoints
+        # where an empty answer means the query never arrived.
+        'id': 'ok-no-pairs-configured',
+        'test': 'stdout/pairs-none,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No replication pairs configured.'],
+    },
+    {
+        'id': 'unknown-permission-denied',
+        'test': 'stdout/pairs-forbidden,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The user does not have the permission.'],
+    },
+    {
+        'id': 'ok-brief-hides-mirroring-pairs',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['normal (1)'],
+    },
+    {
+        'id': 'ok-match',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': f'{COMMON} --match=.*archive02',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 replication pair'],
+    },
+    {
+        'id': 'ok-ignore',
+        'test': 'stdout/pairs-broken,,0',
+        'params': f'{COMMON} --ignore=.*archive0[134]',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Checked 1 replication pair'],
+    },
+    {
+        'id': 'ok-nothing-matched',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': f'{COMMON} --match=nonexistent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No replication pairs matched `nonexistent`.'],
+    },
+    {
+        'id': 'warn-nothing-matched-with-severity',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': f'{COMMON} --match=nonexistent --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/pairs-broken,,0',
+        'params': f'{COMMON} --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/pairs-healthy,,0',
+        'params': f'{COMMON} --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-replicationpair'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

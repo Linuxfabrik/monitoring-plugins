@@ -40,7 +40,7 @@ Checks the health of Docker Swarm services: how many of the expected tasks (cont
 usage: docker-service [-h] [-V] [--always-ok] [--check-distribution] [-c CRIT]
                       [--ignore IGNORE] [--lengthy]
                       [--no-match-severity {ok,warn,crit,unknown}]
-                      [--service SERVICE] [-w WARN]
+                      [--no-perfdata] [--service SERVICE] [-w WARN]
 
 Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those
@@ -49,12 +49,12 @@ compared against an expected count as a percentage, so a service that lost
 some but not all of its tasks can warn before it goes fully down. The expected
 count defaults to the service's own desired replica count, but can be pinned
 per service with --service, so scaling a service down by mistake is still
-caught against the count the service is supposed to run. With --check-
-distribution the check also warns when more tasks of a service sit on a single
-node than an even spread would place there, which surfaces a node that
-silently stopped taking work. Must be run on a swarm manager node, since only
-managers can list services. Podman does not support swarm mode, so there is no
-Podman counterpart to this check. Requires root or sudo.
+caught against the count the service is supposed to run. With
+--check-distribution the check also warns when more tasks of a service sit on
+a single node than an even spread would place there, which surfaces a node
+that silently stopped taking work. Must be run on a swarm manager node, since
+only managers can list services. Podman does not support swarm mode, so there
+is no Podman counterpart to this check. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -83,6 +83,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --service SERVICE     Check this service and, optionally, the number of
                         tasks it is expected to run, written as `name=count`.
                         Without `=count` the service's own desired replica
@@ -98,6 +102,9 @@ options:
                         100: (warn when fewer than 100% of the expected tasks
                         run). Example: `--warning=90:` tolerates losing up to
                         10% of the tasks before warning.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-service/
 ```
 
 

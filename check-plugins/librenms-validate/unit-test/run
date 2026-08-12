@@ -1,0 +1,585 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every fixture in stdout/ was captured from a real `validate.php` run, escape sequences
+# included: the container ones from a LibreNMS Docker instance, git-install-* from a
+# production installation deployed from git.
+#
+# A check run consists of the default run plus one run per requested optional group, so
+# the fixtures follow the same split: `--test=stdout/all-ok` feeds the default run, and
+# `stdout/all-ok-distributedpoller` the run that `--group=distributedpoller` triggers.
+#
+# The rest are synthetic, because they capture a state an installation only reaches while
+# it is broken or has not shipped yet: default-run-unlisted-group is a captured default
+# run with a group appended that no LibreNMS release currently reports, which is how a
+# future validation group would arrive; unrecognised-status and
+# unrecognised-status-unpadded do the same for a status LibreNMS does not print today,
+# once in each of the two shapes its own padding produces; composer-not-run, config-* and
+# install-dir-not-set reproduce the aborts validate.php prints before it reaches its first
+# validation group; composer-binary-missing, dependencies-missing and
+# dependencies-outdated reproduce the three ways the dependency group aborts it, which
+# happens one step later but leaves just as much unchecked. Two of those fixtures are
+# synthesised rather than captured, because LibreNMS 26.x cannot produce them: the
+# dependency validation builds the "Outdated dependencies" result and never submits it to
+# the validator, and the condition guarding "config.php doesn't start with a <?php" is
+# always false because PHP binds `!` tighter than `===`. Both readings are the right ones
+# for the day those two are fixed upstream, which is why they are covered here.
+# auth-mechanism-invalid was captured, from a librenms/librenms:latest container whose
+# config.php was given `$config['auth_mechanism'] = 'bogusmech'`. It is the one abort
+# that exits 0, and the one that arrives with a result line already printed above it,
+# which is why it is fed to the check with a return code of 0 below.
+# schema-out-of-date reproduces
+# the one result that carries a multi-line message, a fix and a detail list at once;
+# empty-output is the run that printed nothing at all.
+
+TESTS = [
+    # A healthy installation with one real finding. The exit code of validate.php is 1
+    # here, but the check never reads it.
+    {
+        'id': 'warn-single-failure',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 failure found.',
+            'Checked 17 validations in 13 groups.',
+            'rrdcached',
+        ],
+    },
+    # A result may carry a fix and a detail list at once, and LibreNMS prints the list
+    # behind the fix. The list explains the finding and belongs to the message, the fix
+    # holds the commands that repair it, and the message of the schema check additionally
+    # runs over several unindented lines of its own.
+    {
+        'id': 'warn-fix-and-detail-list-are-filed-apart',
+        'test': 'stdout/schema-out-of-date,,1',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 failure found.',
+            # the unindented continuation of the message
+            'Database: missing column (devices/disable_notify)',
+            # the detail list, which stands behind the fix in the output
+            'ALTER TABLE `devices` ADD `disable_notify`',
+            'Run the following SQL statements to fix it',
+        ],
+    },
+    # The same result, filtered on a word that only appears in the detail list. `--match`
+    # sees the message, so a list filed under the fix would make this find nothing.
+    {
+        'id': 'warn-detail-list-is-part-of-the-message',
+        'test': 'stdout/schema-out-of-date,,1',
+        'params': '--match=ifIndex_2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 failure found.', 'Checked 1 validation'],
+    },
+    # A group that finds nothing prints its marker and no result, which is the normal
+    # case. Counting groups from the results alone would report 4 instead of 13.
+    {
+        'id': 'warn-counts-groups-without-results',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['in 13 groups'],
+    },
+    # Same fixture, escalated and defused through --fail-severity.
+    {
+        'id': 'crit-failure-escalated',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--fail-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'rrdcached.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-failure-downgraded',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--fail-severity=ok',
+        'assert-retc': STATE_OK,
+    },
+    # --brief drops the rows that are within expectations, but neither the counts in the
+    # summary nor the state change.
+    {
+        'id': 'warn-brief-hides-ok-rows',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 failure found.', 'Checked 17 validations'],
+        'assert-not-in': ['Database Connected'],
+    },
+    # A failure an admin has decided not to act on is a row like any other OK row, so
+    # --brief hides it. It still counts, and it still emits performance data.
+    {
+        'id': 'ok-brief-hides-a-downgraded-failure',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--brief --fail-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 failure found.', 'Checked 17 validations'],
+        'assert-not-in': ['rrdcached', 'Database Connected'],
+    },
+    # An accepted finding is filtered out, which takes the whole check back to OK.
+    {
+        'id': 'ok-ignore-drops-the-finding',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore=rrdcached',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No failures found. No warnings found.'],
+        'assert-not-in': ['rrdcached'],
+    },
+    # --match restricts the report to what it names, so everything else stops counting.
+    {
+        'id': 'warn-match-keeps-only-the-finding',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--match=rrdcached',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 failure found.', 'Checked 1 validation'],
+        'assert-not-in': ['Database Connected'],
+    },
+    # --ignore wins over --match, so a result hit by both is dropped.
+    {
+        'id': 'ok-ignore-overrules-match',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--match=rrdcached --ignore=connectivity',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    # Filters that drop every result leave nothing to judge. That is quiet by default,
+    # because a pattern kept deliberately wide looks exactly the same.
+    {
+        'id': 'ok-filters-drop-everything',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-filters-drop-everything-severity-raised',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A group that simply found nothing is not the same thing as a filter that dropped
+    # everything, and it stays a clean result rather than "Nothing checked.".
+    {
+        'id': 'ok-group-without-results-is-not-nothing-checked',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--group=disk --no-match-severity=unknown',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No failures found. No warnings found.', 'Checked 0 validations'],
+        'assert-not-in': ['Nothing checked.'],
+    },
+    # Every group reported OK and nothing else.
+    {
+        'id': 'ok-nothing-to-report',
+        'test': 'stdout/all-ok,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No failures found. No warnings found.'],
+    },
+    # Warnings, failures, informational results, a suggested fix and a message that
+    # continues on the next line, all in one run.
+    {
+        'id': 'warn-full-run-with-every-status',
+        'test': 'stdout/default-run-two-failures,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 failures and 2 warnings found.',
+            'You have no devices.',
+        ],
+    },
+    # A message too long for one line continues indented by a single space and belongs to
+    # the result above it.
+    {
+        'id': 'warn-continuation-line-joins-the-message',
+        'test': 'stdout/default-run-two-failures,,1',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Time between this server and the mysql database is off Mysql time',
+    },
+    # A group LibreNMS leaves out of a default run is only reported when it is asked for,
+    # and it is only run then, which is why its findings live in their own fixture.
+    {
+        'id': 'ok-optional-group-not-requested',
+        'test': 'stdout/all-ok,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['distributed_poller'],
+    },
+    {
+        'id': 'warn-optional-group-requested',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=distributedpoller',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['You have not enabled distributed_poller'],
+    },
+    # Both runs happen, and their results and groups end up in one report.
+    {
+        'id': 'warn-optional-group-merges-with-default-run',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=disk --group=distributedpoller',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'You have not enabled distributed_poller',
+            'in 2 groups',
+        ],
+    },
+    # A message longer than the column is cut in the middle by default, so the table still
+    # fits a terminal, and --lengthy prints it whole.
+    {
+        'id': 'warn-long-message-is-shortened',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '/run/rrdcached.sock does not appe...rrdcached connectivity test failed'
+        ],
+    },
+    {
+        'id': 'warn-lengthy-keeps-the-whole-message',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '/run/rrdcached.sock does not appear to exist, rrdcached connectivity test '
+            'failed',
+        ],
+    },
+    # --lengthy adds the command LibreNMS suggests for the finding.
+    {
+        'id': 'warn-lengthy-shows-the-suggested-fix',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=distributedpoller --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['lnms config:set distributed_poller true'],
+    },
+    {
+        'id': 'warn-default-hides-the-suggested-fix',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=distributedpoller',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['lnms config:set distributed_poller true'],
+    },
+    # Everything a default run reports is checked, including a group the check does not
+    # know by name, so a group a later LibreNMS adds cannot fall out of the report.
+    {
+        'id': 'warn-unlisted-group-of-a-default-run-still-alerts',
+        'test': 'stdout/default-run-unlisted-group,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 failure found.',
+            'Custom MIB directory is not writable',
+        ],
+    },
+    # Naming a group restricts the report to it, whether the group is known or not.
+    {
+        'id': 'ok-unlisted-group-filtered-out',
+        'test': 'stdout/default-run-unlisted-group,,1',
+        'params': '--group=disk',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Custom MIB directory is not writable'],
+    },
+    # The detail list of a result explains the finding and belongs to its message, not to
+    # the fix column.
+    {
+        'id': 'warn-detail-list-joins-the-message',
+        'test': 'stdout/database-unreachable-with-list,,1',
+        'params': '--lengthy --brief',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Unable to connect to database.*SQLSTATE\[HY000\]',
+    },
+    # A group whose progress output pushes its status onto a later line still parses.
+    {
+        'id': 'ok-progress-output-does-not-confuse-the-parser',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=rrdcheck',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Scanning', 'Status:'],
+    },
+    # That status line is indented like the continuation of a message, and it arrives
+    # after the last result of the group before it. It must not extend that result, and
+    # the checks every run repeats before it reaches its group are one validation, not
+    # one per run.
+    {
+        'id': 'ok-second-run-neither-duplicates-nor-extends-a-result',
+        'test': 'stdout/all-ok,,0',
+        'params': '--group=dependencies --group=rrdcheck',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 validation in 2 groups.'],
+        'assert-not-in': ['required OK'],
+    },
+    # validate.php refuses to run as root. Its exit code is the same 1 a run that found a
+    # problem returns, so only the output tells the two apart.
+    {
+        'id': 'unknown-refused-as-root',
+        'test': 'stdout/run-as-root,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--user'],
+    },
+    # The other bootstrap failure: validate.php gives up before it can load anything,
+    # which is not the same as an installation that validated cleanly. The installation
+    # is broken and somebody has to repair it, so this is a warning rather than an
+    # UNKNOWN nobody reads.
+    {
+        'id': 'warn-composer-missing',
+        'test': 'stdout/composer-not-run,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['composer_wrapper.php install --no-dev'],
+    },
+    # LibreNMS resolves its authentication mechanism while it is still starting up, so an
+    # unknown one stops it before the first validation group. It prints the error as plain
+    # red text without the bracketed status a result carries, which is why it needs an
+    # abort hint of its own: without one the run arrives as a header with a single
+    # unrelated result and gets the generic "ran no validation at all". Exit code 0 here,
+    # because that abort ends with a bare `exit` - which is exactly why the state comes
+    # from the report rather than from the exit code.
+    {
+        'id': 'warn-auth-mechanism-invalid',
+        'test': 'stdout/auth-mechanism-invalid,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['auth_mechanism'],
+        # The result printed above the error validated nothing, so it must not be
+        # reported as if the installation had been looked at.
+        'assert-not-in': [
+            'ran no validation at all',
+            'no Composer required',
+        ],
+    },
+    # LibreNMS runs the dependency group ahead of everything else and gives up on the
+    # whole run when it fails, so every other group stays unchecked. Reported as an abort
+    # rather than as the single failed validation it looks like from the output alone.
+    {
+        'id': 'warn-dependencies-missing-aborts-the-run',
+        'test': 'stdout/dependencies-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'stops before it validates anything else',
+            'composer_wrapper.php install --no-dev',
+        ],
+        'assert-not-in': ['Checked 1 validation'],
+    },
+    # Dependencies that are merely behind would abort the run just as completely as
+    # missing ones, so they get the same treatment rather than being reported as the
+    # single failed validation they look like. Synthesised: LibreNMS builds this result
+    # and never hands it to the validator, so no release prints it today.
+    {
+        'id': 'warn-dependencies-outdated-aborts-the-run',
+        'test': 'stdout/dependencies-outdated,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'stops before it validates anything else',
+            'composer_wrapper.php install --no-dev',
+        ],
+        'assert-not-in': ['Checked 1 validation'],
+    },
+    # The same abort with Composer itself missing, which is the other way that group can
+    # fail.
+    {
+        'id': 'warn-composer-binary-missing-aborts-the-run',
+        'test': 'stdout/composer-binary-missing,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Composer is missing',
+            'stops before it validates anything else',
+        ],
+        'assert-not-in': ['Checked 1 validation'],
+    },
+    # The configuration file aborts the validation the same way, and validate.php prints
+    # the abort in the shape of an ordinary finding. Without that being recognised, an
+    # installation that cannot start at all would arrive as a single failed validation.
+    {
+        'id': 'warn-config-does-not-parse',
+        'test': 'stdout/config-syntax-error,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['php -l config.php'],
+    },
+    # Synthesised: the condition guarding this message in validate.php is always false,
+    # so no release prints it today. Covered for the day that is fixed.
+    {
+        'id': 'warn-config-without-opening-tag',
+        'test': 'stdout/config-missing-php-open-tag,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['<?php'],
+    },
+    {
+        'id': 'warn-config-with-closing-tag',
+        'test': 'stdout/config-trailing-php-close-tag,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['?>'],
+    },
+    # This one aborts after the header and the dependency pre-check have already printed,
+    # so the abort has to win over the two results standing above it.
+    {
+        'id': 'unknown-install-dir-not-configured',
+        'test': 'stdout/install-dir-not-set,,1',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['install_dir'],
+        'assert-not-in': ['Dependencies up-to-date.'],
+    },
+    # A run that printed nothing at all cannot be reported on, and an empty report is not
+    # a clean one.
+    {
+        'id': 'unknown-no-validation-ran',
+        'test': 'stdout/empty-output,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['LibreNMS ran no validation at all.'],
+    },
+    # Running as a user that is neither root nor the LibreNMS user is a finding, not an
+    # abort: LibreNMS reports it through its own `user` group.
+    {
+        'id': 'warn-wrong-user-is-a-finding',
+        'test': 'stdout/run-as-wrong-user,,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["You need to run this script as 'librenms' or root"],
+    },
+    # An unknown group leaves validate.php with nothing to do, and it exits 0 doing it.
+    # A group that is legitimately absent on a host looks the same, which is why this
+    # stays quiet unless --no-match-severity says otherwise.
+    {
+        'id': 'ok-no-group-matched',
+        'test': 'stdout/unknown-group,,0',
+        'params': '--group=database',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-no-group-matched-severity-raised',
+        'test': 'stdout/unknown-group,,0',
+        'params': '--group=database --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # LibreNMS prints four statuses today and falls back to a placeholder for anything
+    # else, so a status a later release adds arrives as a shape the check has never seen.
+    # It has to reach the report rather than be dropped as an unparsable line.
+    {
+        'id': 'unknown-status-the-check-does-not-know',
+        'test': 'stdout/unrecognised-status,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Schema migration scheduled',
+            'Checked 2 validations',
+            # counted in its own series, so the four known ones plus this one still add
+            # up to the total
+            "'unknown_count'=1;;;0",
+            "'validation_count'=2;;;0",
+        ],
+    },
+    # The same status without the padding LibreNMS puts between it and the message. It
+    # measures that padding before it colorizes the status, so a name of six characters or
+    # more fills the column on its own and the message follows right behind it.
+    {
+        'id': 'unknown-status-without-padding',
+        'test': 'stdout/unrecognised-status-unpadded,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Schema migration scheduled', 'Checked 2 validations'],
+    },
+    # A value that would reach the command line as an option instead of as the path or
+    # the account it is meant to be is refused before anything runs.
+    {
+        'id': 'unknown-path-looks-like-an-option',
+        'test': 'stdout/all-ok,,0',
+        'params': '--path=-x',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--path'],
+    },
+    {
+        'id': 'unknown-php-path-looks-like-an-option',
+        'test': 'stdout/all-ok,,0',
+        'params': '--php-path=-x',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--php-path'],
+    },
+    {
+        'id': 'unknown-user-looks-like-an-option',
+        'test': 'stdout/all-ok,,0',
+        'params': '--user=-x',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--user'],
+    },
+    # A pattern that is not a valid regex is a parameter error, not a finding. The
+    # message names the parameter, so it is clear which of the two is at fault.
+    {
+        'id': 'unknown-invalid-ignore-pattern',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--ignore=[',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--ignore'],
+    },
+    {
+        'id': 'unknown-invalid-match-pattern',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--match=[',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--match'],
+    },
+    # Performance data covers every result, including the ones --brief hides.
+    {
+        'id': 'warn-perfdata-is-complete-under-brief',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'fail_count'=1;;;0",
+            "'ok_count'=16;;;0",
+            "'validation_count'=17;;;0",
+        ],
+    },
+    {
+        'id': 'warn-no-perfdata-drops-the-metrics-only',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 failure found.'],
+        'assert-not-in': ['validation_count'],
+    },
+    {
+        'id': 'ok-always-ok-masks-the-finding',
+        'test': 'stdout/git-install-rrdcached-missing,,1',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 failure found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../librenms-validate'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

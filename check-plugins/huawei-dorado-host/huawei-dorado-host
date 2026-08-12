@@ -12,32 +12,55 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.huawei_dorado
+import lib.human
 import lib.lftest
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026081102'
 
 DESCRIPTION = """Checks the health and running status of all hosts attached to a Huawei OceanStor
 Dorado storage system via the REST API (/host endpoint). Alerts when any host reports
 a non-normal state."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
+
+# RUNNINGSTATUS code a healthy host reports: normal (1). A host is a logical object
+# on the appliance, so it has no running or online state of its own.
+OK_RUNNING_STATUS = (1,)
+
+
+# Fields `--match` is applied to.
+MATCH_FIELDS = ('UUID', 'NAME')
 
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -55,6 +78,16 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an array with many hosts. '
+        'Default: %(default)s',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
         '--cache-expire',
         help=lib.args.help('--cache-expire') + ' Default: %(default)s',
         dest='CACHE_EXPIRE',
@@ -64,9 +97,22 @@ def parse_args():
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip hosts. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -75,6 +121,41 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to hosts. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -89,7 +170,12 @@ def parse_args():
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -129,6 +215,19 @@ def parse_args():
         required=True,
     )
 
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -142,100 +241,192 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
 
     # fetch data
+    truncated = False
     if args.TEST is None:
-        result = lib.huawei_dorado.get_data('host', args)
+        result, truncated = lib.huawei_dorado.get_all_data('host', args)
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
-        lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the hosts')
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item)
+        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     table_data = []
-    for host in result.get('data'):
-        health_state = STATE_OK
-        if lib.huawei_dorado.get_health_status(host.get('HEALTHSTATUS')) != 'Normal (1)':
-            health_state = STATE_WARN
-            state = lib.base.get_worst(state, health_state)
-
-        running_state = STATE_OK
-        if lib.huawei_dorado.get_running_status(host.get('RUNNINGSTATUS')) != 'Normal (1)':
-            running_state = STATE_WARN
-            state = lib.base.get_worst(state, running_state)
-
+    for host in result.get('data') or []:
         host['UUID'] = lib.huawei_dorado.get_uuid(host)
+        # Perfdata labels carry the object's own TYPE:ID, which stays the same
+        # when hardware is moved between slots, unlike its location.
+        label = re.sub(r'\W+', '_', host['UUID'])
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(host.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(host.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        health_state = lib.huawei_dorado.get_health_status_state(
+            host.get('HEALTHSTATUS')
+        )
+        state = lib.base.get_worst(state, health_state)
+
+        running_state = lib.huawei_dorado.get_running_status_state(
+            host.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
+        )
+        state = lib.base.get_worst(state, running_state)
 
         perfdata += lib.base.get_perfdata(
-            f'{host["UUID"]}_HEALTHSTATUS',
-            host['HEALTHSTATUS'],
-            crit=2,
+            f'{label}_health_status',
+            host.get('HEALTHSTATUS'),
+            uom=None,
             _min=0,
-            _max=2,
+            _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
-            f'{host["UUID"]}_RUNNINGSTATUS',
-            host['RUNNINGSTATUS'],
+            f'{label}_running_status',
+            host.get('RUNNINGSTATUS'),
             _min=0,
         )
+        # Both capacities are sector counts in the response and go out in bytes, the
+        # same way every other capacity in this plugin family is reported.
+        allocated_capacity = lib.huawei_dorado.sectors2bytes(
+            host.get('allocatedCapacity')
+        )
+        capacity = lib.huawei_dorado.sectors2bytes(host.get('capacity'))
         perfdata += lib.base.get_perfdata(
-            f'{host["UUID"]}_allocatedCapacity',
-            host['allocatedCapacity'],
+            f'{label}_allocated_capacity',
+            allocated_capacity,
+            uom='B',
             _min=0,
-            _max=host['capacity'],
+            _max=capacity,
         )
 
-        host['health_state'] = lib.base.state2str(health_state, empty_ok=False)
-        host['running_state'] = lib.base.state2str(running_state, empty_ok=False)
-        host['OPERATIONSYSTEM'] = lib.huawei_dorado.get_os(host['OPERATIONSYSTEM'])
+        host['row_state'] = lib.base.get_worst(health_state, running_state)
+        host['health'] = lib.huawei_dorado.get_health_status(
+            host.get('HEALTHSTATUS')
+        )
+        host['running'] = lib.huawei_dorado.get_running_status(
+            host.get('RUNNINGSTATUS')
+        )
+        # One state per row, in the last column. IcingaWeb replaces a state with an
+        # icon, which shifts everything to the right of it, so a second one mid-row
+        # would break the table. What decided it stays readable in the two columns
+        # in front of it.
+        host['state'] = lib.base.state2str(
+            lib.base.get_worst(health_state, running_state), empty_ok=False
+        )
+        host['OPERATIONSYSTEM'] = lib.huawei_dorado.get_os(host.get('OPERATIONSYSTEM'))
+        host['allocated'] = lib.human.bytes2human(allocated_capacity)
 
         table_data.append(host)
 
-    if table_data:
+    # An appliance may legitimately have no hosts configured, which is not
+    # the same as a filter that selected none of the ones it does have.
+    if not table_data:
+        lib.base.oao(
+            f'No hosts matched `{", ".join(args.MATCH)}`.'
+            if args.MATCH
+            else 'No hosts configured.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY) if args.MATCH else STATE_OK,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    # The truncated walk raises the state before the summary is written, so a
+    # partially read appliance does not open with "Everything is ok." and then exit
+    # WARNING.
+    if truncated:
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # build the message
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += '\n'
+    if truncated:
+        # The walk hit its page cap, so hosts beyond it were never looked at.
+        msg += (
+            'The appliance reports more hosts than this check reads in one run;'
+            ' the list below is incomplete.\n'
+        )
+    msg += '\n'
+
+    # build table output
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['row_state'] != STATE_OK]
+    if display_rows:
         keys = [
             'UUID',
             'LOCATION',
             'NAME',
             'OPERATIONSYSTEM',
-            'health_state',
-            'running_state',
+            'allocated',
+            'health',
+            'running',
+            'state',
         ]
-        headers = ['UUID', 'Location', 'Name', 'OS', 'Health', 'Running']
+        headers = [
+            'UUID',
+            'Location',
+            'Name',
+            'OS',
+            'Allocated',
+            'Health',
+            'Running',
+            'State',
+        ]
 
-        # build the message
-        msg += lib.base.get_table(table_data, keys, header=headers)
+        msg += lib.base.get_table(
+            display_rows, keys, header=headers, missing='--', hide_empty=True
+        )
 
-    msg += (
-        f'\nFetched API {result.get("counter", 0)}'
-        f' {lib.txt.pluralize("time", result.get("counter", 0))}'
-    )
-
-    if state == STATE_CRIT:
-        msg = 'There are critical errors.\n\n' + msg
-    elif state == STATE_WARN:
-        msg = 'There are warnings.\n\n' + msg
-    else:
-        msg = 'Everything is ok.\n\n' + msg
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

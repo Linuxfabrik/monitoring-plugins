@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -25,24 +25,48 @@ TESTS = [
         # for code 48 and therefore flagged charging BBUs as WARN.
         'id': 'ok-bbu-charging',
         'test': 'stdout/bbu-charging,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.'],
     },
     {
         'id': 'warn-psu-running-warning',
         'test': 'stdout/psu-running-warning,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
         'assert-retc': STATE_WARN,
         'assert-in': [
             'There are warnings.',
-            'UUID       ! Location   ! Produced   ! ControllerID ! #Charged ! Remain '
-            '! Volt ! Health ! Running  ',
-            '-----------+------------+------------+--------------+----------+--------'
-            '+------+--------+----------',
-            '210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7        ! 5Y 4M  '
-            '! 16.1 ! [OK]   ! [WARNING]',
+            'UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain '
+            '! Volt ! Health     ! Running          ! State',
+            '-----------+------------+------------+--------------+-------------+--------'
+            '+------+------------+------------------+----------',
+            # The voltage is documented as tenths of a volt, so 161 reads as 16.1.
+            '210:0.0A.0 ! CTE0.PSU 0 ! 2014-3-25  ! 0A           ! 7           ! 5Y 4M  '
+            '! 16.1 ! Normal (1) ! Discharging (50) ! [WARNING]',
         ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'warn-psu-running-warning-core-columns',
+        'test': 'stdout/psu-running-warning,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'UUID       ! Location   ! Remain ! Volt ! Health     ! Running          ! State',
+            '210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! Normal (1) ! Discharging (50) ! [WARNING]',
+        ],
+        'assert-not-in': ['ControllerID', '#Discharged'],
+    },
+    {
+        # An appliance always has backup power modules. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-backup-power-modules',
+        'test': 'stdout/no-backup-power-modules,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no backup power modules.'],
     },
 ]
 

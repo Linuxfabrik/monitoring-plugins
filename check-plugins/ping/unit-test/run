@@ -8,7 +8,12 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import importlib.machinery
+import importlib.util
+import os
+import re
 import sys
+import types
 
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
 
@@ -17,7 +22,22 @@ import unittest
 
 import lib.base
 import lib.shell
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Absolute path to the plugin script (no `.py` suffix), imported as a module so its pure
+# helpers (STATISTICS_RE) can be unit-tested directly without spawning a subprocess.
+PLUGIN = os.path.abspath('../ping')
+
+
+def load_plugin_module():
+    """Import the plugin script as a module so its pure helpers can be called directly.
+    The script carries no `.py` suffix, so the source loader has to be named explicitly.
+    """
+    loader = importlib.machinery.SourceFileLoader('ping_plugin', PLUGIN)
+    spec = importlib.util.spec_from_loader('ping_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class TestCheck(unittest.TestCase):
@@ -78,6 +98,345 @@ class TestCheck(unittest.TestCase):
         self.assertRegex(stdout, r'^Destination host unreachable\. PING 99\.99\.99\.99')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_CRIT)
+
+    def test_rta_critical_threshold_triggers(self):
+        # the loopback round-trip average is always well above 0.001 ms
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rta-critical',
+                    '0.001',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertIn('round-trip average', stdout)
+        self.assertIn('[CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_rta_warning_threshold_triggers(self):
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rta-warning',
+                    '0.001',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertIn('round-trip average', stdout)
+        self.assertIn('[WARNING]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_WARN)
+
+    def test_rta_threshold_not_exceeded_stays_ok(self):
+        # the loopback round-trip average is always far below 100000 ms
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rta-critical',
+                    '100000',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_packet_loss_threshold_raises_no_false_alarm(self):
+        # loopback has 0% loss, so an opt-in loss threshold must stay OK
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--packet-loss-critical',
+                    '0',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_rtt_mdev_critical_threshold_triggers(self):
+        # loopback round-trip variability is always above 0.0001 ms across several packets
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '5',
+                    '--rtt-mdev-critical',
+                    '0.0001',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertIn('jitter (mdev)', stdout)
+        self.assertIn('[CRITICAL]', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_rtt_mdev_threshold_not_exceeded_stays_ok(self):
+        # the loopback round-trip variability is always far below 100000 ms
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--rtt-mdev-critical',
+                    '100000',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_control_knobs_together(self):
+        # --ipv4, --ttl, --packet-size and --interface lo all reach the loopback fine
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '2',
+                    '--ipv4',
+                    '--ttl',
+                    '64',
+                    '--packet-size',
+                    '100',
+                    '--interface',
+                    'lo',
+                ]
+            )
+        )
+        self.assertRegex(stdout, r'^PING 127\.0\.0\.1: ')
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_OK)
+
+    def test_ipv4_and_ipv6_are_mutually_exclusive(self):
+        stdout, stderr, retc = lib.base.coe(
+            lib.shell.shell_exec(
+                [
+                    self.check,
+                    '--hostname',
+                    '127.0.0.1',
+                    '--count',
+                    '1',
+                    '--ipv4',
+                    '--ipv6',
+                ]
+            )
+        )
+        self.assertIn('Use only one of --ipv4 and --ipv6.', stdout)
+        self.assertEqual(stderr, '')
+        self.assertEqual(retc, STATE_UNKNOWN)
+
+
+class TestStatisticsRegex(unittest.TestCase):
+    """Tests for STATISTICS_RE against the real iputils summary line.
+
+    iputils words the corrupted-packet field "corrupted", not "checksum corrupted" (see
+    ping_output.c). The previous pattern required "checksum corrupted", so the corrupted count
+    was never captured and a corrupted reply broke the whole match (turning the check UNKNOWN).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def test_plain_line(self):
+        m = self.plugin.STATISTICS_RE.search(
+            '5 packets transmitted, 5 received, 0% packet loss, time 803ms'
+        )
+        self.assertIsNotNone(m)
+        self.assertEqual(
+            (m.group(1), m.group(2), m.group(9), m.group(10)), ('5', '5', '0', '803')
+        )
+
+    def test_corrupted_field_is_captured(self):
+        m = self.plugin.STATISTICS_RE.search(
+            '5 packets transmitted, 3 received, +2 corrupted, 40% packet loss, time 812ms'
+        )
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(6), '2')  # corrupted count
+        self.assertEqual(m.group(9), '40')  # packet loss
+        self.assertEqual(m.group(10), '812')  # total time
+
+    def test_all_optional_fields(self):
+        m = self.plugin.STATISTICS_RE.search(
+            '9 packets transmitted, 5 received, +1 duplicates, +2 corrupted, +1 errors, '
+            '44% packet loss, time 900ms'
+        )
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(4), '1')  # duplicates
+        self.assertEqual(m.group(6), '2')  # corrupted
+        self.assertEqual(m.group(8), '1')  # errors
+
+
+class TestBuildPingCall(unittest.TestCase):
+    """Tests for build_ping_call(), the argv builder for the system ping call."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _args(self, **overrides):
+        base = {
+            'COUNT': 5,
+            'INTERVAL': 0.2,
+            'DEADLINE': 5,
+            'HOSTNAME': '192.0.2.10',
+            'IPV4': False,
+            'IPV6': False,
+            'TTL': None,
+            'PACKET_SIZE': None,
+            'INTERFACE': None,
+        }
+        base.update(overrides)
+        return types.SimpleNamespace(**base)
+
+    def test_default_call_is_quiet_numeric_and_has_no_optional_flags(self):
+        cmd = self.plugin.build_ping_call(self._args())
+        self.assertEqual(cmd[0], 'ping')
+        self.assertIn('-q', cmd)
+        self.assertIn('-n', cmd)
+        for flag in ('-4', '-6', '-t', '-s', '-I'):
+            self.assertNotIn(flag, cmd)
+        self.assertEqual(cmd[-1], '192.0.2.10')  # the host is always last
+
+    def test_control_knobs_are_appended(self):
+        cmd = self.plugin.build_ping_call(
+            self._args(IPV4=True, TTL=64, PACKET_SIZE=100, INTERFACE='lo')
+        )
+        self.assertIn('-4', cmd)
+        self.assertEqual(cmd[cmd.index('-t') + 1], '64')
+        self.assertEqual(cmd[cmd.index('-s') + 1], '100')
+        self.assertEqual(cmd[cmd.index('-I') + 1], 'lo')
+        self.assertEqual(cmd[-1], '192.0.2.10')
+
+    def test_ipv6_flag(self):
+        cmd = self.plugin.build_ping_call(self._args(IPV6=True))
+        self.assertIn('-6', cmd)
+        self.assertNotIn('-4', cmd)
+
+
+class TestEvaluateThresholds(unittest.TestCase):
+    """Tests for evaluate_thresholds(), which turns the parsed ping output plus the opt-in
+    thresholds into a state and a list of human-readable breach strings.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _args(self, **overrides):
+        base = {
+            'PACKET_LOSS_WARN': None,
+            'PACKET_LOSS_CRIT': None,
+            'RTA_WARN': None,
+            'RTA_CRIT': None,
+            'RTT_MDEV_WARN': None,
+            'RTT_MDEV_CRIT': None,
+        }
+        base.update(overrides)
+        return types.SimpleNamespace(**base)
+
+    def _stats(self, line):
+        return self.plugin.STATISTICS_RE.search(line)
+
+    def _rtt(self, line):
+        return re.search(r'= (\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)/(\d+\.\d+)', line)
+
+    def test_no_thresholds_no_alerts(self):
+        stats = self._stats(
+            '5 packets transmitted, 5 received, 0% packet loss, time 10'
+        )
+        rtt = self._rtt('rtt min/avg/max/mdev = 1.000/2.000/3.000/0.500 ms')
+        state, alerts = self.plugin.evaluate_thresholds(stats, rtt, self._args())
+        self.assertEqual(state, STATE_OK)
+        self.assertEqual(alerts, [])
+
+    def test_packet_loss_breach(self):
+        stats = self._stats(
+            '5 packets transmitted, 3 received, 40% packet loss, time 10'
+        )
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, None, self._args(PACKET_LOSS_CRIT='10')
+        )
+        self.assertEqual(state, STATE_CRIT)
+        self.assertTrue(
+            any('packet loss 40%' in a and '[CRITICAL]' in a for a in alerts)
+        )
+
+    def test_rta_breach(self):
+        stats = self._stats(
+            '5 packets transmitted, 5 received, 0% packet loss, time 10'
+        )
+        rtt = self._rtt('rtt min/avg/max/mdev = 1.000/250.000/300.000/5.000 ms')
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, rtt, self._args(RTA_WARN='200')
+        )
+        self.assertEqual(state, STATE_WARN)
+        self.assertTrue(
+            any(
+                'round-trip average 250.000ms' in a and '[WARNING]' in a for a in alerts
+            )
+        )
+
+    def test_mdev_breach(self):
+        stats = self._stats(
+            '5 packets transmitted, 5 received, 0% packet loss, time 10'
+        )
+        rtt = self._rtt('rtt min/avg/max/mdev = 1.000/2.000/3.000/30.000 ms')
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, rtt, self._args(RTT_MDEV_CRIT='10')
+        )
+        self.assertEqual(state, STATE_CRIT)
+        self.assertTrue(
+            any('jitter (mdev) 30.000ms' in a and '[CRITICAL]' in a for a in alerts)
+        )
+
+    def test_rtt_thresholds_skipped_when_host_unreachable(self):
+        # rtt_match is None when the host is down; only packet loss is evaluated
+        stats = self._stats(
+            '5 packets transmitted, 0 received, 100% packet loss, time 10'
+        )
+        state, alerts = self.plugin.evaluate_thresholds(
+            stats, None, self._args(RTA_CRIT='1')
+        )
+        self.assertEqual(
+            state, STATE_OK
+        )  # rta threshold cannot fire without an rtt line
+        self.assertEqual(alerts, [])
 
 
 if __name__ == '__main__':

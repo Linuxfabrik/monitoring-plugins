@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070701'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors running processes and alerts on process count, aggregated memory usage, or
 aggregated CPU usage. Processes can be filtered by name, command-line arguments, and
@@ -59,7 +59,11 @@ DEFAULT_WARN_MEM_PERCENT = None
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -152,6 +156,14 @@ def parse_args():
         dest='NO_KTHREADS',
         default=DEFAULT_NO_KTHREADS,
         action='store_true',
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -827,7 +839,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -1,0 +1,278 @@
+{
+    "Command": {
+        "cmd-check-rpm-versionlock": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$rpm_versionlock_always_ok$"
+                },
+                "--check-excludes": {
+                    "set_if": "$rpm_versionlock_check_excludes$"
+                },
+                "--critical": {
+                    "value": "$rpm_versionlock_critical$"
+                },
+                "--ignore": {
+                    "value": "$rpm_versionlock_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$rpm_versionlock_lengthy$"
+                },
+                "--match": {
+                    "value": "$rpm_versionlock_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$rpm_versionlock_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$rpm_versionlock_no_perfdata$"
+                },
+                "--warning": {
+                    "value": "$rpm_versionlock_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/rpm-versionlock",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-rpm-versionlock",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "49cdefb5-0516-421b-bbba-9acd576e566a"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-rpm-versionlock": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-rpm-versionlock",
+            "check_interval": 3600,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "rpm-versionlock.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports the packages that the RPM package manager holds back at a fixed version. A version lock set to work around a broken update and then forgotten keeps a host on an unpatched version for good, while the update check stays green because the package manager no longer offers the update. Only locks the package manager actually applies are reported, so a lock list it has switched off stays quiet. Alerts as soon as one lock is in place; raise --warning to tolerate a number of deliberate locks, or filter the ones you keep on purpose with --ignore. Alerts as well on a lock configuration the package manager refuses, which stops the host from installing or upgrading anything, and on one it reads without applying any of it. Optionally also reports the packages excluded in the package manager configuration via --check-excludes. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-versionlock/",
+            "object_name": "tpl-service-rpm-versionlock",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "rpm_versionlock_always_ok": false,
+                "rpm_versionlock_check_excludes": false,
+                "rpm_versionlock_ignore": [],
+                "rpm_versionlock_lengthy": false,
+                "rpm_versionlock_match": [],
+                "rpm_versionlock_no_match_severity": "ok",
+                "rpm_versionlock_no_perfdata": false,
+                "rpm_versionlock_warning": "0"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b2b27802-c4d3-4378-8e45-f4df7b2e78c9"
+        }
+    },
+    "DataList": {
+        "rpm_versionlock_no_match_severity_list": {
+            "list_name": "rpm_versionlock_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "f8a04fac-b30c-47da-80e5-e3e0acb3a747"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "rpm_versionlock_always_ok",
+            "caption": "RPM Versionlock: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9561fba1-0a66-4265-b374-f0d34c82840a"
+        },
+        "2": {
+            "varname": "rpm_versionlock_check_excludes",
+            "caption": "RPM Versionlock: Check Excludes?",
+            "description": "Additionally report the packages excluded in the package manager configuration. An exclusion keeps a package off the host just as effectively as a version lock, but it is also used legitimately to keep two repositories apart, which is why it is not reported by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fdde4e35-4c3a-43de-8b6b-13f73fff32d8"
+        },
+        "3": {
+            "varname": "rpm_versionlock_critical",
+            "caption": "RPM Versionlock: Critical",
+            "description": "CRIT threshold for the number of version locks. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "067b81d7-29fe-40f2-b505-e701211bdc86"
+        },
+        "4": {
+            "varname": "rpm_versionlock_ignore",
+            "caption": "RPM Versionlock: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "66e63a9a-fc90-48d6-a2c8-6de7207354a3"
+        },
+        "5": {
+            "varname": "rpm_versionlock_lengthy",
+            "caption": "RPM Versionlock: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "55103115-13b5-42a4-ad83-173bea281b7f"
+        },
+        "6": {
+            "varname": "rpm_versionlock_match",
+            "caption": "RPM Versionlock: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6e7dd6f3-b52b-43bb-8465-12a22aff45ab"
+        },
+        "7": {
+            "varname": "rpm_versionlock_no_match_severity",
+            "caption": "RPM Versionlock: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "rpm_versionlock_no_match_severity_list"
+            },
+            "uuid": "f1512803-c279-49c0-9834-92991a7eba87"
+        },
+        "8": {
+            "varname": "rpm_versionlock_no_perfdata",
+            "caption": "RPM Versionlock: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "27c5e88b-a5f5-467e-8fad-cca97179b132"
+        },
+        "9": {
+            "varname": "rpm_versionlock_warning",
+            "caption": "RPM Versionlock: Warning",
+            "description": "WARN threshold for the number of version locks. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b5249fb3-176f-4a8e-84df-a8562bef8350"
+        }
+    }
+}

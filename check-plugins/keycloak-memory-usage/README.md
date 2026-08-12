@@ -7,7 +7,8 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 
 **Important Notes:**
 
-* Tested with Keycloak 18 and later
+* Verified against Keycloak 17 to 26
+* All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
 * See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials.
 
 **Data Collection:**
@@ -32,14 +33,14 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 
 ```text
 usage: keycloak-memory-usage [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
-                             [--critical CRIT] [--insecure] [--no-proxy]
-                             [-p PASSWORD] [--realm REALM] [--timeout TIMEOUT]
-                             [--url URL] [--username USERNAME]
-                             [--warning WARN]
+                             [--critical CRIT] [--insecure] [--no-perfdata]
+                             [--no-proxy] [-p PASSWORD] [--realm REALM]
+                             [--timeout TIMEOUT] [--url URL]
+                             [--username USERNAME] [--warning WARN]
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP
 API. Alerts when memory usage exceeds the configured thresholds. Tested with
-Keycloak 18 and later.
+Keycloak 17 and later.
 
 options:
   -h, --help            show this help message and exit
@@ -50,6 +51,10 @@ options:
   --critical CRIT       CRIT threshold in percent. Default: >= 90
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Keycloak API password. Default: admin
@@ -58,6 +63,9 @@ options:
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
   --username USERNAME   Keycloak API username. Default: admin
   --warning WARN        WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/keycloak-memory-usage/
 ```
 
 

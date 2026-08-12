@@ -42,17 +42,17 @@ usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
              [--critical-cpu-percent CRIT_CPU_PERCENT]
              [--critical-mem CRIT_MEM]
              [--critical-mem-percent CRIT_MEM_PERCENT] [--lengthy]
-             [--no-kthreads]
+             [--no-kthreads] [--no-perfdata]
              [--status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}]
              [--top TOP] [--username USERNAME] [-w WARN]
              [--warning-age WARN_AGE] [--warning-cpu-percent WARN_CPU_PERCENT]
              [--warning-mem WARN_MEM] [--warning-mem-percent WARN_MEM_PERCENT]
 
 Monitors running processes and alerts on process count, aggregated memory
-usage, or aggregated CPU usage. Processes can be filtered by name, command-
-line arguments, and user name using regular expressions. Optionally lists the
-top processes by CPU time and memory usage. Supports extended reporting via
---lengthy.
+usage, or aggregated CPU usage. Processes can be filtered by name,
+command-line arguments, and user name using regular expressions. Optionally
+lists the top processes by CPU time and memory usage. Supports extended
+reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -82,6 +82,10 @@ options:
                         percent. Default: None
   --lengthy             Extended reporting.
   --no-kthreads         Exclude kernel threads from the scan (Linux only).
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --status {dead,disk-sleep,idle,locked,parked,running,sleeping,stopped,suspended,tracing-stop,waiting,wake-kill,waking,zombie}
                         Filter by process status. Default: None
   --top TOP             Number of top processes by CPU time to display.
@@ -106,6 +110,9 @@ options:
   --warning-mem-percent WARN_MEM_PERCENT
                         WARN threshold for aggregated memory usage, in
                         percent. Default: None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/procs/
 ```
 
 

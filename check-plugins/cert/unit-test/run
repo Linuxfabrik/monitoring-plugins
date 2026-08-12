@@ -17,8 +17,12 @@ the generated certificate to a temp file (PEM or DER) and run the plugin against
 No external network access is required.
 """
 
+import argparse
 import datetime
+import importlib.machinery
+import importlib.util
 import os
+import resource
 import socket
 import ssl
 import subprocess
@@ -52,7 +56,11 @@ def _make_key(key_type):
 
 
 def make_cert(
-    common_name, days_valid=365, days_offset=0, sans=None, key_type='rsa',
+    common_name,
+    days_valid=365,
+    days_offset=0,
+    sans=None,
+    key_type='rsa',
     with_must_staple=False,
 ):
     """Build a self-signed certificate plus matching private key. `days_offset` shifts
@@ -62,9 +70,11 @@ def make_cert(
     plugin reports as OCSP Must-Staple = yes.
     """
     key = _make_key(key_type)
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, common_name),
-    ])
+    subject = issuer = x509.Name(
+        [
+            x509.NameAttribute(NameOID.COMMON_NAME, common_name),
+        ]
+    )
     now = lib.time.now(as_type='utc')
     not_before = now + datetime.timedelta(days=days_offset)
     not_after = not_before + datetime.timedelta(days=days_valid)
@@ -133,7 +143,9 @@ def make_chain(leaf_cn, intermediate_cn, leaf_days=60, intermediate_days=3650):
         .serial_number(x509.random_serial_number())
         .not_valid_before(now)
         .not_valid_after(now + datetime.timedelta(days=leaf_days))
-        .add_extension(x509.SubjectAlternativeName([x509.DNSName(leaf_cn)]), critical=False)
+        .add_extension(
+            x509.SubjectAlternativeName([x509.DNSName(leaf_cn)]), critical=False
+        )
         .sign(ca_key, hashes.SHA256())
     )
     leaf_pem = leaf_cert.public_bytes(serialization.Encoding.PEM)
@@ -198,18 +210,46 @@ class TLSServer:
                 pass
 
 
-def run_plugin(*args, timeout=10):
-    """Invoke the plugin with the given CLI args and return CompletedProcess."""
+def run_plugin(*args, timeout=10, nofile=None):
+    """Invoke the plugin with the given CLI args and return CompletedProcess. `nofile` sets
+    RLIMIT_NOFILE to a (soft, hard) pair for the plugin process, which is how a scan's
+    worker budget is put under test: a monitoring agent hands its plugins a soft limit far
+    below the hard limit.
+    """
+
+    def _set_fd_limit():
+        resource.setrlimit(resource.RLIMIT_NOFILE, nofile)
+
     return subprocess.run(
         [PLUGIN, *args],
         capture_output=True,
         text=True,
         timeout=timeout,
+        preexec_fn=_set_fd_limit if nofile else None,
     )
 
 
-class TestCheck(unittest.TestCase):
+def closed_port():
+    """Bind a port and close it again, so the next connect attempt to it is refused."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(('127.0.0.1', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
 
+
+def load_plugin_module():
+    """Import the plugin script as a module so its pure helpers can be called directly.
+    The script carries no `.py` suffix, so the source loader has to be named explicitly.
+    """
+    loader = importlib.machinery.SourceFileLoader('cert_plugin', PLUGIN)
+    spec = importlib.util.spec_from_loader('cert_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestCheck(unittest.TestCase):
     def _serve(self, cert_pem, key_pem):
         srv = TLSServer(cert_pem, key_pem)
         self.addCleanup(srv.close)
@@ -223,8 +263,13 @@ class TestCheck(unittest.TestCase):
         cert_pem, key_pem = make_cert('test.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('verification skipped', result.stdout)
@@ -235,8 +280,12 @@ class TestCheck(unittest.TestCase):
         cert_pem, key_pem = make_cert('test.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
         )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         self.assertIn('chain unverified', result.stdout)
@@ -245,20 +294,33 @@ class TestCheck(unittest.TestCase):
         cert_pem, key_pem = make_cert('test.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--severity', 'crit',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--severity',
+            'crit',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
         self.assertIn('chain unverified', result.stdout)
 
     def test_crit_expired(self):
         cert_pem, key_pem = make_cert(
-            'test.example.com', days_valid=10, days_offset=-30,
+            'test.example.com',
+            days_valid=10,
+            days_offset=-30,
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
         self.assertIn('expired', result.stdout)
@@ -266,25 +328,45 @@ class TestCheck(unittest.TestCase):
 
     def test_warn_low_days(self):
         cert_pem, key_pem = make_cert(
-            'test.example.com', days_valid=10, days_offset=0,
+            'test.example.com',
+            days_valid=10,
+            days_offset=0,
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure',
-            '--warning', '14:', '--critical', '5:',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
+            '--warning',
+            '14:',
+            '--critical',
+            '5:',
         )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
 
     def test_crit_very_low_days(self):
         cert_pem, key_pem = make_cert(
-            'test.example.com', days_valid=3, days_offset=0,
+            'test.example.com',
+            days_valid=3,
+            days_offset=0,
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure',
-            '--warning', '14:', '--critical', '5:',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
+            '--warning',
+            '14:',
+            '--critical',
+            '5:',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
 
@@ -299,26 +381,49 @@ class TestCheck(unittest.TestCase):
         ca_file.close()
         self.addCleanup(os.unlink, ca_file.name)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--ca-file', ca_file.name,
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--ca-file',
+            ca_file.name,
         )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         self.assertIn('Hostname mismatch', result.stdout)
 
     def test_lengthy_includes_all_fields(self):
         cert_pem, key_pem = make_cert(
-            'test.example.com', days_valid=60, sans=['alt1.example.com'],
+            'test.example.com',
+            days_valid=60,
+            sans=['alt1.example.com'],
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure', '--lengthy',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         for needle in (
-            'Subject CN', 'Issuer CN', 'Serial', 'Signature Algorithm',
-            'Public Key', 'SANs', 'Not Before', 'Not After',
-            'SHA-256 Fingerprint', 'OCSP Must-Staple', 'TLS Version', 'Chain',
+            'Subject CN',
+            'Issuer CN',
+            'Serial',
+            'Signature Algorithm',
+            'Public Key',
+            'SANs',
+            'Not Before',
+            'Not After',
+            'SHA-256 Fingerprint',
+            'OCSP Must-Staple',
+            'TLS Version',
+            'Chain',
             'alt1.example.com',
         ):
             self.assertIn(needle, result.stdout, f'missing {needle}')
@@ -335,8 +440,13 @@ class TestCheck(unittest.TestCase):
         port = sock.getsockname()[1]
         sock.close()
         result = run_plugin(
-            '--source', 'url', '--url', f'https://127.0.0.1:{port}/',
-            '--insecure', '--timeout', '2',
+            '--source',
+            'url',
+            '--url',
+            f'https://127.0.0.1:{port}/',
+            '--insecure',
+            '--timeout',
+            '2',
         )
         self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
         self.assertIn('Cannot connect', result.stdout)
@@ -348,12 +458,20 @@ class TestCheck(unittest.TestCase):
 
     def test_lengthy_ecdsa_key(self):
         cert_pem, key_pem = make_cert(
-            'test.example.com', days_valid=60, key_type='ecdsa',
+            'test.example.com',
+            days_valid=60,
+            key_type='ecdsa',
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure', '--lengthy',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         # cryptography exposes EC keys as ECPublicKey, so the plugin labels them "EC"
@@ -363,12 +481,20 @@ class TestCheck(unittest.TestCase):
 
     def test_lengthy_ed25519_key(self):
         cert_pem, key_pem = make_cert(
-            'test.example.com', days_valid=60, key_type='ed25519',
+            'test.example.com',
+            days_valid=60,
+            key_type='ed25519',
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--insecure', '--lengthy',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--insecure',
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('Ed25519', result.stdout)
@@ -377,8 +503,13 @@ class TestCheck(unittest.TestCase):
         cert_pem, key_pem = make_cert('test.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'test.example.com', '--always-ok',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'test.example.com',
+            '--always-ok',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('chain unverified', result.stdout)
@@ -387,26 +518,46 @@ class TestCheck(unittest.TestCase):
         # issued 50 days ago, valid 60 days -> ~10 days left = ~17% of the lifetime, so a
         # 25% warning threshold fires while the 5% critical does not
         cert_pem, key_pem = make_cert(
-            'pct.example.com', days_valid=60, days_offset=-50,
+            'pct.example.com',
+            days_valid=60,
+            days_offset=-50,
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'pct.example.com', '--insecure',
-            '--warning', '25%', '--critical', '5%',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'pct.example.com',
+            '--insecure',
+            '--warning',
+            '25%',
+            '--critical',
+            '5%',
         )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
 
     def test_crit_duration_threshold(self):
         # ~2 days left, critical when less than 3 days remain
         cert_pem, key_pem = make_cert(
-            'iv.example.com', days_valid=60, days_offset=-58,
+            'iv.example.com',
+            days_valid=60,
+            days_offset=-58,
         )
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'iv.example.com', '--insecure',
-            '--warning', '14d', '--critical', '3d',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'iv.example.com',
+            '--insecure',
+            '--warning',
+            '14d',
+            '--critical',
+            '3d',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
 
@@ -420,9 +571,16 @@ class TestCheck(unittest.TestCase):
         ca_file.close()
         self.addCleanup(os.unlink, ca_file.name)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'ca.example.com',
-            '--ca-file', ca_file.name, '--ca-file', ca_file.name,
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'ca.example.com',
+            '--ca-file',
+            ca_file.name,
+            '--ca-file',
+            ca_file.name,
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('chain verified', result.stdout)
@@ -436,14 +594,24 @@ class TestCheck(unittest.TestCase):
         # inspect the whole peer chain, raise WARN and surface the intermediate as the
         # soonest-expiring certificate
         leaf_pem, intermediate_pem, leaf_key_pem = make_chain(
-            'chain.example.com', 'Test Intermediate CA',
-            leaf_days=60, intermediate_days=7,
+            'chain.example.com',
+            'Test Intermediate CA',
+            leaf_days=60,
+            intermediate_days=7,
         )
         port = self._serve(leaf_pem + intermediate_pem, leaf_key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'chain.example.com', '--insecure',
-            '--warning', '14:', '--critical', '5:',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'chain.example.com',
+            '--insecure',
+            '--warning',
+            '14:',
+            '--critical',
+            '5:',
         )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         self.assertIn('Test Intermediate CA', result.stdout)
@@ -454,12 +622,19 @@ class TestCheck(unittest.TestCase):
     )
     def test_chain_lengthy_shows_each_cert(self):
         leaf_pem, intermediate_pem, leaf_key_pem = make_chain(
-            'chain.example.com', 'Test Intermediate CA',
+            'chain.example.com',
+            'Test Intermediate CA',
         )
         port = self._serve(leaf_pem + intermediate_pem, leaf_key_pem)
         result = run_plugin(
-            '--source', 'url', '--url', self._url(port),
-            '--sni-hostname', 'chain.example.com', '--insecure', '--lengthy',
+            '--source',
+            'url',
+            '--url',
+            self._url(port),
+            '--sni-hostname',
+            'chain.example.com',
+            '--insecure',
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         # both the leaf and the intermediate get their own --lengthy block
@@ -502,7 +677,9 @@ class TestFileSource(unittest.TestCase):
 
     def test_crit_expired_file(self):
         cert_pem, _ = make_cert(
-            'test.example.com', days_valid=10, days_offset=-30,
+            'test.example.com',
+            days_valid=10,
+            days_offset=-30,
         )
         path = self._write(cert_pem)
         result = run_plugin('--source', 'file', '--filename', path)
@@ -524,7 +701,9 @@ class TestFileSource(unittest.TestCase):
         # in a single bundle file must surface the expired intermediate as CRIT.
         leaf_pem, _ = make_cert('leaf.example.com', days_valid=60)
         expired_intermediate_pem, _ = make_cert(
-            'old.intermediate.example.com', days_valid=10, days_offset=-30,
+            'old.intermediate.example.com',
+            days_valid=10,
+            days_offset=-30,
         )
         path = self._write(leaf_pem + expired_intermediate_pem)
         result = run_plugin('--source', 'file', '--filename', path)
@@ -540,8 +719,14 @@ class TestFileSource(unittest.TestCase):
                 with open(os.path.join(tmpdir, name), 'wb') as fh:
                     fh.write(data)
             result = run_plugin(
-                '--source', 'file', '--filename', f'{tmpdir}/*.pem',
-                '--warning', '14:', '--critical', '5:',
+                '--source',
+                'file',
+                '--filename',
+                f'{tmpdir}/*.pem',
+                '--warning',
+                '14:',
+                '--critical',
+                '5:',
             )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         self.assertIn('2 certificates in', result.stdout)
@@ -551,7 +736,10 @@ class TestFileSource(unittest.TestCase):
 
     def test_unknown_no_match(self):
         result = run_plugin(
-            '--source', 'file', '--filename', '/tmp/lfmp-cert-no-such-file-*.pem',
+            '--source',
+            'file',
+            '--filename',
+            '/tmp/lfmp-cert-no-such-file-*.pem',
         )
         self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
         self.assertIn('No files match', result.stdout)
@@ -589,7 +777,10 @@ class TestFileSource(unittest.TestCase):
             with open(os.path.join(tmpdir, 'a/b/c/notes.txt'), 'wb') as fh:
                 fh.write(b'shopping list')
             result = run_plugin(
-                '--source', 'file', '--filename', f'{tmpdir}/**/*',
+                '--source',
+                'file',
+                '--filename',
+                f'{tmpdir}/**/*',
             )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('2 certificates in', result.stdout)
@@ -603,7 +794,11 @@ class TestFileSource(unittest.TestCase):
         cert_pem, _ = make_cert('test.example.com', days_valid=60)
         path = self._write(cert_pem)
         result = run_plugin(
-            '--source', 'file', '--filename', path, '--lengthy',
+            '--source',
+            'file',
+            '--filename',
+            path,
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('Subject CN', result.stdout)
@@ -617,12 +812,18 @@ class TestFileSource(unittest.TestCase):
         # add the TLS Feature extension carrying status_request (5) so the parser sees
         # OCSP Must-Staple set; cryptography exposes this via x509.TLSFeature
         cert_pem, _ = make_cert(
-            'staple.example.com', days_valid=60, key_type='rsa',
+            'staple.example.com',
+            days_valid=60,
+            key_type='rsa',
             with_must_staple=True,
         )
         path = self._write(cert_pem)
         result = run_plugin(
-            '--source', 'file', '--filename', path, '--lengthy',
+            '--source',
+            'file',
+            '--filename',
+            path,
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertRegex(result.stdout, r'OCSP Must-Staple\s*!\s*yes')
@@ -641,19 +842,12 @@ class TestScanSource(unittest.TestCase):
         time.sleep(0.05)  # give the accept thread a moment to bind
         return srv.port
 
-    @staticmethod
-    def _closed_port():
-        # bind a port, close it; the next connect attempt is refused
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(('127.0.0.1', 0))
-        port = sock.getsockname()[1]
-        sock.close()
-        return port
-
     def test_scan_ok_single_host(self):
         cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
-        result = run_plugin('--source', 'scan', '--host', '127.0.0.1', '--ports', str(port))
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port)
+        )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         # a scan always uses the table form, even for a single certificate
         self.assertIn('1/1 host responded', result.stdout)
@@ -672,9 +866,18 @@ class TestScanSource(unittest.TestCase):
         p_ok = self._serve(ok_pem, ok_key)
         p_warn = self._serve(warn_pem, warn_key)
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1',
-            '--ports', str(p_ok), '--ports', str(p_warn),
-            '--warning', '14:', '--critical', '5:',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(p_ok),
+            '--ports',
+            str(p_warn),
+            '--warning',
+            '14:',
+            '--critical',
+            '5:',
         )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
         # one host answered on two ports: 1 host, 2 certificates
@@ -687,7 +890,12 @@ class TestScanSource(unittest.TestCase):
         port = self._serve(cert_pem, key_pem)
         # a one-port range start-end that covers exactly the listener port
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--ports', f'{port}-{port}',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            f'{port}-{port}',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('range.example.com', result.stdout)
@@ -695,15 +903,23 @@ class TestScanSource(unittest.TestCase):
     def test_scan_crit_expired(self):
         cert_pem, key_pem = make_cert('old.example.com', days_valid=10, days_offset=-30)
         port = self._serve(cert_pem, key_pem)
-        result = run_plugin('--source', 'scan', '--host', '127.0.0.1', '--ports', str(port))
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port)
+        )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
         self.assertIn('expired', result.stdout)
 
     def test_scan_no_responders(self):
-        port = self._closed_port()
+        port = closed_port()
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port),
-            '--timeout', '2',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--timeout',
+            '2',
         )
         # nothing answered: not an error, just nothing to alert on
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
@@ -716,7 +932,13 @@ class TestScanSource(unittest.TestCase):
         cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port), '--lengthy',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('TLS Version', result.stdout)
@@ -726,8 +948,14 @@ class TestScanSource(unittest.TestCase):
 
     def test_scan_exclude_removes_all_hosts(self):
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--exclude', '127.0.0.1',
-            '--ports', '443',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--exclude',
+            '127.0.0.1',
+            '--ports',
+            '443',
         )
         self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
         self.assertIn('No target hosts', result.stdout)
@@ -743,7 +971,13 @@ class TestScanSource(unittest.TestCase):
         cert_pem, key_pem = make_cert('appliance.local', days_valid=60)
         port = self._serve(cert_pem, key_pem)
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port), '--lengthy',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--lengthy',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('self-signed', result.stdout)
@@ -752,33 +986,251 @@ class TestScanSource(unittest.TestCase):
         # leaf signed by an internal CA, but the server presents only the leaf and the CA
         # is not trusted: not self-signed, so the trust check fails and raises WARN
         leaf_pem, _intermediate_pem, leaf_key_pem = make_chain(
-            'app.example.com', 'Internal CA',
+            'app.example.com',
+            'Internal CA',
         )
         port = self._serve(leaf_pem, leaf_key_pem)
-        result = run_plugin('--source', 'scan', '--host', '127.0.0.1', '--ports', str(port))
+        result = run_plugin(
+            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port)
+        )
         self.assertEqual(result.returncode, STATE_WARN, result.stdout)
 
     def test_scan_untrusted_insecure_ok(self):
         # --insecure turns trust verification off entirely, so the untrusted cert is OK
         leaf_pem, _intermediate_pem, leaf_key_pem = make_chain(
-            'app.example.com', 'Internal CA',
+            'app.example.com',
+            'Internal CA',
         )
         port = self._serve(leaf_pem, leaf_key_pem)
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port), '--insecure',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--insecure',
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
 
     def test_scan_untrusted_severity_crit(self):
         leaf_pem, _intermediate_pem, leaf_key_pem = make_chain(
-            'app.example.com', 'Internal CA',
+            'app.example.com',
+            'Internal CA',
         )
         port = self._serve(leaf_pem, leaf_key_pem)
         result = run_plugin(
-            '--source', 'scan', '--host', '127.0.0.1', '--ports', str(port),
-            '--severity', 'crit',
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--severity',
+            'crit',
         )
         self.assertEqual(result.returncode, STATE_CRIT, result.stdout)
+
+
+class TestWorkerBudget(unittest.TestCase):
+    """Tests for the parallelism of --source scan. Every worker holds one socket while it
+    probes, so the file-descriptor limit of the process, not --max-workers, has the last
+    word. Asking for more workers than there are descriptors makes connect() fail with
+    EMFILE, and EMFILE looks exactly like a target that stays silent: the scanner would
+    skip those hosts and report OK for a subnet it never probed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin_module()
+
+    def _serve(self, cert_pem, key_pem):
+        srv = TLSServer(cert_pem, key_pem)
+        self.addCleanup(srv.close)
+        time.sleep(0.05)  # give the accept thread a moment to bind
+        return srv.port
+
+    def _tight_fd_limit(self):
+        """A descriptor limit low enough that it, and not the cap, bounds the workers."""
+        return self.plugin.MAX_WORKERS_CAP + self.plugin.FD_RESERVE - 1
+
+    def test_default_is_derived_from_the_fd_limit(self):
+        fd_limit = self._tight_fd_limit()
+        budget = self.plugin.get_max_workers(None, fd_limit)
+        self.assertEqual(budget, fd_limit - self.plugin.FD_RESERVE)
+        self.assertLess(budget, self.plugin.MAX_WORKERS_CAP)
+
+    def test_default_never_exceeds_the_cap(self):
+        # a roomy descriptor limit must not raise the parallelism past the cap: past it,
+        # the kernel's system time for connects to dead addresses starves the other checks
+        budget = self.plugin.get_max_workers(None, 1000000)
+        self.assertEqual(budget, self.plugin.MAX_WORKERS_CAP)
+
+    def test_unknown_fd_limit_falls_back_to_the_cap(self):
+        # platforms without RLIMIT_NOFILE, and limits reported as unlimited
+        budget = self.plugin.get_max_workers(None, None)
+        self.assertEqual(budget, self.plugin.MAX_WORKERS_CAP)
+
+    def test_explicit_request_is_clamped_to_the_cap(self):
+        self.assertEqual(
+            self.plugin.get_max_workers(5000, 1000000), self.plugin.MAX_WORKERS_CAP
+        )
+
+    def test_explicit_request_is_clamped_to_the_fd_limit(self):
+        fd_limit = self._tight_fd_limit()
+        budget = self.plugin.get_max_workers(5000, fd_limit)
+        self.assertEqual(budget, fd_limit - self.plugin.FD_RESERVE)
+
+    def test_explicit_request_within_the_budget_is_honoured(self):
+        self.assertEqual(self.plugin.get_max_workers(10, 1024), 10)
+
+    def test_never_fewer_than_one_worker(self):
+        for requested, fd_limit in ((None, 1), (None, 0), (0, 1024), (-5, 1024)):
+            self.assertEqual(self.plugin.get_max_workers(requested, fd_limit), 1)
+
+    def test_scan_reports_the_clamp_under_verbose(self):
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--insecure',
+            '--max-workers',
+            '5000',
+            '--verbose',
+            nofile=(128, 128),
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('exceeds the file-descriptor budget', result.stdout)
+
+    def test_scan_reports_the_worker_count(self):
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        # one target, so the scan needs exactly one worker, and the noun is singular
+        self.assertIn(', 1 worker', result.stdout.splitlines()[0])
+
+    def test_worker_count_stays_left_of_the_state_marker(self):
+        # IcingaWeb replaces [WARNING] with an icon, so the state has to remain last
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=10)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_WARN, result.stdout)
+        self.assertRegex(result.stdout.splitlines()[0], r', 1 worker \[WARNING\]$')
+
+    def test_scan_without_any_response_reports_the_worker_count(self):
+        result = run_plugin(
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(closed_port()),
+            '--timeout',
+            '2',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('0/1 host responded, 1 worker', result.stdout)
+
+    def test_scan_never_builds_a_context_per_target(self):
+        """The TLS contexts are built once and shared by all workers. One context per
+        target would load the system trust store per target, which costs about 840 kB
+        under OpenSSL 1.1 and puts a 2000-worker scan at roughly 1.6 GB of RAM.
+        """
+        plugin = self.plugin
+        args = argparse.Namespace(
+            CA_FILE=[],
+            CLIENT_CERT=None,
+            CLIENT_KEY=None,
+            INSECURE=False,
+            MAX_WORKERS=4,
+            TIMEOUT=1,
+            VERBOSE=False,
+        )
+        ok, contexts = plugin.build_scan_contexts(args)
+        self.assertTrue(ok, contexts)
+        verify_ctx, insecure_ctx = contexts
+
+        original = plugin.ssl.create_default_context
+        plugin.ssl.create_default_context = lambda *a, **kw: self.fail(
+            'scan_targets built a TLS context per target instead of reusing the shared one'
+        )
+        self.addCleanup(setattr, plugin.ssl, 'create_default_context', original)
+
+        ports = [closed_port() for _ in range(4)]
+        ok, result = plugin.scan_targets(
+            args,
+            ['127.0.0.1'],
+            ports,
+            verify_ctx,
+            insecure_ctx,
+        )
+        self.assertTrue(ok, result)
+        items, workers = result
+        self.assertEqual(items, [])
+        self.assertEqual(workers, 4)
+
+    def test_build_scan_contexts_skips_verification_with_insecure(self):
+        args = argparse.Namespace(
+            CA_FILE=[],
+            CLIENT_CERT=None,
+            CLIENT_KEY=None,
+            INSECURE=True,
+        )
+        ok, (verify_ctx, insecure_ctx) = self.plugin.build_scan_contexts(args)
+        self.assertTrue(ok)
+        self.assertIsNone(verify_ctx)
+        self.assertEqual(insecure_ctx.verify_mode, ssl.CERT_NONE)
+
+    def test_build_scan_contexts_reports_a_broken_ca_file(self):
+        args = argparse.Namespace(
+            CA_FILE=['/nonexistent/ca.pem'],
+            CLIENT_CERT=None,
+            CLIENT_KEY=None,
+            INSECURE=False,
+        )
+        ok, result = self.plugin.build_scan_contexts(args)
+        self.assertFalse(ok)
+        self.assertIn('Cannot set up the TLS context', result)
+
+    def test_scan_survives_a_low_fd_limit(self):
+        # the clamp keeps the scan inside its descriptor budget, so the certificate is
+        # found instead of the host being skipped as unreachable
+        cert_pem, key_pem = make_cert('scan.example.com', days_valid=60)
+        port = self._serve(cert_pem, key_pem)
+        result = run_plugin(
+            '--source',
+            'scan',
+            '--host',
+            '127.0.0.1',
+            '--ports',
+            str(port),
+            '--insecure',
+            nofile=(128, 128),
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('1/1 host responded', result.stdout)
 
 
 if __name__ == '__main__':

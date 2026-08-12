@@ -12,20 +12,19 @@
 
 import argparse
 import json
-import os
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.redfish
 import lib.time
 import lib.txt
-import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070701'
+__version__ = '2026081001'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server via the Redfish API and alerts based on the severity of the log entries. By default it reads
@@ -35,7 +34,9 @@ days can be aged out so a long-since resolved event does not keep the check in a
 forever."""
 
 API_BASE = '/redfish/v1'
-DEFAULT_CACHE_EXPIRE = 15  # minutes; keep below the controller's session timeout
+DEFAULT_CACHE_EXPIRE = (
+    5  # minutes; also caches API responses, kept below the session timeout
+)
 DEFAULT_INSECURE = True
 DEFAULT_LOG_TYPE = 'sel'
 DEFAULT_MAX_AGE = 0  # days; 0 disables aging
@@ -69,7 +70,11 @@ LOG_PATHS = {
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -128,7 +133,8 @@ def parse_args():
         help='Only consider SEL entries whose message matches this Python regular expression. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
-        'Example: `--match="(?i)temperature"`.',
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Example: `--match="(?i)temperature"`.',
         dest='MATCH',
         action='append',
         default=None,
@@ -143,6 +149,22 @@ def parse_args():
         dest='MAX_AGE',
         type=int,
         default=DEFAULT_MAX_AGE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -206,7 +228,7 @@ def load_test_fixture(test_args, path):
     # fixture path, read it via lib.lftest.test() and return the parsed
     # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
     # a helpful message instead of letting json.loads raise a traceback.
-    if not os.path.isfile(path):
+    if not lib.disk.file_exists(path, allow_empty=True):
         lib.base.cu(f'Test fixture not found: "{path}".')
     test_args[0] = path
     stdout, _, _ = lib.lftest.test(test_args)
@@ -245,31 +267,51 @@ def main():
         if not args.URL.startswith('http'):
             lib.base.cu('--url parameter has to start with "http://" or https://".')
         header = {'Accept': 'application/json'}
-        # reuse a cached Redfish session token across requests and runs, so we
-        # do not create (and have the controller log) a new session each time
-        header.update(lib.redfish.get_auth_header(args))
-        # service root: figure out the vendor to pick the entry point
+        # cache_expire (seconds) enables the lib fetch layer's shared per-URL cache,
+        # so sibling Redfish checks on this host share one session and each fetch.
+        cache_expire = args.CACHE_EXPIRE * 60
+        header.update(lib.redfish.get_auth_header(args, cache_expire=cache_expire))
+        expand = lib.redfish.get_expand_suffix(
+            args.URL,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+            retries=args.RETRIES,
+            cache_expire=cache_expire,
+        )
+        # service root: figure out the vendor to pick the entry point, read once via
+        # the lib fetch layer and cached so the sibling Redfish checks on this host
+        # reuse it within the cache window instead of re-reading it.
+        root_url = f'{args.URL}{API_BASE}/'
         result = lib.base.coe(
-            lib.url.fetch_json(
-                f'{args.URL}{API_BASE}/',
+            lib.redfish.fetch_resource(
+                root_url,
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
                 retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
         )
         vendor = lib.redfish.get_vendor(result)
         entry_point = 'Systems' if vendor == 'supermicro' else 'Managers'
-        # Entry point: the Managers (or Systems for Supermicro) collection
+        # Entry point: the Managers (or Systems for Supermicro) collection, read in
+        # one request via the Redfish $expand query and cached by the lib fetch
+        # layer so a sibling Redfish check reading the same collection reuses it
+        # within the cache window.
+        entry_url = f'{args.URL}{API_BASE}/{entry_point}'
         result = lib.base.coe(
-            lib.url.fetch_json(
-                f'{args.URL}{API_BASE}/{entry_point}',
+            lib.redfish.fetch_collection(
+                entry_url,
+                expand=expand,
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
                 retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
         )
     else:
@@ -311,8 +353,11 @@ def main():
         member_count += 1
         for label, path in logs:
             if args.TEST is None:
-                # a missing or unknown log path must not abort the check
-                success, entries = lib.url.fetch_json(
+                # a missing or unknown log path must not abort the check.
+                # fetch_collection asks the controller to inline the log entries
+                # via the Redfish $expand query, so a long log is read in one
+                # request even on controllers that list entries as references.
+                success, entries = lib.redfish.fetch_collection(
                     lib.base.coe(
                         lib.redfish.build_url(args.URL, f'{member["@odata.id"]}{path}')
                     ),
@@ -321,6 +366,7 @@ def main():
                     no_proxy=args.NO_PROXY,
                     timeout=args.TIMEOUT,
                     retries=args.RETRIES,
+                    cache_expire=cache_expire,
                 )
                 if not success or not isinstance(entries, dict):
                     entries = {}
@@ -357,7 +403,9 @@ def main():
         ) + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

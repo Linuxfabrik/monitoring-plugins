@@ -1,4 +1,5 @@
 [tool.ruff]
+line-length = 88
 target-version = 'py39'
 
 [tool.ruff.lint]
@@ -30,8 +31,8 @@ ignore = [
 'check-plugins/metabase-stats/metabase-stats' = ['F821', 'B006']
 
 [tool.ruff.format]
-quote-style = 'single'
 docstring-code-format = true
+quote-style = 'single'
 
 [tool.bandit]
 # B110 (try/except/pass) and B112 (try/except/continue): intentional patterns in
@@ -40,3 +41,12 @@ docstring-code-format = true
 # B311 (pseudo-random): monitoring plugins use `random` for non-cryptographic
 # purposes only (transaction IDs, random MACs for DHCP tests, test data).
 skips = ['B110', 'B112', 'B311']
+
+[tool.bandit.assert_used]
+# A test suite may assert with the bare statement, so B101 does not apply under
+# tests/. bandit still scans the directory for every other finding.
+# The first two patterns are the ones shared with the other Linuxfabrik repos, whose
+# tests live in `tests/*.py`. This repository runs its suites as extension-less
+# `unit-test/run` scripts, which neither pattern matches, so that layout is listed
+# as well.
+skips = ['*/tests/*.py', 'tests/*.py', '*/unit-test/run']

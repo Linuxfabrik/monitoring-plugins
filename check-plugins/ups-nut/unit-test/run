@@ -248,12 +248,15 @@ def _check_containerfile(test, containerfile):
     image_tag = f'lfmp-ups-nut-{containerfile}'.lower()
     # clean_up=False keeps the layer cache between runs so subsequent invocations finish in
     # seconds instead of rebuilding from the base image.
-    with DockerImage(
-        path=HERE,
-        dockerfile_path=f'containerfiles/{containerfile}',
-        tag=image_tag,
-        clean_up=False,
-    ) as image, DockerContainer(str(image)).with_exposed_ports(3493) as container:
+    with (
+        DockerImage(
+            path=HERE,
+            dockerfile_path=f'containerfiles/{containerfile}',
+            tag=image_tag,
+            clean_up=False,
+        ) as image,
+        DockerContainer(str(image)).with_exposed_ports(3493) as container,
+    ):
         # upsd self-daemonises and writes its readiness banner to syslog, not to stdout
         # we can wait_log on. A short sleep is cheap and version-agnostic across NUT
         # 2.7.x and 2.8.x.

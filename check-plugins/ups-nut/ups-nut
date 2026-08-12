@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026051001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors an Uninterruptible Power Supply (UPS) managed by Network UPS Tools
 (NUT, https://networkupstools.org). Talks to the upsd daemon over TCP and reports battery
@@ -73,7 +73,11 @@ STATUS_FLAGS = {
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -155,6 +159,14 @@ def parse_args():
         '--lengthy',
         help=lib.args.help('--lengthy'),
         dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
         action='store_true',
         default=False,
     )
@@ -507,13 +519,19 @@ def main():
         return fallback
 
     args.WARNING_CHARGE = _resolve_below(
-        args.WARNING_CHARGE, 'battery.charge.warning', DEFAULT_WARNING_CHARGE,
+        args.WARNING_CHARGE,
+        'battery.charge.warning',
+        DEFAULT_WARNING_CHARGE,
     )
     args.CRITICAL_CHARGE = _resolve_below(
-        args.CRITICAL_CHARGE, 'battery.charge.low', DEFAULT_CRITICAL_CHARGE,
+        args.CRITICAL_CHARGE,
+        'battery.charge.low',
+        DEFAULT_CRITICAL_CHARGE,
     )
     args.CRITICAL_RUNTIME = _resolve_below(
-        args.CRITICAL_RUNTIME, 'battery.runtime.low', DEFAULT_CRITICAL_RUNTIME,
+        args.CRITICAL_RUNTIME,
+        'battery.runtime.low',
+        DEFAULT_CRITICAL_RUNTIME,
     )
 
     status_str = data.get('ups.status', '')
@@ -800,7 +818,9 @@ def main():
             header=['Metric', 'Value', 'State'],
         )
 
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

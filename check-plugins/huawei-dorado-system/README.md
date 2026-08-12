@@ -3,20 +3,20 @@
 
 ## Overview
 
-Checks overall system health, capacity and running status of a Huawei OceanStor Dorado storage system via the REST API (`/system/` endpoint). Alerts when the system reports a non-normal health or running state, or when storage capacity exceeds configurable thresholds. Reports product model, firmware version, health/running status, total sector capacity usage and storage pool capacity usage.
+Checks overall system health, capacity and running status of a Huawei OceanStor Dorado storage system via the REST API (`/system/` endpoint). Alerts when the system reports a non-normal health or running state, or when storage capacity exceeds configurable thresholds. Reports product model, firmware version, health/running status, total capacity usage and storage pool capacity usage.
 
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
-* Capacity values in perfdata are reported in sectors (as returned by the API)
+* The API counts every capacity in 512-byte sectors; performance data is reported in bytes
 
 **Data Collection:**
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/system/`
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
-* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+* If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
 
 
 ## Fact Sheet
@@ -29,7 +29,7 @@ Checks overall system health, capacity and running status of a Huawei OceanStor 
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 
 ## Help
@@ -37,15 +37,18 @@ Checks overall system health, capacity and running status of a Huawei OceanStor 
 ```text
 usage: huawei-dorado-system [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                            --device-id DEVICE_ID [--insecure] [--no-proxy]
-                            --password PASSWORD [--scope SCOPE]
+                            [--device-id DEVICE_ID] [--insecure]
+                            [--no-insecure] [--no-perfdata] [--no-proxy]
+                            [--password PASSWORD]
+                            [--password-file PASSWORD_FILE] [--scope SCOPE]
                             [--timeout TIMEOUT] -u URL --username USERNAME
-                            [-w WARN]
+                            [-w WARN] [-v]
 
 Checks overall system health, capacity, and performance of a Huawei OceanStor
 Dorado storage system via the REST API (/system endpoint). Reports health
-status, running status, storage capacity, and I/O performance metrics. Alerts
-when the system reports a non-normal health or running state.
+status, running status and the capacity of the array and of its storage pools.
+Alerts when the system reports a non-normal health or running state, and when
+a capacity reaches the warning or critical threshold.
 
 options:
   -h, --help            show this help message and exit
@@ -54,49 +57,81 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
-  -c, --critical CRIT   CRIT threshold in percent. Default: >= 95
+  -c, --critical CRIT   CRIT threshold in percent. Supports Nagios ranges.
+                        Default: 95
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API device ID.
+                        Huawei OceanStor Dorado API device ID. Optional: the
+                        appliance reports its own at login, so this is only
+                        needed to override that answer.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  -w, --warning WARN    WARN threshold in percent. Default: >= 90
+  -w, --warning WARN    WARN threshold in percent. Supports Nagios ranges.
+                        Default: 90
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-system/
 ```
 
 
 ## Usage Examples
 
 ```bash
-./huawei-dorado-system --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-system --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
 
 ```text
 OceanStor Dorado 8000 V6 6.1.0.SPH12, UUID: 201:4711, Name: myname, Location: Zurich, Health Status: Faulty (2) [CRITICAL], Running Status: Powering off (47) [WARNING]
-Sectors: Total 1.0% used (19.0G/1.6T), Storage Pool 1.0% used (19.0G/1.3T)
-
-Fetched API 2 times
+Capacity: Total 1% used (8.8TiB/726.4TiB), Storage Pool 1% used (8.8TiB/612.2TiB)
 ```
 
 ```bash
-./huawei-dorado-system --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass --warning 80 --critical 90
+./huawei-dorado-system --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --warning=80 --critical=90
 ```
 
 
 ## States
 
 * OK if system health and running status are normal and capacity usage is below thresholds.
-* WARN if system running status is not "Normal".
-* WARN if total sector capacity usage is >= `--warning` (default: 90%).
+* WARN if the system reports a degraded health status, or one this check does not know.
+* WARN if the system's running status is not "Normal", unless it reports an outright failure.
+* WARN if total capacity usage is >= `--warning` (default: 90%).
 * WARN if storage pool capacity usage is >= `--warning` (default: 90%).
-* CRIT if system health status is not "Normal".
-* CRIT if total sector capacity usage is >= `--critical` (default: 95%).
+* CRIT if the system reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if the system's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
+* CRIT if total capacity usage is >= `--critical` (default: 95%).
 * CRIT if storage pool capacity usage is >= `--critical` (default: 95%).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -106,25 +141,29 @@ Fetched API 2 times
 
 | Name | Type | Description |
 |----|----|----|
-| FREEDISKSCAPACITY | Sectors | Total raw capacity of all free disks (0 if none exist). |
-| HEALTHSTATUS | Number | 1: normal, 2: faulty. |
-| HOTSPAREDISKSCAPACITY | Sectors | Total raw capacity of all hot spare disks (0 if none exist; always 0 on XVE architecture). |
-| mappedLunsCountCapacity | Sectors | Total capacity of mapped LUNs. |
-| RUNNINGSTATUS | Number | 1: normal, 3: not running, 12: powering on, 47: powering off, 51: upgrading. |
-| sectors-capacity-percent | Percentage | Total sector capacity usage. |
-| sectors-storagepool-percent | Percentage | Storage pool capacity usage. |
-| STORAGEPOOLFREECAPACITY | Sectors | Total free capacity of all storage pools (after RAID). |
-| STORAGEPOOLHOSTSPARECAPACITY | Sectors | Total hot spare capacity of all storage pools (after RAID). |
-| STORAGEPOOLRAWCAPACITY | Sectors | Total raw capacity of disks in all storage pools. |
-| STORAGEPOOLUSEDCAPACITY | Sectors | Total used capacity of all storage pools (after RAID). |
-| THICKLUNSALLOCATECAPACITY | Sectors | Total capacity allocated to all thick LUNs. |
-| THICKLUNSUSEDCAPACITY | Sectors | Total used capacity of all thick LUNs. |
-| THINLUNSALLOCATECAPACITY | Sectors | Total capacity allocated to all thin LUNs. |
-| THINLUNSUSEDCAPACITY | Sectors | Total used capacity of all thin LUNs. |
-| UNAVAILABLEDISKSCAPACITY | Sectors | Total raw capacity of all unavailable disks (0 if none exist). |
-| unMappedLunsCountCapacity | Sectors | Total capacity of unmapped LUNs. |
-| USEDCAPACITY | Sectors | Used system capacity. |
-| userFreeCapacity | Sectors | Available system capacity. |
+| free_disks_capacity | Bytes | Total raw capacity of all free disks (0 if none exist). |
+| health_status | Number | 1: normal, 2: faulty. |
+| hot_spare_disks_capacity | Bytes | Total raw capacity of all hot spare disks (0 if none exist; always 0 on XVE architecture). |
+| mapped_luns_capacity | Bytes | Total capacity of mapped LUNs. |
+| running_status | Number | 1: normal, 3: not running, 12: powering on, 47: powering off, 51: upgrading. |
+| storage_pool_free_capacity | Bytes | Total free capacity of all storage pools (after RAID). |
+| storage_pool_hot_spare_capacity | Bytes | Total hot spare capacity of all storage pools (after RAID). |
+| storage_pool_raw_capacity | Bytes | Total raw capacity of disks in all storage pools. |
+| storage_pool_total_capacity | Bytes | Total capacity of all storage pools (after RAID). |
+| storage_pool_usage_percent | Percentage | Storage pool capacity usage. |
+| storage_pool_used_capacity | Bytes | Total used capacity of all storage pools (after RAID). |
+| thick_luns_allocated_capacity | Bytes | Total capacity allocated to all thick LUNs. |
+| thick_luns_used_capacity | Bytes | Total used capacity of all thick LUNs. |
+| thin_luns_allocated_capacity | Bytes | Total capacity allocated to all thin LUNs. |
+| thin_luns_used_capacity | Bytes | Total used capacity of all thin LUNs. |
+| total_capacity | Bytes | Total system capacity. |
+| unavailable_disks_capacity | Bytes | Total raw capacity of all unavailable disks (0 if none exist). |
+| unmapped_luns_capacity | Bytes | Total capacity of unmapped LUNs. |
+| usage_percent | Percentage | Total capacity usage. |
+| used_capacity | Bytes | Used system capacity. |
+| user_free_capacity | Bytes | Available system capacity. Counts thin-provisioned space, so it can exceed the physical total. |
+
+A capacity the appliance does not track is reported as `-1` and left out of the performance data.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
@@ -139,7 +178,7 @@ Check the `--url`, `--device-id`, `--username` and `--password` parameters. Veri
 
 ### `This operation fails to be performed because of the unauthorized REST.`
 
-This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
+This is a known transient issue with the Huawei REST API. The check makes up to three attempts and forces a fresh login before the second one. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

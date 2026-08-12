@@ -13,19 +13,19 @@
 import argparse
 import json
 import math
-import os
 import re
 import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -47,7 +47,11 @@ DEFAULT_WARN = '100:'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -120,6 +124,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--service',
         help='Check this service and, optionally, the number of tasks it is expected to '
         'run, written as `name=count`. '
@@ -188,7 +200,7 @@ def load_fixture(test_args, suffix):
     empty string if the fixture does not exist (e.g. a scenario without any services).
     """
     path = f'{test_args[0]}{suffix}'
-    if not os.path.isfile(path):
+    if not lib.disk.file_exists(path, allow_empty=True):
         return ''
     local_args = list(test_args)
     local_args[0] = path
@@ -448,7 +460,9 @@ def main():
     msg += lib.base.get_table(table_data, keys, header=headers)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

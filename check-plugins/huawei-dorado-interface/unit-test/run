@@ -15,41 +15,60 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
         'id': 'ok-interfaces-healthy',
         'test': 'stdout/interfaces-healthy,,0',
-        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
-            'UUID       ! Location     ! Model                                 ! RunMode  '
-            '! LED ! Health ! Running',
-            '-----------+--------------+---------------------------------------+----------'
-            '+-----+--------+--------',
-            '209:0A.1   ! CTE0.A.IOM1  ! Unknown                               ! FC       '
-            '! Off ! [OK]   ! [OK]   ',
-            '209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet '
-            '! Off ! [OK]   ! [OK]   ',
-            '209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet '
-            '! Off ! [OK]   ! [OK]   ',
-            '209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     '
-            '! Off ! [OK]   ! [OK]   ',
-            '209:0.135  ! CTE0.IOM.H7  ! 2 ports BE 100 Gbit/s RDMA I/O module ! RoCE     '
-            '! Off ! [OK]   ! [OK]   ',
-            '209:0.140  ! CTE0.IOM.H12 ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet '
-            '! Off ! [OK]   ! [OK]   ',
-            '209:0.141  ! CTE0.IOM.H13 ! 2 ports FE 100 Gbit/s ETH I/O module  ! Ethernet '
-            '! Off ! [OK]   ! [OK]   ',
+            'UUID       ! Location     ! Model                                 '
+            '! RunMode   ! LED ! Health     ! Running     ! State',
+            '-----------+--------------+---------------------------------------+'
+            '-----------+-----+------------+-------------+------',
+            '209:0A.1   ! CTE0.A.IOM1  ! Unknown                               '
+            '! FC        ! Off ! Normal (1) ! Running (2) ! [OK] ',
+            '209:0.128  ! CTE0.IOM.H0  ! 2 ports FE 100 Gbit/s ETH I/O module  '
+            '! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK] ',
+            '209:0.129  ! CTE0.IOM.H1  ! 2 ports FE 100 Gbit/s ETH I/O module  '
+            '! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK]',
+            '209:0.134  ! CTE0.IOM.H6  ! 2 ports BE 100 Gbit/s RDMA I/O module '
+            '! RDMA/RoCE ! Off ! Normal (1) ! Running (2) ! [OK] ',
+            '209:0.135  ! CTE0.IOM.H7  ! 2 ports BE 100 Gbit/s RDMA I/O module '
+            '! RDMA/RoCE ! Off ! Normal (1) ! Running (2) ! [OK] ',
+            '209:0.140  ! CTE0.IOM.H12 ! 2 ports FE 100 Gbit/s ETH I/O module  '
+            '! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK] ',
+            '209:0.141  ! CTE0.IOM.H13 ! 2 ports FE 100 Gbit/s ETH I/O module  '
+            '! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK] ',
         ],
+    },
+    {
+        # LIGHTSTATUS and RUNMODE are optional fields. A firmware that leaves them out
+        # used to end the whole check in a traceback instead of reporting the state of
+        # every module it did describe.
+        'id': 'ok-interface-without-optional-fields',
+        'test': 'stdout/interface-without-optional-fields,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Unknown'],
+        'assert-not-in': ['Unknown column', 'Traceback'],
+    },
+    {
+        # An appliance always has interface modules. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-interface-modules',
+        'test': 'stdout/no-interface-modules,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no interface modules.'],
     },
 ]
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../huawei-dorado-interface'
 
 

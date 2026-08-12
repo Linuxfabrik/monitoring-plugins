@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
     {
@@ -26,11 +26,103 @@ TESTS = [
         'assert-in': ['Everything is ok.', 'Fan0', 'normal'],
     },
     {
-        'id': 'warn-fan-faulty',
+        # A faulty fan leaves the chassis without the cooling it was sized for,
+        # so it has to reach CRITICAL.
+        'id': 'crit-fan-faulty',
         'test': 'stdout/fans-one-faulty,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin',
-        'assert-retc': STATE_WARN,
-        'assert-regex': r'fault.*\[WARNING\]',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'fault.*\[CRITICAL\]',
+    },
+    {
+        # An appliance always has fans. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-fans',
+        'test': 'stdout/no-fans,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no fans.'],
+    },
+    {
+        # Every chassis of a cluster numbers its fans from zero, so "Fan0" says
+        # nothing on its own. The chassis serial in front of it keeps the rows
+        # apart and gives each fan its own performance data label.
+        'id': 'crit-fan-names-repeat-per-chassis',
+        'test': 'stdout/fans-multi-chassis,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            "'2102355GLC10N9100001_Fan0_status'=0",
+            "'2102355GLC10N9100002_Fan0_status'=0",
+            "'2102355GLC10N9100002_Fan1_status'=1",
+        ],
+    },
+    {
+        # The chassis serial identifies the fan for the API, the node name identifies
+        # it for the operator who has to walk up to it. `--lengthy` adds the serial.
+        'id': 'crit-node-name-instead-of-chassis-serial',
+        'test': 'stdout/fans-multi-chassis,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Node   ! Name ! Status ! State', 'node02 ! Fan1 ! fault'],
+        'assert-not-in': ['Chassis SN           !'],
+    },
+    {
+        'id': 'crit-lengthy-adds-the-chassis-serial',
+        'test': 'stdout/fans-multi-chassis,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Node   ! Chassis SN           ! Name', '2102355GLC10N9100002'],
+    },
+    {
+        # A node the cluster listing does not cover must not take the check down; the
+        # fan is still reported, just without a name for the chassis it sits in.
+        'id': 'ok-fan-on-an-unlisted-node',
+        'test': 'stdout/fans-unlisted-node,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'--\s+! Fan0 ! normal',
+    },
+    {
+        # The node name is worth filtering on: it is what an operator knows a chassis by.
+        'id': 'ok-match-filters-by-node-name',
+        'test': 'stdout/fans-multi-chassis,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='node01'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['node01'],
+        'assert-not-in': ['node02'],
+    },
+    {
+        # A chassis is sold with more fan bays than it is usually populated with. The
+        # bays nobody ordered a part for report "absent" on every run, so alerting on
+        # them would mean a permanent warning on hardware that is behaving exactly as
+        # bought.
+        'id': 'ok-unpopulated-bays-are-not-a-fault',
+        'test': 'stdout/fans-unpopulated-bays,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Fan2 ! absent ! [OK]'],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # The filter selects a subset; what it drops must not be checked either.
+        'id': 'ok-match-filters-fans',
+        'test': 'stdout/fans-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='Fan0'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['Fan0'],
+        'assert-not-in': ['Fan1'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/fans-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No fans matched `nonexistent`.'],
     },
 ]
 

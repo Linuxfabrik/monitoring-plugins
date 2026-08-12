@@ -36,10 +36,10 @@ Collects statistics across multiple snapshots in a restic repository, including 
 ## Help
 
 ```text
-usage: restic-stats [-h] [-V] [--host HOST]
+usage: restic-stats [-h] [-V] [--always-ok] [--host HOST]
                     [--mode {restore-size,files-by-contents,blobs-per-file,raw-data}]
-                    [--password-file PASSWORD_FILE] [--path PATH] --repo REPO
-                    [--tag TAG]
+                    [--no-perfdata] [--password-file PASSWORD_FILE]
+                    [--path PATH] --repo REPO [--tag TAG]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
@@ -49,11 +49,16 @@ sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --host HOST           Only consider snapshots for this host. Can be
                         specified multiple times.
   --mode {restore-size,files-by-contents,blobs-per-file,raw-data}
                         Counting mode for the statistics calculation. Default:
                         restore-size
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --path PATH           Only consider snapshots for this path. Can be
@@ -62,6 +67,9 @@ options:
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-stats/
 ```
 
 

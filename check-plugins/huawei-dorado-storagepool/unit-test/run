@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-pools-healthy',
+        'test': 'stdout/pools-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'UUID  ! Name           ! Disk Domain   ! Used     ! Total    ! Usage '
+            '! Device Limit ! Overprov ! Reduction ! Health     ! Running     ! State',
+            '216:0 ! StoragePool001 ! DiskDomain000 ! 303.3GiB ! 1.5TiB   ! 20%   '
+            '! 80%          ! 100%     ! 3.2:1     ! Normal (1) ! Online (27) ! [OK]',
+        ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the detail ones out.
+        'id': 'ok-pools-healthy-core-columns',
+        'test': 'stdout/pools-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'UUID  ! Name           ! Used     ! Total    ! Usage ! Overprov '
+            '! Health     ! Running     ! State',
+            '216:0 ! StoragePool001 ! 303.3GiB ! 1.5TiB   ! 20%   ! 100%     '
+            '! Normal (1) ! Online (27) ! [OK]',
+        ],
+        'assert-not-in': ['Disk Domain', 'Device Limit', 'Reduction'],
+    },
+    {
+        # The appliance computes the usage percentage itself, so the check alerts
+        # on the same number the storage administrator sees in DeviceManager. The
+        # thresholds are spelled out so this keeps testing that, not the defaults.
+        'id': 'crit-pool-nearly-full',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=80 --critical=90',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '[CRITICAL]'],
+    },
+    {
+        # A pool of this class holds petabytes, so the default pair sits at 92 and 95
+        # rather than the usual 80 and 90: alerting with hundreds of terabytes still
+        # free is not a capacity problem. A pool at 95 percent warns, it is not yet
+        # critical.
+        'id': 'warn-default-thresholds-suit-a-petabyte-pool',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['95%'],
+        'assert-not-in': ['There are critical errors.'],
+    },
+    {
+        # A pool that is faulty and offline: both readings have to reach CRITICAL,
+        # not the WARNING that a merely degraded pool would produce.
+        'id': 'crit-pool-faulty',
+        'test': 'stdout/pools-faulty,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.'],
+    },
+    {
+        # An array that serves storage has at least one pool. An empty list means
+        # the query never reached them, which must not read as a healthy array.
+        'id': 'unknown-no-storage-pools',
+        'test': 'stdout/no-storage-pools,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no storage pools.'],
+    },
+    {
+        'id': 'ok-match-filters-pools',
+        'test': 'stdout/pools-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='StoragePool002'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['StoragePool002'],
+        'assert-not-in': ['StoragePool001'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/pools-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No storage pools matched `nonexistent`.'],
+    },
+    {
+        # The pool sits at 95 percent against the 80 percent the storage administrator
+        # configured on the appliance, so both the check's own threshold and the
+        # appliance's own agree that it is full.
+        'id': 'warn-device-threshold-reached',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=99 --critical=99 --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['80% [WARNING]'],
+    },
+    {
+        # The appliance's own fill limit reaches the single state column, so the
+        # breach is still marked in the table the check prints by default.
+        'id': 'warn-device-threshold-reached-core-columns',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=99 --critical=99',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['State', '[WARNING]'],
+    },
+    {
+        # An operator who manages the thresholds in the check rather than on the
+        # appliance turns it off.
+        'id': 'ok-device-threshold-off',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=99 --critical=99 --device-threshold-severity=ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # 6361149440 sectors handed out against 3180574720 sectors of disk is a pool
+        # that promised twice what it has, which is what thin provisioning is for.
+        'id': 'crit-overprovisioned-pool',
+        'test': 'stdout/pools-nearly-full,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warning=99 --critical=99 --device-threshold-severity=ok'
+        ' --warning-overprovisioning=150 --critical-overprovisioning=180',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['200%'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-storagepool'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

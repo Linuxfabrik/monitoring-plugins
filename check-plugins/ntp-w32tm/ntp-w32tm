@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061202'
+__version__ = '2026071201'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
@@ -36,13 +36,25 @@ DEFAULT_WARN = 28800  # s (8h)
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -53,6 +65,14 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -251,7 +271,13 @@ def main():
 
     # over and out
     details = '\n'.join(stdout.splitlines())
-    lib.base.oao(', '.join(msg) + '\n\n' + details, state, perfdata)
+    lib.base.oao(
+        ', '.join(msg) + '\n\n' + details,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

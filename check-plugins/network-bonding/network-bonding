@@ -16,11 +16,12 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026062901'
+__version__ = '2026071201'
 
 DESCRIPTION = """Reports the state of network bonding (channel bonding) interfaces. Checks that all
 slave interfaces are active and that the bonding mode and link status are healthy.
@@ -32,7 +33,11 @@ Requires root or sudo."""
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -50,10 +55,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
-        type=str,
+        type=lib.args.csv,
     )
 
     args, _ = parser.parse_known_args()
@@ -81,7 +94,6 @@ def main():
     if len(bonding_interfaces) == 0:
         lib.base.cu('No bonding interfaces found.')
 
-
     # init some vars
     msg = ''
     perfdata = ''
@@ -89,90 +101,92 @@ def main():
 
     for bonding_interface in bonding_interfaces:
         if args.TEST is None:
-            filename = f'/proc/net/bonding/{bonding_interface}'
+            rows = lib.base.coe(
+                lib.disk.read_file(f'/proc/net/bonding/{bonding_interface}')
+            ).splitlines()
         else:
-            filename = args.TEST
+            # do not read a real interface, put in test data
+            stdout, _, _ = lib.lftest.test(args.TEST)
+            rows = stdout.splitlines()
 
-        with open(filename, 'r', encoding='utf-8') as result:
-            submsg = ''
-            substate = STATE_OK
-            # now, check the media-independent interface status (MII)
-            bonding_mode = ''
-            in_interface_section = False
-            link_failure_count = '0'
-            mii_status = 'up'
-            slave_interface = ''
-            for row in result:
-                row = row.strip()
-                if not row:
-                    # empty line after the end of an interface section
-                    if in_interface_section:
-                        perfdata += lib.base.get_perfdata(
-                            f'{bonding_interface}_{slave_interface}_link_failure_count',
-                            link_failure_count,
-                            warn=1,
-                            _min=0,
+        submsg = ''
+        substate = STATE_OK
+        # now, check the media-independent interface status (MII)
+        bonding_mode = ''
+        in_interface_section = False
+        link_failure_count = '0'
+        mii_status = 'up'
+        slave_interface = ''
+        for row in rows:
+            row = row.strip()
+            if not row:
+                # empty line after the end of an interface section
+                if in_interface_section:
+                    perfdata += lib.base.get_perfdata(
+                        f'{bonding_interface}_{slave_interface}_link_failure_count',
+                        link_failure_count,
+                        warn=1,
+                        _min=0,
+                    )
+                    if mii_status != 'up':
+                        submsg += (
+                            f'    * {slave_interface}'
+                            f' is {mii_status}'
+                            f' with {link_failure_count}'
+                            f' link'
+                            f' {lib.txt.pluralize("failure", link_failure_count)}'
+                            f'.\n'
                         )
-                        if mii_status != 'up':
-                            submsg += (
-                                f'    * {slave_interface}'
-                                f' is {mii_status}'
-                                f' with {link_failure_count}'
-                                f' link'
-                                f' {lib.txt.pluralize("failure", link_failure_count)}'
-                                f'.\n'
-                            )
-                            substate = state = STATE_WARN
-                        in_interface_section = False
-                    continue
-                if ': ' not in row:
-                    continue
-                key, value = row.split(': ')
-                if key == 'Bonding Mode':
-                    bonding_mode = value
-                if key == 'Link Failure Count':
-                    link_failure_count = value
-                if key == 'MII Status':
-                    mii_status = value
-                if key == 'Slave Interface':
-                    slave_interface = value
-                    in_interface_section = True
-                if (
-                    key == 'Partner Mac Address'
-                    and value == '00:00:00:00:00:00'
-                    and bonding_mode == 'IEEE 802.3ad Dynamic link aggregation'
-                ):
-                    submsg += (
-                        '    * Could not detect the MAC Address of the switch.'
-                        ' This could indicate that LACP is not configured'
-                        ' properly.\n'
-                    )
-                    substate = state = STATE_WARN
-
-            if in_interface_section:
-                perfdata += lib.base.get_perfdata(
-                    f'{bonding_interface}_{slave_interface}_link_failure_count',
-                    link_failure_count,
-                    warn=1,
-                    _min=0,
+                        substate = state = STATE_WARN
+                    in_interface_section = False
+                continue
+            if ': ' not in row:
+                continue
+            key, value = row.split(': ')
+            if key == 'Bonding Mode':
+                bonding_mode = value
+            if key == 'Link Failure Count':
+                link_failure_count = value
+            if key == 'MII Status':
+                mii_status = value
+            if key == 'Slave Interface':
+                slave_interface = value
+                in_interface_section = True
+            if (
+                key == 'Partner Mac Address'
+                and value == '00:00:00:00:00:00'
+                and bonding_mode == 'IEEE 802.3ad Dynamic link aggregation'
+            ):
+                submsg += (
+                    '    * Could not detect the MAC Address of the switch.'
+                    ' This could indicate that LACP is not configured'
+                    ' properly.\n'
                 )
-                if mii_status != 'up':
-                    submsg += (
-                        f'    * {slave_interface}'
-                        f' is {mii_status}'
-                        f' with {link_failure_count}'
-                        f' link'
-                        f' {lib.txt.pluralize("failure", link_failure_count)}'
-                        f'.\n'
-                    )
-                    substate = state = STATE_WARN
+                substate = state = STATE_WARN
 
-
-            # build the message
-            msg += (
-                f'* {lib.base.state2str(substate, suffix=" ")}'
-                f'{bonding_interface} ({bonding_mode})\n' + submsg
+        if in_interface_section:
+            perfdata += lib.base.get_perfdata(
+                f'{bonding_interface}_{slave_interface}_link_failure_count',
+                link_failure_count,
+                warn=1,
+                _min=0,
             )
+            if mii_status != 'up':
+                submsg += (
+                    f'    * {slave_interface}'
+                    f' is {mii_status}'
+                    f' with {link_failure_count}'
+                    f' link'
+                    f' {lib.txt.pluralize("failure", link_failure_count)}'
+                    f'.\n'
+                )
+                substate = state = STATE_WARN
+
+        # build the message
+        msg += (
+            f'* {lib.base.state2str(substate, suffix=" ")}'
+            f'{bonding_interface} ({bonding_mode})\n' + submsg
+        )
 
     if state == STATE_OK:
         msg = 'Everything is ok.\n\n' + msg
@@ -180,7 +194,9 @@ def main():
         msg = 'One or more errors.\n\n' + msg
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

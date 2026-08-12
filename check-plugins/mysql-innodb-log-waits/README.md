@@ -45,7 +45,7 @@ The check logic is derived from MySQLTuner, which alerts and recommends increasi
 usage: mysql-innodb-log-waits [-h] [-V] [--always-ok]
                               [--defaults-file DEFAULTS_FILE]
                               [--defaults-group DEFAULTS_GROUP]
-                              [--timeout TIMEOUT]
+                              [--no-perfdata] [--timeout TIMEOUT]
 
 Checks InnoDB redo log buffer health in MySQL/MariaDB. Primary check - **Log
 waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to
@@ -78,7 +78,14 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-log-waits/
 ```
 
 

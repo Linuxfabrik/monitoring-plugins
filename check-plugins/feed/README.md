@@ -42,10 +42,10 @@ object ApiUser "linuxfabrik-check-api-user" {
 ## Help
 
 ```text
-usage: feed [-h] [-V] [--always-ok]
+usage: feed [-h] [-V] [--always-ok] [--icinga-callback]
+            [--icinga-password ICINGA_PASSWORD]
             [--icinga-service-name ICINGA_SERVICE_NAME]
-            [--icinga-password ICINGA_PASSWORD] [--icinga-url ICINGA_URL]
-            [--icinga-username ICINGA_USERNAME] [--icinga-callback]
+            [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
             [--insecure] [--latest] [--no-proxy] [--no-summary]
             [--timeout TIMEOUT] [--url FEED_URL] [-w WARN]
 
@@ -59,18 +59,18 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --icinga-callback     Query Icinga for the service acknowledgement state and
+                        auto-clear alerts on ack. Default: False
+  --icinga-password ICINGA_PASSWORD
+                        Password for the Icinga API.
   --icinga-service-name ICINGA_SERVICE_NAME
                         Unique name of the service using this check within
                         Icinga, taken from the `__name` service attribute.
                         Example: `icinga-server!my-service-name`.
-  --icinga-password ICINGA_PASSWORD
-                        Password for the Icinga API.
   --icinga-url ICINGA_URL
                         Icinga API URL. Example: `https://icinga-server:5665`.
   --icinga-username ICINGA_USERNAME
                         Username for the Icinga API.
-  --icinga-callback     Query Icinga for the service acknowledgement state and
-                        auto-clear alerts on ack. Default: False
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --latest              Return the newest feed item, even if its timestamp is
@@ -83,6 +83,9 @@ options:
                         https://www.heise.de/security/rss/alert-news-atom.xml
   -w, --warning WARN    Time window in minutes during which new feed entries
                         trigger a warning. Default: 4320
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/
 ```
 
 

@@ -1,0 +1,548 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# rpm-versionlock reads the package manager's configuration, so its fixtures are
+# directory trees under `config/` that stand in for the host's /etc, selected with
+# `--config-root`. The lock lists below were captured from `ubi8`, `ubi9` and
+# `ubi10` containers after `yum versionlock add bash glibc` and
+# `yum versionlock exclude curl`.
+#
+# dnf 5 (Fedora) is the one generation whose locks are not plain text. Its TOML
+# fixture was captured from a `fedora:44` container after `dnf versionlock add bash
+# glibc` and `dnf versionlock exclude curl`.
+TESTS = [
+    # A host with no locks at all, with and without the versionlock plugin installed.
+    {
+        'id': 'ok-no-locks',
+        'test': '',
+        'params': '--config-root=config/no-locks',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.', "'locks'=0"],
+    },
+    # A clean host names both searches where both ran, so the summary shows that
+    # --check-excludes took effect rather than leaving the admin to wonder.
+    {
+        'id': 'ok-no-locks-and-no-excludes',
+        'test': '',
+        'params': '--config-root=config/no-locks --check-excludes',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks and no exclusions in place.', "'locks'=0"],
+    },
+    {
+        'id': 'ok-no-versionlock-plugin',
+        'test': '',
+        'params': '--config-root=config/no-versionlock-plugin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    # One testcase per supported RHEL release, so a changed lock list format fails here.
+    {
+        'id': 'warn-rhel8-locks-present',
+        'test': '',
+        'params': '--config-root=config/rhel8-two-locks-one-exclude',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 1 exclusion in place.',
+            'bash',
+            '0:4.4.20-6.el8_10.*',
+            'glibc',
+            'curl',
+            'exclude',
+            "'locks'=3",
+        ],
+    },
+    {
+        'id': 'warn-rhel9-locks-present',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 1 exclusion in place.',
+            '0:5.1.8-9.el9.*',
+            'versionlock',
+        ],
+    },
+    {
+        'id': 'warn-rhel10-locks-present',
+        'test': '',
+        'params': '--config-root=config/rhel10-two-locks-two-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 2 exclusions in place.',
+            '0:5.2.26-6.el10.*',
+            '0:8.12.1-4.el10.*',
+        ],
+    },
+    # The yum layout is a set of symlinks into the dnf one, so the same lock list is
+    # reachable under two paths and must still be reported once.
+    {
+        'id': 'warn-yum-symlinks-not-counted-twice',
+        'test': '',
+        'params': '--config-root=config/rhel9-yum-symlinks',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 version locks and 1 exclusion in place.', "'locks'=3"],
+    },
+    # Thresholds are Nagios ranges over the number of locks.
+    {
+        'id': 'ok-warning-raised',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude --warning 5',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 version locks and 1 exclusion in place.'],
+    },
+    {
+        'id': 'crit-above-critical',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude '
+        '--warning 1 --critical 2',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'2 version locks and 1 exclusion in place\.\s*\[CRITICAL\]',
+    },
+    # Filtering by package name.
+    {
+        'id': 'warn-match-single-package',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude --match=^bash$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['glibc'],
+    },
+    {
+        'id': 'warn-ignore-single-package',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude --ignore=^curl$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 version locks in place.'],
+        'assert-not-in': ['curl'],
+    },
+    {
+        'id': 'ok-nothing-checked',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude '
+        '--match=^nothing-here$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', "'locks'=0"],
+    },
+    {
+        'id': 'warn-nothing-checked',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude '
+        '--match=^nothing-here$ --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # Extended reporting adds the file a lock has to be removed from.
+    {
+        'id': 'warn-lengthy-shows-origin',
+        'test': '',
+        'params': '--config-root=config/rhel9-two-locks-one-exclude --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Configured in', 'versionlock.list'],
+    },
+    # Three configurations take an exclusion out of force without removing it from the
+    # file: `disable_excludes` naming the main configuration, the same option naming a
+    # repository, and a repository that is switched off. Both generations honour all
+    # three. The entries stay in the report, because an exclusion written down is worth
+    # seeing, and the summary says how many of them are not acted on.
+    {
+        'id': 'warn-excludes-not-applied',
+        'test': '',
+        'params': '--config-root=config/excludes-not-applied --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 exclusions in place.',
+            '3 of the exclusions are written down but not in force',
+            'live-repo-package',
+            'main-config-package',
+            'named-repo-package',
+            'off-repo-package',
+        ],
+    },
+    # `disable_excludes = all` covers every scope at once, so nothing is left in force.
+    # dnf 5 spells the same thing `*`, which the check accepts as well - see
+    # 'warn-excludes-disabled-wholesale-dnf5'.
+    {
+        'id': 'warn-excludes-disabled-wholesale',
+        'test': '',
+        'params': '--config-root=config/excludes-disabled-all --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 exclusions in place.',
+            '2 of the exclusions are written down but not in force',
+        ],
+    },
+    # The same configuration in dnf 5's spelling. Reading only `all` would report both
+    # exclusions as being in force on every Fedora host that switched them off.
+    {
+        'id': 'warn-excludes-disabled-wholesale-dnf5',
+        'test': '',
+        'params': '--config-root=config/excludes-disabled-all-dnf5 --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 exclusions in place.',
+            '2 of the exclusions are written down but not in force',
+        ],
+    },
+    # Package exclusions, off unless asked for.
+    {
+        'id': 'ok-excludes-not-checked',
+        'test': '',
+        'params': '--config-root=config/excludes',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['exclusions'],
+    },
+    {
+        'id': 'warn-excludes-checked',
+        'test': '',
+        'params': '--config-root=config/excludes --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '6 exclusions in place.',
+            'kernel*',
+            'redis',
+            'nagios*',
+            'icinga2',
+            # a repository section named like Python's template section is an
+            # ordinary repository to the package manager, so it is read once and
+            # its value is not inherited by the sections that follow
+            'default-section-package',
+            # a value carrying a `%` used to abort the whole check
+            'vendor-tools',
+        ],
+        'assert-not-in': [
+            # the main configuration comes from one file only, so a `main` section
+            # in a repository file configures nothing
+            'must-not-be-read-from-a-repo-file',
+            # every exclusion here sits in a switched-on repository and nothing
+            # disables it, so the note about the ones dnf 4 skips stays away
+            'out of force',
+        ],
+    },
+    # Repository files are read from where `reposdir` points, not from a fixed path.
+    {
+        'id': 'warn-custom-reposdir',
+        'test': '',
+        'params': '--config-root=config/custom-reposdir --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 exclusion in place.', 'vendor-agent'],
+        # the default directory is not read once `reposdir` names another one
+        'assert-not-in': ['must-not-be-read'],
+    },
+    # A lock list moved elsewhere by the plugin configuration.
+    {
+        'id': 'warn-custom-locklist',
+        'test': '',
+        'params': '--config-root=config/custom-locklist',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'httpd'],
+    },
+    # The plugin configuration itself moved elsewhere by `pluginconfpath`. It replaces
+    # the default search path rather than adding to it, so the lock in the conventional
+    # directory is not in force and must not be reported.
+    {
+        'id': 'warn-custom-pluginconfpath',
+        'test': '',
+        'params': '--config-root=config/custom-pluginconfpath',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['must-not-be-read'],
+    },
+    # Two plugin configuration directories, each with a versionlock.conf of its own. The
+    # package manager merges them into one configuration instead of reading each on its
+    # own, so only the `locklist` of the last one is in force and only its locks exist.
+    {
+        'id': 'warn-merged-pluginconfpath',
+        'test': '',
+        'params': '--config-root=config/merged-pluginconfpath',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['must-not-be-read', 'refuses'],
+    },
+    # The same merge decides `enabled`: the second directory switches the plugin off, so
+    # the lock list the first one names is not applied and the host is healthy.
+    {
+        'id': 'ok-merged-pluginconfpath-disabled',
+        'test': '',
+        'params': '--config-root=config/merged-pluginconfpath-disabled',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['must-not-be-read', 'refuses'],
+    },
+    # Hand-written entries, which carry no epoch.
+    {
+        'id': 'warn-lock-without-epoch',
+        'test': '',
+        'params': '--config-root=config/kernel-lock-without-epoch',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 version locks in place.', 'kernel', 'kernel-core'],
+    },
+    # A name may be a glob, and a glob carrying a dash must not be read as a version.
+    {
+        'id': 'warn-glob-lock',
+        'test': '',
+        'params': '--config-root=config/glob-lock',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 version locks in place.', 'kernel*', 'kernel-devel-*'],
+    },
+    # The spellings a hand-written list carries. `java-1.8.0-openjdk` and
+    # `java-17-openjdk` are package names whose second-to-last dash-separated field
+    # starts with a digit and must stay whole, and an entry may put its epoch in front
+    # of the whole spec instead of behind the name.
+    {
+        'id': 'warn-hand-written-specs',
+        'test': '',
+        'params': '--config-root=config/hand-written-specs --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '4 version locks in place.',
+            'java-1.8.0-openjdk',
+            'java-17-openjdk',
+            'python3-foo',
+        ],
+    },
+    # A spec carrying its epoch in front of the package name is one the package manager
+    # cannot read: it logs "could not parse pattern" on every transaction and holds
+    # nothing. Reporting it as a lock in place would tell the admin the host is held at a
+    # version when it is not, so it is named as the dead entry it is instead. Verified
+    # against dnf 4.14 on RHEL 9.
+    {
+        'id': 'warn-hand-written-specs-unparsable-epoch',
+        'test': '',
+        'params': '--config-root=config/hand-written-specs',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 lock entry the package manager cannot parse, so it holds nothing.',
+            'The package manager cannot parse these entries:',
+            '0:glibc-2.28-251.el8_10.*',
+        ],
+        # Not counted as a lock, and not reported under a package name of its own.
+        'assert-not-in': ['glibc  '],
+    },
+    # A name that was cut in half would report a package that does not exist, and a
+    # filter written for the real name would then never fire.
+    {
+        'id': 'warn-hand-written-specs-not-cut-in-half',
+        'test': '',
+        'params': '--config-root=config/hand-written-specs --match=^java-1\\.8\\.0-openjdk$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'java-1.8.0-openjdk'],
+    },
+    # A lock list dnf 4 does not apply holds nothing back, whether the plugin is
+    # switched off or plugins are switched off wholesale. Neither is a problem: the
+    # package manager simply never loads the plugin.
+    {
+        'id': 'ok-versionlock-disabled',
+        'test': '',
+        'params': '--config-root=config/versionlock-disabled',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['bash', 'glibc'],
+    },
+    {
+        'id': 'ok-plugins-disabled',
+        'test': '',
+        'params': '--config-root=config/plugins-disabled',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['bash', 'glibc'],
+    },
+    # Three configurations that hold nothing back and stop the package manager from
+    # installing or upgrading anything, verified against dnf 4.14 on Rocky 9:
+    # `Error: Locklist not set`, `Error: Unable to read version lock configuration`
+    # and `Error: Parsing file failed`. The locks such a host still carries on paper
+    # are deliberately not reported - none of them is in force.
+    {
+        'id': 'warn-locklist-not-set',
+        'test': '',
+        'params': '--config-root=config/locklist-not-set',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The package manager refuses 1 lock configuration',
+            'it names no lock list',
+        ],
+        'assert-not-in': ['bash', 'glibc'],
+    },
+    {
+        'id': 'warn-locklist-missing-file',
+        'test': '',
+        'params': '--config-root=config/locklist-missing-file',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'so installing and upgrading fails on this host',
+            'does not exist',
+        ],
+    },
+    {
+        'id': 'warn-locklist-conf-unparsable',
+        'test': '',
+        'params': '--config-root=config/locklist-conf-unparsable',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['it does not parse'],
+    },
+    # An `enabled` that is not a boolean is the harshest configuration of the lot: the
+    # package manager's own parser raises while it is loading its plugins, and nothing
+    # catches it, so every command ends in a traceback rather than only a transaction.
+    {
+        'id': 'warn-enabled-not-a-boolean',
+        'test': '',
+        'params': '--config-root=config/enabled-not-a-boolean',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'so installing and upgrading fails on this host',
+            'its "enabled" setting is not a boolean',
+        ],
+        # The locks behind it are not in place, because the plugin never loads.
+        'assert-not-in': ['bash', 'glibc'],
+    },
+    # The same broken configuration, but with the plugin switched off: the package
+    # manager never loads it, so nothing is wrong with the host.
+    {
+        'id': 'ok-locklist-not-set-but-disabled',
+        'test': '',
+        'params': '--config-root=config/locklist-not-set-but-disabled',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': ['refuses'],
+    },
+    # Rubbish in the lock list is skipped instead of being reported as a package.
+    {
+        'id': 'ok-malformed-locklist',
+        'test': '',
+        'params': '--config-root=config/malformed',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    # dnf 5 keeps its locks in a TOML file. An entry whose conditions are all `!=` is
+    # an exclude, which is how `versionlock exclude` records one.
+    {
+        'id': 'warn-dnf5-locks-present',
+        'test': '',
+        'params': '--config-root=config/fedora-dnf5',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 1 exclusion in place.',
+            'bash',
+            '= 5.3.9-3.fc44',
+            'curl',
+            '!= 8.18.0-4.fc44, != 8.18.0-8.fc44',
+            'exclude',
+        ],
+    },
+    {
+        'id': 'ok-dnf5-no-locks',
+        'test': '',
+        'params': '--config-root=config/fedora-dnf5-no-locks',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+    },
+    # dnf 5 locks without a plugin, so the switch that takes dnf 4 locking out of
+    # service leaves these in force and they have to be reported all the same.
+    {
+        'id': 'warn-dnf5-locks-survive-disabled-plugins',
+        'test': '',
+        'params': '--config-root=config/dnf5-plugins-disabled',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 1 exclusion in place.',
+            'bash',
+            '= 5.3.9-3.fc44',
+        ],
+    },
+    # dnf 5 also looks for repository files in a directory dnf 4 does not know.
+    {
+        'id': 'warn-dnf5-excludes-checked',
+        'test': '',
+        'params': '--config-root=config/fedora-dnf5 --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 version locks and 2 exclusions in place.',
+            'kernel-experimental',
+        ],
+    },
+    # dnf 5 does not fail gracefully on a lock file it cannot read: it aborts with an
+    # unhandled parser error (SIGABRT, exit 134 on dnf5 5.4.2.1), so nothing can be
+    # installed at all until the file is fixed.
+    {
+        'id': 'warn-dnf5-broken-toml',
+        'test': '',
+        'params': '--config-root=config/fedora-dnf5-broken-toml',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The package manager refuses 1 lock configuration',
+            'it does not parse as TOML',
+        ],
+    },
+    {
+        'id': 'warn-dnf5-version-not-a-string',
+        'test': '',
+        'params': '--config-root=config/dnf5-version-not-a-string',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['its version is not a string'],
+        'assert-not-in': ['bash'],
+    },
+    # A lock file dnf 5 reads and then applies to nothing. `1.0` is the only version it
+    # acts on; with any other one it installs and upgrades as if the file were not
+    # there, so the locks in it must not be reported as being in place.
+    {
+        'id': 'warn-dnf5-version-not-applied',
+        'test': '',
+        'params': '--config-root=config/dnf5-version-not-applied',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 lock configuration is not applied at all',
+            'it carries version "2.0"',
+            'the 2 locks in it are not applied',
+            # what is in force is still nothing, and that is what the verdict says
+            'No version locks in place.',
+        ],
+        'assert-not-in': ['bash', 'glibc'],
+    },
+    # A single entry the package manager marks invalid holds nothing, whether the reason
+    # is a condition key it does not know or a package name with no condition at all.
+    # `dnf5 versionlock list` names both itself, so neither may be counted as a lock in
+    # place, while the well-formed entry beside them still is.
+    {
+        'id': 'warn-dnf5-invalid-entries',
+        'test': '',
+        'params': '--config-root=config/dnf5-invalid-entries',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash'],
+        'assert-not-in': ['zsh', 'nano'],
+    },
+    # Deployed on a host that does not use RPM packages at all.
+    {
+        'id': 'unknown-not-rpm-based',
+        'test': '',
+        'params': '--config-root=config/not-rpm-based',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No RPM package manager configuration found.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../rpm-versionlock'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

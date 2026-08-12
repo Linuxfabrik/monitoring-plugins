@@ -7,6 +7,8 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 
 **Important Notes:**
 
+* Verified against Keycloak 17 to 26
+* All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
 * See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials (only needed if `version.txt` is not available).
 
 **Data Collection:**
@@ -35,9 +37,9 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 ```text
 usage: keycloak-version [-h] [-V] [--always-ok] [--check-major]
                         [--check-minor] [--check-patch]
-                        [--client-id CLIENT_ID] [--insecure] [--no-proxy]
-                        [--offset-eol OFFSET_EOL] [-p PASSWORD] [--path PATH]
-                        [--realm REALM] [--timeout TIMEOUT]
+                        [--client-id CLIENT_ID] [--insecure] [--no-perfdata]
+                        [--no-proxy] [--offset-eol OFFSET_EOL] [-p PASSWORD]
+                        [--path PATH] [--realm REALM] [--timeout TIMEOUT]
                         [--unreachable-severity {ok,warn,crit,unknown}]
                         [--url URL] [--username USERNAME]
 
@@ -64,6 +66,10 @@ options:
                         Keycloak API Client-ID. Default: admin-cli
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --offset-eol OFFSET_EOL
                         Alert n days before ("-30") or after an EOL date ("30"
@@ -75,11 +81,16 @@ options:
   --realm REALM         Keycloak API realm. Default: master
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
-                        State to report when the online end-of-life source is
-                        unreachable and the check falls back to the bundled
-                        offline data. Default: ok
+                        State to report when the online source is unreachable.
+                        What is used instead - bundled offline data, a cached
+                        copy, or nothing at all - is named in the output, and
+                        a clean result then only covers what that fallback
+                        could confirm. Default: ok
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080
   --username USERNAME   Keycloak API username. Default: admin
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/keycloak-version/
 ```
 
 

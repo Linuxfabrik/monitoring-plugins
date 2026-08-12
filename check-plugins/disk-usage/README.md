@@ -26,7 +26,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 |----|----| 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage> |
 | Nagios/Icinga Check Name              | `check_disk_usage` |
-| Check Interval Recommendation         | Every 5 minutes |
+| Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
@@ -39,7 +39,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 usage: disk-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                   [--fstype FSTYPE] [--ignore IGNORE] [--list-fstypes]
                   [--match MATCH] [--mount MOUNT]
-                  [--no-match-severity {ok,warn,crit,unknown}]
+                  [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
                   [--perfdata-regex PERFDATA_REGEX] [-w WARN]
 
 Checks used or free disk space for each mounted partition. By default, only
@@ -86,7 +86,10 @@ options:
                         drive letters and paths are case-insensitive; use
                         drive letters such as `C:` or `C`). For case-sensitive
                         matching, wrap the pattern in `(?-i:...)`, e.g.
-                        `(?-i:Data)`. Can be specified multiple times.
+                        `(?-i:Data)`. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second).
   --mount MOUNT         Override the global --warning/--critical thresholds
                         for a single mountpoint, in the form
                         `<mountpoint>,<warning>,<critical>`. Each threshold
@@ -100,6 +103,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --perfdata-regex PERFDATA_REGEX
                         Only emit perfdata keys matching this Python regex.
                         For a list of perfdata keys, see the README or run
@@ -110,6 +117,9 @@ options:
                         `USED`). `USED` means "number or more", `FREE` means
                         "number or less". Examples: `95` = 95% used. `9.5M` =
                         9.5 MiB used. `5%FREE`. `1400GUSED`. Default: 90%USED
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage/
 ```
 
 

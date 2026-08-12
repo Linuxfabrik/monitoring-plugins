@@ -15,16 +15,23 @@ import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.lftest
 import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041301'
+__version__ = '2026071201'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status log file. Reports client name, remote address, bytes received and sent, and connection time.\nRequires root or sudo."""
 
 DEFAULT_FILENAME = '/var/log/openvpn-status.log'
+
+# The plugin runs as root via sudo on many hosts, so it only opens files that
+# resolve inside the system log directory. To read a status file stored
+# elsewhere, bind-mount that location under /var/log (see the README); a symlink
+# is rejected because the confinement resolves symlinks.
+ALLOWED_LOG_ROOTS = ['/var/log']
 
 DEFAULT_WARN = None
 DEFAULT_CRIT = None
@@ -32,13 +39,25 @@ DEFAULT_CRIT = None
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -56,6 +75,14 @@ def parse_args():
         dest='FILENAME',
         type=str,
         default=DEFAULT_FILENAME,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -89,11 +116,19 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        try:
-            with open(args.FILENAME, 'r') as file:
-                lines = file.readlines()
-        except OSError:
+        # The plugin runs as root via sudo, so an unconfined path would be an
+        # arbitrary root file read. is_within() resolves symlinks and `..`, so
+        # neither can escape; bind-mount an external location under /var/log.
+        if not lib.disk.is_within(args.FILENAME, ALLOWED_LOG_ROOTS):
+            lib.base.cu(
+                f'Refusing to read "{args.FILENAME}": resolved path is outside the allowed '
+                f'log directory {ALLOWED_LOG_ROOTS[0]}; bind-mount it under '
+                f'{ALLOWED_LOG_ROOTS[0]} if intended.'
+            )
+        success, content = lib.disk.read_file(args.FILENAME)
+        if not success:
             lib.base.cu(f'Failed to read file {args.FILENAME}.')
+        lines = content.splitlines(keepends=True)
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)
         lines = stdout.splitlines(keepends=True)
@@ -132,7 +167,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

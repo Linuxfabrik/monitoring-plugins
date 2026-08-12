@@ -30,8 +30,8 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 ## Help
 
 ```text
-usage: onlyoffice-stats [-h] [-V] [--insecure] [--no-proxy]
-                        [--timeout TIMEOUT] [--url URL]
+usage: onlyoffice-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                        [--no-proxy] [--timeout TIMEOUT] [--url URL]
 
 Monitors OnlyOffice Document Server statistics and license usage via the HTTP
 API. Reports active connections, document editing sessions, and license
@@ -40,10 +40,17 @@ consumption. Alerts when license usage exceeds the configured thresholds.
 options:
   -h, --help         show this help message and exit
   -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
   --no-proxy         Do not use a proxy.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          OnlyOffice API URL. Default: http://localhost
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/onlyoffice-stats/
 ```
 
 

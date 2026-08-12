@@ -92,7 +92,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../journald-query'
 
 
@@ -363,9 +362,7 @@ class TestAckPersistence(unittest.TestCase):
             'test': 'stdout/three-sshd-errs,,0',
             'params': _callback_params(),
             'assert-retc': STATE_OK,
-            'assert-in': [
-                "Queried the systemd journal (0 events)"
-            ],
+            'assert-in': ['Queried the systemd journal (0 events)'],
             'assert-not-in': [
                 '10.0.0.1',
                 '10.0.0.2',
@@ -395,8 +392,7 @@ class TestAckPersistence(unittest.TestCase):
         try:
             conn.row_factory = sqlite3.Row
             row = conn.execute(
-                'SELECT event_hash, typeof(event_hash) AS t '
-                'FROM acknowledged_events'
+                'SELECT event_hash, typeof(event_hash) AS t FROM acknowledged_events'
             ).fetchone()
         finally:
             conn.close()

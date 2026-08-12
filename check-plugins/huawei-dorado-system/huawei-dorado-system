@@ -19,29 +19,45 @@ import lib.base
 import lib.huawei_dorado
 import lib.human
 import lib.lftest
-import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070301'
+__version__ = '2026081101'
 
 DESCRIPTION = """Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado
 storage system via the REST API (/system endpoint). Reports health status, running
-status, storage capacity, and I/O performance metrics.
-Alerts when the system reports a non-normal health or running state."""
+status and the capacity of the array and of its storage pools.
+Alerts when the system reports a non-normal health or running state, and when a
+capacity reaches the warning or critical threshold."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
-DEFAULT_CRIT = 95
+DEFAULT_CRIT = '95'
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
-DEFAULT_SCOPE = 0
+DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
-DEFAULT_WARN = 90
+DEFAULT_WARN = '90'
+
+# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
+# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
+# out of the performance data, because whether a code is a fault depends on the
+# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
+HEALTH_STATUS_MAX = 18
+
+
+# RUNNINGSTATUS code a healthy system reports: normal (1). The array as a whole has no
+# running or online state of its own the way a hardware module does.
+OK_RUNNING_STATUS = (1,)
 
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -69,17 +85,19 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help=lib.args.help('--critical') + ' Default: >= %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
         '--device-id',
-        help='Huawei OceanStor Dorado API device ID.',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
         dest='DEVICE_ID',
-        required=True,
+        default=DEFAULT_DEVICE_ID,
     )
 
     parser.add_argument(
@@ -88,6 +106,22 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -102,7 +136,12 @@ def parse_args():
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
-        required=True,
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
@@ -145,14 +184,91 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help=lib.args.help('--warning') + ' Default: >= %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
     )
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_usage_percent(used, total):
+    """
+    Return a capacity's usage in percent, or `None` if it cannot be calculated.
+
+    ### Parameters
+    - **used** (`int`, `str` or `None`): The used capacity, in sectors.
+    - **total** (`int`, `str` or `None`): The total capacity, in sectors.
+
+    ### Returns
+    - **int** or **None**: The usage in percent, or `None` when there is nothing to
+      divide by.
+
+    ### Notes
+    - An appliance without a storage pool reports a total of `0`, and a firmware that
+      does not report a capacity leaves the field out entirely. Dividing either of them
+      used to end the check in a traceback rather than in a reading it simply does not
+      have.
+
+    ### Example
+    >>> get_usage_percent('50', '200')
+    25
+
+    >>> get_usage_percent('0', '0') is None
+    True
+    """
+    used_sectors = lib.huawei_dorado.as_code(used)
+    total_sectors = lib.huawei_dorado.as_code(total)
+    if used_sectors is None or not total_sectors or total_sectors < 0:
+        return None
+    return round(used_sectors / total_sectors * 100)
+
+
+def get_sector_size(data):
+    """
+    Return the sector size the appliance reports, in bytes.
+
+    ### Parameters
+    - **data** (`dict`): The `system/` response as the API returned it.
+
+    ### Returns
+    - **int**: The reported sector size, or the 512 bytes that are the common case when
+      the appliance does not report a usable one.
+
+    ### Notes
+    - This is the only endpoint that reports `SECTORSIZE`, and all of its own capacities
+      are counted in those sectors. An array formatted with larger sectors reports the
+      same numbers for eight times the capacity, so taking 512 for granted understates
+      it by that factor.
+    - Not to be confused with the `SECTORSIZE` a LUN reports, which is the block size the
+      host sees rather than the unit its capacity is counted in.
+
+    ### Example
+    >>> get_sector_size({'SECTORSIZE': '4096'})
+    4096
+
+    >>> get_sector_size({})
+    512
+    """
+    sector_size = lib.huawei_dorado.as_code(data.get('SECTORSIZE'))
+    if not sector_size or sector_size <= 0:
+        return lib.huawei_dorado.DEFAULT_SECTOR_SIZE
+    return sector_size
 
 
 def main():
@@ -163,6 +279,11 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
 
     if not args.URL.startswith('http'):
         lib.base.cu('--url parameter has to start with "http://" or https://".')
@@ -177,45 +298,48 @@ def main():
         result = json.loads(stdout)
 
     # no valuable result?
-    if not result:
-        lib.base.cu(f'Got no valuable response from {args.URL}.')
-    if result.get('error').get('code') != 0:
-        lib.base.oao(
-            f'{result.get("error").get("description")}'
-            f' {result.get("error").get("suggestion")}',
-            STATE_UNKNOWN,
-        )
+    lib.huawei_dorado.assert_ok(result, 'the system information')
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
     data = result.get('data')
+    if not isinstance(data, dict):
+        lib.base.cu(f'{args.URL} reported no system information.')
+    # Every capacity in this response is a sector count, and this is the one endpoint
+    # that says how large a sector is on this appliance. Anything else is guessing at
+    # the 512 bytes that are merely the common case.
+    sector_size = get_sector_size(data)
 
     # analyze data
-    health_state = STATE_OK
-    if lib.huawei_dorado.get_health_status(data.get('HEALTHSTATUS')) != 'Normal (1)':
-        health_state = STATE_CRIT
-        state = lib.base.get_worst(state, health_state)
+    health_state = lib.huawei_dorado.get_health_status_state(data.get('HEALTHSTATUS'))
+    state = lib.base.get_worst(state, health_state)
 
-    running_state = STATE_OK
-    if lib.huawei_dorado.get_running_status(data.get('RUNNINGSTATUS')) != 'Normal (1)':
-        running_state = STATE_WARN
-        state = lib.base.get_worst(state, running_state)
-
-    sp_used = round(
-        float(data.get('STORAGEPOOLUSEDCAPACITY'))
-        / float(data.get('STORAGEPOOLCAPACITY'))
-        * 100
+    running_state = lib.huawei_dorado.get_running_status_state(
+        data.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
     )
-    sp_state = lib.base.get_state(sp_used, args.WARN, args.CRIT)
-    state = lib.base.get_worst(state, sp_state)
+    state = lib.base.get_worst(state, running_state)
 
-    capa_used = round(
-        float(data.get('USEDCAPACITY')) / float(data.get('TOTALCAPACITY')) * 100
+    sp_used = get_usage_percent(
+        data.get('STORAGEPOOLUSEDCAPACITY'),
+        data.get('STORAGEPOOLCAPACITY'),
     )
-    capa_state = lib.base.get_state(capa_used, args.WARN, args.CRIT)
-    state = lib.base.get_worst(state, capa_state)
+    sp_state = STATE_OK
+    if sp_used is not None:
+        sp_state = lib.base.get_state(sp_used, args.WARN, args.CRIT, _operator='range')
+        state = lib.base.get_worst(state, sp_state)
+
+    capa_used = get_usage_percent(
+        data.get('USEDCAPACITY'),
+        data.get('TOTALCAPACITY'),
+    )
+    capa_state = STATE_OK
+    if capa_used is not None:
+        capa_state = lib.base.get_state(
+            capa_used, args.WARN, args.CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, capa_state)
 
     # build the message
     health_status = lib.huawei_dorado.get_health_status(
@@ -234,8 +358,14 @@ def main():
         prefix=' ',
         empty_ok=True,
     )
+    # 'productModeString' is the only human-readable form of the model in the response.
+    # Fall back to decoding the numeric code so the line never opens with a literal 'None'
+    # on a firmware that omits the string.
+    product_mode = data.get('productModeString') or lib.huawei_dorado.get_product_mode(
+        data.get('PRODUCTMODE'),
+    )
     msg += (
-        f'{data.get("productModeString")}'
+        f'{product_mode}'
         f' {data.get("pointRelease")},'
         f' UUID: {lib.huawei_dorado.get_uuid(data)},'
         f' Name: {data.get("NAME")},'
@@ -243,27 +373,34 @@ def main():
         f' Health Status: {health_status}{health_str},'
         f' Running Status: {running_status}{running_str}\n'
     )
-    used_cap = lib.human.number2human(data.get('USEDCAPACITY'))
-    total_cap = lib.human.number2human(data.get('TOTALCAPACITY'))
-    capa_str = lib.base.state2str(capa_state, prefix=' ')
-    sp_used_cap = lib.human.number2human(
-        data.get('STORAGEPOOLUSEDCAPACITY'),
+    used_cap = lib.human.bytes2human(
+        lib.huawei_dorado.sectors2bytes(data.get('USEDCAPACITY'), sector_size),
     )
-    sp_total_cap = lib.human.number2human(
-        data.get('STORAGEPOOLCAPACITY'),
+    total_cap = lib.human.bytes2human(
+        lib.huawei_dorado.sectors2bytes(data.get('TOTALCAPACITY'), sector_size),
+    )
+    capa_str = lib.base.state2str(capa_state, prefix=' ')
+    sp_used_cap = lib.human.bytes2human(
+        lib.huawei_dorado.sectors2bytes(
+            data.get('STORAGEPOOLUSEDCAPACITY'), sector_size
+        ),
+    )
+    sp_total_cap = lib.human.bytes2human(
+        lib.huawei_dorado.sectors2bytes(data.get('STORAGEPOOLCAPACITY'), sector_size),
     )
     sp_str = lib.base.state2str(sp_state, prefix=' ')
-    msg += (
-        f'Sectors: Total {capa_used}% used'
-        f' ({used_cap}/{total_cap}){capa_str},'
-        f' Storage Pool {sp_used}% used'
-        f' ({sp_used_cap}/{sp_total_cap}){sp_str}\n'
-    )
-    counter = result.get('counter', 0)
-    msg += f'\nFetched API {counter} {lib.txt.pluralize("time", counter)}'
+    # An appliance without a storage pool, and a firmware that leaves a capacity out,
+    # have nothing to report here rather than a usage of zero.
+    capa_text = 'not reported'
+    if capa_used is not None:
+        capa_text = f'{capa_used}% used ({used_cap}/{total_cap}){capa_str}'
+    sp_text = 'not reported'
+    if sp_used is not None:
+        sp_text = f'{sp_used}% used ({sp_used_cap}/{sp_total_cap}){sp_str}'
+    msg += f'Capacity: Total {capa_text}, Storage Pool {sp_text}\n'
 
     perfdata += lib.base.get_perfdata(
-        'sectors-capacity-percent',
+        'usage_percent',
         capa_used,
         uom='%',
         warn=args.WARN,
@@ -272,7 +409,7 @@ def main():
         _max=100,
     )
     perfdata += lib.base.get_perfdata(
-        'sectors-storagepool-percent',
+        'storage_pool_usage_percent',
         sp_used,
         uom='%',
         warn=args.WARN,
@@ -282,104 +419,77 @@ def main():
     )
 
     perfdata += lib.base.get_perfdata(
-        'HEALTHSTATUS',
+        'health_status',
         data.get('HEALTHSTATUS'),
-        crit=2,
+        uom=None,
         _min=0,
-        _max=2,
+        _max=HEALTH_STATUS_MAX,
     )
     perfdata += lib.base.get_perfdata(
-        'RUNNINGSTATUS',
+        'running_status',
         data.get('RUNNINGSTATUS'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'FREEDISKSCAPACITY',
-        data.get('FREEDISKSCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'HOTSPAREDISKSCAPACITY',
-        data.get('HOTSPAREDISKSCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'UNAVAILABLEDISKSCAPACITY',
-        data.get('UNAVAILABLEDISKSCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'USEDCAPACITY',
-        data.get('USEDCAPACITY'),
-        _min=0,
-        _max=data.get('TOTALCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLFREECAPACITY',
-        data.get('STORAGEPOOLFREECAPACITY'),
-        _min=0,
-        _max=data.get('STORAGEPOOLCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLHOSTSPARECAPACITY',
-        data.get('STORAGEPOOLHOSTSPARECAPACITY'),
-        _min=0,
-        _max=data.get('STORAGEPOOLCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLRAWCAPACITY',
-        data.get('STORAGEPOOLRAWCAPACITY'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'STORAGEPOOLUSEDCAPACITY',
-        data.get('STORAGEPOOLUSEDCAPACITY'),
-        _min=0,
-        _max=data.get('STORAGEPOOLCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'THICKLUNSALLOCATECAPACITY',
-        data.get('THICKLUNSALLOCATECAPACITY'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'THICKLUNSUSEDCAPACITY',
-        data.get('THICKLUNSUSEDCAPACITY'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'THINLUNSALLOCATECAPACITY',
-        data.get('THINLUNSALLOCATECAPACITY'),
-        _min=0,
-        _max=data.get('THINLUNSMAXCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'THINLUNSUSEDCAPACITY',
-        data.get('THINLUNSUSEDCAPACITY'),
-        _min=0,
-        _max=data.get('THINLUNSMAXCAPACITY'),
-    )
-    perfdata += lib.base.get_perfdata(
-        'mappedLunsCountCapacity',
-        data.get('mappedLunsCountCapacity'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'unMappedLunsCountCapacity',
-        data.get('unMappedLunsCountCapacity'),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'userFreeCapacity',
-        data.get('userFreeCapacity'),
+        uom=None,
         _min=0,
     )
 
+    # Every capacity below is a sector count in the response and goes out in bytes. The
+    # totals double as the maximum of the values they bound, so a dashboard can draw a
+    # usage bar without a second query.
+    total_capacity = lib.huawei_dorado.sectors2bytes(
+        data.get('TOTALCAPACITY'), sector_size
+    )
+    storage_pool_capacity = lib.huawei_dorado.sectors2bytes(
+        data.get('STORAGEPOOLCAPACITY'), sector_size
+    )
+    thin_luns_max_capacity = lib.huawei_dorado.sectors2bytes(
+        data.get('THINLUNSMAXCAPACITY'), sector_size
+    )
+
+    for label, field, maximum in (
+        ('total_capacity', 'TOTALCAPACITY', None),
+        ('used_capacity', 'USEDCAPACITY', total_capacity),
+        ('free_disks_capacity', 'FREEDISKSCAPACITY', total_capacity),
+        ('hot_spare_disks_capacity', 'HOTSPAREDISKSCAPACITY', total_capacity),
+        ('unavailable_disks_capacity', 'UNAVAILABLEDISKSCAPACITY', total_capacity),
+        # No maximum: this counts thin-provisioned space, which routinely exceeds the
+        # physical total the array actually has.
+        ('user_free_capacity', 'userFreeCapacity', None),
+        ('storage_pool_total_capacity', 'STORAGEPOOLCAPACITY', None),
+        ('storage_pool_used_capacity', 'STORAGEPOOLUSEDCAPACITY', storage_pool_capacity),
+        ('storage_pool_free_capacity', 'STORAGEPOOLFREECAPACITY', storage_pool_capacity),
+        (
+            'storage_pool_hot_spare_capacity',
+            'STORAGEPOOLHOSTSPARECAPACITY',
+            storage_pool_capacity,
+        ),
+        ('storage_pool_raw_capacity', 'STORAGEPOOLRAWCAPACITY', None),
+        ('thick_luns_allocated_capacity', 'THICKLUNSALLOCATECAPACITY', None),
+        ('thick_luns_used_capacity', 'THICKLUNSUSEDCAPACITY', None),
+        ('thin_luns_allocated_capacity', 'THINLUNSALLOCATECAPACITY', thin_luns_max_capacity),
+        ('thin_luns_used_capacity', 'THINLUNSUSEDCAPACITY', thin_luns_max_capacity),
+        ('mapped_luns_capacity', 'mappedLunsCountCapacity', None),
+        ('unmapped_luns_capacity', 'unMappedLunsCountCapacity', None),
+    ):
+        value = lib.huawei_dorado.sectors2bytes(data.get(field), sector_size)
+        if value is None:
+            # A firmware that does not report this capacity leaves the field out
+            # entirely. Emitting an empty value would break the perfdata line.
+            continue
+        perfdata += lib.base.get_perfdata(
+            label,
+            value,
+            uom='B',
+            _min=0,
+            _max=maximum,
+        )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
+
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

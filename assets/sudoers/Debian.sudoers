@@ -16,6 +16,7 @@ Cmnd_Alias LF_NAGIOS = /usr/lib64/nagios/plugins/about-me,\
                     /usr/lib64/nagios/plugins/ipmi-sensor,\
                     /usr/lib64/nagios/plugins/journald-query,\
                     /usr/lib64/nagios/plugins/journald-usage,\
+                    /usr/lib64/nagios/plugins/kdump,\
                     /usr/lib64/nagios/plugins/kvm-vm,\
                     /usr/lib64/nagios/plugins/logfile,\
                     /usr/lib64/nagios/plugins/mastodon-version,\
@@ -41,7 +42,21 @@ Cmnd_Alias LF_NAGIOS = /usr/lib64/nagios/plugins/about-me,\
                     /usr/lib64/nagios/plugins/systemd-unit,\
                     /usr/bin/apt-get update --quiet 2
 
+# librenms-validate does not run as root. LibreNMS refuses to validate itself as root, so
+# the check runs its validation as the LibreNMS user instead. Every command below is
+# listed with the exact arguments the check uses: a trailing wildcard would hand the
+# LibreNMS user a PHP interpreter with free arguments, which is arbitrary code execution
+# under that account. Adjust the paths here if the installation does not live in
+# /opt/librenms or PHP is not at /usr/bin/php, and pass the same values to the check via
+# --path and --php-path.
+Cmnd_Alias LF_LIBRENMS_VALIDATE = /usr/bin/php /opt/librenms/validate.php -s,\
+                    /usr/bin/php /opt/librenms/validate.php -s -g distributedpoller,\
+                    /usr/bin/php /opt/librenms/validate.php -s -g mail,\
+                    /usr/bin/php /opt/librenms/validate.php -s -g rrdcheck
+
 Defaults:nagios !requiretty, !pam_session
 Defaults!LF_NAGIOS !syslog
+Defaults!LF_LIBRENMS_VALIDATE !syslog
 
 nagios ALL = NOPASSWD: LF_NAGIOS
+nagios ALL = (librenms) NOPASSWD: LF_LIBRENMS_VALIDATE

@@ -80,6 +80,9 @@ options:
   -w, --warning WARN   WARN threshold for the number of state changes per
                        service within the lookback period. Supports Nagios
                        ranges. Default: 7
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/icinga-topflap-services/
 ```
 
 

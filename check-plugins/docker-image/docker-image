@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070101'
+__version__ = '2026081001'
 
 DESCRIPTION = """Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than the
@@ -40,7 +40,11 @@ DEFAULT_CRIT_AGE = '365D'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -89,10 +93,10 @@ def parse_args():
         help='Only check images whose repository tag matches this Python regular '
         'expression. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
-        'Can be specified multiple times. If both `--match` and `--ignore` are given, '
-        'an image must match `--match` AND not match `--ignore` to be checked '
-        '(include first, exclude second). '
-        'Example: `--match="^docker.io/library/nginx"` to check only the nginx images. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Example: `--match="^docker.io/library/nginx"` to check only the nginx '
+        'images. '
         'Default: %(default)s',
         dest='MATCH',
         action='append',
@@ -105,6 +109,14 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -320,7 +332,9 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -60,6 +60,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --utc-offset UTC_OFFSET
                         UTC offset for timestamp display. Default: +0200
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sap-open-concur-com/
 ```
 
 

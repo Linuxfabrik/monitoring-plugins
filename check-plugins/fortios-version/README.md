@@ -33,9 +33,9 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 
 ```text
 usage: fortios-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
-                       [--check-patch] -H HOSTNAME [--insecure] [--no-proxy]
-                       [--offset-eol OFFSET_EOL] --password PASSWORD
-                       [--timeout TIMEOUT]
+                       [--check-patch] -H HOSTNAME [--insecure]
+                       [--no-perfdata] [--no-proxy] [--offset-eol OFFSET_EOL]
+                       --password PASSWORD [--timeout TIMEOUT]
                        [--unreachable-severity {ok,warn,crit,unknown}]
 
 Checks the installed FortiOS version against the endoflife.date API and alerts
@@ -62,6 +62,10 @@ options:
                         port ("192.0.2.1:443").
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --offset-eol OFFSET_EOL
                         Alert n days before ("-30") or after an EOL date ("30"
@@ -69,9 +73,14 @@ options:
   --password PASSWORD   FortiOS REST API access token.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
-                        State to report when the online end-of-life source is
-                        unreachable and the check falls back to the bundled
-                        offline data. Default: ok
+                        State to report when the online source is unreachable.
+                        What is used instead - bundled offline data, a cached
+                        copy, or nothing at all - is named in the output, and
+                        a clean result then only covers what that fallback
+                        could confirm. Default: ok
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-version/
 ```
 
 

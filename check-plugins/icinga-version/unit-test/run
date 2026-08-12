@@ -21,12 +21,11 @@ DockerEntrypoint wrapper which the plugin's
 `r'\\(version: r(\\d+\\.\\d+\\.\\d+)'` regex deliberately rejects
 (it expects the Debian `r<X>.<Y>.<Z>-1` shape).
 
-Each testcase pins the expected Nagios state to whatever
-`lib.version.check_eol()` returned when these fixtures were saved
-against the live https://endoflife.date/api/icinga.json data. The
-EOL table drifts over time (releases hit EOL, new majors appear),
-so the `assert-retc` and `assert-in` strings will need to be
-re-pinned every few months.
+The testcases assert the parsed version and nothing else. An end-of-life
+verdict is derived from live endoflife.date data and from today's date, so
+pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
+`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
+instead, where the expectation cannot age.
 """
 
 import sys
@@ -36,38 +35,33 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_UNKNOWN
 
 TESTS = [
     {
-        'id': 'warn-debian11-icinga-2-12-3-eol',
+        'id': 'parses-debian11-icinga-2-12-3',
         'test': 'stdout/icinga2-version-debian11,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Icinga v2.12.3', 'EOL 2023-07-12', '[WARNING]'],
+        'assert-in': ['Icinga v2.12.3'],
     },
     {
-        'id': 'warn-ubuntu22-icinga-2-13-2-eol',
+        'id': 'parses-ubuntu22-icinga-2-13-2',
         'test': 'stdout/icinga2-version-ubuntu22,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Icinga v2.13.2', 'EOL 2025-06-17', '[WARNING]'],
+        'assert-in': ['Icinga v2.13.2'],
     },
     {
-        'id': 'warn-debian12-icinga-2-13-6-eol',
+        'id': 'parses-debian12-icinga-2-13-6',
         'test': 'stdout/icinga2-version-debian12,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Icinga v2.13.6', 'EOL 2025-06-17', '[WARNING]'],
+        'assert-in': ['Icinga v2.13.6'],
     },
     {
-        'id': 'warn-ubuntu24-icinga-2-14-2-eol',
+        'id': 'parses-ubuntu24-icinga-2-14-2',
         'test': 'stdout/icinga2-version-ubuntu24,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Icinga v2.14.2', 'EOL 2026-04-23', '[WARNING]'],
+        'assert-in': ['Icinga v2.14.2'],
     },
     {
-        'id': 'warn-debian13-icinga-2-14-6-eol',
+        'id': 'parses-debian13-icinga-2-14-6',
         'test': 'stdout/icinga2-version-debian13,,0',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['Icinga v2.14.6', 'EOL 2026-04-23', '[WARNING]'],
+        'assert-in': ['Icinga v2.14.6'],
     },
     {
         'id': 'unknown-garbage-output',
@@ -79,7 +73,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../icinga-version'
 
 

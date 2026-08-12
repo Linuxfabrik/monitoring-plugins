@@ -22,7 +22,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026071201'
 
 DESCRIPTION = """Monitors all configured UptimeRobot monitors via the UptimeRobot API. Alerts on any
 monitor that is in a down or unknown state."""
@@ -35,7 +35,11 @@ DEFAULT_URL = 'https://status.linuxfabrik.io'
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -58,6 +62,14 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -166,9 +178,7 @@ def main():
     # uptimerobot returns either a single `monitor` dict (one monitor) or a
     # `psp.monitors` list (even if it contains only one entry); normalise both
     # cases to a list so the loop below is uniform
-    monitors = (
-        [result['monitor']] if 'monitor' in result else result['psp']['monitors']
-    )
+    monitors = [result['monitor']] if 'monitor' in result else result['psp']['monitors']
     for item in monitors:
         item_state = uptimerobotstate2state(item['statusClass'])
         state = lib.base.get_worst(state, item_state)
@@ -220,7 +230,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

@@ -39,6 +39,9 @@ options:
                         Expected tuned profile name (case-insensitive).
                         Example: `--profile virtual-guest`. Default: virtual-
                         guest
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/tuned-profile/
 ```
 
 

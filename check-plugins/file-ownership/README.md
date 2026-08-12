@@ -91,7 +91,8 @@ Default files checked:
 ## Help
 
 ```text
-usage: file-ownership [-h] [-V] [--filename FILES] [--no-default-files]
+usage: file-ownership [-h] [-V] [--always-ok] [--filename FILES]
+                      [--no-default-files]
 
 Verifies that critical system files have the expected owner and group. Ships
 with a built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.)
@@ -101,6 +102,7 @@ the expected values.
 options:
   -h, --help          show this help message and exit
   -V, --version       show program's version number and exit
+  --always-ok         Always returns OK.
   --filename FILES    File to be checked. Format: `owner:group,path`. Can be
                       specified multiple times. User-supplied entries are
                       merged with the default file list. If the same path
@@ -108,6 +110,9 @@ options:
                       `--filename root:root,/etc/passwd`.
   --no-default-files  Only check files specified via `--filename`, skip the
                       built-in default file list.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-ownership/
 ```
 
 

@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK
+
+TESTS = [
+    {
+        'id': 'ok-alarms-none',
+        'test': 'stdout/alarms-none,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        # "No current alarms." would only repeat the verdict.
+        'assert-not-in': ['No current alarms.'],
+    },
+    {
+        # A critical alarm decides the result; the major one next to it stays a
+        # warning, because it degrades the array without stopping it.
+        'id': 'crit-alarms-critical',
+        'test': 'stdout/alarms-critical,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical alarms.',
+            '4711     ! 2023-08-31 16:23:43 ! Critical (6) '
+            '! Controller (CTE0.A) Is Offline ! CTE0.A   ! [CRITICAL]',
+            '4712     ! 2023-08-31 17:23:43 ! Major (5)    '
+            '! Disk Is About To Fail          ! DAE000.7 ! [WARNING]',
+        ],
+    },
+    {
+        # An informational alarm is a note, not a fault. It is listed but does not
+        # alert, and it must not take the check to UNKNOWN either.
+        'id': 'ok-alarms-informational',
+        'test': 'stdout/alarms-informational,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Informational (2)'],
+    },
+    {
+        # The appliance embeds HTML entities in the texts it generates, and the
+        # names are decoded before the filter runs, so `--match` sees what the
+        # reader sees rather than the raw entity.
+        'id': 'crit-alarm-html-entities',
+        'test': 'stdout/alarms-critical,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='.*Controller .CTE0'",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Controller (CTE0.A) Is Offline'],
+        'assert-not-in': ['&#40;', 'Disk Is About To Fail'],
+    },
+    {
+        'id': 'ok-no-match-stays-ok',
+        'test': 'stdout/alarms-critical,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['No alarms matched `nonexistent`.'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/alarms-critical,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No alarms matched `nonexistent`.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-alarm'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

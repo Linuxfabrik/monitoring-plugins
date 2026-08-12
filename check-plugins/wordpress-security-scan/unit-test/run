@@ -1,0 +1,1327 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import importlib.machinery
+import importlib.util
+import os
+import subprocess
+import unittest
+from unittest import mock
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures under stdout/ were captured from live wpscan runs against a WordPress
+# container and then narrowed down per scenario, so they carry the document structure
+# wpscan really emits. The scan exit code is part of the evaluation and therefore part
+# of every `test` value: 0 is a clean scan, 5 means wpscan considers the target
+# vulnerable, and anything else is a run that did not produce a result.
+#
+# Almost every fixture carries a `vuln_api` section reporting a working API token,
+# because that is the only way wpscan looks up vulnerabilities at all. The `no-api-token`
+# and `vuln-api-unreachable` fixtures cover the opposite case, in which every
+# vulnerability list is empty regardless of what the site runs.
+#
+# `wordpress/` is a WordPress installation tree reduced to the files the check reads:
+# wp-includes/version.php, wp-config.php, plus the plugin and theme headers below
+# wp-content/. It also contains the index.php placeholders WordPress ships in every
+# directory, so the "a placeholder is not a plugin" case is covered by the real layout.
+#
+# `fixtures/` holds the auxiliary input files a parameter points at, as opposed to the
+# scanner output under stdout/ and stderr/.
+BASE_PARAMS = '--url=https://www.example.com --path=wordpress'
+
+# Pointing --path at a directory that does not exist exercises the black box mode, in
+# which the check reports what the scan alone could see.
+NO_PATH_PARAMS = '--url=https://www.example.com --path=/nonexistent'
+
+# No --url at all: the site URL has to come out of wordpress/wp-config.php.
+DERIVED_URL_PARAMS = '--path=wordpress'
+
+TESTS = [
+    # A site that is fully patched and exposes nothing. The local inventory holds three
+    # plugins while the scan fingerprinted two of them, which is reported as context and
+    # must not influence the state.
+    {
+        'id': 'ok-no-findings',
+        'test': 'stdout/clean-site,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No vulnerabilities found. No exposures found.',
+            'WordPress v7.0.2',
+            'Installed locally: 3 plugins, 3 themes.',
+            'Detected by the scan: 2 plugins, 3 themes.',
+            "'vulnerabilities'=0",
+            "'exposures'=0",
+            "'plugins_installed'=3",
+            "'plugins_detected'=2",
+        ],
+        # The verdict opens the first line and that line is a complete sentence, the
+        # same shape wordpress-checksums prints.
+        'assert-regex': r'^No vulnerabilities found\. No exposures found\. '
+        r'WordPress v7\.0\.2 on https://www\.example\.com\.\n',
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-black-box-without-local-installation',
+        'test': 'stdout/clean-site,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No WordPress installation readable at "/nonexistent",',
+            "'plugins_installed'=0",
+        ],
+    },
+    # Findings that only describe how the site is set up. Alerting on a multisite
+    # install or an enabled XML-RPC endpoint would leave the check permanently non-OK
+    # on a default WordPress.
+    {
+        'id': 'ok-info-findings-do-not-alert',
+        'test': 'stdout/info-findings-only,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No vulnerabilities found. No exposures found.'],
+        'assert-not-in': ['multisite', 'xmlrpc', 'robots', 'Must Use Plugins'],
+    },
+    # Known vulnerabilities, graded by their CVSS base score.
+    {
+        'id': 'crit-vuln-above-critical-cvss',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 vulnerability (1 critical)',
+            'Unrestricted File Upload',
+            "'vulnerabilities'=1",
+            "'vulnerabilities_critical'=1",
+        ],
+        'assert-regex': r'contact-form-7.*Unrestricted File Upload.*\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-vuln-below-critical-cvss',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 vulnerability (0 critical)', "'vulnerabilities_critical'=0"],
+        'assert-regex': r'contact-form-7.*Cross-Site Scripting.*\[WARNING\]',
+    },
+    # Same fixture, threshold lowered below the score of the finding.
+    {
+        'id': 'crit-vuln-with-lowered-cvss-threshold',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': f'{BASE_PARAMS} --critical-cvss=5.0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 vulnerability (1 critical)'],
+    },
+    # The vulnerability database carries no score for a large share of its entries.
+    {
+        'id': 'warn-unscored-vuln-default',
+        'test': 'stdout/vuln-no-cvss,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Privilege Escalation'],
+    },
+    {
+        'id': 'crit-unscored-vuln-severity-crit',
+        'test': 'stdout/vuln-no-cvss,,5',
+        'params': f'{BASE_PARAMS} --unscored-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 vulnerability (1 critical)'],
+    },
+    {
+        'id': 'ok-unscored-vuln-severity-ok',
+        'test': 'stdout/vuln-no-cvss,,5',
+        'params': f'{BASE_PARAMS} --unscored-severity=ok',
+        'assert-retc': STATE_OK,
+    },
+    # Exposures: a single reachable file or directory that hands over credentials, the
+    # database or an account. Always critical, no threshold involved.
+    {
+        'id': 'crit-config-backup-and-db-export',
+        'test': 'stdout/full-site,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Readable wp-config backup',
+            'Readable database export',
+            "'exposures'=3",
+        ],
+    },
+    {
+        'id': 'crit-backup-folder',
+        'test': 'stdout/backup-folder-exposed,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Backup folder with directory listing', "'exposures'=1"],
+    },
+    {
+        'id': 'crit-debug-log',
+        'test': 'stdout/full-site,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'debug\.log.*Debug Log found.*\[CRITICAL\]',
+    },
+    # A site still sitting on its installer: anyone can create the first admin account.
+    # wpscan reports this instead of a scan and exits 0, so the exit code alone would
+    # hide it.
+    {
+        'id': 'crit-site-in-install-mode',
+        'test': 'stdout/not-fully-configured,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['site is in install mode, anyone can create the admin user'],
+    },
+    # Hardening findings.
+    {
+        'id': 'warn-outdated-plugin',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --ignore=wp-config|wordpress.sql|debug.log',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'contact-form-7.*5\.0.*outdated, 6\.1\.6 is available',
+        'assert-in': ["'plugins_outdated'=1"],
+    },
+    {
+        'id': 'warn-core-flagged-insecure',
+        'test': 'stdout/core-insecure,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['core version is flagged as insecure', "'vulnerabilities'=1"],
+    },
+    {
+        'id': 'warn-core-outdated',
+        'test': 'stdout/core-outdated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['core version is outdated', "'hardening_findings'=1"],
+    },
+    # The vulnerability database qualifies the state with a suffix where it has one to
+    # add. That says how it knows, not something different, so the core still has to be
+    # reported as outdated rather than falling through unreported.
+    {
+        'id': 'warn-core-outdated-qualified-status',
+        'test': 'stdout/core-outdated-qualified-status,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['core version is outdated', "'hardening_findings'=1"],
+    },
+    # The scan seeing a different core version than the one installed means it did not
+    # look at this installation.
+    {
+        'id': 'warn-version-mismatch-local-vs-remote',
+        'test': 'stdout/version-mismatch,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['scan sees v6.4.1, installed is v7.0.2'],
+    },
+    {
+        'id': 'warn-users-enumerable',
+        'test': 'stdout/users-enumerated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 usernames enumerable (admin, editor)', "'users'=2"],
+        # one row for the whole list, not one row per user
+        'assert-not-in': ['1 username enumerable'],
+    },
+    {
+        'id': 'warn-timthumb-reachable',
+        'test': 'stdout/timthumb-found,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['timthumb script reachable'],
+    },
+    # The active theme is reported in its own `main_theme` section rather than in
+    # `themes`, so it needs its own path.
+    {
+        'id': 'warn-main-theme-outdated',
+        'test': 'stdout/main-theme-outdated,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'twentytwentyfive.*1\.5.*outdated, 1\.6 is available',
+        'assert-in': ["'themes_outdated'=1"],
+    },
+    # 60 findings against a table that shows 50. The state and the perfdata still count
+    # every one of them, only the table is cut off.
+    {
+        'id': 'warn-many-findings-are-truncated',
+        'test': 'stdout/many-findings,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '60 hardening findings',
+            "'hardening_findings'=60",
+            "'plugins_outdated'=60",
+            '... and 10 more findings.',
+            'demo-plugin-01',
+        ],
+        'assert-not-in': ['demo-plugin-60'],
+    },
+    # Filters.
+    {
+        'id': 'ok-vuln-ignored',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --ignore=^contact-form-7$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Unrestricted File Upload'],
+    },
+    {
+        'id': 'crit-match-narrows-to-one-component',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=wp-config',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Readable wp-config backup', "'exposures'=1"],
+        'assert-not-in': ['Readable database export'],
+    },
+    {
+        'id': 'ok-no-match-severity-default',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A filtered run still reports every metric, so a dashboard shows a zero rather than
+    # a gap, and the context lines still say what the scan could see.
+    {
+        'id': 'ok-filtered-run-still-reports-perfdata',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Nothing checked.',
+            'Installed locally: 3 plugins',
+            "'exposures'=0",
+            "'vuln_data_available'=1",
+            "'scan_duration'=",
+        ],
+    },
+    # A scan that never consulted the vulnerability database still alerts through its own
+    # parameter, even where the filters removed every finding. The two reasons to alert
+    # are independent, so the one must not swallow the other.
+    {
+        'id': 'crit-filtered-run-still-reports-missing-vuln-data',
+        'test': 'stdout/core-outdated-no-api-token,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist --no-vuln-data-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Nothing checked.',
+            'No vulnerability data: no API token',
+            "'vuln_data_available'=0",
+        ],
+        'assert-not-in': ['core version is outdated'],
+    },
+    # A site without findings is clean, not unchecked. A filter that had nothing to
+    # remove must not turn the verdict into "Nothing checked.", which would otherwise
+    # let --no-match-severity alert on a perfectly healthy site.
+    {
+        'id': 'ok-clean-site-with-harmless-filter',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --ignore=^akismet$ --no-match-severity=crit',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No vulnerabilities found. No exposures found.'],
+        'assert-not-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-no-match-severity-warn',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # --lengthy adds columns, it does not change the state or the rows.
+    {
+        'id': 'crit-lengthy-adds-cvss-and-fix-columns',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['CVSS', 'Fixed in'],
+        'assert-regex': r'contact-form-7.*plugin.*9\.8.*5\.3\.2',
+    },
+    {
+        'id': 'ok-always-ok',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 vulnerability (1 critical)'],
+    },
+    # Perfdata can be suppressed without touching the verdict.
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/vuln-high-cvss,,5',
+        'params': f'{BASE_PARAMS} --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ["'vulnerabilities'="],
+    },
+    # wpscan running out of its own time budget is a timeout, not a broken run, so it
+    # ends in the same state as the hard subprocess timeout.
+    {
+        'id': 'warn-total-timeout',
+        'test': 'stdout/scan-timeout,,4',
+        'params': f'{BASE_PARAMS} --total-timeout=120',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Scan did not finish within 90s',
+            'Raise --total-timeout',
+        ],
+    },
+    # Runs that produced no usable result.
+    {
+        'id': 'unknown-scan-aborted',
+        'test': 'stdout/scan-aborted,,4',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan: ',
+            'The remote website is up, but does not seem to be running WordPress.',
+        ],
+    },
+    # A site that does not serve itself under the address given in --url. The scanner
+    # names the two switches that resolve it, and both are parameters of this check, so
+    # the message has to reach the output verbatim and labelled as the scanner's.
+    {
+        'id': 'unknown-redirect-not-followed',
+        'test': 'stdout/redirect-not-followed,,4',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan: ',
+            'The URL supplied redirects to https://example.com/.',
+            '--wpscan-follow-redirect',
+            '--wpscan-ignore-main-redirect',
+        ],
+    },
+    # A locally held vulnerability database whose dumps were never downloaded. The scanner
+    # tells the admin to run without `--no-update`, which this check passes on every scan
+    # of its own accord, so the advice is only actionable through the parameter that
+    # governs the separate refresh. It has to arrive rewritten to that name.
+    {
+        'id': 'unknown-enterprise-database-dumps-missing',
+        'test': 'stdout/enterprise-db-missing,,4',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan: ',
+            'Run without --wpscan-no-update',
+        ],
+        'assert-not-in': ['Run without --no-update'],
+    },
+    {
+        'id': 'unknown-malformed-json',
+        'test': 'stdout/malformed-json,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        # wpscan reports a run it aborted before writing its document in plain text. That
+        # text is the only explanation there is and must reach the output.
+        'assert-in': [
+            'Output from wpscan: ',
+            'The remote website is up, but does not seem to be running',
+            'the scan output is not valid JSON',
+        ],
+    },
+    {
+        'id': 'unknown-empty-response',
+        'test': 'stdout/empty-response,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['The scan returned no output.'],
+    },
+    # A scanner that aborts before writing its document reports in plain text, on stdout
+    # as well as on stderr depending on what went wrong. Either way the text is the only
+    # explanation there is.
+    {
+        'id': 'unknown-error-on-stderr-only',
+        'test': 'stdout/empty-response,stderr/ruby-crash,1',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan: ',
+            'undefined method',
+            'the scan output is not valid JSON',
+        ],
+        'assert-not-in': ['The scan returned no output.'],
+    },
+    # Without vulnerability data an empty vulnerability list says nothing about the site,
+    # so the summary must not read as an all-clear. The state stays OK by default and
+    # follows --no-vuln-data-severity otherwise.
+    {
+        'id': 'ok-no-api-token-default',
+        'test': 'stdout/no-api-token,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No exposures found, vulnerabilities not checked.',
+            'No vulnerability data: no API token',
+            "'vuln_data_available'=0",
+        ],
+        'assert-not-in': ['No vulnerabilities found.'],
+    },
+    {
+        'id': 'warn-no-api-token-severity-warn',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No vulnerability data: no API token'],
+    },
+    {
+        'id': 'crit-no-api-token-severity-crit',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=crit',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'unknown-no-api-token-severity-unknown',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    # The token was fine but the database itself could not be reached. Same consequence,
+    # different cause, and the cause is what the admin needs to see.
+    {
+        'id': 'warn-vuln-api-unreachable',
+        'test': 'stdout/vuln-api-unreachable,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['the vulnerability database was unreachable'],
+    },
+    # A site with real findings must still report that the vulnerability class was never
+    # examined, otherwise "0 vulnerabilities" reads as a verified zero.
+    {
+        'id': 'ok-no-api-token-keeps-counting-other-findings',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'vuln_data_available'=0"],
+    },
+    # A working token is reported only under --lengthy, so the default output of a clean
+    # site stays a single verdict line.
+    {
+        'id': 'ok-token-quota-shown-with-lengthy',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            # "daily" matters: the quota refills, so a low number is a reason to wait
+            # rather than to buy a plan.
+            'Vulnerability database queried (free plan, 22 of the daily requests left)',
+            "'vuln_data_available'=1",
+        ],
+    },
+    {
+        'id': 'ok-token-quota-hidden-by-default',
+        'test': 'stdout/clean-site,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['requests left'],
+    },
+    # A backup folder wpscan could read entries out of is a leak; one it only saw the
+    # outside of is not the same situation and must not page at night.
+    {
+        'id': 'warn-backup-folder-without-readable-entries',
+        'test': 'stdout/backup-folder-unlisted,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'backup-db.*\[WARNING\]',
+    },
+    # That rating belongs to the backup folders alone. A readable wp-config backup hands
+    # over the database credentials whatever rating a future release might attach to it,
+    # so a severity turning up in that section must not soften the finding.
+    {
+        'id': 'crit-config-backup-ignores-a-severity',
+        'test': 'stdout/config-backup-rated,,5',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'wp-config\.php\.bak.*\[CRITICAL\]',
+    },
+    # Exactly at the threshold the vulnerability is critical, because the comparison is
+    # "at or above".
+    {
+        'id': 'crit-cvss-exactly-at-threshold',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': f'{BASE_PARAMS} --critical-cvss=5.4',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'warn-cvss-just-below-threshold',
+        'test': 'stdout/vuln-low-cvss,,5',
+        'params': f'{BASE_PARAMS} --critical-cvss=5.5',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'unknown-no-match-severity-unknown',
+        'test': 'stdout/full-site,,5',
+        'params': f'{BASE_PARAMS} --match=does-not-exist --no-match-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A JSON document that is not an object carries no scan result, whatever else it is.
+    {
+        'id': 'unknown-json-array',
+        'test': 'stdout/json-array,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['the scan output is not a JSON object'],
+    },
+    # The site URL is not given and has to come out of wp-config.php.
+    {
+        'id': 'ok-url-derived-from-wp-config',
+        'test': 'stdout/clean-site,,0',
+        'params': DERIVED_URL_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['https://www.example.com'],
+    },
+    # Neither given nor derivable: the message has to name both the parameter and the
+    # usual reason, since wp-config.php is normally unreadable for the monitoring user.
+    {
+        'id': 'unknown-url-neither-given-nor-derivable',
+        'test': 'stdout/clean-site,,0',
+        'params': '--path=/nonexistent',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No --url given', 'WP_HOME', 'wp-config.php'],
+    },
+    # --verbose prints the command the check assembled, which is the only place the
+    # enumeration adjustments become visible. Without vulnerability data the vulnerable-
+    # plugins and vulnerable-themes choices are downgraded, because wpscan refuses to
+    # start with them.
+    {
+        'id': 'ok-verbose-shows-downgraded-enumeration',
+        'test': 'stdout/no-api-token,,0',
+        'params': f'{BASE_PARAMS} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Executed command:',
+            '--enumerate=p,t,tt,cb,dbe,bf,u',
+            '--format=json',
+            '--no-banner',
+            '--max-scan-duration=1770',
+        ],
+        'assert-not-in': ['--enumerate=vp,vt'],
+    },
+    # The raw pass-through and the switches land in the command unchanged.
+    {
+        'id': 'ok-verbose-shows-passed-through-options',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --insecure --wpscan-no-update '
+            '--wpscan-option=--plugins-detection=aggressive --total-timeout=120'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '--disable-tls-checks',
+            '--no-update',
+            '--plugins-detection=aggressive',
+            '--max-scan-duration=90',
+        ],
+    },
+    # The scan itself never refreshes the vulnerability database. wpscan counts its own
+    # download against --max-scan-duration, so refreshing inside the scan would spend
+    # the site's time budget on it; the refresh is a call of its own before the scan.
+    {
+        'id': 'ok-the-scan-itself-never-updates',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--no-update'],
+    },
+    # The detection mode, the proxy and the throttle reach the scanner under its own
+    # option names, which differ from the ones this check offers.
+    {
+        'id': 'ok-verbose-shows-detection-mode-proxy-and-throttle',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --wpscan-detection-mode=aggressive '
+            '--wpscan-proxy=http://192.0.2.1:3128 --wpscan-throttle=200'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '--detection-mode=aggressive',
+            '--proxy=http://192.0.2.1:3128',
+            '--throttle=200',
+        ],
+    },
+    # An explicit enumeration is passed through as given, minus the choices the check
+    # adjusts for. `bf` survives here because the test path assumes a recent scanner.
+    {
+        'id': 'ok-explicit-enumerate-is-passed-through',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-enumerate=cb,dbe,bf,u',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=cb,dbe,bf,u'],
+    },
+    # A random user agent replaces the identifiable one rather than joining it, or the
+    # scanner would be told two different things to call itself.
+    {
+        'id': 'ok-random-user-agent-replaces-the-default',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-random-user-agent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--random-user-agent'],
+        'assert-not-in': ['--user-agent='],
+    },
+    # HTTP credentials reach the scanner on its command line, because it accepts them
+    # nowhere else. They must never reach the check's own output, which is mailed and
+    # stored: the printed command shows the option with its value redacted.
+    {
+        'id': 'ok-http-auth-is-redacted-in-the-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-http-auth=admin:linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--http-auth=******'],
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # The same credentials read out of a file, which is what keeps them out of the
+    # monitoring configuration. The value has to arrive, and still not be printed.
+    {
+        'id': 'ok-http-auth-file-is-read-and-redacted',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --wpscan-http-auth-file=fixtures/http-auth'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--http-auth=******'],
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # A credential carried inside a proxy address is redacted as well, while the host
+    # stays readable so the admin can still see where the scan was routed.
+    {
+        'id': 'ok-proxy-credentials-are-redacted',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-proxy=http://admin:linuxfabrik@192.0.2.1:3128'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--proxy=http://admin:******@192.0.2.1:3128'],
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # A column nobody filled in is noise. Only a finding about the core, a plugin, a
+    # theme or a timthumb carries a version and a vulnerability entry, so a site whose
+    # findings are all exposures and hardening notes would print three columns of "-".
+    {
+        'id': 'warn-columns-nobody-filled-are-dropped',
+        'test': 'stdout/users-enumerated,,0',
+        'params': f'{NO_PATH_PARAMS} --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Component', 'Type', 'Finding', 'State'],
+        'assert-not-in': ['Installed', 'CVSS', 'Fixed in'],
+    },
+    # ... while a column that carries something stays, on the same run shape.
+    {
+        'id': 'crit-filled-columns-stay',
+        'test': 'stdout/full-site,,5',
+        'params': f'{NO_PATH_PARAMS} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Installed', '5.0'],
+    },
+    # A token the API rejects stops the scanner before it looks at the site. Against a
+    # live scanner the scan is repeated without the token, so the exposures still get
+    # reported; the fixture path cannot replay two runs, so what is asserted here is
+    # that the scanner's own reason survives instead of a generic parsing complaint.
+    {
+        'id': 'unknown-rejected-api-token-names-its-reason',
+        'test': 'stdout/vuln-api-rejected,,4',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Output from wpscan:', 'Unable to connect to the WPScan API'],
+        'assert-not-in': ['no usable output'],
+    },
+    # The scanner refusing the vulnerable-plugins and vulnerable-themes choices for want
+    # of a token is the same class of abort: it happens before the site is looked at, and
+    # against a live scanner the scan is repeated with those choices downgraded. A
+    # release predating --enterprise-db-token reports this after ignoring the token, and
+    # so does a `vp` handed in raw through --wpscan-option. The fixture path cannot replay
+    # the second run, so what is asserted is that the reason survives verbatim.
+    {
+        'id': 'unknown-vulnerable-enumeration-needs-a-token',
+        'test': 'stdout/vuln-enumeration-needs-token,,4',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan:',
+            'An API token is required for vulnerable plugin/theme enumeration',
+        ],
+        'assert-not-in': ['no usable output'],
+    },
+    # A run that fails while refreshing the vulnerability database reports under its own
+    # JSON key, not under the one every other abort uses. Reading only the latter left
+    # the admin with a generic "no usable output" instead of the scanner's own reason.
+    # Against a live scanner this run is repeated without the refresh; the fixture path
+    # cannot replay two runs, so what is asserted here is that the reason survives.
+    {
+        'id': 'unknown-failed-database-refresh-names-its-reason',
+        'test': 'stdout/update-aborted,,4',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Output from wpscan:', 'data.wpscan.org'],
+        'assert-not-in': ['no usable output'],
+    },
+    # A bare host is completed to HTTPS, not left to the scanner's HTTP default. That
+    # also keeps a www-to-apex redirect from changing the scheme at the same time, which
+    # the scanner does not follow even when asked to.
+    {
+        'id': 'ok-bare-host-becomes-https',
+        'test': 'stdout/clean-site,,0',
+        'params': '--url=www.example.com --path=wordpress --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--url=https://www.example.com'],
+    },
+    {
+        'id': 'ok-explicit-scheme-is-kept',
+        'test': 'stdout/clean-site,,0',
+        'params': '--url=http://www.example.com --path=wordpress --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--url=http://www.example.com'],
+    },
+    # A site can expose hundreds of user names. Printing them all would widen the finding
+    # column past anything readable, so the list is cut down while the count stays exact.
+    {
+        'id': 'warn-many-users-are-listed-shortened',
+        'test': 'stdout/users-many,,0',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['544 usernames enumerable (', '...', "'users'=544"],
+        'assert-not-in': ['author277longname'],
+        # count, opening bracket, at most 40 characters of names, closing bracket
+        'assert-regex': r'544 usernames enumerable \(.{1,40}\)',
+    },
+    # The printed command is quoted the way a shell needs it, so it can be pasted into a
+    # terminal. The user agent carries spaces and would otherwise read as several
+    # arguments. The command itself never goes through a shell.
+    {
+        'id': 'ok-verbose-command-is-shell-safe',
+        'test': 'stdout/clean-site,,0',
+        'params': BASE_PARAMS + ' --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'--user-agent=Linuxfabrik Monitoring Plugins'"],
+    },
+    # The two redirect switches wpscan names in its own error message are parameters of
+    # this check, so an admin can copy them straight from that message.
+    {
+        'id': 'ok-verbose-shows-wpscan-follow-redirect',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-follow-redirect',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--follow-redirect'],
+        'assert-not-in': ['--ignore-main-redirect'],
+    },
+    {
+        'id': 'ok-verbose-shows-wpscan-ignore-main-redirect',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --wpscan-ignore-main-redirect',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--ignore-main-redirect'],
+    },
+    # An enterprise database supplies vulnerability data without an API token, so the
+    # enumeration must keep its vulnerable-plugins and vulnerable-themes choices.
+    {
+        'id': 'ok-enterprise-db-keeps-enumeration',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --enterprise-db-token=linuxfabrik'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # Configuring it as a raw option predates the parameter of its own and has to keep
+    # working, down to the spelling that puts the value in the next element.
+    {
+        'id': 'ok-enterprise-db-raw-option-keeps-enumeration',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-option=--enterprise-db-token --wpscan-option=linuxfabrik'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # Like the API token, it travels through the environment, so neither the parameter
+    # nor the raw option may leave it in the command the check prints. Only the `=` form
+    # of the raw option is redacted there, which is why it must not reach the line at all.
+    {
+        'id': 'ok-enterprise-db-token-not-in-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --enterprise-db-token=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['linuxfabrik'],
+    },
+    {
+        'id': 'ok-enterprise-db-raw-option-not-in-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose '
+            '--wpscan-option=--enterprise-db-token --wpscan-option=linuxfabrik'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # The scanner rejects a throttle of zero or less on its own command line, which would
+    # cost a scan that runs for minutes before it ever starts. Rejected here instead, in
+    # words that name the parameter this check offers.
+    {
+        'id': 'unknown-throttle-not-positive',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --wpscan-throttle=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--wpscan-throttle has to be greater than zero.'],
+    },
+    # An API token keeps the vulnerable-plugins and vulnerable-themes choices too.
+    {
+        'id': 'ok-api-token-keeps-enumeration',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --api-token=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+    },
+    # The token is handed over through the environment, so it must never show up in the
+    # command the check prints.
+    {
+        'id': 'ok-api-token-not-in-printed-command',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --verbose --api-token=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['linuxfabrik'],
+    },
+    # An unreadable or empty token file is a configuration error and stops the check,
+    # rather than silently scanning without vulnerability data.
+    {
+        'id': 'unknown-token-file-missing',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --api-token-file=/nonexistent/token',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-token-file-empty',
+        'test': 'stdout/clean-site,,0',
+        'params': f'{BASE_PARAMS} --api-token-file=fixtures/empty-token',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['is empty'],
+    },
+    # The file wins over the command line, the way --password-file wins over --password
+    # everywhere else. Where both are configured, an unreadable file therefore stops the
+    # check instead of quietly falling back to the token in the process list.
+    {
+        'id': 'unknown-token-file-wins-over-token',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --api-token=linuxfabrik '
+            '--api-token-file=/nonexistent/token'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-http-auth-file-wins-over-http-auth',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --wpscan-http-auth=admin:linuxfabrik '
+            '--wpscan-http-auth-file=/nonexistent/http-auth'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+    },
+    # The readable file is the one that reaches the scanner, and it is still redacted.
+    {
+        'id': 'ok-http-auth-file-wins-and-stays-redacted',
+        'test': 'stdout/clean-site,,0',
+        'params': (
+            f'{BASE_PARAMS} --verbose --wpscan-http-auth=admin:ignored-plaintext '
+            '--wpscan-http-auth-file=fixtures/http-auth'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['--http-auth=******'],
+        'assert-not-in': ['linuxfabrik', 'ignored-plaintext'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../wordpress-security-scan'
+
+
+def load_check():
+    """Import the check as a module, so the helpers can be exercised directly."""
+    loader = importlib.machinery.SourceFileLoader(
+        'wordpress_security_scan', '../wordpress-security-scan'
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+class TestRedirectTarget(unittest.TestCase):
+    """The redirect destination is read out of the scanner's own message, because the
+    scanner names it but will not go there itself. The fixture-driven tests above cannot
+    cover the retry, which by design only runs when a real scan is performed.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_reads_the_destination(self):
+        self.assertEqual(
+            self.check.get_redirect_target(
+                'The URL supplied redirects to https://example.com/. Use the '
+                '--follow-redirect option to automatically scan the redirected URL.'
+            ),
+            'https://example.com/',
+        )
+
+    def test_keeps_a_path(self):
+        self.assertEqual(
+            self.check.get_redirect_target(
+                'The URL supplied redirects to https://example.com/blog/. Use the '
+                '--follow-redirect option.'
+            ),
+            'https://example.com/blog/',
+        )
+
+    def test_ignores_an_unrelated_message(self):
+        self.assertEqual(
+            self.check.get_redirect_target(
+                'The remote website is up, but does not seem to be running WordPress.'
+            ),
+            '',
+        )
+
+    def test_ignores_an_empty_message(self):
+        self.assertEqual(self.check.get_redirect_target(''), '')
+
+
+class TestAbortReason(unittest.TestCase):
+    """The scanner reports an aborted run under one of two keys, picking the second one
+    while it is refreshing its vulnerability database. Reading only the first one leaves
+    the admin without an explanation for the one failure the check can recover from.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_reads_a_scan_abort(self):
+        self.assertEqual(
+            self.check.get_abort_reason({'scan_aborted': 'Not running WordPress.'}),
+            'Not running WordPress.',
+        )
+
+    def test_reads_an_update_abort(self):
+        self.assertEqual(
+            self.check.get_abort_reason({'update_aborted': 'Unable to get ...'}),
+            'Unable to get ...',
+        )
+
+    def test_no_abort_at_all(self):
+        self.assertEqual(self.check.get_abort_reason({'version': {}}), '')
+
+
+# Three refusals are about the vulnerability lookup and say nothing about the site, so the
+# scan is worth repeating without the token. Everything else is about the target, and
+# repeating it would only scan a site that already refused once. One test method per
+# reason, so `./run -v` names the one that broke.
+VULN_API_REFUSALS = [
+    ('invalid-token', 'The API token provided is invalid'),
+    ('quota-exhausted', 'Your API limit has been reached'),
+    (
+        'api-unreachable',
+        'Unable to connect to the WPScan API: HTTP Error: ... (status: 401). '
+        'Please check https://status.wpscan.com/ for service status.',
+    ),
+]
+
+TARGET_PROBLEMS = [
+    (
+        'not-wordpress',
+        'The remote website is up, but does not seem to be running WordPress.',
+    ),
+    ('redirect', 'The URL supplied redirects to https://example.com/.'),
+    ('scan-timeout', 'Max Scan Duration Reached'),
+    ('no-abort-at-all', ''),
+]
+
+
+class TestVulnApiFailure(unittest.TestCase):
+    """Telling a refused vulnerability lookup from a problem with the target is what
+    decides whether the scan is repeated without the token. The retry itself only happens
+    against a real scanner, so it is the decision that is covered here.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+
+def _is_a_lookup_problem(test, item):
+    test.assertTrue(test.check.is_vuln_api_failure(item[1]))
+
+
+def _is_not_a_lookup_problem(test, item):
+    test.assertFalse(test.check.is_vuln_api_failure(item[1]))
+
+
+class TestTokenEnvironment(unittest.TestCase):
+    """Both credentials reach the scanner through the environment, never through its
+    command line. What matters just as much is the opposite case: a run the check makes
+    deliberately without one has to run without the one the monitoring user may have
+    exported, or the retry after a rejected token repeats the very failure it exists to
+    get past, and a locally held database aborts over an API token nobody configured.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def _env_of_a_run(self, token, enterprise_token=''):
+        with mock.patch.object(
+            self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
+        ) as fake:
+            self.check.run_wpscan(['wpscan'], token, enterprise_token, 60)
+        return fake.call_args.kwargs['env']
+
+    def test_a_token_is_handed_over_through_the_environment(self):
+        env = self._env_of_a_run('linuxfabrik')
+        self.assertEqual(env[self.check.API_TOKEN_ENV], 'linuxfabrik')
+
+    def test_an_enterprise_token_is_handed_over_through_the_environment(self):
+        env = self._env_of_a_run('', 'linuxfabrik')
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
+
+    def test_no_token_removes_an_exported_one(self):
+        # None is what lib.shell.shell_exec() reads as "remove this variable". An empty
+        # string would not do: the scanner reads the variable itself and takes an empty
+        # value for a rejected token rather than for no token at all.
+        env = self._env_of_a_run('')
+        self.assertIsNone(env[self.check.API_TOKEN_ENV])
+        self.assertIsNone(env[self.check.ENTERPRISE_TOKEN_ENV])
+
+    def test_the_token_never_reaches_the_command_line(self):
+        with mock.patch.object(
+            sys,
+            'argv',
+            [
+                'wordpress-security-scan',
+                '--url=https://www.example.com',
+                '--api-token=linuxfabrik',
+            ],
+        ):
+            args = self.check.parse_args()
+        args.WPSCAN_OPTION = []
+        self.assertNotIn(
+            'linuxfabrik', ' '.join(self.check.build_wpscan_command(args, 'u'))
+        )
+
+
+class TestEnterpriseDbToken(unittest.TestCase):
+    """A locally held copy of the vulnerability database is downloaded by the refresh call
+    and used by the scan, and the scanner decides both times from the same token. It also
+    refuses to run at all when an API token is set beside it, and it reads either of them
+    from the environment on its own. Neither the refresh nor the mutual exclusion is
+    reachable from the fixture-driven tests above, because both only happen on a real scan.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def _resolve(self, argv):
+        """Return (token, enterprise_token, remaining raw options) the way main() works
+        them out from the command line.
+        """
+        with mock.patch.object(sys, 'argv', ['wordpress-security-scan', *argv]):
+            args = self.check.parse_args()
+        if args.WPSCAN_OPTION is None:
+            args.WPSCAN_OPTION = []
+        # An exported credential would otherwise decide the outcome of these tests on the
+        # machine running them, which is the very fallback under test here.
+        with mock.patch.dict(os.environ, {}, clear=True):
+            enterprise_token = self.check.resolve_enterprise_token(
+                args, self.check.take_enterprise_token_option(args)
+            )
+            token = self.check.resolve_api_token(args)
+        if enterprise_token and token:
+            token = ''
+        return token, enterprise_token, args.WPSCAN_OPTION
+
+    def _refresh_env(self, token, enterprise_token):
+        with mock.patch.object(
+            self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
+        ) as fake:
+            self.check.refresh_vulndb(token, enterprise_token, 60)
+        return fake.call_args.kwargs['env']
+
+    def test_the_parameter_reaches_the_refresh(self):
+        _, enterprise_token, _ = self._resolve(
+            ['--url=https://www.example.com', '--enterprise-db-token=linuxfabrik']
+        )
+        env = self._refresh_env('', enterprise_token)
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
+
+    def test_the_raw_option_still_reaches_the_refresh(self):
+        # The spelling that predates the parameter of its own has to keep working.
+        _, enterprise_token, _ = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--wpscan-option=--enterprise-db-token=linuxfabrik',
+            ]
+        )
+        env = self._refresh_env('', enterprise_token)
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
+
+    def test_the_raw_option_still_reaches_it_when_spelled_with_a_space(self):
+        _, enterprise_token, _ = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--wpscan-option=--enterprise-db-token',
+                '--wpscan-option=linuxfabrik',
+            ]
+        )
+        env = self._refresh_env('', enterprise_token)
+        self.assertEqual(env[self.check.ENTERPRISE_TOKEN_ENV], 'linuxfabrik')
+
+    def test_the_raw_option_leaves_the_command_line(self):
+        # Either spelling: an argument is readable by every user on the host while the
+        # scan runs, and only the `=` form is redacted in what --verbose prints.
+        for argv in (
+            ['--wpscan-option=--enterprise-db-token=linuxfabrik'],
+            ['--wpscan-option=--enterprise-db-token', '--wpscan-option=linuxfabrik'],
+        ):
+            with self.subTest(argv=argv):
+                _, _, remaining = self._resolve(
+                    ['--url=https://www.example.com', *argv]
+                )
+                self.assertEqual(remaining, [])
+
+    def test_an_unrelated_option_survives_the_strip(self):
+        _, _, remaining = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--wpscan-option=--enterprise-db-token=linuxfabrik',
+                '--wpscan-option=--plugins-detection=aggressive',
+            ]
+        )
+        self.assertEqual(remaining, ['--plugins-detection=aggressive'])
+
+    def test_an_unrelated_option_stays_out_of_the_refresh(self):
+        # The refresh has no target, so a scan option would only make it fail.
+        with mock.patch.object(
+            self.check.lib.shell, 'shell_exec', return_value=(True, ('', '', 0))
+        ) as fake:
+            self.check.refresh_vulndb('', 'linuxfabrik', 60)
+        self.assertNotIn('--plugins-detection=aggressive', fake.call_args.args[0])
+
+    def test_an_api_token_is_dropped_beside_a_local_database(self):
+        # The scanner raises ConflictingApiTokens and gives up before it looks at the
+        # site, a plain `--update` included. The local copy supplies the data anyway.
+        token, enterprise_token, _ = self._resolve(
+            [
+                '--url=https://www.example.com',
+                '--api-token=linuxfabrik',
+                '--enterprise-db-token=linuxfabrik',
+            ]
+        )
+        self.assertEqual(token, '')
+        self.assertEqual(enterprise_token, 'linuxfabrik')
+
+
+def run_without_test_mode(params, path=None):
+    """Run the check for real, without `--test`, and return (retc, output).
+
+    Everything the check does before it would talk to the scanner sits behind
+    `if args.TEST is None:` and is therefore unreachable from the fixture-driven tests
+    above. `path` replaces PATH for the run, so an empty one makes the scanner
+    genuinely absent no matter what is installed on the machine running the tests.
+    """
+    env = dict(os.environ)
+    if path is not None:
+        env['PATH'] = path
+    # A token in the environment of the developer running the tests would otherwise
+    # change which branch the check takes.
+    env.pop('WPSCAN_API_TOKEN', None)
+    env.pop('WPSCAN_ENTERPRISE_DB_TOKEN', None)
+    result = subprocess.run(
+        [sys.executable, '../wordpress-security-scan', *params],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    return (result.returncode, result.stdout + result.stderr)
+
+
+class TestScannerMissing(unittest.TestCase):
+    """A missing `wpscan` is WARNING, not UNKNOWN: WordPress is a preferred target, so
+    the scanner belongs on a host serving it, and its absence is a state the
+    administrator has to fix. CONTRIBUTING cites this check as the reference
+    implementation for that exception, so the behaviour is worth pinning down.
+    """
+
+    def test_warns_instead_of_going_unknown(self):
+        retc, output = run_without_test_mode(
+            ['--url=https://www.example.com', '--path=wordpress'], path=''
+        )
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('was not found', output)
+
+    def test_names_the_searched_path(self):
+        # The searched PATH is the one thing an admin cannot guess from the outside,
+        # which is why the message carries it.
+        _, output = run_without_test_mode(
+            ['--url=https://www.example.com', '--path=wordpress'], path='/nonexistent'
+        )
+        self.assertIn('Searched in: /nonexistent', output)
+
+    def test_always_ok_still_applies(self):
+        retc, _ = run_without_test_mode(
+            ['--url=https://www.example.com', '--path=wordpress', '--always-ok'], path=''
+        )
+        self.assertEqual(retc, STATE_OK)
+
+
+class TestUrlOptionInjection(unittest.TestCase):
+    """A URL that starts with `-` would be picked up by the scanner as one of its own
+    options rather than as its target. The guard runs before the scanner is even looked
+    for, so it holds whether or not `wpscan` is installed.
+    """
+
+    def test_refuses_an_option_style_url(self):
+        retc, output = run_without_test_mode(
+            ['--url=-oProxyCommand://evil', '--path=wordpress'], path=''
+        )
+        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertIn('--url', output)
+        self.assertIn('starts with', output)
+
+    def test_a_scheme_less_url_is_completed_and_passes(self):
+        # Completed to https://, so it no longer looks like an option and the run gets
+        # as far as looking for the scanner.
+        retc, output = run_without_test_mode(
+            ['--url=www.example.com', '--path=wordpress'], path=''
+        )
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('was not found', output)
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(
+    TestVulnApiFailure,
+    VULN_API_REFUSALS,
+    _is_a_lookup_problem,
+    id_func=lambda it: f'lookup-refused-{it[0]}',
+)
+lib.lftest.attach_each(
+    TestVulnApiFailure,
+    TARGET_PROBLEMS,
+    _is_not_a_lookup_problem,
+    id_func=lambda it: f'target-problem-{it[0]}',
+)
+
+
+if __name__ == '__main__':
+    unittest.main()

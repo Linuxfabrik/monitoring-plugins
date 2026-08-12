@@ -16,7 +16,7 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 
 * Queries the Huawei OceanStor Dorado REST API at `https://<ip>:<port>/deviceManager/rest/<deviceId>/host`
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
-* On transient authorization errors, automatically retries up to 9 times with 1-second intervals
+* If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
 
 
 ## Fact Sheet
@@ -29,17 +29,20 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 
 ## Help
 
 ```text
-usage: huawei-dorado-host [-h] [-V] [--always-ok]
-                          [--cache-expire CACHE_EXPIRE] --device-id DEVICE_ID
-                          [--insecure] [--no-proxy] --password PASSWORD
-                          [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                          --username USERNAME
+usage: huawei-dorado-host [-h] [-V] [--always-ok] [--brief]
+                          [--cache-expire CACHE_EXPIRE]
+                          [--device-id DEVICE_ID] [--ignore IGNORE]
+                          [--insecure] [--no-insecure] [--match MATCH]
+                          [--no-match-severity {ok,warn,crit,unknown}]
+                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                          [--password-file PASSWORD_FILE] [--scope SCOPE]
+                          [--timeout TIMEOUT] -u URL --username USERNAME [-v]
 
 Checks the health and running status of all hosts attached to a Huawei
 OceanStor Dorado storage system via the REST API (/host endpoint). Alerts when
@@ -49,26 +52,83 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on. Worth setting on
+                        an array with many hosts. Default: False
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
   --device-id DEVICE_ID
-                        Huawei OceanStor Dorado API device ID.
+                        Huawei OceanStor Dorado API device ID. Optional: the
+                        appliance reports its own at login, so this is only
+                        needed to override that answer.
+  --ignore IGNORE       Skip hosts. Any item matching this Python regex will
+                        be ignored. Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match. The
+                        regex is anchored at the start of the string (Python
+                        `re.match`) and is matched against `UUID`, `NAME`, so
+                        prefix with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --match MATCH         Limit to hosts. Filter by this Python regular
+                        expression. Case-sensitive by default; use `(?i)` for
+                        case-insensitive matching. Can be specified multiple
+                        times. If both `--match` and `--ignore` are given, an
+                        item must match `--match` AND not match `--ignore` to
+                        be reported (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead). The regex is anchored
+                        at the start of the string (Python `re.match`) and is
+                        matched against `UUID`, `NAME`, so prefix with `.*` to
+                        match anywhere.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Huawei OceanStor Dorado API password.
+  --password-file PASSWORD_FILE
+                        Path to a file holding the password, read from its
+                        first line. Keeps the password out of the process
+                        list, where a command-line argument is visible to
+                        every user on the host. Takes precedence over
+                        `--password`. Keep the file readable only by the
+                        monitoring user. Example: `--password-
+                        file=/etc/icinga2/secrets/storage`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-host/
 ```
 
 
 ## Usage Examples
 
 ```bash
-./huawei-dorado-host --url https://oceanstor:8088 --device-id 123456789 --username monitoring --password mypass
+./huawei-dorado-host --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik
 ```
 
 Output:
@@ -76,32 +136,23 @@ Output:
 ```text
 There are warnings.
 
-UUID  ! Location ! Name      ! OS         ! Health    ! Running 
-------+----------+-----------+------------+-----------+---------
-21:1  !          ! host1     ! Solaris    ! [OK]      ! [OK]    
-21:2  !          ! host2     ! Linux      ! [WARNING] ! [OK]    
-21:0  !          ! site01-01 ! VMware ESX ! [OK]      ! [OK]    
-21:1  !          ! site01-02 ! VMware ESX ! [OK]      ! [OK]    
-21:2  !          ! site01-03 ! VMware ESX ! [OK]      ! [OK]    
-21:3  !          ! site01-04 ! VMware ESX ! [OK]      ! [OK]    
-21:4  !          ! site01-05 ! VMware ESX ! [OK]      ! [OK]    
-21:5  !          ! site01-06 ! VMware ESX ! [OK]      ! [OK]    
-21:6  !          ! site02-01 ! VMware ESX ! [OK]      ! [OK]    
-21:7  !          ! site02-02 ! VMware ESX ! [OK]      ! [OK]    
-21:8  !          ! site02-03 ! VMware ESX ! [OK]      ! [OK]    
-21:9  !          ! site02-04 ! VMware ESX ! [OK]      ! [OK]    
-21:10 !          ! site02-05 ! VMware ESX ! [OK]      ! [OK]    
-21:11 !          ! site02-06 ! VMware ESX ! [OK]      ! [OK] 
-
-Fetched API 2 times
+UUID  ! Name      ! OS         ! Allocated ! Health                               ! Running    ! State
+------+-----------+------------+-----------+--------------------------------------+------------+----------
+21:1  ! host1     ! Solaris    ! 535.7MiB  ! Normal (1)                           ! Normal (1) ! [OK]
+21:2  ! host2     ! Linux      ! 535.7MiB  ! Single link / No redundant link (17) ! Normal (1) ! [WARNING]
+21:0  ! site01-01 ! VMware ESX ! 25.5TiB   ! Normal (1)                           ! Normal (1) ! [OK]
+21:1  ! site01-02 ! VMware ESX ! 25.5TiB   ! Normal (1)                           ! Normal (1) ! [OK]
 ```
 
 
 ## States
 
 * OK if all hosts report normal health and running status.
-* WARN if any host's health status is not "Normal".
-* WARN if any host's running status is not "Normal".
+* WARN if any host reports a degraded health status, or one this check does not know.
+* WARN if any host's running status is not "Normal", unless it reports an outright failure.
+* CRIT if any host reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any host's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
+* `--match` limits the check to the hosts whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -110,9 +161,9 @@ Fetched API 2 times
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_allocatedCapacity | Number | Used (allocated) capacity. |
-| \<UUID\>\_HEALTHSTATUS | Number | 1: normal, 17: no redundant link, 18: offline. |
-| \<UUID\>\_RUNNINGSTATUS | Number | 1: normal. |
+| \<UUID\>\_allocated_capacity | Number | Used (allocated) capacity. |
+| \<UUID\>\_health_status | Number | 1: normal, 17: no redundant link, 18: offline. |
+| \<UUID\>\_running_status | Number | 1: normal. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
@@ -127,7 +178,7 @@ Check the `--url`, `--device-id`, `--username` and `--password` parameters. Veri
 
 ### `This operation fails to be performed because of the unauthorized REST.`
 
-This is a known transient issue with the Huawei REST API. The check retries automatically up to 9 times. If the error persists, verify the API credentials and session timeout settings.
+This is a known transient issue with the Huawei REST API. The check makes up to three attempts and forces a fresh login before the second one. If the error persists, verify the API credentials and session timeout settings.
 
 
 ## Credits, License

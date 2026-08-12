@@ -13,6 +13,7 @@
 import argparse
 import os
 import re
+import stat
 import sys
 
 import lib.args
@@ -27,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026063001'
+__version__ = '2026071201'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -58,7 +59,11 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -128,6 +133,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--port',
         help='MySQL/MariaDB port number. Default: %(default)s',
         dest='PORT',
@@ -171,27 +184,27 @@ def get_vars(conn):
 
 
 def get_log_file_real_path(file, hostname, datadir):
-    if file and os.path.isfile(file):
+    if file and lib.disk.file_exists(file, allow_empty=True):
         return file
-    if os.path.isfile(f'{hostname}.log'):
+    if lib.disk.file_exists(f'{hostname}.log', allow_empty=True):
         return f'{hostname}.log'
-    if os.path.isfile(f'{hostname}.err'):
+    if lib.disk.file_exists(f'{hostname}.err', allow_empty=True):
         return f'{hostname}.err'
-    if os.path.isfile(os.path.join(datadir, f'{hostname}.err')):
+    if lib.disk.file_exists(os.path.join(datadir, f'{hostname}.err'), allow_empty=True):
         return os.path.join(datadir, f'{hostname}.err')
-    if os.path.isfile(os.path.join(datadir, f'{hostname}.log')):
+    if lib.disk.file_exists(os.path.join(datadir, f'{hostname}.log'), allow_empty=True):
         return os.path.join(datadir, f'{hostname}.log')
-    if os.path.isfile(os.path.join(datadir, 'mysql_error.log')):
+    if lib.disk.file_exists(os.path.join(datadir, 'mysql_error.log'), allow_empty=True):
         return os.path.join(datadir, 'mysql_error.log')
-    if os.path.isfile('/var/log/mysql.log'):
+    if lib.disk.file_exists('/var/log/mysql.log', allow_empty=True):
         return '/var/log/mysql.log'
-    if os.path.isfile('/var/log/mysqld.log'):
+    if lib.disk.file_exists('/var/log/mysqld.log', allow_empty=True):
         return '/var/log/mysqld.log'
-    if os.path.isfile(f'/var/log/mysql/{hostname}.err'):
+    if lib.disk.file_exists(f'/var/log/mysql/{hostname}.err', allow_empty=True):
         return f'/var/log/mysql/{hostname}.err'
-    if os.path.isfile(f'/var/log/mysql/{hostname}.log'):
+    if lib.disk.file_exists(f'/var/log/mysql/{hostname}.log', allow_empty=True):
         return f'/var/log/mysql/{hostname}.log'
-    if os.path.isfile('/var/log/mysql/mysql_error.log'):
+    if lib.disk.file_exists('/var/log/mysql/mysql_error.log', allow_empty=True):
         return '/var/log/mysql/mysql_error.log'
     return file
 
@@ -361,7 +374,31 @@ def main():
             # plain on-disk file
             if not os.path.isabs(log_error):
                 log_error = os.path.join(myvar.get('datadir', ''), log_error)
-            if not os.path.isfile(log_error):
+            # The plugin runs as root via sudo, so restrict the on-disk log to
+            # the system log directory and the default MySQL data directory;
+            # is_within() resolves symlinks and `..` so neither can escape. The
+            # datadir reported by the server is deliberately NOT trusted here,
+            # because an attacker controls which server the check connects to
+            # (`--defaults-file`/`--hostname`) and could report `datadir=/etc`.
+            # The plugin's own unit-test/ directory is allowed so the fixture
+            # tests work; it does not exist next to the flat, root-owned plugin
+            # in production. Bind-mount a custom data/log directory under
+            # /var/log to include it (see the README).
+            allowed_roots = [
+                '/var/log',
+                '/var/lib/mysql',
+                os.path.join(
+                    os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'
+                ),
+            ]
+            if not lib.disk.is_within(log_error, allowed_roots):
+                lib.base.cu(
+                    f'Refusing to read "{log_error}": resolved path is outside the allowed '
+                    f'log directories (/var/log, /var/lib/mysql); bind-mount it under '
+                    f'/var/log if intended.'
+                )
+            log_stat = lib.disk.stat(log_error)
+            if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
                 lib.base.oao(
                     f'Logging seems to be configured, but `{log_error}` does'
                     f' not seem to be an existing regular file. Check the path'
@@ -369,7 +406,7 @@ def main():
                     f' parameter.',
                     STATE_WARN,
                 )
-            source_size = os.path.getsize(log_error)
+            source_size = log_stat.st_size
             if source_size == 0:
                 # An empty log file is a deterministic "no errors / warnings
                 # observed" state, not an unknown one - typical right after
@@ -522,7 +559,9 @@ def main():
     perfdata += lib.base.get_perfdata('mysql_shutdowns', n_shut, _min=0)
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

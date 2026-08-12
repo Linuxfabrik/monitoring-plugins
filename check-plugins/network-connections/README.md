@@ -52,10 +52,10 @@ Meaning of connection status `--conn-status` parameter:
 ## Help
 
 ```text
-usage: network-connections [-h] [-V]
+usage: network-connections [-h] [-V] [--always-ok]
                            [--conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}]
                            [--conn-type {all,tcp,tcp6,udp,udp6}] [-c CRIT]
-                           [-w WARN]
+                           [--no-perfdata] [-w WARN]
 
 Counts system-wide socket connections by type (TCP, TCP6, UDP, UDP6) and
 state. Alerts when the total number of connections in a specific state exceeds
@@ -65,6 +65,7 @@ applications that do not properly close sockets.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --conn-status {all,close,close_wait,closing,established,fin_wait1,fin_wait2,last_ack,listen,none,syn_recv,syn_sent,time_wait}
                         Filter connections by status. Can be specified
                         multiple times. Default: None
@@ -73,8 +74,15 @@ options:
                         multiple times. Default: None
   -c, --critical CRIT   CRIT threshold for the number of connections. Default:
                         None
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   -w, --warning WARN    WARN threshold for the number of connections. Default:
                         None
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-connections/
 ```
 
 

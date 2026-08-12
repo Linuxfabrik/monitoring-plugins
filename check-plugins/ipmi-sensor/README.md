@@ -35,8 +35,9 @@ Checks IPMI sensor readings (temperature, voltage, fan speed, power, etc.) using
 ## Help
 
 ```text
-usage: ipmi-sensor [-h] [-V] [--authtype {NONE,PASSWORD,MD2,MD5,OEM}]
-                   [-H HOSTNAME] [--interface {lan,lanplus}]
+usage: ipmi-sensor [-h] [-V] [--always-ok]
+                   [--authtype {NONE,PASSWORD,MD2,MD5,OEM}] [-H HOSTNAME]
+                   [--interface {lan,lanplus}] [--no-perfdata]
                    [--password PASSWORD] [--port PORT]
                    [--privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}]
                    [--username USERNAME]
@@ -49,6 +50,7 @@ Requires root or sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --authtype {NONE,PASSWORD,MD2,MD5,OEM}
                         Authentication type for IPMIv1.5 lan session
                         activation. Supported types are NONE, PASSWORD, MD2,
@@ -59,12 +61,19 @@ options:
   --interface {lan,lanplus}
                         IPMI interface to use. Supported types are "lan" (IPMI
                         v1.5) or "lanplus" (IPMI v2.0). Default: lan
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password PASSWORD   Remote server password.
   --port PORT           Remote server UDP port to connect to. Default: 623
   --privlevel {CALLBACK,USER,OPERATOR,ADMINISTRATOR}
                         Force session privilege level. Can be CALLBACK, USER,
                         OPERATOR, ADMINISTRATOR. Default: USER
   --username USERNAME   Remote server username. Default: NULL
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sensor/
 ```
 
 

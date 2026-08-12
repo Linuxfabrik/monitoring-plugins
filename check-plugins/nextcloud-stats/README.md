@@ -36,8 +36,9 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 ## Help
 
 ```text
-usage: nextcloud-stats [-h] [-V] [--insecure] [--no-proxy] --password PASSWORD
-                       [--timeout TIMEOUT] [--url URL] [--username USERNAME]
+usage: nextcloud-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                       [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
+                       [--url URL] [--username USERNAME]
 
 Monitors Nextcloud usage statistics via the server info API, including active
 user counts over time, file shares by category, and storage metrics.
@@ -45,7 +46,11 @@ user counts over time, file shares by category, and storage metrics.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --password PASSWORD  Password for authenticating against the Nextcloud API.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
@@ -53,6 +58,9 @@ options:
                        t/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
   --username USERNAME  Username for authenticating against the Nextcloud API.
                        Default: admin
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/
 ```
 
 

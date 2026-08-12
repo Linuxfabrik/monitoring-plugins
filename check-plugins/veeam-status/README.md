@@ -40,10 +40,11 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--insecure]
                     [--max-backup-job-duration MAX_BACKUP_JOB_DURATION]
                     [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
-                    [--no-proxy] -p PASSWORD [--timeout TIMEOUT] [--url URL]
-                    --username USERNAME [-w WARN]
-                    [--warnings-job-runs WARNINGS_JOB_RUNS]
+                    [--no-insecure] [--no-perfdata] [--no-proxy] -p PASSWORD
+                    [--timeout TIMEOUT] [--url URL] --username USERNAME
+                    [-w WARN]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
+                    [--warnings-job-runs WARNINGS_JOB_RUNS]
 
 Monitors Veeam Backup & Replication via PowerShell, checking for failed VMs
 and jobs, jobs running longer than expected, and backup repository usage. Also
@@ -68,6 +69,15 @@ options:
   --max-replica-job-duration MAX_REPLICA_JOB_DURATION
                         Maximum allowed replica job duration in seconds.
                         Default: > 86400.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   -p, --password PASSWORD
                         Veeam REST API password.
@@ -76,11 +86,14 @@ options:
   --username USERNAME   Veeam REST API username. Default: Administrator
   -w, --warning WARN    WARN threshold for backup repository usage as a
                         percentage. Default: >= 80
-  --warnings-job-runs WARNINGS_JOB_RUNS
-                        Veeam threshold for `WarningsJobRuns`. Default: > 0.
   --warning-vm-lastest-states WARNING_VM_LASTEST_STATES
                         Veeam threshold for `WarningVmLastestStates`. Default:
                         > 0.
+  --warnings-job-runs WARNINGS_JOB_RUNS
+                        Veeam threshold for `WarningsJobRuns`. Default: > 0.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/veeam-status/
 ```
 
 

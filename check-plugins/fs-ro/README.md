@@ -44,6 +44,9 @@ options:
                    times. Example: `--ignore /sys/fs` ignores `/sys/fs/cgroup`
                    and similar. Default: /dev/loop, /proc, /run/credentials,
                    /snap, /sys/fs.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/
 ```
 
 

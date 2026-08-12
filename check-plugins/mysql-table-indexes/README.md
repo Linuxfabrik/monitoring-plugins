@@ -44,10 +44,10 @@ usage: mysql-table-indexes [-h] [-V] [--always-ok] [-c CRITICAL]
                            [--defaults-group DEFAULTS_GROUP]
                            [--ignore-schemas IGNORE_SCHEMAS]
                            [--ignore-tables IGNORE_TABLES] [--lengthy]
-                           [--timeout TIMEOUT] [-w WARNING]
+                           [--no-perfdata] [--timeout TIMEOUT] [-w WARNING]
 
-Checks user schemas in MySQL/MariaDB for two replication- and performance-
-relevant defects: base tables with no index at all (mysqltuner's
+Checks user schemas in MySQL/MariaDB for two replication- and
+performance-relevant defects: base tables with no index at all (mysqltuner's
 `mysql_tables()` check) and InnoDB base tables without a user-defined `PRIMARY
 KEY`. The second case is a documented hotspot for ROW-based replication: the
 replica has to materialise each row event against an internal hidden 6-byte
@@ -79,11 +79,18 @@ options:
                         Evaluated by MySQL via `NOT REGEXP`. Example:
                         `--ignore-tables=^tmp_`. Default: <none>
   --lengthy             Extended reporting. Default: False
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -w, --warning WARNING
                         WARN threshold for the number of bad tables (per
                         category: missing indexes / missing primary key).
                         Supports Nagios ranges. Default: 0
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-indexes/
 ```
 
 

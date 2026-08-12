@@ -32,7 +32,7 @@ Counts the number of currently logged-in users by session type: tty (console) an
 ## Help
 
 ```text
-usage: users [-h] [-V] [-c CRIT] [-w WARN]
+usage: users [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Counts the number of currently logged-in users by session type: tty (console)
 and pts (SSH on Linux, RDP on Windows). On Windows, also counts disconnected
@@ -42,16 +42,23 @@ count exceeds the configured thresholds.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--critical 3,10`. Default:
                        [None, None, None]
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   Threshold for logged-in tty/pts users, in the format
                        "tty,pts". On Windows, you can additionally specify a
                        threshold for disconnected users in the format
                        "tty,pts,disc". Example: `--warning 1,5`. Default: [1,
                        20, 1]
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/users/
 ```
 
 

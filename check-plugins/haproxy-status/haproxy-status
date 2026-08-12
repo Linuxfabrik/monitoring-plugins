@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026042201'
+__version__ = '2026081001'
 
 DESCRIPTION = """Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error rates, and server
@@ -49,7 +49,11 @@ GOOD_STATUSES = {'OPEN', 'UP', 'no check'}
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -108,6 +112,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--no-proxy',
         help=lib.args.help('--no-proxy'),
         dest='NO_PROXY',
@@ -152,8 +164,8 @@ def parse_args():
         'For HTTP basic auth, embed the credentials in the URL itself; '
         'the plugin strips them from the netloc before the request is '
         'sent and carries them in an `Authorization: Basic` header. '
-        'Example: `--url https://webserver:8443/server-status`. '
-        'Example: `--url https://stats:s3cret@webserver:8443/server-status`. '
+        'Example: `--url=https://webserver:8443/server-status`. '
+        'Example: `--url=https://stats:linuxfabrik@webserver:8443/server-status`. '
         'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
@@ -194,13 +206,18 @@ def main():
     # here with a clear migration pointer instead of letting
     # parse_known_args silently swallow them and surface a 401 from
     # the haproxy stats endpoint.
+    # Spelled without a complete example URL and without naming the header: a
+    # `scheme://user:password@host` and an `Authorization: Basic ...` are exactly
+    # what lib.base.cu() redacts on its way out, which would leave the reader with
+    # `https://user:******@host` and a sentence ending mid-air. The position of the
+    # credentials is described instead, and --help carries the literal form.
     if args.USERNAME is not None or args.PASSWORD is not None:
         lib.base.cu(
-            '--username and --password were removed. Embed the HTTP '
-            'basic auth credentials in the URL itself, e.g. '
-            '`--url=https://user:linuxfabrik@host:8443/server-status`. The '
-            'plugin strips them from the netloc before the request is '
-            'sent and carries them in an Authorization: Basic header.'
+            '--username and --password were removed. Put the HTTP basic auth '
+            'credentials into --url instead, in front of the host name and '
+            'separated from it by an `@`. The plugin strips them from the URL '
+            'before the request is sent and carries them in an HTTP basic '
+            'authorization header. See `--help` for the exact form.'
         )
 
     if args.IGNORE is None:
@@ -538,7 +555,13 @@ def main():
         )
 
     # over and out
-    lib.base.oao(msg, state, ''.join(perfdata_parts), always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg,
+        state,
+        ''.join(perfdata_parts),
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
 
 
 if __name__ == '__main__':

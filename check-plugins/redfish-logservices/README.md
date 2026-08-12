@@ -16,6 +16,7 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 
 * Reads the service root to detect the vendor, then queries the `Managers` collection (or `Systems` on Supermicro) to locate the log service
 * Reads the SEL log entries and evaluates each entry's severity
+* Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 
 
@@ -29,6 +30,7 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 
 ## Help
@@ -37,17 +39,18 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
                            [--insecure] [--log-type {sel,mel,both}]
-                           [--match MATCH] [--max-age MAX_AGE] [--no-proxy]
-                           [--password PASSWORD] [--retries RETRIES]
-                           [--timeout TIMEOUT] --url URL [--username USERNAME]
+                           [--match MATCH] [--max-age MAX_AGE] [--no-insecure]
+                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                           [--retries RETRIES] [--timeout TIMEOUT] --url URL
+                           [--username USERNAME]
 
-Checks the event log entries exposed under the LogServices of a Redfish-
-compatible server via the Redfish API and alerts based on the severity of the
-log entries. By default it reads the System Event Log (SEL); `--log-type`
-selects the management controller log (MEL) or both. Entries can be filtered
-by regular expression (--match, --ignore), and entries older than --max-age
-days can be aged out so a long-since resolved event does not keep the check in
-a non-OK state forever.
+Checks the event log entries exposed under the LogServices of a
+Redfish-compatible server via the Redfish API and alerts based on the severity
+of the log entries. By default it reads the System Event Log (SEL);
+`--log-type` selects the management controller log (MEL) or both. Entries can
+be filtered by regular expression (--match, --ignore), and entries older than
+--max-age days can be aged out so a long-since resolved event does not keep
+the check in a non-OK state forever.
 
 options:
   -h, --help            show this help message and exit
@@ -55,7 +58,7 @@ options:
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
-                        cache expires, in minutes. Default: 15
+                        cache expires, in minutes. Default: 5
   --ignore IGNORE       Ignore SEL entries whose message matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -70,14 +73,25 @@ options:
   --match MATCH         Only consider SEL entries whose message matches this
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. Can be
-                        specified multiple times. Example:
-                        `--match="(?i)temperature"`.
+                        specified multiple times. If both `--match` and
+                        `--ignore` are given, an item must match `--match` AND
+                        not match `--ignore` to be reported (include first,
+                        exclude second). Example: `--match="(?i)temperature"`.
   --max-age MAX_AGE     Age out SEL entries older than this many days: they
                         are no longer alerted on, only counted in the summary.
                         A controller keeps an entry until the log is cleared,
                         so a long-since resolved event would otherwise keep
                         the check in a non-OK state forever. Default: 0 (0
                         disables aging).
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --password PASSWORD   Redfish API password.
   --retries RETRIES     Number of extra attempts if a request to the Redfish
@@ -87,6 +101,9 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-logservices/
 ```
 
 

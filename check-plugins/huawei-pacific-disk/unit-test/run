@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
+
+TESTS = [
+    {
+        'id': 'ok-disks-healthy',
+        'test': 'stdout/disks-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'FSM01 ! 0    ! 0-1  ! SSD (SSD_DISK)',
+            'HN00  ! 0    ! 0-2  ! SSD (SSD_DISK)',
+        ],
+    },
+    {
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-disks-healthy-core-columns',
+        'test': 'stdout/disks-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Node  ! Pool ! Slot ! Capacity ! Remaining Life ! Status',
+            'FSM01 ! 0    ! 0-1  ! ',
+        ],
+        'assert-not-in': ['SSD (SSD_DISK)', 'SN-A1'],
+    },
+    {
+        # A spinning disk has no wear-based life to report, so it must not be
+        # dragged below the threshold by the zero the appliance sends.
+        'id': 'ok-disk-without-remaining-life',
+        'test': 'stdout/disks-healthy,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['SATA disk (SATA_DISK)', 'not reported'],
+    },
+    {
+        # The fourth slot of FSM01 is empty and must not show up as a disk.
+        'id': 'ok-empty-slot-is-not-listed',
+        'test': 'stdout/disks-healthy,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['0-4'],
+    },
+    {
+        'id': 'crit-faulty-disk',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'faulty \(1\).*\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-subhealthy-and-removed-disk',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'removed from the storage pool (101)',
+            'sub-healthy (2)',
+        ],
+    },
+    {
+        'id': 'crit-remaining-life-below-thresholds',
+        'test': 'stdout/disks-worn,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'3M 1W.*\[WARNING\]',
+    },
+    {
+        'id': 'warn-remaining-life-only-below-warning',
+        'test': 'stdout/disks-worn,,0',
+        'params': f'{COMMON} --warning 180: --critical 1:',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'2W 6D.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-remaining-life-thresholds-disabled',
+        'test': 'stdout/disks-worn,,0',
+        'params': f'{COMMON} --warning 1: --critical 1:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        'id': 'ok-no-disk-pool',
+        'test': 'stdout/disks-no-pool,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No disk pool configured'],
+    },
+    {
+        # `--brief` is a display filter: the healthy disk disappears from the table
+        # while the ones that need attention stay.
+        'id': 'crit-brief-hides-the-healthy-disk',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': f'{COMMON} --brief --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['SN-A2', 'SN-B1', 'SN-B2'],
+        'assert-not-in': ['SN-A1 '],
+    },
+    {
+        # Perfdata is never filtered, so the disk `--brief` hides still trends.
+        'id': 'crit-brief-keeps-the-perfdata-complete',
+        'test': 'stdout/disks-one-faulty,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'FSM01_SN_A1_status'=0", "'FSM01_SN_A2_status'=1"],
+    },
+    {
+        # A node numbers its SATA slots and its SSD card slots from zero each, so two
+        # disks of one node sit in "slot 0". Keying the perfdata on the slot would give
+        # them one label and drop one of the two from the graph.
+        'id': 'warn-slot-numbers-repeat-per-media-type',
+        'test': 'stdout/disks-slot-reuse,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'NODE01_SN_SATA_A0_status'=0",
+            "'NODE01_SN_SSD_A0_status'=0",
+            "'NODE02_SN_SATA_B0_status'=101",
+            "'NODE02_SN_SSD_B0_status'=0",
+        ],
+        'assert-not-in': ["'NODE01_0_status'", "'NODE02_0_status'"],
+    },
+    {
+        # The disk the appliance pulled out of its pool is the one worth naming.
+        'id': 'warn-removed-disk-is-the-only-finding',
+        'test': 'stdout/disks-slot-reuse,,0',
+        'params': f'{COMMON} --brief --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['SN-SATA-B0', 'removed from the storage pool (101)'],
+        'assert-not-in': ['SN-SATA-A0', 'SN-SSD-A0'],
+    },
+    {
+        # Nothing to report on a healthy cluster, so `--brief` prints the summary
+        # and no table at all.
+        'id': 'ok-brief-prints-no-table',
+        'test': 'stdout/disks-healthy,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['Remaining Life', 'Nothing checked'],
+    },
+    {
+        # A faulty pool with healthy disks: the disks alone say nothing about
+        # whether the pool they belong to is still serving.
+        'id': 'crit-faulty-pool',
+        'test': 'stdout/disks-faulty-pool,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['pool0 ! ssd_disk ! faulty (1) ! [CRITICAL]'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-pacific-disk'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

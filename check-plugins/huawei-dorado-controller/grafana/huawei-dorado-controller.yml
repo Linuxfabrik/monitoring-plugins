@@ -1,0 +1,876 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: huawei-dorado-controller
+spec:
+  schemaVersion: 42
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: Huawei Dorado Controller
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*huawei-dorado-controller.*/
+      current:
+        text: cmd-check-huawei-dorado-controller
+        value: cmd-check-huawei-dorado-controller
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  - title: CPU and Memory Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: usage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_cpu_usage$|_cpu_usage_percent$|_memory_usage$/
+
+  - title: Temperatures
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: celsius
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: temperatures
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_temperature$/
+
+  - title: Voltages
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        unit: volt
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: voltages
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_voltage$/
+
+  - title: Dirty Data Rate
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: dirty_data
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_dirty_data_rate$/
+
+  - title: Status Codes
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: status
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_health_status$|_running_status$|_light_status$/
+
+  - title: IOPS
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: iops
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_iops$/
+
+  - title: Bandwidth
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        unit: Bps
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: bandwidth
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_bandwidth$/
+
+  - title: I/O Response Times
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: s
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: response_times
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_io_response_time$/
+
+  - title: I/O Size
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 32
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: bytes
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: io_size
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_io_size$/
+
+  - title: Cache Hit Ratio
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 32
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: cache_hit
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_cache_hit_ratio_percent$/
+
+  - title: Cache Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 40
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: cache_usage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_cache_usage_percent$/
+
+  - title: Queue Length
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 40
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: queue_length
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /_queue_length$/

@@ -15,22 +15,110 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
         'id': 'ok-nodes-healthy',
         'test': 'stdout/nodes-healthy,,0',
-        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--lengthy',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok.', 'FSM01', 'online'],
+        'assert-in': [
+            'Everything is ok.',
+            'FSM01',
+            'Pacific (STL6SPCM)',
+            'online',
+        ],
     },
     {
-        'id': 'warn-node-offline-and-oam-faulty',
+        # Without --lengthy the table keeps the columns that decide the state and
+        # leaves the inventory ones out.
+        'id': 'ok-nodes-healthy-core-columns',
+        'test': 'stdout/nodes-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Name  ! Running ! OAM Agent',
+            'FSM01',
+            'online',
+        ],
+        'assert-not-in': ['Pacific (STL6SPCM)', 'Management IP', 'Software Version'],
+    },
+    {
+        # An appliance that fills in neither the software version nor an error code
+        # would otherwise cost two columns of nothing on every row. What it does not
+        # report is not worth the width.
+        'id': 'ok-columns-the-appliance-never-fills-are-dropped',
+        'test': 'stdout/nodes-no-lifecycle-data,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Model', 'lifecycle information missing (4)'],
+        'assert-not-in': ['Software Version', 'Error Code'],
+    },
+    {
+        # One state per node, in the last column, whatever the aspect that decided it.
+        'id': 'ok-single-state-column-last',
+        'test': 'stdout/nodes-no-lifecycle-data,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'! State\n[-+]+\n.*! \[OK\] *\n',
+        'assert-not-in': ['Running State', 'OAM State', 'Error State'],
+    },
+    {
+        # A node that left the cluster took its share of the storage with it,
+        # so an offline node has to reach CRITICAL. Its OAM agent reporting
+        # faulty stays a warning: that is the management path, not the data one.
+        'id': 'crit-node-offline-and-oam-faulty',
         'test': 'stdout/nodes-one-faulty,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'offline.*\[CRITICAL\]',
+    },
+    {
+        # An appliance always has cluster nodes. An empty list means the query
+        # never reached them, which must not read as a healthy inventory.
+        'id': 'unknown-no-cluster-nodes',
+        'test': 'stdout/no-cluster-nodes,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported no cluster nodes.'],
+    },
+    {
+        # The filter selects a subset; what it drops must not be checked either.
+        'id': 'ok-match-filters-nodes',
+        'test': 'stdout/nodes-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='FSM01'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['FSM01'],
+        'assert-not-in': ['HN00'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/nodes-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No cluster nodes matched `nonexistent`.'],
+    },
+    {
+        # A warranty running out is a commercial fact, not a fault, so it stays quiet
+        # unless the operator asks for it.
+        'id': 'ok-warranty-quiet-by-default',
+        'test': 'stdout/nodes-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': ['about to expire'],
+    },
+    {
+        'id': 'warn-warranty-about-to-expire',
+        'test': 'stdout/nodes-healthy,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --warranty-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-regex': r'offline.*\[WARNING\]',
+        'assert-in': ['There are warnings.', 'about to expire, less than six months (2)'],
     },
 ]
 

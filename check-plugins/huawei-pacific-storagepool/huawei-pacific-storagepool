@@ -1,0 +1,610 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.huawei_pacific
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081201'
+
+DESCRIPTION = """Checks the status and capacity usage of all storage pools on a Huawei OceanStor
+Pacific storage system via the REST API (/data_service/storagepool endpoint). Alerts when a pool
+reports a non-normal status and when its used capacity reaches the warning or critical threshold.
+Supports extended reporting via --lengthy."""
+
+DEFAULT_CACHE_EXPIRE = 15  # minutes
+# A pool of this class is measured in petabytes, where the usual 80/90 would alert with
+# hundreds of terabytes still free. At 92 and 95 percent there is enough runway left to
+# order and rack more hardware, and little enough to be worth acting on.
+DEFAULT_CRIT = '95'
+DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '92'
+
+# Fields `--match` and `--ignore` are applied to.
+MATCH_FIELDS = ('storagePoolId', 'storagePoolName')
+
+# Highest `status` code the REST Interface Reference documents for a storage pool:
+# reconstructing data (8). It bounds the metric so a graph scales to the whole
+# enumeration; the thresholds stay out of the performance data, because which code is a
+# fault is decided in `lib.huawei_pacific.get_pool_status_state()`.
+POOL_STATUS_MAX = 8
+
+# The unit the appliance counts pool capacities in.
+MIB = 1024 * 1024
+
+# What the appliance protects a pool with. The vendor documents the two policies and the
+# four security levels, and answers with the bare keyword.
+REDUNDANCY_POLICIES = {
+    'ec': 'EC',
+    'replication': 'replication',
+}
+SECURITY_LEVELS = {
+    'frame': 'chassis level',
+    'rack': 'cabinet level',
+    'server': 'node level',
+    'vnode': 'disk region level',
+}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the used capacity of a pool, as a Nagios range in '
+        'percent. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip storage pools. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the pool identifier and the pool name, so prefix with `.*` '
+        'to match anywhere. Default: %(default)s',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to storage pools. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and '
+        'is matched against the pool identifier and the pool name, so prefix with `.*` '
+        'to match anywhere. Default: %(default)s',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Pacific API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Pacific API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Pacific API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Pacific API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the used capacity of a pool, as a Nagios range in '
+        'percent. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' Appends what every API request returned, so the appliance\'s own answers '
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_capacity(pool, field):
+    """
+    Return one pool capacity in bytes, or `None` where the appliance reports none.
+
+    The appliance counts pool capacities in mebibytes and sends them as a number on some
+    firmware and as a string on others.
+
+    ### Parameters
+    - **pool** (`dict`): One storage pool as the API returned it.
+    - **field** (`str`): Name of the capacity field to read.
+
+    ### Returns
+    - **int** or **None**: The capacity in bytes, or `None` for a missing or
+      malformed value.
+
+    ### Example
+    >>> get_capacity({'totalCapacity': 1}, 'totalCapacity')
+    1048576
+    """
+    value = lib.huawei_pacific.as_code(pool.get(field))
+    if value is None:
+        return None
+    return value * MIB
+
+
+def get_ratio(pool, field):
+    """
+    Return one of a pool's data reduction ratios, or `None` where it reports none.
+
+    ### Parameters
+    - **pool** (`dict`): One storage pool as the API returned it.
+    - **field** (`str`): Name of the ratio field to read.
+
+    ### Returns
+    - **float** or **None**: The ratio, for example `3.2` for 3.2:1. `None` if the field
+      is missing, is not a number, or is below 1, which no ratio can be.
+
+    ### Example
+    >>> get_ratio({'dataReductionRatio': 3.2}, 'dataReductionRatio')
+    3.2
+    """
+    try:
+        ratio = round(float(pool.get(field)), 2)
+    except (TypeError, ValueError):
+        return None
+    if ratio < 1:
+        return None
+    return ratio
+
+
+def get_redundancy(pool):
+    """
+    Describe how a pool protects its data, as one cell for the table.
+
+    ### Parameters
+    - **pool** (`dict`): One storage pool as the API returned it.
+
+    ### Returns
+    - **str**: The redundancy policy, for an EC pool followed by its number of parity
+      fragments and by how many nodes may fail. `'--'` where the appliance names no
+      policy.
+
+    ### Example
+    >>> get_redundancy({'redundancyPolicy': 'ec', 'numParityUnits': 2})
+    'EC, 2 parity'
+    """
+    policy = pool.get('redundancyPolicy')
+    if not policy:
+        return '--'
+    text = REDUNDANCY_POLICIES.get(policy, policy)
+    if policy != 'ec':
+        return text
+
+    parity = lib.huawei_pacific.as_code(pool.get('numParityUnits'))
+    if parity is not None:
+        text += f', {parity} parity'
+    # How many nodes the pool survives losing. Reported for an EC pool only: the vendor
+    # documents the field as the number of faulty nodes allowed when EC is used.
+    tolerance = lib.huawei_pacific.as_code(pool.get('numFaultTolerance'))
+    if tolerance is not None:
+        text += f', {tolerance} node {lib.txt.pluralize("failure", tolerance)} allowed'
+    return text
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    # Asked in one request: the endpoint answers with every pool of the cluster at once
+    # and takes no range parameter, and a cluster holds a handful of pools rather than
+    # the thousands of objects the paged endpoints return.
+    if args.TEST is None:
+        result = lib.huawei_pacific.get_data('data_service/storagepool', args)
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        result = json.loads(stdout)
+
+    # no valuable result?
+    lib.huawei_pacific.assert_ok(result, 'the storage pools')
+
+    # A cluster that serves storage has at least one storage pool, so an empty list is a
+    # query that never reached them rather than an inventory that is genuinely empty.
+    # Reporting OK here would hide the fault behind a green check.
+    # This endpoint answers below `storagePools` rather than below `data`.
+    pools = result.get('storagePools') or []
+    if not pools:
+        lib.base.oao(
+            f'{args.URL} reported no storage pools.'
+            ' Verify that the API user is allowed to query them.',
+            STATE_UNKNOWN,
+        )
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+
+    # compile user-supplied regex patterns
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    for pool in pools:
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(pool.get(field, ''))))
+            for pattern in compiled_match_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, str(pool.get(field, ''))))
+            for pattern in compiled_ignore_regex
+            for field in MATCH_FIELDS
+        ):
+            continue
+
+        pool_state = lib.huawei_pacific.get_pool_status_state(pool.get('status'))
+        state = lib.base.get_worst(state, pool_state)
+
+        total = get_capacity(pool, 'totalCapacity')
+        used = get_capacity(pool, 'usedCapacity')
+        free = None if total is None or used is None else max(total - used, 0)
+
+        # The appliance computes the fill level itself, as a fraction rather than as a
+        # percentage. Preferring it keeps the check and the management GUI in agreement.
+        try:
+            used_percent = round(float(pool['usedCapacityRate']) * 100, 1)
+        except (KeyError, TypeError, ValueError):
+            used_percent = None
+        if used_percent is None or used_percent < 0 or used_percent > 100:
+            used_percent = (
+                round(used / total * 100, 1) if total and used is not None else None
+            )
+
+        usage_state = STATE_OK
+        if used_percent is not None:
+            usage_state = lib.base.get_state(
+                used_percent, args.WARN, args.CRIT, _operator='range'
+            )
+            state = lib.base.get_worst(state, usage_state)
+
+        reduction = get_ratio(pool, 'dataReductionRatio')
+        # How far the appliance has got rebuilding the pool's redundancy. It does not
+        # alert on its own: a pool that is rebuilding says so in its status, and this
+        # only says how long that will go on.
+        progress = lib.huawei_pacific.as_code(pool.get('progress'))
+        # A pool that is neither migrating (5) nor reconstructing (8) has nothing to
+        # rebuild, and reports the full 100 percent of that nothing. Printing it would
+        # read as a rebuild in progress, so the cell stays empty until there is one.
+        rebuilding = lib.huawei_pacific.as_code(pool.get('status')) in (5, 8)
+
+        # Perfdata labels carry the pool name, the way every sibling Pacific check
+        # labels its objects.
+        label = re.sub(
+            r'\W+', '_', str(pool.get('storagePoolName') or pool.get('storagePoolId'))
+        ).strip('_')
+        perfdata += lib.base.get_perfdata(
+            f'{label}_status',
+            lib.huawei_pacific.as_code(pool.get('status')),
+            uom=None,
+            _min=0,
+            _max=POOL_STATUS_MAX,
+        )
+        if used_percent is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_usage_percent',
+                used_percent,
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
+        for perf_label, value in (
+            ('total_capacity', total),
+            ('used_capacity', used),
+            ('free_capacity', free),
+        ):
+            if value is None:
+                continue
+            perfdata += lib.base.get_perfdata(
+                f'{label}_{perf_label}',
+                value,
+                uom='B',
+                _min=0,
+                _max=None if perf_label == 'total_capacity' else total,
+            )
+        if reduction is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_data_reduction_ratio',
+                reduction,
+                uom=None,
+                _min=0,
+            )
+        if progress is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_reconstruction_progress',
+                progress,
+                uom='%',
+                _min=0,
+                _max=100,
+            )
+
+        table_data.append(
+            {
+                'free': lib.human.bytes2human(free) if free is not None else '--',
+                'id': pool.get('storagePoolId'),
+                'name': pool.get('storagePoolName'),
+                'progress': (
+                    f'{progress}%' if rebuilding and progress is not None else '--'
+                ),
+                'redundancy': get_redundancy(pool),
+                'reduction': f'{reduction}:1' if reduction is not None else '--',
+                # An unknown level is printed as the appliance named it rather than
+                # dropped: the enumeration is the vendor's to extend.
+                'security': SECURITY_LEVELS.get(
+                    pool.get('securityLevel'), pool.get('securityLevel') or '--'
+                ),
+                # One state per pool, in the last column. IcingaWeb replaces a state with
+                # an icon, which shifts everything to the right of it, so a second one
+                # mid-row would break the table. The usage column in front of it says
+                # whether it was the fill level rather than the pool itself.
+                'state': lib.base.state2str(
+                    lib.base.get_worst(pool_state, usage_state), empty_ok=False
+                ),
+                'status': lib.huawei_pacific.get_pool_status(pool.get('status')),
+                'total': lib.human.bytes2human(total) if total is not None else '--',
+                'usage': '--' if used_percent is None else f'{used_percent:.0f}%',
+                'used': lib.human.bytes2human(used) if used is not None else '--',
+            }
+        )
+
+    # the appliance listed storage pools and the filter selected none of them
+    if not table_data:
+        lib.base.oao(
+            f'No storage pools matched `{", ".join(args.MATCH)}`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    # build the message
+    thresholds = f'warn={args.WARN} crit={args.CRIT}'
+    if state == STATE_CRIT:
+        msg += f'There are critical errors. ({thresholds})'
+    elif state == STATE_WARN:
+        msg += f'There are warnings. ({thresholds})'
+    else:
+        msg += f'Everything is ok. ({thresholds})'
+    msg += (
+        f' Checked {len(table_data)}'
+        f' {lib.txt.pluralize("storage pool", len(table_data))}.'
+    )
+
+    # build table output
+    if args.LENGTHY:
+        keys = [
+            'id',
+            'name',
+            'used',
+            'free',
+            'total',
+            'usage',
+            'reduction',
+            'redundancy',
+            'security',
+            'progress',
+            'status',
+            'state',
+        ]
+        headers = [
+            'ID',
+            'Name',
+            'Used',
+            'Free',
+            'Total',
+            'Usage',
+            'Reduction',
+            'Redundancy',
+            'Security Level',
+            'Rebuild',
+            'Status',
+            'State',
+        ]
+    else:
+        keys = ['name', 'used', 'total', 'usage', 'status', 'state']
+        headers = ['Name', 'Used', 'Total', 'Usage', 'Status', 'State']
+    msg += '\n\n' + lib.base.get_table(
+        table_data, keys, header=headers, missing='--', hide_empty=True
+    )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_pacific.format_responses()
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

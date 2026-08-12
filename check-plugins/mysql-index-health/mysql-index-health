@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060201'
+__version__ = '2026071201'
 
 DESCRIPTION = """Reports the two index-housekeeping findings that MySQLTuner
 flags inside its `mysql_pfs()` block: unused indexes (never read since the last server
@@ -58,7 +58,11 @@ DROP_STATEMENT_PREVIEW_CHARS = 80
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
@@ -112,6 +116,14 @@ def parse_args():
         dest='MIN_UPTIME_HOURS',
         type=int,
         default=DEFAULT_MIN_UPTIME_HOURS,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -346,17 +358,25 @@ def main():
     # finding, so the plugin only knows WARN (and the implicit OK).
     # CRIT is reserved for "react immediately" per CONTRIBUTING.md.
     unused_state = lib.base.get_state(
-        unused_count, args.WARN_UNUSED, None, _operator='range',
+        unused_count,
+        args.WARN_UNUSED,
+        None,
+        _operator='range',
     )
     redundant_state = lib.base.get_state(
-        redundant_count, args.WARN_REDUNDANT, None, _operator='range',
+        redundant_count,
+        args.WARN_REDUNDANT,
+        None,
+        _operator='range',
     )
     state = lib.base.get_worst(unused_state, redundant_state)
 
     # build the message
     unused_label = lib.txt.pluralize('unused index', unused_count, suffix=',es')
     redundant_label = lib.txt.pluralize(
-        'redundant index', redundant_count, suffix=',es',
+        'redundant index',
+        redundant_count,
+        suffix=',es',
     )
     summary = (
         f'{unused_count} {unused_label}'
@@ -460,7 +480,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

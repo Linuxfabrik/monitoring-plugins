@@ -1,0 +1,344 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Integration tests for the mysql-replica-status check plugin.
+
+The plugin opens a real `pymysql` connection and reads `SHOW REPLICA
+STATUS`, `SHOW REPLICAS` and a handful of global variables. None of
+that can be captured in a static fixture, because the interesting
+states (a running replica, a primary that knows its replicas, a
+least-privilege monitoring account) only exist on a live server. So
+both flavours of container test are used:
+
+Standalone matrix
+    One server per Containerfile under `containerfiles/`, queried by a
+    monitoring account holding only the privilege the README asks for:
+    `SLAVE MONITOR` on MariaDB 10.5+, `REPLICATION CLIENT` on MySQL.
+    This pins two regressions at once:
+
+    * MySQL 8.4 removed the `SLAVE` keyword from its grammar, so the
+      legacy `SHOW SLAVE HOSTS` is a syntax error there and used to
+      turn every run into UNKNOWN.
+    * Listing replicas needs `REPLICATION SLAVE` (MySQL) or
+      `REPLICATION MASTER ADMIN` (MariaDB 11+), which a monitoring
+      account does not have. A denial must not fail the whole check.
+
+Replication scenarios
+    A real primary/replica pair per flavour, wired over a container
+    network. The primary must count its one replica (the only path
+    that returns rows from `SHOW REPLICAS` / `SHOW SLAVE HOSTS`), and
+    the replica must report both threads running. On MariaDB the pair
+    also exercises the parallel-replication branch, which is skipped
+    on MySQL.
+
+A note on privileges: `BINLOG MONITOR` (what MariaDB 10.5+ renames a
+`GRANT REPLICATION CLIENT` to) is deliberately not accepted by the
+plugin. It does not authorize `SHOW REPLICA STATUS`, so a check that
+accepted it would clear the privilege gate and then misreport a real
+replica as a standalone server. `test_crit_binlog_monitor_is_rejected`
+pins that.
+
+Requirements:
+- podman (or docker) with a reachable socket
+- `pip install testcontainers`
+- `tools/run-unit-tests` auto-sets `CONTAINER_HOST` and
+  `TESTCONTAINERS_RYUK_DISABLED`
+"""
+
+import contextlib
+import os
+import subprocess
+import sys
+import tempfile
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
+CONTAINERFILES = sorted(
+    name
+    for name in os.listdir(CONTAINERFILES_DIR)
+    if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
+)
+
+# Placeholder credentials; the concrete values carry no meaning.
+PASSWORD = 'linuxfabrik'
+
+# Upstream images used for the primary/replica pairs. The standalone matrix
+# covers the LTS spread; a replication pair only needs one release per flavour.
+MARIADB_IMAGE = 'docker.io/library/mariadb:11.8'
+MYSQL_IMAGE = 'docker.io/library/mysql:8.4'
+
+REPLICATION_SCENARIOS = [
+    {'id': 'mariadb', 'image': MARIADB_IMAGE},
+    {'id': 'mysql', 'image': MYSQL_IMAGE},
+]
+
+
+def _client(container, sql, user='root', password=PASSWORD):
+    """Run `sql` inside `container`. MariaDB 11.x upstream dropped the
+    `mysql` client symlink, so prefer `mariadb` and fall back to `mysql`.
+    Returns the combined output as text.
+    """
+    _, output = container.exec(
+        [
+            'sh',
+            '-c',
+            'if command -v mariadb >/dev/null 2>&1; then CLIENT=mariadb; '
+            'else CLIENT=mysql; fi; '
+            f'"$CLIENT" -u{user} -p{password} -e "{sql}"',
+        ]
+    )
+    return output.decode('utf-8', errors='replace')
+
+
+@contextlib.contextmanager
+def _defaults_file(container, user, password):
+    """Yield a temporary `[client]` cnf pointing at the container's
+    exposed port, so the plugin can be invoked with `--defaults-file=`.
+    """
+    fd, path = tempfile.mkstemp(suffix='.cnf')
+    try:
+        with os.fdopen(fd, 'w') as fh:
+            fh.write(
+                f'[client]\n'
+                f'host={container.get_container_host_ip()}\n'
+                f'port={container.get_exposed_port(3306)}\n'
+                f'user={user}\n'
+                f'password={password}\n'
+            )
+        yield path
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+def _run_plugin(defaults_file):
+    """Run the plugin and return `(returncode, combined output)`."""
+    result = subprocess.run(
+        ['python3', '../mysql-replica-status', f'--defaults-file={defaults_file}'],
+        cwd=HERE,
+        capture_output=True,
+        text=True,
+    )
+    combined = result.stdout + result.stderr
+    print(f'Script output:\n{combined.strip()}', flush=True)
+    return result.returncode, combined
+
+
+def _wait_for_replica(container, timeout=90):
+    """Poll until both replication threads report Yes. MariaDB prints
+    `Slave_*_Running`, MySQL prints `Replica_*_Running`.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        status = _client(container, 'SHOW REPLICA STATUS\\G')
+        io_ok = 'Slave_IO_Running: Yes' in status or 'Replica_IO_Running: Yes' in status
+        sql_ok = (
+            'Slave_SQL_Running: Yes' in status or 'Replica_SQL_Running: Yes' in status
+        )
+        if io_ok and sql_ok:
+            return
+        time.sleep(2)
+    raise AssertionError(f'replica did not start within {timeout}s:\n{status}')
+
+
+class TestStandalone(unittest.TestCase):
+    pass
+
+
+def _check_standalone(test, containerfile):
+    path = os.path.join(CONTAINERFILES_DIR, containerfile)
+    print(f'\n=== Testing {containerfile} ===', flush=True)
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (container, _):
+        # Grant the `test` account exactly the privilege the README asks
+        # for. MariaDB 10.5+ turns a `GRANT REPLICATION CLIENT` into
+        # `BINLOG MONITOR`, which the plugin rejects on purpose, so the
+        # MariaDB path has to grant `SLAVE MONITOR` instead.
+        container.exec(
+            [
+                'sh',
+                '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                "GRANT_SQL=\"GRANT SLAVE MONITOR ON *.* TO 'test'@'%'\"; "
+                'else C=mysql; '
+                "GRANT_SQL=\"GRANT REPLICATION CLIENT ON *.* TO 'test'@'%'\"; fi; "
+                '"$C" -uroot -e "$GRANT_SQL" 2>/dev/null '
+                '|| "$C" -uroot -ptest -e "$GRANT_SQL"',
+            ]
+        )
+
+        with _defaults_file(container, 'test', 'test') as defaults_file:
+            returncode, combined = _run_plugin(defaults_file)
+
+        # A standalone server is healthy: no replication configured.
+        test.assertEqual(returncode, STATE_OK)
+        test.assertIn('standalone server', combined)
+        test.assertIn('mysql_replication_slave_count', combined)
+
+        # `show slave hosts` is a syntax error on MySQL 8.4, and listing
+        # replicas is denied for this account on every flavour. Neither
+        # may surface as a failed query.
+        test.assertNotIn('Query failed', combined)
+
+
+lib.lftest.attach_each(TestStandalone, CONTAINERFILES, _check_standalone)
+
+
+class TestReplication(unittest.TestCase):
+    pass
+
+
+def _check_replication(test, scenario):
+    image = scenario['image']
+    is_mariadb = 'mariadb' in image
+    print(f'\n=== Testing replication on {image} ===', flush=True)
+
+    if is_mariadb:
+        primary_args = 'mariadbd --server-id=1 --log-bin=binlog --binlog-format=ROW'
+        replica_args = 'mariadbd --server-id=2 --log-bin=binlog'
+        env_key = 'MARIADB_ROOT_PASSWORD'
+    else:
+        gtid = '--gtid-mode=ON --enforce-gtid-consistency=ON'
+        primary_args = f'mysqld --server-id=1 --log-bin=binlog {gtid}'
+        replica_args = f'mysqld --server-id=2 --report-host=replica {gtid}'
+        env_key = 'MYSQL_ROOT_PASSWORD'
+
+    # Parenthesized context managers are Python 3.10+ syntax and we still
+    # support 3.9, so stack the containers explicitly instead of nesting.
+    with contextlib.ExitStack() as stack:
+        net = stack.enter_context(lib.lftest.network())
+        primary = stack.enter_context(
+            lib.lftest.run_container(
+                image,
+                env={env_key: PASSWORD},
+                ports=[3306],
+                command=primary_args,
+                wait_log='port: 3306',
+                wait_log_timeout=180,
+                network=net,
+                network_alias='primary',
+            )
+        )
+        replica = stack.enter_context(
+            lib.lftest.run_container(
+                image,
+                env={env_key: PASSWORD},
+                ports=[3306],
+                command=replica_args,
+                wait_log='port: 3306',
+                wait_log_timeout=180,
+                network=net,
+                network_alias='replica',
+            )
+        )
+
+        _client(
+            primary,
+            f"CREATE USER 'repl'@'%' IDENTIFIED BY '{PASSWORD}'; "
+            "GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';",
+        )
+        if is_mariadb:
+            _client(
+                replica,
+                'SET GLOBAL slave_parallel_threads=4; '
+                "CHANGE MASTER TO MASTER_HOST='primary', "
+                "MASTER_USER='repl', MASTER_PASSWORD='"
+                f"{PASSWORD}', MASTER_USE_GTID=slave_pos; "
+                'START SLAVE;',
+            )
+        else:
+            # GET_SOURCE_PUBLIC_KEY is required because the repl account
+            # uses caching_sha2_password over an unencrypted link.
+            _client(
+                replica,
+                "CHANGE REPLICATION SOURCE TO SOURCE_HOST='primary', "
+                "SOURCE_USER='repl', SOURCE_PASSWORD='"
+                f"{PASSWORD}', SOURCE_AUTO_POSITION=1, "
+                'GET_SOURCE_PUBLIC_KEY=1; '
+                'START REPLICA;',
+            )
+        _wait_for_replica(replica)
+
+        # The primary must see its one replica. This is the only path where
+        # SHOW REPLICAS / SHOW SLAVE HOSTS returns rows.
+        with _defaults_file(primary, 'root', PASSWORD) as defaults_file:
+            returncode, combined = _run_plugin(defaults_file)
+        test.assertEqual(returncode, STATE_OK)
+        test.assertIn('Acting as primary for 1 server', combined)
+        test.assertIn("'mysql_replication_slave_count'=1", combined)
+        test.assertNotIn('Query failed', combined)
+
+        # The replica must report both threads running. The stock image
+        # leaves read_only=OFF, which the plugin flags.
+        with _defaults_file(replica, 'root', PASSWORD) as defaults_file:
+            returncode, combined = _run_plugin(defaults_file)
+        test.assertEqual(returncode, STATE_WARN)
+        test.assertIn("'mysql_replication_io_running'=1", combined)
+        test.assertIn("'mysql_replication_sql_running'=1", combined)
+        test.assertIn('Replica lag', combined)
+        test.assertNotIn('Query failed', combined)
+
+        # Parallel replication is a MariaDB-only report.
+        if is_mariadb:
+            test.assertIn('Parallel replication: 4 threads', combined)
+        else:
+            test.assertNotIn('Parallel replication', combined)
+
+
+lib.lftest.attach_each(
+    TestReplication,
+    REPLICATION_SCENARIOS,
+    _check_replication,
+    id_func=lambda it: it['id'],
+)
+
+
+class TestPrivileges(unittest.TestCase):
+    """`BINLOG MONITOR` must be rejected rather than silently downgrading a
+    replica to "standalone". Uses the MariaDB pair because only MariaDB
+    renames `REPLICATION CLIENT` to `BINLOG MONITOR`.
+    """
+
+    def test_crit_binlog_monitor_is_rejected(self):
+        with lib.lftest.run_container(
+            MARIADB_IMAGE,
+            env={'MARIADB_ROOT_PASSWORD': PASSWORD},
+            ports=[3306],
+            wait_log='port: 3306',
+            wait_log_timeout=180,
+        ) as container:
+            _client(
+                container,
+                f"CREATE USER 'binlogmon'@'%' IDENTIFIED BY '{PASSWORD}'; "
+                "GRANT REPLICATION CLIENT ON *.* TO 'binlogmon'@'%';",
+            )
+            # The server stores the grant under its modern name.
+            grants = _client(container, "SHOW GRANTS FOR 'binlogmon'@'%';")
+            self.assertIn('BINLOG MONITOR', grants)
+
+            with _defaults_file(container, 'binlogmon', PASSWORD) as defaults_file:
+                returncode, combined = _run_plugin(defaults_file)
+
+            self.assertEqual(returncode, STATE_UNKNOWN)
+            self.assertIn('missing the following privileges', combined)
+            # Must not pretend the server is fine.
+            self.assertNotIn('standalone server', combined)
+
+
+if __name__ == '__main__':
+    unittest.main()

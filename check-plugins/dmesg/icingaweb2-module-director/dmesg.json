@@ -5,9 +5,39 @@
                 "--always-ok": {
                     "set_if": "$dmesg_always_ok$"
                 },
+                "--icinga-callback": {
+                    "set_if": "$dmesg_icinga_callback$"
+                },
+                "--icinga-password": {
+                    "value": "$dmesg_icinga_password$"
+                },
+                "--icinga-service-name": {
+                    "value": "$dmesg_icinga_service_name$"
+                },
+                "--icinga-url": {
+                    "value": "$dmesg_icinga_url$"
+                },
+                "--icinga-username": {
+                    "value": "$dmesg_icinga_username$"
+                },
                 "--ignore": {
                     "value": "$dmesg_ignore$",
                     "repeat_key": true
+                },
+                "--insecure": {
+                    "set_if": "$dmesg_insecure$"
+                },
+                "--no-insecure": {
+                    "set_if": "$dmesg_no_insecure$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$dmesg_no_perfdata$"
+                },
+                "--no-proxy": {
+                    "set_if": "$dmesg_no_proxy$"
+                },
+                "--timeout": {
+                    "value": "$dmesg_timeout$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/dmesg",
@@ -20,6 +50,56 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -82,7 +162,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default; the filtered count is reported as the `errors` perfdata so trends can be graphed. To clear reported messages after resolving the underlying issue, run \"dmesg --clear\". Note: the kernel ring buffer is a fixed-size circular buffer, so older messages are overwritten over time, and timestamps may drift across SUSPEND/RESUME because the time source is not updated on resume. Requires root or sudo.",
+            "notes": "Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert, crit, and err. Known false positives and hardware-specific noise are filtered out by default; the filtered count is reported as the `errors` perfdata so trends can be graphed. Optionally integrates with Icinga: when the service is acknowledged, the reported messages are suppressed on following runs so they don't re-alert, which makes a login and \"dmesg --clear\" on the host unnecessary. Note: the kernel ring buffer is a fixed-size circular buffer, so older messages are overwritten over time, and timestamps may drift across SUSPEND/RESUME because the time source is not updated on resume. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dmesg/",
             "object_name": "tpl-service-dmesg",
             "object_type": "template",
@@ -94,7 +174,12 @@
             "vars": {
                 "criticality": "A",
                 "dmesg_always_ok": false,
-                "dmesg_ignore": []
+                "dmesg_icinga_callback": false,
+                "dmesg_ignore": [],
+                "dmesg_insecure": true,
+                "dmesg_no_perfdata": false,
+                "dmesg_no_proxy": false,
+                "dmesg_timeout": 5
             },
             "volatile": null,
             "zone": null,
@@ -157,6 +242,59 @@
             "uuid": "e513f9c4-c288-4791-8384-9c2d639c2aa7"
         },
         "2": {
+            "varname": "dmesg_icinga_callback",
+            "caption": "Dmesg: Icinga Callback?",
+            "description": "Get the service acknowledgement from Icinga. When the service is acknowledged, the currently reported kernel messages are persisted as \"already handled\" so they no longer trigger alerts on following runs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b19e04e6-989a-473b-aa1a-fa382b60f429"
+        },
+        "3": {
+            "varname": "dmesg_icinga_password",
+            "caption": "Dmesg: Icinga Password",
+            "description": "Icinga API password.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "2739389b-3c1f-4cfd-9b04-16d8d8d2e360"
+        },
+        "4": {
+            "varname": "dmesg_icinga_service_name",
+            "caption": "Dmesg: Icinga Service Name",
+            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute. Example: `icinga-server!my-service-name`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "01780927-5a9f-4a9e-8933-10e0bb442b45"
+        },
+        "5": {
+            "varname": "dmesg_icinga_url",
+            "caption": "Dmesg: Icinga URL",
+            "description": "Icinga API URL. Example: `https://icinga-server:5665`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6db5d9b7-82ec-43ca-9ca5-bada97d69955"
+        },
+        "6": {
+            "varname": "dmesg_icinga_username",
+            "caption": "Dmesg: Icinga Username",
+            "description": "Icinga API username.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "09741d34-f460-417e-990d-605add6381a6"
+        },
+        "7": {
             "varname": "dmesg_ignore",
             "caption": "Dmesg: Ignore",
             "description": "Ignore a kernel message matching this Python regular expression. Can be specified multiple times. Specifying this parameter replaces the bundled default ignore list. Example: `--ignore=\"^.* unhandled (rd|wr)msr: \"`.",
@@ -166,6 +304,53 @@
                 "visibility": "visible"
             },
             "uuid": "b1799285-43f4-44b5-9bb6-7f37182bddf7"
+        },
+        "8": {
+            "varname": "dmesg_insecure",
+            "caption": "Dmesg: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "feffac00-3921-436f-8daf-b31a583114d2"
+        },
+        "9": {
+            "varname": "dmesg_no_insecure",
+            "caption": "Dmesg: No Insecure?",
+            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d8e81db5-3ddc-4188-a215-7fdde4807916"
+        },
+        "10": {
+            "varname": "dmesg_no_perfdata",
+            "caption": "Dmesg: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3dcaf1a7-b8dd-4de0-a684-99e54338a183"
+        },
+        "11": {
+            "varname": "dmesg_no_proxy",
+            "caption": "Dmesg: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b2b7051d-346d-4604-a679-6e184a19a585"
+        },
+        "12": {
+            "varname": "dmesg_timeout",
+            "caption": "Dmesg: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a0984536-020a-4407-afb7-e0318d86b4df"
         }
     }
 }

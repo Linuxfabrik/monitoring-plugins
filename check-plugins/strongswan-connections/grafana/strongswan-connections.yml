@@ -1,0 +1,276 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: strongswan-connections
+spec:
+  schemaVersion: 42
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - dynamic
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: strongSwan Connections
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*strongswan-connections.*/
+      current:
+        text: cmd-check-strongswan-connections
+        value: cmd-check-strongswan-connections
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  # Countdown timers: rekey-time, reauth-time and life-time all report
+  # the seconds left until a deadline and go negative once overdue, so
+  # they share one panel and must not carry a lower bound.
+  - title: Time to Re-Keying / Re-Authentication / Expiry
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        mappings: []
+        unit: s
+        thresholds:
+          mode: absolute
+          steps:
+          - color: red
+            value: null
+          - color: green
+            value: 0
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: strongswan-connections-countdown
+      groupBy:
+      - params:
+        - $__interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: =~
+        value: /_(reauth|rekey|life)-time$/
+
+
+  # Elapsed timers: established and install-time both count up from an
+  # event in the past, so they share a panel with a zero lower bound.
+  - title: SA Age (Established / Installed)
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        mappings: []
+        min: 0
+        unit: s
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: strongswan-connections-age
+      groupBy:
+      - params:
+        - $__interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: =~
+        value: /_(established|install-time)$/
+
+
+  # Cumulative CHILD SA traffic counters, reset by the kernel whenever a
+  # CHILD SA is re-established, hence the sawtooth.
+  - title: CHILD SA Traffic
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        mappings: []
+        min: 0
+        unit: decbytes
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: strongswan-connections-traffic
+      groupBy:
+      - params:
+        - $__interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: =~
+        value: /_bytes-(in|out)$/

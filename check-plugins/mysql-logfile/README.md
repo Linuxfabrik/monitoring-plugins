@@ -10,6 +10,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Severity is detected from MySQL/MariaDB's bracketed log tags (`[ERROR]`, `[Warning]`); lines that only mention the words "error" / "warning" elsewhere are not counted.
 * When reading from an on-disk log file, the check usually needs root/sudo (typical log files are owned by `mysql:mysql`, mode `0640`). The `performance_schema.error_log` path needs only SELECT on that table.
+* `--server-log` is confined to `/var/log` and `/var/lib/mysql`. The check runs as root via sudo, so it refuses a path that resolves outside those directories, which stops it from being turned into an arbitrary root file read. The data directory reported by the server is deliberately not trusted here, since an attacker controls which server the check connects to. To read a log stored elsewhere (for example a custom data directory), bind-mount that location under `/var/log` (a symlink is rejected); see the [Troubleshooting section](https://github.com/Linuxfabrik/monitoring-plugins#troubleshooting).
 * Depending on your site's policy, you may want to silence noisy patterns like `aborted connection` or `access denied for user` via `--ignore-pattern` / `--ignore-regex`.
 * Both `--ignore-pattern` and `--ignore-regex` are matched against the lowercased log line, so write your patterns in lowercase (or use the `(?i)` flag in a regex).
 
@@ -44,8 +45,9 @@ usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                      [--defaults-file DEFAULTS_FILE]
                      [--defaults-group DEFAULTS_GROUP] [-H HOSTNAME]
                      [--ignore-pattern IGNORE_PATTERN]
-                     [--ignore-regex IGNORE_REGEX] [--port PORT]
-                     [--server-log SERVER_LOG] [--timeout TIMEOUT]
+                     [--ignore-regex IGNORE_REGEX] [--no-perfdata]
+                     [--port PORT] [--server-log SERVER_LOG]
+                     [--timeout TIMEOUT]
 
 Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the
@@ -91,6 +93,10 @@ options:
                         `(?i)linuxfabrik` for a case-insensitive match. The
                         log line is lowercased before matching, so write the
                         pattern in lowercase (or use the `(?i)` flag).
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --port PORT           MySQL/MariaDB port number. Default: 3306
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
@@ -100,6 +106,9 @@ options:
                         (MySQL 8.0.22+) and then falls back to the file from
                         `log_error`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/
 ```
 
 

@@ -27,7 +27,7 @@ Checks the status of a Windows Scheduled Task. Alerts when the task is not in th
 ## Help
 
 ```text
-usage: scheduled-task [-h] [-V] [--severity {warn,crit}]
+usage: scheduled-task [-h] [-V] [--always-ok] [--severity {warn,crit}]
                       [--status {Disabled,Queued,Ready,Running,Unknown}]
                       --task TASK
 
@@ -37,6 +37,7 @@ task has failed or returned a non-zero exit code.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --severity {warn,crit}
                         Severity when the task is not in the expected status.
                         Default: warn
@@ -44,6 +45,9 @@ options:
                         Expected task status. Can be specified multiple times.
                         Default: ['Ready', 'Running']
   --task TASK           Name of the Windows scheduled task to check.
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scheduled-task/
 ```
 
 

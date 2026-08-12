@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        # The last port of the fixture has its link down, which is what an
+        # uncabled port reports too, so it stays quiet unless asked otherwise.
+        'id': 'ok-ports-healthy',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            # Every port runs at the speed it is built for, so none is reported slow.
+            '212:0A.0 ! FC       ! CTE0.A.IOM0.P0 ! 32000',
+            '213:0A.3 ! Ethernet ! CTE0.A.IOM1.P1 ! --',
+            'Link down (11) ! Normal (1) ! [OK]',
+            "'212_0A_0_speed'=32000;;;0;32000",
+        ],
+        # A port with no link reports no rate, so it must not be graphed at zero.
+        'assert-not-in': ["'213_0A_3_speed'="],
+    },
+    {
+        # A 32 Gbit/s FC port that negotiated 8 Gbit/s still carries traffic, so
+        # nothing else in this check notices. It is what a dirty connector, the
+        # wrong transceiver or a mismatched switch port look like.
+        'id': 'warn-fc-port-negotiated-down',
+        'test': 'stdout/ports-fc-negotiated-down,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.', '8000/32000 [WARNING]'],
+    },
+    {
+        # The same fabric for an operator who does not want to hear about it.
+        'id': 'ok-slow-port-severity-off',
+        'test': 'stdout/ports-fc-negotiated-down,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --slow-port-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        # An operator who cables every port can turn the link state into an alert.
+        'id': 'warn-link-down-severity',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --link-down-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.'],
+    },
+    {
+        # A faulty port alerts on its health status regardless of the link state.
+        'id': 'crit-port-faulty',
+        'test': 'stdout/ports-one-faulty,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors.', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-match-filters-ports',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='.*IOM0'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['CTE0.A.IOM0.P0'],
+        'assert-not-in': ['CTE0.A.IOM1.P0'],
+    },
+    {
+        'id': 'crit-no-match-severity',
+        'test': 'stdout/ports-healthy,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='nonexistent' --no-match-severity=crit",
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No ports matched `nonexistent`.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-port'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

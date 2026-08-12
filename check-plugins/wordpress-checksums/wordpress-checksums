@@ -1,0 +1,1091 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import os
+import sys
+import urllib.parse
+
+import lib.args
+import lib.base
+import lib.cache
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.time
+import lib.txt
+import lib.url
+import lib.wordpress
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081201'
+
+DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
+wordpress.org publishes for the installed release, and reports every file that was
+modified, added or removed since. Covers the core and every plugin from the plugin
+directory. Alerts when a file does not match, which on a server nobody has hand-patched
+means the installation was tampered with. Supports extended reporting via --lengthy."""
+
+DEFAULT_CACHE_EXPIRE = 1440  # minutes
+DEFAULT_INSECURE = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_CHECKSUM_DATA_SEVERITY = 'ok'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_PATH = '/var/www/html/wordpress'
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_TIMEOUT = 8
+DEFAULT_TOTAL_TIMEOUT = 45
+DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+
+# Where wordpress.org publishes the digests of a released version. Both are open endpoints
+# and need no account. They are separate services and answer a request for something they
+# do not have differently, which get_checksums() normalizes.
+CORE_CHECKSUM_URL = 'https://api.wordpress.org/core/checksums/1.0/'
+PLUGIN_CHECKSUM_URL = 'https://downloads.wordpress.org/plugin-checksums'
+
+# Digest each of them publishes. The core endpoint offers MD5 only. The plugin endpoint
+# offers MD5 and SHA-256, and there is no reason to take the weaker of the two.
+CORE_CHECKSUM_ALGORITHM = 'md5'
+PLUGIN_CHECKSUM_ALGORITHM = 'sha256'
+
+# Where the fetched digest maps are kept between runs. Its own database rather than the
+# cache every plugin on the host shares, because a single core version already holds a few
+# thousand entries and has no business sitting next to short-lived session tokens.
+CACHE_FILENAME = 'linuxfabrik-monitoring-plugins-wordpress-checksums.db'
+
+# How long an expired digest map is kept around after it stopped being served, in seconds.
+# It is the reserve the stale fallback draws on, so it has to outlast an outage worth
+# surviving, and a month is generous for that while still bounding the database.
+CACHE_GRACE = 30 * 86400
+
+# Longest slug and version accepted in a request. See url_component() for why there is a
+# cap at all.
+MAX_URL_COMPONENT = 128
+
+# The part of the release the core actually owns. The published checksums cover the whole
+# release, `wp-content/` included, but the bundled default themes and the language files
+# below it are updated, replaced and deleted independently of the core, so holding an
+# installation to the list they were shipped with only produces noise.
+CORE_DIRS = ('wp-admin/', 'wp-includes/')
+
+# Files in the installation root that are left alone even though the checksums cover them.
+# The first three are named for the reader's sake rather than out of necessity: none of
+# them is part of a release, so none of them is in the published list to begin with.
+#
+# - `wp-config.php` holds the credentials and is written per installation. It is not in the
+#   list either way, `wp-config-sample.php` is.
+# - `.htaccess` is rewritten by WordPress itself whenever the permalink structure changes,
+#   and `.maintenance` exists only while an update is running. Neither ships in a release.
+# - `readme.html` and `license.txt` are documentation and are routinely deleted as a
+#   hardening step, which must not read as a damaged installation. WordPress's own updater
+#   skips them too, along with every other `.html` and `.txt` in the installation root.
+# - `index.php` is copied and edited by WordPress's own procedure for serving a site from a
+#   subdirectory, so a modified one is a documented setup rather than a finding. This is
+#   the one exception WordPress itself does not make, and it is a deliberate trade: the
+#   file is a one-line stub, but it is also a classic place to hide a backdoor, so it is
+#   named in the README as something this check does not cover.
+CORE_ROOT_EXCLUDED = (
+    '.htaccess',
+    '.maintenance',
+    'index.php',
+    'license.txt',
+    'readme.html',
+    'wp-config.php',
+)
+
+# Files inside a plugin that the plugin directory rewrites without the plugin itself
+# changing. The convention comes from wp-cli's `plugin verify-checksums`, which calls them
+# soft changes and offers `--strict` to report them anyway; neither WordPress itself nor
+# the vulnerability scanners know it. Matched without regard to case, the way wp-cli
+# matches them: the plugin directory reads the file either way, so plugins ship it as
+# `readme.txt` and as `README.txt`, and the same rewrite must not be a finding in one
+# plugin and not in the next.
+PLUGIN_SOFT_FILES = ('readme.md', 'readme.txt')
+
+# The plugins WordPress ships along with the core. For these, two different contents are
+# published under the same version number, the core's and the plugin directory's, and only
+# the core list says which one an installation is entitled to. Where that list is missing,
+# a mismatch cannot be decided either way and is reported as a gap in coverage instead of
+# as a finding. WordPress has bundled these two and nothing else since 2006, when the
+# database backup plugin it used to ship along with them was dropped.
+CORE_BUNDLED_PLUGINS = ('akismet', 'hello-dolly')
+
+# How long a path may get before it is abbreviated for display. Chosen so the widest column
+# still leaves the state marker at the end of the line on an 80 character terminal.
+MAX_PATH_LEN = 46
+
+# How much of a digest is shown under `--lengthy`. Two SHA-256 digests side by side are
+# 128 characters of table before the first column, and nobody reads the other 112: the
+# leading ones already tell the two files apart, which is all the column is there for.
+DIGEST_LEN = 16
+
+# How many findings the table shows before it is cut off. An installation that was
+# defaced wholesale has a finding per file, and the full list would be thousands of lines
+# that Icinga stores and mails on with every notification. Not tied to `--lengthy`, which
+# decides how wide a row is rather than how many there are, and which the shipped Director
+# service template switches on anyway.
+MAX_TABLE_ROWS = 50
+
+# What the three kinds of discrepancy are called in the output. "Added" and "missing" are
+# stated from the installation's point of view, not the checksum list's.
+ISSUE_ADDED = 'added'
+ISSUE_MISSING = 'missing'
+ISSUE_MODIFIED = 'modified'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire')
+        + ' The published checksums of a released version never change, so this is about '
+        'how often wordpress.org is asked, not about how current the answer is. '
+        'Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore files whose path matches this Python regular expression. '
+        'Matched against `<component>/<path>`, where the component is `core` or the '
+        "plugin's slug. "
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore="^my-plugin/"` to accept one component. '
+        'Example: `--ignore="^akismet/akismet\\.php$"` to accept one file that was '
+        'patched by hand.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check files whose path matches this Python regular expression. '
+        'Matched against `<component>/<path>`, where the component is `core` or the '
+        "plugin's slug. "
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Example: `--match="^core/"` to look at the core alone. '
+        'Example: `--match="\\.php$"` to look at the PHP files alone.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-checksum-data-severity',
+        help=lib.args.help('--no-checksum-data-severity')
+        + ' Applies where wordpress.org publishes nothing for a component, which is a '
+        'permanent property of that component and nothing to fix on this host. '
+        'A component wordpress.org could not be asked about is a different case and '
+        'follows --unreachable-severity. '
+        'Default: %(default)s',
+        dest='NO_CHECKSUM_DATA_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_CHECKSUM_DATA_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--path',
+        help="Local path to your WordPress installation, typically within your Webserver's "
+        'Document Root. Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help=lib.args.help('--severity')
+        + ' Applies to a file that does not match its published checksum. '
+        'Raise it to `crit` on an installation nobody hand-patches, where a mismatch can '
+        'only mean the files were tampered with. '
+        'Default: %(default)s',
+        dest='SEVERITY',
+        choices=['ok', 'warn', 'crit'],
+        default=DEFAULT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Applies to a single request. '
+        'The run as a whole is bounded by --total-timeout. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--total-timeout',
+        help='Seconds the run may spend asking wordpress.org, across all requests. '
+        'One request is made per component, so a host that cannot reach wordpress.org '
+        'would otherwise wait --timeout seconds per component and be killed by the '
+        'monitoring agent before it printed anything. '
+        'Components not reached within the budget are reported as unqueried, the same '
+        'way a failed request is. '
+        'Keep it below the timeout the monitoring agent grants the check. '
+        'Raise it on an installation with many plugins on a slow link. '
+        'Default: %(default)s (seconds)',
+        dest='TOTAL_TIMEOUT',
+        type=int,
+        default=DEFAULT_TOTAL_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--unreachable-severity',
+        help=lib.args.help('--unreachable-severity')
+        + ' Covers both a component verified against an expired cached copy and one '
+        'that could not be verified at all for want of one. '
+        'Raise it where the host is expected to reach wordpress.org, so a broken egress '
+        'rule or an expired proxy credential surfaces instead of quietly reducing what '
+        'the check covers. '
+        'Default: %(default)s',
+        dest='UNREACHABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNREACHABLE_SEVERITY,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def walk(root):
+    """List the files below `root`, relative to it and spelled with forward slashes, the
+    way the checksum lists spell them. An unreadable or absent directory yields nothing.
+    """
+    return {
+        item.replace(os.sep, '/')
+        for item in lib.disk.walk_directory(root, relative=True)
+    }
+
+
+def is_core_file(relative_path):
+    """Report whether a path out of the published core checksum list is one this check
+    verifies. See `CORE_DIRS` and `CORE_ROOT_EXCLUDED` for what is left out and why.
+    """
+    if relative_path.startswith(CORE_DIRS):
+        return True
+    if '/' in relative_path:
+        # Anything below another directory, `wp-content/` above all.
+        return False
+    return relative_path not in CORE_ROOT_EXCLUDED
+
+
+def is_soft_file(relative_path):
+    """Report whether a path inside a plugin is one of the files the plugin directory
+    rewrites on its own. See `PLUGIN_SOFT_FILES` for why the comparison ignores case.
+    """
+    return relative_path.lower() in PLUGIN_SOFT_FILES
+
+
+def digests(published):
+    """Return the digests a file is allowed to match, as a tuple.
+
+    wordpress.org publishes either one digest per file or several, and it publishes
+    several whenever the same released version was uploaded more than once with
+    differing content. Any of them was published for that version, so a file matching
+    any of them is the file wordpress.org shipped and is not a finding. Treating the
+    list as a single value would compare a digest against a list, which never matches
+    and would report an untouched file as modified - the one verdict this check must
+    not get wrong.
+    """
+    if isinstance(published, str):
+        return (published,)
+    if isinstance(published, (list, tuple)):
+        return tuple(item for item in published if isinstance(item, str))
+    return ()
+
+
+def get_digest(root, relative_path, algorithm):
+    """Return the digest of a whole file below `root`, or the empty string when it cannot
+    be read.
+
+    A file that is listed and present but unreadable is reported as modified rather than
+    silently skipped: the check cannot say it matches, and a permission change on a single
+    core file is itself worth looking at.
+
+    The path comes out of a document fetched over the network, so it is checked to resolve
+    below `root` before anything is opened. Nothing else keeps a `../../etc/shadow` in that
+    document from having its digest computed and, under `--lengthy`, printed.
+    """
+    filename = os.path.join(root, relative_path)
+    if not lib.disk.is_within(filename, [root]):
+        return ''
+    success, result = lib.disk.get_fingerprint(filename, length=0, algorithm=algorithm)
+    if not success:
+        return ''
+    return result[0]
+
+
+def keep(path, match_patterns, ignore_patterns):
+    """Report whether a `<component>/<path>` survives the two filters. `--match` restricts
+    to what matches, `--ignore` drops what matches, and `--ignore` wins.
+    """
+    if match_patterns and not any(p.search(path) for p in match_patterns):
+        return False
+    return not any(p.search(path) for p in ignore_patterns)
+
+
+def present_of(root, wanted):
+    """Return the subset of `wanted` that exists below `root`. Used where the files of a
+    component cannot be found by walking a directory of its own.
+    """
+    return {
+        p
+        for p in wanted
+        if lib.disk.is_within(os.path.join(root, p), [root])
+        and lib.disk.file_exists(os.path.join(root, p), allow_empty=True)
+    }
+
+
+def scope_core(path, checksums):
+    """Work out what to hold the core to:
+    `(root, wanted, present, added_scope, bundled)`.
+
+    The published list covers the whole release. What is verified out of it is decided by
+    `is_core_file()`. Where an unlisted file counts as one that was added is narrower
+    still: only the two directories the core owns outright. The installation root is shared
+    with the web server's own files, the site's and the deployment tooling's, so a file
+    found there says nothing about the core.
+    """
+    wanted = {p for p in checksums if is_core_file(p)}
+    added_scope = set()
+    for core_dir in CORE_DIRS:
+        added_scope |= {core_dir + item for item in walk(os.path.join(path, core_dir))}
+    root_files = present_of(path, {p for p in wanted if '/' not in p})
+    return path, wanted, added_scope | root_files, added_scope, {}
+
+
+def scope_plugin(path, slug, checksums, core_checksums):
+    """Work out what to hold one plugin to:
+    `(root, wanted, present, added_scope, bundled)`.
+
+    The paths in the published list are relative to the plugin's own root, which for a
+    normal plugin is its directory below `wp-content/plugins/`. A single-file plugin such
+    as `hello.php` has no directory of its own and lies in `wp-content/plugins/` next to
+    every other plugin, so there is nothing there that could be walked and nothing that
+    could be called an added file. It is compared file by file instead.
+
+    `bundled` is what the core release publishes for the very same files, re-keyed to the
+    plugin's root so `compare()` can use it as the second digest a file may match.
+    """
+    plugin_dir = os.path.join(path, 'wp-content', 'plugins')
+    wanted = {p for p in checksums if not is_soft_file(p)}
+    if lib.disk.dir_exists(os.path.join(plugin_dir, slug)):
+        prefix = f'wp-content/plugins/{slug}/'
+        bundled = {
+            p[len(prefix) :]: digest
+            for p, digest in core_checksums.items()
+            if p.startswith(prefix)
+        }
+        root = os.path.join(plugin_dir, slug)
+        present = {p for p in walk(root) if not is_soft_file(p)}
+        return root, wanted, present, present, bundled
+    # A single-file plugin. Its root is shared with every other plugin, so only the files
+    # the list names are looked at, nothing counts as added, and the core's copy of the
+    # same names is the only thing that may serve as the alternative digest.
+    prefix = 'wp-content/plugins/'
+    bundled = {
+        p[len(prefix) :]: digest
+        for p, digest in core_checksums.items()
+        if p.startswith(prefix) and p[len(prefix) :] in wanted
+    }
+    return plugin_dir, wanted, present_of(plugin_dir, wanted), set(), bundled
+
+
+def finding(component, relative_path, issue, expected='-', found='-', *, bucket):
+    """Build one row of the result table. `bucket` says which of the two counters the row
+    belongs to, and is passed in rather than derived from `component`: a plugin may live in
+    `wp-content/plugins/core/`, and reading the name would file its findings under the core.
+    """
+    return {
+        'bucket': bucket,
+        'component': component,
+        'expected': expected or '-',
+        'found': found or '-',
+        'issue': issue,
+        'path': relative_path,
+    }
+
+
+def compare(
+    component,
+    root,
+    checksums,
+    algorithm,
+    wanted,
+    present,
+    added_scope,
+    bundled=None,
+    *,
+    bucket,
+):
+    """Compare the files of one component against its published checksums.
+
+    `wanted` is the subset of `checksums` this check holds the installation to, `present`
+    the files actually found below `root`. Both are relative paths in the spelling the
+    checksum list uses, so the set operations between them are the whole comparison.
+
+    `added_scope` is where a file that is not in the list counts as one that was added. It
+    is narrower than `present` for the core, whose installation root is shared with the web
+    server, the site's own files and the deployment tooling, and where a file nobody
+    published a checksum for is therefore the normal case rather than a finding.
+
+    `bundled` is the second set of digests a plugin file is allowed to match, taken from
+    the core release. WordPress ships a few plugins along with the core, and the copy it
+    ships is not always byte-for-byte the copy the plugin directory publishes under the
+    same version number - `hello.php` differs on every stock installation. A file matching
+    either of the two was published by wordpress.org and is not a finding.
+    """
+    bundled = bundled or {}
+    findings = []
+    for relative_path in sorted(wanted & present):
+        expected = digests(checksums[relative_path])
+        if not expected:
+            # Nothing readable was published for this file, so there is nothing to hold
+            # it to. Saying "modified" here would accuse an untouched installation of
+            # having been tampered with on the strength of an answer we could not read.
+            continue
+        found = get_digest(root, relative_path, algorithm)
+        if found in expected:
+            continue
+        if relative_path in bundled and (
+            get_digest(root, relative_path, CORE_CHECKSUM_ALGORITHM)
+            in digests(bundled[relative_path])
+        ):
+            continue
+        findings.append(
+            finding(
+                component,
+                relative_path,
+                ISSUE_MODIFIED,
+                # Only the first of several accepted digests. The column is there to
+                # tell two contents apart, not to enumerate everything wordpress.org
+                # would have accepted.
+                expected[0],
+                found,
+                bucket=bucket,
+            )
+        )
+    for relative_path in sorted(wanted - present):
+        findings.append(finding(component, relative_path, ISSUE_MISSING, bucket=bucket))
+    for relative_path in sorted(added_scope - wanted - set(bundled)):
+        findings.append(finding(component, relative_path, ISSUE_ADDED, bucket=bucket))
+    return findings
+
+
+def empty_answer(algorithm):
+    """Return the answer shape the two fetchers below share, filled in as "nothing was
+    found and nothing went wrong". Each of them then sets only what applies.
+    """
+    return {
+        'algorithm': algorithm,
+        'checksums': {},
+        'error': '',
+        'expired': 0,
+        'published': True,
+        'stale': False,
+    }
+
+
+def url_component(value):
+    """Percent-encode a slug or a version for use as a single path segment, or return the
+    empty string where it has no business becoming one.
+
+    Both are read off the filesystem below a tree the web server can usually write to, so
+    both are attacker-controlled wherever it is. `safe=''` encodes the separator as well,
+    which is what keeps a value inside its own path segment; the length cap on top of that
+    keeps a header padded to kilobytes from being turned into a request at all.
+    """
+    if not value or len(value) > MAX_URL_COMPONENT:
+        return ''
+    return urllib.parse.quote(value, safe='')
+
+
+def get_checksums(args, key, endpoint, extract, algorithm, timeout):
+    """Serve a digest map, from the local cache where it is still fresh and from `endpoint`
+    otherwise.
+
+    `extract` turns the decoded answer into a `{path: digest}` map, or returns None to say
+    that the endpoint answered but has nothing published for what was asked. The two
+    endpoints spell that differently - the core one answers `200` with `"checksums": false`,
+    the plugin one answers `404` - and both arrive here as `published: False`.
+
+    Where the refresh fails, an expired entry is served rather than nothing. The digests of
+    a released version never change, so an outdated copy verifies exactly as well as a
+    current one; only the knowledge of newer versions is missing from it. The caller is told
+    through `stale` and `expired` so it can say so.
+
+    `timeout` is what is left of the run's overall budget, so zero means the budget is
+    spent. The cache is still read in that case - it costs nothing and a hit is a full
+    answer - but nothing is asked over the network any more.
+    """
+    result = empty_answer(algorithm)
+
+    # Read with `allow_stale`, always. The default lookup deletes an expired entry as it
+    # comes across it, which would throw the fallback away before the refresh has even been
+    # attempted - and the refresh failing is the only reason the fallback exists. Freshness
+    # is decided here instead, and nothing is deleted until there is a new copy to replace
+    # it with.
+    entry = lib.cache.get(key, as_dict=True, allow_stale=True, filename=CACHE_FILENAME)
+    cached = None
+    if entry:
+        try:
+            cached = json.loads(entry['value'])
+        except ValueError:
+            # A damaged entry is worth no more than a missing one, and the refresh below
+            # replaces it. Not worth reporting.
+            cached = None
+    if cached and (entry['timestamp'] == 0 or entry['timestamp'] >= lib.time.now()):
+        result['checksums'] = cached
+        return result
+
+    checksums = None
+    error = ''
+    if timeout <= 0:
+        # The budget the whole run shares is spent. Nothing is asked any more: a request
+        # started now would run past the point where the monitoring agent kills the
+        # check, and a killed check prints nothing at all - not even the components that
+        # were verified before the budget ran out.
+        error = (
+            f'ran out of the {args.TOTAL_TIMEOUT}s that --total-timeout grants a run'
+        )
+    else:
+        success, response = lib.url.fetch(
+            endpoint,
+            extended=True,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            response_on_error=True,
+            timeout=timeout,
+        )
+        status = response.get('status_code') if isinstance(response, dict) else None
+        if success:
+            try:
+                checksums = extract(json.loads(response['response']))
+            except (AttributeError, KeyError, TypeError, ValueError) as e:
+                error = f'Unreadable answer from wordpress.org: {e}'
+            else:
+                if checksums is None:
+                    result['published'] = False
+                    return result
+        elif status == 404:
+            result['published'] = False
+            return result
+        else:
+            error = (
+                response
+                if isinstance(response, str)
+                else f'HTTP error "{status}" from wordpress.org'
+            )
+
+    if checksums:
+        result['checksums'] = checksums
+        lib.cache.set(
+            key,
+            json.dumps(checksums),
+            expire=lib.time.now() + args.CACHE_EXPIRE * 60,
+            filename=CACHE_FILENAME,
+        )
+        # Only now, with a current answer in hand, is it safe to let go of old ones. The key
+        # carries the version, so every update leaves its predecessor behind unasked for;
+        # without this the database would grow by one full digest map per release forever.
+        # The grace period is what keeps the stale fallback usable across a long outage.
+        lib.cache.prune(before=lib.time.now() - CACHE_GRACE, filename=CACHE_FILENAME)
+        return result
+
+    result['error'] = error or f'Nothing published at {endpoint}.'
+    if cached:
+        result['checksums'] = cached
+        result['expired'] = entry['timestamp']
+        result['stale'] = True
+    return result
+
+
+def remaining_timeout(args, deadline):
+    """Return how long the next request may take: `--timeout`, or what is left of the
+    overall budget where that is less. Zero once the budget is spent, which is what tells
+    `get_checksums()` to stop asking.
+    """
+    return max(0, min(args.TIMEOUT, int(deadline - lib.time.now())))
+
+
+def unwrap_core_checksums(checksums, version):
+    """Return the digest map out of what the core endpoint answered, or None where it
+    published nothing.
+
+    The answer is normally a flat `{path: digest}` map, but it arrives wrapped in another
+    layer keyed by the version whenever the endpoint decides to answer for a whole
+    release rather than for the request. WordPress carries the same unwrapping in its own
+    updater, and without it every file of the installation would be reported as one the
+    release never shipped.
+    """
+    if not isinstance(checksums, dict) or not checksums:
+        return None
+    inner = checksums.get(version)
+    if isinstance(inner, dict) and inner:
+        return inner
+    return checksums
+
+
+def fetch_core_checksums(args, version, locale, timeout):
+    """Return the digests wordpress.org publishes for a released core version, or the
+    fixture standing in for them in test mode.
+
+    The answer covers the whole release, `wp-content/` included. What of it this check
+    actually holds the installation to is decided by `scope_core()`.
+    """
+    if args.TEST is not None:
+        return lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-core')
+    query = urllib.parse.urlencode({'locale': locale, 'version': version})
+    return get_checksums(
+        args,
+        key=f'core:{version}:{locale}',
+        endpoint=f'{CORE_CHECKSUM_URL}?{query}',
+        # The endpoint says "I do not know this version or locale" by answering 200 with
+        # `"checksums": false`, where the plugin endpoint answers 404. Same meaning.
+        extract=lambda data: unwrap_core_checksums(data.get('checksums'), version),
+        algorithm=CORE_CHECKSUM_ALGORITHM,
+        timeout=timeout,
+    )
+
+
+def fetch_plugin_checksums(args, slug, version, timeout):
+    """Return the digests wordpress.org publishes for a released plugin version, or the
+    fixture standing in for them in test mode.
+
+    Only plugins distributed through the wordpress.org plugin directory have published
+    digests. A commercial plugin, one installed from a vendor's own site and one written
+    for the site itself have none, which is reported rather than treated as a finding.
+    """
+    if args.TEST is not None:
+        return lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-plugin-{slug}')
+    quoted_slug = url_component(slug)
+    # A plugin that declares no version has nothing to ask for, so no request is made.
+    quoted_version = (
+        url_component(version) if version != lib.wordpress.UNKNOWN_VERSION else ''
+    )
+    if not quoted_slug or not quoted_version:
+        result = empty_answer(PLUGIN_CHECKSUM_ALGORITHM)
+        result['published'] = False
+        return result
+    return get_checksums(
+        args,
+        key=f'plugin:{slug}:{version}',
+        endpoint=f'{PLUGIN_CHECKSUM_URL}/{quoted_slug}/{quoted_version}.json',
+        extract=lambda data: (
+            {
+                path: entry['sha256']
+                for path, entry in (data.get('files') or {}).items()
+                if isinstance(entry, dict) and entry.get('sha256')
+            }
+            or None
+        ),
+        algorithm=PLUGIN_CHECKSUM_ALGORITHM,
+        timeout=timeout,
+    )
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:  # case 1: default to empty list
+        args.IGNORE = []
+    if args.MATCH is None:  # case 1: default to empty list
+        args.MATCH = []
+
+    # fetch data
+    if not lib.wordpress.is_installation(args.PATH):
+        lib.base.cu(
+            f'No WordPress installation below "{args.PATH}". '
+            'Point --path at the directory holding wp-includes/ and wp-content/.'
+        )
+    version = lib.base.coe(lib.wordpress.get_version(args.PATH))
+    locale = lib.base.coe(lib.wordpress.get_locale(args.PATH))
+    plugins = lib.wordpress.get_plugins(args.PATH)
+    # The directory on disk and the name wordpress.org answers to are two different
+    # things. `hello.php`, shipped with every WordPress, sits in no directory at all and is
+    # `hello-dolly` there. Reported under the name on disk, looked up under the other one.
+    slugs = lib.wordpress.get_plugin_slugs(args.PATH)
+    # Everything asked of wordpress.org shares one budget, counted from here. The reads
+    # above are local and cost nothing worth budgeting for.
+    deadline = lib.time.now() + args.TOTAL_TIMEOUT
+    core = fetch_core_checksums(
+        args, version, locale, remaining_timeout(args, deadline)
+    )
+
+    # init some vars
+    findings = []
+    # How many findings there were before --match and --ignore were applied, so a run whose
+    # filters swallowed every last one can be told apart from an installation that is clean.
+    findings_before_filter = 0
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    # Components wordpress.org publishes no checksums for, and can therefore not be
+    # verified at all. Named in the output so the coverage of a clean result is visible.
+    unverified = []
+    # Components whose checksums could not be fetched and were not cached either. A
+    # different thing from the above, and one the administrator can usually fix, so the
+    # reason the query failed is carried along and reported rather than swallowed.
+    unreachable = []
+    unreachable_reason = ''
+    # Components served from an expired cache entry because wordpress.org could not be
+    # reached, and the entry that ran out first, which is what the output states from.
+    # That is when the copy stopped being current, not when it was fetched: the cache
+    # keeps the expiry and nothing else, and how long a copy was good for is --cache-expire
+    # rather than something the entry remembers.
+    stale = []
+    stale_since = 0
+    counts = {
+        'core': dict.fromkeys((ISSUE_ADDED, ISSUE_MISSING, ISSUE_MODIFIED), 0),
+        'plugins': dict.fromkeys((ISSUE_ADDED, ISSUE_MISSING, ISSUE_MODIFIED), 0),
+    }
+    files_checked = 0
+
+    # compile user-supplied regex patterns
+    ignore_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    match_patterns = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # analyze data
+    # The core and the plugins are told apart by their place in this list, never by the
+    # component name: `wp-content/plugins/core/` is a legal plugin directory, and reading
+    # the name would hold that plugin to the core's scope and count it as the core.
+    for component, bucket, result in [('core', 'core', core)] + [
+        (
+            slug,
+            'plugins',
+            fetch_plugin_checksums(
+                args, slugs[slug], plugins[slug], remaining_timeout(args, deadline)
+            ),
+        )
+        for slug in sorted(plugins)
+    ]:
+        if result['stale']:
+            stale.append(component)
+            stale_since = min(stale_since or result['expired'], result['expired'])
+        if not result['checksums']:
+            # "Nothing is published for this" and "I could not ask" look the same from
+            # here and are not the same thing at all: the first is a permanent property of
+            # the component, the second is a problem on this host with a fix.
+            if result['error']:
+                unreachable.append(component)
+                unreachable_reason = unreachable_reason or result['error']
+            else:
+                unverified.append(component)
+            continue
+        if bucket == 'core':
+            root, wanted, present, added_scope, bundled = scope_core(
+                args.PATH, result['checksums']
+            )
+        else:
+            root, wanted, present, added_scope, bundled = scope_plugin(
+                args.PATH, component, result['checksums'], core['checksums']
+            )
+        unfiltered_findings = compare(
+            component,
+            root,
+            result['checksums'],
+            result['algorithm'],
+            wanted,
+            present,
+            added_scope,
+            bundled,
+            bucket=bucket,
+        )
+        component_findings = [
+            item
+            for item in unfiltered_findings
+            if keep(
+                f'{item["component"]}/{item["path"]}', match_patterns, ignore_patterns
+            )
+        ]
+        # A plugin the core bundles is held to two published copies at once, and only the
+        # core list picks the one that applies. Without it, a difference from the plugin
+        # directory's copy says nothing: it is just as likely to be the core's copy. Report
+        # the coverage gap that it is rather than a finding nobody can act on. Decided on
+        # the unfiltered findings: whether a component could be verified at all is a
+        # property of the run, and `--ignore` must not turn it into a verified one.
+        if (
+            unfiltered_findings
+            and not core['checksums']
+            and slugs.get(component) in CORE_BUNDLED_PLUGINS
+        ):
+            unverified.append(component)
+            continue
+        files_checked += len(wanted & present)
+        # Counted only for a component that was really held to a list, so a plugin dropped
+        # as unverifiable above does not look like a finding the filters swallowed.
+        findings_before_filter += len(unfiltered_findings)
+        findings += component_findings
+
+    for item in findings:
+        counts[item['bucket']][item['issue']] += 1
+
+    # Nothing could be fetched and nothing was cached, so not a single file was compared
+    # against anything. That is not reduced coverage, it is a check that could not run,
+    # and it is reported as such with the reason rather than as a quiet OK.
+    if unreachable and not files_checked:
+        lib.base.cu(
+            'Could not obtain any checksums to verify against, so nothing was checked: '
+            f'{unreachable_reason}'
+        )
+
+    violation_state = lib.base.str2state(args.SEVERITY)
+    if findings:
+        state = lib.base.get_worst(state, violation_state)
+    # The two gaps are graded apart, because an administrator can act on one of them and
+    # not on the other. Nothing published for a component is a permanent property of that
+    # component; wordpress.org not answering is a problem on this host with a fix.
+    if unverified:
+        state = lib.base.get_worst(
+            state, lib.base.str2state(args.NO_CHECKSUM_DATA_SEVERITY)
+        )
+    if unreachable or stale:
+        state = lib.base.get_worst(state, lib.base.str2state(args.UNREACHABLE_SEVERITY))
+
+    # The filters removed every finding there was. An installation that simply matches its
+    # published checksums is clean, not unchecked, and is reported as such below, so this
+    # only fires when the filters actually swallowed something. The run continues rather
+    # than ending here, so the severities decided above still count, the notes below still
+    # explain what was left out, and the metrics are still emitted: a dashboard has to show
+    # a zero for a filtered run, not a gap.
+    nothing_checked = bool(findings_before_filter) and not findings
+    if nothing_checked:
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+
+    # build the message
+    components = len(plugins) + 1
+    # The verdict opens the message, so it still fits in the first 80 characters that a
+    # notification or an SMS carries. Everything that qualifies it - how much was verified,
+    # what could not be asked about, how old the cached data is - follows behind it and on
+    # its own lines, because an admin reads left to right and wants the result first.
+    if nothing_checked:
+        # The literal every check with --match prints, so it stays recognizable. How much
+        # was verified is deliberately left out: that sentence qualifies a verdict about
+        # the files, and the filters removed the one there was.
+        msg += f'Nothing checked. WordPress v{version} ({locale}).'
+    else:
+        if findings:
+            verdict = ', '.join(
+                f'{counts["core"][issue] + counts["plugins"][issue]} {issue}'
+                for issue in (ISSUE_MODIFIED, ISSUE_ADDED, ISSUE_MISSING)
+                if counts['core'][issue] + counts['plugins'][issue]
+            )
+            verdict += lib.base.state2str(violation_state, prefix=' ')
+        elif files_checked:
+            verdict = 'No checksum violations found'
+        else:
+            verdict = 'Nothing checked'
+        msg += f'{verdict}. WordPress v{version} ({locale}).'
+        if files_checked:
+            msg += (
+                f' {files_checked} {lib.txt.pluralize("file", files_checked)} verified '
+                f'in {components - len(unverified) - len(unreachable)} of {components} '
+                f'{lib.txt.pluralize("component", components)}.'
+            )
+    if unreachable:
+        # The coverage behind the verdict only counts the components that could be asked
+        # about, so the ones that could not are named here. The reason comes from a library
+        # and does not end in a sentence, so it is given one.
+        msg += (
+            f'\nwordpress.org could not be queried for {len(unreachable)} of {components} '
+            f'{lib.txt.pluralize("component", components)} '
+            f'({", ".join(unreachable)}): {unreachable_reason.rstrip(". ")}.'
+        )
+    if stale:
+        # What was verified is still correct - the digests of a released version never
+        # change - but a component updated since the outage began has no published checksums
+        # here yet and shows up as unverified rather than as verified clean. The age states
+        # how long the copy has been out of date, which is how long wordpress.org has been
+        # out of reach, and that is the number an admin acts on.
+        share = 'all' if len(stale) == components else f'{len(stale)} of'
+        msg += (
+            f'\nwordpress.org is unreachable, {share} {components} '
+            f'{lib.txt.pluralize("component", components)} verified against cached data '
+            f'that expired {lib.human.seconds2human(lib.time.now() - stale_since)} ago.'
+        )
+    if unverified:
+        # What it means for the result comes before why it happened, and each of the two
+        # causes gets the answer that belongs to it: a plugin from outside the directory is
+        # a permanent property nobody can fix, an unverifiable core is fixed by updating.
+        # Spelled for one and for several, because the list is a single component as often
+        # as not.
+        listed = 'these components' if len(unverified) > 1 else 'this component'
+        pronoun = 'them' if len(unverified) > 1 else 'it'
+        msg += (
+            f'\nNot verified: {", ".join(unverified)}. wordpress.org publishes no '
+            f'checksums for {listed}, so nothing in the result above applies to '
+            f'{pronoun}.'
+        )
+        # A plugin the core bundles is in this list for the core's sake, which the sentence
+        # below explains, so naming it as one from outside the directory would mislead.
+        if any(
+            item != 'core' and slugs.get(item) not in CORE_BUNDLED_PLUGINS
+            for item in unverified
+        ):
+            msg += (
+                ' A plugin ends up here when it is commercial or was installed from'
+                ' outside the wordpress.org plugin directory. Nothing to fix on this'
+                " host; compare it against the vendor's own download where it has to be"
+                ' covered.'
+            )
+        if 'core' in unverified:
+            msg += (
+                ' The core ends up here when its release predates the published'
+                ' checksums, which updating fixes - and with it the plugins WordPress'
+                ' bundles, which cannot be decided without the core list.'
+            )
+
+    # Every metric is reported on every run, whatever the message and the filters show, so
+    # a dashboard can trend all of it.
+    for label, value in (
+        ('components_unverified', len(unverified) + len(unreachable)),
+        ('core_added', counts['core'][ISSUE_ADDED]),
+        ('core_missing', counts['core'][ISSUE_MISSING]),
+        ('core_modified', counts['core'][ISSUE_MODIFIED]),
+        ('files_checked', files_checked),
+        ('plugins_added', counts['plugins'][ISSUE_ADDED]),
+        ('plugins_missing', counts['plugins'][ISSUE_MISSING]),
+        ('plugins_modified', counts['plugins'][ISSUE_MODIFIED]),
+    ):
+        perfdata += lib.base.get_perfdata(label, value, uom=None, _min=0)
+
+    # build table output
+    if findings:
+        table_data = []
+        for item in findings:
+            row = {
+                'component': item['component'],
+                'issue': item['issue'],
+                'path': lib.disk.shorten_path(item['path'], max_len=MAX_PATH_LEN),
+                'state': lib.base.state2str(violation_state),
+            }
+            if args.LENGTHY:
+                # The full path, and the leading digits of both digests, because
+                # "modified" on its own does not say whether the file has content nobody
+                # published or content somebody else published.
+                row['path'] = item['path']
+                row['expected'] = item['expected'][:DIGEST_LEN]
+                row['found'] = item['found'][:DIGEST_LEN]
+            table_data.append(row)
+        if args.LENGTHY:
+            keys = ['component', 'path', 'issue', 'expected', 'found', 'state']
+            headers = ['Component', 'File', 'Issue', 'Expected', 'Found', 'State']
+        else:
+            keys = ['component', 'path', 'issue', 'state']
+            headers = ['Component', 'File', 'Issue', 'State']
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            keys,
+            header=headers,
+            max_rows=MAX_TABLE_ROWS,
+            max_rows_label='finding',
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

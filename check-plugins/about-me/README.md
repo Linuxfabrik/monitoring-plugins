@@ -36,8 +36,9 @@ Collects and displays key system information: OS and kernel version, CPU configu
 ## Help
 
 ```text
-usage: about-me [-h] [-V] [--dmidecode] [--insecure] [--no-proxy]
-                [--public-ip-url PUBLIC_IP_URL] [--tags] [--timeout TIMEOUT]
+usage: about-me [-h] [-V] [--always-ok] [--dmidecode] [--insecure]
+                [--no-perfdata] [--no-proxy] [--public-ip-url PUBLIC_IP_URL]
+                [--tags] [--timeout TIMEOUT]
 
 Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk
@@ -50,12 +51,17 @@ alerts. Requires root or sudo.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   --dmidecode           Gather additional hardware information via the
                         `dmidecode` command, such as system components, serial
                         numbers, and BIOS revisions. Requires sudo
                         permissions.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --public-ip-url PUBLIC_IP_URL
                         One or more comma-separated URLs to "what is my ip"
@@ -65,6 +71,9 @@ options:
   --tags                Guess a list of tags to apply in Icinga Director
                         (Linuxfabrik Basket config).
   --timeout TIMEOUT     Network timeout in seconds. Default: 2 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/about-me/
 ```
 
 

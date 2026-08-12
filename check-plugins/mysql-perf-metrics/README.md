@@ -39,7 +39,7 @@ Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `i
 ```text
 usage: mysql-perf-metrics [-h] [-V] [--always-ok]
                           [--defaults-file DEFAULTS_FILE]
-                          [--defaults-group DEFAULTS_GROUP]
+                          [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
                           [--storage-type {auto,ssd,hdd,skip}]
                           [--timeout TIMEOUT]
 
@@ -53,14 +53,14 @@ InnoDB refreshes index statistics on every `information_schema` query. Hosts
 with frequent dashboard, backup and monitoring queries pay a noticeable CPU
 cost for this. - `concurrent_insert`: when set to `NEVER` / `0`, MyISAM tables
 can no longer serve SELECTs in parallel with INSERTs. `AUTO` is the modern
-default. - `innodb_snapshot_isolation` (MariaDB only): under `REPEATABLE-
-READ`, OFF lets a transaction see writes other transactions commit during its
-lifetime, breaking the stable-snapshot guarantee the name `REPEATABLE-READ`
-implies. ON makes the snapshot stable. Default flipped to ON in MariaDB 11.8;
-before that, the admin had to opt in. Other isolation levels and non-MariaDB
-servers skip this check. - `innodb_flush_neighbors`: HDD wins from grouping
-seek-adjacent dirty-page flushes, SSD/NVMe pays in extra writes for no latency
-benefit, so the right value depends on the storage class. -
+default. - `innodb_snapshot_isolation` (MariaDB only): under
+`REPEATABLE-READ`, OFF lets a transaction see writes other transactions commit
+during its lifetime, breaking the stable-snapshot guarantee the name
+`REPEATABLE-READ` implies. ON makes the snapshot stable. Default flipped to ON
+in MariaDB 11.8; before that, the admin had to opt in. Other isolation levels
+and non-MariaDB servers skip this check. - `innodb_flush_neighbors`: HDD wins
+from grouping seek-adjacent dirty-page flushes, SSD/NVMe pays in extra writes
+for no latency benefit, so the right value depends on the storage class. -
 `innodb_io_capacity`: caps InnoDB's background flushing rate and should be
 sized to the disk's measured IOPS. Only checked when `--storage-type=ssd` is
 passed explicitly: the storage auto-detection cannot be trusted on virtualised
@@ -94,6 +94,10 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --storage-type {auto,ssd,hdd,skip}
                         Storage type of the MySQL data directory. Drives the
                         `innodb_flush_neighbors` and `innodb_io_capacity`
@@ -108,6 +112,9 @@ options:
                         when `ssd` is set explicitly. Example: `--storage-
                         type=ssd`. Default: auto
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-perf-metrics/
 ```
 
 

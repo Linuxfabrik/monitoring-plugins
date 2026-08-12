@@ -47,7 +47,8 @@ from lib.globals import STATE_OK, STATE_WARN
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
 CONTAINERFILES = sorted(
-    name for name in os.listdir(CONTAINERFILES_DIR)
+    name
+    for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
 
@@ -66,7 +67,7 @@ def _check_image(test, containerfile):
             'code CHAR(3) PRIMARY KEY, '
             'name VARCHAR(64) NOT NULL'
             ') ENGINE=InnoDB; '
-            "INSERT INTO countries VALUES "
+            'INSERT INTO countries VALUES '
             "('CHE', 'Switzerland'), ('DEU', 'Germany'), ('FRA', 'France')"
         ),
     ) as (_container, defaults_file):
@@ -75,7 +76,8 @@ def _check_image(test, containerfile):
         # Default run: no size thresholds, so the seeded `countries` table is
         # reported in the top-tables section but does not drive the state.
         cmd = [
-            'python3', '../mysql-database-metrics',
+            'python3',
+            '../mysql-database-metrics',
             f'--defaults-file={defaults_file}',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)
@@ -97,7 +99,8 @@ def _check_image(test, containerfile):
         # every non-empty table, proving humanrange2bytes() + range evaluation
         # are wired up. The seeded table is well above one byte.
         cmd = [
-            'python3', '../mysql-database-metrics',
+            'python3',
+            '../mysql-database-metrics',
             f'--defaults-file={defaults_file}',
             '--warning=1B',
         ]

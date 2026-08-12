@@ -34,7 +34,7 @@ Checks the status of the last borgbackup run by parsing the borg logfile. Alerts
 ## Help
 
 ```text
-usage: borgbackup [-h] [-V] [-c CRIT] [-w WARN]
+usage: borgbackup [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata] [-w WARN]
 
 Checks the status of the last borgbackup run by parsing the borg logfile.
 Alerts on non-zero return codes from the create or prune steps, and warns if
@@ -45,10 +45,17 @@ sudo.
 options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
+  --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the time since the last backup
                        started, in hours. Default: None
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for the time since the last backup
                        started, in hours. Default: 24
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/borgbackup/
 ```
 
 

@@ -9,6 +9,9 @@
                     "value": "$podman_info_ignore$",
                     "repeat_key": true
                 },
+                "--no-perfdata": {
+                    "set_if": "$podman_info_no_perfdata$"
+                },
                 "--user": {
                     "value": "$podman_info_user$"
                 }
@@ -28,6 +31,11 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -85,7 +93,8 @@
             "vars": {
                 "criticality": "C",
                 "podman_info_always_ok": false,
-                "podman_info_ignore": []
+                "podman_info_ignore": [],
+                "podman_info_no_perfdata": false
             },
             "volatile": null,
             "zone": null,
@@ -114,6 +123,15 @@
             "uuid": "96a363d6-0b4a-4fd0-b521-48310425c78e"
         },
         "3": {
+            "varname": "podman_info_no_perfdata",
+            "caption": "Podman Info: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "376e203a-c501-4b97-acbb-67055801cace"
+        },
+        "4": {
             "varname": "podman_info_user",
             "caption": "Podman Info: User",
             "description": "Report on the rootless Podman of this user instead of the one visible to the executing user. Podman keeps each user's rootless containers and images in that user's own storage, so root (the monitoring user runs the check via sudo) does not see them. With --user, the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default). Example: `--user=rocketchat`.",

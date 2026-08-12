@@ -100,14 +100,15 @@ If you want to configure `/server-status` in a virtual host:
 
 ```text
 usage: apache-httpd-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                           [--no-proxy] [--timeout TIMEOUT] [-u URL] [-w WARN]
+                           [--no-perfdata] [--no-proxy] [--timeout TIMEOUT]
+                           [-u URL] [-w WARN]
 
-Monitors Apache httpd performance via the mod_status endpoint (server-
-status?auto). Alerts when worker usage exceeds the configured thresholds.
-Reports busy and idle workers, request rates, bytes served, CPU load,
-connection states, and system load averages. Requires "ExtendedStatus On" in
-the Apache configuration for full metrics. Uses a local SQLite database to
-calculate per-second rates from cumulative counters.
+Monitors Apache httpd performance via the mod_status endpoint
+(server-status?auto). Alerts when worker usage exceeds the configured
+thresholds. Reports busy and idle workers, request rates, bytes served, CPU
+load, connection states, and system load averages. Requires "ExtendedStatus
+On" in the Apache configuration for full metrics. Uses a local SQLite database
+to calculate per-second rates from cumulative counters.
 
 options:
   -h, --help           show this help message and exit
@@ -116,12 +117,18 @@ options:
   -c, --critical CRIT  CRIT threshold for the percentage of workers processing
                        requests. Default: >= 95
   --insecure           This option explicitly allows insecure SSL connections.
+  --no-perfdata        Suppress the performance data section from the output.
+                       The status message and the exit code are unaffected, so
+                       alerting keeps working while trending data is dropped.
   --no-proxy           Do not use a proxy.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        Apache Server Status URL. Default:
                        http://localhost/server-status
   -w, --warning WARN   WARN threshold for the percentage of workers processing
                        requests. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/
 ```
 
 

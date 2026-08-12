@@ -48,7 +48,8 @@ from lib.globals import STATE_OK, STATE_WARN
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
 CONTAINERFILES = sorted(
-    name for name in os.listdir(CONTAINERFILES_DIR)
+    name
+    for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
 
@@ -60,25 +61,32 @@ class TestCheck(unittest.TestCase):
 def _check_image(test, containerfile):
     path = os.path.join(CONTAINERFILES_DIR, containerfile)
     print(f'\n=== Testing {containerfile} ===', flush=True)
-    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (container, defaults_file):
+    with lib.lftest.run_mysql_compatible_from_containerfile(path) as (
+        container,
+        defaults_file,
+    ):
         # mysql-health reads `mysql.user` (security findings) and
         # `information_schema.tables` (metadata health). The default
         # `test` user gets only the `test` database; grant `SELECT
         # ON mysql.*` so the plugin can do its job. Mirrors the
         # mysql-user-security unit test.
-        container.exec([
-            'sh', '-c',
-            'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
-            'else C=mysql; fi; '
-            'GRANT_SQL="GRANT SELECT ON mysql.* TO '
-            "'test'@'%'"
-            '"; '
-            '"$C" -uroot -e "$GRANT_SQL" 2>/dev/null '
-            '|| "$C" -uroot -ptest -e "$GRANT_SQL"',
-        ])
+        container.exec(
+            [
+                'sh',
+                '-c',
+                'if command -v mariadb >/dev/null 2>&1; then C=mariadb; '
+                'else C=mysql; fi; '
+                'GRANT_SQL="GRANT SELECT ON mysql.* TO '
+                "'test'@'%'"
+                '"; '
+                '"$C" -uroot -e "$GRANT_SQL" 2>/dev/null '
+                '|| "$C" -uroot -ptest -e "$GRANT_SQL"',
+            ]
+        )
 
         cmd = [
-            'python3', '../mysql-health',
+            'python3',
+            '../mysql-health',
             f'--defaults-file={defaults_file}',
         ]
         print(f'Run plugin: {" ".join(cmd)}', flush=True)

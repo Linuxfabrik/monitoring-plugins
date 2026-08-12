@@ -75,6 +75,7 @@ regex_replace_words = {
     r'\bBorgBackup\b': 'BorgBackup',
     r'\bCA\b': 'CA',
     r'\bCPU\b': 'CPU',
+    r'\bCVSS\b': 'CVSS',
     r'\bDES\b': 'DES',
     r'\bDNS\b': 'DNS',
     r'\bFAH\b': 'FAH',
@@ -134,6 +135,8 @@ regex_replace_words = {
     r'\bURL\b': 'URL',
     r'\bV3': 'v3',
     r'\bVM\b': 'VM',
+    r'\bWordPress\b': 'WordPress',
+    r'\bWPScan\b': 'WPScan',
     r'\bXA\b': 'XA',
     r'\bXCA\b': 'XCA',
 }
@@ -207,8 +210,15 @@ def get_caption(check, long_param):
 
 
 def get_visibility(varname):
+    # A field holding a credential, or the path to one, is hidden in the Director web
+    # interface. `http_auth` is the `login:password` pair that tools such as curl and
+    # wpscan take as a single value, which is as sensitive as a bare password. Matching
+    # a bare `auth` would also catch `authtype` and `auth_prot`, which name an algorithm
+    # rather than a secret and are useful to see.
     hide_if_present = [
+        'http_auth',
         'password',
+        'secret',
         'token',
     ]
     if any(
@@ -724,7 +734,9 @@ def parse_plugin_args(
             command_field_id += 1
             continue
 
-        if isinstance(action, argparse._StoreTrueAction):
+        if isinstance(
+            action, (argparse._StoreTrueAction, argparse._StoreFalseAction)
+        ):
             data['Command'][command_object_name]['arguments'][long_param] = {
                 'set_if': f'${get_varname(check_name + varname_suffix, long_param)}$'
             }
@@ -756,7 +768,14 @@ def parse_plugin_args(
                 'settings': {},
             }
 
-            if action.default is not None:
+            # A boolean datafield answers "pass this switch?", so only a
+            # store_true default carries over. For store_false the plugin-side
+            # default belongs to the value the switch turns off (`--insecure`
+            # defaulting to True, turned off by `--no-insecure`); writing it
+            # here would put the switch on the command line on every run.
+            if isinstance(action, argparse._StoreTrueAction) and (
+                action.default is not None
+            ):
                 data[service_object_parent_key][service_object_name]['vars'][
                     varname
                 ] = action.default

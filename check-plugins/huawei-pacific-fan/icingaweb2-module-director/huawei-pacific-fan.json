@@ -8,14 +8,37 @@
                 "--cache-expire": {
                     "value": "$huawei_pacific_fan_cache_expire$"
                 },
+                "--ignore": {
+                    "value": "$huawei_pacific_fan_ignore$",
+                    "repeat_key": true
+                },
                 "--insecure": {
                     "set_if": "$huawei_pacific_fan_insecure$"
+                },
+                "--lengthy": {
+                    "set_if": "$huawei_pacific_fan_lengthy$"
+                },
+                "--no-insecure": {
+                    "set_if": "$huawei_pacific_fan_no_insecure$"
+                },
+                "--match": {
+                    "value": "$huawei_pacific_fan_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$huawei_pacific_fan_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$huawei_pacific_fan_no_perfdata$"
                 },
                 "--no-proxy": {
                     "set_if": "$huawei_pacific_fan_no_proxy$"
                 },
                 "--password": {
                     "value": "$huawei_pacific_fan_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_pacific_fan_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_pacific_fan_scope$"
@@ -28,6 +51,9 @@
                 },
                 "--username": {
                     "value": "$huawei_pacific_fan_username$"
+                },
+                "--verbose": {
+                    "set_if": "$huawei_pacific_fan_verbose$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-pacific-fan",
@@ -55,7 +81,7 @@
                 },
                 {
                     "datafield_id": 5,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -70,12 +96,52 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
                     "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
                     "var_filter": null
                 }
             ],
@@ -120,7 +186,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the status of all fans on a Huawei OceanStor Pacific storage system via the REST API (/hwm/fan endpoint). Alerts when any fan reports a non-normal status.",
+            "notes": "Checks the status of all fans on a Huawei OceanStor Pacific storage system via the REST API (/hwm/fan endpoint). Alerts when any fan reports a non-normal status. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-fan/",
             "object_name": "tpl-service-huawei-pacific-fan",
             "object_type": "template",
@@ -133,14 +199,53 @@
                 "criticality": "A",
                 "huawei_pacific_fan_always_ok": false,
                 "huawei_pacific_fan_cache_expire": 15,
+                "huawei_pacific_fan_ignore": [],
                 "huawei_pacific_fan_insecure": true,
+                "huawei_pacific_fan_lengthy": true,
+                "huawei_pacific_fan_match": [],
+                "huawei_pacific_fan_no_match_severity": "ok",
+                "huawei_pacific_fan_no_perfdata": false,
                 "huawei_pacific_fan_no_proxy": false,
                 "huawei_pacific_fan_scope": "0",
-                "huawei_pacific_fan_timeout": 3
+                "huawei_pacific_fan_timeout": 3,
+                "huawei_pacific_fan_verbose": false
             },
             "volatile": null,
             "zone": null,
             "uuid": "eb727b1e-4efa-4be8-9429-781b6cdded2f"
+        }
+    },
+    "DataList": {
+        "huawei_pacific_fan_no_match_severity_list": {
+            "list_name": "huawei_pacific_fan_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "595eab72-2e13-46d1-8e29-3fea84dd104a"
         }
     },
     "Datafield": {
@@ -165,6 +270,17 @@
             "uuid": "847fce4e-da13-4a50-9c0d-f7a44da1cc67"
         },
         "3": {
+            "varname": "huawei_pacific_fan_ignore",
+            "caption": "Huawei Pacific Fan: Ignore",
+            "description": "Skip fans. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `frame_sn`, `name`, `node`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a2c01e0a-a49f-47f9-9f12-f9ca48be8567"
+        },
+        "4": {
             "varname": "huawei_pacific_fan_insecure",
             "caption": "Huawei Pacific Fan: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -173,7 +289,58 @@
             "settings": {},
             "uuid": "7343db0f-57c8-494d-8a3c-3c04e648a0d4"
         },
-        "4": {
+        "5": {
+            "varname": "huawei_pacific_fan_lengthy",
+            "caption": "Huawei Pacific Fan: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "31b25705-43a0-4081-8529-604c880f42f0"
+        },
+        "6": {
+            "varname": "huawei_pacific_fan_no_insecure",
+            "caption": "Huawei Pacific Fan: No Insecure?",
+            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "80d7a159-8bba-46e9-bcef-176e0c03e6be"
+        },
+        "7": {
+            "varname": "huawei_pacific_fan_match",
+            "caption": "Huawei Pacific Fan: Match",
+            "description": "Limit to fans. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `frame_sn`, `name`, `node`, so prefix with `.*` to match anywhere.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fc81ea25-655a-445f-98ed-4396d37f3b2b"
+        },
+        "8": {
+            "varname": "huawei_pacific_fan_no_match_severity",
+            "caption": "Huawei Pacific Fan: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_pacific_fan_no_match_severity_list"
+            },
+            "uuid": "a0272fed-ac34-4e61-919f-55916f2cbed0"
+        },
+        "9": {
+            "varname": "huawei_pacific_fan_no_perfdata",
+            "caption": "Huawei Pacific Fan: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "e787c1c9-21c4-4a03-ba34-9f7a79d796f0"
+        },
+        "10": {
             "varname": "huawei_pacific_fan_no_proxy",
             "caption": "Huawei Pacific Fan: No Proxy?",
             "description": "Do not use a proxy.",
@@ -182,7 +349,7 @@
             "settings": {},
             "uuid": "0394b121-4757-4ebf-89bd-84e828954bc8"
         },
-        "5": {
+        "11": {
             "varname": "huawei_pacific_fan_password",
             "caption": "Huawei Pacific Fan: Password",
             "description": "Huawei OceanStor Pacific API password.",
@@ -193,7 +360,18 @@
             },
             "uuid": "fbc332e1-5ab7-4849-a8ae-fcaa44ea7659"
         },
-        "6": {
+        "12": {
+            "varname": "huawei_pacific_fan_password_file",
+            "caption": "Huawei Pacific Fan: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "0be08a59-756c-4c4b-954a-95183f91e1d9"
+        },
+        "13": {
             "varname": "huawei_pacific_fan_scope",
             "caption": "Huawei Pacific Fan: Scope",
             "description": "Huawei OceanStor Pacific API scope.",
@@ -204,7 +382,7 @@
             },
             "uuid": "9212cfcd-4f4b-4595-b0a8-c5550ba39507"
         },
-        "7": {
+        "14": {
             "varname": "huawei_pacific_fan_timeout",
             "caption": "Huawei Pacific Fan: Timeout",
             "description": "Network timeout in seconds.",
@@ -215,7 +393,7 @@
             },
             "uuid": "8774ef28-90c0-44ff-b5f1-d32e94b24d93"
         },
-        "8": {
+        "15": {
             "varname": "huawei_pacific_fan_url",
             "caption": "Huawei Pacific Fan: URL",
             "description": "Huawei OceanStor Pacific API URL.",
@@ -226,7 +404,7 @@
             },
             "uuid": "bcfb96f4-6c28-4587-b869-0e83ff6aeeaf"
         },
-        "9": {
+        "16": {
             "varname": "huawei_pacific_fan_username",
             "caption": "Huawei Pacific Fan: Username",
             "description": "Huawei OceanStor Pacific API username.",
@@ -236,6 +414,15 @@
                 "visibility": "visible"
             },
             "uuid": "96e47a71-3035-4849-b765-f8fd8a9a2811"
+        },
+        "17": {
+            "varname": "huawei_pacific_fan_verbose",
+            "caption": "Huawei Pacific Fan: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "acfbc49b-40c0-4ab5-8a78-c341e0f720ba"
         }
     }
 }

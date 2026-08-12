@@ -35,8 +35,9 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 ## Help
 
 ```text
-usage: restic-snapshots [-h] [-V] [-c CRIT] [--group-by GROUP_BY]
-                        [--host HOST] [--latest LATEST] [--lengthy]
+usage: restic-snapshots [-h] [-V] [--always-ok] [-c CRIT]
+                        [--group-by GROUP_BY] [--host HOST] [--latest LATEST]
+                        [--lengthy] [--no-perfdata]
                         [--password-file PASSWORD_FILE] [--path PATH]
                         --repo REPO [--tag TAG] [-w WARN]
 
@@ -48,6 +49,7 @@ detecting failed or missing backup runs. Supports extended reporting via
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the age of the newest snapshot in
                         each group, in hours. Default: None
   --group-by GROUP_BY   Comma-separated list of fields to group snapshots by.
@@ -57,6 +59,10 @@ options:
   --latest LATEST       Number of latest snapshots to show per host and path.
                         Default: 3
   --lengthy             Extended reporting.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
   --path PATH           Only consider snapshots for this path. Can be
@@ -67,6 +73,9 @@ options:
                         times.
   -w, --warning WARN    WARN threshold for the age of the newest snapshot in
                         each group, in hours. Default: 24
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-snapshots/
 ```
 
 

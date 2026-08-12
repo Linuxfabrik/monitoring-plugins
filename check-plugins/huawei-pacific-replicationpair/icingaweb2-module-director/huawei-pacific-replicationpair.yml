@@ -1,0 +1,14 @@
+variants:
+  - linux
+
+overwrites:
+  # The vendor documents a timeout period of 30 seconds for this endpoint, and a cluster
+  # with many pairs needs several paged requests, so the command has to outlast them.
+  '["Command"]["cmd-check-huawei-pacific-replicationpair"]["timeout"]': 60
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-replicationpair"]["check_interval"]': 300
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-replicationpair"]["retry_interval"]': 30
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-replicationpair"]["use_agent"]': false
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-replicationpair"]["vars"]["criticality"]': 'A'
+  # A service listing every mirroring pair alongside the one that stopped is unreadable
+  # on a cluster with dozens of them. Perfdata and alerting are unaffected.
+  '["ServiceTemplate"]["tpl-service-huawei-pacific-replicationpair"]["vars"]["huawei_pacific_replicationpair_brief"]': true

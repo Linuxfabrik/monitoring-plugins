@@ -17,11 +17,20 @@
                 "--insecure": {
                     "set_if": "$huawei_dorado_system_insecure$"
                 },
+                "--no-insecure": {
+                    "set_if": "$huawei_dorado_system_no_insecure$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$huawei_dorado_system_no_perfdata$"
+                },
                 "--no-proxy": {
                     "set_if": "$huawei_dorado_system_no_proxy$"
                 },
                 "--password": {
                     "value": "$huawei_dorado_system_password$"
+                },
+                "--password-file": {
+                    "value": "$huawei_dorado_system_password_file$"
                 },
                 "--scope": {
                     "value": "$huawei_dorado_system_scope$"
@@ -37,6 +46,9 @@
                 },
                 "--warning": {
                     "value": "$huawei_dorado_system_warning$"
+                },
+                "--verbose": {
+                    "set_if": "$huawei_dorado_system_verbose$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-dorado-system",
@@ -59,7 +71,7 @@
                 },
                 {
                     "datafield_id": 4,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -74,7 +86,7 @@
                 },
                 {
                     "datafield_id": 7,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -89,16 +101,36 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -144,7 +176,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado storage system via the REST API (/system endpoint). Reports health status, running status, storage capacity, and I/O performance metrics. Alerts when the system reports a non-normal health or running state.",
+            "notes": "Checks overall system health, capacity, and performance of a Huawei OceanStor Dorado storage system via the REST API (/system endpoint). Reports health status, running status and the capacity of the array and of its storage pools. Alerts when the system reports a non-normal health or running state, and when a capacity reaches the warning or critical threshold.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-system/",
             "object_name": "tpl-service-huawei-dorado-system",
             "object_type": "template",
@@ -157,12 +189,15 @@
                 "criticality": "A",
                 "huawei_dorado_system_always_ok": false,
                 "huawei_dorado_system_cache_expire": 15,
-                "huawei_dorado_system_critical": 95,
+                "huawei_dorado_system_critical": "95",
+                "huawei_dorado_system_device_id": "",
                 "huawei_dorado_system_insecure": true,
+                "huawei_dorado_system_no_perfdata": false,
                 "huawei_dorado_system_no_proxy": false,
-                "huawei_dorado_system_scope": 0,
+                "huawei_dorado_system_scope": "0",
                 "huawei_dorado_system_timeout": 3,
-                "huawei_dorado_system_warning": 90
+                "huawei_dorado_system_warning": "90",
+                "huawei_dorado_system_verbose": false
             },
             "volatile": null,
             "zone": null,
@@ -193,7 +228,7 @@
         "3": {
             "varname": "huawei_dorado_system_critical",
             "caption": "Huawei Dorado System: Critical",
-            "description": "CRIT threshold in percent.",
+            "description": "CRIT threshold in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -204,7 +239,7 @@
         "4": {
             "varname": "huawei_dorado_system_device_id",
             "caption": "Huawei Dorado System: Device ID",
-            "description": "Huawei OceanStor Dorado API device ID.",
+            "description": "Huawei OceanStor Dorado API device ID. Optional: the appliance reports its own at login, so this is only needed to override that answer.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -222,6 +257,24 @@
             "uuid": "0073a180-2257-45a8-8bc8-b16e36d7c031"
         },
         "6": {
+            "varname": "huawei_dorado_system_no_insecure",
+            "caption": "Huawei Dorado System: No Insecure?",
+            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b3e25f44-d68a-44bc-b13c-0452a1d06451"
+        },
+        "7": {
+            "varname": "huawei_dorado_system_no_perfdata",
+            "caption": "Huawei Dorado System: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "82b4e0fe-7c79-48bf-a766-d5162b2ca0ea"
+        },
+        "8": {
             "varname": "huawei_dorado_system_no_proxy",
             "caption": "Huawei Dorado System: No Proxy?",
             "description": "Do not use a proxy.",
@@ -230,7 +283,7 @@
             "settings": {},
             "uuid": "cabe6a3c-adda-4a07-afe7-3396e76a991a"
         },
-        "7": {
+        "9": {
             "varname": "huawei_dorado_system_password",
             "caption": "Huawei Dorado System: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -241,7 +294,18 @@
             },
             "uuid": "715273da-12c0-4e2f-b05c-3a00e0824afb"
         },
-        "8": {
+        "10": {
+            "varname": "huawei_dorado_system_password_file",
+            "caption": "Huawei Dorado System: Password File",
+            "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "8ddf1705-4f00-4307-8062-facafab0a5fc"
+        },
+        "11": {
             "varname": "huawei_dorado_system_scope",
             "caption": "Huawei Dorado System: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -252,7 +316,7 @@
             },
             "uuid": "c35debbe-af5b-4a52-b077-be09672ee0db"
         },
-        "9": {
+        "12": {
             "varname": "huawei_dorado_system_timeout",
             "caption": "Huawei Dorado System: Timeout",
             "description": "Network timeout in seconds.",
@@ -263,7 +327,7 @@
             },
             "uuid": "9d435139-e7e8-4ca5-8ce3-4970f1968f3e"
         },
-        "10": {
+        "13": {
             "varname": "huawei_dorado_system_url",
             "caption": "Huawei Dorado System: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -274,7 +338,7 @@
             },
             "uuid": "406db3d0-ec9c-4582-9f9f-16e1a81ff96b"
         },
-        "11": {
+        "14": {
             "varname": "huawei_dorado_system_username",
             "caption": "Huawei Dorado System: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -285,16 +349,25 @@
             },
             "uuid": "50ddc489-49bb-42e7-8c90-bb66971ec074"
         },
-        "12": {
+        "15": {
             "varname": "huawei_dorado_system_warning",
             "caption": "Huawei Dorado System: Warning",
-            "description": "WARN threshold in percent.",
+            "description": "WARN threshold in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "628b5fe8-a744-4084-be55-4879a5339bf4"
+        },
+        "16": {
+            "varname": "huawei_dorado_system_verbose",
+            "caption": "Huawei Dorado System: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3ddc7a80-d464-438b-ae3e-8e8cc8d27364"
         }
     }
 }

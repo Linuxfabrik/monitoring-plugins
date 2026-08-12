@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026070701'
+__version__ = '2026071201'
 
 DESCRIPTION = """Reports XFS filesystem activity from /proc/fs/xfs/stat as per-second rates: read
 and write system calls, inode cache hit ratio, inode reclaim activity, and directory operations,
@@ -33,13 +33,33 @@ volumes. This check is informational and does not raise alerts."""
 
 def parse_args():
     """Parse command line arguments using argparse."""
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
 
     parser.add_argument(
         '-V',
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -121,12 +141,16 @@ def main():
     )
     if rates is None:
         # first run, cache wiped, or counter reset (fresh mount): no delta yet
-        lib.base.oao('Waiting for more data.', STATE_OK, perfdata)
+        lib.base.oao(
+            'Waiting for more data.', STATE_OK, perfdata, no_perfdata=args.NO_PERFDATA
+        )
 
     # inode cache hit ratio over the interval (delta-based, so it reflects the
     # current workload instead of converging to a lifetime average)
     if rates['ig_attempts'] > 0:
-        inode_cache_hit_percent = round(rates['ig_found'] / rates['ig_attempts'] * 100, 1)
+        inode_cache_hit_percent = round(
+            rates['ig_found'] / rates['ig_attempts'] * 100, 1
+        )
     else:
         inode_cache_hit_percent = 100.0
 
@@ -164,7 +188,9 @@ def main():
     )
 
     # over and out
-    lib.base.oao(msg, STATE_OK, perfdata)
+    lib.base.oao(
+        msg, STATE_OK, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

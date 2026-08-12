@@ -44,7 +44,8 @@ usage: wildfly-non-xa-datasource-stats [-h] [-V] [--always-ok]
                                        [--instance INSTANCE]
                                        [--mode {standalone,domain}]
                                        [--no-match-severity {ok,warn,crit,unknown}]
-                                       [--no-proxy] [--node NODE] -p PASSWORD
+                                       [--no-perfdata] [--no-proxy]
+                                       [--node NODE] -p PASSWORD
                                        [--timeout TIMEOUT] [--url URL]
                                        --username USERNAME [--warning WARN]
 
@@ -70,6 +71,10 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
   --no-proxy            Do not use a proxy.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
@@ -80,6 +85,9 @@ options:
   --username USERNAME   WildFly management API username. Default: wildfly-
                         monitoring
   --warning WARN        WARN threshold in percent. Default: >= 80
+
+Documentation:
+https://linuxfabrik.github.io/monitoring-plugins/check-plugins/wildfly-non-xa-datasource-stats/
 ```
 
 

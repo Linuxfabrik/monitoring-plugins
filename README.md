@@ -15,7 +15,6 @@
 <div align="center" markdown>
 
 ![GitHub Stars](https://img.shields.io/github/stars/linuxfabrik/monitoring-plugins)
-[![Star History Chart](https://api.star-history.com/svg?repos=Linuxfabrik/monitoring-plugins&type=Date)](https://star-history.com/#Linuxfabrik/monitoring-plugins&Date)
 ![GitHub](https://img.shields.io/github/license/linuxfabrik/monitoring-plugins)
 ![Version](https://img.shields.io/github/v/release/linuxfabrik/monitoring-plugins?sort=semver)
 ![Python](https://img.shields.io/badge/Python-3.9+-3776ab)
@@ -156,12 +155,28 @@ A: Yes, `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy` and `https_proxy` are automati
 
 Q: **How can I remove the performance data after the `|` from the check output?**
 
-A: In Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
+A: Many plugins support `--no-perfdata`, which suppresses the performance data section while keeping the message and exit code. Alternatively, in Bash, use `/usr/lib64/nagios/plugins/check-command | cut -f1 -d'|'`
 
 
 ## Troubleshooting
 
 For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
+
+Q: **A log-reading check (`logfile`, `mysql-logfile`, `openvpn-client-list`) exits UNKNOWN with "Refusing to read ...: resolved path is outside the allowed log directory". How do I monitor a log stored elsewhere?**
+
+A: These checks run as root via sudo, so they only open files inside `/var/log` (`mysql-logfile` also allows `/var/lib/mysql`). This prevents a compromised monitoring account from turning the check into an arbitrary root file read (e.g. `--filename=/etc/shadow`). To monitor a log that lives outside `/var/log`, make it reachable *inside* `/var/log` with a bind mount, then point the check at the path under `/var/log`:
+
+```bash
+mount --bind /opt/myapp/logs /var/log/myapp
+```
+
+Persist it across reboots with an `/etc/fstab` entry:
+
+```text
+/opt/myapp/logs  /var/log/myapp  none  bind  0 0
+```
+
+Use a bind mount, not a symlink. The check resolves the path with `realpath()` before opening it, which follows symlinks: a symlink `/var/log/myapp` pointing to `/opt/myapp/logs` therefore resolves back to `/opt/myapp/logs`, lands outside `/var/log`, and is rejected. A bind mount is not a symlink, so the path stays `/var/log/myapp` and passes the check while still reading the real file. And because only root can create a bind mount, an attacker on the monitoring account cannot use one to escape the confinement.
 
 Q: **After an update, I get "Operational Error: no such column: ..., state UNKNOWN". On the next run, this disappears. What happened?**
 
