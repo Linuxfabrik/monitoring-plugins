@@ -97,6 +97,7 @@ Monitoring Plugins:
 * huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL when a temperature threshold is set
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
+* librenms-health: a temperature, humidity, voltage or power sensor past its limit alerts instead of reporting OK
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
 * mysql-replica-status: works on MySQL 8.4, and an account that may not list replicas no longer turns the check UNKNOWN
