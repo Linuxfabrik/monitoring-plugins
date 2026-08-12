@@ -260,7 +260,7 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
 * WARN if a validation run did not finish within `--timeout`. The runs that did finish keep their findings and the summary names the group that was left unchecked, so a slow group cannot hide a problem another group reported. A run that finds a failure still wins over the timeout.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, Composer is not installed at all, or its configuration file does not parse, does not start with an opening PHP tag, or ends with a closing one. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart. The two dependency findings are worth knowing about separately: LibreNMS runs that group ahead of everything else and gives up on the whole run when it fails, so what looks like a single failed validation means no other group was looked at.
+* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, Composer is not installed at all, or its configuration file does not parse or ends with a closing PHP tag. Two further cases are recognised but cannot currently occur, because LibreNMS never reports them: a configuration file without its opening PHP tag, and dependencies that are merely outdated rather than missing. See "A configuration file without its opening PHP tag is not reported" below. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart. The two dependency findings are worth knowing about separately: LibreNMS runs that group ahead of everything else and gives up on the whole run when it fails, so what looks like a single failed validation means no other group was looked at.
 * UNKNOWN if the check cannot reach a validation at all: LibreNMS refuses to run as the configured `--user`, it does not know its own installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. These say nothing about the installation and are usually a matter of `--path`, `--php-path` or `--user`.
 * UNKNOWN if a validation reports a status this check has no meaning for. The summary counts those results separately, so an UNKNOWN never appears next to a line claiming nothing was found. This is what a LibreNMS release that introduced a new status looks like; update the check.
 * OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
@@ -333,6 +333,17 @@ Nothing works on this host, not the web interface and not the poller. Run `php -
 `The LibreNMS configuration file does not start with an opening PHP tag, so its contents are served as text instead of being executed.`
 
 The first line of `config.php` has to be `<?php`. Anything before it, an empty line or a byte order mark included, ends up in the output of every page.
+
+### A configuration file without its opening PHP tag is not reported
+
+The check recognises this and the "outdated dependencies" case, but neither of them reaches it, because LibreNMS does not report them. The condition it tests the first line of `config.php` with never comes out true, and the result it builds for outdated dependencies is never handed to its validator. Both have been that way for years and are LibreNMS' to fix; until then, the two cases have to be caught elsewhere:
+
+```bash
+head -n1 /opt/librenms/config.php
+sudo --user=librenms /opt/librenms/scripts/composer_wrapper.php install --no-dev --dry-run
+```
+
+Everything else the check reports about a broken installation is unaffected. Missing dependencies, a missing Composer, a configuration file that does not parse and one that ends with a closing tag are all reported as they happen.
 
 ### The configuration file ends with a closing PHP tag
 

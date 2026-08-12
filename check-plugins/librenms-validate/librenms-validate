@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081102'
+__version__ = '2026081201'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -133,6 +133,12 @@ ABORT_HINTS = (
         'The LibreNMS installation is incomplete, its PHP dependencies are missing. '
         'Run "./scripts/composer_wrapper.php install --no-dev" as the LibreNMS user.',
     ),
+    # Unreachable with LibreNMS 26.x and every release before it: the condition guarding
+    # this message reads `! strpos($first_line, '<?php') === 0`, and PHP binds `!` tighter
+    # than `===`, so it evaluates `(!strpos(...)) === 0` and is false whatever the file
+    # starts with (measured with php 8.3). Kept because the reading below is the right one
+    # for the day LibreNMS fixes the condition, and because deleting it invites the next
+    # reader to derive it from the same source line again.
     (
         "config.php doesn't start with a <?php",
         STATE_WARN,
@@ -166,6 +172,13 @@ ABORT_HINTS = (
         'stops before it validates anything else. Install Composer, see '
         'https://getcomposer.org/.',
     ),
+    # Unreachable as well, for a different reason: the dependency validation builds this
+    # result, attaches the list of outdated packages to it and then never submits it to
+    # the validator, so it is neither printed nor counted towards the group's state. The
+    # submitting call has been missing since the check was introduced in 2018, while the
+    # "missing dependencies" case right above it has one. Kept for the same reason as the
+    # entry above: the reading is correct for the day the call is added, because a failing
+    # dependency group is what stops the whole run.
     (
         'Outdated dependencies',
         STATE_WARN,

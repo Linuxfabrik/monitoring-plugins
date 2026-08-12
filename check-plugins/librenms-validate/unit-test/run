@@ -34,7 +34,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # install-dir-not-set reproduce the aborts validate.php prints before it reaches its first
 # validation group; composer-binary-missing, dependencies-missing and
 # dependencies-outdated reproduce the three ways the dependency group aborts it, which
-# happens one step later but leaves just as much unchecked; schema-out-of-date reproduces
+# happens one step later but leaves just as much unchecked. Two of those fixtures are
+# synthesised rather than captured, because LibreNMS 26.x cannot produce them: the
+# dependency validation builds the "Outdated dependencies" result and never submits it to
+# the validator, and the condition guarding "config.php doesn't start with a <?php" is
+# always false because PHP binds `!` tighter than `===`. Both readings are the right ones
+# for the day those two are fixed upstream, which is why they are covered here.
+# schema-out-of-date reproduces
 # the one result that carries a multi-line message, a fix and a detail list at once;
 # empty-output is the run that printed nothing at all.
 
@@ -349,9 +355,10 @@ TESTS = [
         ],
         'assert-not-in': ['Checked 1 validation'],
     },
-    # Dependencies that are merely behind abort the run just as completely as missing
-    # ones, so they get the same treatment rather than being reported as the single
-    # failed validation they look like.
+    # Dependencies that are merely behind would abort the run just as completely as
+    # missing ones, so they get the same treatment rather than being reported as the
+    # single failed validation they look like. Synthesised: LibreNMS builds this result
+    # and never hands it to the validator, so no release prints it today.
     {
         'id': 'warn-dependencies-outdated-aborts-the-run',
         'test': 'stdout/dependencies-outdated,,1',
@@ -386,6 +393,8 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['php -l config.php'],
     },
+    # Synthesised: the condition guarding this message in validate.php is always false,
+    # so no release prints it today. Covered for the day that is fixed.
     {
         'id': 'warn-config-without-opening-tag',
         'test': 'stdout/config-missing-php-open-tag,,1',
