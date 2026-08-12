@@ -465,12 +465,14 @@ def main():
         msg += 'There are warnings.'
     else:
         msg += 'Everything is ok.'
+    # Said the positive way round where there is nothing wrong: "0 not running" makes the
+    # reader resolve a double negative on every glance.
+    answered = len(nodes) - len(silent_nodes)
     msg += (
         f' Checked {len(table_data)}'
         f' {lib.txt.pluralize("process", len(table_data), "es")}'
-        f' on {len(nodes) - len(silent_nodes)}'
-        f' {lib.txt.pluralize("node", len(nodes) - len(silent_nodes))},'
-        f' {len(down)} not running.'
+        f' on {answered} {lib.txt.pluralize("node", answered)},'
+        f'{f" {len(down)} not running." if down else " all running."}'
     )
     if silent_nodes:
         msg += (

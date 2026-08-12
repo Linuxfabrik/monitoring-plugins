@@ -144,7 +144,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-se
 Output:
 
 ```text
-Everything is ok. Checked 63 processes on 3 nodes, 0 not running.
+Everything is ok. Checked 63 processes on 3 nodes, all running.
 ```
 
 A process that is down, with the table reduced to what is broken:
@@ -172,7 +172,7 @@ Without `--brief` every process of every node is listed, which is two dozen rows
 Output:
 
 ```text
-Everything is ok. Checked 9 processes on 3 nodes, 0 not running.
+Everything is ok. Checked 9 processes on 3 nodes, all running.
 
 Node   ! Process ! Instances ! Status      ! State
 -------+---------+-----------+-------------+------
