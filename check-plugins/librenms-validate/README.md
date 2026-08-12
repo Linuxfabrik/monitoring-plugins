@@ -260,7 +260,7 @@ No failures found. No warnings found. Checked 16 validations in 13 groups.
 * WARN if a validation reports a warning, or reports a failure and `--fail-severity` is at its default.
 * WARN if a validation run did not finish within `--timeout`. The runs that did finish keep their findings and the summary names the group that was left unchecked, so a slow group cannot hide a problem another group reported. A run that finds a failure still wins over the timeout.
 * CRIT only if `--fail-severity=crit` is set and a validation reports a failure.
-* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, Composer is not installed at all, or its configuration file does not parse or ends with a closing PHP tag. Two further cases are recognised but cannot currently occur, because LibreNMS never reports them: a configuration file without its opening PHP tag, and dependencies that are merely outdated rather than missing. See "A configuration file without its opening PHP tag is not reported" below. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart. The two dependency findings are worth knowing about separately: LibreNMS runs that group ahead of everything else and gives up on the whole run when it fails, so what looks like a single failed validation means no other group was looked at.
+* WARN if the installation is too broken for LibreNMS to validate it: its PHP dependencies are missing, Composer is not installed at all, its configuration file does not parse or ends with a closing PHP tag, or it names an authentication mechanism that does not exist. Two further cases are recognised but cannot currently occur, because LibreNMS never reports them: a configuration file without its opening PHP tag, and dependencies that are merely outdated rather than missing. See "A configuration file without its opening PHP tag is not reported" below. Nothing was validated in that case, but the cause is something to repair on the installation, so it belongs on the list of things to fix. LibreNMS prints these aborts in the shape of an ordinary finding, so the state comes from the report rather than from the exit code, which cannot tell them apart. The two dependency findings are worth knowing about separately: LibreNMS runs that group ahead of everything else and gives up on the whole run when it fails, so what looks like a single failed validation means no other group was looked at.
 * UNKNOWN if the check cannot reach a validation at all: LibreNMS refuses to run as the configured `--user`, it does not know its own installation directory, `--path` does not hold a LibreNMS installation, or the validation produced no report. These say nothing about the installation and are usually a matter of `--path`, `--php-path` or `--user`.
 * UNKNOWN if a validation reports a status this check has no meaning for. The summary counts those results separately, so an UNKNOWN never appears next to a line claiming nothing was found. This is what a LibreNMS release that introduced a new status looks like; update the check.
 * OK if none of the groups named with `--group` was run. A group that is legitimately absent on a given host looks exactly like a typo in `--group`, so this stays quiet by default. Set `--no-match-severity=warn` or `--no-match-severity=unknown` on hosts where a missing group means the check is misconfigured.
@@ -357,6 +357,16 @@ Delete the trailing `?>` from `config.php`. A newline after it is sent to the cl
 
 The `install_dir` setting does not point at the directory the installation actually lives in, so LibreNMS cannot find its own files. Set it to the path that holds `.env`, usually `/opt/librenms`.
 
+### The authentication mechanism does not exist
+
+`The LibreNMS installation names an authentication mechanism that does not exist.`
+
+`auth_mechanism` names something LibreNMS has no authorizer for, so it gives up while it is still starting up and never reaches a validation group. Nobody can log in either. The valid values are `mysql`, `active_directory`, `ldap`, `radius`, `http-auth`, `ad-authorization`, `ldap-authorization` and `sso`; a typo in any of them produces this. Correct it in `config.php` or in `.env`, then check with:
+
+```bash
+sudo --user=librenms php /opt/librenms/lnms config:get auth_mechanism
+```
+
 ### A validation run timed out
 
 `Timed out after 30s and not checked: rrdcheck.`
@@ -376,6 +386,12 @@ Every group named with `--group` was skipped, which is reported as OK by default
 ### The check reports a finding that is known and accepted
 
 Some findings are permanent facts of a given deployment, for example a poller running without Redis, or an installation deliberately kept off the update channel. Pass `--ignore` with a pattern matching the message to drop it, for example `--ignore='Redis is unavailable'`. Ignored findings no longer appear in the output and no longer affect the state, so keep the pattern narrow enough that a genuinely new problem is not swallowed with it. `--match` works the other way round and keeps only what it names, which suits a check that is meant to watch one thing.
+
+### A `--match` or `--ignore` pattern stops matching
+
+The messages of the validation results are translated, so they follow the language the installation is set to. A pattern written against the English wording finds nothing on an installation running in another language, and the check then reports "Nothing checked. The filters dropped every validation result." or simply keeps a finding the pattern was meant to drop. Take the pattern from the output the check itself prints on that host rather than from another one.
+
+The messages the check recognises as aborts are the exception: LibreNMS writes those as literal text, so they are the same in every language.
 
 
 ## Credits, License

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026081202'
 
 DESCRIPTION = """Runs the self-validation of a LibreNMS installation and reports every check it
 performs: database schema, dependencies, poller activity, disk space, file ownership and
@@ -88,9 +88,10 @@ DEFAULT_USER = 'librenms'
 # release adds reaches the report instead of being dropped as an unparsable line. The
 # separator is optional for the same reason: the padding is measured before the escape
 # sequences are removed, so a status of six characters or more fills the twelve columns on
-# its own and its message follows without a space in between. A message that runs past the
-# line is continued indented by a single space, which the aborts before the first group
-# use; the results themselves are printed on one line however long they get.
+# its own and its message follows without a space in between. Results are never wrapped,
+# however long they get. The one line that arrives indented by a single space is a group's
+# own status, which LibreNMS appends to the group marker and which therefore stands on a
+# line of its own wherever that group printed something before it.
 RESULT_REGEX = re.compile(r'^\[([A-Za-z]+)\]\s*(.*)$')
 
 # The group marker `-s` adds in front of each group's results. The status LibreNMS appends
@@ -151,6 +152,20 @@ ABORT_HINTS = (
         STATE_UNKNOWN,
         'LibreNMS refuses to validate itself as root. Point --user at the LibreNMS '
         'system user.',
+    ),
+    # Printed as plain red text without the bracketed status the results carry, so it
+    # does not look like a finding and has to be matched as the abort it is. The
+    # authentication mechanism is resolved while LibreNMS is still starting up, well
+    # before the first validation group, and the naming of an unknown one leaves it with
+    # nothing it can do. It is also the one abort that ends with a bare `exit`, so the
+    # exit code is 0 - which changes nothing here, because the report is what decides.
+    (
+        'ERROR: no valid auth_mechanism defined!',
+        STATE_WARN,
+        'The LibreNMS installation names an authentication mechanism that does not '
+        'exist, so it stops before it validates anything else. Correct '
+        '"auth_mechanism" in its configuration; the message below the error names the '
+        'value it could not resolve.',
     ),
     (
         "'install_dir' config setting is not set correctly",
@@ -377,11 +392,15 @@ def run_validation(args, php, script, user, group):
     if group is not None:
         cmd += ['-g', group]
 
-    # TERM: a result that ships a programmatic fixer - the database schema and the
-    # storage engine of its tables are the two - makes LibreNMS ask through readline
-    # whether to apply it. Standard input is not a terminal, so readline returns right
-    # away and writes nothing, but an unknown TERM makes it complain to stderr, and that
-    # complaint would be quoted back at the admin as the reason a run produced no output.
+    # TERM: a result that ships a programmatic fixer makes LibreNMS ask through readline
+    # whether to apply it. Half a dozen of them exist, spread over the database, rrd and
+    # distributedpoller groups: the schema version and structure, the collation of its
+    # tables, their storage engine, the RRDTool version where config.php is writable,
+    # and the two results of the distributed poller check. Standard input is at end of
+    # file, because the library starts the command with a pipe it closes right away, so
+    # readline returns immediately and writes nothing. An unknown TERM would still make
+    # it complain to stderr, and that complaint would be quoted back at the admin as the
+    # reason a run produced no output.
     #
     # run_as_session: the sudo rule names the permitted command with its exact arguments,
     # and exporting the session runtime directory would put an `env` in front of it.
@@ -398,9 +417,10 @@ def run_validation(args, php, script, user, group):
         return (False, result)
     stdout, stderr, _ = result
     # The exit code is not a usable signal: it only separates "at least one failure" from
-    # everything else. It stays 0 when every finding is a warning and when no group
-    # matched at all, and it is 1 both for a run that found a failure and for one that
-    # never started. Only the parsed output tells us what happened.
+    # everything else. It stays 0 when every finding is a warning, when no group matched
+    # at all, and even for one of the aborts, which ends with a bare `exit`. It is 1 both
+    # for a run that found a failure and for most runs that never started. Only the
+    # parsed output tells us what happened.
     #
     # An empty stdout is the one case the report cannot explain, because the validation
     # never got as far as printing its header. What stopped it is on stderr, which is

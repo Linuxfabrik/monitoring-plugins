@@ -40,6 +40,10 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # the validator, and the condition guarding "config.php doesn't start with a <?php" is
 # always false because PHP binds `!` tighter than `===`. Both readings are the right ones
 # for the day those two are fixed upstream, which is why they are covered here.
+# auth-mechanism-invalid was captured, from a librenms/librenms:latest container whose
+# config.php was given `$config['auth_mechanism'] = 'bogusmech'`. It is the one abort
+# that exits 0, and the one that arrives with a result line already printed above it,
+# which is why it is fed to the check with a return code of 0 below.
 # schema-out-of-date reproduces
 # the one result that carries a multi-line message, a fix and a detail list at once;
 # empty-output is the run that printed nothing at all.
@@ -340,6 +344,26 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': ['composer_wrapper.php install --no-dev'],
+    },
+    # LibreNMS resolves its authentication mechanism while it is still starting up, so an
+    # unknown one stops it before the first validation group. It prints the error as plain
+    # red text without the bracketed status a result carries, which is why it needs an
+    # abort hint of its own: without one the run arrives as a header with a single
+    # unrelated result and gets the generic "ran no validation at all". Exit code 0 here,
+    # because that abort ends with a bare `exit` - which is exactly why the state comes
+    # from the report rather than from the exit code.
+    {
+        'id': 'warn-auth-mechanism-invalid',
+        'test': 'stdout/auth-mechanism-invalid,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['auth_mechanism'],
+        # The result printed above the error validated nothing, so it must not be
+        # reported as if the installation had been looked at.
+        'assert-not-in': [
+            'ran no validation at all',
+            'no Composer required',
+        ],
     },
     # LibreNMS runs the dependency group ahead of everything else and gives up on the
     # whole run when it fails, so every other group stays unchecked. Reported as an abort
