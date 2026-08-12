@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081103'
+__version__ = '2026081201'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -371,7 +371,8 @@ def parse_preferences(content, origin):
       follows rather than to the end of the line, so such a line opens a field whose name
       runs on until the next colon below it. The field that would have stood there is
       gone, which is how an `Explanation` line that lost its colon costs its stanza the
-      `Pin` underneath - or the `Package`, and with it the whole file.
+      `Pin` underneath - or the `Package`, and with it the whole file. Where no colon
+      follows at all, because the line is the last one, APT refuses the file outright.
     """
     entries = []
     fields = {}
@@ -443,10 +444,13 @@ def parse_preferences(content, origin):
         key = key.strip().lower()
         fields[key] = value.strip()
     if swallowing:
-        # The file ended while a field name was still looking for its colon, so APT
-        # never finished the stanza and never applied it. Not an error to it: it stops
-        # reading there and keeps what the stanzas before delivered.
-        return entries, ''
+        # The file ended while a field name was still looking for its colon. APT does not
+        # quietly stop there: it keeps enlarging its read buffer looking for the colon
+        # until it gives up, and then refuses the whole file ("Unable to parse package
+        # file <name> (1)"), which fails every command that works out package priorities.
+        # Verified against apt 2.6.1 on Debian 12, with and without a trailing newline,
+        # for `/etc/apt/preferences` as well as for a file in `preferences.d`.
+        return entries, 'a field name at the end of the file is never closed by a colon'
     verdict = flush()
     if verdict not in ('pin', 'skip'):
         return entries, verdict

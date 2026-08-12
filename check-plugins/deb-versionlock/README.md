@@ -27,7 +27,7 @@ APT's own rules decide what counts as a pin in force, so the check follows them 
 * A stanza with no `Package` header, with a missing, zero or out-of-range `Pin-Priority`, or with `Pin-Priority: never` on a named package, is one APT refuses. It applies the stanzas before it, abandons the file there, and fails. The check reports it the same way.
 * A `Pin-Priority` carrying trailing characters, such as `1001abc`, is a priority of 1001 to APT, not a typo it rejects.
 * A line starting with whitespace continues the field above it, so a `Package` header may span several lines. Only a truly empty line separates two stanzas: one carrying a space or a tab merges the stanzas around it into a single one, in which a field that now appears twice keeps its last value.
-* A line without a colon takes the next field with it. APT looks for the colon that ends a field name in everything that follows rather than to the end of the line, so an `Explanation` line that lost its colon runs on into the `Pin` below it and that stanza pins nothing. One line higher up the same mistake costs the stanza its `Package` header, and that is a file APT refuses.
+* A line without a colon takes the next field with it. APT looks for the colon that ends a field name in everything that follows rather than to the end of the line, so an `Explanation` line that lost its colon runs on into the `Pin` below it and that stanza pins nothing. One line higher up the same mistake costs the stanza its `Package` header, and that is a file APT refuses. So is a file whose last line lost its colon, because the field name it opens never finds one at all.
 
 Neither command needs root, and neither touches the network or refreshes the package cache.
 
@@ -203,9 +203,19 @@ apt-get -s upgrade
 E: No priority (or zero) specified for pin
 ```
 
-The usual causes are a stanza whose `Pin-Priority` is missing or zero, one whose priority does not fit into the range -32768 to 32767, a stanza with no `Package` header, and `Pin-Priority: never` on a stanza that names a package instead of `Package: *`.
+The usual causes are a stanza whose `Pin-Priority` is missing or zero, one whose priority does not fit into the range -32768 to 32767, a stanza with no `Package` header, `Pin-Priority: never` on a stanza that names a package instead of `Package: *`, and a last line that lost its colon.
 
 A missing `Package` header is worth a second look, because it is rarely missing on purpose. A line above it that lost its colon, `Explanation hold nginx` instead of `Explanation: hold nginx`, runs on into the `Package` line and takes it with it, which leaves the stanza without the header it plainly has.
+
+The same mistake on the last line of the file reads differently, because the field name it opens never finds a colon anywhere below it. APT reports that one as `Unable to parse package file /etc/apt/preferences (1)`. Note that `apt-cache policy` without a package name does not work out any priorities and therefore stays silent about it, which makes the file look healthy:
+
+```bash
+apt-get -s upgrade
+```
+
+```text
+E: Unable to parse package file /etc/apt/preferences (1)
+```
 
 ### A pin is in place but not reported
 

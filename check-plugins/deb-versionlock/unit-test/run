@@ -314,6 +314,20 @@ TESTS = [
         ],
         'assert-not-in': ['nginx', 'after-the-error-package'],
     },
+    # The same rule again, this time with nothing below the broken line: the field name it
+    # opens never finds its colon. APT refuses the file for that alone, so the stanzas it
+    # did read stay reported while the refusal is named alongside them.
+    {
+        'id': 'warn-preferences-no-colon-at-eof',
+        'test': 'stdout/no-holds,,0',
+        'params': '--config-root=config/no-colon-at-eof --check-pinning',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'APT refuses 1 preferences file',
+            'a field name at the end of the file is never closed by a colon',
+            'valid-package',
+        ],
+    },
     # Only a truly empty line separates two stanzas. A line carrying a single space
     # continues the value above it, so APT merges the two stanzas into one record and
     # keeps the last value of every field it then holds twice.
