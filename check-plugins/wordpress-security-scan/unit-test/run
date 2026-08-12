@@ -400,6 +400,21 @@ TESTS = [
             '--wpscan-ignore-main-redirect',
         ],
     },
+    # A locally held vulnerability database whose dumps were never downloaded. The scanner
+    # tells the admin to run without `--no-update`, which this check passes on every scan
+    # of its own accord, so the advice is only actionable through the parameter that
+    # governs the separate refresh. It has to arrive rewritten to that name.
+    {
+        'id': 'unknown-enterprise-database-dumps-missing',
+        'test': 'stdout/enterprise-db-missing,,4',
+        'params': NO_PATH_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Output from wpscan: ',
+            'Run without --wpscan-no-update',
+        ],
+        'assert-not-in': ['Run without --no-update'],
+    },
     {
         'id': 'unknown-malformed-json',
         'test': 'stdout/malformed-json,,0',
