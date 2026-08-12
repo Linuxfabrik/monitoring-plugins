@@ -41,6 +41,7 @@ Monitoring Plugins:
 * huawei-pacific-node: check alerting on a faulty cluster node and on an expired warranty
 * huawei-pacific-power: check alerting on a faulty power supply
 * huawei-pacific-quota: check alerting when a share fills up its quota
+* huawei-pacific-replicationpair: check alerting when a remote replication pair stops mirroring, and optionally when its last synchronization gets too old
 * huawei-pacific-service: check alerting when a service process on a cluster node is not running
 * huawei-pacific-storagepool: check alerting on a faulty storage pool, and on one filling up
 * huawei-pacific-system: check alerting on cluster capacity usage
