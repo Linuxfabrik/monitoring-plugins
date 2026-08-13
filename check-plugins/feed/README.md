@@ -112,7 +112,7 @@ Heise Security Feed (German):
 * Warn for 4 hours (240 minutes)
 * Usage: `./feed`
 
-Icinga2 Releases Feed on GitHub:
+Icinga 2 Releases Feed on GitHub:
 
 * Feed: <https://github.com/Icinga/icinga2/releases.atom>
 * Run once or twice a day

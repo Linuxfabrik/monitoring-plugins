@@ -234,7 +234,7 @@ The shipped base templates `tpl-host-generic` and `tpl-service-generic` pin `"zo
 * Be brief by default. Report what needs to be reported to fix a problem. If there is more information that might help the admin, support a `--lengthy` parameter. If the default output still grows unbounded on large systems (thousands of disk mounts, DHCP scopes, backends, services), also support a `--brief` parameter that hides rows within the thresholds. See "Verbosity parameter convention" below.
 * The plugin should be "self configuring" and/or using best practise defaults, so that it runs without parameters wherever possible.
 * Develop with a minimal Linux in mind.
-* Develop with Icinga2 in mind.
+* Develop with Icinga 2 in mind.
 * Avoid complicated or fancy (and therefore unreadable) Python statements.
 * If possible avoid libraries that have to be installed.
 * Validate user input.
@@ -1235,7 +1235,7 @@ The `build-basket` tool also offers to generate so-called `variants` of the chec
 * `linux`: This is the default, and will be used if no other variant is defined. It generates a `cmd-check-...`, `tpl-service-...` and the associated datafields.
 * `windows`: Generates a `cmd-check-...-windows`, `cmd-check-...-windows-python`, `tpl-service-...-windows` and the associated datafields.
 * `sudo`: Generates a `cmd-check-...-sudo` importing the `cmd-check-...`, but with `/usr/bin/sudo` prepended to the command, and a `tpl-service...-sudo` importing the `tpl-service...`, but with the `cmd-check-...-sudo` as the check command.
-* `no-agent`: Generates a `tpl-service...-no-agent` importing the `tpl-service...`, but with command endpoint set to the Icinga2 master.
+* `no-agent`: Generates a `tpl-service...-no-agent` importing the `tpl-service...`, but with command endpoint set to the Icinga 2 master.
 
 Specify them in the `check-plugins/new-check/icingaweb2-module-director/new-check.yml` configuration as follows:
 

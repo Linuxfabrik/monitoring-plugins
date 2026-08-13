@@ -27,10 +27,10 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2025100601'
+__version__ = '2026081301'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
-configurable lookback interval. Queries the IcingaDB event history and alerts when
+configurable lookback interval. Queries the Icinga DB event history and alerts when
 any service exceeds the configured number of state changes."""
 
 DEFAULT_CRIT = 19
@@ -103,13 +103,13 @@ def parse_args():
 
     parser.add_argument(
         '--password',
-        help='IcingaWeb password. Takes precedence over the value in `--pwfile`.',
+        help='Icinga Web 2 password. Takes precedence over the value in `--pwfile`.',
         dest='PASSWORD',
     )
 
     parser.add_argument(
         '--pwfile',
-        help='Path to a password file containing "url", "user" and "password" for IcingaWeb. '
+        help='Path to a password file containing "url", "user" and "password" for Icinga Web 2. '
         'Example: `--pwfile /var/spool/icinga2/.icingaweb`. '
         'Default: %(default)s',
         dest='PWFILE',
@@ -126,7 +126,7 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='IcingaDB event history URL including filter parameters. '
+        help='Icinga DB event history URL including filter parameters. '
         'Takes precedence over the value in `--pwfile`. '
         'Example: `--url https://icinga/icingaweb2/icingadb/history?limit=250`.',
         dest='URL',
@@ -134,7 +134,7 @@ def parse_args():
 
     parser.add_argument(
         '--username',
-        help='IcingaWeb username. Takes precedence over the value in `--pwfile`.',
+        help='Icinga Web 2 username. Takes precedence over the value in `--pwfile`.',
         dest='USERNAME',
     )
 
@@ -183,7 +183,7 @@ def main():
     if not (have_creds or have_pwfile):
         lib.base.cu(
             'The three parameters `--url`, `--username` and `--password` are required. '
-            'Alternatively, you can provide a password file for IcingaWeb to read '
+            'Alternatively, you can provide a password file for Icinga Web 2 to read '
             'the "url", "user" or "password" from, using `--pwfile`.'
         )
 

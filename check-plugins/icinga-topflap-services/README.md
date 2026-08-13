@@ -3,12 +3,12 @@
 
 ## Overview
 
-Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the IcingaDB event history and alerts when any service exceeds the configured number of state changes.
+Detects fast-flapping Icinga services by counting state changes per service within a configurable lookback interval. Queries the Icinga DB event history and alerts when any service exceeds the configured number of state changes.
 
 **Important Notes:**
 
-* Requires IcingaDB with the IcingaWeb2 module
-* The IcingaWeb2 user needs at least the "icingadb > General Module Access" permission
+* Requires Icinga DB with the Icinga Web 2 module
+* The Icinga Web 2 user needs at least the "icingadb > General Module Access" permission
 * Instead of specifying URL, username and password on the command line, you can create and specify an INI file:
 
     ```text
@@ -20,7 +20,7 @@ Detects fast-flapping Icinga services by counting state changes per service with
 
 **Data Collection:**
 
-* Fetches data from the IcingaDB event history via the IcingaWeb2 REST API using HTTP Basic authentication
+* Fetches data from the Icinga DB event history via the Icinga Web 2 REST API using HTTP Basic authentication
 * Groups events by host and service, then counts state changes per service within the lookback window
 * Uses a temporary SQLite database to store and aggregate event data per check run (dropped and recreated each run)
 * Credentials can be provided via command-line parameters or a password INI file (command-line takes precedence)
@@ -36,7 +36,7 @@ Detects fast-flapping Icinga services by counting state changes per service with
 | Can be called without parameters      | Yes (if `--pwfile` exists at the default path) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Requirements                          | IcingaDB, read access to `/icingaweb2/icingadb/history` |
+| Requirements                          | Icinga DB, read access to `/icingaweb2/icingadb/history` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db` |
 
 
@@ -50,7 +50,7 @@ usage: icinga-topflap-services [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                                [--username USERNAME] [-w WARN]
 
 Detects fast-flapping Icinga services by counting state changes per service
-within a configurable lookback interval. Queries the IcingaDB event history
+within a configurable lookback interval. Queries the Icinga DB event history
 and alerts when any service exceeds the configured number of state changes.
 
 options:
@@ -64,19 +64,19 @@ options:
   --lookback LOOKBACK  Time window in seconds to consider for state change
                        counting. Default: 14400
   --no-proxy           Do not use a proxy.
-  --password PASSWORD  IcingaWeb password. Takes precedence over the value in
-                       `--pwfile`.
+  --password PASSWORD  Icinga Web 2 password. Takes precedence over the value
+                       in `--pwfile`.
   --pwfile PWFILE      Path to a password file containing "url", "user" and
-                       "password" for IcingaWeb. Example: `--pwfile
+                       "password" for Icinga Web 2. Example: `--pwfile
                        /var/spool/icinga2/.icingaweb`. Default:
                        /var/spool/icinga2/.icingaweb
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            IcingaDB event history URL including filter parameters.
-                       Takes precedence over the value in `--pwfile`. Example:
-                       `--url
+  --url URL            Icinga DB event history URL including filter
+                       parameters. Takes precedence over the value in
+                       `--pwfile`. Example: `--url
                        https://icinga/icingaweb2/icingadb/history?limit=250`.
-  --username USERNAME  IcingaWeb username. Takes precedence over the value in
-                       `--pwfile`.
+  --username USERNAME  Icinga Web 2 username. Takes precedence over the value
+                       in `--pwfile`.
   -w, --warning WARN   WARN threshold for the number of state changes per
                        service within the lookback period. Supports Nagios
                        ranges. Default: 7

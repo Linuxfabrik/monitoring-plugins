@@ -15,7 +15,7 @@ The check is meant as a trip-wire only: it surfaces the findings, not the full p
 * Counters are cumulative since the last server start. Restarting the server resets them, so a freshly booted host may take a few hours before unused-index numbers settle (the query pattern needs time to exercise all indexes)
 * System schemas (`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded, matching the WHERE clause used by mysqltuner
 * Index housekeeping is never a wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK), never CRIT
-* Output ships a ready-to-paste `ALTER TABLE ... DROP INDEX` statement per finding. `--lengthy` shows the full statement; the default truncates after 80 characters so the table stays readable in IcingaWeb
+* Output ships a ready-to-paste `ALTER TABLE ... DROP INDEX` statement per finding. `--lengthy` shows the full statement; the default truncates after 80 characters so the table stays readable in Icinga Web 2
 * Redundant indexes are safe to drop because the dominant index already covers every query the redundant one served. Unused indexes need verification first: "unused since last server start" can miss weekly or monthly jobs, recently restarted servers, and indexes that back foreign-key constraints. Wait at least one full business cycle before dropping
 
 **Data Collection:**
