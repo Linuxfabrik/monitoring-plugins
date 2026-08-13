@@ -11,8 +11,8 @@ Checks the health of Docker Swarm services: how many of the expected tasks (cont
 * The expected task count defaults to the service's own desired replica count. Pin it per service with `--service=name=count` to keep alerting against the count a service is supposed to run, even after someone scaled it down. This is what makes a service scaled from 2 to 1 alert instead of looking healthy at "1/1"
 * The state is derived from the percentage of expected tasks that are running: full is OK, and by default the check warns below 100% and crits below 50%. Adjust with `--warning` / `--critical` (Nagios ranges on the percentage)
 * Task health is represented by the running count. Swarm reschedules a task that fails its health check, so a task that stays running is the cluster's own health signal, the same one `docker service ls` shows in its `REPLICAS` column
-* `--check-distribution` additionally warns when more tasks of a service sit on one node than an even spread (`ceil(expected / number of nodes)`) would place there. All nodes count towards the spread, including a drained one, so both replicas landing on a single node because the other node was drained is still surfaced
-* To alert when a specific service disappears entirely, pin it with `--service=name=count` and it will report 0 running tasks (CRIT). For the default all-services mode, a removed service simply drops out of the list; use `--no-match-severity` to alert when the list becomes empty
+* `--check-distribution` additionally warns when more tasks of a service sit on one node than an even spread (`ceil(expected / number of nodes)`) would place there. All nodes count towards the spread, including a drained one, so both replicas landing on a single node because the other node was drained is still surfaced. Only replicated services are examined: a global service runs one task per node by definition, and a job runs until its work is done
+* To alert when a specific service disappears entirely, name it with `--service`. A named service the swarm does not know is CRIT, with or without a pinned count. In the default all-services mode a removed service simply drops out of the list; use `--no-match-severity` to alert when the list becomes empty
 * For the node and cluster health of the swarm itself (node down, manager quorum), use the docker-swarm check. For plain (non-swarm) container health, use docker-container
 
 **Data Collection:**
@@ -141,7 +141,8 @@ web     ! 2/2              ! [OK]
 * OK if every checked service runs the expected number of tasks (and, with `--check-distribution`, is evenly spread).
 * WARN if a service runs fewer than the expected tasks but stays at or above the critical percentage (default: below 100%).
 * WARN if `--check-distribution` finds a service with more tasks on one node than an even spread allows.
-* CRIT if a service runs fewer than the critical percentage of its expected tasks (default: below 50%), including a service pinned with `--service` that is scaled to zero or removed.
+* CRIT if a service runs fewer than the critical percentage of its expected tasks (default: below 50%), including a service pinned with `--service` that is scaled to zero.
+* CRIT if a service named with `--service` does not exist in this swarm.
 * UNKNOWN if the node is not a swarm manager (services cannot be listed there).
 * `--no-match-severity` sets the state when no service is checked (default: OK).
 * `--always-ok` suppresses all alerts and always returns OK.

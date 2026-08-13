@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import pwd
+import re
 import sys
 
 import lib.args
@@ -25,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081301'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -35,6 +36,7 @@ Uses a local SQLite database for CPU trend tracking across runs. For Docker, use
 docker-stats check instead.
 Requires root or sudo."""
 
+DB_FILENAME = 'linuxfabrik-monitoring-plugins-podman-stats.db'
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute period
 )
@@ -248,19 +250,6 @@ def main():
         lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
 
-    # create the db tables
-    definition = """
-                container TEXT NOT NULL,
-                cpu_usage REAL NOT NULL
-        """
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-podman-stats.db'
-        ),
-    )
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu'))
-    lib.db_sqlite.create_index(conn, 'container', table='cpu')
-
     # fetch data
     if args.TEST is None:
         # get the number of host CPUs
@@ -271,7 +260,6 @@ def main():
             ),
         )
         if retc != 0:
-            lib.db_sqlite.close(conn)
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         try:
             podman_info = json.loads(stdout)
@@ -279,7 +267,6 @@ def main():
             host_images = podman_info['store']['imageStore']['number']
             host_ram = podman_info['host']['memTotal']
         except Exception:
-            lib.db_sqlite.close(conn)
             lib.base.cu('Unable to parse podman info output as JSON.')
 
         # get the container statistics for all running containers
@@ -290,7 +277,6 @@ def main():
             ),
         )
         if retc != 0:
-            lib.db_sqlite.close(conn)
             lib.base.oao(stderr, STATE_CRIT)
     else:
         # do not call the command, put in test data
@@ -332,28 +318,73 @@ def main():
         and keep_container(c.get('Name', ''), match_patterns, ignore_patterns)
     ]
 
+    # Podman reports the CPU percentage of a container as its average since the
+    # container started: a single `podman stats --no-stream` has no earlier sample to
+    # compare against and falls back to the start time. That average converges and says
+    # nothing about the load right now, so the rate is derived from the cumulative CPU
+    # time the same output carries (#320). Until a second run has something to compare
+    # against, a container is listed without a CPU reading.
+    # This happens before the trend database below is opened: the helper writes to the
+    # same file through a connection of its own, and would be locked out by a write
+    # this check has not committed yet.
+    cpu_usage_by_name = {}
+    for container in containers:
+        name = container.get('Name', '')
+        if not args.FULL_NAME:
+            name = shorten(name)
+        if args.TEST is None:
+            rates = lib.db_sqlite.per_second_deltas(
+                DB_FILENAME,
+                f'cpu-{name}',
+                {'cpu_nano': int(container.get('CPUNano', 0) or 0)},
+            )
+            # nanoseconds of CPU per second of wall time make up the share of a single
+            # core; divide by the cores of the host to get its share of the whole host
+            cpu_usage_by_name[name] = (
+                None if rates is None else round(rates['cpu_nano'] / 1e7 / host_cpus, 1)
+            )
+        else:
+            # in test mode the fixture is the only sample there is, so its own
+            # percentage stands in for the rate two samples would produce
+            cpu_usage_by_name[name] = round(
+                float(container.get('CPU', 0)) / host_cpus, 1
+            )
+
+    # create the db table holding the CPU trend the --count evaluation reads
+    definition = """
+                container TEXT NOT NULL,
+                cpu_usage REAL NOT NULL
+        """
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(filename=DB_FILENAME),
+    )
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu'))
+    lib.db_sqlite.create_index(conn, 'container', table='cpu')
+
     # analyze data
     for container in containers:
         name = container.get('Name', '')
         if not args.FULL_NAME:
             name = shorten(name)
+        # a container name may carry characters that have no place in a metric name
+        label = re.sub(r'\W+', '_', name)
 
-        # divide by number of cores (got by podman info)
-        cpu_usage = round(float(container.get('CPU', 0)) / host_cpus, 1)
+        cpu_usage = cpu_usage_by_name.get(name)
         mem_usage = round(float(container.get('MemPerc', 0)), 1)
 
         # per-container perfdata for long-term trending of individual workloads
+        if cpu_usage is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_cpu_usage',
+                cpu_usage,
+                uom='%',
+                warn=args.WARN_CPU,
+                crit=args.CRIT_CPU,
+                _min=0,
+                _max=100,
+            )
         perfdata += lib.base.get_perfdata(
-            f'{name}_cpu_usage',
-            cpu_usage,
-            uom='%',
-            warn=args.WARN_CPU,
-            crit=args.CRIT_CPU,
-            _min=0,
-            _max=100,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{name}_mem_usage',
+            f'{label}_mem_usage',
             mem_usage,
             uom='%',
             warn=args.WARN_MEM,
@@ -370,29 +401,29 @@ def main():
             total_net_rx += int(iface.get('RxBytes', 0))
             total_net_tx += int(iface.get('TxBytes', 0))
 
-        # save trend data to local sqlite database, limited to "count" rows max.
-        lib.base.coe(
-            lib.db_sqlite.insert(
-                conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
-            ),
-        )
-        lib.base.coe(
-            lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
-        )
+        cpu_state = STATE_OK
+        if cpu_usage is not None:
+            # save trend data to local sqlite database, limited to "count" rows max.
+            lib.base.coe(
+                lib.db_sqlite.insert(
+                    conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
+                ),
+            )
+            lib.base.coe(
+                lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
+            )
 
-        # alert when container cpu_usage is exceeded
-        # my container state is not ok, if in every of my historic rows the cpu value
-        # is above the threshold
-        if get_cpu_from_db(conn, name, args.CRIT_CPU) == args.COUNT:
-            cpu_state = STATE_CRIT
-        elif get_cpu_from_db(conn, name, args.WARN_CPU) == args.COUNT:
-            cpu_state = STATE_WARN
-        else:
-            cpu_state = STATE_OK
-        if cpu_state != STATE_OK:
-            # build the message
-            msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
-        state = lib.base.get_worst(cpu_state, state)
+            # alert when container cpu_usage is exceeded
+            # my container state is not ok, if in every of my historic rows the cpu
+            # value is above the threshold
+            if get_cpu_from_db(conn, name, args.CRIT_CPU) >= args.COUNT:
+                cpu_state = STATE_CRIT
+            elif get_cpu_from_db(conn, name, args.WARN_CPU) >= args.COUNT:
+                cpu_state = STATE_WARN
+            if cpu_state != STATE_OK:
+                # build the message
+                msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
+            state = lib.base.get_worst(cpu_state, state)
 
         # alert when container mem_usage is exceeded
         mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
@@ -403,7 +434,9 @@ def main():
         table_values.append(
             {
                 'name': name,
-                'cpu_usage': f'{cpu_usage}{lib.base.state2str(cpu_state, prefix=" ")}',
+                'cpu_usage': '-'
+                if cpu_usage is None
+                else f'{cpu_usage}{lib.base.state2str(cpu_state, prefix=" ")}',
                 'mem_usage': f'{mem_usage}{lib.base.state2str(mem_state, prefix=" ")}',
             }
         )

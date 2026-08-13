@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import re
 import sys
 
 import lib.args
@@ -23,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081301'
 
 DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active, pending,
@@ -45,6 +46,20 @@ LOCAL_NODE_STATE = {
     'inactive': STATE_CRIT,
     'locked': STATE_CRIT,
     'error': STATE_CRIT,
+}
+
+# Maps the state a manager reports for a cluster node to a monitoring state.
+# `Down` is the only verdict the cluster stands behind: a manager that takes
+# leadership first moves every node it has not heard from to `Unknown`, and a
+# node looking for a new manager reports `Disconnected`. Both are resolved by the
+# cluster itself within roughly half a minute (the swarm turns them into `Down`
+# once the node misses its heartbeats), so alerting on them would raise an alarm
+# every time the docker daemon on a manager restarts.
+NODE_STATUS = {
+    'Ready': STATE_OK,
+    'Unknown': STATE_OK,
+    'Disconnected': STATE_OK,
+    'Down': STATE_WARN,
 }
 
 
@@ -99,19 +114,23 @@ def parse_args():
 
 
 def load_fixture(test_args, suffix):
-    """Read a unit-test fixture for one of the plugin's data sources. The base path
-    is `args.TEST[0]`; `suffix` selects the source (`-info`, `-nodes`), so a single
-    `--test` value drives both the `docker info` and the `docker node ls` fixtures.
-    Returns the raw stdout string, or None if the fixture does not exist (used to
-    simulate a worker node that has no `docker node ls` output).
+    """Read the unit-test fixtures for one of the plugin's data sources and return
+    `(stdout, stderr)`. The base paths are `args.TEST[0]` and `args.TEST[1]`; `suffix`
+    selects the source (`-info`, `-nodes`), so a single `--test` value drives both the
+    `docker info` and the `docker node ls` fixtures, each with its own error output.
+    A missing stdout fixture comes back as None, which stands in for a source the plugin
+    never called (a worker node has no `docker node ls` output).
     """
+    stdout = None
     path = f'{test_args[0]}{suffix}'
-    if not lib.disk.file_exists(path, allow_empty=True):
-        return None
-    local_args = list(test_args)
-    local_args[0] = path
-    stdout, _, _ = lib.lftest.test(local_args)
-    return stdout
+    if lib.disk.file_exists(path, allow_empty=True):
+        local_args = [path]
+        stdout, _, _ = lib.lftest.test(local_args)
+    stderr = ''
+    path = f'{test_args[1]}{suffix}' if len(test_args) > 1 and test_args[1] else ''
+    if path and lib.disk.file_exists(path, allow_empty=True):
+        _, stderr, _ = lib.lftest.test(['', path])
+    return (stdout, stderr)
 
 
 def get_swarm_info(test_args):
@@ -131,7 +150,7 @@ def get_swarm_info(test_args):
         if retc != 0:
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
     else:
-        stdout = load_fixture(test_args, '-info') or ''
+        stdout = load_fixture(test_args, '-info')[0] or ''
     try:
         info = json.loads(stdout)
     except (json.JSONDecodeError, ValueError):
@@ -147,20 +166,42 @@ def get_swarm_info(test_args):
     return swarm
 
 
+def strip_daemon_error(message):
+    """Reduce a Docker daemon error to the sentence an admin can act on. The CLI wraps
+    every daemon answer in "Error response from daemon:" and the swarm control plane adds
+    a gRPC status of its own, so the readable part sits behind two prefixes:
+    `Error response from daemon: rpc error: code = Unknown desc = The swarm does not have
+    a leader. ...`
+    """
+    message = ' '.join(message.split())
+    message = message.replace('Error response from daemon: ', '', 1)
+    return re.sub(r'^rpc error: code = \S+ desc = ', '', message)
+
+
 def get_nodes(test_args):
-    """Return the list of swarm nodes as reported by `docker node ls`. This only works
-    on a manager node, so the caller must ensure the local node is a manager before
-    calling. The CLI emits one JSON object per line (not a JSON array); each object
+    """Return `(nodes, error)` for the swarm nodes as reported by `docker node ls`. This
+    only works on a manager node, so the caller must ensure the local node is a manager
+    before calling. The CLI emits one JSON object per line (not a JSON array); each object
     carries the human-formatted fields Hostname, Status, Availability and ManagerStatus.
+
+    A manager that cannot reach the control plane answers with an error instead of a node
+    list, which is what a lost raft quorum looks like from the outside: `docker info` still
+    reports the node as an active manager, and only this call names the cause. The error is
+    handed back to the caller rather than ending the check here, so the missing quorum is
+    graded as the outage it is instead of as a failed command.
     """
     if test_args is None:
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
         )
         if retc != 0:
-            lib.base.oao(f'{stderr}\n{stdout}', STATE_WARN)
+            return ([], strip_daemon_error(stderr or stdout))
     else:
-        stdout = load_fixture(test_args, '-nodes') or ''
+        stdout, stderr = load_fixture(test_args, '-nodes')
+        if stderr:
+            return ([], strip_daemon_error(stderr))
+        if stdout is None:
+            return ([], '')
     nodes = []
     for line in stdout.splitlines():
         line = line.strip()
@@ -170,7 +211,7 @@ def get_nodes(test_args):
             nodes.append(json.loads(line))
         except (json.JSONDecodeError, ValueError):
             lib.base.cu('Unable to parse the docker node ls output.')
-    return nodes
+    return (nodes, '')
 
 
 def main():
@@ -191,12 +232,14 @@ def main():
         )
     local_state = swarm.get('LocalNodeState', '')
     is_manager = bool(swarm.get('ControlAvailable', False))
+    swarm_error = strip_daemon_error(swarm.get('Error', '') or '')
 
     # node- and manager-level data is only available on a manager whose local
     # swarm state is active; a worker only knows about itself
     nodes = []
+    node_error = ''
     if is_manager and local_state == 'active':
-        nodes = get_nodes(args.TEST)
+        nodes, node_error = get_nodes(args.TEST)
 
     # init some vars
     msg = ''
@@ -204,15 +247,29 @@ def main():
     perfdata = ''
     table_data = []
     nodes_total = len(nodes)
-    nodes_ready = nodes_down = 0
+    nodes_ready = nodes_down = nodes_pending = 0
     managers_total = managers_reachable = 0
 
-    # analyze data - local swarm state of this node
+    # analyze data - local swarm state of this node. The daemon puts the reason
+    # behind an unhealthy state into the Swarm object, so pass it on: "locked"
+    # alone does not tell the admin that the unlock key is missing.
     state = LOCAL_NODE_STATE.get(local_state, STATE_CRIT)
     if state != STATE_OK:
+        reason = f': {swarm_error}' if swarm_error else ''
         msg_header += (
-            f'local node state is "{local_state}"'
+            f'local node state is "{local_state}"{reason}'
             f'{lib.base.state2str(state, prefix=" ")}, '
+        )
+
+    # analyze data - a manager that cannot list the cluster has lost touch with the
+    # control plane. That is what a lost raft quorum looks like from here: the local
+    # node still reports itself as an active manager, while every write to the cluster
+    # is refused. Critical, because the swarm cannot reschedule anything in that state.
+    if node_error:
+        state = lib.base.get_worst(state, STATE_CRIT)
+        msg_header += (
+            f'this manager cannot reach the swarm control plane: {node_error}'
+            f'{lib.base.state2str(STATE_CRIT, prefix=" ")}, '
         )
 
     # analyze data - cluster nodes and manager quorum (manager only)
@@ -221,13 +278,16 @@ def main():
         availability = node.get('Availability', '')
         manager_status = node.get('ManagerStatus', '')
 
+        node_state = NODE_STATUS.get(node_status, STATE_WARN)
         if node_status == 'Ready':
             nodes_ready += 1
+        elif node_state == STATE_OK:
+            # the cluster has not made up its mind about this node yet
+            nodes_pending += 1
         else:
             nodes_down += 1
             # a down node costs the cluster redundancy but is not a full
             # outage on its own, so it only warns
-            node_state = STATE_WARN
             state = lib.base.get_worst(state, node_state)
             msg_header += (
                 f'node {node.get("Hostname", "?")} is {node_status or "down"}'
@@ -248,10 +308,8 @@ def main():
                     'status': node_status or '-',
                     'availability': availability or '-',
                     'manager': manager_status or '-',
-                    'state': lib.base.state2str(
-                        STATE_OK if node_status == 'Ready' else STATE_WARN,
-                        empty_ok=False,
-                    ),
+                    'engine': node.get('EngineVersion', '') or '-',
+                    'state': lib.base.state2str(node_state, empty_ok=False),
                 }
             )
 
@@ -264,24 +322,35 @@ def main():
             f'{lib.base.state2str(STATE_CRIT, prefix=" ")}, '
         )
 
-    # build the message
+    # build the message. Node and manager counts are only stated when the cluster
+    # answered; a manager cut off from the control plane knows nothing about the
+    # other nodes, and "0/0 nodes ready" would read like an empty cluster.
+    has_inventory = is_manager and local_state == 'active' and not node_error
     if msg_header:
         msg += msg_header[:-2]
     else:
         msg += 'Swarm is active'
-    if is_manager and local_state == 'active':
+    if has_inventory:
+        pending = f' ({nodes_pending} not reporting yet)' if nodes_pending else ''
         msg += (
-            f'. {nodes_ready}/{nodes_total} nodes ready'
+            f'. {nodes_ready}/{nodes_total} nodes ready{pending}'
             f', {managers_reachable}/{managers_total} '
             f'{lib.txt.pluralize("manager", managers_total)} reachable'
         )
-    elif local_state == 'active':
+    elif local_state == 'active' and not is_manager:
         msg += ' (worker node)'
 
-    if is_manager and local_state == 'active':
+    # what the daemon itself warns about, for example a two-manager swarm, which
+    # tolerates no failure at all. Reported as text: the setup is a deliberate
+    # decision by whoever built the cluster, not an incident to alert on.
+    for warning in swarm.get('Warnings') or []:
+        msg += f'\n{" ".join(warning.split())}'
+
+    if has_inventory:
         perfdata += lib.base.get_perfdata('nodes_total', nodes_total, _min=0)
         perfdata += lib.base.get_perfdata('nodes_ready', nodes_ready, _min=0)
         perfdata += lib.base.get_perfdata('nodes_down', nodes_down, _min=0)
+        perfdata += lib.base.get_perfdata('nodes_pending', nodes_pending, _min=0)
         perfdata += lib.base.get_perfdata('managers_total', managers_total, _min=0)
         perfdata += lib.base.get_perfdata(
             'managers_reachable', managers_reachable, _min=0
@@ -289,11 +358,27 @@ def main():
 
     # build table output
     if args.LENGTHY and table_data:
+        # the columns of `docker node ls`, so the table reads like the output an
+        # admin knows, with the check's own verdict appended
         msg += '\n\n' + lib.base.get_table(
             table_data,
-            ['hostname', 'status', 'availability', 'manager', 'state'],
-            header=['Hostname', 'Status', 'Availability', 'Manager', 'State'],
+            ['hostname', 'status', 'availability', 'manager', 'engine', 'state'],
+            header=['Hostname', 'Status', 'Avail.', 'Manager', 'Engine', 'State'],
         )
+    elif args.LENGTHY and not is_manager:
+        # a worker cannot list the cluster, but it does know the managers it talks
+        # to. That list is the piece of cluster configuration it carries, and the
+        # first thing to look at when a worker stops being reachable
+        remote_managers = [
+            {'addr': manager.get('Addr', '-'), 'nodeid': manager.get('NodeID', '-')}
+            for manager in swarm.get('RemoteManagers') or []
+        ]
+        if remote_managers:
+            msg += '\n\n' + lib.base.get_table(
+                sorted(remote_managers, key=lambda manager: manager['addr']),
+                ['addr', 'nodeid'],
+                header=['Manager', 'Node ID'],
+            )
 
     # over and out
     lib.base.oao(

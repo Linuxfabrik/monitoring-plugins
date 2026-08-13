@@ -132,7 +132,7 @@ docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [CRITICAL]
 
 * WARN/CRIT if an image's age crosses `--warning` (default 90D) or `--critical` (default 365D).
 * The state reported when no image matches the `--match` / `--ignore` filters (or no images exist) is configurable via `--no-match-severity` (default: ok).
-* CRIT if `podman images` or `podman image inspect` returns a non-zero exit code.
+* CRIT if `podman images` fails, or if `podman image inspect` returns nothing that can be read. An image that is removed while the check runs makes `podman image inspect` fail as well; the images it did report are checked as usual.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

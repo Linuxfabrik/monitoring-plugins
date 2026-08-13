@@ -25,13 +25,13 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081301'
 
 DESCRIPTION = """Displays system-wide Podman information including container counts, image count,
-storage driver, runtime version, available CPUs, and total memory. Also monitors the
-Podman daemon stderr for warnings and errors. Individual stderr lines can be filtered
-out with --ignore (e.g. benign cgroup warnings on rootless hosts). For Docker, use the
-docker-info check instead.
+storage driver, logging driver, number of search registries, runtime version, available
+CPUs, and total memory. Alerts on the warnings and errors Podman writes while answering.
+Individual lines can be filtered out with --ignore (e.g. benign cgroup warnings on
+rootless hosts). For Docker, use the docker-info check instead.
 Requires root or sudo."""
 
 
@@ -151,26 +151,42 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
-    containers = containers_paused = containers_running = ''
-    containers_stopped = cpus = images = logging_driver = ''
-    memory_human = registry = storage_driver = ver = ''
     warn, crit = '', ''
 
-    # analyze data - extract values from podman info JSON output
-    containers = result['store']['containerStore']['number']
-    containers_paused = result['store']['containerStore']['paused']
-    containers_running = result['store']['containerStore']['running']
-    containers_stopped = result['store']['containerStore']['stopped']
-    cpus = result['host']['cpus']
-    images = result['store']['imageStore']['number']
-    logging_driver = result['host']['eventLogger']
-    memory_human = lib.human.bytes2human(result['host']['memTotal'])
-    num_registries = len(result['registries']['search'])
+    # analyze data - extract values from podman info JSON output. Every field is read
+    # defensively: what the engine reports depends on its version and on the host, and
+    # a missing field is not worth ending the check over.
+    host = result.get('host') or {}
+    store = result.get('store') or {}
+    container_store = store.get('containerStore') or {}
+    image_store = store.get('imageStore') or {}
+
+    containers = container_store.get('number')
+    containers_paused = container_store.get('paused')
+    containers_running = container_store.get('running')
+    containers_stopped = container_store.get('stopped')
+    cpus = host.get('cpus')
+    images = image_store.get('number')
+    # the driver containers log through, the counterpart of Docker's logging driver.
+    # `eventLogger` is a different thing: where Podman writes its own event log.
+    logging_driver = host.get('logDriver')
+    memory = host.get('memTotal')
+    # only reported when the host has unqualified search registries configured, which
+    # a host that requires fully qualified image names deliberately has not
+    num_registries = len((result.get('registries') or {}).get('search') or [])
     registry = (
         f'{num_registries} {lib.txt.pluralize("Registr", num_registries, "y,ies")}'
     )
-    storage_driver = result['store']['graphDriverName']
-    ver = result['version']['Version']
+    storage_driver = store.get('graphDriverName')
+    ver = (result.get('version') or {}).get('Version')
+
+    # Docker answers `podman info` with an error, but a docker-compatible endpoint
+    # behind the socket may answer with a document that has none of these fields
+    if not ver:
+        lib.base.cu(
+            'The engine did not report a version.'
+            ' If you are using Docker, use the docker-info check instead.'
+        )
 
     # check stderr for warnings and errors, skipping lines matched by
     # --ignore (#834: same treatment as docker-info so admins can
@@ -220,7 +236,7 @@ def main():
     )
     perfdata += lib.base.get_perfdata(
         'ram',
-        result['host']['memTotal'],
+        memory,
         uom='B',
         _min=0,
     )
@@ -231,25 +247,26 @@ def main():
         msg += f'{crit}'
     if warn:
         msg += f'{warn}'
-    if containers != '':
+    if containers is not None:
         msg += f'{containers} {lib.txt.pluralize("Container", containers)}'
-    if containers_running != '':
+    if containers_running is not None:
         msg += (
             f' ({containers_running} running,'
             f' {containers_paused} paused,'
             f' {containers_stopped} stopped)'
         )
-    if images != '':
+    if images is not None:
         msg += f', {images} {lib.txt.pluralize("Image", images)}'
-    if storage_driver != '':
+    if storage_driver:
         msg += f', Storage Driver: {storage_driver}'
-    if logging_driver != '':
+    if logging_driver:
         msg += f', Logging Driver: {logging_driver}'
-    if registry != '':
-        msg += f', Registry: {registry}'
+    msg += f', Registry: {registry}'
     msg += f', Podman v{ver}'
-    msg += f', {cpus} {lib.txt.pluralize("CPU", cpus)}'
-    msg += f', {memory_human} Memory'
+    if cpus is not None:
+        msg += f', {cpus} {lib.txt.pluralize("CPU", cpus)}'
+    if memory is not None:
+        msg += f', {lib.human.bytes2human(memory)} Memory'
     # name the inspected user. Rootless Podman is per-user, so making the user
     # explicit removes any doubt about whose storage these counts came from.
     inspected_user = args.USER or pwd.getpwuid(os.geteuid()).pw_name

@@ -3,12 +3,12 @@
 
 ## Overview
 
-Displays system-wide Docker information including container counts (running, paused, stopped), image count, storage and logging driver, Docker version, available CPUs, and total memory. Also monitors the Docker daemon for warnings or errors. For Podman, use the podman-info check instead. Requires root or sudo.
+Displays system-wide Docker information including container counts (running, paused, stopped), image count, storage and logging driver, Docker version, available CPUs, and total memory. Alerts when the daemon reports a warning about itself or its host, and when the daemon answers with an error at all. Individual warnings can be filtered out with --ignore (e.g. the "No swap limit support" message on hosts where the kernel does not expose swap accounting). For Podman, use the podman-info check instead. Requires root or sudo.
 
 **Data Collection:**
 
-* Executes `docker info` and parses the text output for container counts, image count, storage driver, logging driver, registry, Docker version, CPUs, and total memory
-* Monitors `docker info` stderr output for warning and error messages from the Docker daemon
+* Executes `docker info --format '{{json .}}'` and reads container counts, image count, storage driver, logging driver, Docker version, CPUs and total memory from the answer
+* Reads the warnings and errors the daemon states about itself in the same answer, so nothing depends on how the command formats its output for a terminal
 
 
 ## Fact Sheet
@@ -30,24 +30,25 @@ usage: docker-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--no-perfdata]
 
 Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version,
-available CPUs, and total memory. Also monitors the Docker daemon stderr for
-warnings and errors. Individual stderr lines can be filtered out with --ignore
-(e.g. the "WARNING: No swap limit support" message on hosts where the kernel
-does not expose swap accounting). For Podman, use the podman-info check
-instead. Requires root or sudo.
+available CPUs, and total memory. Alerts when the daemon reports a warning
+about itself or its host, and when the daemon answers with an error at all.
+Individual warnings can be filtered out with --ignore (e.g. the "No swap limit
+support" message on hosts where the kernel does not expose swap accounting).
+For Podman, use the podman-info check instead. Requires root or sudo.
 
 options:
   -h, --help       show this help message and exit
   -V, --version    show program's version number and exit
   --always-ok      Always returns OK.
-  --ignore IGNORE  Ignore stderr lines matching this Python regular
-                   expression. Case-sensitive by default; use `(?i)` for case-
-                   insensitive matching. Can be specified multiple times.
-                   Example: `--ignore="No swap limit support"` to suppress the
-                   Docker warning on kernels without swap accounting. Example:
-                   `--ignore="(?i)bridge-nf-call"` (case-insensitive) to
-                   suppress both `bridge-nf-call-iptables` and `bridge-nf-
-                   call-ip6tables` warnings on Debian hosts. Default: None
+  --ignore IGNORE  Ignore daemon warnings and errors matching this Python
+                   regular expression. Case-sensitive by default; use `(?i)`
+                   for case-insensitive matching. Can be specified multiple
+                   times. Example: `--ignore="No swap limit support"` to
+                   suppress the Docker warning on kernels without swap
+                   accounting. Example: `--ignore="(?i)bridge-nf-call"` (case-
+                   insensitive) to suppress both `bridge-nf-call-iptables` and
+                   `bridge-nf-call-ip6tables` warnings on Debian hosts.
+                   Default: None
   --no-perfdata    Suppress the performance data section from the output. The
                    status message and the exit code are unaffected, so
                    alerting keeps working while trending data is dropped.
@@ -66,16 +67,17 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-info/
 Output:
 
 ```text
-WARNING: the devicemapper storage-driver is deprecated, and will be removed in a future release., 37 Containers (2 running, 0 paused, 35 stopped), 103 Images, Storage Driver: devicemapper, Logging Driver: json-file, Registry: https://index.docker.io/v1/, Docker v20.10.6, 6 CPUs, 15.51GiB Memory
+WARNING: No cpuset support, 37 Containers (2 running, 0 paused, 35 stopped), 103 Images, Storage Driver: overlay2, Logging Driver: json-file, Docker v28.5.2, 8 CPUs, 30.7GiB Memory
 ```
 
 
 ## States
 
-* OK if `docker info` returns no warnings or errors.
-* WARN if `docker info` stderr contains warnings.
-* CRIT if `docker info` stderr contains errors.
+* OK if the daemon reports no warnings and no errors.
+* WARN for every warning the daemon reports about itself or its host.
+* CRIT for every error the daemon answers with.
 * CRIT if `docker info` returns a non-zero exit code.
+* UNKNOWN if the answer cannot be read, or comes from Podman rather than Docker.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -107,9 +109,13 @@ sysctl -p net.bridge.bridge-nf-call-iptables=1
 sysctl -p net.bridge.bridge-nf-call-ip6tables=1
 ```
 
-### `Unable to parse docker info output. If you are using Podman, use the podman-info check instead.`
+### `The daemon did not report a server version. If you are using Podman, use the podman-info check instead.`
 
-The output of `docker info` does not contain the expected "Server Version" field. If you are running Podman instead of Docker, use the `podman-info` check plugin.
+The answer to `docker info` carries no server version. On a host with `podman-docker` installed, `docker` is a wrapper around Podman and answers with Podman's own information; use the `podman-info` check plugin there.
+
+### `Unable to read the docker info output. If you are using Podman, use the podman-info check instead.`
+
+The command answered with something other than the expected document, which usually means a wrapper or a proxy sits between the check and the daemon. Run `docker info --format '{{json .}}'` by hand to see what actually comes back.
 
 
 ## Credits, License

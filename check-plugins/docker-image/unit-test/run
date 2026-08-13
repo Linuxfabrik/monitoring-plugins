@@ -39,6 +39,22 @@ TESTS = [
         ],
     },
     {
+        # an image removed between `docker images` and `docker image inspect`
+        # makes the command fail while the images it did find are still reported
+        'id': 'ok-inspect-partially-failed',
+        'test': 'stdout/mixed-images,stderr/mixed-images,1',
+        'params': '-w 9000D -c 9000D',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, 3 images checked'],
+    },
+    {
+        # nothing usable came back at all, so the engine could not be asked
+        'id': 'crit-inspect-failed',
+        'test': ',stderr/mixed-images,1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No such image'],
+    },
+    {
         'id': 'ok-high-thresholds',
         'test': 'stdout/mixed-images,,0',
         'params': '-w 9000D -c 9000D',

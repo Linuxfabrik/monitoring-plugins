@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081301'
 
 DESCRIPTION = """Checks the lifecycle and health of Docker containers: the container status
 (running, exited, paused, ...), the result of the container health check (healthy,
@@ -145,7 +145,8 @@ def parse_args():
 
     parser.add_argument(
         '--status',
-        help='Desired container status, for example `running`, `exited` or `paused`. '
+        help='Desired container status. Docker reports one of `created`, `running`, '
+        '`paused`, `restarting`, `removing`, `exited` and `dead`. '
         'A container whose status differs is reported as CRITICAL. '
         'If not specified, the status is reported but not alerted on. '
         'Default: %(default)s',
@@ -233,8 +234,9 @@ def get_health_state(health):
 def get_uptime(container_state, status, now):
     """Return the running container's uptime in seconds, or None if it is not running
     or carries no usable start timestamp. `StartedAt` is an RFC 3339 string; a container
-    that never started carries the zero value `0001-01-01T00:00:00...`. Only the seconds
-    part is parsed, so fractional seconds and the trailing `Z` are ignored.
+    that never started carries the zero value `0001-01-01T00:00:00...`. The offset the
+    timestamp carries is kept: Docker stamps it in UTC, Podman in the local time of the
+    host, so reading it as UTC would move the uptime by the offset of the host.
     """
     if status != 'running':
         return None
@@ -242,7 +244,7 @@ def get_uptime(container_state, status, now):
     if not started or started.startswith('0001'):
         return None
     try:
-        started_epoch = lib.time.timestr2epoch(started[0:19] + 'Z', pattern='iso8601')
+        started_epoch = lib.time.timestr2epoch(started, pattern='iso8601')
     except ValueError:
         return None
     return now - started_epoch
@@ -288,10 +290,8 @@ def main():
             stdout, stderr, retc = lib.base.coe(
                 lib.shell.shell_exec(['docker', 'inspect', *container_ids]),
             )
-            if retc != 0:
-                lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         else:
-            stdout = '[]'
+            stdout, stderr, retc = '[]', '', 0
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
@@ -299,6 +299,16 @@ def main():
     try:
         inspected = json.loads(stdout)
     except Exception:
+        inspected = None
+
+    if not isinstance(inspected, list):
+        # a container that is removed between being listed and being inspected makes
+        # the command fail while it still prints every container it did find, which
+        # happens on any host running short-lived containers. Those containers are
+        # reported on; only an answer without a single usable container means the
+        # engine could not be asked at all.
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         lib.base.cu(
             'Unable to parse docker inspect output as JSON.'
             ' If you are using Podman, use the podman-container check instead.'

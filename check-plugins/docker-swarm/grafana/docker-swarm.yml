@@ -171,6 +171,36 @@ spec:
         operator: '='
         value: nodes_down
 
+    - alias: nodes_pending
+      refId: nodes_pending
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: nodes_pending
+
   - title: Swarm Managers
     type: timeseries
     gridPos:

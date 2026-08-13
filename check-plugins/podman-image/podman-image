@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081301'
 
 DESCRIPTION = """Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than the
@@ -193,13 +193,13 @@ def get_image_name(image):
 
 def get_age(created, now):
     """Return the image age in seconds, or None if the `Created` timestamp is missing or
-    unusable. `Created` is an RFC 3339 string; only the seconds part is parsed, so
-    fractional seconds and the trailing `Z` (UTC) are handled without extra libraries.
+    unusable. `Created` is an RFC 3339 string and states when the image was built, not
+    when it was pulled. The offset it carries is kept rather than assumed to be UTC.
     """
     if not created or created.startswith('0001'):
         return None
     try:
-        created_epoch = lib.time.timestr2epoch(created[0:19] + 'Z', pattern='iso8601')
+        created_epoch = lib.time.timestr2epoch(created, pattern='iso8601')
     except ValueError:
         return None
     return now - created_epoch
@@ -257,10 +257,8 @@ def main():
                     run_as=args.USER,
                 ),
             )
-            if retc != 0:
-                lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         else:
-            stdout = '[]'
+            stdout, stderr, retc = '[]', '', 0
         now = lib.time.now()
     else:
         # do not call the command, put in test data
@@ -271,6 +269,16 @@ def main():
     try:
         inspected = json.loads(stdout)
     except Exception:
+        inspected = None
+
+    if not isinstance(inspected, list):
+        # an image that is removed between being listed and being inspected makes the
+        # command fail while it still prints every image it did find, which is what a
+        # cleanup job running next to the check looks like. Those images are reported
+        # on; only an answer without a single usable image means the engine could not
+        # be asked at all.
+        if retc != 0:
+            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
         lib.base.cu(
             'Unable to parse podman image inspect output as JSON.'
             ' If you are using Docker, use the docker-image check instead.'

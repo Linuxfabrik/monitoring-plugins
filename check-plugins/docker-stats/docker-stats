@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import json
+import re
 import sys
 
 import lib.args
@@ -22,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081301'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -206,6 +208,18 @@ def keep_container(name, match_patterns, ignore_patterns):
     return not any(p.search(name) for p in ignore_patterns)
 
 
+def parse_percent(value):
+    """Return the number out of a percentage the engine formatted, or None if it did
+    not report one. `docker stats` prints `--` for every value of a container whose
+    statistics could not be collected, which happens when the container is removed
+    while the command runs or when the daemon does not answer within two seconds.
+    """
+    try:
+        return float(value.replace('%', '').strip())
+    except (AttributeError, ValueError):
+        return None
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -248,24 +262,27 @@ def main():
     if args.TEST is None:
         # get the number of host CPUs
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'info']),
+            lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
-        if 'server version:' not in stdout.lower():
+        try:
+            host_cpus = int(json.loads(stdout).get('NCPU') or 0)
+        except Exception:
+            host_cpus = 0
+        if not host_cpus:
             lib.db_sqlite.close(conn)
             lib.base.cu(
-                'Unable to parse docker info output.'
+                'The daemon did not report the number of host CPUs.'
                 ' If you are using Podman, use the podman-stats check instead.'
             )
-        strpos1 = stdout.find('CPUs: ') + 6
-        strpos2 = stdout.find('\n', strpos1)
-        host_cpus = int(stdout[strpos1:strpos2].strip())
 
         # get the container statistics for all running containers
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'stats', '--no-stream']),
+            lib.shell.shell_exec(
+                ['docker', 'stats', '--no-stream', '--format', '{{json .}}']
+            ),
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
@@ -281,88 +298,109 @@ def main():
     perfdata = ''
     table_values = []
 
-    # analyze data
-    containers = lib.txt.mltext2array(stdout, skip_header=True, sort_key=1)
-    # apply the --match / --ignore name filters up front (and drop the placeholder row
-    # for containers without an ID), so the SQLite trend cut below is sized to the
+    # parse newline-delimited JSON output
+    containers = []
+    for line in stdout.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            containers.append(json.loads(line))
+        except (json.JSONDecodeError, ValueError):
+            continue
+
+    # sort containers by name, then apply the --match / --ignore name filters (dropping
+    # entries without a usable name), so the SQLite trend cut below is sized to the
     # number of tracked containers
+    containers.sort(key=lambda c: c.get('Name', ''))
+    # a container whose statistics never arrived is reported without a name, which the
+    # engine prints as the same placeholder it uses for every unknown value
     containers = [
         c
         for c in containers
-        if len(c) > 1
-        and c[0] != '--'
-        and keep_container(c[1], match_patterns, ignore_patterns)
+        if c.get('Name', '')
+        and c.get('Name') != '--'
+        and keep_container(c.get('Name', ''), match_patterns, ignore_patterns)
     ]
-    for container in containers:
-        try:
-            name = container[1]
-            # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
-            if not args.FULL_NAME:
-                name = shorten(name)
-            cpu_percent = container[2]
-            mem_percent = container[6]
-        except Exception:
-            continue
 
-        # divide by number of cores (got by docker info)
-        cpu_usage = round(float(cpu_percent.replace('%', '').strip()) / host_cpus, 1)
-        mem_usage = round(float(mem_percent.replace('%', '').strip()), 1)
+    # analyze data
+    for container in containers:
+        name = container.get('Name', '')
+        # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
+        if not args.FULL_NAME:
+            name = shorten(name)
+        # a container name may carry characters that have no place in a metric name
+        label = re.sub(r'\W+', '_', name)
+
+        # the engine states the CPU percentage relative to a single core, so it goes
+        # up to 100% per core; divide by the cores of the host to get its share
+        cpu_percent = parse_percent(container.get('CPUPerc'))
+        cpu_usage = None if cpu_percent is None else round(cpu_percent / host_cpus, 1)
+        mem_percent = parse_percent(container.get('MemPerc'))
+        mem_usage = None if mem_percent is None else round(mem_percent, 1)
 
         # per-container perfdata for long-term trending of individual workloads
-        perfdata += lib.base.get_perfdata(
-            f'{name}_cpu_usage',
-            cpu_usage,
-            uom='%',
-            warn=args.WARN_CPU,
-            crit=args.CRIT_CPU,
-            _min=0,
-            _max=100,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{name}_mem_usage',
-            mem_usage,
-            uom='%',
-            warn=args.WARN_MEM,
-            crit=args.CRIT_MEM,
-            _min=0,
-            _max=100,
-        )
+        if cpu_usage is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_cpu_usage',
+                cpu_usage,
+                uom='%',
+                warn=args.WARN_CPU,
+                crit=args.CRIT_CPU,
+                _min=0,
+                _max=100,
+            )
+        if mem_usage is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_mem_usage',
+                mem_usage,
+                uom='%',
+                warn=args.WARN_MEM,
+                crit=args.CRIT_MEM,
+                _min=0,
+                _max=100,
+            )
 
-        # save trend data to local sqlite database, limited to "count" rows max.
-        lib.base.coe(
-            lib.db_sqlite.insert(
-                conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
-            ),
-        )
-        lib.base.coe(
-            lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
-        )
+        cpu_state = mem_state = STATE_OK
+        if cpu_usage is not None:
+            # save trend data to local sqlite database, limited to "count" rows max.
+            lib.base.coe(
+                lib.db_sqlite.insert(
+                    conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
+                ),
+            )
+            lib.base.coe(
+                lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
+            )
 
-        # alert when container cpu_usage is exceeded
-        # my container state is not ok, if in every of my historic rows the cpu value
-        # is above the threshold
-        if get_cpu_from_db(conn, name, args.CRIT_CPU) == args.COUNT:
-            cpu_state = STATE_CRIT
-        elif get_cpu_from_db(conn, name, args.WARN_CPU) == args.COUNT:
-            cpu_state = STATE_WARN
-        else:
-            cpu_state = STATE_OK
-        if cpu_state != STATE_OK:
-            # build the message
-            msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
-        state = lib.base.get_worst(cpu_state, state)
+            # alert when container cpu_usage is exceeded
+            # my container state is not ok, if in every of my historic rows the cpu
+            # value is above the threshold
+            if get_cpu_from_db(conn, name, args.CRIT_CPU) >= args.COUNT:
+                cpu_state = STATE_CRIT
+            elif get_cpu_from_db(conn, name, args.WARN_CPU) >= args.COUNT:
+                cpu_state = STATE_WARN
+            if cpu_state != STATE_OK:
+                # build the message
+                msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
+            state = lib.base.get_worst(cpu_state, state)
 
         # alert when container mem_usage is exceeded
-        mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
-        if mem_state != STATE_OK:
-            msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
-        state = lib.base.get_worst(mem_state, state)
+        if mem_usage is not None:
+            mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
+            if mem_state != STATE_OK:
+                msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
+            state = lib.base.get_worst(mem_state, state)
 
         table_values.append(
             {
                 'name': name,
-                'cpu_usage': f'{cpu_usage}{lib.base.state2str(cpu_state, prefix=" ")}',
-                'mem_usage': f'{mem_usage}{lib.base.state2str(mem_state, prefix=" ")}',
+                'cpu_usage': '-'
+                if cpu_usage is None
+                else f'{cpu_usage}{lib.base.state2str(cpu_state, prefix=" ")}',
+                'mem_usage': '-'
+                if mem_usage is None
+                else f'{mem_usage}{lib.base.state2str(mem_state, prefix=" ")}',
             }
         )
 

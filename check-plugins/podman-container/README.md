@@ -105,10 +105,12 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --status STATUS       Desired container status, for example `running`,
-                        `exited` or `paused`. A container whose status differs
-                        is reported as CRITICAL. If not specified, the status
-                        is reported but not alerted on. Default: None
+  --status STATUS       Desired container status. Podman reports one of
+                        `created`, `initialized`, `running`, `paused`,
+                        `stopping`, `stopped`, `exited`, `removing` and
+                        `unknown`. A container whose status differs is
+                        reported as CRITICAL. If not specified, the status is
+                        reported but not alerted on. Default: None
   --user USER           Inspect the rootless containers of this user instead
                         of those visible to the executing user. Podman keeps
                         each user's rootless containers in that user's own
@@ -186,7 +188,7 @@ app-unhealthy      ! running ! unhealthy ! 3        ! [CRITICAL]
 * WARN/CRIT if a container's restart count crosses `--warning-restarts` / `--critical-restarts` (when given).
 * WARN/CRIT if a running container's uptime crosses `--warning-uptime` / `--critical-uptime` (when given).
 * The state reported when no container matches the `--match` / `--ignore` filters (or no containers exist) is configurable via `--no-match-severity` (default: ok).
-* CRIT if `podman ps` or `podman inspect` returns a non-zero exit code.
+* CRIT if `podman ps` fails, or if `podman inspect` returns nothing that can be read. A container that is removed while the check runs makes `podman inspect` fail as well; the containers it did report are checked as usual.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

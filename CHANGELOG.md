@@ -16,6 +16,7 @@ Monitoring Plugins:
 
 * counters are reported as per-second rates, and some metric names change. Re-import the affected Grafana dashboards (cpu-usage, disk-io, fs-xfs-stats, jitsi-videobridge-stats, network-io, nginx-status, nodebb-cache, nodebb-errors, procs, redis-status, starface-database-stats, valkey-status, wildfly-gc-status) ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
 * disk-io: no longer measures I/O wait and is WARN-only, so `--critical` and the `--iowait-*` thresholds are ignored. Re-import the Grafana dashboard
+* docker-stats, podman-stats: every character outside letters, digits and underscore in a per-container metric name becomes an underscore, so `web.1` is now `web_1`. Adjust dashboards and graphs built on those metrics
 * huawei-dorado-\*: performance data metric names, capacity units and voltage units changed. Re-import the affected Grafana dashboards
 * redfish-\*: `--url` is mandatory, the localhost default is gone. Add it to every Redfish command ([#1306](https://github.com/Linuxfabrik/monitoring-plugins/issues/1306))
 
@@ -76,6 +77,7 @@ Monitoring Plugins:
 * cert: a `/24` scan finishes within the check timeout, and `--max-workers` bounds its parallelism
 * cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but keeps reporting and graphing it
 * disk-usage: runs every minute instead of every 5 minutes
+* docker-info: reports every warning the daemon raises about itself, including the ones it only writes as a deprecation notice, and drops the registry address that Docker itself removed in version 24
 * huawei-dorado-\*: a faulty or dead component, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
 * huawei-dorado-\*: an empty hardware inventory reports UNKNOWN instead of "Everything is ok"
 * huawei-dorado-\*: `--device-id` is optional, the appliance reports its own at login
@@ -84,6 +86,8 @@ Monitoring Plugins:
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, which silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
+* podman-info: the reported logging driver is the one containers log through, not the event logger
+* podman-stats: CPU usage is the load since the previous check run instead of the average since the container started, so a container that is busy now shows it. The first run after the update reports no CPU value yet
 
 Icinga Director:
 
@@ -101,6 +105,7 @@ Monitoring Plugins:
 * disk-io: no longer produces false CRITICAL alerts from I/O wait, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-smart: drives behind a hardware RAID controller and external USB drives are read again, `--ignore` matches, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
+* docker-stats: a container the daemon delivers no statistics for no longer takes the whole check to UNKNOWN
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume no longer aborts the check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * haproxy-status: the `--username` / `--password` migration hint is readable again
 * huawei-dorado-\*: an unexpected firmware response no longer turns the check UNKNOWN
@@ -115,6 +120,7 @@ Monitoring Plugins:
 * mysql-replica-status: works on MySQL 8.4, and an account that may not list replicas no longer turns the check UNKNOWN
 * mysql-user-security: the suggested `ALTER USER` runs on MariaDB 11.6 and newer, which needs a one-time `INSTALL SONAME`
 * ping: checksum-corrupted packets are counted correctly, and a corrupted reply no longer turns the check UNKNOWN
+* podman-info: a host that has no unqualified search registries configured no longer ends the check with a Python error
 * redfish-\*: servers with many components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * snmp: a harmless net-snmp warning no longer aborts the check, string-indexed OIDs are read correctly, and the bundled device profiles work on current net-snmp
 * statusiq: a status page that intermittently answers with an error no longer flaps into UNKNOWN

@@ -22,10 +22,10 @@ import lib.disk
 import lib.lftest
 import lib.shell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081301'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -370,10 +370,30 @@ def main():
     # analyze data
     for name in sorted(check_names):
         service = services_by_name.get(name)
-        mode = service.get('Mode', '') if service else ''
-        running, desired = (
-            parse_replicas(service.get('Replicas')) if service else (0, 0)
-        )
+
+        # a service named with --service that the swarm does not know cannot be graded
+        # against a task count. Reporting it as ok would hide exactly what naming it
+        # was for, so it counts as an outage of that service.
+        if service is None:
+            state = lib.base.get_worst(state, STATE_CRIT)
+            services_degraded += 1
+            msg_header += (
+                f'{name}: no such service in this swarm'
+                f'{lib.base.state2str(STATE_CRIT, prefix=" ")}, '
+            )
+            table_data.append(
+                {
+                    'name': name,
+                    'mode': '-',
+                    'replicas': '-',
+                    'distribution': '-',
+                    'state': lib.base.state2str(STATE_CRIT, empty_ok=False),
+                }
+            )
+            continue
+
+        mode = service.get('Mode', '')
+        running, desired = parse_replicas(service.get('Replicas'))
 
         # the expectation is the pinned count if given, otherwise the service's own
         # desired replica count
@@ -385,11 +405,13 @@ def main():
         pct = 100 if expected <= 0 else running / expected * 100
         service_state = lib.base.get_state(pct, args.WARN, args.CRIT, _operator='range')
 
-        # distribution: warn when more tasks sit on one node than an even spread would
+        # distribution: warn when more tasks sit on one node than an even spread would.
+        # Only replicated services have a spread to get wrong: a global service runs one
+        # task per node by definition, and a job runs until it has completed its work.
         max_per_node = 0
         optimal = 0
         dist_state = STATE_OK
-        if args.CHECK_DISTRIBUTION and service and mode != 'global' and expected > 0:
+        if args.CHECK_DISTRIBUTION and mode == 'replicated' and expected > 0:
             per_node = count_tasks_per_node(get_service_tasks(args.TEST, name))
             max_per_node = max(per_node.values()) if per_node else 0
             optimal = math.ceil(expected / node_count) if node_count else expected
@@ -421,7 +443,7 @@ def main():
                 'mode': mode or '-',
                 'replicas': f'{running}/{expected}',
                 'distribution': f'{max_per_node}/{optimal}'
-                if args.CHECK_DISTRIBUTION and mode != 'global'
+                if args.CHECK_DISTRIBUTION and mode == 'replicated'
                 else '-',
                 'state': lib.base.state2str(service_worst, empty_ok=False),
             }

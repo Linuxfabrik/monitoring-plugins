@@ -47,6 +47,21 @@ TESTS = [
         ],
     },
     {
+        # a container removed between `docker ps` and `docker inspect` makes the
+        # command fail while the containers it did find are still reported
+        'id': 'ok-inspect-partially-failed',
+        'test': 'stdout/one-container-traefik,stderr/one-container-traefik,1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, 1 container checked.'],
+    },
+    {
+        # nothing usable came back at all, so the engine could not be asked
+        'id': 'crit-inspect-failed',
+        'test': ',stderr/one-container-traefik,1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['No such object'],
+    },
+    {
         'id': 'crit-mixed-unhealthy-by-default',
         'test': 'stdout/mixed-states,,0',
         'assert-retc': STATE_CRIT,

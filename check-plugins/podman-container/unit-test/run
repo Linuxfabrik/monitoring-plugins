@@ -47,6 +47,35 @@ TESTS = [
         ],
     },
     {
+        # Podman stamps StartedAt in the local time of the host, so the uptime
+        # has to be derived from the offset the value carries. Reading it as UTC
+        # moves the uptime by that offset, and turns it negative for a container
+        # younger than the offset.
+        'id': 'ok-local-timezone-uptime',
+        'test': 'stdout/local-timezone,,0',
+        'assert-retc': STATE_OK,
+        # started 07:00+02:00, which is 05:00 UTC, three hours before the
+        # reference time the plugin pins in test mode
+        'assert-in': ['app-local-tz ! running ! -      ! 0        ! 2h 59m ! [OK]'],
+        # what reading the same value as UTC would produce
+        'assert-not-in': ['! 1h '],
+    },
+    {
+        # a container removed between `podman ps` and `podman inspect` makes the
+        # command fail while the containers it did find are still reported
+        'id': 'ok-inspect-partially-failed',
+        'test': 'stdout/one-container-traefik,stderr/one-container-traefik,125',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok, 1 container checked (user: `'],
+    },
+    {
+        # nothing usable came back at all, so the engine could not be asked
+        'id': 'crit-inspect-failed',
+        'test': ',stderr/one-container-traefik,125',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['no such object'],
+    },
+    {
         'id': 'crit-mixed-unhealthy-by-default',
         'test': 'stdout/mixed-states,,0',
         'assert-retc': STATE_CRIT,

@@ -20,7 +20,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # The plugin reads two data sources: `docker info` (suffix `-info`) and,
 # on a manager, `docker node ls` (suffix `-nodes`). A single `--test`
 # base path drives both fixtures; a scenario without a `-nodes` file
-# simulates a worker node that cannot list the cluster.
+# simulates a worker node that cannot list the cluster, and a scenario
+# with a `-nodes` file in the stderr slot simulates a command that failed.
+# The `quorum-lost` and `manager-healthy` fixtures are recordings from a
+# three-manager swarm on Docker 28.5.2, taken before and after two of the
+# three managers were stopped.
 TESTS = [
     {
         'id': 'ok-manager-healthy',
@@ -38,10 +42,9 @@ TESTS = [
         'params': '--lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'docker-1',
-            'docker-2',
-            'Leader',
-            'Ready',
+            'Hostname ! Status ! Avail. ! Manager ! Engine ! State',
+            'docker-1 ! Ready  ! Active ! Leader  ! 24.0.7 ! [OK]',
+            'docker-2 ! Ready  ! Active ! -       ! 24.0.7 ! [OK]',
         ],
     },
     {
@@ -74,13 +77,54 @@ TESTS = [
         ],
     },
     {
-        'id': 'crit-quorum-lost',
-        'test': 'stdout/quorum-lost,,0',
+        # a manager that has just (re)started moves every node it has not heard
+        # from yet to "Unknown" and turns it into "Down" itself once the node
+        # misses its heartbeats. Restarting the docker daemon on a manager must
+        # not raise an alarm for the rest of the cluster.
+        'id': 'ok-nodes-not-reporting-yet',
+        'test': 'stdout/nodes-unknown,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Swarm is active',
+            '1/3 nodes ready (2 not reporting yet)',
+            "'nodes_pending'=2;;;0",
+        ],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'ok-worker-lengthy-lists-its-managers',
+        'test': 'stdout/worker-active,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'worker node',
+            'Manager         ! Node ID',
+            '192.0.2.10:2377 ! a1b2c3d4e5f6',
+        ],
+    },
+    {
+        'id': 'crit-managers-unreachable',
+        # the leader still answers and reports the other two managers as
+        # unreachable, the short window before it steps down itself
+        'test': 'stdout/managers-unreachable,,0',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'manager quorum lost',
             '1/3 reachable',
         ],
+    },
+    {
+        'id': 'crit-quorum-lost',
+        # once the quorum is gone, the daemon refuses to list the cluster at
+        # all; `docker info` keeps reporting the node as an active manager
+        'test': 'stdout/quorum-lost,stderr/quorum-lost,1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'this manager cannot reach the swarm control plane',
+            'The swarm does not have a leader',
+        ],
+        # without an answer from the cluster there is no inventory to report
+        'assert-not-in': ['nodes ready', "'nodes_total'"],
     },
     {
         'id': 'unknown-unparseable-info',

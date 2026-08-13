@@ -499,6 +499,27 @@ def get_lftags(distro):
                 )
             ],
         },
+        # Swarm membership is read from the state Docker keeps on disk instead of
+        # from `docker info`, because the daemon is socket-activated on most
+        # distributions and asking it would start a daemon an admin had stopped.
+        # Leaving a swarm empties that directory, so the file is only there while
+        # the node is a member. A host with a non-default data-root is not
+        # detected; the tag can be set by hand there.
+        {
+            'sw': 'Docker Swarm',
+            'package': [],
+            'expr': [
+                lib.disk.file_exists(
+                    '/var/lib/docker/swarm/docker-state.json', allow_empty=True
+                )
+            ],
+        },
+        {
+            # only a manager runs the raft consensus and therefore keeps its log
+            'sw': 'Docker Swarm Manager',
+            'package': [],
+            'expr': [lib.disk.dir_exists('/var/lib/docker/swarm/raft')],
+        },
         {
             'sw': 'Duplicity',
             'package': [],

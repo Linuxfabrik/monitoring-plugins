@@ -3,7 +3,7 @@
 
 ## Overview
 
-Displays system-wide Podman information including container counts, image count, storage driver, runtime version, available CPUs, and total memory. For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
+Displays system-wide Podman information including container counts, image count, storage driver, logging driver, number of search registries, runtime version, available CPUs, and total memory. Alerts on the warnings and errors Podman writes while answering. Individual lines can be filtered out with --ignore (e.g. benign cgroup warnings on rootless hosts). For Docker, use the [docker-info](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info) check instead.
 
 **Important Notes:**
 
@@ -34,11 +34,11 @@ usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--no-perfdata]
                    [--user USER]
 
 Displays system-wide Podman information including container counts, image
-count, storage driver, runtime version, available CPUs, and total memory. Also
-monitors the Podman daemon stderr for warnings and errors. Individual stderr
-lines can be filtered out with --ignore (e.g. benign cgroup warnings on
-rootless hosts). For Docker, use the docker-info check instead. Requires root
-or sudo.
+count, storage driver, logging driver, number of search registries, runtime
+version, available CPUs, and total memory. Alerts on the warnings and errors
+Podman writes while answering. Individual lines can be filtered out with
+--ignore (e.g. benign cgroup warnings on rootless hosts). For Docker, use the
+docker-info check instead. Requires root or sudo.
 
 options:
   -h, --help       show this help message and exit
@@ -86,6 +86,7 @@ Output:
 * OK if `podman info` completes without warnings or errors.
 * WARN on `podman info` warnings in stderr.
 * CRIT on `podman info` errors in stderr or return codes != 0.
+* UNKNOWN if the answer cannot be read, or reports no version at all.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

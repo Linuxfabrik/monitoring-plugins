@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import sys
 
 import lib.args
@@ -22,14 +23,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081301'
 
 DESCRIPTION = """Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version, available
-CPUs, and total memory. Also monitors the Docker daemon stderr for warnings and errors.
-Individual stderr lines can be filtered out with --ignore (e.g. the "WARNING: No swap
-limit support" message on hosts where the kernel does not expose swap accounting). For
-Podman, use the podman-info check instead.
+CPUs, and total memory. Alerts when the daemon reports a warning about itself or its
+host, and when the daemon answers with an error at all. Individual warnings can be
+filtered out with --ignore (e.g. the "No swap limit support" message on hosts where the
+kernel does not expose swap accounting). For Podman, use the podman-info check instead.
 Requires root or sudo."""
 
 
@@ -58,7 +59,7 @@ def parse_args():
 
     parser.add_argument(
         '--ignore',
-        help='Ignore stderr lines matching this Python regular expression. '
+        help='Ignore daemon warnings and errors matching this Python regular expression. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
         'Example: `--ignore="No swap limit support"` to suppress the Docker '
@@ -113,68 +114,69 @@ def main():
     # fetch data
     if args.TEST is None:
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'info']),
+            lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
         )
         if retc != 0:
             lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
-        if 'server version:' not in stdout.lower():
-            lib.base.cu(
-                'Unable to parse docker info output.'
-                ' If you are using Podman, use the podman-info check instead.'
-            )
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
+
+    try:
+        result = json.loads(stdout)
+    except Exception:
+        result = None
+    if not isinstance(result, dict):
+        lib.base.cu(
+            'Unable to read the docker info output.'
+            ' If you are using Podman, use the podman-info check instead.'
+        )
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    containers = containers_paused = containers_running = ''
-    containers_stopped = cpus = images = logging_driver = ''
-    memory_human = registry = storage_driver = ver = ''
     warn, crit = '', ''
 
-    # analyze data - extract values from docker info text output
-    for row in stdout.strip().split('\n'):
-        lcrow = row.lower()
-        if ' containers: ' in lcrow:
-            containers = lcrow.replace('containers: ', '').strip()
-        if '  paused: ' in lcrow:
-            containers_paused = lcrow.replace('paused: ', '').strip()
-        if '  running: ' in lcrow:
-            containers_running = lcrow.replace('running: ', '').strip()
-        if '  stopped: ' in lcrow:
-            containers_stopped = lcrow.replace('stopped: ', '').strip()
-        if ' cpus: ' in lcrow:
-            cpus = lcrow.replace('cpus: ', '').strip()
-        if ' images: ' in lcrow:
-            images = lcrow.replace('images: ', '').strip()
-        if ' logging driver: ' in lcrow:
-            logging_driver = lcrow.replace('logging driver: ', '').strip()
-        if ' total memory: ' in lcrow:
-            memory_human = row.replace('Total Memory: ', '').strip()
-        if ' registry: ' in lcrow:
-            registry = lcrow.replace('registry: ', '').strip()
-        if ' storage driver: ' in lcrow:
-            storage_driver = lcrow.replace('storage driver: ', '').strip()
-        if ' server version: ' in lcrow:
-            ver = lcrow.replace('server version: ', '').strip()
+    # the client reached the daemon, but the daemon refused to answer. The CLI puts
+    # these on stderr prefixed with "ERROR:", so use the wording an admin knows.
+    for row in result.get('ServerErrors') or []:
+        row = ' '.join(row.split())
+        if any(pattern.search(f'ERROR: {row}') for pattern in ignore_patterns):
+            continue
+        crit += f'ERROR: {row}, '
+        state = lib.base.get_worst(state, STATE_CRIT)
 
-    # check stderr for warnings and errors, skipping lines matched by
-    # --ignore (#834: let admins suppress boilerplate docker warnings
-    # like "WARNING: No swap limit support" that cannot be silenced in
-    # the daemon config).
-    for row in stderr.strip().split('\n'):
+    # analyze data - extract values from the docker info JSON output
+    containers = result.get('Containers')
+    containers_paused = result.get('ContainersPaused')
+    containers_running = result.get('ContainersRunning')
+    containers_stopped = result.get('ContainersStopped')
+    cpus = result.get('NCPU')
+    images = result.get('Images')
+    logging_driver = result.get('LoggingDriver')
+    memory = result.get('MemTotal')
+    storage_driver = result.get('Driver')
+    ver = result.get('ServerVersion')
+
+    # Podman answers `docker info` as well when podman-docker is installed, but its
+    # information is shaped differently and carries no server version
+    if not ver and not crit:
+        lib.base.cu(
+            'The daemon did not report a server version.'
+            ' If you are using Podman, use the podman-info check instead.'
+        )
+
+    # what the daemon says about itself and its host, for example a kernel without
+    # swap accounting or a socket reachable without encryption. Lines matched by
+    # --ignore are skipped (#834: an admin cannot silence these in the daemon
+    # config, so the check has to be able to).
+    for row in result.get('Warnings') or []:
+        row = ' '.join(row.split())
         if any(pattern.search(row) for pattern in ignore_patterns):
             continue
-        lcrow = row.lower()
-        if 'warning: ' in lcrow:
-            warn += f'{row}, '
-            state = lib.base.get_worst(state, STATE_WARN)
-        if 'error: ' in lcrow:
-            crit += f'{row}, '
-            state = lib.base.get_worst(state, STATE_CRIT)
+        warn += f'{row}, '
+        state = lib.base.get_worst(state, STATE_WARN)
 
     # build perfdata
     perfdata += lib.base.get_perfdata(
@@ -207,13 +209,12 @@ def main():
         images,
         _min=0,
     )
-    if memory_human:
-        perfdata += lib.base.get_perfdata(
-            'ram',
-            lib.human.human2bytes(memory_human),
-            uom='B',
-            _min=0,
-        )
+    perfdata += lib.base.get_perfdata(
+        'ram',
+        memory,
+        uom='B',
+        _min=0,
+    )
 
     # create output
     if crit:
@@ -221,25 +222,25 @@ def main():
         msg += f'{crit}'
     if warn:
         msg += f'{warn}'
-    if containers != '':
-        msg += f'{containers} {lib.txt.pluralize("Container", int(containers))}'
-    if containers_running != '':
+    if containers is not None:
+        msg += f'{containers} {lib.txt.pluralize("Container", containers)}'
+    if containers_running is not None:
         msg += (
             f' ({containers_running} running,'
             f' {containers_paused} paused,'
             f' {containers_stopped} stopped)'
         )
-    if images != '':
-        msg += f', {images} {lib.txt.pluralize("Image", int(images))}'
-    if storage_driver != '':
+    if images is not None:
+        msg += f', {images} {lib.txt.pluralize("Image", images)}'
+    if storage_driver:
         msg += f', Storage Driver: {storage_driver}'
-    if logging_driver != '':
+    if logging_driver:
         msg += f', Logging Driver: {logging_driver}'
-    if registry != '':
-        msg += f', Registry: {registry}'
     msg += f', Docker v{ver}'
-    msg += f', {cpus} {lib.txt.pluralize("CPU", int(cpus))}'
-    msg += f', {memory_human} Memory'
+    if cpus is not None:
+        msg += f', {cpus} {lib.txt.pluralize("CPU", cpus)}'
+    if memory is not None:
+        msg += f', {lib.human.bytes2human(memory)} Memory'
 
     # over and out
     lib.base.oao(

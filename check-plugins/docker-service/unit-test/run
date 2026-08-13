@@ -80,13 +80,21 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['web: 0/2 tasks running'],
     },
-    # d) service removed entirely, still expected -> 0 running -> CRIT
+    # d) service removed entirely, still expected -> CRIT, with or without a pinned
+    #    count: a service that is gone cannot be graded against a task count
     {
         'id': 'crit-d-removed',
         'test': 'stdout/svc-d-removed,,0',
         'params': '--service=web=2',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['web: 0/2 tasks running'],
+        'assert-in': ['web: no such service in this swarm'],
+    },
+    {
+        'id': 'crit-d-removed-without-count',
+        'test': 'stdout/svc-d-removed,,0',
+        'params': '--service=web',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['web: no such service in this swarm'],
     },
     # default (no --service): every service checked against its own desired count
     {
