@@ -1,0 +1,21 @@
+# Dependencies of the compiled Windows plugins. Generates
+# `lockfiles/py313-windows/requirements.txt` (the Nuitka build host runs
+# Python 3.13; see BUILD.md). Not an extension of `requirements.in`: the
+# Windows plugins need one package the Linux ones do not, and none of the
+# ones only a Linux check pulls in. Kept as its own lockfile so that the
+# Dependabot `pip` watch at `/lockfiles/py313-windows` is independent from
+# the Linux lockfiles.
+#
+# To regenerate, from the root of the repository:
+#   python3.13 -m venv .venv-py313
+#   source .venv-py313/bin/activate
+#   python -m pip install 'pip<25.1' pip-tools
+#   python -m piptools compile --generate-hashes \
+#       --strip-extras --allow-unsafe \
+#       --output-file=lockfiles/py313-windows/requirements.txt \
+#       requirements-py313-windows.in
+
+linuxfabrik-lib
+
+# Needed on Windows only:
+sspilib
