@@ -15,8 +15,13 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+# The return code slot of a `--test` fixture carries the HTTP status code the endpoint
+# answered with, so the error pages below are reached the same way a status document is.
+# Every fixture was captured from a Nextcloud 34.0.2 container on PHP 8.5.9, including the
+# error pages: the config directory was made read only, and the supported PHP range in
+# `lib/versioncheck.php` was moved so that the running interpreter fell outside it.
 TESTS = [
     {
         'id': 'ok-healthy',
@@ -123,16 +128,60 @@ TESTS = [
         ],
     },
     {
-        # A body without any known key must not traceback. Everything defaults to
-        # false, and a missing `installed` is the alerting condition.
+        # A body without any known key must not traceback, and it must not be reported as an
+        # uninstalled instance either: it never came from the status endpoint.
         'id': 'crit-empty-json',
         'test': 'stdout/empty-json,,0',
         'assert-retc': STATE_CRIT,
+        'assert-in': ['No Nextcloud status document was returned'],
+        'assert-not-in': ['Traceback', 'Instance is not installed.'],
+    },
+    {
+        'id': 'crit-config-directory-not-writable',
+        'test': 'stdout/error-page-config-not-writable,,503',
+        'assert-retc': STATE_CRIT,
         'assert-in': [
-            '[CRITICAL] Instance is not installed.',
-            '* Version: n/a (n/a)',
+            'Nextcloud answered HTTP 503 instead of a status document: '
+            'Cannot write into "config" directory!',
+            "'nextcloud-status'=2;;;0;3",
         ],
-        'assert-not-in': ['Traceback'],
+        # the surrounding page must not leak into the message
+        'assert-not-in': ['<', 'guest-box', '&quot;'],
+    },
+    {
+        'id': 'warn-config-directory-not-writable-severity-warn',
+        'test': 'stdout/error-page-config-not-writable,,503',
+        'params': '--unavailable-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Cannot write into "config" directory!'],
+    },
+    {
+        # No framework, no error page: this one arrives as plain text with a `<br/>` in it.
+        'id': 'crit-php-version-unsupported',
+        'test': 'stdout/php-version-unsupported,,500',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Nextcloud answered HTTP 500 instead of a status document: '
+            'This version of Nextcloud requires at least PHP 8.2',
+        ],
+        'assert-not-in': ['<br/>'],
+    },
+    {
+        # An empty body leaves nothing to quote, so the status code has to carry the message
+        # on its own.
+        'id': 'crit-empty-error-body',
+        'test': ',,500',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Nextcloud answered HTTP 500 instead of a status document.'],
+    },
+    {
+        # A host name the instance does not answer under is a wrong --url, not a broken
+        # instance, so it stays off the alerting path no matter what the severity says.
+        'id': 'unknown-trusted-domain-error',
+        'test': 'stdout/trusted-domain-error,,400',
+        'params': '--unavailable-severity=crit',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['trusted_domains'],
     },
     {
         'id': 'ok-always-ok-forces-ok',

@@ -17,11 +17,12 @@ import sys
 import lib.args
 import lib.base
 import lib.lftest
+import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026081301'
 
 DESCRIPTION = """Monitors the health of a Nextcloud instance via its status endpoint, reporting
 whether the instance is installed, whether a pending database upgrade blocks it, and whether
@@ -29,14 +30,21 @@ maintenance mode is active. Also reports the running version, the product name a
 support flag.
 The status endpoint bypasses the router and the maintenance gate, so it answers with HTTP 200
 even while the instance serves nobody. A plain HTTP check cannot see that. This check therefore
-reads the flags out of the response instead of trusting the status code."""
+reads the flags out of the response instead of trusting the status code.
+Alerts when the instance reports that it is not installed, when a database upgrade is pending,
+while maintenance mode is on, and when the endpoint does not answer with a status document at
+all. Every severity except the one for an uninstalled instance is configurable."""
 
 DEFAULT_INSECURE = False
 DEFAULT_MAINTENANCE_SEVERITY = 'warn'
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
+DEFAULT_UNAVAILABLE_SEVERITY = 'crit'
 DEFAULT_UPGRADE_SEVERITY = 'crit'
 DEFAULT_URL = 'http://localhost/nextcloud/status.php'
+
+# how much of an error page is quoted back before the message becomes a wall of text
+MAX_REASON_LENGTH = 200
 
 
 def parse_args():
@@ -113,6 +121,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--unavailable-severity',
+        help='State to report when the instance does not answer with a status document. '
+        'A refused connection, a timeout, an HTTP error or an unparsable body all mean '
+        'that the instance is serving nobody. '
+        'A rejected host name is reported as UNKNOWN regardless of this setting, because '
+        'that is a wrong `--url` rather than a broken instance. '
+        'Default: %(default)s',
+        dest='UNAVAILABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNAVAILABLE_SEVERITY,
+    )
+
+    parser.add_argument(
         '--upgrade-severity',
         help='State to report when the instance needs a database upgrade while '
         'maintenance mode is off. '
@@ -135,12 +156,82 @@ def parse_args():
     return args
 
 
+def error_page_text(response):
+    """Condense the body of an error response into the sentence it is about.
+
+    An instance that gives up inside its own framework answers with a full themed HTML page
+    whose only interesting part is the list inside the guest box, holding the error and its
+    hint; everything around it is layout, scripts and a footer. An instance that gives up
+    before the framework is loaded, because it runs on a PHP version outside the supported
+    range, answers with two lines of plain text instead, which is why the whole body is the
+    fallback at every step. The markers are deliberately locale-independent: the heading
+    above the list is translated, the list itself is not.
+
+    Verified against Nextcloud 34.0.2 on PHP 8.5.9 (`core/templates/error.php` and
+    `lib/versioncheck.php`).
+    """
+    box = lib.txt.extract_str(response, 'guest-box">', '</div>')
+    markup = lib.txt.extract_str(box, '<ul>', '</ul>') or box or response
+    # a line break carries a sentence boundary here, so dropping its tag without putting
+    # something in its place would run the last word of one sentence into the next one
+    text = lib.url.strip_tags(markup.replace('<br/>', ' ').replace('<br>', ' '))
+    text = ' '.join(lib.txt.unescape(text).split())
+    if len(text) > MAX_REASON_LENGTH:
+        # cut the tail, not the middle: the first sentence names the problem, and what
+        # follows it is the hint on how to fix it
+        text = text[:MAX_REASON_LENGTH].rstrip() + '...'
+    return text
+
+
+def describe_failure(args, result):
+    """Explain why the status endpoint did not answer with a status document.
+
+    Returns `(config_error, message)`. `config_error` marks a problem with the way the check
+    is pointed at the instance rather than a problem with the instance itself, so that a URL
+    the instance refuses to answer under does not put anybody on call.
+    """
+    if not isinstance(result, dict):
+        return False, result
+
+    status_code = result.get('status_code')
+    response = result.get('response', '')
+    if status_code == 400 and 'Trusted domain error' in response:
+        return True, (
+            f'HTTP 400 "Trusted domain error" from {args.URL}. '
+            f'Add the host name used in --url to the "trusted_domains" array in '
+            f'the Nextcloud config.php, or probe the instance under a name that is '
+            f'already listed there.'
+        )
+
+    reason = error_page_text(response)
+    msg = f'Nextcloud answered HTTP {status_code} instead of a status document'
+    return False, f'{msg}: {reason}' if reason else f'{msg}.'
+
+
+def parse_status(args, response):
+    """Decode the body of a status response into its JSON document."""
+    try:
+        document = json.loads(response)
+    except Exception:
+        return False, f'No JSON object could be decoded from {args.URL}.'
+    if not isinstance(document, dict) or 'installed' not in document:
+        # Every release reports `installed`, so a document without it did not come from the
+        # status endpoint. Saying so beats reporting the missing flag as an uninstalled
+        # instance, which sends the admin after a problem that is not there.
+        return False, f'No Nextcloud status document was returned from {args.URL}.'
+    return True, document
+
+
 def fetch_status(args):
     """Fetch the status endpoint and return its decoded JSON document.
 
     The response is requested in its extended form so that a failing request still
-    exposes the HTTP status code and the error body. That is what allows the trusted
-    domain misconfiguration to be reported as such instead of as a bare HTTP 400.
+    exposes the HTTP status code and the error body. That is what allows the reason the
+    instance gives for refusing to start to be reported instead of a bare status code.
+
+    On failure the second element is the extended dict for an HTTP error, and a finished
+    message for a transport error or an unusable body, which is what `describe_failure()`
+    expects.
     """
     success, result = lib.url.fetch(
         args.URL,
@@ -153,23 +244,9 @@ def fetch_status(args):
     if not success:
         # A 4xx/5xx returns the extended dict (so the error body is available), while a
         # transport error like a refused connection returns a plain message string.
-        if not isinstance(result, dict):
-            return False, result
-        status_code = result.get('status_code')
-        response = result.get('response', '')
-        if status_code == 400 and 'Trusted domain error' in response:
-            return False, (
-                f'HTTP 400 "Trusted domain error" from {args.URL}. '
-                f'Add the host name used in --url to the "trusted_domains" array in '
-                f'the Nextcloud config.php, or probe the instance under a name that is '
-                f'already listed there.'
-            )
-        return False, f'HTTP error "{status_code}" while fetching {args.URL}.'
+        return False, result
 
-    try:
-        return True, json.loads(result['response'])
-    except Exception:
-        return False, f'No JSON object could be decoded from {args.URL}.'
+    return parse_status(args, result['response'])
 
 
 def main():
@@ -188,11 +265,37 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        result = lib.base.coe(fetch_status(args))
+        success, result = fetch_status(args)
     else:
-        # do not call the command, put in test data
-        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
+        # do not call the command, put in test data. The return code slot carries the HTTP
+        # status code here, so a fixture can stand in for an error page just as well as for
+        # a status document.
+        stdout, _stderr, status_code = lib.lftest.test(args.TEST)
+        if status_code >= 400:
+            success, result = False, {'status_code': status_code, 'response': stdout}
+        else:
+            success, result = parse_status(args, stdout)
+
+    if not success:
+        config_error, failure = describe_failure(args, result)
+        if config_error:
+            lib.base.cu(failure)
+        unavailable_state = lib.base.str2state(args.UNAVAILABLE_SEVERITY)
+        # keep emitting the metric, so that the series does not break off exactly while the
+        # instance is down
+        lib.base.oao(
+            failure,
+            unavailable_state,
+            lib.base.get_perfdata(
+                'nextcloud-status',
+                unavailable_state,
+                uom=None,
+                _min=0,
+                _max=STATE_UNKNOWN,
+            ),
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
 
     # init some vars
     msg = ''

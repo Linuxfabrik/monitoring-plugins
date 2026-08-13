@@ -20,6 +20,9 @@
                 "--timeout": {
                     "value": "$nextcloud_status_timeout$"
                 },
+                "--unavailable-severity": {
+                    "value": "$nextcloud_status_unavailable_severity$"
+                },
                 "--upgrade-severity": {
                     "value": "$nextcloud_status_upgrade_severity$"
                 },
@@ -69,6 +72,11 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -112,7 +120,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors the health of a Nextcloud instance via its status endpoint, reporting whether the instance is installed, whether a pending database upgrade blocks it, and whether maintenance mode is active. Also reports the running version, the product name and the extended support flag. The status endpoint bypasses the router and the maintenance gate, so it answers with HTTP 200 even while the instance serves nobody. A plain HTTP check cannot see that. This check therefore reads the flags out of the response instead of trusting the status code.",
+            "notes": "Monitors the health of a Nextcloud instance via its status endpoint, reporting whether the instance is installed, whether a pending database upgrade blocks it, and whether maintenance mode is active. Also reports the running version, the product name and the extended support flag. The status endpoint bypasses the router and the maintenance gate, so it answers with HTTP 200 even while the instance serves nobody. A plain HTTP check cannot see that. This check therefore reads the flags out of the response instead of trusting the status code. Alerts when the instance reports that it is not installed, when a database upgrade is pending, while maintenance mode is on, and when the endpoint does not answer with a status document at all. Every severity except the one for an uninstalled instance is configurable.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-status/",
             "object_name": "tpl-service-nextcloud-status",
             "object_type": "template",
@@ -129,6 +137,7 @@
                 "nextcloud_status_no_perfdata": false,
                 "nextcloud_status_no_proxy": false,
                 "nextcloud_status_timeout": 8,
+                "nextcloud_status_unavailable_severity": "crit",
                 "nextcloud_status_upgrade_severity": "crit",
                 "nextcloud_status_url": "http://localhost/nextcloud/status.php"
             },
@@ -168,6 +177,37 @@
                 }
             ],
             "uuid": "a8c288f8-2143-417f-9d28-5103c2c4ece5"
+        },
+        "nextcloud_status_unavailable_severity_list": {
+            "list_name": "nextcloud_status_unavailable_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "9260f8d2-50b2-45a9-abc4-6f6882c8e9cc"
         },
         "nextcloud_status_upgrade_severity_list": {
             "list_name": "nextcloud_status_upgrade_severity_list",
@@ -263,6 +303,19 @@
             "uuid": "4fe496dc-3453-4cfd-aca5-49e7b786c8e2"
         },
         "7": {
+            "varname": "nextcloud_status_unavailable_severity",
+            "caption": "Nextcloud Status: Unavailable Severity",
+            "description": "State to report when the instance does not answer with a status document. A refused connection, a timeout, an HTTP error or an unparsable body all mean that the instance is serving nobody. A rejected host name is reported as UNKNOWN regardless of this setting, because that is a wrong `--url` rather than a broken instance.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nextcloud_status_unavailable_severity_list"
+            },
+            "uuid": "22c49aab-82d0-441e-8de1-c36b73650938"
+        },
+        "8": {
             "varname": "nextcloud_status_upgrade_severity",
             "caption": "Nextcloud Status: Upgrade Severity",
             "description": "State to report when the instance needs a database upgrade while maintenance mode is off. The instance answers every request with the upgrade page until `occ upgrade` has run, so it serves nobody.",
@@ -275,7 +328,7 @@
             },
             "uuid": "78bbcc95-498a-4ee6-8f87-d3e914595986"
         },
-        "8": {
+        "9": {
             "varname": "nextcloud_status_url",
             "caption": "Nextcloud Status: URL",
             "description": "Nextcloud status URL endpoint.",
