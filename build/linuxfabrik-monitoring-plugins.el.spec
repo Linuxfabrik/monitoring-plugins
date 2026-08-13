@@ -83,6 +83,13 @@ find %{buildroot}%{_libdir}/nagios/plugins \
 install --directory --mode 0750 %{buildroot}%{_sysconfdir}/sudoers.d
 install --mode 0440 --no-target-directory assets/sudoers/RedHat.sudoers %{buildroot}%{_sysconfdir}/sudoers.d/%{name}
 
+# Install bash completion. It goes to the legacy directory on purpose: bash-completion
+# sources that one at shell startup, while its own completions directory is loaded lazily
+# by command name, which would need one file per plugin and would collide with the files
+# bash-completion ships for the plugins named after a real command (ping, uptime, ...).
+install --directory %{buildroot}%{_sysconfdir}/bash_completion.d
+install --mode 0644 --no-target-directory assets/bash-completion/linuxfabrik-monitoring-plugins.bash %{buildroot}%{_sysconfdir}/bash_completion.d/%{name}
+
 # Build SELinux support
 mkdir selinux
 cp assets/selinux/%{name}.te selinux
@@ -117,6 +124,7 @@ fi
 %files
 %{_libdir}/%{name}/venv/
 %{_libdir}/nagios/plugins/
+%{_sysconfdir}/bash_completion.d/%{name}
 %{_sysconfdir}/sudoers.d/%{name}
 %license LICENSE
 

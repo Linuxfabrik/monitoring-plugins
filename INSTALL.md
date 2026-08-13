@@ -388,6 +388,42 @@ Defaults env_keep += "http_proxy https_proxy"
 ```
 
 
+#### Bash Completion
+
+The packages and the one-liner installer place a completion at
+`/etc/bash_completion.d/linuxfabrik-monitoring-plugins`. It completes the command line
+options of every plugin in the plugin directory, and the allowed values of options that take
+a fixed set of them:
+
+```bash
+/usr/lib64/nagios/plugins/systemd-unit --severity=<TAB>
+```
+
+The options come from the plugin's own `--help`, read once per plugin and shell session, so
+they always match the installed version. The completion becomes active in the next shell and
+needs the distribution's `bash-completion` package; without it the file is never read.
+
+A handful of plugins carry the name of the tool they check (`ping`, `uptime`, `users`,
+`service`, `dmesg` and a few more). For those the completion is registered on the full path
+only, so the completion that comes with the real command keeps working.
+
+A manual install (the source zip unpacked by hand, or the GitHub archive) can copy the file
+itself:
+
+```bash
+sudo install -m 0644 assets/bash-completion/linuxfabrik-monitoring-plugins.bash \
+    /etc/bash_completion.d/linuxfabrik-monitoring-plugins
+```
+
+Set `LFMP_PLUGIN_DIR` before the file is read to complete plugins installed somewhere other
+than `/usr/lib64/nagios/plugins`. In zsh, load the bash completion machinery first:
+
+```bash
+autoload -U bashcompinit && bashcompinit
+source /etc/bash_completion.d/linuxfabrik-monitoring-plugins
+```
+
+
 #### SELinux
 
 On RHEL and derivatives, the `linuxfabrik-monitoring-plugins-selinux` sub-package

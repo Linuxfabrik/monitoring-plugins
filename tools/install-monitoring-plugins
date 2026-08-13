@@ -61,6 +61,11 @@ STATE_DIR='/usr/lib64/linuxfabrik-monitoring-plugins'
 VENV_DIR="${STATE_DIR}/venv"
 MANIFEST="${STATE_DIR}/install-manifest.txt"
 SUDOERS_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins'
+# The bash completion goes to the legacy directory on purpose: bash-completion sources that one
+# at shell startup, while its own completions directory is loaded lazily by command name, which
+# would need one file per plugin and would collide with the files bash-completion ships for the
+# plugins named after a real command (ping, uptime, ...).
+BASH_COMPLETION_DEST='/etc/bash_completion.d/linuxfabrik-monitoring-plugins'
 # sudoers drop-ins this project placed under earlier names: 'monitoring-plugins' (the Ansible
 # source install) and 'icinga2-plugins' (the manual scp deployment documented in the old README).
 # They are removed on install and on uninstall so a host never carries the LF_NAGIOS Cmnd_Alias
@@ -337,6 +342,29 @@ install_sudoers() {
     done
 }
 
+# Install the bash completion shipped in the source tree, mirroring what the RPM/DEB package
+# does. It completes the plugins' command line options and is inert on a host without the
+# bash-completion package, so it is installed unconditionally.
+install_bash_completion() {
+    local mp_dir="$1"
+    local src="${mp_dir}/assets/bash-completion/linuxfabrik-monitoring-plugins.bash"
+    if [ "${DRY_RUN}" = '1' ]; then
+        printf '    [dry-run] install -m 0644 %s %s\n' "${src}" "${BASH_COMPLETION_DEST}" >&2
+        return 0
+    fi
+    [ -f "${src}" ] || { warn "bash completion source ${src} not found; skipping"; return 0; }
+    log 'installing bash completion'
+    install -d -m 0755 "$(dirname "${BASH_COMPLETION_DEST}")"
+    install -m 0644 "${src}" "${BASH_COMPLETION_DEST}"
+    # The completion registers whatever it finds in the plugin directory, so a non-default
+    # --plugin-dir has to reach the installed copy.
+    if [ "${PLUGIN_DIR}" != "${DEFAULT_PLUGIN_DIR}" ]; then
+        sed -i "s|LFMP_PLUGIN_DIR:-${DEFAULT_PLUGIN_DIR}|LFMP_PLUGIN_DIR:-${PLUGIN_DIR}|" \
+            "${BASH_COMPLETION_DEST}"
+    fi
+    record "${BASH_COMPLETION_DEST}"
+}
+
 # Final ownership, mode and SELinux fix-ups, mirroring the package: root owns the plugins, the
 # monitoring user may read and execute them, the tree is relabelled, and plugins may call sudo.
 # Each step is applied only when its tool is present, so the install still succeeds on a host
@@ -367,8 +395,10 @@ finalize_permissions() {
     if [ -f "${MANIFEST}" ]; then
         while IFS= read -r p; do
             [ -n "${p}" ] || continue
-            # The sudoers drop-in was installed and validated with its own mandatory 0440.
-            [ "${p}" = "${SUDOERS_DEST}" ] && continue
+            # The sudoers drop-in was installed and validated with its own mandatory 0440, and
+            # the bash completion is sourced rather than executed. Both were placed by root
+            # with the mode they need, so they are left exactly as they are.
+            case "${p}" in "${SUDOERS_DEST}" | "${BASH_COMPLETION_DEST}") continue ;; esac
             [ -e "${p}" ] || continue
             chown --recursive root:root "${p}" || warn "chown of ${p} to root failed"
             if [ -d "${p}" ]; then
@@ -700,6 +730,7 @@ install_from_source() {
     # while copying, because they are of no use to a plugin at runtime.
     install_dependencies "${mp_dir}" "${lib_dir}"
     install_sudoers "${mp_dir}"
+    install_bash_completion "${mp_dir}"
     finalize_permissions
     smoke_test
 
@@ -795,6 +826,7 @@ install_from_zip() {
 
     install_dependencies "${PLUGIN_DIR}" "${PLUGIN_DIR}/lib"
     install_sudoers "${PLUGIN_DIR}"
+    install_bash_completion "${PLUGIN_DIR}"
     finalize_permissions
     smoke_test
 
@@ -840,7 +872,7 @@ uninstall() {
         run rm -rf "${STATE_DIR}"
         did_something=1
     fi
-    run rm -f "${SUDOERS_DEST}"
+    run rm -f "${SUDOERS_DEST}" "${BASH_COMPLETION_DEST}"
     # also drop any sudoers drop-ins shipped under earlier names
     for p in ${LEGACY_SUDOERS_DESTS}; do
         run rm -f "${p}"
