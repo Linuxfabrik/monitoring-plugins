@@ -142,9 +142,10 @@ sudo dnf install linuxfabrik-monitoring-plugins-selinux
 ```
 
 The `linuxfabrik-monitoring-plugins-selinux` sub-package pulls in the base package via
-`Recommends` and installs the SELinux policy module so the plugins run under a confined
-domain without manual `semanage`/`setsebool` tuning. Install just
-`linuxfabrik-monitoring-plugins` instead if SELinux is permissive or disabled.
+`Recommends` and loads a policy module carrying the rules the plugins need on a host
+running SELinux in enforcing mode, so no `audit2allow` round is left to the
+administrator. Install just `linuxfabrik-monitoring-plugins` instead if SELinux is
+permissive or disabled.
 
 
 #### SLE 15, SLE 16 and openSUSE Leap
@@ -426,9 +427,15 @@ source /etc/bash_completion.d/linuxfabrik-monitoring-plugins
 
 #### SELinux
 
-On RHEL and derivatives, the `linuxfabrik-monitoring-plugins-selinux` sub-package
-installs a dedicated SELinux policy module and labels the plugin files correctly. No
-extra steps are required.
+On RHEL and derivatives, the `linuxfabrik-monitoring-plugins-selinux` sub-package loads a
+policy module with the rules the plugins need in enforcing mode. No extra steps are
+required.
+
+The module does not label anything. The labels come from the SELinux policy of the
+distribution, which puts everything below `/usr/lib64/nagios/plugins` into
+`nagios_unconfined_plugin_exec_t`. A plugin started from there by the monitoring server
+therefore runs as `nagios_unconfined_plugin_t`, a domain that is deliberately
+unconfined.
 
 For the source-zip and GitHub source installs, apply the minimal settings manually:
 
