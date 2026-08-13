@@ -128,10 +128,15 @@ After the build, the packages directory looks like this:
 $LFMP_DIR_PACKAGED
 ├── debian13/
 │   └── linuxfabrik-monitoring-plugins_2.2.1-1_amd64.deb
+├── rocky9/
+│   ├── linuxfabrik-monitoring-plugins-2.2.1-1.el9.x86_64.rpm
+│   └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el9.x86_64.rpm
 └── rocky10/
-    ├── linuxfabrik-monitoring-plugins-2.2.1-1.el10.x86_64.rpm
-    └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el10.x86_64.rpm
+    └── linuxfabrik-monitoring-plugins-2.2.1-1.el10.x86_64.rpm
 ```
+
+The `selinux` sub-package is built for EL8 and EL9 only. EL10 carries no nagios
+policy, so the module has no types to build on there.
 
 
 ## Windows Binaries and MSI

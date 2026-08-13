@@ -26,9 +26,17 @@ Source0:        https://github.com/Linuxfabrik/monitoring-plugins/archive/refs/t
 Source1:        vendor.tar.gz
 
 BuildRequires:  make
+
+# The policy module requires the types of the nagios policy, and Red Hat dropped
+# that policy in EL10: `selinux-policy-targeted` ships no nagios module there, so
+# `nagios_unconfined_plugin_exec_t` does not exist and the module cannot be loaded
+# on any EL10 host. Everything about the sub-package is therefore built for EL8
+# and EL9 only.
+%if 0%{rhel} < 10
 BuildRequires:  checkpolicy, selinux-policy-devel
 
 Recommends:     %{name}-selinux = %{version}-%{release}
+%endif
 
 %if 0%{rhel} < 9
 %define python_build_deps python39, python39-devel, python39-pip
@@ -45,6 +53,7 @@ Requires: %{python_deps}
 %description
 This Enterprise Class Check Plugin Collection offers a bunch of Nagios-compatible check plugins for Icinga, Naemon, Nagios, OP5, Shinken, Sensu and other monitoring applications. Each plugin is a stand-alone command line tool that provides a specific type of check. Typically, your monitoring software will run these check plugins to determine the current status of hosts and services on your network.
 
+%if 0%{rhel} < 10
 %package        selinux
 Summary:        SELinux support for Linuxfabrik's Monitoring Plugin Collection
 Requires:       %{name} = %{version}-%{release}
@@ -54,6 +63,7 @@ Requires(postun): policycoreutils
 
 %description selinux
 This package adds SELinux enforcement to the Linuxfabrik Monitoring Plugin Collection.
+%endif
 
 %prep
 %setup -b 1 -T -n vendor
@@ -90,6 +100,7 @@ install --mode 0440 --no-target-directory assets/sudoers/RedHat.sudoers %{buildr
 install --directory %{buildroot}%{_sysconfdir}/bash_completion.d
 install --mode 0644 --no-target-directory assets/bash-completion/linuxfabrik-monitoring-plugins.bash %{buildroot}%{_sysconfdir}/bash_completion.d/%{name}
 
+%if 0%{rhel} < 10
 # Build SELinux support
 mkdir selinux
 cp assets/selinux/%{name}.te selinux
@@ -99,11 +110,17 @@ make --file %{_datadir}/selinux/devel/Makefile
 install --directory %{buildroot}%{_datadir}/selinux/packages
 install --preserve-context --mode 0644 linuxfabrik-monitoring-plugins.pp %{buildroot}%{_datadir}/selinux/packages
 popd
+%endif
 
+%if 0%{rhel} < 10
+# The scriptlets never fail the transaction, but they no longer hide why they did
+# not do their job: a module that cannot be loaded used to leave behind a package
+# that looks installed and does nothing at all.
 %post selinux
 if [ "$1" -le "1" ]; then
     # First install
-    semodule --install %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp 2>/dev/null || :
+    semodule --install %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp || \
+        echo "%{name}-selinux: could not load the SELinux policy module, see above" >&2
     setsebool -P nagios_run_sudo on || :
     restorecon -r %{_libdir}/nagios/plugins || :
 fi
@@ -118,8 +135,10 @@ fi
 %postun selinux
 if [ "$1" -ge "1" ]; then
     # Upgrade
-    semodule --install %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp 2>/dev/null || :
+    semodule --install %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp || \
+        echo "%{name}-selinux: could not load the SELinux policy module, see above" >&2
 fi
+%endif
 
 %files
 %{_libdir}/%{name}/venv/
@@ -128,7 +147,9 @@ fi
 %{_sysconfdir}/sudoers.d/%{name}
 %license LICENSE
 
+%if 0%{rhel} < 10
 %files selinux
 %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp
+%endif
 
 %changelog
