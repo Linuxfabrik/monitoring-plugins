@@ -292,7 +292,9 @@ def get_uptime(container_state, status, now):
         started_epoch = lib.time.timestr2epoch(started, pattern='iso8601')
     except ValueError:
         return None
-    return now - started_epoch
+    # whole seconds: the timestamp carries nanoseconds, and an uptime rendered down
+    # to microseconds ("2m 348ms") says nothing an admin acts on
+    return int(now - started_epoch)
 
 
 def main():

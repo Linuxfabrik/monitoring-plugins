@@ -221,7 +221,9 @@ def get_age(created, now):
         created_epoch = lib.time.timestr2epoch(created, pattern='iso8601')
     except ValueError:
         return None
-    return now - created_epoch
+    # whole seconds: the timestamp carries nanoseconds, and an age rendered down to
+    # microseconds says nothing an admin acts on
+    return int(now - created_epoch)
 
 
 def main():
