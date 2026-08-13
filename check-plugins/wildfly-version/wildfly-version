@@ -24,7 +24,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081201'
 
 DESCRIPTION = """Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on the GitHub
@@ -197,6 +197,10 @@ def get_latest_version(expire):
     )
     if not success:
         return (success, latest_version)
+    if not latest_version:
+        # GitHub answered, but named no release. Say so instead of caching the
+        # empty answer and comparing the installed version against nothing.
+        return (False, 'GitHub reports no WildFly release to compare against.')
 
     lib.cache.set('wildfly-version', latest_version, lib.time.now() + expire)
     return (True, latest_version)
