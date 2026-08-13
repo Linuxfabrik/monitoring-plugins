@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every scenario is made of a module tree under `icingaweb2/`, handed to the check through
+# its own `--path`, and a pair of JSON fixtures under `fixtures/` standing in for the package
+# manager and the GitHub API. The trees mirror what Icinga Web 2.14.0 on Fedora 43 installs,
+# the GitHub answers were captured from the live API, so the tests reach neither a command
+# nor the network.
+TESTS = [
+    # A host whose modules all come from packages: nothing is asked of GitHub and the check
+    # stays quiet. This is what lets the check sit in a service set by default.
+    {
+        'id': 'ok-every-module-from-a-package',
+        'test': 'fixtures/packaged-only',
+        'params': '--path=icingaweb2/packaged-only',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '3 managed by the package manager'],
+        'assert-not-in': ['WARNING', 'CRITICAL'],
+    },
+    {
+        # The two version columns carry version numbers and nothing else, so they can be
+        # read against each other. Why a module was not compared belongs in `Source`.
+        'id': 'ok-version-columns-carry-only-versions',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'businessprocess ! 2\.6\.0\s+! -\s+! package',
+        'assert-in': [
+            'company         ! 1.0.0     ! v1.0.0 ! github',
+            'ourthing        ! 3.2.1     ! -      ! no repository',
+            'vspheredb       ! main      ! -      ! no version',
+        ],
+    },
+    {
+        'id': 'ok-package-compared-anyway-on-request',
+        'test': 'fixtures/packaged-only',
+        'params': '--path=icingaweb2/packaged-only --include-packaged',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['managed by the package manager'],
+    },
+    # Icinga Web ships doc, migrate, monitoring, setup and translation itself. They are
+    # versioned with Icinga Web, so an installation carrying nothing else has nothing to
+    # report on.
+    {
+        'id': 'ok-only-the-modules-icinga-web-ships-itself',
+        'test': 'fixtures/bundled-only',
+        'params': '--path=icingaweb2/bundled-only',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-no-match-severity-applies-to-an-empty-result',
+        'test': 'fixtures/bundled-only',
+        'params': '--path=icingaweb2/bundled-only --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-module-directory-does-not-exist',
+        'test': 'fixtures/bundled-only',
+        'params': '--path=icingaweb2/no-such-installation',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['not found'],
+    },
+    # How Icinga Web reads a module.info, one module per case, measured against 2.14.0.
+    # The colon has to sit directly behind the key and be followed by whitespace.
+    {
+        'id': 'ok-module-info-is-read-the-way-icinga-web-reads-it',
+        'test': 'fixtures/module-info-quirks',
+        'params': '--path=icingaweb2/module-info-quirks',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'afterdesc\s+!\s+9\.9\.9',
+        'assert-in': [
+            'empty     ! 0.0.0',       # `Version:` without a value
+            'lowercase ! 3.4.5',       # the key is case-insensitive
+            'nospace   ! 0.0.0',       # `Version:1.2.3` declares no version
+            'spaceval  ! 1.0 beta',    # a version may contain a space
+            'tabsep    ! 2.3.4',       # a tab separates just as well
+        ],
+    },
+    # The mixed host: one tarball module behind its release, one Git checkout, modules
+    # nobody published and four packages.
+    {
+        'id': 'warn-tarball-module-behind-its-release',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'reporting.*1\.0\.2.*v1\.1\.0.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-git-checkout-has-no-comparable-version',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --match=vspheredb',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'vspheredb.*main.*no version',
+    },
+    {
+        'id': 'warn-git-checkout-under-its-own-severity',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --match=vspheredb '
+        '--no-version-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'vspheredb.*no version.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-module-without-a-module-info-is-not-outdated',
+        'test': 'fixtures/mixed-sources',
+        # `0.0.0` is what Icinga Web substitutes for a missing module.info, so it must not
+        # compare as older than every release.
+        'params': '--path=icingaweb2/mixed-sources --match=nomoduleinfo '
+        '--repo="nomoduleinfo, Icinga/icingaweb2-module-vspheredb"',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'nomoduleinfo.*0\.0\.0.*no version',
+        'assert-in': ["'outdated'=0"],
+    },
+    {
+        'id': 'ok-unknown-module-is-listed-not-compared',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --match=ourthing',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'ourthing.*no repository',
+    },
+    {
+        'id': 'warn-unknown-module-under-its-own-severity',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --match=ourthing '
+        '--unknown-repo-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'ourthing.*no repository.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-repo-parameter-covers-a-module-of-your-own',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --match=ourthing '
+        '--repo="ourthing, Icinga/icingaweb2-module-vspheredb"',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'ourthing.*3\.2\.1.*v1\.8\.5',
+        'assert-not-in': ['no repository'],
+    },
+    {
+        'id': 'ok-a-repository-without-releases-falls-back-on-its-tags',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --match=company',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'company.*1\.0\.0.*v1\.0\.0',
+    },
+    {
+        'id': 'unknown-repo-parameter-in-the-wrong-shape',
+        'test': 'fixtures/mixed-sources',
+        'params': '--path=icingaweb2/mixed-sources --repo=ourthing',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--repo expects'],
+    },
+    # A fork publishes the upstream version plus a build date, and upstream never released
+    # that version, so such an installation has to be compared against the fork.
+    {
+        'id': 'warn-fork-version-is-compared-against-the-fork',
+        'test': 'fixtures/fork-and-branch',
+        'params': '--path=icingaweb2/fork-and-branch --match=director --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Linuxfabrik/icingaweb2-module-director'],
+        'assert-regex': r'director.*v1\.11\.8\.2026040201.*v1\.11\.9\.2026070601',
+    },
+    {
+        'id': 'ok-branch-comparison-reports-the-commit-distance',
+        'test': 'fixtures/fork-and-branch',
+        'params': '--path=icingaweb2/fork-and-branch --check-branch --match=x509',
+        'assert-retc': STATE_OK,
+        # The release sits on the branch tip. Zero has to survive the cache, which stores
+        # its values as text for exactly this reason.
+        'assert-in': ['0 behind main'],
+    },
+    {
+        'id': 'warn-branch-name-falls-back-to-the-other-spelling',
+        'test': 'fixtures/fork-and-branch',
+        # The fork uses `master`; asking for `main` still has to find it.
+        'params': '--path=icingaweb2/fork-and-branch --check-branch --match=director',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['38 behind master'],
+    },
+    {
+        'id': 'crit-commit-distance-crosses-the-critical-range',
+        'test': 'fixtures/fork-and-branch',
+        'params': '--path=icingaweb2/fork-and-branch --check-branch '
+        '--warning=~:10 --critical=~:30',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'director.*38 behind master.*\[CRITICAL\]',
+    },
+    # GitHub not answering must not read as a clean result.
+    {
+        'id': 'ok-unreachable-github-is-tolerated-by-default',
+        'test': 'fixtures/rate-limited',
+        'params': '--path=icingaweb2/rate-limited',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 unreachable', '60 requests per hour'],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        'id': 'warn-unreachable-github-under-its-own-severity',
+        'test': 'fixtures/rate-limited',
+        'params': '--path=icingaweb2/rate-limited --unreachable-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 unreachable'],
+    },
+    {
+        'id': 'ok-ignore-drops-a-module-from-the-run',
+        'test': 'fixtures/rate-limited',
+        'params': '--path=icingaweb2/rate-limited --ignore=^reporting$ --ignore=^x509$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'ok-several-module-paths-are-walked-in-order',
+        'test': 'fixtures/mixed-sources',
+        # The same module in two paths is taken from the first one, the way Icinga Web
+        # itself resolves it.
+        'params': '--path=icingaweb2/fork-and-branch --path=icingaweb2/mixed-sources '
+        '--match=^director$ --lengthy',
+        'assert-retc': STATE_OK,
+        # abbreviated: `i/f/director` is the fork-and-branch tree, `i/m/...` the other
+        'assert-in': ['i/f/director'],
+        'assert-not-in': ['i/m/director'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../icingaweb2-module-updates'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001 / v6.0.0'
+__version__ = '2026081301 / v6.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -628,7 +628,12 @@ def get_lftags(distro):
         },
         # {'sw': 'Huawei Dorado', 'package': [], 'expr': []},
         {
-            'sw': 'Icinga2',
+            'sw': 'Icinga Web 2',
+            'package': ['icingaweb2'],
+            'expr': [lib.disk.dir_exists('/usr/share/icingaweb2/modules')],
+        },
+        {
+            'sw': 'Icinga 2',
             'package': [],
             'expr': [
                 run_cmd(
@@ -637,7 +642,7 @@ def get_lftags(distro):
             ],
         },
         {
-            'sw': 'IcingaDB',
+            'sw': 'Icinga DB',
             'package': [],
             'expr': [
                 run_cmd(
@@ -739,6 +744,14 @@ def get_lftags(distro):
             ],
         },
         {
+            'sw': 'Lynis',
+            'package': ['lynis'],
+            'expr': [
+                lib.disk.dir_exists('/usr/share/lynis'),
+                lib.disk.dir_exists('/etc/lynis'),
+            ],
+        },
+        {
             'sw': 'MariaDB',
             'package': [],
             'expr': [db_flavor == 'mariadb'],
@@ -786,6 +799,16 @@ def get_lftags(distro):
                 lib.disk.dir_exists('/var/www/matomo'),
                 lib.disk.dir_exists('/var/www/html/matomo'),
                 lib.disk.dir_exists('/var/www/html/piwik'),
+            ],
+        },
+        {
+            'sw': 'Metabase',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'metabase.service'], ignore_output=True
+                ),
+                lib.disk.dir_exists('/opt/metabase'),
             ],
         },
         {
@@ -906,6 +929,16 @@ def get_lftags(distro):
             'sw': 'OnlyOffice',
             'package': [],
             'expr': [lib.disk.dir_exists('/var/log/onlyoffice')],
+        },
+        {
+            'sw': 'OpenJDK',
+            'package': [
+                'java-1.8.0-openjdk-headless',
+                'java-11-openjdk-headless',
+                'java-17-openjdk-headless',
+                'java-21-openjdk-headless',
+            ],
+            'expr': [],
         },
         {
             'sw': 'OpenVAS',
@@ -1420,6 +1453,7 @@ def get_software_found():
             ],
         },
         {'sw': 'LibreNMS', 'expr': [lib.disk.dir_exists('/opt/librenms')]},
+        {'sw': 'Metabase', 'expr': [lib.disk.dir_exists('/opt/metabase')]},
         {
             'sw': 'MariaDB ColumnStore',
             'expr': [lib.disk.dir_exists('/usr/local/mariadb/columnstore')],

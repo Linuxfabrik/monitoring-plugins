@@ -50,6 +50,7 @@ Monitoring Plugins:
 * huawei-pacific-service: check alerting when a service process on a cluster node is not running
 * huawei-pacific-storagepool: check alerting on a faulty storage pool, and on one filling up
 * huawei-pacific-system: check alerting on cluster capacity usage
+* icingaweb2-module-updates: check alerting when an Icinga Web 2 module installed from a tarball or a Git checkout is behind its latest GitHub release ([#124](https://github.com/Linuxfabrik/monitoring-plugins/issues/124))
 * kdump: check alerting when a kernel panic cannot be captured, or when a previous panic left a crash dump behind
 * librenms-validate: check alerting on the problems LibreNMS reports about its own installation ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
 * network-errors: check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
@@ -59,6 +60,13 @@ Monitoring Plugins:
 * wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
 * wordpress-checksums: check verifying core and plugin files against the checksums wordpress.org publishes
 * wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and exposed credentials
+
+Icinga Director:
+
+* `Icinga Web 2 Service Set` (host tag `icingaweb2`) for hosts running the Icinga Web 2 interface
+* `Lynis Service Set` (host tag `lynis`) for the host that runs the subnet security audits. Tag one host, not every host carrying the package
+* `OpenJDK Service Set` (host tag `openjdk`) for hosts running a Red Hat OpenJDK
+* host tag `metabase`, without a Service Set: the check needs credentials, so create the service from its template via an Apply rule
 
 ### Changed
 

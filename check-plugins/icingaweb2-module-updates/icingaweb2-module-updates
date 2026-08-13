@@ -1,0 +1,802 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.cache
+import lib.disk
+import lib.lftest
+import lib.time
+import lib.txt
+import lib.url
+import lib.version
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081201'
+
+DESCRIPTION = """Checks the Icinga Web 2 modules installed on this host against their
+releases on GitHub, so a module installed from a tarball or a Git checkout does not
+quietly fall behind. Modules that belong to a distribution package are left to the
+package manager and reported as such, which is why the check stays silent on a host
+whose modules all come from packages. Optionally reports how many commits a module
+trails a development branch by. Alerts when a module is behind its latest release.
+Supports extended reporting via --lengthy."""
+
+DEFAULT_BRANCH = 'main'
+# Anonymous GitHub API access is limited to 60 requests per hour and IP address, and a
+# run spends one request per module, so the answers are cached for a day by default.
+DEFAULT_CACHE_EXPIRE = 1440  # minutes
+DEFAULT_CHECK_BRANCH = False
+DEFAULT_CRIT = None
+DEFAULT_INCLUDE_PACKAGED = False
+DEFAULT_INSECURE = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_NO_VERSION_SEVERITY = 'ok'
+DEFAULT_PATH = '/usr/share/icingaweb2/modules'
+DEFAULT_TIMEOUT = 8
+DEFAULT_UNKNOWN_REPO_SEVERITY = 'ok'
+DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+DEFAULT_WARN = None
+
+# Modules that ship with Icinga Web 2 itself. They live in the same directory as every
+# other module and are versioned with Icinga Web 2, so comparing them against a
+# repository of their own would report an update that does not exist. On a packaged
+# installation they are already covered by the package rule below; this list is what
+# catches them when Icinga Web 2 itself was installed from source.
+BUNDLED_MODULES = (
+    'doc',
+    'migrate',
+    'monitoring',
+    'setup',
+    'test',
+    'translation',
+)
+
+# Where a module is published. The mapping cannot be derived from the module name:
+# `icingadb` lives in `icingadb-web`, `grafana` comes from a different vendor, and
+# `company` is a theme installed as a module. Add entries for modules of your own with
+# `--repo`.
+GITHUB_REPOS = {
+    'businessprocess': 'Icinga/icingaweb2-module-businessprocess',
+    'company': 'Icinga/icingaweb2-theme-company',
+    'cube': 'Icinga/icingaweb2-module-cube',
+    'director': 'Icinga/icingaweb2-module-director',
+    'fileshipper': 'Icinga/icingaweb2-module-fileshipper',
+    'grafana': 'NETWAYS/icingaweb2-module-grafana',
+    'icingadb': 'Icinga/icingadb-web',
+    'incubator': 'Icinga/icingaweb2-module-incubator',
+    'jira': 'Icinga/icingaweb2-module-jira',
+    'kubernetes': 'Icinga/icinga-kubernetes-web',
+    'linuxfabrik': 'Linuxfabrik/icingaweb2-theme-linuxfabrik',
+    'pdfexport': 'Icinga/icingaweb2-module-pdfexport',
+    'reporting': 'Icinga/icingaweb2-module-reporting',
+    'vspheredb': 'Icinga/icingaweb2-module-vspheredb',
+    'x509': 'Icinga/icingaweb2-module-x509',
+}
+
+# A few modules are maintained as a fork whose releases carry the upstream version plus
+# a build date (`v1.11.9.2026070601`). Such an installation has to be compared against
+# the fork, because upstream never published that version, so the fork is picked by the
+# shape of the installed version rather than by a parameter the admin would have to know
+# about.
+FORKED_REPOS = {
+    'director': 'Linuxfabrik/icingaweb2-module-director',
+}
+FORK_VERSION_REGEX = re.compile(r'^v?\d+\.\d+\.\d+\.\d{10}$')
+
+# How Icinga Web 2 reads the version out of a module.info, which is stricter than it
+# looks. Measured against Icinga Web 2.14.0 on Fedora 43: the colon has to sit directly
+# behind the key and be followed by whitespace, so `Version:1.2.3` yields no version at
+# all, while a tab works and the key is case-insensitive. The value runs to the end of
+# the line, because a module is free to declare something like `Version: 1.0 beta`.
+VERSION_REGEX = re.compile(r'^version:[ \t]+(.*)$', re.IGNORECASE)
+
+# A version has to carry a digit to be comparable, which rules out the branch name a Git
+# checkout reports (`Version: main`). `0.0.0` is not a version either: it is what Icinga
+# Web substitutes for a module that declares none. Without both guards such a module
+# compares as older than everything and is reported as outdated forever.
+DIGIT_REGEX = re.compile(r'\d')
+NO_MODULE_INFO_VERSION = '0.0.0'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--branch',
+        help='Name of the development branch `--check-branch` compares against. '
+        '`main` and `master` stand in for each other, so the default already covers '
+        'repositories that disagree on the name and this rarely has to be set. '
+        'Example: `--branch=develop` '
+        'Default: %(default)s',
+        dest='BRANCH',
+        default=DEFAULT_BRANCH,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--check-branch',
+        help='Also report how far behind its development branch each module is, as a '
+        'number of commits. '
+        'Costs one additional API request per module. '
+        'Name the branch with `--branch`.',
+        dest='CHECK_BRANCH',
+        action='store_true',
+        default=DEFAULT_CHECK_BRANCH,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the number of commits a module is behind its branch. '
+        'Supports Nagios ranges. '
+        'Only used with `--check-branch`. '
+        'Default: no critical threshold',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--include-packaged',
+        help='Compare modules that came from an RPM or DEB package against GitHub too. '
+        'Without this they are listed but not compared, because the distribution '
+        'decides their version and `rpm-updates` or `deb-updates` already reports '
+        'those updates.',
+        dest='INCLUDE_PACKAGED',
+        action='store_true',
+        default=DEFAULT_INCLUDE_PACKAGED,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--no-version-severity',
+        help='State to report for a module whose version cannot be compared, which is '
+        'what a Git checkout reporting its branch name instead of a version looks '
+        'like, and a module shipping no module.info at all. '
+        'Default: %(default)s',
+        dest='NO_VERSION_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_VERSION_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Directory holding the Icinga Web 2 modules. '
+        'Set this where `module_path` in `/etc/icingaweb2/config.ini` names another '
+        'one. '
+        'Can be specified multiple times. '
+        f'Default: {DEFAULT_PATH}',
+        dest='PATH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--repo',
+        help='Where a module is published, as `module, user/repository`. '
+        'Adds a module the check does not know, and overrides one it does. '
+        'Can be specified multiple times. '
+        'Example: `--repo="mymodule, ExampleOrg/icingaweb2-module-mymodule"`',
+        dest='REPO',
+        action='append',
+        type=lib.args.csv,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--token',
+        help='GitHub API token. '
+        'Raises the API limit from 60 requests per hour and IP address to 5000. '
+        'Passed here, the token is visible to every user on this host for as long as '
+        'the check runs, because a command-line argument shows up in the process list; '
+        'prefer --token-file.',
+        dest='TOKEN',
+    )
+
+    parser.add_argument(
+        '--token-file',
+        help='Path to a file holding the GitHub API token, read from its first line. '
+        'Keeps the token out of the process list, where a command line argument is '
+        'visible to every user on this host. '
+        'Takes precedence over `--token`. '
+        'Example: `--token-file=/etc/icinga2/secrets/github`',
+        dest='TOKEN_FILE',
+    )
+
+    parser.add_argument(
+        '--unknown-repo-severity',
+        help='State to report for a module the check has no repository for. '
+        'Supply one with `--repo` to have the module compared. '
+        'Default: %(default)s',
+        dest='UNKNOWN_REPO_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNKNOWN_REPO_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--unreachable-severity',
+        help=lib.args.help('--unreachable-severity') + ' Default: %(default)s',
+        dest='UNREACHABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNREACHABLE_SEVERITY,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the number of commits a module is behind its branch. '
+        'Supports Nagios ranges. '
+        'Only used with `--check-branch`. '
+        'Default: no warning threshold',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_modules(path):
+    """Read the installed modules from the module directory.
+
+    Returns `(True, modules)` or `(False, errormessage)`. Every subdirectory is a
+    module, named after the directory rather than after the `Name` its module.info
+    carries, which is a display name and not unique. This is how Icinga Web 2 itself
+    discovers modules, and it needs no elevated rights: the module directory is
+    world-readable, unlike the configuration directory that holds which of them are
+    enabled.
+    """
+    if not lib.disk.dir_exists(path):
+        return (
+            False,
+            f'Module directory "{path}" not found. Is Icinga Web 2 installed?',
+        )
+
+    modules = []
+    try:
+        entries = sorted(os.listdir(path))
+    except OSError as e:
+        return (False, f'Cannot read module directory "{path}": {e}')
+
+    for entry in entries:
+        directory = os.path.join(path, entry)
+        if entry.startswith('.') or not lib.disk.dir_exists(directory):
+            continue
+        modules.append(
+            {
+                'module': entry,
+                'version': get_module_version(directory),
+                'directory': directory,
+            }
+        )
+    return (True, modules)
+
+
+def get_module_version(directory):
+    """Return the version a module declares, or the placeholder for "it declares none".
+
+    Mirrors how Icinga Web 2 reads the file, which is stricter than it looks. Measured
+    against Icinga Web 2.14.0: the colon has to sit directly behind the key and be
+    followed by at least one whitespace character, so `Version:1.2.3` is not a version
+    and yields the placeholder, while a tab separator works and the key is
+    case-insensitive. The value runs to the end of the line and may itself contain
+    spaces (`Version: 1.0 beta`).
+    """
+    filename = os.path.join(directory, 'module.info')
+    if not lib.disk.file_exists(filename, allow_empty=True):
+        return NO_MODULE_INFO_VERSION
+    success, content = lib.disk.read_file(filename)
+    if not success or not content:
+        return NO_MODULE_INFO_VERSION
+    for line in lib.txt.to_text(content, errors='strict_or_latin1').splitlines():
+        match = VERSION_REGEX.match(line.rstrip())
+        if match:
+            return match.group(1).strip() or NO_MODULE_INFO_VERSION
+    return NO_MODULE_INFO_VERSION
+
+
+def resolve_repo(module, version, overrides):
+    """Return the `user/repository` a module is published at, or the empty string.
+
+    `--repo` wins over everything, so an admin can point the check at a fork or at a
+    module it does not know. Otherwise a version carrying a build date identifies an
+    installation that came from a fork and is compared against that fork, because
+    upstream never published that version.
+    """
+    if module in overrides:
+        return overrides[module]
+    if module in FORKED_REPOS and FORK_VERSION_REGEX.match(version):
+        return FORKED_REPOS[module]
+    return GITHUB_REPOS.get(module, '')
+
+
+def report(table_data, row, module_state, latest='-', source='-', origin='-'):
+    """Close a module off with its verdict and put it in the table.
+
+    `latest` stays a version number so the two version columns can be read against each
+    other at a glance. Where a module was not compared, `source` says why instead, and
+    `origin` names the package or the repository the answer would have come from.
+    """
+    row['latest'] = latest
+    row['source'] = source
+    row['origin'] = origin
+    row['status'] = lib.base.state2str(module_state, empty_ok=False)
+    table_data.append(row)
+
+
+def get_latest(repo, args, header, github):
+    """Return `(success, tag)` for the newest release of `repo`, or `(True, '')`.
+
+    Answers are cached because the anonymous API allows 60 requests per hour and IP
+    address. A repository that tags its versions but publishes no release answers the
+    release endpoint with 404, which the library reports as "no release", so the tag
+    list is the fallback.
+    """
+    if github is not None:
+        # test mode: the pinned answers stand in for the API
+        answer = github.get(repo, {})
+        if answer.get('error'):
+            return (False, answer['error'])
+        return (True, answer.get('latest', ''))
+
+    key = f'icingaweb2-module-updates-latest-{repo}'
+    cached = lib.cache.get(key)
+    if cached:
+        return (True, cached)
+
+    user, _, name = repo.partition('/')
+    success, latest = lib.url.get_latest_version_from_github(
+        user,
+        name,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        return (False, latest)
+    if not latest:
+        success, latest = lib.url.get_latest_tag_from_github(
+            user,
+            name,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            timeout=args.TIMEOUT,
+        )
+        if not success:
+            return (False, latest)
+    if not latest:
+        return (True, '')
+
+    lib.cache.set(key, latest, lib.time.now() + args.CACHE_EXPIRE * 60)
+    return (True, latest)
+
+
+def get_commits_behind(repo, version, args, header, github):
+    """Return `(success, (branch, count))` for how far `version` trails `--branch`.
+
+    The installed version is used as the base, so the number says how far this
+    installation has fallen behind rather than how far the branch is ahead of the newest
+    release. It is tried with and without the `v` a tag may carry, and `main` and
+    `master` stand in for each other, because a set of repositories does not agree on
+    either spelling.
+    """
+    candidates = [version]
+    if version.startswith('v'):
+        candidates.append(version[1:])
+    else:
+        candidates.append(f'v{version}')
+
+    branches = [args.BRANCH]
+    if args.BRANCH == 'main':
+        branches.append('master')
+    elif args.BRANCH == 'master':
+        branches.append('main')
+
+    if github is not None:
+        # test mode: the pinned answers stand in for the API
+        compare = github.get(repo, {}).get('compare', {})
+        for branch in branches:
+            for base in candidates:
+                if f'{base}...{branch}' in compare:
+                    return (True, (branch, compare[f'{base}...{branch}']))
+        return (True, ('', None))
+
+    user, _, name = repo.partition('/')
+    for branch in branches:
+        for base in candidates:
+            key = f'icingaweb2-module-updates-behind-{repo}-{base}-{branch}'
+            cached = lib.cache.get(key)
+            if cached:
+                return (True, (branch, int(cached)))
+
+            success, behind = lib.url.compare_github_refs(
+                user,
+                name,
+                base,
+                branch,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
+            if not success:
+                return (False, behind)
+            if behind is False:
+                # GitHub knows neither this base nor this branch; try the next spelling
+                continue
+            lib.cache.set(key, str(behind), lib.time.now() + args.CACHE_EXPIRE * 60)
+            return (True, (branch, behind))
+
+    return (True, ('', None))
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.PATH is None:
+        args.PATH = [DEFAULT_PATH]
+    if args.REPO is None:
+        args.REPO = []
+
+    # fetch data
+    modules = []
+    seen = set()
+    for path in args.PATH:
+        for module in lib.base.coe(get_modules(path)):
+            # Icinga Web 2 takes the first directory a module name resolves to and
+            # ignores the rest, so several module paths are walked in the order they
+            # were given.
+            if module['module'] in seen:
+                continue
+            seen.add(module['module'])
+            modules.append(module)
+    modules.sort(key=lambda item: item['module'])
+
+    github = None
+    packages = None
+    token = args.TOKEN
+    if args.TEST is None:
+        if args.TOKEN_FILE:
+            token = lib.base.coe(lib.args.load_secret(args.TOKEN_FILE, '--token-file'))
+    else:
+        # do not call the package manager or GitHub, put in test data
+        github = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-github')
+        packages = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-packages')
+    header = lib.url.github_token_header(token)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    checked = 0
+    compared = 0
+    no_version = 0
+    outdated = 0
+    packaged = 0
+    unknown_repo = 0
+    unreachable = 0
+    notes = []
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    overrides = {}
+    for item in args.REPO:
+        if len(item) != 2:
+            lib.base.cu(
+                f'--repo expects "module, user/repository", got "{", ".join(item)}".'
+            )
+        overrides[item[0].strip()] = item[1].strip()
+
+    # analyze data
+    for module in modules:
+        name = module['module']
+        if name in BUNDLED_MODULES:
+            continue
+        # Filter modules. --match (include) is applied first, then --ignore (exclude),
+        # so a module hit by --ignore is dropped even if it also matches --match.
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        checked += 1
+        row = {
+            'module': name,
+            'installed': module['version'],
+            'latest': '-',
+            'source': '-',
+            'origin': '-',
+            # Abbreviated the way a shell prompt does. Every module usually sits
+            # under the same parent, so the full path in every row is noise; what
+            # the column is for is telling the module paths apart when `--path`
+            # names more than one.
+            'directory': lib.disk.shorten_path(module['directory']),
+            'branch': '-',
+        }
+
+        package = packages.get(name, '') if packages is not None else ''
+        if args.TEST is None:
+            package = lib.disk.get_package(module['directory'])
+        if package and not args.INCLUDE_PACKAGED:
+            packaged += 1
+            report(table_data, row, STATE_OK, source='package', origin=package)
+            continue
+
+        repo = resolve_repo(name, module['version'], overrides)
+        if not repo:
+            unknown_repo += 1
+            module_state = lib.base.str2state(args.UNKNOWN_REPO_SEVERITY)
+            state = lib.base.get_worst(state, module_state)
+            report(table_data, row, module_state, source='no repository')
+            continue
+
+        if (
+            not DIGIT_REGEX.search(module['version'])
+            or module['version'] == NO_MODULE_INFO_VERSION
+        ):
+            no_version += 1
+            module_state = lib.base.str2state(args.NO_VERSION_SEVERITY)
+            state = lib.base.get_worst(state, module_state)
+            report(table_data, row, module_state, source='no version', origin=repo)
+            continue
+
+        # A missing HTTP module is a deployment problem, not an unreachable GitHub, and
+        # must not be graded by --unreachable-severity: at its default that would leave
+        # the check green while it compares nothing at all. It is checked here rather
+        # than at import time so a host whose modules all come from packages keeps
+        # working without it.
+        if args.TEST is None and lib.url.httpx is None:
+            lib.base.cu(
+                'Python module "httpx" is not installed, so no module can be compared '
+                'against GitHub. Install it with `dnf install python3-httpx '
+                'python3-h2` or `pip install "httpx[http2]"`.'
+            )
+
+        success, latest = get_latest(repo, args, header, github)
+        if not success:
+            unreachable += 1
+            module_state = lib.base.str2state(args.UNREACHABLE_SEVERITY)
+            state = lib.base.get_worst(state, module_state)
+            notes.append(latest)
+            report(table_data, row, module_state, source='unreachable', origin=repo)
+            continue
+        if not latest:
+            no_version += 1
+            module_state = lib.base.str2state(args.NO_VERSION_SEVERITY)
+            state = lib.base.get_worst(state, module_state)
+            report(table_data, row, module_state, source='no release', origin=repo)
+            continue
+
+        compared += 1
+        module_state = STATE_OK
+        # lib.version.version() drops the `v` a tag carries and an installed version
+        # usually does not, so both sides compare regardless of the spelling.
+        installed_version = lib.version.version(module['version'], maxlen=4)
+        if installed_version < lib.version.version(latest, maxlen=4):
+            outdated += 1
+            module_state = STATE_WARN
+
+        if args.CHECK_BRANCH:
+            success, behind = get_commits_behind(
+                repo, module['version'], args, header, github
+            )
+            if not success:
+                module_state = lib.base.get_worst(
+                    module_state, lib.base.str2state(args.UNREACHABLE_SEVERITY)
+                )
+                notes.append(behind)
+                row['branch'] = 'unreachable'
+            else:
+                branch, count = behind
+                if count is None:
+                    row['branch'] = 'not on GitHub'
+                else:
+                    row['branch'] = f'{count} behind {branch}'
+                    module_state = lib.base.get_worst(
+                        module_state,
+                        lib.base.get_state(
+                            count, args.WARN, args.CRIT, _operator='range'
+                        ),
+                    )
+
+        state = lib.base.get_worst(state, module_state)
+        report(table_data, row, module_state, latest, source='github', origin=repo)
+
+    # nothing left to report on, either because every module was filtered out or because
+    # Icinga Web 2 has no modules beyond the ones it ships itself
+    if not table_data:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    # "Everything is ok." is only true when every module that was not deliberately left
+    # out could actually be compared, so a run that reached no repository states the
+    # facts instead of claiming a clean result.
+    if outdated:
+        msg = f'{outdated} of {compared} module(s) outdated'
+    elif unreachable or no_version or unknown_repo:
+        msg = f'{checked} module(s) found'
+    else:
+        msg = f'Everything is ok. {checked} module(s) found'
+    for count, what in (
+        (packaged, 'managed by the package manager'),
+        (unknown_repo, 'without a known repository'),
+        (no_version, 'without a comparable version'),
+        (unreachable, 'unreachable'),
+    ):
+        if count:
+            msg += f', {count} {what}'
+    msg += lib.base.state2str(state, prefix=' ')
+
+    perfdata += lib.base.get_perfdata('checked', checked, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('compared', compared, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('outdated', outdated, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('packaged', packaged, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('unknown_repo', unknown_repo, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('no_version', no_version, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('unreachable', unreachable, uom=None, _min=0)
+
+    # build table output
+    keys = ['module', 'installed', 'latest', 'source']
+    headers = ['Module', 'Installed', 'Latest', 'Source']
+    if args.CHECK_BRANCH:
+        keys.append('branch')
+        headers.append('Branch')
+    if args.LENGTHY:
+        keys += ['origin', 'directory']
+        headers += ['Origin', 'Directory']
+    keys.append('status')
+    headers.append('Status')
+    msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # Why GitHub could not answer belongs under the table, once. It is usually the same
+    # reason for every module, and repeating a sentence like the rate limit hint in each
+    # row would push the versions out of view.
+    for note in sorted(set(notes)):
+        msg += f'\n{note}'
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
