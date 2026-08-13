@@ -113,6 +113,25 @@ def parse_args():
     return args
 
 
+def get_engine_error(stderr, stdout=''):
+    """Return `(message, state)` for a command that could not reach the container
+    engine. A refused permission is a problem of how this check is deployed, not of
+    the engine: the engine answers other callers just fine, this one is only not
+    allowed to ask, so the check cannot say anything and reports UNKNOWN. Everything
+    else, a socket that is not there or an engine that does not answer, is the
+    outage this check exists to report.
+    """
+    text = f'{stderr}\n{stdout}'.strip()
+    if 'permission denied' in text.lower():
+        return (
+            'No permission to talk to the container engine, so nothing can be said'
+            ' about it. Run the check as root, or deploy the sudoers file that ships'
+            f' with the plugins.\n{text}',
+            STATE_UNKNOWN,
+        )
+    return (text, STATE_CRIT)
+
+
 def load_fixture(test_args, suffix):
     """Read the unit-test fixtures for one of the plugin's data sources and return
     `(stdout, stderr)`. The base paths are `args.TEST[0]` and `args.TEST[1]`; `suffix`
@@ -147,10 +166,13 @@ def get_swarm_info(test_args):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
         )
-        if retc != 0:
-            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
     else:
-        stdout = load_fixture(test_args, '-info')[0] or ''
+        stdout, stderr = load_fixture(test_args, '-info')
+        stdout = stdout or ''
+        # a fixture that carries error output stands in for a command that failed
+        retc = 1 if stderr else 0
+    if retc != 0:
+        lib.base.oao(*get_engine_error(stderr, stdout))
     try:
         info = json.loads(stdout)
     except (json.JSONDecodeError, ValueError):

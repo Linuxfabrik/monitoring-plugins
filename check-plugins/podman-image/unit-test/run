@@ -15,9 +15,17 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
+    {
+        # a check that may not talk to the engine says nothing about the engine:
+        # it is deployed wrong, not broken, so it must not raise a false alarm
+        'id': 'unknown-no-permission',
+        'test': ',stderr/permission-denied,125',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+    },
     {
         'id': 'ok-empty-no-images',
         'test': 'stdout/empty-no-images,,0',

@@ -25,7 +25,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
     from testcontainers.core.container import DockerContainer
@@ -40,6 +40,21 @@ except ImportError:
 # (suffix `-ps-<service>`) and `docker node ls` (suffix `-nodes`). The
 # live 2-node swarm counterpart lives in the container-based test.
 TESTS = [
+    {
+        # a check that may not talk to the engine says nothing about the swarm:
+        # it is deployed wrong, not broken, so it must not raise a false alarm
+        'id': 'unknown-no-permission',
+        'test': ',stderr/permission-denied,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+    },
+    {
+        # a worker cannot list services at all, which is a placement mistake
+        'id': 'unknown-not-a-manager',
+        'test': ',stderr/not-a-manager,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['This node is not a swarm manager'],
+    },
     # a) two replicas, one per node: full and evenly spread -> OK
     {
         'id': 'ok-a-distributed',
@@ -95,6 +110,19 @@ TESTS = [
         'params': '--service=web',
         'assert-retc': STATE_CRIT,
         'assert-in': ['web: no such service in this swarm'],
+    },
+    # e) the tasks of a service are rejected over and over: the swarm's own reason
+    #    for it is what the admin acts on. Recording from a swarm whose registry lost
+    #    the image the service is pinned to.
+    {
+        'id': 'crit-e-rejected-names-the-reason',
+        'test': 'stdout/svc-e-rejected,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'stackdemo_web: 0/1 tasks running [CRITICAL]',
+            'stackdemo_web: Rejected: failed to resolve reference',
+            'not found',
+        ],
     },
     # default (no --service): every service checked against its own desired count
     {

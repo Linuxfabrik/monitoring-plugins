@@ -15,9 +15,24 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 TESTS = [
+    {
+        # a check that may not talk to the engine says nothing about the engine:
+        # it is deployed wrong, not broken, so it must not raise a false alarm
+        'id': 'unknown-no-permission',
+        'test': ',stderr/permission-denied,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+    },
+    {
+        # an engine that is not answering is the outage this check reports
+        'id': 'crit-engine-not-running',
+        'test': ',stderr/daemon-not-running,1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Is the docker daemon running?'],
+    },
     {
         'id': 'ok-empty-no-containers',
         'test': 'stdout/empty-no-containers,,0',

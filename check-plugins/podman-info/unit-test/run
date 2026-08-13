@@ -30,6 +30,14 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # The info fields are a recording of Podman 5.8.4.
 TESTS = [
     {
+        # a check that may not talk to the engine says nothing about the engine:
+        # it is deployed wrong, not broken, so it must not raise a false alarm
+        'id': 'unknown-no-permission',
+        'test': ',stderr/permission-denied,125',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+    },
+    {
         'id': 'ok-no-warnings',
         'test': 'stdout/zero-containers,,0',
         'assert-retc': STATE_OK,

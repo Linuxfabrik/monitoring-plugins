@@ -102,6 +102,7 @@ Manager             ! Node ID
 * CRIT if the managers have lost their quorum (half or more unreachable).
 * CRIT if a manager cannot reach the swarm control plane. The daemon's own explanation is put on the first line; a lost quorum is the usual cause and reads as "The swarm does not have a leader".
 * CRIT if `docker info` returns a non-zero exit code (daemon unreachable).
+* UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

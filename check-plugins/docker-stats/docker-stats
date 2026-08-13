@@ -171,6 +171,25 @@ def parse_args():
     return args
 
 
+def get_engine_error(stderr, stdout=''):
+    """Return `(message, state)` for a command that could not reach the container
+    engine. A refused permission is a problem of how this check is deployed, not of
+    the engine: the engine answers other callers just fine, this one is only not
+    allowed to ask, so the check cannot say anything and reports UNKNOWN. Everything
+    else, a socket that is not there or an engine that does not answer, is the
+    outage this check exists to report.
+    """
+    text = f'{stderr}\n{stdout}'.strip()
+    if 'permission denied' in text.lower():
+        return (
+            'No permission to talk to the container engine, so nothing can be said'
+            ' about it. Run the check as root, or deploy the sudoers file that ships'
+            f' with the plugins.\n{text}',
+            STATE_UNKNOWN,
+        )
+    return (text, STATE_CRIT)
+
+
 def get_cpu_from_db(conn, container, threshold):
     """Return the number of rows where cpu_usage >= threshold for a container."""
     result = lib.base.coe(
@@ -188,12 +207,21 @@ def get_cpu_from_db(conn, container, threshold):
     return int(result['cnt'])
 
 
+# A swarm task container is named `<service>.<slot or node id>.<task id>`, and the
+# task id is 25 base36 characters (swarmkit identity.NewID). Only that suffix is cut
+# off, so a container an admin named `backup.daily` keeps the name they gave it, and
+# two such containers do not collapse into one row.
+TASK_ID_REGEX = re.compile(r'\.[0-9a-z]{25}$')
+
+
 def shorten(name):
     """
     >>> shorten('traefik_traefik.2.1idw12p2yqpxutlzkcwign4at')
     traefik_traefik.2
+    >>> shorten('backup.daily')
+    backup.daily
     """
-    return name.rsplit('.', 1)[0]
+    return TASK_ID_REGEX.sub('', name)
 
 
 def keep_container(name, match_patterns, ignore_patterns):
@@ -266,7 +294,7 @@ def main():
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
-            lib.base.oao(f'{stderr}\n{stdout}', STATE_CRIT)
+            lib.base.oao(*get_engine_error(stderr, stdout))
         try:
             host_cpus = int(json.loads(stdout).get('NCPU') or 0)
         except Exception:
@@ -284,13 +312,14 @@ def main():
                 ['docker', 'stats', '--no-stream', '--format', '{{json .}}']
             ),
         )
-        if retc != 0:
-            lib.db_sqlite.close(conn)
-            lib.base.oao(stderr, STATE_CRIT)
     else:
         # do not call the command, put in test data
         host_cpus = 1
         stdout, stderr, retc = lib.lftest.test(args.TEST)
+
+    if retc != 0:
+        lib.db_sqlite.close(conn)
+        lib.base.oao(*get_engine_error(stderr, stdout))
 
     # init some vars
     msg = ''

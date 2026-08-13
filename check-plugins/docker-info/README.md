@@ -5,6 +5,10 @@
 
 Displays system-wide Docker information including container counts (running, paused, stopped), image count, storage and logging driver, Docker version, available CPUs, and total memory. Alerts when the daemon reports a warning about itself or its host, and when the daemon answers with an error at all. Individual warnings can be filtered out with --ignore (e.g. the "No swap limit support" message on hosts where the kernel does not expose swap accounting). For Podman, use the podman-info check instead. Requires root or sudo.
 
+**Important Notes:**
+
+* Every `docker` command starts a daemon that is only socket-activated, which is how most distributions ship it. A daemon someone stopped with `systemctl stop docker` is therefore started again by the next run of this check, or of any other Docker check. A service watching `docker.service` reports the stopped unit, while the container checks next to it are green again, and both are right
+
 **Data Collection:**
 
 * Executes `docker info --format '{{json .}}'` and reads container counts, image count, storage driver, logging driver, Docker version, CPUs and total memory from the answer
@@ -77,6 +81,7 @@ WARNING: No cpuset support, 37 Containers (2 running, 0 paused, 35 stopped), 103
 * WARN for every warning the daemon reports about itself or its host.
 * CRIT for every error the daemon answers with.
 * CRIT if `docker info` returns a non-zero exit code.
+* UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * UNKNOWN if the answer cannot be read, or comes from Podman rather than Docker.
 * `--always-ok` suppresses all alerts and always returns OK.
 

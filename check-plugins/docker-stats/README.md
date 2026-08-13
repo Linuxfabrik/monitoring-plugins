@@ -136,6 +136,7 @@ myconti_ds_1              ! 0.0   ! 11.42
 * WARN if any container memory usage is >= `--warning-mem` (default: 90%).
 * CRIT if any container memory usage is >= `--critical-mem` (default: 95%).
 * CRIT if `docker info` or `docker stats` returns a non-zero exit code.
+* UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * The state reported when no container matches the `--match` / `--ignore` filters (or none are running) is configurable via `--no-match-severity` (default: ok).
 * `--always-ok` suppresses all alerts and always returns OK.
 

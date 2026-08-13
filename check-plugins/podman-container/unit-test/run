@@ -15,9 +15,27 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
+    {
+        # only the 25-character task id a swarm appends is cut off. Two containers
+        # an admin named with a dot stay two containers instead of collapsing into
+        # one row, and one metric name, that reports whatever came last
+        'id': 'ok-dotted-names-kept',
+        'test': 'stdout/dotted-names,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['backup.daily', 'backup.hourly', 'stackdemo_redis.1'],
+        'assert-not-in': ['stackdemo_redis.1.7wvfsd0eiepbhcv2p4kwbxm2q'],
+    },
+    {
+        # a check that may not talk to the engine says nothing about the engine:
+        # it is deployed wrong, not broken, so it must not raise a false alarm
+        'id': 'unknown-no-permission',
+        'test': ',stderr/permission-denied,125',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+    },
     {
         'id': 'ok-empty-no-containers',
         'test': 'stdout/empty-no-containers,,0',

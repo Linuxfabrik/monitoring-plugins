@@ -194,18 +194,51 @@ def parse_service_specs(specs):
 
 
 def load_fixture(test_args, suffix):
-    """Read a unit-test fixture for one of the plugin's data sources, selected by
-    `suffix` (`-services`, `-nodes`, `-ps-<service>`). The base path is `args.TEST[0]`,
-    so a single --test value drives every source. Returns the raw stdout string, or an
-    empty string if the fixture does not exist (e.g. a scenario without any services).
+    """Read the unit-test fixtures for one of the plugin's data sources, selected by
+    `suffix` (`-services`, `-nodes`, `-ps-<service>`), and return `(stdout, stderr)`.
+    The base paths are `args.TEST[0]` and `args.TEST[1]`, so a single --test value
+    drives every source and each source can be given its own error output. A source
+    without a stdout fixture comes back empty (e.g. a scenario without any services).
     """
+    stdout = ''
     path = f'{test_args[0]}{suffix}'
-    if not lib.disk.file_exists(path, allow_empty=True):
-        return ''
-    local_args = list(test_args)
-    local_args[0] = path
-    stdout, _, _ = lib.lftest.test(local_args)
-    return stdout
+    if lib.disk.file_exists(path, allow_empty=True):
+        stdout, _, _ = lib.lftest.test([path])
+    stderr = ''
+    path = f'{test_args[1]}{suffix}' if len(test_args) > 1 and test_args[1] else ''
+    if path and lib.disk.file_exists(path, allow_empty=True):
+        _, stderr, _ = lib.lftest.test(['', path])
+    return (stdout, stderr)
+
+
+def strip_daemon_error(message):
+    """Reduce a Docker daemon error to the sentence an admin can act on. The CLI wraps
+    every daemon answer in "Error response from daemon:" and the swarm control plane adds
+    a gRPC status of its own, so the readable part sits behind two prefixes:
+    `Error response from daemon: rpc error: code = Unknown desc = The swarm does not have
+    a leader. ...`
+    """
+    message = ' '.join(message.split())
+    message = message.replace('Error response from daemon: ', '', 1)
+    return re.sub(r'^rpc error: code = \S+ desc = ', '', message)
+
+
+def get_engine_error(stderr, stdout=''):
+    """Return `(message, state)` for a command that could not reach the swarm. Every
+    such failure is UNKNOWN: without an answer this check cannot say anything about the
+    services, and an engine that is down is what the docker-info and docker-swarm checks
+    report. A refused permission additionally names what to do about it, since that is a
+    problem of how this check is deployed rather than one of the swarm.
+    """
+    text = strip_daemon_error(f'{stderr}\n{stdout}')
+    if 'permission denied' in text.lower():
+        return (
+            'No permission to talk to the container engine, so nothing can be said'
+            ' about it. Run the check as root, or deploy the sudoers file that ships'
+            f' with the plugins.\n{text}',
+            STATE_UNKNOWN,
+        )
+    return (text, STATE_UNKNOWN)
 
 
 def get_services(test_args):
@@ -217,16 +250,18 @@ def get_services(test_args):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(['docker', 'service', 'ls', '--format', '{{json .}}']),
         )
-        if retc != 0:
-            # a worker cannot list services; that is a placement mistake, not a
-            # service outage, so report UNKNOWN rather than a misleading CRIT
-            if 'not a swarm manager' in stderr.lower():
-                lib.base.cu(
-                    'This node is not a swarm manager. Run docker-service on a manager.'
-                )
-            lib.base.oao(f'{stderr}\n{stdout}', STATE_UNKNOWN)
     else:
-        stdout = load_fixture(test_args, '-services')
+        stdout, stderr = load_fixture(test_args, '-services')
+        # a fixture that carries error output stands in for a command that failed
+        retc = 1 if stderr else 0
+    if retc != 0:
+        # a worker cannot list services; that is a placement mistake, not a
+        # service outage, so report UNKNOWN rather than a misleading CRIT
+        if 'not a swarm manager' in stderr.lower():
+            lib.base.cu(
+                'This node is not a swarm manager. Run docker-service on a manager.'
+            )
+        lib.base.oao(*get_engine_error(stderr, stdout))
     return parse_json_lines(stdout, 'docker service ls')
 
 
@@ -248,12 +283,13 @@ def get_service_tasks(test_args, name):
                 ]
             ),
         )
-        if retc != 0:
-            lib.base.oao(f'{stderr}\n{stdout}', STATE_UNKNOWN)
     else:
         # the service name can contain characters unsafe for a filename, but the
         # test service names used in fixtures are plain, so a direct suffix is fine
-        stdout = load_fixture(test_args, f'-ps-{name}')
+        stdout, stderr = load_fixture(test_args, f'-ps-{name}')
+        retc = 1 if stderr else 0
+    if retc != 0:
+        lib.base.oao(*get_engine_error(stderr, stdout))
     return parse_json_lines(stdout, 'docker service ps')
 
 
@@ -267,10 +303,11 @@ def get_node_count(test_args):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
         )
-        if retc != 0:
-            lib.base.oao(f'{stderr}\n{stdout}', STATE_UNKNOWN)
     else:
-        stdout = load_fixture(test_args, '-nodes')
+        stdout, stderr = load_fixture(test_args, '-nodes')
+        retc = 1 if stderr else 0
+    if retc != 0:
+        lib.base.oao(*get_engine_error(stderr, stdout))
     return len(parse_json_lines(stdout, 'docker node ls'))
 
 
@@ -298,6 +335,25 @@ def parse_replicas(replicas):
     if not match:
         return (0, 0)
     return (int(match.group(1)), int(match.group(2)))
+
+
+def get_task_problem(tasks):
+    """Return what the swarm says about the newest task of a service that is not
+    running, or an empty string when it says nothing. `docker service ps` lists the
+    tasks of a slot newest first (docker/cli, `cli/command/task/print.go`), so the
+    first one that is not running carries the reason the service is short of tasks.
+    The CLI wraps the message in quotes, which are dropped here.
+    """
+    for task in tasks:
+        current = task.get('CurrentState', '')
+        if current.startswith(('Running', 'Complete')):
+            continue
+        state = current.split(' ')[0] or '?'
+        error = ' '.join((task.get('Error') or '').split()).strip('"')
+        if error:
+            return f'{state}: {lib.txt.shorten(error, 160)}'
+        return state
+    return ''
 
 
 def count_tasks_per_node(tasks):
@@ -345,6 +401,7 @@ def main():
 
     # init some vars
     msg = ''
+    msg_body = ''
     msg_header = ''
     state = STATE_OK
     perfdata = ''
@@ -411,8 +468,10 @@ def main():
         max_per_node = 0
         optimal = 0
         dist_state = STATE_OK
+        tasks = None
         if args.CHECK_DISTRIBUTION and mode == 'replicated' and expected > 0:
-            per_node = count_tasks_per_node(get_service_tasks(args.TEST, name))
+            tasks = get_service_tasks(args.TEST, name)
+            per_node = count_tasks_per_node(tasks)
             max_per_node = max(per_node.values()) if per_node else 0
             optimal = math.ceil(expected / node_count) if node_count else expected
             if max_per_node > optimal:
@@ -436,6 +495,15 @@ def main():
                 f'{name}: {", ".join(problems)}'
                 f'{lib.base.state2str(service_worst, prefix=" ")}, '
             )
+            # the swarm knows why a task is not running, and that reason is what an
+            # admin acts on. Only asked for a service that is short of tasks anyway,
+            # so a healthy swarm costs no additional call.
+            if service_state != STATE_OK:
+                if tasks is None:
+                    tasks = get_service_tasks(args.TEST, name)
+                problem = get_task_problem(tasks)
+                if problem:
+                    msg_body += f'{name}: {problem}\n'
 
         table_data.append(
             {
@@ -467,6 +535,8 @@ def main():
             f'Everything is ok, {checked} '
             f'{lib.txt.pluralize("service", checked)} checked.\n\n'
         )
+    if msg_body:
+        msg += msg_body + '\n'
     perfdata += lib.base.get_perfdata('services_checked', checked, _min=0)
     perfdata += lib.base.get_perfdata('services_degraded', services_degraded, _min=0)
     perfdata += lib.base.get_perfdata('tasks_running', tasks_running_total, _min=0)

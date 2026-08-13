@@ -174,6 +174,7 @@ app-unhealthy      ! running ! unhealthy ! 3        ! [CRITICAL]
 * WARN/CRIT if a running container's uptime crosses `--warning-uptime` / `--critical-uptime` (when given).
 * The state reported when no container matches the `--match` / `--ignore` filters (or no containers exist) is configurable via `--no-match-severity` (default: ok).
 * CRIT if `docker ps` fails, or if `docker inspect` returns nothing that can be read. A container that is removed while the check runs makes `docker inspect` fail as well; the containers it did report are checked as usual.
+* UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

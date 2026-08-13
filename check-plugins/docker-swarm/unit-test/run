@@ -27,6 +27,21 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # three managers were stopped.
 TESTS = [
     {
+        # a check that may not talk to the engine says nothing about the engine:
+        # it is deployed wrong, not broken, so it must not raise a false alarm
+        'id': 'unknown-no-permission',
+        'test': 'stdout/nothing,stderr/permission-denied,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+    },
+    {
+        # an engine that is not answering is the outage this check reports
+        'id': 'crit-engine-not-running',
+        'test': 'stdout/nothing,stderr/daemon-not-running,1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Is the docker daemon running?'],
+    },
+    {
         'id': 'ok-manager-healthy',
         'test': 'stdout/manager-healthy,,0',
         'assert-retc': STATE_OK,

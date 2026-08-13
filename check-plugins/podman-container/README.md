@@ -12,7 +12,7 @@ Checks the lifecycle and health of Podman containers: the container status (runn
 * The container status is reported but only alerts when you pin an expected status with `--status` (for example `--status=running`)
 * The restart count is reported for every container, but only alerts when you set `--warning-restarts` or `--critical-restarts`
 * The uptime of running containers is reported, but only alerts when you set `--warning-uptime` or `--critical-uptime` (for example `--warning-uptime=5m:` to catch a container that keeps restarting)
-* Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) sees root's own containers, not the rootless containers of other users. To check a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious
+* Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) sees root's own containers, not the rootless containers of other users. To check a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious The Podman Service Set in the Icinga Director creates its services without `--user`. Set it on the service of every host whose containers belong to a rootless user, otherwise a tagged host reports "No containers to check" while the containers are running.
 * On a host with many containers, or with rootless Podman under `--user`, the check can take a while, since every container is inspected, and may exceed the short check timeout monitoring systems use by default (often 10 seconds); give the check more time if it times out
 
 **Data Collection:**
@@ -189,6 +189,7 @@ app-unhealthy      ! running ! unhealthy ! 3        ! [CRITICAL]
 * WARN/CRIT if a running container's uptime crosses `--warning-uptime` / `--critical-uptime` (when given).
 * The state reported when no container matches the `--match` / `--ignore` filters (or no containers exist) is configurable via `--no-match-severity` (default: ok).
 * CRIT if `podman ps` fails, or if `podman inspect` returns nothing that can be read. A container that is removed while the check runs makes `podman inspect` fail as well; the containers it did report are checked as usual.
+* UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
