@@ -17,6 +17,30 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+try:
+    import tomllib
+except ImportError:
+    tomllib = None
+
+# The plugin reads the dnf 5 lock file with `tomllib` and ships no backport, because
+# every distribution that ships dnf 5 also ships a Python that has that module. On the
+# older interpreters of the tox matrix the plugin therefore reports no dnf 5 locks, and
+# the testcases that expect parsed locks cannot pass. They are skipped there instead of
+# asserting the degraded result, so a real regression on those interpreters still fails
+# the run. `ok-dnf5-no-locks` and `warn-excludes-disabled-wholesale-dnf5` stay in,
+# because neither needs the TOML file to be parsed. Drop this skip once the plugin
+# reports the unreadable file instead of staying silent about it, see
+# https://github.com/Linuxfabrik/monitoring-plugins/issues/1462.
+NEEDS_TOMLLIB = [
+    'warn-dnf5-broken-toml',
+    'warn-dnf5-excludes-checked',
+    'warn-dnf5-invalid-entries',
+    'warn-dnf5-locks-present',
+    'warn-dnf5-locks-survive-disabled-plugins',
+    'warn-dnf5-version-not-a-string',
+    'warn-dnf5-version-not-applied',
+]
+
 # rpm-versionlock reads the package manager's configuration, so its fixtures are
 # directory trees under `config/` that stand in for the host's /etc, selected with
 # `--config-root`. The lock lists below were captured from `ubi8`, `ubi9` and
@@ -542,6 +566,17 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+if tomllib is None:
+    for test_id in NEEDS_TOMLLIB:
+        method_name = 'test_' + test_id.replace('-', '_')
+        setattr(
+            TestCheck,
+            method_name,
+            unittest.skip('dnf 5 locks are TOML, which needs Python 3.11 or newer')(
+                getattr(TestCheck, method_name)
+            ),
+        )
 
 
 if __name__ == '__main__':

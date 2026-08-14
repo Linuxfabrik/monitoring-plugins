@@ -15,6 +15,7 @@ import json
 import re
 import sys
 import warnings
+from collections import Counter
 
 import lib.args
 import lib.base
@@ -47,7 +48,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Reports hardware temperature sensor readings (CPU, disk, chipset, etc.) in Celsius.
 Automatically checks against hardware-defined thresholds. Sensors can be filtered
@@ -166,6 +167,34 @@ def _sanitize_threshold(value):
     return value
 
 
+def _perfdata_labels(chip, labels):
+    """Build one performance data label per sensor of a chip, unique within that chip.
+
+    A chip may name several of its sensors alike, or name none of them at all: on a Dell
+    laptop `dell_ddv` reports four sensors as "Ambient" and `dell_smm` reports seven
+    without any label. The same performance data label twice means everything storing
+    the data keeps one of those series and drops the rest, so a label a chip uses more
+    than once is numbered in the order the chip lists its sensors. A label the chip uses
+    once stays as it is, so its graph history survives.
+    """
+    labels = [
+        f'{chip}_{label}'.replace(' ', '_').lower()
+        if label
+        else chip.replace(' ', '_').lower()
+        for label in labels
+    ]
+    total = Counter(labels)
+    seen = Counter()
+    unique = []
+    for label in labels:
+        if total[label] == 1:
+            unique.append(label)
+            continue
+        seen[label] += 1
+        unique.append(f'{label}_{seen[label]}')
+    return unique
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -214,17 +243,15 @@ def main():
 
         # build the message
         msg += f'* {name}: '
-        for entry in filtered_entries:
+        perfdata_labels = _perfdata_labels(
+            name, [entry.label for entry in filtered_entries]
+        )
+        for perfdata_label, entry in zip(perfdata_labels, filtered_entries):
             # Sanitize the per-entry thresholds. Some drivers (Dell
             # dell_ddv, NVMe) report sentinel "no threshold" values
             # like 0.0 or 65261.85 that must not drive the alert state.
             high = _sanitize_threshold(entry.high)
             critical = _sanitize_threshold(entry.critical)
-            perfdata_label = (
-                f'{name}_{entry.label}'.replace(' ', '_').lower()
-                if entry.label
-                else name.replace(' ', '_').lower()
-            )
             perfdata += lib.base.get_perfdata(
                 perfdata_label,
                 entry.current,

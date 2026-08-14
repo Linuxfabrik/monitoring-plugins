@@ -118,7 +118,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/
 Output:
 
 ```text
-Everything is ok, 3 containers checked.
+Everything is ok. 3 containers checked.
 
 Container                 ! CPU % ! Mem % 
 --------------------------+-------+-------

@@ -34,7 +34,7 @@ Checks the installed Postfix version against the endoflife.date API and alerts i
 ```text
 usage: postfix-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
                        [--check-patch] [--insecure] [--no-perfdata]
-                       [--no-proxy] [--offset-eol OFFSET_EOL]
+                       [--no-proxy] [--offset-eol OFFSET_EOL] [--path PATH]
                        [--timeout TIMEOUT]
                        [--unreachable-severity {ok,warn,crit,unknown}]
 
@@ -67,6 +67,8 @@ options:
   --offset-eol OFFSET_EOL
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
+  --path PATH           Path to the Postfix binary. Resolved via $PATH when
+                        given without a directory. Default: postconf
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
                         State to report when the online source is unreachable.

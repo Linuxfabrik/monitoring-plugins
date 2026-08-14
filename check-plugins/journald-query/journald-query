@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080401'
+__version__ = '2026081401'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -555,13 +555,17 @@ def main():
             lib.base.str2state(args.SEVERITY),
             prefix=' ',
         )
+        # A journal entry may carry newlines, and one of them in the first line breaks
+        # it in two, which is where a monitoring server cuts the summary from the long
+        # output. Fold the whole entry onto one line instead.
+        latest_message = ' '.join(str(table_data[0]['MESSAGE']).split())
         msg = (
             f'{cnt}'
             f' {lib.txt.pluralize("event", cnt)}.'
             f' Latest event at {table_data[0]["timestamp"]}'
             f' from {table_data[0]["unit"]},'
             f' level {table_data[0]["priority"]}:'
-            f' `{table_data[0]["MESSAGE"]}`{sev_str}'
+            f' `{latest_message}`{sev_str}'
         )
         if shortened:
             msg += (

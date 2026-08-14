@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081301'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the lifecycle and health of Docker containers: the container status
 (running, exited, paused, ...), the result of the container health check (healthy,
@@ -192,6 +192,32 @@ def parse_args():
     return args
 
 
+def assert_docker_engine():
+    """Exit UNKNOWN when `docker` on this host is Podman.
+
+    A host carrying podman-docker answers every `docker` command through Podman, and
+    `docker ps` and `docker inspect` then hand this check data it would report as if it
+    came from Docker. Podman has its own check, so this one says where to go instead,
+    the same way docker-info, docker-stats and docker-swarm do. Recognised the way
+    docker-info recognises it: Podman reports no server version. An engine that cannot
+    be asked at all is left to the caller, which has the better message for it.
+    """
+    stdout, _, retc = lib.base.coe(
+        lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
+    )
+    if retc != 0:
+        return
+    try:
+        info = json.loads(stdout)
+    except Exception:
+        return
+    if isinstance(info, dict) and not info.get('ServerVersion'):
+        lib.base.cu(
+            'The daemon did not report a server version.'
+            ' If you are using Podman, use the podman-container check instead.'
+        )
+
+
 def get_engine_error(stderr, stdout=''):
     """Return `(message, state)` for a command that could not reach the container
     engine. A refused permission is a problem of how this check is deployed, not of
@@ -308,6 +334,7 @@ def main():
 
     # fetch data
     if args.TEST is None:
+        assert_docker_engine()
         # list all container IDs, then inspect them in a single call. `docker
         # inspect` errors out when called without arguments, so the empty case
         # is handled separately below.
@@ -459,7 +486,7 @@ def main():
     else:
         checked = len(table_values)
         msg += (
-            f'Everything is ok, {checked} '
+            f'Everything is ok. {checked} '
             f'{lib.txt.pluralize("container", checked)} checked.\n\n'
         )
     perfdata += lib.base.get_perfdata(

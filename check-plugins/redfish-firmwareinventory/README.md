@@ -114,7 +114,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-firmwarei
 Output:
 
 ```text
-Everything is ok, checked 3 firmware components.
+Everything is ok. Checked 3 firmware components.
 
 Component                       ! Version          ! Manufacturer ! ReleaseDate          ! Updateable ! State
 --------------------------------+------------------+--------------+----------------------+------------+------

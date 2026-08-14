@@ -129,7 +129,7 @@ web     ! replicated ! 2/2              ! 2/1              ! [WARNING]
 Output when everything is fine:
 
 ```text
-Everything is ok, 2 services checked.
+Everything is ok. 2 services checked.
 
 Service ! Running/Expected ! State
 --------+------------------+------

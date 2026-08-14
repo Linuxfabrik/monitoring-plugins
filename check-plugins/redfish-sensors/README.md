@@ -114,7 +114,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-sensors/
 Output:
 
 ```text
-Everything is ok, checked sensors on 1 member.
+Everything is ok. Checked sensors on 1 member.
 
 Member: Contoso 3500RX, Power: On, LED: Lit, SKU: 8675309, SerNo: 437XR1138R2, PartNumber: 224071-J23
 

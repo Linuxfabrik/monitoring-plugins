@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$docker_image_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$docker_image_brief$"
+                },
                 "--critical": {
                     "value": "$docker_image_critical$"
                 },
@@ -63,6 +66,11 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -106,7 +114,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Lists the container images on a host and checks how old they are. Reports each image's repository tag, age and size, and alerts when an image is older than the configured thresholds, which is a sign that a rebuild or pull was missed. Images can be selected or excluded by name using regular expressions. For Podman, use the podman-image check instead. Requires root or sudo.",
+            "notes": "Lists the container images on a host and checks how old they are. Reports each image's repository tag, age and size, and alerts when an image is older than the configured thresholds, which is a sign that a rebuild or pull was missed. Images can be selected or excluded by name using regular expressions. On a host with many images, --brief hides the rows within the thresholds so the table shows only the images that are too old. For Podman, use the podman-image check instead. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-image/",
             "object_name": "tpl-service-docker-image",
             "object_type": "template",
@@ -118,6 +126,7 @@
             "vars": {
                 "criticality": "C",
                 "docker_image_always_ok": false,
+                "docker_image_brief": true,
                 "docker_image_critical": "365D",
                 "docker_image_ignore": [],
                 "docker_image_match": [],
@@ -174,6 +183,15 @@
             "uuid": "5a49d172-2796-4044-9c16-087ded0ec891"
         },
         "2": {
+            "varname": "docker_image_brief",
+            "caption": "Docker Image: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "7e8bb02b-71b7-4acf-b90a-0576e490a594"
+        },
+        "3": {
             "varname": "docker_image_critical",
             "caption": "Docker Image: Critical",
             "description": "CRIT threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `180D` alerts on images older than 180 days.",
@@ -184,7 +202,7 @@
             },
             "uuid": "793be040-170e-4e87-a3b3-f9d5c372eaba"
         },
-        "3": {
+        "4": {
             "varname": "docker_image_ignore",
             "caption": "Docker Image: Ignore",
             "description": "Ignore images whose repository tag matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=\"^localhost/\"` to skip locally built images. Example: `--ignore=\"(?i)test\"` (case-insensitive) to skip any image with \"test\" in its tag.",
@@ -195,7 +213,7 @@
             },
             "uuid": "37d130b2-e3e4-4bca-bd62-23709fba2e60"
         },
-        "4": {
+        "5": {
             "varname": "docker_image_match",
             "caption": "Docker Image: Match",
             "description": "Only check images whose repository tag matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match=\"^docker.io/library/nginx\"` to check only the nginx images.",
@@ -206,7 +224,7 @@
             },
             "uuid": "cc97b78a-8e95-4702-ab84-e5e36b388538"
         },
-        "5": {
+        "6": {
             "varname": "docker_image_no_match_severity",
             "caption": "Docker Image: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -219,7 +237,7 @@
             },
             "uuid": "c8b558f1-0747-4398-8201-6e532a95ca78"
         },
-        "6": {
+        "7": {
             "varname": "docker_image_no_perfdata",
             "caption": "Docker Image: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -228,7 +246,7 @@
             "settings": {},
             "uuid": "8dc63bcf-858f-4fe8-9e9e-e9c7603c3af8"
         },
-        "7": {
+        "8": {
             "varname": "docker_image_warning",
             "caption": "Docker Image: Warning",
             "description": "WARN threshold for the image age in a human-readable format (s = seconds, m = minutes, h = hours, D = days, W = weeks, M = months, Y = years). Supports Nagios ranges. Example: `90D` alerts on images older than 90 days.",

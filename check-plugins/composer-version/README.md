@@ -92,7 +92,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/composer-version/
 Output:
 
 ```text
-composer v2.6.4 (EOL 2024-02-08 -30d [WARNING], minor 2.7.2 available, patch 2.6.6 available)
+Composer v2.6.4 (EOL 2024-02-08 -30d [WARNING], minor 2.7.2 available, patch 2.6.6 available)
 ```
 
 

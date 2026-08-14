@@ -23,7 +23,7 @@ import lib.base
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026081401'
 
 DESCRIPTION = """Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a
 DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only
@@ -322,7 +322,19 @@ def main():
         dhcps.bind((args.BIND_ADDRESS, 68))  # we want to send from port 68
     except PermissionError as e:
         dhcps.close()
-        lib.base.oao(f'Permission error "{e.strerror}"', STATE_UNKNOWN)
+        # Port 68 is privileged, so the check needs the rights to bind it. Naming that
+        # beats handing over a bare "Permission denied". The plugin runs on both
+        # platforms, and each has its own answer to it.
+        hint = (
+            'Run the check as Administrator.'
+            if lib.base.WINDOWS
+            else 'Run this plugin as root or via sudo.'
+        )
+        lib.base.oao(
+            f'Not allowed to bind port 68 on {args.BIND_ADDRESS} ("{e.strerror}"). '
+            f'{hint}',
+            STATE_UNKNOWN,
+        )
     except OSError as e:
         dhcps.close()
         lib.base.oao(f'OS error "{e.strerror}"', STATE_UNKNOWN)

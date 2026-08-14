@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the system for approximately 170 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
+Scans the system for approximately 175 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
 
 **Important Notes:**
 
@@ -56,7 +56,7 @@ Scans the system for approximately 170 known rootkits by checking for their char
 usage: scanrootkit [-h] [-V] [--always-ok] [--no-perfdata]
                    [--severity {warn,crit}]
 
-Scans the system for approximately 170 known rootkits by checking for their
+Scans the system for approximately 175 known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
 the year the rootkit was first publicly disclosed when known. New rootkit
 definitions can be added by dropping YAML files into the assets folder. Alerts

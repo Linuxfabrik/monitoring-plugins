@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Red Hat Enterprise Linux version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -154,7 +154,19 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.distro.get_distribution_facts().get('os_info')
+    facts = lib.distro.get_distribution_facts()
+    installed_version = facts.get('os_info')
+
+    # Fedora belongs to the same family and therefore reaches this check, but its
+    # releases are not in the Red Hat Enterprise Linux lifecycle data. Asking for them
+    # anyway produced "Fedora Linux 44 (Workstation Edition) (version Fedora Linux 44
+    # (Workstation Edition) unknown)", which says nothing and looks like a defect.
+    if facts.get('distribution') == 'Fedora':
+        lib.base.cu(
+            f'{installed_version} does not follow the Red Hat Enterprise Linux'
+            ' lifecycle. Use the fedora-version check on this host.'
+        )
+
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/rhel.json',
         installed_version,

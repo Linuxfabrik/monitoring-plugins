@@ -12,6 +12,7 @@
 
 import argparse
 import sys
+import warnings
 
 import lib.args
 import lib.base
@@ -21,6 +22,13 @@ import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+# The OpenStack client libraries pull in `requests`, which prints a
+# RequestsDependencyWarning when the urllib3 or chardet it finds is not the
+# combination it was built against. Printed before anything else, that warning
+# becomes the first line of the check output, which is the line a monitoring
+# server reads as the result.
+warnings.filterwarnings('ignore')
+
 try:
     from novaclient import client
 except ImportError:
@@ -29,7 +37,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Lists all OpenStack Nova compute instances (virtual servers) and checks their status.
 Alerts when any instance is in an error state or has been shelved. Reports instance

@@ -86,7 +86,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sensor/
 Output:
 
 ```text
-Everything is ok, checked 60 sensors.
+Everything is ok. Checked 60 sensors.
 ```
 
 

@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Rocket.Chat version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -210,7 +210,9 @@ def main():
     # fetch data
     installed_version = get_installed_version(args)
     if not installed_version:
-        lib.base.cu(f'Rocket.Chat at `{args.URL}` not found.')
+        lib.base.cu(
+            f'Rocket.Chat not found at `{args.URL}`. Use --url to point at the API.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/rocket-chat.json',
         installed_version,

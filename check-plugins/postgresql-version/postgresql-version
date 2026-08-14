@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed PostgreSQL version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -34,6 +34,7 @@ DEFAULT_CHECK_PATCH = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
+DEFAULT_PATH = 'psql'
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
 DEFAULT_USERNAME = 'postgres'
@@ -110,6 +111,15 @@ def parse_args():
         default=DEFAULT_OFFSET_EOL,
     )
     parser.add_argument(
+        '--path',
+        help='Path to the psql binary. '
+        'Resolved via $PATH when given without a directory. '
+        'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -144,7 +154,7 @@ def get_installed_version(args):
     if args.TEST is None:
         success, result = lib.shell.shell_exec(
             [
-                'psql',
+                args.PATH,
                 f'--username={args.USERNAME}',
                 '--command=SELECT version();',
             ],
@@ -176,7 +186,9 @@ def main():
     # fetch data
     installed_version = get_installed_version(args)
     if not installed_version:
-        lib.base.cu('PostgreSQL not found or unable to fetch version information.')
+        lib.base.cu(
+            f'PostgreSQL not found at `{args.PATH}`. Use --path to point at the binary.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/postgresql.json',
         installed_version,

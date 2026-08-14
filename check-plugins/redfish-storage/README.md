@@ -114,7 +114,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-storage/
 Output:
 
 ```text
-Everything is ok, checked storage on 1 member.
+Everything is ok. Checked storage on 1 member.
 
 Member: Contoso 3500, HostName: web483, SKU: 8675309, SerNo: 437XR1138R2
 

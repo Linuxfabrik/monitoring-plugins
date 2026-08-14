@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Composer version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -183,7 +183,9 @@ def main():
     # fetch data
     installed_version = get_installed_version(args.PATH, args.TEST)
     if not installed_version:
-        lib.base.cu(f'composer `{args.PATH}` not found.')
+        lib.base.cu(
+            f'Composer not found at `{args.PATH}`. Use --path to point at the binary.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/composer.json',
         installed_version,
@@ -199,7 +201,7 @@ def main():
 
     # over and out
     lib.base.oao(
-        f'composer v{installed_version} ({msg})',
+        f'Composer v{installed_version} ({msg})',
         state,
         lib.base.get_perfdata(
             'composer-version',

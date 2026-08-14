@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the status and last result of a Windows Scheduled Task. Alerts when the task
 has failed or returned a non-zero exit code."""
@@ -91,6 +91,10 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # This check has no --test hook, so the guard is unconditional.
+    if not lib.base.WINDOWS:
+        lib.base.cu('This check runs on Windows only.')
 
     problem_state = STATE_CRIT if args.SEVERITY == 'crit' else STATE_WARN
 

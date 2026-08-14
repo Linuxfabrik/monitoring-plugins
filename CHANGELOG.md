@@ -8,7 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Six checks that aborted with a Python error work again, `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on large servers. Thirty new checks cover Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating. The Icinga Director templates now keep configuration on the master, which stops deployments on setups with a satellite tier.
+tbd
+
+
+## [v7.0.0] - 2026-08-14
+
+**Highlights:** `disk-io` no longer raises false CRITICALs on ZFS and Proxmox, and the Redfish checks no longer time out on large servers. Thirty-five new checks cover Docker, Podman, Huawei OceanStor, WordPress and the package managers' version locks. Counters are now reported as per-second rates and `redfish-*` requires an explicit `--url`, so re-import the affected Grafana dashboards and review your Redfish commands before updating. The Icinga Director templates now keep configuration on the master, which stops deployments on setups with a satellite tier.
 
 ### Breaking Changes
 
@@ -86,6 +91,7 @@ Monitoring Plugins:
 * cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but keeps reporting and graphing it
 * disk-usage: runs every minute instead of every 5 minutes
 * docker-info: reports every warning the daemon raises about itself, including the ones it only writes as a deprecation notice, and drops the registry address that Docker itself removed in version 24
+* docker-image, podman-image: the summary line counts the images that are too old and names the oldest one, instead of listing every affected image before the table
 * huawei-dorado-\*: a faulty or dead component, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
 * huawei-dorado-\*: an empty hardware inventory reports UNKNOWN instead of "Everything is ok"
 * huawei-dorado-\*: `--device-id` is optional, the appliance reports its own at login
@@ -93,12 +99,16 @@ Monitoring Plugins:
 * huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, which silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
-* snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 * podman-info: the reported logging driver is the one containers log through, not the event logger
 * podman-stats: CPU usage is the load since the previous check run instead of the average since the container started, so a container that is busy now shows it. The first run after the update reports no CPU value yet
+* rhel-version: on Fedora, names fedora-version as the check to use instead of comparing the release against the Red Hat Enterprise Linux lifecycle
+* scanrootkit: detects the VoidLink rootkit framework, and reports the RingReaper io_uring agent as a possible finding
+* snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
+* uptimerobot: reads UptimeRobot's own status page by default; a check pointed at another status page needs `--url`
 
 Icinga Director:
 
+* docker-image, podman-image hide the images within their thresholds, so re-import the basket
 * huawei-dorado-disk, -host and -hypermetropair hide the items within their thresholds, so re-import the basket
 * the WordPress service set, its services and the WordPress host tag are spelled the way WordPress spells itself, so re-tag the affected hosts after importing the basket
 
@@ -107,13 +117,21 @@ Icinga Director:
 Monitoring Plugins:
 
 * six checks that aborted with a Python error on every run work again (borgbackup, file-ownership, getent, nextcloud-enterprise, rpm-lastactivity, scheduled-task)
-* about-me: a WordPress installation in the document root is detected when guessing Icinga Director tags
+* all \*-version checks: name the file, binary or endpoint they read and the parameter that moves it when they find no version, instead of only stating that the software was not found
+* a table whose cell reads like an HTML tag, `&lt;unknown&gt;` for example, keeps its columns aligned
+* about-me: a WordPress installation in the document root is detected when guessing Icinga Director tags, the repository of a package whose origin is unknown is readable, and the timer table no longer mixes the remaining time into the next elapse
 * cert: a subnet scan needs far less memory, and one that runs out of file descriptors reports UNKNOWN instead of OK
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
+* deb-lastactivity, strongswan-connections: a host without APT packages or without a running strongSwan gets the sentence that says so, without a Python stack trace below it
+* dhcp-relayed, dmesg: a refused permission names what to do about it instead of only what failed
 * disk-io: no longer produces false CRITICAL alerts from I/O wait, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-smart: drives behind a hardware RAID controller and external USB drives are read again, `--ignore` matches, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
+* docker-container, docker-image: report on Docker only; on a host whose `docker` command is Podman they name the podman-* checks instead of reporting Podman's containers and images as Docker's
+* docker-service: says that swarm mode needs Docker on a Podman host, instead of passing Podman's usage text through
 * docker-stats: a container the daemon delivers no statistics for no longer takes the whole check to UNKNOWN
+* file-count: no longer reports "None" as the threshold when none was set
+* file-descriptors: a kernel that does not cap the number of file handles is reported as having no limit instead of "9.2E"
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume no longer aborts the check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * haproxy-status: the `--username` / `--password` migration hint is readable again
 * huawei-dorado-\*: an unexpected firmware response no longer turns the check UNKNOWN
@@ -121,15 +139,17 @@ Monitoring Plugins:
 * huawei-dorado-\*: a large array reports its full inventory
 * huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL when a temperature threshold is set
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected
-* journald-query: a relative `--since` such as `-8h` from the Icinga Director works again ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
+* journald-query: a relative `--since` such as `-8h` from the Icinga Director works again, and a journal entry carrying newlines no longer breaks the first line of the output ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * librenms-health: a temperature, humidity, voltage or power sensor past its limit alerts instead of reporting OK
 * logfile: detects a logfile that an application rewrites from the beginning instead of appending to ([#1330](https://github.com/Linuxfabrik/monitoring-plugins/issues/1330))
 * lynis: audits produce a report on distributions that keep lynis outside `/usr/share` ([#1262](https://github.com/Linuxfabrik/monitoring-plugins/issues/1262))
 * mysql-replica-status: works on MySQL 8.4, and an account that may not list replicas no longer turns the check UNKNOWN
 * mysql-user-security: the suggested `ALTER USER` runs on MariaDB 11.6 and newer, which needs a one-time `INSTALL SONAME`
+* openstack-nova-list, openstack-swift-stat: a dependency warning of the `requests` module no longer takes the first line of the output
 * ping: checksum-corrupted packets are counted correctly, and a corrupted reply no longer turns the check UNKNOWN
 * podman-info: a host that has no unqualified search registries configured no longer ends the check with a Python error
 * redfish-\*: servers with many components no longer time out ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* sensors-fans, sensors-temperatures: a chip that reports several sensors alike, or none of them with a label, no longer overwrites its own performance data
 * snmp: a harmless net-snmp warning no longer aborts the check, string-indexed OIDs are read correctly, and the bundled device profiles work on current net-snmp
 * statusiq: a status page that intermittently answers with an error no longer flaps into UNKNOWN
 * strongswan-connections: a rekeying, shared, still-connecting or 3DES connection no longer raises a false alarm or crashes ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
@@ -1552,7 +1572,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v7.0.0...HEAD
+[v7.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v6.0.0...v7.0.0
 [v6.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.2.0...v6.0.0
 [v5.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.1.0...v5.2.0
 [v5.1.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.0.0...v5.1.0

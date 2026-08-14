@@ -33,7 +33,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -444,7 +444,13 @@ def main():
             s.connect(args.SOCKET)
         except OSError as e:
             s.close()
-            lib.base.cu(f'Failed to connect to the VICI socket at {args.SOCKET}: {e}')
+            # A socket that is not there is what a host without a running strongSwan
+            # looks like, not a defect worth a Python stack trace.
+            lib.base.cu(
+                f'Failed to connect to the VICI socket at {args.SOCKET}: {e}. '
+                'Check that strongSwan runs and that its vici plugin is loaded.',
+                traceback=False,
+            )
         try:
             session = vici.Session(s)
             list_conns = list(session.list_conns())

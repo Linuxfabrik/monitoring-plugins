@@ -99,7 +99,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-systems/
 Output:
 
 ```text
-Everything is ok, checked system health on 1 member.
+Everything is ok. Checked system health on 1 member.
 
 Member: Contoso 3500, HostName: web483, Processors: 2x Multi-Core Intel(R) Xeon(R) processor 7xxx Series (16 logical), BIOS: P79 v1.45 (12/06/2017), Power: On, LED: Off, SKU: 8675309, SerNo: 437XR1138R2
 ```

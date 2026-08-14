@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
@@ -298,17 +298,26 @@ def main():
     else:
         state = STATE_OK
 
+    # Without a threshold there is nothing to name, and printing "None" would read like
+    # a value the admin set.
+    thresholds = ''
+    if args.WARN is not None or args.CRIT is not None:
+        thresholds = (
+            f' (thresholds {args.WARN if args.WARN is not None else "-"}'
+            f'/{args.CRIT if args.CRIT is not None else "-"})'
+        )
+
     if exceeded_threshold:
         # Report "more than" the threshold value we broke at
         display_count = file_count - 1
         msg = (
             f'Found more than {display_count} matching '
-            f'{lib.txt.pluralize("file", display_count)} (thresholds {args.WARN}/{args.CRIT})'
+            f'{lib.txt.pluralize("file", display_count)}{thresholds}'
         )
     else:
         msg = (
             f'Found {file_count} matching '
-            f'{lib.txt.pluralize("file", file_count)} (thresholds {args.WARN}/{args.CRIT})'
+            f'{lib.txt.pluralize("file", file_count)}{thresholds}'
         )
 
     perfdata = lib.base.get_perfdata(

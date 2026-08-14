@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Apache Solr version against the endoflife.date API and alerts
 if the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -184,7 +184,10 @@ def main():
     # fetch data
     installed_version = get_installed_version(args.PATH, args.TEST)
     if not installed_version:
-        lib.base.cu(f'Apache Solr `{args.PATH}` not found.')
+        lib.base.cu(
+            f'Apache Solr not found at `{args.PATH}`. '
+            'Use --path to point at the binary.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/solr.json',
         installed_version,

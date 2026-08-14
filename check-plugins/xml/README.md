@@ -87,7 +87,7 @@ Search for string "emi" in XML tag `<note><heading>`:
 Output:
 
 ```text
-Everything is ok, "emi" found in result "Reminder".
+Everything is ok. "emi" found in result "Reminder".
 ```
 
 Search for a string in a WSDL definition (namespace prefixes required):
@@ -102,7 +102,7 @@ Search for a string in a WSDL definition (namespace prefixes required):
 Output:
 
 ```text
-Everything is ok, "exchange information" found in result "Provide real-time currency foreign exchange information and calculations.".
+Everything is ok. "exchange information" found in result "Provide real-time currency foreign exchange information and calculations.".
 ```
 
 

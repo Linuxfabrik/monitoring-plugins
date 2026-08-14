@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Mastodon version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -151,10 +151,14 @@ def get_installed_version(path):
     # which will cause problems when running this plugin in various nagios or icinga environments.
     # Instead, we do a low-level hack and just check the docker-compose file for the current
     # version - until someone has a robust solution.
+    compose_file = path + '/live/docker-compose.yml'
+    # A file that is not there means Mastodon is not installed here, which the caller
+    # says in one sentence. Handing the reader's I/O error to the caller instead made
+    # that error the answer of the check.
+    if not lib.disk.file_exists(compose_file):
+        return (True, False)
     try:
-        success, version = lib.disk.grep_file(
-            path + '/live/docker-compose.yml', r'mastodon/mastodon:v(.*)'
-        )
+        success, version = lib.disk.grep_file(compose_file, r'mastodon/mastodon:v(.*)')
     except Exception:
         return (False, 'Unable to get Mastodon version information.')
     if not success:
@@ -176,7 +180,10 @@ def main():
     # fetch data
     installed_version = lib.base.coe(get_installed_version(args.PATH))
     if not installed_version:
-        lib.base.cu('Mastodon not found.')
+        lib.base.cu(
+            f'Mastodon not found at `{args.PATH}`. '
+            'Use --path to point at the installation directory.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/mastodon.json',
         installed_version,

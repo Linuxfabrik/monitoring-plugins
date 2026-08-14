@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081301'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -231,6 +231,16 @@ def get_engine_error(stderr, stdout=''):
     problem of how this check is deployed rather than one of the swarm.
     """
     text = strip_daemon_error(f'{stderr}\n{stdout}')
+    # `docker` on a host carrying podman-docker is Podman, which knows neither swarm nor
+    # the flags this check passes and answers with its own usage text. Saying so beats
+    # handing the admin "unknown flag: --format" from a command they never typed. Same
+    # sentence as docker-swarm, which stands in the same place.
+    if 'podman' in text.lower():
+        return (
+            'Unable to list the swarm services. This check requires Docker;'
+            ' Podman does not support swarm mode.',
+            STATE_UNKNOWN,
+        )
     if 'permission denied' in text.lower():
         return (
             'No permission to talk to the container engine, so nothing can be said'
@@ -532,7 +542,7 @@ def main():
         msg += msg_header[:-2] + '\n\n'
     else:
         msg += (
-            f'Everything is ok, {checked} '
+            f'Everything is ok. {checked} '
             f'{lib.txt.pluralize("service", checked)} checked.\n\n'
         )
     if msg_body:

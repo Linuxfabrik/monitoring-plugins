@@ -37,7 +37,8 @@ TESTS = [
         'test': 'stdout/mixed-images,,0',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'docker.io/library/postgres:16: age 1Y 6M [CRITICAL]',
+            '1 of 3 images too old',
+            'Oldest: docker.io/library/postgres:16, age 1Y 6M [CRITICAL]',
             'Image                         ! Age   ! Size     ! State',
             '333333333333                  ! 1W 3D ! 85.8MiB  ! [OK]',
             'docker.io/library/nginx:1.27  ! 4W 1D ! 178.3MiB ! [OK]',
@@ -53,7 +54,7 @@ TESTS = [
         'test': 'stdout/mixed-images,stderr/mixed-images,125',
         'params': '-w 9000D -c 9000D',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok, 3 images checked'],
+        'assert-in': ['Everything is ok. 3 images checked'],
     },
     {
         # nothing usable came back at all, so the engine could not be asked
@@ -68,7 +69,7 @@ TESTS = [
         'params': '-w 9000D -c 9000D',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok, 3 images checked (thresholds 9000D/9000D; user: `',
+            'Everything is ok. 3 images checked (thresholds 9000D/9000D; user: `',
             'docker.io/library/nginx:1.27  ! 4W 1D ! 178.3MiB ! [OK]',
             'docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [OK]',
         ],
@@ -78,7 +79,7 @@ TESTS = [
         'test': 'stdout/mixed-images,,0',
         'params': '--match=nginx -w 20D -c 9000D',
         'assert-retc': STATE_WARN,
-        'assert-in': ['docker.io/library/nginx:1.27: age 4W 1D [WARNING]'],
+        'assert-in': ['Oldest: docker.io/library/nginx:1.27, age 4W 1D [WARNING]'],
     },
     {
         'id': 'ok-match-young',
@@ -86,7 +87,7 @@ TESTS = [
         'params': '--match=nginx',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok, 1 image checked (thresholds 90D/365D; user: `'
+            'Everything is ok. 1 image checked (thresholds 90D/365D; user: `'
         ],
     },
     {
@@ -95,7 +96,7 @@ TESTS = [
         'params': '--ignore=postgres',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok, 2 images checked (thresholds 90D/365D; user: `'
+            'Everything is ok. 2 images checked (thresholds 90D/365D; user: `'
         ],
     },
     {

@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Moodle version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -146,9 +146,15 @@ def parse_args():
 
 
 def get_installed_version(path):
+    version_file = path + '/version.php'
+    # A file that is not there means Moodle is not installed here, which the caller
+    # says in one sentence. Handing the reader's I/O error to the caller instead made
+    # that error the answer of the check.
+    if not lib.disk.file_exists(version_file):
+        return (True, False)
     try:
         success, version = lib.disk.grep_file(
-            path + '/version.php', r'\$release\s*=\s*\'(.*) \('
+            version_file, r'\$release\s*=\s*\'(.*) \('
         )
     except Exception:
         return (False, 'Unable to get Moodle version information.')
@@ -171,7 +177,10 @@ def main():
     # fetch data
     installed_version = lib.base.coe(get_installed_version(args.PATH))
     if not installed_version:
-        lib.base.cu('Moodle not found.')
+        lib.base.cu(
+            f'Moodle not found at `{args.PATH}`. '
+            'Use --path to point at the installation directory.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/moodle.json',
         installed_version,

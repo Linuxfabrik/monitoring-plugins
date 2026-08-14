@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed MySQL/MariaDB version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -159,7 +159,11 @@ def main():
     else:
         info = lib.db_mysql.get_server_info()
     if not info:
-        lib.base.cu('MariaDB/MySQL not found.')
+        lib.base.cu(
+            'MariaDB/MySQL not found: the server did not answer with a version banner. '
+            'Check that the server runs and that the credentials in the option file '
+            'let this check connect.'
+        )
     installed_version = info['version']
     mariadb = info['flavor'] == 'mariadb'
     if mariadb:

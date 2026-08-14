@@ -33,7 +33,7 @@ Checks whether a newer version of mydumper/myloader is available by comparing th
 
 ```text
 usage: mydumper-version [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
-                        [--no-perfdata]
+                        [--no-perfdata] [--path PATH]
 
 Checks if a newer version of mydumper is available by querying the GitHub
 releases API. Alerts when the installed version is outdated.
@@ -49,6 +49,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --path PATH           Path to the mydumper binary. Resolved via $PATH when
+                        given without a directory. Default: mydumper
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mydumper-version/

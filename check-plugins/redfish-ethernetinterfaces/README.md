@@ -116,7 +116,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-etherneti
 Output:
 
 ```text
-Everything is ok, checked Ethernet interfaces on 1 member.
+Everything is ok. Checked Ethernet interfaces on 1 member.
 
 Member: Contoso 3500, HostName: web483, SKU: 8675309, SerNo: 437XR1138R2
 

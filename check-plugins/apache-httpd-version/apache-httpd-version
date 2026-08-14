@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed Apache httpd version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -34,6 +34,9 @@ DEFAULT_CHECK_PATCH = False
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_OFFSET_EOL = -30  # days
+# RHEL calls the binary httpd, Debian and SUSE call it apache2. Both are tried, so the
+# check runs without configuration on either.
+DEFAULT_BINARIES = ['httpd', 'apache2']
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
 
@@ -118,6 +121,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--path',
+        help='Path to the Apache httpd binary. '
+        'Resolved via $PATH when given without a directory. '
+        'Default: the first of `httpd` and `apache2` that answers',
+        dest='PATH',
+        default=None,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -144,15 +156,14 @@ def parse_args():
     return args
 
 
-def get_installed_version(test_arg=None):
+def get_installed_version(path, test_arg=None):
     if test_arg is None:
-        success, result = lib.shell.shell_exec(['httpd', '-v'])  # on RHEL
-        if not success:
-            success, result = lib.shell.shell_exec(
-                ['apache2', '-v']
-            )  # on other systems
-            if not success:
-                return ''
+        for binary in [path] if path else DEFAULT_BINARIES:
+            success, result = lib.shell.shell_exec([binary, '-v'])
+            if success:
+                break
+        else:
+            return ''
         stdout = result[0].strip()
     else:
         stdout, _, _ = lib.lftest.test(test_arg)
@@ -176,9 +187,16 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args.TEST)
+    installed_version = get_installed_version(args.PATH, args.TEST)
+    tried = (
+        f'`{args.PATH}`'
+        if args.PATH
+        else ' and '.join(f'`{b}`' for b in DEFAULT_BINARIES)
+    )
     if not installed_version:
-        lib.base.cu('Apache httpd not found.')
+        lib.base.cu(
+            f'Apache httpd not found at {tried}. Use --path to point at the binary.'
+        )
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/apache-http-server.json',
         installed_version,

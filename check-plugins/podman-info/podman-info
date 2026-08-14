@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081301'
+__version__ = '2026081401'
 
 DESCRIPTION = """Displays system-wide Podman information including container counts, image count,
 storage driver, logging driver, number of search registries, runtime version, available
@@ -183,6 +183,11 @@ def main():
     containers_running = container_store.get('running')
     containers_stopped = container_store.get('stopped')
     cpus = host.get('cpus')
+    # Every image record the storage holds, which includes the intermediate layers of a
+    # locally built image. That is a larger number than the images `podman images` lists
+    # and than podman-image reports: measured on Fedora 44 with podman 5.8, this store
+    # held 4434 records where `podman images` listed 1204. Named as a store count in the
+    # message so the two checks do not read as if they contradicted each other.
     images = image_store.get('number')
     # the driver containers log through, the counterpart of Docker's logging driver.
     # `eventLogger` is a different thing: where Podman writes its own event log.
@@ -273,7 +278,10 @@ def main():
             f' {containers_stopped} stopped)'
         )
     if images is not None:
-        msg += f', {images} {lib.txt.pluralize("Image", images)}'
+        msg += (
+            f', {images} {lib.txt.pluralize("Image", images)} in the store'
+            ' (incl. intermediate layers)'
+        )
     if storage_driver:
         msg += f', Storage Driver: {storage_driver}'
     if logging_driver:

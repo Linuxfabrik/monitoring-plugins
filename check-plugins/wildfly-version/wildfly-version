@@ -24,7 +24,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on the GitHub
@@ -218,7 +218,10 @@ def main():
     # fetch data
     installed_version = get_installed_version(args)
     if not installed_version:
-        lib.base.cu('WildFly not found.')
+        lib.base.cu(
+            f'WildFly not found at `{args.URL}`. '
+            'Use --url to point at the management API.'
+        )
 
     if args.TEST is not None:
         # In test mode, the second --test slot (the "stderr" slot of

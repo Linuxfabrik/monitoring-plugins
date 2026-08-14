@@ -15,12 +15,13 @@ import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.version
 import lib.wordpress
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the installed WordPress version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -154,9 +155,18 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    # The reader tells a file it cannot open apart from an installation that is not
+    # there, on purpose. Without asking first, a host that simply runs no WordPress
+    # answered with the I/O error of the missing file. Same sentence as
+    # wordpress-checksums, which points at the same directory.
+    if not lib.disk.file_exists(f'{args.PATH}/wp-includes/version.php'):
+        lib.base.cu(
+            f'WordPress not found at `{args.PATH}`. '
+            'Use --path to point at the directory holding wp-includes/ and wp-content/.'
+        )
     installed_version = lib.base.coe(lib.wordpress.get_version(args.PATH))
     if not installed_version:
-        lib.base.cu('WordPress not found.')
+        lib.base.cu(f'WordPress `{args.PATH}` carries no version information.')
     state, msg = lib.version.check_eol(
         'https://endoflife.date/api/wordpress.json',
         installed_version,

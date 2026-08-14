@@ -1,0 +1,27 @@
+# Source: https://www.sysdig.com/blog/voidlink-threat-analysis-sysdig-discovers-c2-compiled-kernel-rootkits, https://www.elastic.co/security-labs/illuminating-voidlink
+# Published: 2026 Sysdig Threat Research Team (2026-01-16), Elastic Security Labs (2026-03-26)
+# The LKM masquerades as `vl_stealth` or `amd_mem_encrypt`, neither of which is
+# matchable here: /proc/kallsyms carries the module name in brackets behind the
+# symbol, and this check compares symbol names only.
+# The staging paths the reports list as globs (/dev/shm/.pulse-*, /dev/shm/.vl_*,
+# /tmp/.x, /dev/shm/.x, /var/tmp/.vl_*) are left out: this check matches literal
+# paths, and `.x` alone is too generic to attribute.
+name: 'VoidLink LKM and eBPF rootkit framework'
+files:
+  - '/root/kernel5x_new/vl_stealth.ko'
+  - '/sys/fs/bpf/vl_hide_tcp'
+  - '/tmp/.font-unix/.cmd.sh'
+  - '/tmp/.font-unix/.tmp.ko'
+  - '/tmp/.vl_cmd.sh'
+  - '/tmp/.vl_config'
+  - '/tmp/.vl_k3.ko'
+  - '/tmp/.vl_k4.ko'
+  - '/tmp/.vl_k5.ko'
+  - '/tmp/.vl_k6.ko'
+  - '/tmp/.vl_ss_loader'
+  - '/var/log/vl_boot.log'
+dirs:
+  - '/root/kernel5x_new'
+ksyms: []
+discovered: '2026-01'
+cl: 100

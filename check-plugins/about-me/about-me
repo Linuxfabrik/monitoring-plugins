@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081301 / v6.0.0'
+__version__ = '2026081401 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -1327,6 +1327,11 @@ def get_userinstalled_software():
         if not line.strip():
             continue
         data = dict(zip(header, line.split(';')))
+        # The package manager names a package whose origin it no longer knows
+        # `<unknown>`. The angle brackets carry nothing, and a web interface reads
+        # them as the start of a tag, so the word alone is what belongs in the table.
+        if data.get('from_repo') == '<unknown>':
+            data['from_repo'] = 'unknown'
         table_data.append(data)
     table_data.sort(key=lambda r: _natural_key(r['name']))
     output = lib.base.get_table(
@@ -1609,23 +1614,31 @@ def get_systemd_timers():
         return ''
 
     table_data = []
-    next_pos = None
-    left_pos = None
     unit_pos = None
     activates_pos = None
     for line in stdout.splitlines():
-        if next_pos is None:
-            # clutters a little bit on modern systemd (Fedora) because of right-aligned LEFT
-            next_pos = line.find('NEXT')
-            left_pos = line.find('LEFT')
+        if unit_pos is None:
             unit_pos = line.find('UNIT')
             activates_pos = line.find('ACTIVATES')
         if '.timer' in line:
+            # UNIT and ACTIVATES are left-aligned under their headers, so their columns
+            # can be cut by position. LEFT is right-aligned, which means a long value
+            # there ("2 days") reaches back into the NEXT column, and cutting NEXT by
+            # position dragged that value into the date ("... CEST 1 day"). NEXT is read
+            # from the front instead: either a timestamp of four fields, or a single
+            # placeholder on a timer that has no next elapse. The command runs under a
+            # fixed locale, so the field count does not move. Verified against systemd
+            # 259 on Fedora 44.
+            fields = line[:unit_pos].split()
+            if len(fields) >= 4 and re.fullmatch(r'\d{4}-\d{2}-\d{2}', fields[1]):
+                next_elapse = ' '.join(fields[:4])
+            else:
+                next_elapse = fields[0] if fields else ''
             table_data.append(
                 {
                     'unit': line[unit_pos:activates_pos].strip(),
                     'activates': line[activates_pos:].strip(),
-                    'next': line[next_pos:left_pos].strip(),
+                    'next': next_elapse,
                 }
             )
 

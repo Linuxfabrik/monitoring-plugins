@@ -127,7 +127,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-stats/
 Output:
 
 ```text
-Everything is ok, 3 containers checked.
+Everything is ok. 3 containers checked.
 
 Container                 ! CPU % ! Mem % 
 --------------------------+-------+-------

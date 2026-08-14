@@ -34,21 +34,28 @@ Lists the container images on a host and checks how old they are. Reports each i
 ## Help
 
 ```text
-usage: podman-image [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                    [--match MATCH]
+usage: podman-image [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                    [--ignore IGNORE] [--match MATCH]
                     [--no-match-severity {ok,warn,crit,unknown}]
                     [--no-perfdata] [--user USER] [-w WARN]
 
 Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than
 the configured thresholds, which is a sign that a rebuild or pull was missed.
-Images can be selected or excluded by name using regular expressions. For
-Docker, use the docker-image check instead. Requires root or sudo.
+Images can be selected or excluded by name using regular expressions. On a
+host with many images, --brief hides the rows within the thresholds so the
+table shows only the images that are too old. For Docker, use the docker-image
+check instead. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   -c, --critical CRIT   CRIT threshold for the image age in a human-readable
                         format (s = seconds, m = minutes, h = hours, D = days,
                         W = weeks, M = months, Y = years). Supports Nagios

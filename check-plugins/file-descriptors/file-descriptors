@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks the system-wide file descriptor usage as a percentage of the kernel maximum.
 Also lists the top processes consuming the most file descriptors to help identify
@@ -179,11 +179,19 @@ def main():
     # fs[1] is the number of unused-but-allocated file handles
     files_percent = round(files_allocated / files_max * 100, 1)
 
+    # A kernel that does not cap the number of file handles reports the largest number
+    # its data type holds. Printed as "9.2E" that reads like a measured limit, so it is
+    # named instead. Verified against kernel 7.1 on Fedora 44, whose third field in
+    # /proc/sys/fs/file-nr is 9223372036854775807.
+    files_max_human = (
+        'no limit' if files_max >= sys.maxsize else lib.human.number2human(files_max)
+    )
+
     # build the message
     msg = (
         f'{files_percent}% file descriptors used'
         f' ({lib.human.number2human(files_allocated)}'
-        f'/{lib.human.number2human(files_max)})\n'
+        f'/{files_max_human})\n'
     )
     perfdata += lib.base.get_perfdata(
         'fd',

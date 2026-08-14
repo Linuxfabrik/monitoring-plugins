@@ -25,12 +25,13 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks if a newer version of mydumper is available by querying the GitHub releases API.
 Alerts when the installed version is outdated."""
 
 DEFAULT_CACHE_EXPIRE = 24  # hours
+DEFAULT_PATH = 'mydumper'
 
 
 def parse_args():
@@ -73,6 +74,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--path',
+        help='Path to the mydumper binary. '
+        'Resolved via $PATH when given without a directory. '
+        'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -83,9 +93,9 @@ def parse_args():
     return args
 
 
-def get_installed_version(test_arg=None):
+def get_installed_version(path, test_arg=None):
     if test_arg is None:
-        success, result = lib.shell.shell_exec(['mydumper', '--version'])
+        success, result = lib.shell.shell_exec([path, '--version'])
         if not success:
             return ''
         stdout, _, _ = result
@@ -135,9 +145,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    installed_version = get_installed_version(args.TEST)
+    installed_version = get_installed_version(args.PATH, args.TEST)
     if not installed_version:
-        lib.base.cu('mydumper/myloader not found.')
+        lib.base.cu(
+            f'mydumper not found at `{args.PATH}`. Use --path to point at the binary.'
+        )
 
     if args.TEST is not None:
         # In test mode, the second --test slot (the "stderr" slot of

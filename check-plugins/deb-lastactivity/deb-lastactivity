@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Checks how long ago the last APT package manager activity occurred (install, update, or remove). Alerts if no package management activity has happened within the configured thresholds (default: WARN after 90 days, CRIT after 365 days). Useful for detecting servers that have not been patched in a long time."""
 
@@ -127,6 +127,15 @@ def main():
             'these packages.',
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
+        )
+    except IndexError:
+        # dpkg-query answered with nothing: no package carries a Last-Modified
+        # timestamp. That is what a host looks like that does not install its packages
+        # with APT, so it gets a sentence rather than a Python stack trace.
+        lib.base.cu(
+            'No package activity found. This check belongs on a host that installs '
+            'its packages with APT.',
+            traceback=False,
         )
     except Exception:
         lib.base.cu('Unable to get dpkg-query info, maybe an update never happened.')

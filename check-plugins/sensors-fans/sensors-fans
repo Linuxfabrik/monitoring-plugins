@@ -13,6 +13,7 @@
 import argparse
 import json
 import sys
+from collections import Counter
 
 import lib.args
 import lib.base
@@ -40,7 +41,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081401'
 
 DESCRIPTION = """Reports hardware fan speeds in RPM (rounds per minute). Alerts when fan speeds fall
 outside the thresholds reported by the hardware sensors."""
@@ -121,6 +122,34 @@ def _load_fans_fixture(raw_json):
     }
 
 
+def _perfdata_labels(chip, labels):
+    """Build one performance data label per fan of a chip, unique within that chip.
+
+    A chip may name several of its fans alike, or name none of them at all: on a Dell
+    laptop `dell_smm` reports two fans without any label. The same performance data
+    label twice means everything storing the data keeps one of those series and drops
+    the rest, so a label a chip uses more than once is numbered in the order the chip
+    lists its fans. A label the chip uses once stays as it is, so its graph history
+    survives.
+    """
+    labels = [
+        f'{chip}_{label}'.replace(' ', '_').lower()
+        if label
+        else chip.replace(' ', '_').lower()
+        for label in labels
+    ]
+    total = Counter(labels)
+    seen = Counter()
+    unique = []
+    for label in labels:
+        if total[label] == 1:
+            unique.append(label)
+            continue
+        seen[label] += 1
+        unique.append(f'{label}_{seen[label]}')
+    return unique
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -150,9 +179,10 @@ def main():
     for name, entries in fans.items():
         # build the message
         msg += f'{name}: '
-        for entry in entries:
+        perfdata_labels = _perfdata_labels(name, [entry.label for entry in entries])
+        for perfdata_label, entry in zip(perfdata_labels, entries):
             perfdata += lib.base.get_perfdata(
-                f'{name}_{entry.label}'.replace(' ', '_').lower(),
+                perfdata_label,
                 entry.current,
                 warn=args.WARN,
                 crit=args.CRIT,

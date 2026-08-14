@@ -109,7 +109,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-managers/
 Output:
 
 ```text
-Everything is ok, checked manager health on 1 member.
+Everything is ok. Checked manager health on 1 member.
 
 Manager: BMC Joo Janta 200, Firmware: 1.45.455b66-rev4, Power: On, UUID: 58893887-8974-2487-2389-841168418919
 ```

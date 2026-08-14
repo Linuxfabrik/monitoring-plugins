@@ -35,7 +35,7 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 ```text
 usage: icinga-version [-h] [-V] [--always-ok] [--check-major] [--check-minor]
                       [--check-patch] [--insecure] [--no-perfdata]
-                      [--no-proxy] [--offset-eol OFFSET_EOL]
+                      [--no-proxy] [--offset-eol OFFSET_EOL] [--path PATH]
                       [--timeout TIMEOUT]
                       [--unreachable-severity {ok,warn,crit,unknown}]
 
@@ -68,6 +68,8 @@ options:
   --offset-eol OFFSET_EOL
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
+  --path PATH           Path to the Icinga binary. Resolved via $PATH when
+                        given without a directory. Default: icinga2
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
                         State to report when the online source is unreachable.
