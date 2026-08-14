@@ -8,7 +8,7 @@
   Linuxfabrik Monitoring Plugins
 </h1>
 <p align="center">
-  Monitoring plugins for Icinga, Nagios & friends. Python 3.9+, all platforms. Smart defaults, auto-discovery, consistent cross-platform metrics, minimal dependencies. 
+  Monitoring plugins for Icinga, Nagios & friends. Python 3.9+, all platforms. Smart defaults, auto-discovery, consistent cross-platform metrics, minimal dependencies.
   <span>&#8226;</span>
   <b>made by <a href="https://linuxfabrik.ch/">Linuxfabrik</a></b>
 </p>
@@ -90,10 +90,12 @@ Plugins that share setup steps:
 | Debian            | 11 (bullseye), 12 (bookworm), 13 (trixie)             |                                    |
 | RHEL and clones   | Rocky 8, Rocky 9, Rocky 10                            | Also Alma, CentOS Stream, Oracle.  |
 | SLE / openSUSE    | SLE 15.5                                              | SLE 15 requires SP5.               |
-| Ubuntu            | 20.04 (focal), 22.04 (jammy), 24.04 (noble)           | 26.04 packages are built as well.  |
+| Ubuntu            | 22.04 (jammy), 24.04 (noble)                          | 26.04 packages are built as well.  |
 | Windows           | Windows Server 2016 and later, Windows 10 and later   | Shipped as signed MSI, x86_64.     |
 
 Other Linux distributions run the plugins fine as long as Python 3.9 or newer is available; you just lose the pre-built native packages.
+
+[ROADMAP.md](ROADMAP.md) lists the date on which package builds for each release end, and which Python version that leaves as the minimum.
 
 
 ## Icinga, Grafana, Nagios

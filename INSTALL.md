@@ -158,7 +158,7 @@ sudo zypper install linuxfabrik-monitoring-plugins
 SLE 15 requires at least Service Pack 5 (openSUSE Leap 15.5 or SLES 15 SP5).
 
 
-#### Ubuntu 20.04, 22.04, 24.04, 26.04
+#### Ubuntu 22.04, 24.04, 26.04
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings

@@ -101,7 +101,6 @@ CONTAINERFILES = [
     'rhel-v10',
     'sles-v15',
     'sles-v16',
-    'ubuntu-v2004',
     'ubuntu-v2204',
     'ubuntu-v2404',
     'ubuntu-v2604',
@@ -205,9 +204,9 @@ def _assert_audit(test, containerfile):
         flush=True,
     )
     # The plugin pins the pushed copy with --usecwd, which lynis only supports
-    # from 2.7 on. Some distros still package an older lynis (Ubuntu 20.04 ships
-    # 2.6.2), where there is nothing to audit; skip rather than fail. The plugin
-    # surfaces the error correctly, which is what matters there.
+    # from 2.7 on. A distro packaging an older lynis has nothing to audit;
+    # skip rather than fail. The plugin surfaces the error correctly, which
+    # is what matters there.
     if "Invalid option '--usecwd'" in output:
         test.skipTest(f'{containerfile}: packaged lynis is too old (no --usecwd)')
     # Before the plugin-dir fix, Debian/Ubuntu fail here: lynis aborts with

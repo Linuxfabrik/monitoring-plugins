@@ -8,7 +8,7 @@ Runs a full security audit across the hosts of a subnet and reports each host's 
 **Important Notes:**
 
 * Requires SSH access to every target host. Without parameters the plugin assumes password-less public key authentication and password-less `sudo` on the targets. Host aliases from `~/.ssh/config` are honored.
-* Requires `lynis` on the management host (where the plugin runs); a self-contained copy is assembled and pushed to the targets, so `lynis` does not need to be installed on them. The management host's `lynis` must support the `--usecwd` option (lynis 2.7+); distributions that still ship lynis 2.6 or older (for example Ubuntu 20.04) are not supported.
+* Requires `lynis` on the management host (where the plugin runs); a self-contained copy is assembled and pushed to the targets, so `lynis` does not need to be installed on them. The management host's `lynis` must support the `--usecwd` option (lynis 2.7+); distributions that still ship lynis 2.6 or older are not supported.
 * The audit runs privileged (via `sudo`) so the hardening index reflects a complete scan. The report is left on each target at `/var/log/lynis-report.dat` for the admin to inspect.
 * `lynis` is a script that must be executed, so the plugin uses the first target partition that is writable and not mounted `noexec` (hardened hosts often mount `/var/tmp` and `/tmp` `noexec`).
 * The copy is pushed with `rsync` when it is available on the management host (faster), otherwise with `scp -r`; neither requires `tar` on the target.

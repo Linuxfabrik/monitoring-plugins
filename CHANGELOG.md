@@ -8,7 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Added
+
+Documentation:
+
+* ROADMAP.md states when package builds for each release end
+
+### Changed
+
+Icinga Director:
+
+* the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
+
+### Removed
+
+Build, CI/CD:
+
+* Drop packages for Ubuntu 20.04
+
+Icinga Director:
+
+* the Basic and Apache Service Sets for Debian 10, RHEL 7, Ubuntu 16, Ubuntu 18 and Ubuntu 20 are gone, together with their host tags. Hosts still carrying those tags lose their checks on the next deployment; retag them or drop them from monitoring
 
 
 ## [v7.0.0] - 2026-08-14

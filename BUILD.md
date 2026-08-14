@@ -89,7 +89,7 @@ cat > env-file << 'EOF'
 export LFMP_ARCH=x86_64                                   # or "aarch64" on ARM64
 export LFMP_VERSION=2.2.1
 export LFMP_PACKAGE_ITERATION=1
-export LFMP_TARGET_DISTROS="debian13 rocky10"             # subset of the supported list
+export LFMP_TARGET_DISTROS="debian-v13 rocky-v10"         # subset of the supported list
 
 # Constants (absolute paths):
 export LFMP_DIR_REPOS=/tmp/lfmp/repos
@@ -101,8 +101,9 @@ EOF
 source env-file
 ```
 
-Supported `LFMP_TARGET_DISTROS` values: `debian11 debian12 debian13 rocky8
-rocky9 rocky10 sle15 sle16 ubuntu2004 ubuntu2204 ubuntu2404 ubuntu2604`.
+Supported `LFMP_TARGET_DISTROS` values: `debian-v11 debian-v12 debian-v13
+rocky-v8 rocky-v9 rocky-v10 sles-v15 sles-v16 ubuntu-v2204 ubuntu-v2404
+ubuntu-v2604`. Each value is the name of a file in `build/containerfiles/`.
 
 Clone the repository and run the build:
 
@@ -267,7 +268,6 @@ is the current source of truth.
 | RHEL 10      | `docker.io/rockylinux/rockylinux:10`           |
 | SLE 15       | `registry.suse.com/suse/sle15:15.5`            |
 | SLE 16       | `registry.suse.com/bci/bci-base:16.0`          |
-| Ubuntu 20.04 | `docker.io/library/ubuntu:20.04`               |
 | Ubuntu 22.04 | `docker.io/library/ubuntu:22.04`               |
 | Ubuntu 24.04 | `docker.io/library/ubuntu:24.04`               |
 | Ubuntu 26.04 | `docker.io/library/ubuntu:26.04`               |
@@ -321,4 +321,3 @@ Windows workflow stays pinned to 3.13.
 This has no security impact: `actions/setup-python@v6` resolves
 `python-version: '3.13'` to the latest 3.13.x patch release at build time,
 so each release picks up the bundled OpenSSL update from upstream CPython.
-

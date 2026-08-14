@@ -1139,7 +1139,7 @@ debian-v11 / v12 / v13
 fedora-v43
 rhel-v8 / v9 / v10
 sles-v15 / v16
-ubuntu-v2004 / v2204 / v2404 / v2604
+ubuntu-v2204 / v2404 / v2604
 ```
 
 The `v` is mandatory and machine-readable: it is the unambiguous separator between distro and version, sorts the matrix naturally, and lets `archlinux-vlatest` slot into the same scheme as `rhel-v8`. Image tags derived from the file name follow the same shape (`lfmp-<plugin>-<distro>-v<version>`).
