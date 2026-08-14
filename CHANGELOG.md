@@ -69,6 +69,10 @@ Icinga Director:
 * `OpenJDK Service Set` (host tag `openjdk`) for hosts running a Red Hat OpenJDK
 * host tag `metabase`, without a Service Set: the check needs credentials, so create the service from its template via an Apply rule
 
+Grafana:
+
+* dashboard for nextcloud-stats ([#157](https://github.com/Linuxfabrik/monitoring-plugins/issues/157))
+
 Assets:
 
 * bash completion for the plugins' command line options, installed by the packages and the one-liner installer
