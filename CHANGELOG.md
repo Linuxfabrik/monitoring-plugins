@@ -134,6 +134,7 @@ Monitoring Plugins:
 * statusiq: a status page that intermittently answers with an error no longer flaps into UNKNOWN
 * strongswan-connections: a rekeying, shared, still-connecting or 3DES connection no longer raises a false alarm or crashes ([#806](https://github.com/Linuxfabrik/monitoring-plugins/issues/806))
 * systemd-unit: the bundled Ubuntu service sets check `ssh.service` ([#1373](https://github.com/Linuxfabrik/monitoring-plugins/issues/1373))
+* updates: reports that it runs on Windows only instead of aborting with a Python error
 
 Grafana:
 

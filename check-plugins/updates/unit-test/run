@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import subprocess
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.base
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures hold what the PowerShell snippet writes: one line per pending
+# update, the title followed by the last deployment change time.
+TESTS = [
+    {
+        'id': 'ok-nothing-pending',
+        'test': 'stdout/none-pending,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['There are no pending updates.'],
+    },
+    {
+        'id': 'warn-three-pending',
+        'test': 'stdout/three-pending,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are 3 pending updates:',
+            '* 2026-08 Cumulative Update for Windows Server 2022 (KB5065432)',
+            "'pending_updates'=3;2;50;0",
+        ],
+    },
+    {
+        'id': 'crit-three-pending-low-threshold',
+        'test': 'stdout/three-pending,,0',
+        'params': '--warning=1 --critical=2',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are 3 pending updates:'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../updates'
+
+
+class TestPlatform(unittest.TestCase):
+    @unittest.skipIf(lib.base.WINDOWS, 'there the check does its job')
+    def test_unknown_not_on_windows(self):
+        """Called without a fixture the check would ask PowerShell, which exists
+        only on Windows. Saying so beats handing the admin the `FileNotFoundError`
+        of a missing interpreter. Runs the plugin without `--test`, which the
+        fixture-driven testcases above cannot do.
+        """
+        result = subprocess.run(
+            [sys.executable, '../updates'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('This check runs on Windows only.', result.stdout)
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

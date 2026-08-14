@@ -8,12 +8,14 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import subprocess
 import sys
 
 sys.path.insert(0, '..')
 
 import unittest
 
+import lib.base
 import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -106,6 +108,24 @@ TESTS = [
 
 class TestCheck(unittest.TestCase):
     check = '../service'
+
+
+class TestPlatform(unittest.TestCase):
+    @unittest.skipIf(lib.base.WINDOWS, 'there the check does its job')
+    def test_unknown_not_on_windows(self):
+        """Called without a fixture the check would walk
+        `psutil.win_service_iter()`, which exists only on Windows. Saying so
+        beats handing the admin a raw Python error. Runs the plugin without
+        `--test`, which the fixture-driven testcases above cannot do.
+        """
+        result = subprocess.run(
+            [sys.executable, '../service', '--service=.*'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('This check runs on Windows only.', result.stdout)
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
