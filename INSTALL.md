@@ -138,22 +138,14 @@ sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
 sudo dnf install wget
 sudo wget https://repo.linuxfabrik.ch/monitoring-plugins/rhel/linuxfabrik-monitoring-plugins-release.repo \
     --output-document=/etc/yum.repos.d/linuxfabrik-monitoring-plugins-release.repo
-# RHEL 8 and 9
 sudo dnf install linuxfabrik-monitoring-plugins-selinux
-
-# RHEL 10
-sudo dnf install linuxfabrik-monitoring-plugins
 ```
 
-On RHEL 8 and 9 the `linuxfabrik-monitoring-plugins-selinux` sub-package pulls in the
-base package via `Recommends` and loads a policy module carrying the rules the plugins
-need on a host running SELinux in enforcing mode, so no `audit2allow` round is left to
-the administrator. Install just `linuxfabrik-monitoring-plugins` instead if SELinux is
+The `linuxfabrik-monitoring-plugins-selinux` sub-package pulls in the base package via
+`Recommends` and loads a policy module carrying the rules the plugins need on a host
+running SELinux in enforcing mode, so no `audit2allow` round is left to the
+administrator. Install just `linuxfabrik-monitoring-plugins` instead if SELinux is
 permissive or disabled.
-
-There is no such sub-package for RHEL 10. Red Hat dropped the nagios policy from
-`selinux-policy-targeted` there, so the types the module builds on do not exist on that
-release.
 
 
 #### SLE 15, SLE 16 and openSUSE Leap
@@ -435,8 +427,9 @@ source /etc/bash_completion.d/linuxfabrik-monitoring-plugins
 
 #### SELinux
 
-On RHEL 8 and 9, the `linuxfabrik-monitoring-plugins-selinux` sub-package loads a policy
-module with the rules the plugins need in enforcing mode. No extra steps are required.
+On RHEL 8, 9 and 10, the `linuxfabrik-monitoring-plugins-selinux` sub-package loads a
+policy module with the rules the plugins need in enforcing mode. No extra steps are
+required.
 
 The module does not label anything. The labels come from the SELinux policy of the
 distribution, which puts everything below `/usr/lib64/nagios/plugins` into
@@ -444,21 +437,26 @@ distribution, which puts everything below `/usr/lib64/nagios/plugins` into
 therefore runs as `nagios_unconfined_plugin_t`, a domain that is deliberately
 unconfined.
 
-RHEL 10 ships no nagios policy at all: `selinux-policy-targeted` carries no nagios
-module, the types above do not exist, and the plugin files are labelled `lib_t`. A
-plugin started there stays in the domain of whatever called it, and no sub-package is
-built for that release.
+RHEL 10 carries no nagios policy: `selinux-policy-targeted` has no nagios module, so
+those types do not exist, `nagios_run_sudo` does not exist, and the plugin files are
+labelled `lib_t`. The policy module still loads, and the rule that depends on the nagios
+types is simply left out. A plugin started on such a host stays in the domain of whatever
+called it, which for a monitoring agent that brings no policy of its own is
+`unconfined_service_t`. Running all plugins from an Icinga agent on Rocky 10 in enforcing
+mode produced no denial in that setup. Adding a nagios policy from another source, such
+as EPEL's `nagios-selinux`, brings the labels and the remaining rule into effect after a
+`restorecon -Rv /usr/lib64/nagios/plugins`; nothing about this package needs to change
+for that.
 
-For the source-zip and GitHub source installs on RHEL 8 and 9, apply the minimal
-settings manually:
+For the source-zip and GitHub source installs, apply the minimal settings manually:
 
 ```bash
 sudo restorecon -Fvr /usr/lib64/nagios /usr/lib64/linuxfabrik-monitoring-plugins
 sudo setsebool -P nagios_run_sudo on
 ```
 
-On RHEL 10 the boolean does not exist either, for the same reason, and `restorecon`
-has no nagios file context to apply.
+Both calls do nothing on a host without a nagios policy: there is no file context to
+apply and no such boolean.
 
 
 ## Windows

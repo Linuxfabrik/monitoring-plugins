@@ -140,6 +140,10 @@ Grafana:
 
 * ping: the round-trip time and total-time graphs are scaled in milliseconds instead of seconds
 
+Assets:
+
+* SELinux policy: loads on RHEL 10 as well, where it silently did nothing before
+
 Tools:
 
 * build-basket: switches that turn an option off, such as `--no-insecure`, end up in the Director basket

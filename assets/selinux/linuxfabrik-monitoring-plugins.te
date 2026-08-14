@@ -1,18 +1,11 @@
-module linuxfabrik-monitoring-plugins 2025090201;
+module linuxfabrik-monitoring-plugins 2026081401;
 
 require {
-    type chronyc_t;
-    type nagios_unconfined_plugin_exec_t;
     type system_dbusd_t;
     type unconfined_service_t;
     class fifo_file write;
-    class file { execute map };
     class unix_stream_socket { read write };
 }
-
-
-#============= chronyc_t ==============
-allow chronyc_t nagios_unconfined_plugin_exec_t:file { execute map };
 
 
 # Errors:
@@ -25,3 +18,24 @@ allow chronyc_t nagios_unconfined_plugin_exec_t:file { execute map };
 #============= system_dbusd_t ==============
 allow system_dbusd_t unconfined_service_t:fifo_file write;
 allow system_dbusd_t unconfined_service_t:unix_stream_socket { read write };
+
+
+# The nagios types come from the distribution's nagios policy, which EL8 and EL9
+# carry in `selinux-policy-targeted` while EL10 does not. An optional block is
+# dropped when its required types are missing, instead of failing the whole
+# module, so the same policy loads on every release. Where the nagios policy is
+# present the rule applies, and it starts applying on its own once such a policy
+# is added later. Where it is absent the plugins are labelled `lib_t`, which the
+# base policy lets every domain execute and map anyway.
+# Verified against selinux-policy 3.14.3 on Rocky 8, 38.1.75 on Rocky 9 and
+# 42.1.18 on Rocky 10.
+optional {
+    require {
+        type chronyc_t;
+        type nagios_unconfined_plugin_exec_t;
+        class file { execute map };
+    }
+
+    #============= chronyc_t ==============
+    allow chronyc_t nagios_unconfined_plugin_exec_t:file { execute map };
+}

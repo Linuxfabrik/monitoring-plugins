@@ -132,11 +132,13 @@ $LFMP_DIR_PACKAGED
 │   ├── linuxfabrik-monitoring-plugins-2.2.1-1.el9.x86_64.rpm
 │   └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el9.x86_64.rpm
 └── rocky10/
-    └── linuxfabrik-monitoring-plugins-2.2.1-1.el10.x86_64.rpm
+    ├── linuxfabrik-monitoring-plugins-2.2.1-1.el10.x86_64.rpm
+    └── linuxfabrik-monitoring-plugins-selinux-2.2.1-1.el10.x86_64.rpm
 ```
 
-The `selinux` sub-package is built for EL8 and EL9 only. EL10 carries no nagios
-policy, so the module has no types to build on there.
+The `selinux` sub-package is built for every EL release. The one rule that needs
+the types of the distribution's nagios policy sits in an optional block, so the
+module also loads on EL10, which carries no such policy.
 
 
 ## Windows Binaries and MSI
