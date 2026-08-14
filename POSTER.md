@@ -1,6 +1,6 @@
 # Check Plugin Poster
 
-Screenshots of a selection of Linuxfabrik Monitoring Plugins rendering in
+Screenshots of just a few of the Linuxfabrik Monitoring Plugins rendering in
 Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin output.
 
 
@@ -9,6 +9,7 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="apache-httpd-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-httpd-version.png" width="30%"/> &nbsp;
 <img alt="apache-solr-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/apache-solr-version.png" width="30%"/> &nbsp;
 <img alt="atlassian-statuspage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/atlassian-statuspage.png" width="30%"/> &nbsp;
+<img alt="cert" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cert.png" width="30%"/> &nbsp;
 <img alt="cpu-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/cpu-usage.png" width="30%"/> &nbsp;
 <img alt="crypto-policy" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/crypto-policy.png" width="30%"/> &nbsp;
 <img alt="disk-io" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/disk-io.png" width="30%"/> &nbsp;
@@ -33,7 +34,6 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="grafana-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/grafana-version.png" width="30%"/> &nbsp;
 <img alt="icinga-topflap-services" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/icinga-topflap-services.png" width="30%"/> &nbsp;
 <img alt="infomaniak-events" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-events.png" width="30%"/> &nbsp;
-<img alt="infomaniak-swiss-backup-devices" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-devices.png" width="30%"/> &nbsp;
 <img alt="infomaniak-swiss-backup-products" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/infomaniak-swiss-backup-products.png" width="30%"/> &nbsp;
 <img alt="journald-query" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/journald-query.png" width="30%"/> &nbsp;
 <img alt="journald-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/journald-usage.png" width="30%"/> &nbsp;
@@ -46,6 +46,7 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="librenms-health" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-health.png" width="30%"/> &nbsp;
 <img alt="librenms-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/librenms-version.png" width="30%"/> &nbsp;
 <img alt="load" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/load.png" width="30%"/> &nbsp;
+<img alt="logfile" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/logfile.png" width="30%"/> &nbsp;
 <img alt="mailq" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/mailq.png" width="30%"/> &nbsp;
 <img alt="matomo-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/matomo-version.png" width="30%"/> &nbsp;
 <img alt="memory-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/memory-usage.png" width="30%"/> &nbsp;
@@ -131,7 +132,6 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 <img alt="wildfly-server-status" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-server-status.png" width="30%"/> &nbsp;
 <img alt="wildfly-thread-usage" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-thread-usage.png" width="30%"/> &nbsp;
 <img alt="wildfly-uptime" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-uptime.png" width="30%"/> &nbsp;
-<img alt="wildfly-xa-datasource-stats" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wildfly-xa-datasource-stats.png" width="30%"/> &nbsp;
 <img alt="wordpress-version" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/wordpress-version.png" width="30%"/> &nbsp;
 <img alt="xca-cert" src="https://download.linuxfabrik.ch/monitoring-plugins/assets/screenshots/xca-cert.png" width="30%"/> &nbsp;
 
