@@ -105,6 +105,35 @@ require_cmd() {
     command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
 
+# apt-get, driven so that it never waits for an answer. This installer is meant to be piped into
+# `sudo bash`, so stdin is the pipe rather than a terminal: on an upgrade that touches a conffile
+# the admin has edited, dpkg asks what to do, reads EOF and aborts the transaction, leaving the
+# package unpacked but unconfigured. --force-confold keeps the local file, which is what the
+# interactive prompt defaults to anyway, and dpkg parks the maintainer's version next to it as
+# <file>.dpkg-dist. DEBIAN_FRONTEND=noninteractive does NOT cover this on its own, the prompt
+# comes from dpkg and not from debconf (verified against apt 3.0.3 / dpkg 1.22.21 on Debian 13).
+apt_get() {
+    run env DEBIAN_FRONTEND=noninteractive apt-get \
+        --option Dpkg::Options::=--force-confdef \
+        --option Dpkg::Options::=--force-confold \
+        "$@"
+}
+
+# Report conffiles dpkg could not replace because they differ from the shipped version. The
+# sudoers drop-in is the one that matters: it whitelists the plugins for sudo, so a stale local
+# copy leaves plugins added since that edit unable to run, and misses tightened rules.
+warn_conffile_leftovers() {
+    [ "${DRY_RUN}" = '1' ] && return 0
+    local leftover
+    for leftover in "${SUDOERS_DEST}.dpkg-dist" "${SUDOERS_DEST}.dpkg-new"; do
+        if [ -e "${leftover}" ]; then
+            warn "${SUDOERS_DEST} differs from the version this release ships;"
+            warn "the shipped one is at ${leftover}. Compare them and merge what you need."
+        fi
+    done
+    return 0
+}
+
 require_root() {
     [ "${DRY_RUN}" = '1' ] && return 0
     [ "$(id -u)" -eq 0 ] || die 'this installer must run as root (pipe to "sudo bash")'
@@ -226,8 +255,9 @@ ${REPO_BASE_URL}/monitoring-plugins/${variant}/ ${VERSION_CODENAME}-release main
     else
         printf '%s\n' "${line}" > "${list}"
     fi
-    run apt-get update
-    run apt-get install --yes "${PKG_NAME}"
+    apt_get update
+    apt_get install --yes "${PKG_NAME}"
+    warn_conffile_leftovers
 }
 
 setup_repo_rhel() {
@@ -561,7 +591,7 @@ ensure_venv_support() {
     "${PYBIN}" -c 'import ensurepip' >/dev/null 2>&1 && return 0
     if command -v apt-get >/dev/null 2>&1; then
         log 'installing python3-venv (needed to build the dependency venv)'
-        run apt-get install --yes python3-venv
+        apt_get install --yes python3-venv
         [ "${DRY_RUN}" = '1' ] && return 0
         "${PYBIN}" -c 'import ensurepip' >/dev/null 2>&1 && return 0
     fi
@@ -853,7 +883,7 @@ uninstall() {
     fi
     if command -v dpkg >/dev/null 2>&1 && dpkg -s "${PKG_NAME}" >/dev/null 2>&1; then
         did_something=1
-        run apt-get remove --yes "${PKG_NAME}"
+        apt_get remove --yes "${PKG_NAME}"
         run rm -f "/etc/apt/sources.list.d/${PKG_NAME}.list" \
                   /etc/apt/keyrings/linuxfabrik.asc
     fi
