@@ -310,6 +310,7 @@ flatten_plugins() {
         printf '    [dry-run] install %s/<name>/<name> -> %s/<name>\n' "${src}" "${PLUGIN_DIR}" >&2
         return 0
     fi
+    [ -d "${src}" ] || die "no ${src##*/} directory in the downloaded source"
     for dir in "${src}"/*/; do
         name="$(basename "${dir}")"
         [ -f "${dir}${name}" ] || continue
@@ -317,6 +318,10 @@ flatten_plugins() {
         record "${PLUGIN_DIR}/${name}"
         count=$((count + 1))
     done
+    # A source tree always carries plugins. Zero of them means the download or the extraction
+    # produced something unusable, and going on would leave a host that reports a successful
+    # install and has no plugins at all.
+    [ "${count}" -gt 0 ] || die "found no plugins in ${src##*/}"
     log "flattened ${count} plugins from ${src##*/}"
 }
 
@@ -327,6 +332,7 @@ install_lib() {
         printf '    [dry-run] copy %s/. -> %s/lib/\n' "${lib_src}" "${PLUGIN_DIR}" >&2
         return 0
     fi
+    [ -d "${lib_src}" ] || die "no library source at ${lib_src}"
     cp -a "${lib_src}/." "${PLUGIN_DIR}/lib/"
     rm -rf "${PLUGIN_DIR}/lib/tests" "${PLUGIN_DIR}/lib/.github" \
            "${PLUGIN_DIR}/lib/lockfiles" "${PLUGIN_DIR}/lib/.git"
@@ -715,11 +721,24 @@ require_python39() {
 # GitHub serves any branch/tag as a tarball at /archive/<ref>.tar.gz and extracts to
 # <repo>-<ref>/. We download monitoring-plugins AND lib, because lib lives in a separate
 # repository and is only referenced via a (dangling-in-tarball) symlink.
+#
+# The extracted directory is handed back in FETCHED_DIR rather than echoed, because a caller
+# writing `dir="$(fetch_and_extract ...)"` would lose every failure in here: in an assignment
+# from a command substitution, bash runs the function to its end despite `set -e` and reports
+# the exit status of its LAST command. A failed download would then be followed by a tarfile
+# traceback, an empty plugin directory and a cheerful success message (verified with bash 5.3).
+FETCHED_DIR=''
 fetch_and_extract() {
-    # fetch_and_extract REPO REF WORKDIR -> echoes the extracted top-level directory
+    # fetch_and_extract REPO REF WORKDIR -> sets FETCHED_DIR
     local repo="$1" ref="$2" workdir="$3"
     local tarball="${workdir}/${repo}.tar.gz"
-    download "${GH_BASE}/${repo}/archive/${ref}.tar.gz" "${tarball}"
+    if ! download "${GH_BASE}/${repo}/archive/${ref}.tar.gz" "${tarball}"; then
+        warn "could not download ${repo}@${ref} from GitHub."
+        warn 'GitHub answers frequent downloads with HTTP 429 (rate limiting); in that case'
+        warn 'wait a few minutes, or install from the package repository (the default mode).'
+        warn "Otherwise check that the ref exists: ${GH_BASE}/${repo}/tree/${ref}"
+        die 'aborting: could not fetch the source'
+    fi
     # Extract with python (tarfile + built-in zlib) instead of `tar -xz`, so the source path
     # needs no external tar/gzip (minimal hosts, e.g. openSUSE, often ship neither).
     # Request the "data" extraction filter where available (CVE-2007-4559 mitigation, for
@@ -730,9 +749,12 @@ fetch_and_extract() {
 import sys, tarfile
 kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
 tarfile.open(sys.argv[1]).extractall(sys.argv[2], **kwargs)
-' "${tarball}" "${workdir}"
+' "${tarball}" "${workdir}" || die "could not extract ${tarball}"
     # ref may contain slashes (e.g. release branches); GitHub flattens them with '-'.
-    printf '%s/%s-%s\n' "${workdir}" "${repo}" "${ref//\//-}"
+    FETCHED_DIR="${workdir}/${repo}-${ref//\//-}"
+    [ "${DRY_RUN}" = '1' ] && return 0
+    [ -d "${FETCHED_DIR}" ] || die "the ${repo} tarball did not contain ${FETCHED_DIR##*/}"
+    return 0
 }
 
 install_from_source() {
@@ -747,8 +769,10 @@ install_from_source() {
 
     log "downloading ${GH_MP_REPO}@${SOURCE_REF} and ${GH_LIB_REPO}@${SOURCE_REF} from GitHub"
     local mp_dir lib_dir
-    mp_dir="$(fetch_and_extract "${GH_MP_REPO}" "${SOURCE_REF}" "${workdir}")"
-    lib_dir="$(fetch_and_extract "${GH_LIB_REPO}" "${SOURCE_REF}" "${workdir}")"
+    fetch_and_extract "${GH_MP_REPO}" "${SOURCE_REF}" "${workdir}"
+    mp_dir="${FETCHED_DIR}"
+    fetch_and_extract "${GH_LIB_REPO}" "${SOURCE_REF}" "${workdir}"
+    lib_dir="${FETCHED_DIR}"
 
     log "installing plugins into ${PLUGIN_DIR}"
     run mkdir -p "${PLUGIN_DIR}/lib"
