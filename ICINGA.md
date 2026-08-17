@@ -177,11 +177,20 @@ critical/config: Error: Validation failed for object 'host.example.com!Load' of 
 ```
 
 * **Single node, and master → agent.** Works. The agent zone is a direct child of the master, so the rule holds: the configuration and its credentials stay on the master and the check still executes on the agent. The plugin files themselves still have to be installed on the agent.
-* **master → satellite → agent.** Rejected at deploy with the error above, because the agent zone is a grandchild of the master zone. Icinga offers no way to keep the configuration on the master and still execute two tiers down, so this is a deliberate refusal rather than a defect. To run the checks anyway, unset the zone on `tpl-host-generic` and `tpl-service-generic`. Both move to the global zone, every import resolves again, and you accept that host and service configuration, credentials included, is distributed to every agent.
+* **master → satellite → agent.** The agent zone is a grandchild of the master zone, so the pin is rejected with the error above. Put the configuration one tier down instead: replace the zone in the basket with the name of your satellite zone before importing.
 
-If you pinned individual hosts to their own cluster zone, remove that zone so their configuration returns to the master.
+    ```bash
+    sed --in-place 's/"zone": "master"/"zone": "icinga-satellite-zone"/g' \
+        icingaweb2-module-director-basket.json
+    ```
+
+    Hosts, services and the services a Service Set generates then render into `zones.d/<satellite zone>`. The satellite schedules the checks and the agent executes them, because the agent zone is a direct child of the satellite. Config sync only carries a zone to the endpoints in it and below it, so that configuration reaches the satellite and never reaches an agent. Each satellite zone needs its own pair of base templates. Hosts the master checks directly keep the `master` pair.
+
+A zone set on an individual host overrides the pin for that host, including the services attached to it.
 
 Never put a credential on a template or on a Service Set. A template applies to every object that imports it, and a Service Set's variables are copied onto every service it generates. Secrets belong on the concrete host or service object.
+
+While a check runs, its command line is visible in the process list of the node that executes it. Plugins that accept `--password-file` read the secret from a file on that node instead, which keeps it out of both the Icinga configuration and the process list.
 
 
 ### Notes URL
