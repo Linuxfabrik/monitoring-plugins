@@ -30,6 +30,12 @@ Icinga Director:
 
 * the Basic and Apache Service Sets for Debian 10, RHEL 7, Ubuntu 16, Ubuntu 18 and Ubuntu 20 are gone, together with their host tags. Hosts still carrying those tags lose their checks on the next deployment; retag them or drop them from monitoring
 
+### Fixed
+
+Build, CI/CD:
+
+* the SELinux policy loads on RHEL 10 again, on fully updated hosts as well as on those still on the initial release
+
 
 ## [v7.0.0] - 2026-08-14
 

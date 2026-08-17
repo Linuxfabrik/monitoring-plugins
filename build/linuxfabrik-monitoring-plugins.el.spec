@@ -27,7 +27,7 @@ Source1:        vendor.tar.gz
 
 BuildRequires:  make
 
-BuildRequires:  checkpolicy, selinux-policy-devel
+BuildRequires:  checkpolicy, policycoreutils, selinux-policy-devel
 
 Recommends:     %{name}-selinux = %{version}-%{release}
 
@@ -96,7 +96,19 @@ mkdir selinux
 cp assets/selinux/%{name}.te selinux
 
 pushd selinux
+%if 0%{?rhel} >= 10
+# Pin the modular policy version instead of taking whatever the build host's checkmodule
+# defaults to. On EL10 that default is 24, which only libsepol 3.10 and newer can read back,
+# while a host still on the GA libsepol 3.8 refuses the module with "policydb module version
+# 24 does not match my version range 4-22". The sub-package then installs and loads nothing.
+# 22 is the highest that GA libsepol accepts, newer ones read it just as well, and the policy
+# below uses nothing that needs a later version.
+# Verified against libsepol 3.8 on Rocky 10.0 and libsepol 3.10 on Rocky 10.1.
+checkmodule -M -m -c 22 -o %{name}.mod %{name}.te
+semodule_package -o %{name}.pp -m %{name}.mod
+%else
 make --file %{_datadir}/selinux/devel/Makefile
+%endif
 install --directory %{buildroot}%{_datadir}/selinux/packages
 install --preserve-context --mode 0644 linuxfabrik-monitoring-plugins.pp %{buildroot}%{_datadir}/selinux/packages
 popd
