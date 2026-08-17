@@ -168,29 +168,45 @@ Most checks run on the Icinga Agent of the monitored host (the plugin files are 
 
 The shipped base templates `tpl-host-generic` and `tpl-service-generic` pin `"zone": "master"`. Every other host and service template sets no zone and inherits master through the template imports, so those two are the single control point for the zone of the whole shipped configuration.
 
-This is a security default. Icinga's config sync distributes a zone's configuration to every endpoint in that zone and below it, and a global zone to every endpoint there is. Without the master pin, the services a Service Set generates end up in the global zone, so any credential on them is written to disk on every agent in the network. With the pin they stay on the master, where the check is scheduled anyway: the master resolves the command and hands it to the agent over the cluster connection at execution time, so an agent never needs a credential on disk. All it needs locally is the check command, which lives in the global zone and carries no secrets.
+This is a security default. Icinga's config sync distributes a zone's configuration to every endpoint in that zone and below it, and a global zone to every endpoint there is. Without the pin, the templates and the services a Service Set generates end up in the global zone, so any credential on them is written to disk on every agent in the network. With the pin they stay in the master zone, where the check is scheduled anyway: the scheduling node resolves the command and passes it to the agent over the cluster connection at execution time, so an agent never needs a credential on disk. All it needs locally is the check command, and that carries macro names, not values.
 
-The trade-off is Icinga's topology rule. A checkable's `command_endpoint` has to be in the checkable's own zone or in a *direct child* of it, otherwise the deployment is rejected:
+The trade-off is Icinga's topology rule. A checkable's `command_endpoint` has to be in the checkable's own zone or in a *direct child* of it:
 
 ```text
 critical/config: Error: Validation failed for object 'host.example.com!Load' of type 'Service'; Attribute 'command_endpoint': Command endpoint must be in zone 'master' or in a direct child zone thereof.
 ```
 
-* **Single node, and master → agent.** Works. The agent zone is a direct child of the master, so the rule holds: the configuration and its credentials stay on the master and the check still executes on the agent. The plugin files themselves still have to be installed on the agent.
-* **master → satellite → agent.** The agent zone is a grandchild of the master zone, so the pin is rejected with the error above. Put the configuration one tier down instead: replace the zone in the basket with the name of your satellite zone before importing.
+* **Single node, and master → agent.** Works. The agent zone is a direct child of the master zone, so the rule holds. The configuration and its credentials stay on the master and the check still executes on the agent. The plugin files themselves still have to be installed on the agent. Every service that inherits from `tpl-service-generic` needs an `Endpoint` object named after its host, so such a host is either an Agent host in the Director or named after the endpoint that checks it. Otherwise the deployment is rejected with `Object '<host>' of type 'Endpoint' does not exist`, and the check belongs on one of the `-no-agent` templates instead.
+* **master → satellite → agent.** Breaks, in one of two ways, depending on who owns the agent zone.
 
-    ```bash
-    sed --in-place 's/"zone": "master"/"zone": "icinga-satellite-zone"/g' \
-        icingaweb2-module-director-basket.json
-    ```
+    If the agent zone is a child of your satellite zone, the deployment is rejected with the error above.
 
-    Hosts, services and the services a Service Set generates then render into `zones.d/<satellite zone>`. The satellite schedules the checks and the agent executes them, because the agent zone is a direct child of the satellite. Config sync only carries a zone to the endpoints in it and below it, so that configuration reaches the satellite and never reaches an agent. Each satellite zone needs its own pair of base templates. Hosts the master checks directly keep the `master` pair.
+    If you let the Director create the agent zone while the host itself stays in the master zone, that zone is created as a direct child of the *master*. The deployment then succeeds, but the master schedules the check and has to reach the agent itself, and the satellite never learns about the agent, because its `Endpoint` and `Zone` objects render into `zones.d/master`. An agent that can only reach the satellite is rejected there with `Unknown endpoint`, and its services stay UNKNOWN with no output at all.
 
-A zone set on an individual host overrides the pin for that host, including the services attached to it.
+**One satellite zone.** Replace the zone in the basket with the name of that zone before importing:
+
+```bash
+sed --in-place 's/"zone": "master"/"zone": "icinga-satellite-zone"/g' \
+    icingaweb2-module-director-basket.json
+```
+
+Hosts, services, the services a Service Set generates and the agent zones the Director creates then all render into `zones.d/<satellite zone>`. The agent zone becomes a direct child of the satellite, so the satellite schedules the checks and the agent executes them. Config sync only carries a zone to the endpoints in it and below it, so that configuration reaches the satellite and never reaches an agent.
+
+**Several satellite zones.** One template carries one zone, and cloning the pair per zone does not work, because every shipped service template imports `tpl-service-generic` by name. Unset the zone on both base templates instead, and set the Cluster Zone on each host or on one host template per site. Hosts and their services then follow the zone of their host. With the pin still in place, a Cluster Zone on the host alone is not enough: the services keep the zone they inherit through the imports, and the deployment is rejected again.
+
+What moves to the global zone in that layout are the templates and the apply rules a Service Set generates. Those rules carry no zone of their own and their services inherit the zone of their host at runtime, so the checks work, but the rules and their variables are on every agent's disk.
 
 Never put a credential on a template or on a Service Set. A template applies to every object that imports it, and a Service Set's variables are copied onto every service it generates. Secrets belong on the concrete host or service object.
 
 While a check runs, its command line is visible in the process list of the node that executes it. Plugins that accept `--password-file` read the secret from a file on that node instead, which keeps it out of both the Icinga configuration and the process list.
+
+The underlying problem is not ours. Icinga rejects a `command_endpoint` two tiers below the checkable by design, and the Director resolves a single zone per template chain. All the basket can do is place its templates so that your topology satisfies both.
+
+See also:
+
+* [Icinga/icinga2#6495](https://github.com/Icinga/icinga2/issues/6495)
+* [Icinga/icingaweb2-module-director#1807](https://github.com/Icinga/icingaweb2-module-director/issues/1807)
+* [Icinga/icingaweb2-module-director#3023](https://github.com/Icinga/icingaweb2-module-director/issues/3023)
 
 
 ### Notes URL
