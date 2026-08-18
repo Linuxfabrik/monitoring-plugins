@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.db_sqlite
+import lib.disk
+import lib.lftest
+import lib.time
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The check reads file sizes off the filesystem and keeps the previous
+# measurements in a local SQLite cache, so there is no command whose stdout a
+# `--test` fixture could stand in for. A scenario therefore builds its own
+# input: a real file of a given size, plus the history the cache would hold
+# after the earlier runs it describes.
+#
+# The history is written straight into the cache instead of running the check
+# repeatedly with a pause in between. Rates are measured per second, so a
+# realistic sequence would have to sleep between every step and would put
+# minutes of waiting into the fast test suite for no extra coverage.
+#
+# `history` lists (seconds ago, size in bytes), newest entry first. `size` is
+# what the file holds when the check runs, so the newest rate of a scenario is
+# (size - history[0].size) / history[0].seconds_ago.
+#
+# Two things keep the scenarios from depending on how fast the machine runs
+# them. The steps are a minute apart, the interval a check like this really
+# runs at, so the second that can pass between seeding the cache and the check
+# reading it shifts a rate by under two percent. And every rate sits at least
+# three times away from the threshold it is tested against, so that shift
+# cannot change the state. The assertions therefore pin the state and the
+# order of magnitude, not a rate to the decimal.
+
+MIB = 1024 * 1024
+MINUTE = 60
+
+SCENARIOS = [
+    {
+        'id': 'ok-first-sighting-waits',
+        'size': 1000,
+        'history': [],
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Waiting for more data.'],
+        # the sentence stands on its own, like in the other checks that
+        # measure across runs
+        'assert-not-in': ['file checked', 'Growth'],
+    },
+    {
+        # Only the newest interval is above the 1 MiB/s default. A single
+        # interval is a burst, and --count defaults to 3.
+        'id': 'ok-single-burst-is-suppressed',
+        'size': 200 * MIB,
+        'history': [(MINUTE, 20 * MIB), (2 * MINUTE, 19 * MIB), (3 * MINUTE, 18 * MIB)],
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-single-burst-with-count-1',
+        'size': 200 * MIB,
+        'history': [(MINUTE, 20 * MIB), (2 * MINUTE, 19 * MIB), (3 * MINUTE, 18 * MIB)],
+        'params': '--count=1',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'MiB/s \[WARNING\]',
+    },
+    {
+        # 3 MiB/s across all three intervals: above WARN, below CRIT.
+        'id': 'warn-sustained-growth-trips-count-3',
+        'size': 600 * MIB,
+        'history': [
+            (MINUTE, 420 * MIB),
+            (2 * MINUTE, 240 * MIB),
+            (3 * MINUTE, 60 * MIB),
+        ],
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'MiB/s \[WARNING\]',
+    },
+    {
+        # The oldest interval stayed quiet, so the file was not over its
+        # threshold throughout the window and nothing is reported.
+        'id': 'ok-one-quiet-interval-breaks-the-window',
+        'size': 600 * MIB,
+        'history': [
+            (MINUTE, 420 * MIB),
+            (2 * MINUTE, 240 * MIB),
+            (3 * MINUTE, 239 * MIB),
+        ],
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # 30 MiB/s across all three intervals, well above the 10 MiB/s CRIT.
+        'id': 'crit-sustained-growth-above-crit',
+        'size': 6000 * MIB,
+        'history': [
+            (MINUTE, 4200 * MIB),
+            (2 * MINUTE, 2400 * MIB),
+            (3 * MINUTE, 600 * MIB),
+        ],
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'MiB/s \[CRITICAL\]',
+    },
+    {
+        # A truncated file. The default thresholds have an open lower bound, so
+        # losing data is reported but does not alert.
+        'id': 'ok-shrinking-is-ignored-by-default',
+        'size': 0,
+        'history': [
+            (MINUTE, 180 * MIB),
+            (2 * MINUTE, 360 * MIB),
+            (3 * MINUTE, 540 * MIB),
+        ],
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'-\d+(\.\d+)?MiB/s',
+    },
+    {
+        'id': 'warn-shrinking-with-a-symmetric-threshold',
+        'size': 0,
+        'history': [
+            (MINUTE, 180 * MIB),
+            (2 * MINUTE, 360 * MIB),
+            (3 * MINUTE, 540 * MIB),
+        ],
+        'params': '--warning=-1M:1M',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'-\d+(\.\d+)?MiB/s \[WARNING\]',
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'size': 6000 * MIB,
+        'history': [
+            (MINUTE, 4200 * MIB),
+            (2 * MINUTE, 2400 * MIB),
+            (3 * MINUTE, 600 * MIB),
+        ],
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'MiB/s \[CRITICAL\]',
+    },
+    {
+        'id': 'crit-no-perfdata-keeps-the-state',
+        'size': 6000 * MIB,
+        'history': [
+            (MINUTE, 4200 * MIB),
+            (2 * MINUTE, 2400 * MIB),
+            (3 * MINUTE, 600 * MIB),
+        ],
+        'params': '--no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        # The table lists every matched file by default.
+        'id': 'crit-table-lists-every-file',
+        'size': 6000 * MIB,
+        'history': [
+            (MINUTE, 4200 * MIB),
+            (2 * MINUTE, 2400 * MIB),
+            (3 * MINUTE, 600 * MIB),
+        ],
+        'quiet_siblings': 2,
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['growing.log', 'quiet0.log', 'quiet1.log'],
+    },
+    {
+        # --brief keeps only the rows outside the thresholds, without changing
+        # the state or dropping anyone from the count.
+        'id': 'crit-brief-hides-the-ok-rows',
+        'size': 6000 * MIB,
+        'history': [
+            (MINUTE, 4200 * MIB),
+            (2 * MINUTE, 2400 * MIB),
+            (3 * MINUTE, 600 * MIB),
+        ],
+        'quiet_siblings': 2,
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['3 files checked', 'growing.log'],
+        'assert-not-in': ['quiet0.log', 'quiet1.log'],
+    },
+    {
+        # --brief on a system where nothing alerts prints the header only.
+        'id': 'ok-brief-prints-no-empty-table',
+        'size': 1000,
+        'history': [(MINUTE, 1000)],
+        'quiet_siblings': 2,
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['growing.log', 'quiet0.log', 'Growth'],
+    },
+    {
+        # --lengthy adds columns, and combines with --brief.
+        'id': 'crit-lengthy-adds-columns',
+        'size': 6000 * MIB,
+        'history': [
+            (MINUTE, 4200 * MIB),
+            (2 * MINUTE, 2400 * MIB),
+            (3 * MINUTE, 600 * MIB),
+        ],
+        'quiet_siblings': 2,
+        'params': '--lengthy --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Size', 'Samples', 'growing.log'],
+        'assert-not-in': ['quiet0.log'],
+    },
+    {
+        'id': 'unknown-count-below-one',
+        'size': 1000,
+        'history': [],
+        'params': '--count=0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['has to be 1 or higher'],
+    },
+    {
+        'id': 'unknown-no-file-matches',
+        'size': 1000,
+        'history': [],
+        'params': '',
+        'glob': 'nothing-matches-*.log',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No files found.'],
+    },
+]
+
+CACHE_FILENAME = 'linuxfabrik-monitoring-plugins-file-growth.db'
+
+
+def _cache_db():
+    # Resolve via the lib so the reset below removes the exact file the plugin
+    # uses, including the secured per-user directory db_sqlite stores it in.
+    ok, db_path = lib.db_sqlite.get_db_path(filename=CACHE_FILENAME)
+    return db_path if ok else os.path.join(lib.disk.get_tmpdir(), CACHE_FILENAME)
+
+
+CACHE_DB = _cache_db()
+
+
+def _seed_history(name, history):
+    """Write the measurements an earlier sequence of runs would have left in
+    the cache."""
+    if not history:
+        return
+    ok, conn = lib.db_sqlite.connect(filename=CACHE_FILENAME)
+    assert ok, conn
+    definition = """
+        name        TEXT NOT NULL,
+        size        INT NOT NULL,
+        timestamp   INT NOT NULL
+    """
+    lib.db_sqlite.create_table(conn, definition, drop_table_first=False)
+    now = lib.time.now()
+    # Oldest first, so the rowid order matches the timestamp order the check
+    # would have produced itself.
+    for seconds_ago, size in reversed(history):
+        lib.db_sqlite.insert(
+            conn,
+            {'name': name, 'size': size, 'timestamp': now - seconds_ago},
+        )
+    lib.db_sqlite.commit(conn)
+    lib.db_sqlite.close(conn)
+
+
+def _run_scenario(test, scenario):
+    # Start from a clean cache so scenarios cannot inherit each other's history.
+    if os.path.exists(CACHE_DB):
+        os.remove(CACHE_DB)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, 'growing.log')
+        # Sparse: the scenarios describe files of hundreds of megabytes, and
+        # only st_size is read.
+        with open(path, 'wb') as file:
+            file.truncate(scenario['size'])
+        _seed_history(path, scenario['history'])
+        # Quiet siblings, so the check takes the table path instead of the
+        # single-file one. They never move, so they stay OK.
+        for i in range(scenario.get('quiet_siblings', 0)):
+            sibling = os.path.join(tmpdir, f'quiet{i}.log')
+            with open(sibling, 'wb') as file:
+                file.truncate(1000)
+            _seed_history(sibling, [(m, 1000) for m, _ in scenario['history']])
+        if scenario.get('glob'):
+            target = os.path.join(tmpdir, scenario['glob'])
+        elif scenario.get('quiet_siblings'):
+            # a scenario with siblings wants all of them checked
+            target = os.path.join(tmpdir, '*.log')
+        else:
+            target = path
+        result = subprocess.run(
+            [
+                sys.executable,
+                test.check,
+                f'--filename={target}',
+                *scenario['params'].split(),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        stdout = result.stdout
+        test.assertEqual(result.stderr, '')
+        test.assertEqual(result.returncode, scenario['assert-retc'], stdout)
+        for expected in scenario.get('assert-in', []):
+            test.assertIn(expected, stdout)
+        for unexpected in scenario.get('assert-not-in', []):
+            test.assertNotIn(unexpected, stdout)
+        if scenario.get('assert-regex'):
+            test.assertRegex(stdout, scenario['assert-regex'])
+
+
+class TestCheck(unittest.TestCase):
+    check = '../file-growth'
+
+
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()

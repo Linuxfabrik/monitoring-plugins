@@ -77,6 +77,7 @@ For more installation paths, see [INSTALL.md](INSTALL.md): the LFOps Ansible rol
 
 Plugins that share setup steps:
 
+* [File plugins](PLUGINS-FILE.md)
 * [Keycloak plugins](PLUGINS-KEYCLOAK.md)
 * [MySQL / MariaDB plugins](PLUGINS-MYSQL.md)
 * [Rocket.Chat plugins](PLUGINS-ROCKETCHAT.md)

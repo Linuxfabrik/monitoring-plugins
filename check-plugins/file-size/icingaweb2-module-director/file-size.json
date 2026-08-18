@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$file_size_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$file_size_brief$"
+                },
                 "--critical": {
                     "value": "$file_size_critical$"
                 },
@@ -93,6 +96,11 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -105,27 +113,13 @@
             "zone": null,
             "uuid": "503e82b1-4560-41be-abec-76b86afce211"
         },
-        "cmd-check-file-size-sudo": {
-            "arguments": {},
-            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/file-size",
-            "disabled": false,
-            "fields": [],
-            "imports": [
-                "cmd-check-file-size"
-            ],
-            "is_string": null,
-            "methods_execute": null,
-            "object_name": "cmd-check-file-size-sudo",
-            "object_type": "object",
-            "timeout": null,
-            "vars": {},
-            "zone": null,
-            "uuid": "7c18525b-ac1b-4fc8-9cf6-e2b24b82f263"
-        },
         "cmd-check-file-size-windows": {
             "arguments": {
                 "--always-ok": {
                     "set_if": "$file_size_windows_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$file_size_windows_brief$"
                 },
                 "--critical": {
                     "value": "$file_size_windows_critical$"
@@ -161,11 +155,6 @@
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\file-size.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 12,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 13,
                     "is_required": "n",
@@ -213,6 +202,16 @@
                 },
                 {
                     "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -275,7 +274,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
+            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Reads only the file metadata, never the contents. The plugin is not shipped in the sudoers allowlist, so it can only see files the monitoring user may read; see PLUGINS-FILE.md for what to do about a file it cannot access.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/",
             "object_name": "tpl-service-file-size",
             "object_type": "template",
@@ -287,6 +286,7 @@
             "vars": {
                 "criticality": "C",
                 "file_size_always_ok": false,
+                "file_size_brief": true,
                 "file_size_critical": "1G",
                 "file_size_no_perfdata": false,
                 "file_size_pattern": "*",
@@ -296,51 +296,6 @@
             "volatile": null,
             "zone": null,
             "uuid": "5f5bdd51-f98e-44de-993d-8c615fecdc02"
-        },
-        "tpl-service-file-size-sudo": {
-            "action_url": null,
-            "apply_for": null,
-            "assign_filter": null,
-            "check_command": "cmd-check-file-size-sudo",
-            "check_interval": null,
-            "check_period": null,
-            "check_timeout": null,
-            "command_endpoint": null,
-            "disabled": false,
-            "display_name": null,
-            "enable_active_checks": null,
-            "enable_event_handler": null,
-            "enable_flapping": null,
-            "enable_notifications": true,
-            "enable_passive_checks": null,
-            "enable_perfdata": null,
-            "event_command": null,
-            "fields": [],
-            "flapping_threshold_high": null,
-            "flapping_threshold_low": null,
-            "groups": [],
-            "host": null,
-            "icon_image": null,
-            "icon_image_alt": null,
-            "imports": [
-                "tpl-service-file-size"
-            ],
-            "max_check_attempts": null,
-            "notes": null,
-            "notes_url": null,
-            "object_name": "tpl-service-file-size-sudo",
-            "object_type": "template",
-            "retry_interval": null,
-            "service_set": null,
-            "template_choice": null,
-            "use_agent": null,
-            "use_var_overrides": null,
-            "vars": {
-                "criticality": "C"
-            },
-            "volatile": null,
-            "zone": null,
-            "uuid": "b2eba5c5-cff8-4f7a-8fa6-1cd197ff27cb"
         },
         "tpl-service-file-size-windows": {
             "action_url": null,
@@ -371,7 +326,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.",
+            "notes": "Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Reads only the file metadata, never the contents. The plugin is not shipped in the sudoers allowlist, so it can only see files the monitoring user may read; see PLUGINS-FILE.md for what to do about a file it cannot access.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-size/",
             "object_name": "tpl-service-file-size-windows",
             "object_type": "template",
@@ -383,6 +338,7 @@
             "vars": {
                 "criticality": "C",
                 "file_size_windows_always_ok": false,
+                "file_size_windows_brief": true,
                 "file_size_windows_critical": "1G",
                 "file_size_windows_no_perfdata": false,
                 "file_size_windows_pattern": "*",
@@ -457,9 +413,18 @@
             "uuid": "bb4ea574-768b-4a22-a889-0e638a6a080f"
         },
         "2": {
+            "varname": "file_size_brief",
+            "caption": "File Size: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b0588799-a148-4c50-8600-a39093eb5300"
+        },
+        "3": {
             "varname": "file_size_critical",
             "caption": "File Size: Critical",
-            "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
+            "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -467,7 +432,7 @@
             },
             "uuid": "e8ad3768-b4da-4a0e-896e-663a765cd56d"
         },
-        "3": {
+        "4": {
             "varname": "file_size_filename",
             "caption": "File Size: Filename",
             "description": "Path of the file to check. Supports glob patterns according to https://docs.python.org/3/library/glob.html. Recursive globs can cause high memory usage. Mutually exclusive with `-u` / `--url`. Example: `--filename /tmp/*.log`.",
@@ -478,7 +443,7 @@
             },
             "uuid": "93f605f9-8192-4fd1-acde-61075364b83c"
         },
-        "4": {
+        "5": {
             "varname": "file_size_no_perfdata",
             "caption": "File Size: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -487,7 +452,7 @@
             "settings": {},
             "uuid": "94b863a8-f855-4bd9-9197-992bbb2650a8"
         },
-        "5": {
+        "6": {
             "varname": "file_size_password",
             "caption": "File Size: Password",
             "description": "Password for SMB authentication.",
@@ -498,7 +463,7 @@
             },
             "uuid": "6fda7fa6-b04a-4190-8360-393008362e62"
         },
-        "6": {
+        "7": {
             "varname": "file_size_pattern",
             "caption": "File Size: Pattern",
             "description": "Search string to match against SMB directory or file names. Use `*` as a wildcard for multiple characters and `?` for a single character. Does not support regex patterns.",
@@ -509,7 +474,7 @@
             },
             "uuid": "5b028499-0953-4fc4-9f35-1e6282a76486"
         },
-        "7": {
+        "8": {
             "varname": "file_size_perfdata_mode",
             "caption": "File Size: Perfdata Mode",
             "description": "Aggregation mode for performance data across matched files.",
@@ -522,7 +487,7 @@
             },
             "uuid": "be0b0a64-fd84-405b-98a3-0e0a97c81fcb"
         },
-        "8": {
+        "9": {
             "varname": "file_size_timeout",
             "caption": "File Size: Timeout",
             "description": "Network timeout in seconds.",
@@ -533,7 +498,7 @@
             },
             "uuid": "1ecb3316-e7dc-4b16-ae2a-b49edeeda976"
         },
-        "9": {
+        "10": {
             "varname": "file_size_url",
             "caption": "File Size: URL",
             "description": "URL of the file to check, starting with `smb://`. Mutually exclusive with `--filename`. Example: `--url smb://server/share/path`.",
@@ -544,7 +509,7 @@
             },
             "uuid": "697a0079-4297-41b1-9159-9a89126c0928"
         },
-        "10": {
+        "11": {
             "varname": "file_size_username",
             "caption": "File Size: Username",
             "description": "Username for SMB authentication.",
@@ -555,10 +520,10 @@
             },
             "uuid": "f2fca516-7655-46ab-bbf0-9f03825f7e71"
         },
-        "11": {
+        "12": {
             "varname": "file_size_warning",
             "caption": "File Size: Warning",
-            "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
+            "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -566,7 +531,7 @@
             },
             "uuid": "81630705-7df2-4ad3-9498-51fa3e5d7788"
         },
-        "12": {
+        "13": {
             "varname": "file_size_windows_always_ok",
             "caption": "File Size: Always OK?",
             "description": "Always returns OK.",
@@ -575,10 +540,19 @@
             "settings": {},
             "uuid": "38360153-ddcf-44c4-8aa9-e879826e05f9"
         },
-        "13": {
+        "14": {
+            "varname": "file_size_windows_brief",
+            "caption": "File Size: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "17e8b1a1-6afc-4d19-b119-8f89baa20ed0"
+        },
+        "15": {
             "varname": "file_size_windows_critical",
             "caption": "File Size: Critical",
-            "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
+            "description": "CRIT threshold for the file size in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -586,7 +560,7 @@
             },
             "uuid": "dcaf9e8e-599d-4391-84ae-3850e1c8cc5f"
         },
-        "14": {
+        "16": {
             "varname": "file_size_windows_filename",
             "caption": "File Size: Filename",
             "description": "Path of the file to check. Supports glob patterns according to https://docs.python.org/3/library/glob.html. Recursive globs can cause high memory usage. Mutually exclusive with `-u` / `--url`. Example: `--filename /tmp/*.log`.",
@@ -597,7 +571,7 @@
             },
             "uuid": "cf224109-87ce-430a-8a39-9007fce38be0"
         },
-        "15": {
+        "17": {
             "varname": "file_size_windows_no_perfdata",
             "caption": "File Size: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -606,7 +580,7 @@
             "settings": {},
             "uuid": "cb9a4986-8fba-4e4d-b8e0-46cd795631a6"
         },
-        "16": {
+        "18": {
             "varname": "file_size_windows_password",
             "caption": "File Size: Password",
             "description": "Password for SMB authentication.",
@@ -617,7 +591,7 @@
             },
             "uuid": "0fc3c701-dffe-49d7-931d-e63fffb393df"
         },
-        "17": {
+        "19": {
             "varname": "file_size_windows_pattern",
             "caption": "File Size: Pattern",
             "description": "Search string to match against SMB directory or file names. Use `*` as a wildcard for multiple characters and `?` for a single character. Does not support regex patterns.",
@@ -628,7 +602,7 @@
             },
             "uuid": "edd8c7a9-0096-4d0e-a36d-ed4cf0d65190"
         },
-        "18": {
+        "20": {
             "varname": "file_size_windows_perfdata_mode",
             "caption": "File Size: Perfdata Mode",
             "description": "Aggregation mode for performance data across matched files.",
@@ -641,7 +615,7 @@
             },
             "uuid": "0b298dfd-f1ee-4118-be27-ed83d85a0126"
         },
-        "19": {
+        "21": {
             "varname": "file_size_windows_timeout",
             "caption": "File Size: Timeout",
             "description": "Network timeout in seconds.",
@@ -652,7 +626,7 @@
             },
             "uuid": "0e65a7fb-4675-4c96-b151-cc7f28379628"
         },
-        "20": {
+        "22": {
             "varname": "file_size_windows_url",
             "caption": "File Size: URL",
             "description": "URL of the file to check, starting with `smb://`. Mutually exclusive with `--filename`. Example: `--url smb://server/share/path`.",
@@ -663,7 +637,7 @@
             },
             "uuid": "2fa58ba2-ce87-4a8c-9850-606c6959e010"
         },
-        "21": {
+        "23": {
             "varname": "file_size_windows_username",
             "caption": "File Size: Username",
             "description": "Username for SMB authentication.",
@@ -674,10 +648,10 @@
             },
             "uuid": "a1ec99b7-7b39-4016-b705-a63715d8d34d"
         },
-        "22": {
+        "24": {
             "varname": "file_size_windows_warning",
             "caption": "File Size: Warning",
-            "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are b, k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
+            "description": "WARN threshold for the file size in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Supports Nagios ranges. Example: `:1G` alerts if size is greater than 1 GiB.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

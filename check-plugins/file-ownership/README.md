@@ -5,6 +5,8 @@
 
 Verifies that critical system files have the expected owner and group. Ships with a built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports custom entries. Alerts when the actual ownership does not match the expected values.
 
+This plugin is part of the file plugin group. Selecting files with globs and what to do when the plugin cannot read a file are described once in [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md).
+
 **Important Notes:**
 
 * `--filename` entries are merged with the default file list. If the same path appears in both, the user-supplied entry wins. Use `--no-default-files` to skip the defaults entirely.

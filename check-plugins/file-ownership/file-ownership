@@ -21,7 +21,7 @@ import lib.disk
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081801'
 
 DESCRIPTION = """Verifies that critical system files have the expected owner and group. Ships with a
 built-in list of important files (GRUB, SSH, sudoers, PAM, cron, etc.) and supports
@@ -139,20 +139,31 @@ def parse_args():
     return args
 
 
+def split_file_spec(file_spec):
+    """Split one `owner:group,path` entry into its three parts.
+
+    A malformed entry is a typo in the command line, not a defect, so it is
+    reported as the sentence that says what the format is, without a Python
+    stack trace underneath it.
+    """
+    expected_owner_group, _, path = file_spec.partition(',')
+    expected_owner, colon, expected_group = expected_owner_group.partition(':')
+    if not path or not colon or not expected_owner or not expected_group:
+        lib.base.cu(
+            f'The `--filename` entry "{file_spec}" is not in the format '
+            f'`owner:group,path`, for example `root:root,/etc/passwd`.',
+            traceback=False,
+        )
+    return expected_owner, expected_group, path
+
+
 def check_file(file_spec):
     """Check ownership of a single file. Returns a dict with the result, or None if the file
     should be skipped.
     """
     if not file_spec:
         return None
-    try:
-        expected_owner_group, path = file_spec.split(',', 1)
-    except ValueError:
-        lib.base.cu('--filename parameter seems to be in the wrong format.')
-    try:
-        expected_owner, expected_group = expected_owner_group.split(':')
-    except ValueError:
-        lib.base.cu('--filename parameter seems to be in the wrong format.')
+    expected_owner, expected_group, path = split_file_spec(file_spec)
 
     stat_info = lib.disk.stat(path)
     if stat_info is None:
@@ -195,10 +206,10 @@ def main():
     else:
         files_by_path = {}
         for entry in DEFAULT_FILES:
-            path = entry.split(',', 1)[1]
+            _, _, path = split_file_spec(entry)
             files_by_path[path] = entry
         for entry in args.FILES or []:
-            path = entry.split(',', 1)[1]
+            _, _, path = split_file_spec(entry)
             files_by_path[path] = entry
         file_list = list(files_by_path.values())
 

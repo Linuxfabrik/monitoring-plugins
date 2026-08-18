@@ -127,9 +127,17 @@ class TestHumanBytesShorthand(unittest.TestCase):
         for value in ('', '-1', '0'):
             self.assertEqual(php_status.human_bytes_shorthand(value), value)
 
+    def test_bare_number_is_a_byte_count(self):
+        # php.ini takes a directive written as a plain integer as a number of
+        # bytes, so it has to render like the same size written with a unit.
+        self.assertEqual(php_status.human_bytes_shorthand('1048576'), '1.0MiB')
+        self.assertEqual(
+            php_status.human_bytes_shorthand('134217728'),
+            php_status.human_bytes_shorthand('128M'),
+        )
+
     def test_unparseable_passes_through(self):
-        # A bare number without a unit and non-numeric text are returned as-is.
-        self.assertEqual(php_status.human_bytes_shorthand('1048576'), '1048576')
+        # Non-numeric text is returned as-is.
         self.assertEqual(php_status.human_bytes_shorthand('N/A'), 'N/A')
 
 

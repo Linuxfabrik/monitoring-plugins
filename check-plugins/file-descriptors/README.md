@@ -5,6 +5,8 @@
 
 Checks the system-wide file descriptor usage as a percentage of the kernel maximum. Also lists the top processes consuming the most file descriptors to help identify the source of high usage. Alerts when usage exceeds the configured thresholds.
 
+This plugin is part of the file plugin group, but reads kernel counters rather than a path an operator points it at, so most of [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md) does not apply to it.
+
 **Data Collection:**
 
 * Depending on the user (e.g. running as `icinga`), sudo may be needed to read all process information

@@ -10,11 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+Monitoring Plugins:
+
+* file-growth: alerts when a file grows or shrinks faster than a configured rate ([#48](https://github.com/Linuxfabrik/monitoring-plugins/issues/48))
+
 Documentation:
 
+* PLUGINS-FILE.md covers what the file-\* checks have in common, including what to do when a check cannot read a file
 * ROADMAP.md states when package builds for each release end
 
 ### Changed
+
+Monitoring Plugins:
+
+* file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 
 Icinga Director:
 
@@ -29,8 +38,13 @@ Build, CI/CD:
 Icinga Director:
 
 * the Basic and Apache Service Sets for Debian 10, RHEL 7, Ubuntu 16, Ubuntu 18 and Ubuntu 20 are gone, together with their host tags. Hosts still carrying those tags lose their checks on the next deployment; retag them or drop them from monitoring
+* the `File Size - /var/log/audit/audit.log` service is gone from the RHEL and Fedora Basic Service Sets. auditd rotates its log at 8 MB by default, so a threshold of 180/200 MB could never fire; PLUGINS-FILE.md shows what to watch instead
 
 ### Fixed
+
+Monitoring Plugins:
+
+* file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 
 Build, CI/CD:
 

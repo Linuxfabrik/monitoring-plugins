@@ -474,5 +474,76 @@ class TestCheck(unittest.TestCase):
         self.assertTrue(60.0 < age < 68.0)
 
 
+class TestVerbositySwitches(unittest.TestCase):
+    """--brief hides the rows within the thresholds, --lengthy adds a column.
+    They are orthogonal, and neither changes the state.
+    """
+
+    def _tmpdir_with_one_old_and_one_new_file(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f"""
+        touch -d '2 hours ago' {tmpdir}/old.log
+        touch {tmpdir}/new.log
+        """
+        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
+        return tmpdir
+
+    def _run(self, tmpdir, *extra):
+        cmd = [
+            '../file-age',
+            '--filename',
+            f'{tmpdir}/*.log',
+            '--warning',
+            '60',
+            *extra,
+        ]
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(stderr, '')
+        return stdout, retc
+
+    def test_default_lists_every_file(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(tmpdir)
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('old.log', stdout)
+        self.assertIn('new.log', stdout)
+
+    def test_brief_keeps_only_the_rows_outside_the_thresholds(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(tmpdir, '--brief')
+        # the state is unchanged, only the table is shorter
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('old.log', stdout)
+        self.assertNotIn('new.log', stdout)
+
+    def test_lengthy_adds_the_modification_time(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, _retc = self._run(tmpdir, '--lengthy')
+        self.assertIn('Last Modified', stdout)
+        self.assertRegex(stdout, r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}')
+
+    def test_brief_and_lengthy_combine(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, _retc = self._run(tmpdir, '--brief', '--lengthy')
+        self.assertIn('Last Modified', stdout)
+        self.assertIn('old.log', stdout)
+        self.assertNotIn('new.log', stdout)
+
+    def test_brief_prints_no_empty_table(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        cmd = [
+            '../file-age',
+            '--filename',
+            f'{tmpdir}/*.log',
+            '--warning',
+            '99999',
+            '--brief',
+        ]
+        stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(retc, STATE_OK)
+        self.assertNotIn('old.log', stdout)
+        self.assertNotIn('Age', stdout)
+
+
 if __name__ == '__main__':
     unittest.main()

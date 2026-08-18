@@ -5,14 +5,12 @@
 
 Counts the number of files matching a glob pattern and alerts when the count exceeds the configured thresholds. Can filter by modification time range, restrict to files or directories only, and supports SMB shares.
 
+This plugin is part of the file plugin group. Selecting files with globs, reading from an SMB share, the threshold format, aggregating performance data, and what to do when the plugin cannot read a file are described once in [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md).
+
 **Important Notes:**
 
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
-* The `--filename` and `--url` parameters are mutually exclusive
 * Thresholds support Nagios ranges. Use `--warning 1` to check for file existence (warn if missing) or `--warning '~:0'` to check for file absence (warn if present)
 * `--timerange` accepts Nagios range syntax in seconds. Only files whose modification time falls within this range are counted
-* Depending on the file and user (e.g. running as `icinga`), sudo (sudoers) may be needed
 
 **Data Collection:**
 

@@ -12,6 +12,7 @@
 
 import argparse
 import stat
+import statistics
 import sys
 
 import lib.args
@@ -32,14 +33,16 @@ except ModuleNotFoundError as e:
     PYTHON_MOD = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081801'
 
 DESCRIPTION = """Checks file sizes against configurable thresholds using human-readable units (e.g.
 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or
 median) across all matched files. Directories are skipped because their reported
 size is not meaningful across filesystems.
 Alerts when any file exceeds the configured size thresholds.
-Requires root or sudo."""
+Reads only the file metadata, never the contents. The plugin is not shipped in the
+sudoers allowlist, so it can only see files the monitoring user may read; see
+PLUGINS-FILE.md for what to do about a file it cannot access."""
 
 
 DEFAULT_CRIT = '1G'
@@ -71,11 +74,19 @@ def parse_args():
         default=False,
     )
     parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
         '-c',
         '--critical',
         help='CRIT threshold for the file size in human-readable format '
         '(base is always 1024; valid qualifiers are '
-        'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
+        'B, KiB, MiB, GiB etc., see UNITS.md; '
+        'a value without a qualifier is a number of bytes). '
         'Supports Nagios ranges. '
         'Example: `:1G` alerts if size is greater than 1 GiB. '
         'Default: %(default)s',
@@ -150,7 +161,8 @@ def parse_args():
         '--warning',
         help='WARN threshold for the file size in human-readable format '
         '(base is always 1024; valid qualifiers are '
-        'b, k/kb/kib, m/mb/mib, g/gb/gib etc.). '
+        'B, KiB, MiB, GiB etc., see UNITS.md; '
+        'a value without a qualifier is a number of bytes). '
         'Supports Nagios ranges. '
         'Example: `:1G` alerts if size is greater than 1 GiB. '
         'Default: %(default)s',
@@ -277,39 +289,37 @@ def main():
             f'{lib.base.state2str(table_data[0]["state"], prefix=" ")}'
         )
     else:
-        msg += '\n\n' + lib.base.get_table(
-            table_data,
-            [
-                'filename',
-                'size_hr',
-                'state_hr',
-            ],
-            header=[
-                'File',
-                'Size',
-                'State',
-            ],
+        # --brief hides the rows within the thresholds. It is a display filter
+        # only: every file was checked above and still drives the state, and
+        # every file still emits perfdata below.
+        rows = (
+            [item for item in table_data if item['state']] if args.BRIEF else table_data
         )
+        if rows:
+            msg += '\n\n' + lib.base.get_table(
+                rows,
+                [
+                    'filename',
+                    'size_hr',
+                    'state_hr',
+                ],
+                header=[
+                    'File',
+                    'Size',
+                    'State',
+                ],
+            )
 
     # aggregate perfdata across all matched files if requested. A single value per
     # run avoids bloating the time series database when wildcards match many files.
     sizes = [item['size'] for item in table_data]
     if args.PERFDATA_MODE == 'mean' and len(sizes) > 0:
         perfdata += lib.base.get_perfdata(
-            label='mean-sizes', value=round(sum(sizes) / len(sizes)), uom='B'
+            label='mean-sizes', value=round(statistics.mean(sizes)), uom='B'
         )
     elif args.PERFDATA_MODE == 'median' and len(sizes) > 0:
-        sizes_sorted = sorted(sizes)
-        middle_index = int(len(sizes_sorted) / 2)
-        # differentiate even / uneven list
-        if len(sizes_sorted) % 2 == 0:
-            # even
-            median = (sizes_sorted[middle_index] + sizes_sorted[middle_index - 1]) / 2
-        else:
-            # uneven (manually "flooring" it up)
-            median = sizes_sorted[int(middle_index + 0.5)]
         perfdata += lib.base.get_perfdata(
-            label='median-sizes', value=round(median), uom='B'
+            label='median-sizes', value=round(statistics.median(sizes)), uom='B'
         )
 
     # over and out

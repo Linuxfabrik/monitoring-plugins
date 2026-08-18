@@ -1,0 +1,482 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import stat
+import statistics
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+PYTHON_MOD = None
+try:
+    import lib.smb
+
+    HAVE_SMB = True
+except ModuleNotFoundError as e:
+    HAVE_SMB = False
+    PYTHON_MOD = e.name
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081801'
+
+DESCRIPTION = """Checks how fast files grow or shrink, by comparing their size against
+the previous check runs and reporting the change as a rate per second. Supports glob
+patterns, SMB shares, and optional aggregation (mean or median) across all matched
+files. Directories are skipped because their reported size is not meaningful across
+filesystems.
+Alerts when a file grows or shrinks faster than the configured thresholds, which are
+given as a size per second and take a negative bound to catch a file that is losing
+data. Alerts only if a threshold has been exceeded for a configurable number of
+consecutive check runs (default: 3), suppressing short bursts.
+The first run of a file reports OK and waits for a second measurement to compare
+against.
+Supports extended reporting via --lengthy.
+Reads only the file metadata, never the contents. The plugin is not shipped in the
+sudoers allowlist, so it can only see files the monitoring user may read; see
+PLUGINS-FILE.md for what to do about a file it cannot access."""
+
+
+DEFAULT_COUNT = 3  # measurements a threshold must be exceeded in a row
+DEFAULT_CRIT = '~:10M'
+DEFAULT_PATTERN = '*'
+DEFAULT_PERFDATA_MODE = None
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '~:1M'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--count',
+        help=lib.args.help('--count') + ' Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the rate of change per second, in human-readable '
+        'format (base is always 1024; valid qualifiers are '
+        'B, KiB, MiB, GiB etc., see UNITS.md; '
+        'a value without a qualifier is a number of bytes). '
+        'A negative bound catches a file that is shrinking. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s (alerts above 10 MiB/s, ignores shrinking). '
+        'Example: `-10M:10M` alerts if a file grows or shrinks by more than '
+        '10 MiB/s.',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+    parser.add_argument(
+        '--filename',
+        help='Path of the file to check. '
+        'Supports glob patterns according to https://docs.python.org/3/library/glob.html. '
+        'Recursive globs can cause high memory usage. '
+        'Mutually exclusive with `-u` / `--url`. '
+        'Example: `--filename /tmp/*.log`.',
+        dest='FILENAME',
+    )
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+    parser.add_argument(
+        '--password',
+        help='Password for SMB authentication.',
+        dest='PASSWORD',
+    )
+    parser.add_argument(
+        '--pattern',
+        help='Search string to match against SMB directory or file names. '
+        'Use `*` as a wildcard for multiple characters and `?` for a single character. '
+        'Does not support regex patterns. '
+        'Default: %(default)s',
+        dest='PATTERN',
+        default=DEFAULT_PATTERN,
+    )
+    parser.add_argument(
+        '--perfdata-mode',
+        help='Aggregation mode for performance data across matched files. '
+        'Default: %(default)s',
+        dest='PERFDATA_MODE',
+        default=DEFAULT_PERFDATA_MODE,
+        choices=[
+            'mean',
+            'median',
+            'None',
+        ],
+    )
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='URL of the file to check, starting with `smb://`. '
+        'Mutually exclusive with `--filename`. '
+        'Example: `--url smb://server/share/path`.',
+        dest='URL',
+        type=str,
+    )
+    parser.add_argument(
+        '--username',
+        help='Username for SMB authentication.',
+        dest='USERNAME',
+    )
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the rate of change per second, in human-readable '
+        'format (base is always 1024; valid qualifiers are '
+        'B, KiB, MiB, GiB etc., see UNITS.md; '
+        'a value without a qualifier is a number of bytes). '
+        'A negative bound catches a file that is shrinking. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s (alerts above 1 MiB/s, ignores shrinking). '
+        'Example: `-1M:1M` alerts if a file grows or shrinks by more than 1 MiB/s.',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_rates(measurements):
+    """Turn a file's measurements, newest first, into the rates of change in bytes
+    per second between each consecutive pair, newest first.
+
+    A rate is signed: a file that lost data yields a negative one, which is what
+    lets a threshold alert on a truncation or a rotation. Two measurements taken
+    within the same second would divide by zero, so the pair is skipped rather
+    than reported as an implausibly large rate.
+    """
+    rates = []
+    for newer, older in zip(measurements, measurements[1:]):
+        seconds = newer['timestamp'] - older['timestamp']
+        if seconds <= 0:
+            continue
+        rates.append((newer['size'] - older['size']) / seconds)
+    return rates
+
+
+def get_state_of_rates(rates, warn, crit, count):
+    """State of one file, from its rates of change, newest first.
+
+    A single reading above a threshold is a burst: a log file takes one big write,
+    a backup lands, a database flushes. Only when the newest `count` rates all
+    exceed the threshold has the file been growing or shrinking steadily, which is
+    the condition worth waking someone for. Fewer rates than `count` therefore
+    means OK, and the check keeps collecting.
+    """
+    if len(rates) < count:
+        return STATE_OK
+    states = [
+        lib.base.get_state(rate, warn, crit, _operator='range')
+        for rate in rates[:count]
+    ]
+    # The worst state every one of them reached: a single OK in the window means
+    # the file was not over its threshold throughout and nothing is reported.
+    return min(states)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.FILENAME and args.URL:
+        lib.base.cu(
+            'The `--filename` and `-u` / `--url` parameters are mutually exclusive. Please use only one.'
+        )
+    if args.COUNT < 1:
+        lib.base.cu('The `--count` parameter has to be 1 or higher.')
+
+    # fetch data
+    current = []
+    if args.FILENAME:
+        for item in lib.disk.glob(args.FILENAME):
+            item_stat = lib.disk.stat(item)
+            # ignoring directories as the size of a directory is not consistently defined across
+            # filesystems, and never is the size of the contents
+            if item_stat is None or stat.S_ISDIR(item_stat.st_mode):
+                continue
+            current.append(
+                {
+                    'filename': item,
+                    'size': item_stat.st_size,
+                }
+            )
+
+    # or fetch data from remote
+    if args.URL:
+        split_url = args.URL.split('://')
+        if len(split_url) != 2:
+            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
+        proto, url = split_url
+        if proto == 'smb':
+            if not HAVE_SMB:
+                lib.base.cu(f'Python module "{PYTHON_MOD}" is not installed.')
+            for item in lib.base.coe(
+                lib.smb.glob(
+                    url,
+                    args.USERNAME,
+                    args.PASSWORD,
+                    args.TIMEOUT,
+                    pattern=args.PATTERN,
+                )
+            ):
+                # ignoring directories as the size of a directory is not consistently defined across
+                # filesystems, and never is the size of the contents
+                if item.is_dir():
+                    continue
+                current.append(
+                    {
+                        'filename': item,
+                        'size': item.stat().st_size,
+                    }
+                )
+        else:
+            lib.base.cu(f'The protocol "{proto}" is not supported.')
+
+    if len(current) == 0:
+        lib.base.oao('No files found.', STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    # init some vars
+    state = STATE_OK
+    msg = ''
+    perfdata = ''
+    alert_count = 0
+    waiting_count = 0
+
+    # convert human readable nagios ranges to something that the Linuxfabrik libraries
+    # can understand
+    CRIT = lib.human.humanrange2bytes(args.CRIT)
+    WARN = lib.human.humanrange2bytes(args.WARN)
+
+    # record this run and read back the history
+    conn = lib.base.coe(
+        lib.db_sqlite.connect(
+            filename='linuxfabrik-monitoring-plugins-file-growth.db',
+        ),
+    )
+    definition = """
+        name        TEXT NOT NULL,
+        size        INT NOT NULL,
+        timestamp   INT NOT NULL
+    """
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+
+    # Read the whole history in one go and group it per file. The table is
+    # capped below, so this stays small, and it saves one query per matched
+    # file on a glob that matches many of them.
+    history = {}
+    for row in lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            'SELECT * FROM perfdata ORDER BY timestamp DESC',
+        )
+    ):
+        history.setdefault(row['name'], []).append(row)
+
+    now = lib.time.now()
+    for item in current:
+        name = str(item['filename'])
+        measurements = history.get(name, [])
+        # A second run within the same second carries no new information: the
+        # two measurements are one second apart at most, which is not a rate.
+        # Recording it anyway would push the older measurement out of the
+        # capped table and leave the file without anything to compare against,
+        # so an operator triggering a recheck would see the check fall back to
+        # "waiting for more data" instead of the value it just reported.
+        if not measurements or measurements[0]['timestamp'] != now:
+            lib.base.coe(
+                lib.db_sqlite.insert(
+                    conn,
+                    {'name': name, 'size': item['size'], 'timestamp': now},
+                )
+            )
+            measurements = [
+                {'name': name, 'size': item['size'], 'timestamp': now},
+                *measurements,
+            ]
+        item['measurements'] = measurements
+
+    # `count` rates need `count + 1` measurements. The table is capped for all
+    # matched files at once, so the room every file needs has to be multiplied
+    # by how many of them this run has; capping it at `count + 1` would leave
+    # only the newest file with a history.
+    lib.base.coe(lib.db_sqlite.cut(conn, _max=(args.COUNT + 1) * len(current)))
+    lib.base.coe(lib.db_sqlite.commit(conn))
+    lib.db_sqlite.close(conn)
+
+    # analyze data
+    for item in current:
+        rates = get_rates(item['measurements'])
+        item['state'] = get_state_of_rates(rates, WARN, CRIT, args.COUNT)
+        item['state_hr'] = lib.base.state2str(item['state'], empty_ok=False)
+        if not rates:
+            # nothing to compare against yet, the file was seen for the first time
+            item['rate'] = None
+            item['rate_hr'] = 'waiting for more data'
+            waiting_count += 1
+        else:
+            item['rate'] = rates[0]
+            item['rate_hr'] = f'{lib.human.bytes2human(rates[0])}/s'
+        item['size_hr'] = lib.human.bytes2human(item['size'])
+        item['samples'] = len(item['measurements'])
+        if item['state']:
+            alert_count += 1
+        state = lib.base.get_worst(state, item['state'])
+
+    # build the message
+    if waiting_count == len(current):
+        # Nothing to compare against for any of them, on the first run or after
+        # the state file was removed. The other checks that measure across runs
+        # answer with this one sentence, so this one does too.
+        lib.base.oao('Waiting for more data.', STATE_OK, always_ok=args.ALWAYS_OK)
+
+    msg += f'{len(current)} {lib.txt.pluralize("file", len(current))} checked. '
+    if state == STATE_OK:
+        msg += (
+            f'{lib.txt.pluralize("", len(current), "It is,All are")}'
+            f' within the given thresholds'
+            f' ({args.WARN}/{args.CRIT} per second).'
+        )
+    else:
+        msg += (
+            f'{alert_count}'
+            f' {lib.txt.pluralize("", alert_count, "is,are")}'
+            f' outside the given thresholds'
+            f' ({args.WARN}/{args.CRIT} per second).'
+        )
+    if len(current) == 1:
+        # show info on first line when there is only one hit
+        msg += (
+            f' Checked {current[0]["filename"]}:'
+            f' {current[0]["rate_hr"]}'
+            f'{lib.base.state2str(current[0]["state"], prefix=" ")}'
+        )
+    else:
+        # --brief hides the rows within the thresholds. It is a display filter
+        # only: every file was checked above and still drives the state, and
+        # every file still emits perfdata below.
+        rows = [item for item in current if item['state']] if args.BRIEF else current
+        if rows:
+            keys = ['filename', 'rate_hr']
+            header = ['File', 'Growth']
+            if args.LENGTHY:
+                keys += ['size_hr', 'samples']
+                header += ['Size', 'Samples']
+            # the state belongs in the last column, otherwise a web interface
+            # replacing `[WARNING]` with an icon breaks the monospace table
+            keys.append('state_hr')
+            header.append('State')
+            msg += '\n\n' + lib.base.get_table(rows, keys, header=header)
+
+    # aggregate perfdata across all matched files if requested. A single value per
+    # run avoids bloating the time series database when wildcards match many files.
+    rates = [item['rate'] for item in current if item['rate'] is not None]
+    if args.PERFDATA_MODE == 'mean' and len(rates) > 0:
+        perfdata += lib.base.get_perfdata(
+            label='mean-growth',
+            value=round(statistics.mean(rates)),
+            uom='B',
+        )
+    elif args.PERFDATA_MODE == 'median' and len(rates) > 0:
+        perfdata += lib.base.get_perfdata(
+            label='median-growth',
+            value=round(statistics.median(rates)),
+            uom='B',
+        )
+    elif len(rates) == 1 and len(current) == 1:
+        # A single file gets its own series under a fixed label. Deriving the
+        # label from the path instead would produce a data source named after
+        # the whole path, and RRD only keeps the first 19 characters of a label
+        # apart, which two log files in different directories would collide in.
+        perfdata += lib.base.get_perfdata(
+            label='growth',
+            value=round(rates[0]),
+            uom='B',
+            warn=WARN,
+            crit=CRIT,
+        )
+
+    # over and out
+    lib.base.oao(
+        msg,
+        state,
+        perfdata=perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

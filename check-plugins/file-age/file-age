@@ -12,6 +12,7 @@
 
 import argparse
 import stat
+import statistics
 import sys
 
 import lib.args
@@ -39,13 +40,16 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081801'
 
 DESCRIPTION = """Checks the time since last modification of one or more files or directories. Supports
 glob patterns (including recursive), SMB shares, and optional aggregation (mean or
 median) across all matched files. Can also alert on the number of files within a
 specific age range.
-Requires root or sudo."""
+Supports extended reporting via --lengthy.
+Reads only the file metadata, never the contents. The plugin is not shipped in the
+sudoers allowlist, so it can only see files the monitoring user may read; see
+PLUGINS-FILE.md for what to do about a file it cannot access."""
 
 
 DEFAULT_CRIT = 60 * 60 * 24 * 365  # sec
@@ -81,6 +85,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-c',
         '--critical',
         help='CRIT threshold for file age in seconds. Default: >= %(default)s (365d).',
@@ -102,6 +114,14 @@ def parse_args():
         'Beware of recursive globs. '
         'Mutually exclusive with --url.',
         dest='FILENAME',
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -222,7 +242,7 @@ def main():
             lib.base.cu(f'The protocol "{proto}" is not supported.')
 
     # init some vars
-    file_msg = ''
+    items = []
     file_count = 0
     crit_count = 0
     warn_count = 0
@@ -252,13 +272,14 @@ def main():
                 crit_count += 1
 
             file_count += 1
-            if item_state != STATE_OK:
-                file_msg += (
-                    f'* {item}:'
-                    f' {lib.human.seconds2human(age)}'
-                    f'{lib.base.state2str(item_state, prefix=" ")}'
-                    f'\n'
-                )
+            items.append(
+                {
+                    'name': str(item),
+                    'age': age,
+                    'state': item_state,
+                    'mtime': st.st_mtime,
+                }
+            )
 
     if args.URL:
         if not HAVE_SMB:
@@ -287,13 +308,14 @@ def main():
                     crit_count += 1
 
                 file_count += 1
-                if item_state != STATE_OK:
-                    file_msg += (
-                        f'* {item.name}:'
-                        f' {lib.human.seconds2human(age)}'
-                        f'{lib.base.state2str(item_state, prefix=" ")}'
-                        f'\n'
-                    )
+                items.append(
+                    {
+                        'name': item.name,
+                        'age': age,
+                        'state': item_state,
+                        'mtime': item.stat().st_mtime,
+                    }
+                )
             except smbprotocol.exceptions.SMBOSError:
                 # it is normal that files disappear while reading
                 pass
@@ -306,11 +328,40 @@ def main():
     else:
         state = STATE_OK
 
-    if file_msg.count('\n') + 1 > 10:
-        # shorten the message
-        file_msg = file_msg.split('\n')
-        file_msg = [*file_msg[0:5], '* ...', *file_msg[-5:]]
-        file_msg = '\n'.join(file_msg)
+    # Render the per-item table the way the other file checks do. --brief hides
+    # the rows within the thresholds; it is a display filter only, every item
+    # was checked above and still drives the state and the perfdata.
+    rows = [item for item in items if item['state']] if args.BRIEF else items
+    for item in rows:
+        item['age_hr'] = lib.human.seconds2human(item['age'])
+        item['state_hr'] = lib.base.state2str(item['state'], empty_ok=False)
+        item['mtime_hr'] = lib.time.epoch2iso(item['mtime'])
+    if rows:
+        keys = ['name', 'age_hr']
+        header = ['File', 'Age']
+        if args.LENGTHY:
+            keys.append('mtime_hr')
+            header.append('Last Modified')
+        # the state belongs in the last column, otherwise a web interface
+        # replacing `[WARNING]` with an icon breaks the monospace table
+        keys.append('state_hr')
+        header.append('State')
+        file_msg = lib.base.get_table(rows, keys, header=header)
+    else:
+        file_msg = ''
+
+    # human-readable thresholds, so every message can name what it compared
+    # against, the way the other checks do
+    warn_hr = (
+        lib.human.seconds2human(args.WARN)
+        if isinstance(lib.base.guess_type(args.WARN), int)
+        else args.WARN
+    )
+    crit_hr = (
+        lib.human.seconds2human(args.CRIT)
+        if isinstance(lib.base.guess_type(args.CRIT), int)
+        else args.CRIT
+    )
 
     if state == STATE_OK:
         if warn_count == 0 and crit_count == 0:
@@ -318,19 +369,10 @@ def main():
                 f'Everything is ok. {file_count}'
                 f' {lib.txt.pluralize("item", file_count)}'
                 f' checked, all within the specified'
-                f' count and time range.\n\n'
-            )
+                f' count ({args.WARN_COUNT}/{args.CRIT_COUNT})'
+                f' and time ({warn_hr}/{crit_hr}) range.\n\n'
+            ) + file_msg
         else:
-            warn_hr = (
-                lib.human.seconds2human(args.WARN)
-                if isinstance(lib.base.guess_type(args.WARN), int)
-                else args.WARN
-            )
-            crit_hr = (
-                lib.human.seconds2human(args.CRIT)
-                if isinstance(lib.base.guess_type(args.CRIT), int)
-                else args.CRIT
-            )
             msg = (
                 f'Everything is ok. {file_count}'
                 f' {lib.txt.pluralize("item", file_count)}'
@@ -342,16 +384,6 @@ def main():
                 f'\n\n'
             ) + file_msg
     else:
-        warn_hr = (
-            lib.human.seconds2human(args.WARN)
-            if isinstance(lib.base.guess_type(args.WARN), int)
-            else args.WARN
-        )
-        crit_hr = (
-            lib.human.seconds2human(args.CRIT)
-            if isinstance(lib.base.guess_type(args.CRIT), int)
-            else args.CRIT
-        )
         msg = (
             f'{warn_count}'
             f' {lib.txt.pluralize("item", warn_count)}'
@@ -370,22 +402,11 @@ def main():
     perfdata = ''
     if args.PERFDATA_MODE == 'mean' and len(ages) > 0:
         perfdata += lib.base.get_perfdata(
-            label='mean-ages', value=round(float(sum(ages) / len(ages)), 3), uom='s'
+            label='mean-ages', value=round(statistics.mean(ages), 3), uom='s'
         )
     elif args.PERFDATA_MODE == 'median' and len(ages) > 0:
-        ages_sorted = sorted(ages)
-        middle_index = int(len(ages_sorted) / 2)
-        # differentiate even / uneven list
-        if len(ages_sorted) % 2 == 0:
-            # even
-            median = float(
-                (ages_sorted[middle_index] + ages_sorted[middle_index - 1]) / 2
-            )
-        else:
-            # uneven (manually "flooring" it up)
-            median = float(ages_sorted[int(middle_index + 0.5)])
         perfdata += lib.base.get_perfdata(
-            label='median-ages', value=round(median, 3), uom='s'
+            label='median-ages', value=round(statistics.median(ages), 3), uom='s'
         )
 
     # over and out

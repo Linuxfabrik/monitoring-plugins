@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# `--filename` takes a compound value, `owner:group,path`. Anything else is a
+# typo on the command line, and the check has to say so instead of dying in the
+# middle of splitting it apart. These are the shapes a typo takes.
+MALFORMED = [
+    {'id': 'unknown-path-without-owner-group', 'spec': '/etc/passwd'},
+    {'id': 'unknown-owner-without-colon', 'spec': 'root,/etc/passwd'},
+    {'id': 'unknown-owner-group-without-path', 'spec': 'root:root'},
+    {'id': 'unknown-empty-owner-group', 'spec': ',/etc/passwd'},
+    {'id': 'unknown-empty-group', 'spec': 'root:,/etc/passwd'},
+    {'id': 'unknown-empty-owner', 'spec': ':root,/etc/passwd'},
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../file-ownership'
+
+    def _run(self, *params):
+        result = subprocess.run(
+            [sys.executable, self.check, *params],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.stderr, '')
+        return result.stdout, result.returncode
+
+    def test_ok_matching_owner_and_group(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'file')
+            open(path, 'w').close()
+            stat_info = os.stat(path)
+            import grp
+            import pwd
+
+            owner = pwd.getpwuid(stat_info.st_uid).pw_name
+            group = grp.getgrgid(stat_info.st_gid).gr_name
+            stdout, retc = self._run(
+                f'--filename={owner}:{group},{path}', '--no-default-files'
+            )
+            self.assertEqual(retc, STATE_OK, stdout)
+            self.assertIn('Everything is ok.', stdout)
+
+    def test_warn_mismatching_owner(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, 'file')
+            open(path, 'w').close()
+            stdout, retc = self._run(
+                f'--filename=nosuchuser:nosuchgroup,{path}', '--no-default-files'
+            )
+            self.assertEqual(retc, STATE_WARN, stdout)
+            self.assertIn('[WARNING]', stdout)
+
+    def test_ok_missing_file_is_skipped(self):
+        # A path that is not there is not a finding: the default list names
+        # files that only exist on some distributions.
+        stdout, retc = self._run(
+            '--filename=root:root,/path/that/does/not/exist', '--no-default-files'
+        )
+        self.assertEqual(retc, STATE_OK, stdout)
+        self.assertIn('No files checked.', stdout)
+
+
+def _check_malformed(test, case):
+    # Both code paths have to reject it: the one that merges the entry with the
+    # default list, and the one that checks a single file.
+    for extra in ([], ['--no-default-files']):
+        stdout, retc = test._run(f'--filename={case["spec"]}', *extra)
+        test.assertEqual(retc, STATE_UNKNOWN, stdout)
+        test.assertIn('owner:group,path', stdout)
+        test.assertNotIn('Traceback', stdout)
+
+
+lib.lftest.attach_each(
+    TestCheck, MALFORMED, _check_malformed, id_func=lambda case: case['id']
+)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -3,22 +3,19 @@
 
 ## Overview
 
-Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Requires root or sudo.
+Checks the time since last modification of one or more files or directories. Supports glob patterns (including recursive), SMB shares, and optional aggregation (mean or median) across all matched files. Can also alert on the number of files within a specific age range. Supports extended reporting via `--lengthy`. Reads only the file metadata, never the contents.
+
+This plugin is part of the file plugin group. Selecting files with globs, reading from an SMB share, the threshold format, aggregating performance data, and what to do when the plugin cannot read a file are described once in [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md).
 
 **Important Notes:**
 
-* By design this check inspects the metadata (existence, timestamps) of whatever path it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can probe any path on the system. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
-* The `--filename` and `--url` parameters are mutually exclusive
 * Thresholds support Nagios ranges (e.g. `15:` to alert when files are *younger* than 15 seconds, or `10` for a simple upper bound)
 * The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate
-* When more than 10 files are outside the thresholds, the output is truncated to the first and last 5 entries
+* `--brief` hides the rows within the thresholds, `--lengthy` adds the absolute modification time as a column. The two combine, and neither changes the state or the performance data.
 
 **Data Collection:**
 
 * Uses Python's `pathlib.Path.glob()` for local files and `lib.smb` for SMB shares
-* Follows symbolic links
 * Reads the `st_mtime` attribute from each file or directory
 * Supports filtering by `--only-files` or `--only-dirs`
 * Files that disappear during the check (e.g. temporary files) are silently skipped
@@ -40,9 +37,9 @@ Checks the time since last modification of one or more files or directories. Sup
 ## Help
 
 ```text
-usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
+usage: file-age [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                 [--critical-count CRIT_COUNT] [--filename FILENAME]
-                [--no-perfdata] [--only-dirs] [--only-files]
+                [--lengthy] [--no-perfdata] [--only-dirs] [--only-files]
                 [--password PASSWORD] [--pattern PATTERN]
                 [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
                 [-u URL] [--username USERNAME] [-w WARN]
@@ -51,12 +48,20 @@ usage: file-age [-h] [-V] [--always-ok] [-c CRIT]
 Checks the time since last modification of one or more files or directories.
 Supports glob patterns (including recursive), SMB shares, and optional
 aggregation (mean or median) across all matched files. Can also alert on the
-number of files within a specific age range. Requires root or sudo.
+number of files within a specific age range. Supports extended reporting via
+--lengthy. Reads only the file metadata, never the contents. The plugin is not
+shipped in the sudoers allowlist, so it can only see files the monitoring user
+may read; see PLUGINS-FILE.md for what to do about a file it cannot access.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   -c, --critical CRIT   CRIT threshold for file age in seconds. Default: >=
                         31536000 (365d).
   --critical-count CRIT_COUNT
@@ -65,6 +70,7 @@ options:
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
+  --lengthy             Extended reporting.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -117,30 +123,52 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/
 ./file-age --filename='/path/to/files/*' --warning='10:' --warning-count=2 --critical='15:' --critical-count=3
 ```
 
-Output:
+Output with the default thresholds:
 
 ```text
-Everything is ok. 3 items checked, all within the specified count and time range.
+Everything is ok. 3 items checked, all within the specified count (0/0) and time (1M/1Y) range.
 
-* /tmp/test/file-1d-ago: 1D 56m
-* /tmp/test/file-2d-ago: 2D 56m
-* /tmp/test/file-today: 56m 11s
+File                  ! Age      ! State
+----------------------+----------+------
+/tmp/test/file-1d-ago ! 1D 4m    ! [OK]
+/tmp/test/file-2d-ago ! 2D 4m    ! [OK]
+/tmp/test/file-today  ! 256ms    ! [OK]
+```
+
+Alerting on anything older than a day:
+
+```bash
+./file-age --filename='/tmp/test/*' --warning=86400 --critical=31536000
 ```
 
 ```text
-Everything is ok. 3 items checked. All within the specified count range, but 2 outside "1D" time range, and 0 outside "1Y" time range.
+2 items outside count range "0" and outside "1D" time range. 0 items outside count range "0" and outside "1Y" time range. 3 items checked.
 
-* /tmp/test/file-1d-ago: 1D 56m [WARNING]
-* /tmp/test/file-2d-ago: 2D 56m [WARNING]
-* /tmp/test/file-today: 56m 1s
+File                  ! Age      ! State
+----------------------+----------+----------
+/tmp/test/file-1d-ago ! 1D 257ms ! [WARNING]
+/tmp/test/file-2d-ago ! 2D 256ms ! [WARNING]
+/tmp/test/file-today  ! 256ms    ! [OK]
 ```
 
-```text
-1 item outside count range "0" and outside "@86400" time range. 2 items outside count range "0" and outside "0:86400" time range. 3 items checked.
+The same run with `--brief`, which drops the rows within the thresholds:
 
-* /tmp/test/file-1d-ago: 1D 55m [CRITICAL]
-* /tmp/test/file-2d-ago: 2D 55m [CRITICAL]
-* /tmp/test/file-today: 55m 47s [WARNING]
+```text
+2 items outside count range "0" and outside "1D" time range. 0 items outside count range "0" and outside "1Y" time range. 3 items checked.
+
+File                  ! Age      ! State
+----------------------+----------+----------
+/tmp/test/file-1d-ago ! 1D 257ms ! [WARNING]
+/tmp/test/file-2d-ago ! 2D 256ms ! [WARNING]
+```
+
+And with `--lengthy`, which adds the absolute modification time:
+
+```text
+File                  ! Age      ! Last Modified       ! State
+----------------------+----------+---------------------+----------
+/tmp/test/file-1d-ago ! 1D 257ms ! 2026-08-17 11:28:23 ! [WARNING]
+/tmp/test/file-2d-ago ! 2D 256ms ! 2026-08-16 11:28:23 ! [WARNING]
 ```
 
 

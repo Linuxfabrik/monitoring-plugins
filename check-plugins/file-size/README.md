@@ -3,21 +3,18 @@
 
 ## Overview
 
-Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Requires root or sudo.
+Checks file sizes against configurable thresholds using human-readable units (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or median) across all matched files. Directories are skipped because their reported size is not meaningful across filesystems. Alerts when any file exceeds the configured size thresholds. Reads only the file metadata, never the contents.
+
+This plugin is part of the file plugin group. Selecting files with globs, reading from an SMB share, the threshold format, aggregating performance data, and what to do when the plugin cannot read a file are described once in [PLUGINS-FILE.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/PLUGINS-FILE.md).
 
 **Important Notes:**
 
-* By design this check inspects the metadata (existence, size) of whatever path it is pointed at, with root privileges when run via sudo. That is inherent to its purpose, so the path cannot be confined to a fixed directory: anyone who can invoke the check through sudo can probe any path on the system. Securing that capability is the operator's responsibility. Restrict the permitted arguments in your sudoers entry if your threat model requires it.
-* SMB share access requires the optional `PySmbClient` and `smbprotocol` Python modules
-* Recursive globs (`**`) can cause high memory usage on large directory trees
-* The `--filename` and `--url` parameters are mutually exclusive
-* Thresholds accept human-readable units (base 1024). Valid qualifiers: `b`, `k`/`kb`/`kib`, `m`/`mb`/`mib`, `g`/`gb`/`gib`, etc. Nagios ranges are supported (e.g. `:1G` alerts if size exceeds 1 GiB, `6 KiB:10k` alerts outside the 6-10 KiB range)
 * Returns UNKNOWN if no files are found
+* `--brief` hides the rows within the thresholds. It does not change the state or the performance data.
 
 **Data Collection:**
 
 * Uses Python's `glob.iglob()` for local files and `lib.smb` for SMB shares
-* Follows symbolic links
 * Reads `st_size` from `os.stat()` for each matched file
 * Directories are silently skipped
 
@@ -38,24 +35,33 @@ Checks file sizes against configurable thresholds using human-readable units (e.
 ## Help
 
 ```text
-usage: file-size [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                 [--no-perfdata] [--password PASSWORD] [--pattern PATTERN]
-                 [--perfdata-mode {mean,median,None}] [--timeout TIMEOUT]
-                 [-u URL] [--username USERNAME] [-w WARN]
+usage: file-size [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                 [--filename FILENAME] [--no-perfdata] [--password PASSWORD]
+                 [--pattern PATTERN] [--perfdata-mode {mean,median,None}]
+                 [--timeout TIMEOUT] [-u URL] [--username USERNAME] [-w WARN]
 
 Checks file sizes against configurable thresholds using human-readable units
 (e.g. 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation
 (mean or median) across all matched files. Directories are skipped because
 their reported size is not meaningful across filesystems. Alerts when any file
-exceeds the configured size thresholds. Requires root or sudo.
+exceeds the configured size thresholds. Reads only the file metadata, never
+the contents. The plugin is not shipped in the sudoers allowlist, so it can
+only see files the monitoring user may read; see PLUGINS-FILE.md for what to
+do about a file it cannot access.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   -c, --critical CRIT   CRIT threshold for the file size in human-readable
-                        format (base is always 1024; valid qualifiers are b,
-                        k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
+                        format (base is always 1024; valid qualifiers are B,
+                        KiB, MiB, GiB etc., see UNITS.md; a value without a
+                        qualifier is a number of bytes). Supports Nagios
                         ranges. Example: `:1G` alerts if size is greater than
                         1 GiB. Default: 1G
   --filename FILENAME   Path of the file to check. Supports glob patterns
@@ -81,8 +87,9 @@ options:
                         smb://server/share/path`.
   --username USERNAME   Username for SMB authentication.
   -w, --warning WARN    WARN threshold for the file size in human-readable
-                        format (base is always 1024; valid qualifiers are b,
-                        k/kb/kib, m/mb/mib, g/gb/gib etc.). Supports Nagios
+                        format (base is always 1024; valid qualifiers are B,
+                        KiB, MiB, GiB etc., see UNITS.md; a value without a
+                        qualifier is a number of bytes). Supports Nagios
                         ranges. Example: `:1G` alerts if size is greater than
                         1 GiB. Default: 25M
 
