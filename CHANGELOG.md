@@ -59,6 +59,10 @@ Build, CI/CD:
 
 * the SELinux policy loads on RHEL 10 again, on fully updated hosts as well as on those still on the initial release
 
+Grafana:
+
+* series hidden from a panel no longer show up in its tooltip. Re-import the affected dashboards (the Icinga overview plus apache-httpd-status, cpu-usage, disk-io, keycloak-memory-usage, load, memory-usage, network-io, php-status, ping, procs, swap-usage)
+
 
 ## [v7.0.0] - 2026-08-14
 
