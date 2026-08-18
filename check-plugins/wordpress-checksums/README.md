@@ -290,6 +290,8 @@ No WordPress installation below "/path/to/wordpress". Point --path at the direct
 
 Either `--path` points somewhere else than the installation root, or the monitoring user cannot read it. The check looks for `wp-includes/version.php` below the given path, the same file WordPress reads its own version from, so point `--path` at the directory holding `wp-includes/` and `wp-content/`. On a permission problem, grant the monitoring user read access to the document root rather than running the check as root.
 
+Read the path in the message before changing anything. If the check works when you run it by hand but the monitoring system reports this error naming a path you never passed, `--path` was never set on the monitored object and the check ran with the shipped default `/var/www/html/wordpress`. In Icinga that is the custom variable `wordpress_checksums_path`, not the plugin parameter, and it has to be set on the service or the host. See [#1464](https://github.com/Linuxfabrik/monitoring-plugins/issues/1464) and the Troubleshooting section in [ICINGA.md](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/ICINGA.md).
+
 ### A file is reported as modified that nobody touched
 
 Some deployments rewrite files as they install them: a build step that strips comments, a `git` checkout with `core.autocrlf` translating line endings, or an opcache preloader writing back into the tree. Compare the file against a fresh download of the same release to see what actually differs, and where the change is a property of the deployment rather than of the site, accept it with `--ignore`.

@@ -358,6 +358,26 @@ Calling the plugins directly from a shell instead of through the Director follow
 ## Troubleshooting
 
 
+### The check reports a value you never configured
+
+Running the plugin by hand works, while the service in the web interface fails, often naming a path, URL or host you did not type:
+
+```text
+No WordPress installation below "/var/www/html/wordpress".
+```
+
+Every Service Template ships a default for each of its datafields, and a service created from it keeps that default until the custom variable is overridden on the service or the host object. What you type in a shell never reaches the service, because the command argument is bound to the variable rather than to your shell history:
+
+```json
+"--path": { "value": "$wordpress_checksums_path$" }
+"wordpress_checksums_path": "/var/www/html/wordpress"
+```
+
+The give-away is in the plugin output itself: our plugins name the value they actually used. If that value is not the one you passed by hand, the command Icinga runs is not the command you ran, and the plugin is not where the problem is.
+
+Look at the rendered command rather than at the plugin. On the Icinga host, `icinga2 object list --type Service --name '<host>!<service>'` prints the variables the service really carries; in the Director, the service's Fields tab shows which ones are set and which are inherited. Then set the variable on the object, using the name from the datafield (`<plugin_name_with_underscores>_<parameter>`), not the plugin's parameter name. See [#1464](https://github.com/Linuxfabrik/monitoring-plugins/issues/1464).
+
+
 ### "exceeds the defined ini size" on Upload
 
 The joined basket can exceed a few megabytes. If the GUI rejects the upload, increase your PHP and database limits ([upstream issue #2458](https://github.com/Icinga/icingaweb2-module-director/issues/2458)):
