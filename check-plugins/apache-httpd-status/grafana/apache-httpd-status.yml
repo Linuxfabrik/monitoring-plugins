@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: Apache httpd Status - Accesses
+  - title: Apache httpd Status - Worker Usage
     type: timeseries
     gridPos:
       h: 8
@@ -65,9 +65,10 @@ spec:
           pointSize: 3
           showPoints: always
           spanNulls: false
-        decimals: 0
+        decimals: 1
         min: 0
-        unit: short
+        max: 100
+        unit: percent
     options:
       legend:
         calcs:
@@ -85,8 +86,8 @@ spec:
 
     targets:
 
-    - alias: Accesses
-      refId: Accesses
+    - alias: Worker usage
+      refId: apache_workers_occupied_percent
       groupBy:
       - params:
         - $interval
@@ -113,10 +114,9 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: Accesses
+        value: apache_workers_occupied_percent
 
-
-  - title: Apache httpd Status - Bytes sent
+  - title: Apache httpd Status - Worker Slots
     type: timeseries
     gridPos:
       h: 8
@@ -136,76 +136,7 @@ spec:
           spanNulls: false
         decimals: 0
         min: 0
-        unit: bytes
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: Bytes
-      refId: Bytes
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: Bytes
-
-
-  - title: Apache httpd Status - Conns
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 8
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        min: 0
-        unit: short
+        unit: none
       overrides:
       - __systemRef: hideSeriesFrom
         matcher:
@@ -213,7 +144,8 @@ spec:
           options:
             mode: exclude
             names:
-            - ConnsTotal
+            - Occupied
+            - Total slots
             prefix: 'All except:'
         properties:
         - id: custom.hideFrom
@@ -236,8 +168,8 @@ spec:
 
     targets:
 
-    - alias: ConnsAsyncClosing
-      refId: ConnsAsyncClosing
+    - alias: Occupied
+      refId: apache_workers_occupied
       groupBy:
       - params:
         - $interval
@@ -264,10 +196,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: ConnsAsyncClosing
+        value: apache_workers_occupied
 
-    - alias: ConnsAsyncKeepAlive
-      refId: ConnsAsyncKeepAlive
+    - alias: Total slots
+      refId: apache_workers_total
       groupBy:
       - params:
         - $interval
@@ -294,10 +226,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: ConnsAsyncKeepAlive
+        value: apache_workers_total
 
-    - alias: ConnsAsyncWriting
-      refId: ConnsAsyncWriting
+    - alias: BusyWorkers
+      refId: apache_busy_workers
       groupBy:
       - params:
         - $interval
@@ -324,10 +256,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: ConnsAsyncWriting
+        value: apache_busy_workers
 
-    - alias: ConnsTotal
-      refId: ConnsTotal
+    - alias: GracefulWorkers
+      refId: apache_graceful_workers
       groupBy:
       - params:
         - $interval
@@ -354,10 +286,422 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: ConnsTotal
+        value: apache_graceful_workers
 
+    - alias: IdleWorkers
+      refId: apache_idle_workers
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_idle_workers
 
-  - title: Apache httpd Status - Load
+  - title: Apache httpd Status - Worker Scoreboard
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: none
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - Sending reply
+            - Gracefully finishing
+            - Waiting for connection
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: Waiting for connection
+      refId: apache_workers_waiting
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_waiting
+
+    - alias: Starting up
+      refId: apache_workers_starting
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_starting
+
+    - alias: Reading request
+      refId: apache_workers_reading
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_reading
+
+    - alias: Sending reply
+      refId: apache_workers_sending
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_sending
+
+    - alias: Keepalive
+      refId: apache_workers_keepalive
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_keepalive
+
+    - alias: DNS lookup
+      refId: apache_workers_dns_lookup
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_dns_lookup
+
+    - alias: Closing connection
+      refId: apache_workers_closing
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_closing
+
+    - alias: Logging
+      refId: apache_workers_logging
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_logging
+
+    - alias: Gracefully finishing
+      refId: apache_workers_finishing
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_finishing
+
+    - alias: Idle cleanup
+      refId: apache_workers_idle_cleanup
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_idle_cleanup
+
+    - alias: Open slot
+      refId: apache_workers_free
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_workers_free
+
+  - title: Apache httpd Status - Requests
     type: timeseries
     gridPos:
       h: 8
@@ -377,7 +721,578 @@ spec:
           spanNulls: false
         decimals: 2
         min: 0
-        unit: short
+        unit: reqps
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: Requests
+      refId: apache_requests_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_requests_per_second
+
+  - title: Apache httpd Status - Traffic
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: Bps
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: Traffic
+      refId: apache_bytes_per_second
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_bytes_per_second
+
+  - title: Apache httpd Status - Request Duration
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 4
+        min: 0
+        unit: s
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: Mean request duration
+      refId: apache_seconds_per_request
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_seconds_per_request
+
+  - title: Apache httpd Status - CPU Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 2
+        min: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: CPU usage
+      refId: apache_cpu_percent
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_cpu_percent
+
+  - title: Apache httpd Status - Connections
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: none
+      overrides:
+      - __systemRef: hideSeriesFrom
+        matcher:
+          id: byNames
+          options:
+            mode: exclude
+            names:
+            - Total
+            prefix: 'All except:'
+        properties:
+        - id: custom.hideFrom
+          value:
+            viz: true
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: Total
+      refId: apache_connections_total
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_connections_total
+
+    - alias: Waiting for I/O
+      refId: apache_connections_wait_io
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_connections_wait_io
+
+    - alias: Writing
+      refId: apache_connections_writing
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_connections_writing
+
+    - alias: Keepalive
+      refId: apache_connections_keepalive
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_connections_keepalive
+
+    - alias: Closing
+      refId: apache_connections_closing
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_connections_closing
+
+  - title: Apache httpd Status - Processes
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 32
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: none
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: Processes
+      refId: apache_processes
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_processes
+
+    - alias: Shutting down
+      refId: apache_processes_stopping
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_processes_stopping
+
+  - title: Apache httpd Status - System Load Average
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 32
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 2
+        min: 0
+        unit: none
       overrides:
       - __systemRef: hideSeriesFrom
         matcher:
@@ -386,6 +1301,7 @@ spec:
             mode: exclude
             names:
             - Load15
+            - Load15 per CPU
             prefix: 'All except:'
         properties:
         - id: custom.hideFrom
@@ -409,7 +1325,7 @@ spec:
     targets:
 
     - alias: Load1
-      refId: Load1
+      refId: apache_system_load1
       groupBy:
       - params:
         - $interval
@@ -436,10 +1352,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: Load1
+        value: apache_system_load1
 
     - alias: Load5
-      refId: Load5
+      refId: apache_system_load5
       groupBy:
       - params:
         - $interval
@@ -466,10 +1382,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: Load5
+        value: apache_system_load5
 
     - alias: Load15
-      refId: Load15
+      refId: apache_system_load15
       groupBy:
       - params:
         - $interval
@@ -496,63 +1412,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: Load15
+        value: apache_system_load15
 
-
-  - title: Apache httpd Status - Workers Aggregated
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 16
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        min: 0
-        unit: none
-      overrides:
-      - __systemRef: hideSeriesFrom
-        matcher:
-          id: byNames
-          options:
-            mode: exclude
-            names:
-            - BusyWorkers
-            - IdleWorkers
-            prefix: 'All except:'
-        properties:
-        - id: custom.hideFrom
-          value:
-            viz: true
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: BusyWorkers
-      refId: BusyWorkers
+    - alias: Load1 per CPU
+      refId: apache_system_load1_per_cpu
       groupBy:
       - params:
         - $interval
@@ -579,10 +1442,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: BusyWorkers
+        value: apache_system_load1_per_cpu
 
-    - alias: IdleWorkers
-      refId: IdleWorkers
+    - alias: Load5 per CPU
+      refId: apache_system_load5_per_cpu
       groupBy:
       - params:
         - $interval
@@ -609,10 +1472,10 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: IdleWorkers
+        value: apache_system_load5_per_cpu
 
-    - alias: TotalWorkers
-      refId: TotalWorkers
+    - alias: Load15 per CPU
+      refId: apache_system_load15_per_cpu
       groupBy:
       - params:
         - $interval
@@ -639,387 +1502,4 @@ spec:
       - condition: AND
         key: metric
         operator: '='
-        value: TotalWorkers
-
-
-  - title: Apache httpd Status - Workers Scoreboard
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 12
-      y: 16
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        min: 0
-        unit: none
-      overrides:
-      - __systemRef: hideSeriesFrom
-        matcher:
-          id: byNames
-          options:
-            mode: exclude
-            names:
-            - workers_replying
-            - workers_waiting
-            prefix: 'All except:'
-        properties:
-        - id: custom.hideFrom
-          value:
-            viz: true
-    options:
-      legend:
-        calcs:
-        - first
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: workers_closing
-      refId: workers_closing
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_closing
-
-    - alias: workers_dns
-      refId: workers_dns
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_dns
-
-    - alias: workers_finishing
-      refId: workers_finishing
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_finishing
-
-    - alias: workers_free
-      refId: workers_free
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_free
-
-    - alias: workers_idle
-      refId: workers_idle
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_idle
-
-    - alias: workers_keepalive
-      refId: workers_keepalive
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_keepalive
-
-    - alias: workers_logging
-      refId: workers_logging
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_logging
-
-    - alias: workers_reading
-      refId: workers_reading
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_reading
-
-    - alias: workers_replying
-      refId: workers_replying
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_replying
-
-    - alias: workers_starting
-      refId: workers_starting
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_starting
-
-    - alias: workers_waiting
-      refId: workers_waiting
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: workers_waiting
+        value: apache_system_load15_per_cpu

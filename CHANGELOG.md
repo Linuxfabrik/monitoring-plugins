@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* apache-httpd-status: every metric is renamed and the check now alerts on the percentage of occupied worker slots. Re-import the Grafana dashboard and adjust anything built on the old metric names
+
 ### Added
 
 Monitoring Plugins:
@@ -27,6 +33,7 @@ Documentation:
 
 Monitoring Plugins:
 
+* apache-httpd-status: worker usage counts every busy slot, so a graceful restart no longer reads as an idle server; rates replace per-interval totals and `ExtendedStatus Off` no longer blanks most metrics
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 
 Icinga Director:

@@ -112,7 +112,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors Apache httpd performance via the mod_status endpoint (server-status?auto). Alerts when worker usage exceeds the configured thresholds. Reports busy and idle workers, request rates, bytes served, CPU load, connection states, and system load averages. Requires \"ExtendedStatus On\" in the Apache configuration for full metrics. Uses a local SQLite database to calculate per-second rates from cumulative counters.",
+            "notes": "Monitors Apache httpd via the mod_status endpoint (server-status?auto). Reports worker slot usage, worker and connection states, request and traffic rates, mean request duration, CPU usage and system load averages. Alerts when the percentage of occupied worker slots exceeds the warning or critical threshold. Cumulative counters are converted into per-second rates against the previous check run, so the first run after an installation and the first run after an httpd restart report no rates yet. Metrics that the queried httpd version, MPM or ExtendedStatus setting does not provide are left out instead of failing.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status/",
             "object_name": "tpl-service-apache-httpd-status",
             "object_type": "template",
@@ -124,13 +124,13 @@
             "vars": {
                 "criticality": "C",
                 "apache_httpd_status_always_ok": false,
-                "apache_httpd_status_critical": 95,
+                "apache_httpd_status_critical": "95",
                 "apache_httpd_status_insecure": false,
                 "apache_httpd_status_no_perfdata": false,
                 "apache_httpd_status_no_proxy": false,
                 "apache_httpd_status_timeout": 8,
                 "apache_httpd_status_url": "http://localhost/server-status",
-                "apache_httpd_status_warning": 80
+                "apache_httpd_status_warning": "80"
             },
             "volatile": null,
             "zone": null,
@@ -150,7 +150,7 @@
         "2": {
             "varname": "apache_httpd_status_critical",
             "caption": "Apache httpd Status: Critical",
-            "description": "CRIT threshold for the percentage of workers processing requests.",
+            "description": "CRIT threshold for the percentage of occupied worker slots. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -199,7 +199,7 @@
         "7": {
             "varname": "apache_httpd_status_url",
             "caption": "Apache httpd Status: URL",
-            "description": "Apache Server Status URL.",
+            "description": "Apache Server Status URL. The plugin appends the \"auto\" query parameter itself.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -210,7 +210,7 @@
         "8": {
             "varname": "apache_httpd_status_warning",
             "caption": "Apache httpd Status: Warning",
-            "description": "WARN threshold for the percentage of workers processing requests.",
+            "description": "WARN threshold for the percentage of occupied worker slots. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

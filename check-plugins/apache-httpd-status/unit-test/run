@@ -10,6 +10,7 @@
 
 import os
 import sys
+import time
 import unittest
 
 sys.path.insert(0, '..')
@@ -17,12 +18,37 @@ sys.path.insert(0, '..')
 import lib.db_sqlite
 import lib.disk
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# What a `server-status?auto` response contains varies along five axes that are
+# independent of each other, which is why the fixtures cover a matrix rather than a
+# sequence: the ExtendedStatus setting, the MPM (only `event` reports processes and
+# connections), the httpd version (the identity block and the CPU breakdown came with
+# 2.4.13, `Total Duration` plus `Processes`/`Stopping` with 2.4.35, `GracefulWorkers`
+# with 2.4.58, `ConnsAsyncWaitIO` with 2.4.63, all of them backported by distributions),
+# the run state (a freshly started httpd omits `CPULoad`), and which other modules are
+# loaded (mod_ssl, mod_cache_socache, mod_md, mod_proxy and third parties append blocks
+# of their own through `ap_run_status_hook()`).
+#
+# The oldest rungs matter because they are what a plugin gets wrong quietly: httpd 2.2
+# (CentOS 6) has no identity block, no load averages and no CPU breakdown, and 2.4.10
+# (Debian 8) has the connection counters but not yet the identity block.
+#
+# Fixtures are named `<os>-httpd-<version>-<mpm>-ext-<on|off>[-<variant>][-<n>]` and
+# were captured against real podman containers.
+#
+# Every testcase passes its own `--url`. The plugin keys its rate cache by URL, so a
+# unique URL gives a testcase a baseline of its own and keeps it independent of whatever
+# ran before it. The rate scenarios at the bottom use that deliberately the other way
+# round: their steps share one URL so the second step finds the first one's sample.
+
+FIXTURE_ROOT = 'stdout'
+URL = 'http://localhost/server-status'
 
 
 def _cache_db():
-    # Resolve via the lib so the reset below removes the exact file the plugin
-    # uses, including the secured per-user directory db_sqlite stores it in.
+    # Resolve via the lib so the reset below removes the exact file the plugin uses,
+    # including the secured per-user directory db_sqlite stores it in.
     filename = 'linuxfabrik-monitoring-plugins-apache-httpd-status.db'
     ok, db_path = lib.db_sqlite.get_db_path(filename=filename)
     return db_path if ok else os.path.join(lib.disk.get_tmpdir(), filename)
@@ -31,393 +57,424 @@ def _cache_db():
 CACHE_DB = _cache_db()
 
 
-# The apache-httpd-status plugin talks to Apache's `mod_status` endpoint
-# (server-status?auto) which changes its field set across httpd versions
-# and MPMs. The plugin also stores previous values in a local SQLite
-# cache so that continuous counters can be converted into per-interval
-# rates, which means realistic coverage needs **sequences** of fixture
-# files that simulate consecutive invocations:
-#
-#   call 1  -> "Waiting for more data (1)."   (no prev_uptime)
-#   call 2  -> "Waiting for more data (3)."   (no prev_duration_global,
-#                                               only for Stage 3 output)
-#   call 3  -> the real output
-#
-# For plugins that never reach the third stage (pre-2.4.35 httpd without
-# `Total Duration`) the sequence stops after call 2.
-#
-# Fixtures are named `<os>-httpd-<version>-<mpm>-ext-<on|off>[-<n>]`
-# and were captured against real podman containers:
-#
-#   - rhel7-httpd-2.4.6-prefork-*       : pre-2.4.13 format, no ConnsAsync,
-#                                          no Total Duration (Stage 2 only)
-#   - rhel8-httpd-2.4.37-event-*        : first RHEL with Total Duration
-#                                          (Stage 3)
-#   - rhel9-httpd-2.4.62-event-*        : current RHEL 9 httpd
-#   - rhel10-httpd-2.4.63-event-*       : current RHEL 10 httpd
-#   - fedora34-httpd-2.4.48-event-*     : Fedora with event MPM (Stage 3)
-#   - fedora34-httpd-2.4.48-worker-*    : worker MPM, which does NOT
-#                                          emit ConnsTotal/ConnsAsync*,
-#                                          so exercises the "field is
-#                                          missing" branches
-#   - fedora34-httpd-2.4.48-worker-...-no-cpuload-*
-#                                       : additionally lacks CPULoad,
-#                                          exercises that optional-field
-#                                          branch
-#
-# Each scenario lists its steps; the cache DB is deleted before each
-# scenario so the sequences do not bleed into each other.
-
-STAGE1_REGEX = r'\d+/\d+ workers busy'
-STAGE2_REGEX = r'\d+/\d+ workers busy.*accesses.*traffic'
-STAGE3_REGEX = r'\S+: \d+/\d+ workers busy.*accesses.*traffic; Up '
-WARN_REGEX = r'workers busy \(\d+\.\d+% \[WARNING\]'
+# One entry per captured platform: (fixture, expected worker usage in the first line).
+# Covers "this vendor's output parses and the plugin reads the right number of worker
+# slots out of it". Behaviour that is not platform specific is asserted in TESTS below.
+PLATFORMS = [
+    ('centos6-httpd-2.2.15-prefork-ext-off', '0.4% worker usage (1/256)'),
+    ('centos6-httpd-2.2.15-prefork-ext-on-2', '0.4% worker usage (1/256)'),
+    ('debian8-httpd-2.4.10-event-ext-off', '0.7% worker usage (1/150)'),
+    ('debian8-httpd-2.4.10-event-ext-on-2', '0.7% worker usage (1/150)'),
+    ('debian9-httpd-2.4.25-event-ext-off', '0.7% worker usage (1/150)'),
+    ('debian9-httpd-2.4.25-event-ext-on-2', '0.7% worker usage (1/150)'),
+    ('debian10-httpd-2.4.59-event-ext-off', '0.7% worker usage (1/150)'),
+    ('debian10-httpd-2.4.59-event-ext-on-3', '0.7% worker usage (1/150)'),
+    ('debian11-httpd-2.4.66-event-ext-off', '0.7% worker usage (1/150)'),
+    ('debian11-httpd-2.4.66-event-ext-on-3', '0.7% worker usage (1/150)'),
+    ('debian12-httpd-2.4.66-event-ext-off', '0.7% worker usage (1/150)'),
+    ('debian12-httpd-2.4.66-event-ext-on-3', '0.7% worker usage (1/150)'),
+    ('debian13-httpd-2.4.66-event-ext-off', '0.7% worker usage (1/150)'),
+    ('debian13-httpd-2.4.66-event-ext-on-3', '0.7% worker usage (1/150)'),
+    ('fedora34-httpd-2.4.48-event-ext-off', '0.2% worker usage (1/400)'),
+    ('fedora34-httpd-2.4.48-worker-ext-on-2', '0.5% worker usage (2/400)'),
+    ('fedora43-httpd-2.4.66-event-ext-off', '0.2% worker usage (1/400)'),
+    ('fedora43-httpd-2.4.66-event-ext-on-3', '0.2% worker usage (1/400)'),
+    ('rhel7-httpd-2.4.6-prefork-ext-off', '0.8% worker usage (2/256)'),
+    ('rhel7-httpd-2.4.6-prefork-ext-on-2', '0.4% worker usage (1/256)'),
+    ('rhel8-httpd-2.4.37-event-ext-off', '0.2% worker usage (1/400)'),
+    ('rhel8-httpd-2.4.37-event-ext-on-3', '0.2% worker usage (1/400)'),
+    ('rhel9-httpd-2.4.62-event-ext-off', '0.2% worker usage (1/400)'),
+    ('rhel9-httpd-2.4.62-event-ext-on-3', '0.2% worker usage (1/400)'),
+    ('rhel9-httpd-2.4.62-prefork-ext-on-2', '0.4% worker usage (1/256)'),
+    ('rhel10-httpd-2.4.63-event-ext-off', '0.2% worker usage (1/400)'),
+    ('rhel10-httpd-2.4.63-event-ext-on-3', '0.2% worker usage (1/400)'),
+]
 
 
-SCENARIOS = [
+TESTS = [
+    # The same fixture at 81.8% worker usage, driven through all three states.
     {
-        'id': 'rhel7-httpd-2.4.6-prefork-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/rhel7-httpd-2.4.6-prefork-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
+        'id': 'ok-below-warn',
+        'test': f'{FIXTURE_ROOT}/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+        'params': '--url=http://example.com/ok-below-warn --warning=90 --critical=95',
+        'assert-retc': STATE_OK,
+        'assert-in': ['81.8% worker usage (327/400)'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': f'{FIXTURE_ROOT}/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+        'params': '--url=http://example.com/warn-above-warn --warning=80 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['81.8% worker usage (327/400) [WARNING]'],
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': f'{FIXTURE_ROOT}/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+        'params': '--url=http://example.com/crit-above-crit --warning=50 --critical=75',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['81.8% worker usage (327/400) [CRITICAL]'],
+    },
+    {
+        # Nagios range: alert while usage sits outside 20..90, so 81.8% is fine but a
+        # nearly idle server is not.
+        'id': 'ok-nagios-range-inside',
+        'test': f'{FIXTURE_ROOT}/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+        'params': '--url=http://example.com/in-range --warning=20:90 --critical=10:95',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # An almost idle server can be the symptom, so a lower bound has to alert too.
+        'id': 'warn-nagios-range-below-lower-bound',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-3,,0',
+        'params': '--url=http://example.com/below --warning=20:90 --critical=0:95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['0.2% worker usage (1/400) [WARNING]'],
+    },
+    {
+        'id': 'ok-always-ok-overrides-the-state',
+        'test': f'{FIXTURE_ROOT}/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+        'params': '--url=http://example.com/always-ok --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        # The slots draining an old generation during a graceful restart show up as 'G'
+        # in the scoreboard while mod_status counts them as neither busy nor graceful,
+        # because it skips every quiescing process. Reading the scoreboard instead of
+        # BusyWorkers is what keeps the check honest here: 20 'G' plus 1 'W' is 21 of
+        # 400 slots, not the 1 of 400 that BusyWorkers reports.
+        'id': 'ok-graceful-restart-counts-draining-slots',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-graceful-2,,0',
+        'params': '--url=http://example.com/graceful',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '5.2% worker usage (21/400)',
+            "'apache_workers_finishing'=20",
+            "'apache_busy_workers'=1",
+            "'apache_processes_stopping'=3",
         ],
     },
     {
-        'id': 'rhel7-httpd-2.4.6-prefork-ext-on',
-        'steps': [
-            {
-                'test': 'stdout/rhel7-httpd-2.4.6-prefork-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/rhel7-httpd-2.4.6-prefork-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE2_REGEX,
-            },
+        # ExtendedStatus off costs the counters and everything derived from them, but
+        # httpd still reports its identity, its uptime, the load averages and the
+        # connection and process counters.
+        'id': 'ok-extendedstatus-off-still-reports-gauges',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-off,,0',
+        'params': '--url=http://example.com/ext-off',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'apache_system_load1'=2.13",
+            "'apache_connections_total'=0",
+            "'apache_processes'=3",
+            'up 2s',
+        ],
+        'assert-not-in': ['apache_requests_per_second'],
+    },
+    {
+        # The load averages belong to the machine httpd runs on, and mod_status never
+        # says how many CPUs that machine has. Dividing is only correct when the check
+        # runs there itself, which a loopback URL guarantees and a remote one does not.
+        'id': 'ok-load-normalized-only-against-a-local-server',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-off,,0',
+        'params': '--url=http://localhost/server-status',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'apache_system_load1'=2.13", 'apache_system_load1_per_cpu'],
+    },
+    {
+        'id': 'ok-load-stays-raw-against-a-remote-server',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-off,,0',
+        'params': '--url=http://web01.example.com/server-status',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'apache_system_load1'=2.13"],
+        'assert-not-in': ['per_cpu', 'per CPU'],
+    },
+    {
+        # The event MPM is the only one answering AP_MPMQ_IS_ASYNC with 1, so prefork
+        # and worker report no process or connection counters at all.
+        'id': 'ok-prefork-reports-no-connection-gauges',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-prefork-ext-on-2,,0',
+        'params': '--url=http://example.com/prefork',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'apache_busy_workers'=1", "'apache_graceful_workers'=0"],
+        'assert-not-in': ['apache_connections_total', 'apache_processes'],
+    },
+    {
+        # ConnsAsyncWaitIO arrived with httpd 2.4.63 and is reported alongside the
+        # other async connection counters.
+        'id': 'ok-reports-wait-io-connections',
+        'test': f'{FIXTURE_ROOT}/rhel10-httpd-2.4.63-event-ext-on-3,,0',
+        'params': '--url=http://example.com/wait-io',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'apache_connections_wait_io'=0"],
+    },
+    {
+        # httpd 2.2 predates the whole identity block, the load averages, the CPU
+        # breakdown and the async connection counters, and it does not open its
+        # response with the server name either. What is left is the scoreboard, which
+        # is exactly why the check is built on it.
+        'id': 'ok-httpd-2-2-reports-workers-only',
+        'test': f'{FIXTURE_ROOT}/centos6-httpd-2.2.15-prefork-ext-off,,0',
+        'params': '--url=http://example.com/httpd22',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^0\.4% worker usage \(1/256\)',
+        'assert-in': ["'apache_busy_workers'=1", "'apache_idle_workers'=7"],
+        'assert-not-in': [
+            'apache_connections_total',
+            'apache_graceful_workers',
+            'apache_system_load1',
+            'apache_processes',
+            # the summary's uptime segment; 'Starting up' in the table is not it
+            ', up ',
         ],
     },
     {
-        'id': 'rhel8-httpd-2.4.37-event-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
+        # httpd 2.4.10 is past the async connection counters (2.4.0) but before the
+        # identity block and the load averages (2.4.13), so the summary carries no
+        # server name and no uptime while the connection metrics are there.
+        'id': 'ok-pre-2-4-13-has-connections-but-no-identity',
+        'test': f'{FIXTURE_ROOT}/debian8-httpd-2.4.10-event-ext-off,,0',
+        'params': '--url=http://example.com/pre2413',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^0\.7% worker usage \(1/150\)',
+        'assert-in': ["'apache_connections_total'=0"],
+        'assert-not-in': [
+            'apache_graceful_workers',
+            'apache_system_load1',
+            'apache_processes',
         ],
     },
     {
-        'id': 'rhel8-httpd-2.4.37-event-ext-on',
-        'steps': [
-            {
-                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/rhel8-httpd-2.4.37-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
-            },
+        # Processes and Stopping arrived with 2.4.35, together with Total Duration, so
+        # 2.4.25 reports the connections without the process counters.
+        'id': 'ok-pre-2-4-35-has-no-process-counters',
+        'test': f'{FIXTURE_ROOT}/debian9-httpd-2.4.25-event-ext-on-2,,0',
+        'params': '--url=http://example.com/pre2435',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'apache_connections_total'=0", "'apache_system_load1'="],
+        'assert-not-in': ['apache_processes', 'apache_graceful_workers'],
+    },
+    {
+        # mod_ssl and mod_qos append blocks of their own after the scoreboard. Their
+        # keys must not reach the parsed data, and their marker lines must not be
+        # mistaken for the server name.
+        'id': 'ok-extension-module-block-does-not-leak',
+        'test': f'{FIXTURE_ROOT}/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
+        'params': '--url=http://example.com/extension-block',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['192.168.122.97: 81.8% worker usage'],
+        'assert-not-in': [
+            'CacheType',
+            'CacheUsage',
+            'QS_AllConn',
+            'TLSSessionCacheStatus',
         ],
     },
     {
-        'id': 'rhel9-httpd-2.4.62-event-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
+        # Before httpd 2.4.13 the response opened with the first metric instead of a
+        # server name line, so the summary starts with the usage.
+        'id': 'ok-response-without-a-server-name-line',
+        'test': f'{FIXTURE_ROOT}/rhel7-httpd-2.4.6-prefork-ext-on-2,,0',
+        'params': '--url=http://example.com/no-server-name',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^0\.4% worker usage',
+    },
+    {
+        # There is no verbosity switch. Everything mod_status reported has to be in the
+        # default output, because that is the one an admin reads in the web interface.
+        'id': 'ok-default-output-holds-every-reported-value',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-3,,0',
+        'params': '--url=http://example.com/default-output',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Flag',
+            'Worker State',
+            'Server Name',
+            'Server Version',
+            'Server MPM',
+            'Server Built',
+            'Current Time',
+            'Restart Time',
+            'Uptime',
+            'Parent Server ConfigGeneration',
+            'Parent Server MPMGeneration',
+            'CPUUser',
+            'Connections',
+            'Processes',
+            'Workers Total',
+            'Load15',
         ],
     },
+    {
+        'id': 'ok-no-perfdata-suppresses-the-metrics',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-3,,0',
+        'params': '--url=http://example.com/no-perfdata --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['apache_workers_occupied_percent'],
+    },
+    {
+        # A URL that answers but is not the status handler, for example because
+        # mod_status is not configured and a catch-all served the error page.
+        'id': 'unknown-endpoint-is-not-mod-status',
+        'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-mod-status-not-configured,,0',
+        'params': '--url=http://example.com/not-configured',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['did not answer with Apache mod_status data'],
+    },
+]
+
+
+# Cumulative counters become per-second rates against the previous run, so a rate needs
+# two samples taken apart in time. Each scenario replays consecutive captures under one
+# shared URL, with a second in between because the cache timestamps whole seconds.
+RATE_SCENARIOS = [
     {
         'id': 'rhel9-httpd-2.4.62-event-ext-on',
         'steps': [
             {
-                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-on-1,,0',
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-2,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
+                'assert-not-in': ['req/s', 'apache_requests_per_second'],
             },
             {
-                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-on-2,,0',
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-3,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/rhel9-httpd-2.4.62-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
+                'assert-regex': r'req/s, [^,]+/s, up ',
+                'assert-in': [
+                    'apache_requests_per_second',
+                    'apache_bytes_per_second',
+                    'apache_cpu_percent',
+                    'apache_seconds_per_request',
+                ],
             },
         ],
     },
     {
-        'id': 'rhel10-httpd-2.4.63-event-ext-off',
+        'id': 'rhel9-httpd-2.4.62-prefork-ext-on',
         'steps': [
             {
-                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-off,,0',
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-prefork-ext-on-1,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
+                'assert-not-in': ['req/s'],
+            },
+            {
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-prefork-ext-on-2,,0',
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-in': ['req/s', 'apache_requests_per_second'],
             },
         ],
     },
     {
-        'id': 'rhel10-httpd-2.4.63-event-ext-on',
+        # The rate ladder, bottom rung. httpd 2.2 reports neither `Total Duration` nor
+        # the CPU breakdown, so mean request duration and CPU usage have no source at
+        # all. Reporting them as zero would say "answers every request instantly on no
+        # CPU", which is why an absent counter drops its rate instead of defaulting.
+        'id': 'centos6-httpd-2.2.15-prefork-ext-on',
         'steps': [
             {
-                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-on-1,,0',
+                'test': f'{FIXTURE_ROOT}/centos6-httpd-2.2.15-prefork-ext-on-1,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
+                'assert-not-in': ['req/s'],
             },
             {
-                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-on-2,,0',
+                'test': f'{FIXTURE_ROOT}/centos6-httpd-2.2.15-prefork-ext-on-2,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/rhel10-httpd-2.4.63-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
+                'assert-in': ['req/s', 'apache_requests_per_second'],
+                'assert-not-in': [
+                    'Request Duration',
+                    'apache_cpu_percent',
+                    'apache_seconds_per_request',
+                ],
             },
         ],
     },
     {
-        'id': 'debian10-httpd-2.4.59-event-ext-off',
+        # Same rung as httpd 2.2: 2.4.6 predates both the CPU breakdown (2.4.13) and
+        # `Total Duration` (2.4.35).
+        'id': 'rhel7-httpd-2.4.6-prefork-ext-on',
         'steps': [
             {
-                'test': 'stdout/debian10-httpd-2.4.59-event-ext-off,,0',
+                'test': f'{FIXTURE_ROOT}/rhel7-httpd-2.4.6-prefork-ext-on-1,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
+                'assert-not-in': ['req/s'],
+            },
+            {
+                'test': f'{FIXTURE_ROOT}/rhel7-httpd-2.4.6-prefork-ext-on-2,,0',
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-in': ['req/s', 'apache_requests_per_second'],
+                'assert-not-in': [
+                    'Request Duration',
+                    'apache_cpu_percent',
+                    'apache_seconds_per_request',
+                ],
             },
         ],
     },
     {
+        # Middle rung: 2.4.25 has the CPU breakdown but still no `Total Duration`.
+        'id': 'debian9-httpd-2.4.25-event-ext-on',
+        'steps': [
+            {
+                'test': f'{FIXTURE_ROOT}/debian9-httpd-2.4.25-event-ext-on-1,,0',
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-not-in': ['req/s'],
+            },
+            {
+                'test': f'{FIXTURE_ROOT}/debian9-httpd-2.4.25-event-ext-on-2,,0',
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-in': ['req/s', 'apache_cpu_percent'],
+                'assert-not-in': ['Request Duration', 'apache_seconds_per_request'],
+            },
+        ],
+    },
+    {
+        # Top rung: 2.4.59 delivers every counter the check derives a rate from.
         'id': 'debian10-httpd-2.4.59-event-ext-on',
         'steps': [
             {
-                'test': 'stdout/debian10-httpd-2.4.59-event-ext-on-1,,0',
+                'test': f'{FIXTURE_ROOT}/debian10-httpd-2.4.59-event-ext-on-2,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
+                'assert-not-in': ['req/s'],
             },
             {
-                'test': 'stdout/debian10-httpd-2.4.59-event-ext-on-2,,0',
+                'test': f'{FIXTURE_ROOT}/debian10-httpd-2.4.59-event-ext-on-3,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/debian10-httpd-2.4.59-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
+                'assert-in': [
+                    'Request Duration',
+                    'apache_cpu_percent',
+                    'apache_seconds_per_request',
+                ],
             },
         ],
     },
     {
-        'id': 'debian11-httpd-2.4.66-event-ext-off',
+        # ExtendedStatus is off, so httpd reports no counters and no rate can follow,
+        # not even after several runs.
+        'id': 'rhel9-httpd-2.4.62-event-ext-off',
         'steps': [
             {
-                'test': 'stdout/debian11-httpd-2.4.66-event-ext-off,,0',
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-off,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
+                'assert-not-in': ['req/s'],
             },
-        ],
-    },
-    {
-        'id': 'debian11-httpd-2.4.66-event-ext-on',
-        'steps': [
             {
-                'test': 'stdout/debian11-httpd-2.4.66-event-ext-on-1,,0',
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-off,,0',
+                'params': f'--url={URL}',
                 'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/debian11-httpd-2.4.66-event-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/debian11-httpd-2.4.66-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'debian12-httpd-2.4.66-event-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/debian12-httpd-2.4.66-event-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'debian12-httpd-2.4.66-event-ext-on',
-        'steps': [
-            {
-                'test': 'stdout/debian12-httpd-2.4.66-event-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/debian12-httpd-2.4.66-event-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/debian12-httpd-2.4.66-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'debian13-httpd-2.4.66-event-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/debian13-httpd-2.4.66-event-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'debian13-httpd-2.4.66-event-ext-on',
-        'steps': [
-            {
-                'test': 'stdout/debian13-httpd-2.4.66-event-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/debian13-httpd-2.4.66-event-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/debian13-httpd-2.4.66-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'fedora34-httpd-2.4.48-event-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'fedora43-httpd-2.4.66-event-ext-off',
-        'steps': [
-            {
-                'test': 'stdout/fedora43-httpd-2.4.66-event-ext-off,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE1_REGEX,
-            },
-        ],
-    },
-    {
-        'id': 'fedora43-httpd-2.4.66-event-ext-on',
-        'steps': [
-            {
-                'test': 'stdout/fedora43-httpd-2.4.66-event-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/fedora43-httpd-2.4.66-event-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/fedora43-httpd-2.4.66-event-ext-on-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
-            },
-        ],
-    },
-    {
-        # Fixture captured on a real host under load; the third call
-        # reports 325/400 busy workers which crosses the default 80%
-        # WARN threshold, so this also covers the state-logic path.
-        'id': 'fedora34-httpd-2.4.48-event-ext-on-warn',
-        'steps': [
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-event-ext-on-3,,0',
-                'assert-retc': STATE_WARN,
-                'assert-regex': WARN_REGEX,
-            },
-        ],
-    },
-    {
-        # worker MPM does not emit ConnsTotal / ConnsAsync* / Processes
-        # / Stopping, which forces the plugin through the
-        # "field is missing" branches.
-        'id': 'fedora34-httpd-2.4.48-worker-ext-on-warn',
-        'steps': [
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-3,,0',
-                'assert-retc': STATE_WARN,
-                'assert-regex': WARN_REGEX,
-                'assert-not-in': ['ConnsTotal'],
-            },
-        ],
-    },
-    {
-        # Same shape as the worker scenario above but additionally
-        # misses CPULoad, which the plugin handles via another
-        # "field is missing" branch.
-        'id': 'fedora34-httpd-2.4.48-worker-ext-on-no-cpuload',
-        'steps': [
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-no-cpuload-1,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (1).'],
-            },
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-no-cpuload-2,,0',
-                'assert-retc': STATE_OK,
-                'assert-in': ['Waiting for more data (3).'],
-            },
-            {
-                'test': 'stdout/fedora34-httpd-2.4.48-worker-ext-on-no-cpuload-3,,0',
-                'assert-retc': STATE_OK,
-                'assert-regex': STAGE3_REGEX,
-                'assert-not-in': ['CPULoad'],
+                'assert-not-in': ['req/s', 'apache_requests_per_second'],
             },
         ],
     },
@@ -428,17 +485,37 @@ class TestCheck(unittest.TestCase):
     check = '../apache-httpd-status'
 
 
-def _run_scenario(test, scenario):
-    # Reset the sqlite cache so previous-value lookups start from a
-    # clean slate for this scenario.
+def _check_platform(test, platform):
+    fixture, expected = platform
+    lib.lftest.run(
+        test,
+        test.check,
+        {
+            'test': f'{FIXTURE_ROOT}/{fixture},,0',
+            'params': f'--url=http://example.com/{fixture}',
+            'assert-retc': STATE_OK,
+            'assert-in': [expected],
+        },
+    )
+
+
+def _run_rate_scenario(test, scenario):
+    # Start from a clean cache so the first step of a scenario really is a first run.
     if os.path.exists(CACHE_DB):
         os.remove(CACHE_DB)
     for i, step in enumerate(scenario['steps'], start=1):
+        if i > 1:
+            # The cache stores whole seconds, and a zero-second interval yields no rate.
+            time.sleep(1)
         with test.subTest(step=i):
             lib.lftest.run(test, test.check, step)
 
 
-lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
+lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(TestCheck, PLATFORMS, _check_platform, id_func=lambda it: it[0])
+lib.lftest.attach_each(
+    TestCheck, RATE_SCENARIOS, _run_rate_scenario, id_func=lambda it: it['id']
+)
 
 
 if __name__ == '__main__':

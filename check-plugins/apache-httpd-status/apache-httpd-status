@@ -11,31 +11,120 @@
 """See the check's README for more details."""
 
 import argparse
+import ipaddress
+import os
 import sys
+import urllib.parse
 
 import lib.args
 import lib.base
-import lib.cache
+import lib.db_sqlite
 import lib.human
 import lib.lftest
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081801'
 
-DESCRIPTION = """Monitors Apache httpd performance via the mod_status endpoint (server-status?auto).
-Alerts when worker usage exceeds the configured thresholds. Reports busy and idle
-workers, request rates, bytes served, CPU load, connection states, and system load
-averages. Requires "ExtendedStatus On" in the Apache configuration for full metrics.
-Uses a local SQLite database to calculate per-second rates from cumulative counters."""
+DESCRIPTION = """Monitors Apache httpd via the mod_status endpoint (server-status?auto).
+Reports worker slot usage, worker and connection states, request and traffic rates, mean
+request duration, CPU usage and system load averages. Alerts when the percentage of
+occupied worker slots exceeds the warning or critical threshold. Cumulative counters are
+converted into per-second rates against the previous check run, so the first run after an
+installation and the first run after an httpd restart report no rates yet. Metrics that
+the queried httpd version, MPM or ExtendedStatus setting does not provide are left out
+instead of failing."""
 
-DEFAULT_CRIT = 95  # %
+DEFAULT_CRIT = '95'  # %
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost/server-status'
-DEFAULT_WARN = 80  # %
+DEFAULT_WARN = '80'  # %
+
+# Scoreboard flags, complete as of mod_status.c (`status_flags[]`). Listed in the order
+# mod_status documents them, which follows a worker's life cycle, rather than
+# alphabetically.
+#
+# The length of the string is the number of worker slots. On httpd 2.4 that is exactly
+# MaxRequestWorkers, because mod_status marks every slot beyond the configured limit
+# SERVER_DISABLED and leaves those out of the string. Verified on Rocky 9 / httpd 2.4.62
+# for MaxRequestWorkers 50, 150, 256 and 400.
+#
+# httpd 2.2 has no SERVER_DISABLED and writes the whole ServerLimit grid, so there the
+# length is ServerLimit rather than MaxClients. Verified on CentOS 6 / httpd 2.2.15:
+# ServerLimit 256 with MaxClients 50 still yields a 256 character scoreboard. Nothing in
+# the response distinguishes 2.2 from an equally terse 2.4.6, so this is documented in
+# the README rather than guessed at here.
+SCOREBOARD_FLAGS = [
+    # flag, perfdata label, table label
+    ('_', 'waiting', 'Waiting for connection'),
+    ('S', 'starting', 'Starting up'),
+    ('R', 'reading', 'Reading request'),
+    ('W', 'sending', 'Sending reply'),
+    ('K', 'keepalive', 'Keepalive (read)'),
+    ('D', 'dns_lookup', 'DNS lookup'),
+    ('C', 'closing', 'Closing connection'),
+    ('L', 'logging', 'Logging'),
+    ('G', 'finishing', 'Gracefully finishing'),
+    ('I', 'idle_cleanup', 'Idle cleanup of worker'),
+    ('.', 'free', 'Open slot'),
+]
+
+# A slot counts as occupied unless it is an open slot ('.') or waits for a connection
+# ('_'). Everything else holds a request, is about to hold one, or is draining one.
+UNOCCUPIED_FLAGS = '._'
+
+# mod_status keys reported as they are, as (key, perfdata label, table label). Which of
+# them a host sends depends on its MPM (the process and connection counters need the
+# event MPM, the only one that answers AP_MPMQ_IS_ASYNC with 1), on its httpd version,
+# and on the ExtendedStatus setting. The version ladder, measured across httpd 2.2.15
+# through 2.4.68:
+#
+#   2.4.0    ConnsTotal and the ConnsAsync* trio
+#   2.4.13   Load1/5/15, alongside the whole ServerVersion identity block
+#   2.4.35   Processes and Stopping
+#   2.4.58   GracefulWorkers
+#   2.4.63   ConnsAsyncWaitIO
+#
+# Distributions backport, so the ladder does not say what a given host reports: Rocky 8
+# has GracefulWorkers on httpd 2.4.37. Never gate on a version, only on the key. A key
+# nobody sent stays absent from the parsed data and yields None, and
+# lib.base.get_perfdata() drops a None, so none of these needs a guard of its own.
+GAUGES = [
+    ('BusyWorkers', 'busy_workers', 'Workers processing a request'),
+    ('GracefulWorkers', 'graceful_workers', 'Workers finishing gracefully'),
+    ('IdleWorkers', 'idle_workers', 'Workers ready for a request'),
+    ('Processes', 'processes', 'Child processes'),
+    ('Stopping', 'processes_stopping', 'Child processes shutting down'),
+    ('ConnsTotal', 'connections_total', 'Connections'),
+    ('ConnsAsyncWaitIO', 'connections_wait_io', 'Connections waiting for I/O'),
+    ('ConnsAsyncWriting', 'connections_writing', 'Connections writing'),
+    ('ConnsAsyncKeepAlive', 'connections_keepalive', 'Connections in keepalive'),
+    ('ConnsAsyncClosing', 'connections_closing', 'Connections closing'),
+    # Whole-machine values, not Apache's share: mod_status fills these from
+    # getloadavg(3), which on Linux is /proc/loadavg. They are also raw, where the
+    # `load` check reports the same averages normalised per CPU. Both facts are in the
+    # name so nobody reads a 1.00 here as "Apache saturates this host".
+    ('Load1', 'system_load1', 'System load average, 1 minute'),
+    ('Load5', 'system_load5', 'System load average, 5 minutes'),
+    ('Load15', 'system_load15', 'System load average, 15 minutes'),
+]
+
+# The four cumulative CPU counters mod_status reports with ExtendedStatus on, since
+# httpd 2.4.13. Its own CPULoad, which older versions report instead, is the average
+# over the whole httpd uptime and therefore converges to a straight line in a graph, so
+# the plugin adds these up itself and turns the sum into a percentage of the current
+# check interval.
+CPU_KEYS = ['CPUUser', 'CPUSystem', 'CPUChildrenUser', 'CPUChildrenSystem']
+
+# Deliberately unused, for the next reader who finds them in the raw output:
+# BytesPerReq, BytesPerSec, CPULoad, DurationPerReq and ReqPerSec are averages httpd
+# computes over its whole uptime. A graph of them converges to a constant line within
+# minutes and says nothing about the moment of measurement, so the plugin recomputes
+# what it needs from the underlying counters instead (CONTRIBUTING.md, "Plugin
+# Performance Data").
 
 
 def parse_args():
@@ -64,10 +153,10 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for the percentage of workers processing requests. '
-        'Default: >= %(default)s',
+        help='CRIT threshold for the percentage of occupied worker slots. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -113,7 +202,9 @@ def parse_args():
     parser.add_argument(
         '-u',
         '--url',
-        help='Apache Server Status URL. Default: %(default)s',
+        help='Apache Server Status URL. The plugin appends the "auto" query '
+        'parameter itself. '
+        'Default: %(default)s',
         dest='URL',
         default=DEFAULT_URL,
     )
@@ -121,15 +212,123 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for the percentage of workers processing requests. '
-        'Default: >= %(default)s',
+        help='WARN threshold for the percentage of occupied worker slots. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_status_url(url):
+    """Return `url` with mod_status' `auto` query parameter attached.
+
+    Appends `auto` to whatever query string the admin configured instead of
+    concatenating `?auto`, so a URL that already carries parameters stays intact.
+    """
+    parts = urllib.parse.urlsplit(url)
+    if 'auto' in parts.query.split('&'):
+        return url
+    query = f'{parts.query}&auto' if parts.query else 'auto'
+    return urllib.parse.urlunsplit(parts._replace(query=query))
+
+
+def get_cpu_count(url):
+    """Return the CPU count the load averages can be normalized with, or None.
+
+    mod_status reports the load averages of the machine httpd runs on, but never how
+    many CPUs that machine has, and the value is raw rather than per CPU. Dividing is
+    therefore only correct when the check runs on that same machine. A loopback URL is
+    the one case where that is certain; against any other host the local CPU count
+    belongs to the monitoring host instead, and would turn a correct raw number into a
+    confidently wrong one.
+    """
+    host = urllib.parse.urlsplit(url).hostname or ''
+    if host not in ('localhost', 'ip6-localhost', 'ip6-loopback'):
+        try:
+            if not ipaddress.ip_address(host).is_loopback:
+                return None
+        except ValueError:
+            return None
+    return os.cpu_count()
+
+
+def parse_status(raw):
+    """Parse the `server-status?auto` response into (server name, dict of values).
+
+    mod_status writes one `Key: value` line per metric, preceded by a bare line holding
+    the server name (since httpd 2.4.13). Afterwards it calls `ap_run_status_hook()`,
+    which lets other modules append blocks of their own: mod_ssl, mod_cache_socache,
+    mod_md and mod_proxy do so upstream, third-party modules as well. Each of those
+    blocks opens with a bare marker line, for example `TLSSessionCacheStatus` or
+    `ModCacheSocacheStatus`, and the keys below it belong to that module rather than to
+    mod_status. Parsing therefore stops at the first bare line after the first key, so a
+    foreign `CacheType` can never overwrite a mod_status value and a marker can never be
+    mistaken for the server name.
+
+    Splitting on the first `': '` rather than on every occurrence matches how
+    httpd's own test suite reads the format
+    (`test/modules/http2/test_008_ranges.py`).
+    """
+    server_name = ''
+    data = {}
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        key, separator, value = line.partition(': ')
+        if not separator:
+            if not data and not server_name:
+                server_name = line
+                continue
+            break
+        data[key] = value
+    return server_name, data
+
+
+def get_rates(url, data):
+    """Return the per-second rates of the cumulative mod_status counters, or None.
+
+    Returns None while no comparable previous measurement exists, which is the case on
+    the first run and after an httpd restart has reset the counters. A rate whose source
+    counter this httpd does not report is left out of the returned mapping rather than
+    handed back as a zero, so an older httpd does not look like a server that answers
+    every request in no time at all.
+    """
+    if 'Total Accesses' not in data:
+        # ExtendedStatus is off, so httpd reports no counters at all. Recording zeroes
+        # here would make every rate read as a genuine zero once ExtendedStatus is
+        # turned on.
+        return None
+
+    # Always hand over the same set of counters, filling in absent ones with 0.
+    # per_second_deltas() derives the cache table schema from these keys, and a set that
+    # changes between runs makes it rebuild the table and lose the baseline every time.
+    # Which of them carry real data is decided afterwards, on the keys httpd actually
+    # sent: `Total Duration` needs httpd 2.4.35, the CPU breakdown needs 2.4.13, and
+    # httpd 2.2 reports neither.
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-apache-httpd-status.db',
+        url,
+        {
+            'accesses': int(data['Total Accesses']),
+            'bytes': int(data.get('Total kBytes', 0)) * 1024,
+            # milliseconds, as reported
+            'duration': int(data.get('Total Duration', 0)),
+            # CPU seconds as milliseconds, because the cache stores integers
+            'cpu': int(sum(float(data.get(key, 0)) for key in CPU_KEYS) * 1000),
+        },
+    )
+    if rates is None:
+        return None
+    if 'Total Duration' not in data:
+        del rates['duration']
+    if not any(key in data for key in CPU_KEYS):
+        del rates['cpu']
+    return rates
 
 
 def main():
@@ -143,620 +342,250 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        URL = args.URL
-        if URL[0:4] != 'http':
-            lib.base.oao(
-                '--url parameter has to start with "http://" or https://".',
-                STATE_UNKNOWN,
-            )
-        URL = URL + '?auto'
-
-        # fetch the URL
-        result = lib.base.coe(
+        if not args.URL.startswith(('http://', 'https://')):
+            lib.base.cu('--url has to start with "http://" or "https://".')
+        stdout = lib.base.coe(
             lib.url.fetch(
-                URL,
+                get_status_url(args.URL),
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
                 timeout=args.TIMEOUT,
             )
         )
-        if 'Scoreboard: ' not in result:
-            lib.base.cu('Malformed Apache server info.')
     else:
         # do not call the command, put in test data
         stdout, _stderr, _retc = lib.lftest.test(args.TEST)
-        result = stdout
-    result = result.strip().split('\n')
 
     # init some vars
+    msg = ''
     state = STATE_OK
     perfdata = ''
-    apache = {}
-    workers = {}
-
-    apache['ServerName'] = 'N/A'
+    table_data = []
 
     # analyze data
-    # Apache mod_status Source:
-    # https://github.com/apache/httpd/blob/trunk/modules/generators/mod_status.c
-    # We just want "raw" values that provide a real-time / just-in-time measurement. Values
-    # which are calculated by Apache, for example over its service uptime and therefore
-    # returning an average over time will be ignored in perfdata.
-    # See https://github.com/Linuxfabrik/monitoring-plugins/issues//310.
-    # Some continous counters have to be re-calculated (Value_Now - Value_Previous = CurrentValue)
-    for item in result:
-        if ': ' not in item:
-            if item != 'TLSSessionCacheStatus':
-                apache['ServerName'] = item
-            continue
+    server_name, data = parse_status(stdout)
+    scoreboard = data.get('Scoreboard')
+    if not scoreboard:
+        lib.base.cu(
+            f'{args.URL} did not answer with Apache mod_status data. '
+            'Load mod_status and point --url at a location that has '
+            '"SetHandler server-status".',
+            traceback=False,
+        )
 
-        try:
-            key, value = item.split(': ')
-        except Exception:
-            continue
+    # The scoreboard holds one character per worker slot and is the only source that
+    # stays comparable across MPMs, httpd versions and ExtendedStatus settings. Its
+    # length is MaxRequestWorkers, so it is also the denominator an admin sizes the
+    # server by. BusyWorkers is not usable for that: mod_status skips every process that
+    # is quiescing, so during a graceful restart the slots draining the old generation
+    # count as neither busy nor graceful. Measured on Rocky 9 with 20 requests in flight
+    # across a `httpd -k graceful`: 20 slots showed 'G', BusyWorkers reported 1 and
+    # GracefulWorkers 0.
+    slots = len(scoreboard)
+    workers = {label: scoreboard.count(flag) for flag, label, _ in SCOREBOARD_FLAGS}
+    occupied = slots - sum(scoreboard.count(flag) for flag in UNOCCUPIED_FLAGS)
+    occupied_percent = round(occupied / slots * 100, 1)
 
-        if key == 'ServerUptimeSeconds':
-            apache['ServerUptimeSeconds'] = int(value)  # continous counter
-            continue
-        if key == 'Total Accesses':
-            apache['Total Accesses'] = int(value)
-            continue
-        if key == 'Total kBytes':
-            apache['Total Bytes'] = int(value) * 1024
-            continue
-        if key == 'Total Duration':
-            apache['Total Duration'] = float(value) / 1000  # convert msec to sec
-            continue
-
-        apache[key] = value
-
-    # === The Bascis ===============================================================================
-    # first analyze all the items we get even if "Extended Status" is "Off"
-
-    # parse the "scoreboard" and count the elements
-    apache['TotalWorkers'] = len(apache['Scoreboard'])
-    if apache['TotalWorkers'] == 0:
-        lib.base.cu('Malformed Apache server info.')
-
-        # from mod_status.c:
-    workers['closing'] = apache['Scoreboard'].count('C')  # SERVER_CLOSING
-    workers['dns'] = apache['Scoreboard'].count('D')  # SERVER_BUSY_DNS
-    workers['finishing'] = apache['Scoreboard'].count('G')  # SERVER_GRACEFUL
-    workers['free'] = apache['Scoreboard'].count('.')  # SERVER_DEAD
-    workers['idle'] = apache['Scoreboard'].count('I')  # SERVER_IDLE_KILL
-    workers['keepalive'] = apache['Scoreboard'].count('K')  # SERVER_BUSY_KEEPALIVE
-    workers['logging'] = apache['Scoreboard'].count('L')  # SERVER_BUSY_LOG
-    workers['reading'] = apache['Scoreboard'].count('R')  # SERVER_BUSY_READ
-    workers['replying'] = apache['Scoreboard'].count('W')  # SERVER_BUSY_WRITE
-    workers['starting'] = apache['Scoreboard'].count('S')  # SERVER_STARTING
-    workers['waiting'] = apache['Scoreboard'].count('_')  # SERVER_READY
-
-    # currently the only value we warn about
-    apache['WorkerUsagePercentage'] = round(
-        int(apache['BusyWorkers']) / int(apache['TotalWorkers']) * 100.0, 1
+    state = lib.base.get_state(
+        occupied_percent, args.WARN, args.CRIT, _operator='range'
     )
-    state = lib.base.get_state(apache['WorkerUsagePercentage'], args.WARN, args.CRIT)
+    rates = get_rates(args.URL, data)
+    cpu_count = get_cpu_count(args.URL)
+    uptime = data.get('ServerUptimeSeconds', data.get('Uptime'))
+
+    # build the message
+    msg += f'{server_name}: ' if server_name else ''
+    msg += (
+        f'{occupied_percent}% worker usage'
+        f' ({occupied}/{slots})'
+        f'{lib.base.state2str(state, prefix=" ")}'
+    )
+    if rates is not None:
+        # The mean request duration stays out of the summary and lives in the table
+        # below, because it is the one rate here that legitimately spikes. httpd credits
+        # a request's whole runtime at the moment it finishes
+        # (`ws->duration += ws->stop_time - ws->start_time` on STOP_PREQUEST in
+        # server/scoreboard.c), so a single long download completing inside a one-minute
+        # window can push the mean into the minutes while the server is idle. That is
+        # real signal, but not a number to lead a notification with.
+        msg += (
+            f', {round(rates["accesses"], 1)} req/s'
+            f', {lib.human.bytes2human(rates["bytes"])}/s'
+        )
+    if uptime is not None:
+        msg += f', up {lib.human.seconds2human(int(uptime))}'
 
     perfdata += lib.base.get_perfdata(
-        'WorkerUsagePercentage',
-        apache['WorkerUsagePercentage'],
+        'apache_workers_occupied_percent',
+        occupied_percent,
         uom='%',
         warn=args.WARN,
         crit=args.CRIT,
         _min=0,
         _max=100,
     )
-
     perfdata += lib.base.get_perfdata(
-        'BusyWorkers',
-        apache['BusyWorkers'],
+        'apache_workers_occupied',
+        occupied,
+        uom=None,
         _min=0,
+        _max=slots,
     )
     perfdata += lib.base.get_perfdata(
-        'IdleWorkers',
-        apache['IdleWorkers'],
+        'apache_workers_total',
+        slots,
+        uom=None,
         _min=0,
     )
-    perfdata += lib.base.get_perfdata(
-        'TotalWorkers',
-        apache['TotalWorkers'],
-        _min=0,
-    )
-
-    perfdata += lib.base.get_perfdata(
-        'workers_closing',
-        workers['closing'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_dns',
-        workers['dns'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_finishing',
-        workers['finishing'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_free',
-        workers['free'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_idle',
-        workers['idle'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_keepalive',
-        workers['keepalive'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_logging',
-        workers['logging'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_reading',
-        workers['reading'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_replying',
-        workers['replying'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_starting',
-        workers['starting'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-    perfdata += lib.base.get_perfdata(
-        'workers_waiting',
-        workers['waiting'],
-        _min=0,
-        _max=apache['TotalWorkers'],
-    )
-
-    # If ExtendedStatus is off:
-    if 'Uptime' not in apache:
-        # "ExtendedStatus off" just reports BusyWorkers, IdleWorkers and Scoreboard
-        msg = (
-            f'{apache["BusyWorkers"]}/{apache["TotalWorkers"]}'
-            f' workers busy'
-            f' ({apache["WorkerUsagePercentage"]}%'
-            f'{lib.base.state2str(state, prefix=" ")}'
-            f'; {workers["finishing"]} "G")'
-            f', {apache["IdleWorkers"]} idle'
-            f', {workers["free"]} free'
+    for _flag, label, _description in SCOREBOARD_FLAGS:
+        perfdata += lib.base.get_perfdata(
+            f'apache_workers_{label}',
+            workers[label],
+            uom=None,
+            _min=0,
+            _max=slots,
         )
-
-        # over and out
-        lib.base.oao(
-            msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
-        )
-
-    # === Second Stage==============================================================================
-    # ExtendedStatus is on, but not all values are always present due to different versions of
-    # mod_status
-
-    # get previous values
-    prev_uptime = lib.cache.get(
-        f'apache-httpd-status-{args.URL}-uptime',
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    prev_count = lib.cache.get(
-        f'apache-httpd-status-{args.URL}-total-accesses',
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    prev_bcount = lib.cache.get(
-        f'apache-httpd-status-{args.URL}-total-bytes',
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-
-    # save current values
-    lib.cache.set(
-        f'apache-httpd-status-{args.URL}-uptime',
-        apache['Uptime'],
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    lib.cache.set(
-        f'apache-httpd-status-{args.URL}-total-accesses',
-        apache['Total Accesses'],
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    lib.cache.set(
-        f'apache-httpd-status-{args.URL}-total-bytes',
-        apache['Total Bytes'],
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    if prev_uptime is False or prev_count is False or prev_bcount is False:
-        lib.base.oao('Waiting for more data (1).', STATE_OK)
-
-    # calculate "raw" values for the current interval from total values (continous counters)
-    uptime_diff = int(apache['Uptime']) - int(prev_uptime)
-    apache['Total Accesses'] = apache['Total Accesses'] - int(prev_count)
-    apache['Total Bytes'] = apache['Total Bytes'] - int(prev_bcount)
-    if uptime_diff <= 0 or apache['Total Accesses'] <= 0 or apache['Total Bytes'] < 0:
-        lib.base.oao('Waiting for more data (2).', STATE_OK)
-
-    perfdata += lib.base.get_perfdata(
-        'Accesses',
-        apache['Total Accesses'],
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'Bytes',
-        apache['Total Bytes'],
-        uom='B',
-        _min=0,
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'CPULoad',
-            apache['CPULoad'],
+    for key, label, _description in GAUGES:
+        perfdata += lib.base.get_perfdata(
+            f'apache_{label}',
+            data.get(key),
+            uom=None,
             _min=0,
         )
-        if 'CPULoad' in apache
-        else ''
-    )
-    perfdata += lib.base.get_perfdata(
-        'Uptime',
-        apache['Uptime'],
-        uom='s',
-        _min=0,
-    )
+    if cpu_count:
+        # Only alongside the raw values, never instead of them: the raw number is what
+        # httpd reported and stays comparable across hosts with different CPU counts.
+        for key, label in [
+            ('Load1', 'load1'),
+            ('Load5', 'load5'),
+            ('Load15', 'load15'),
+        ]:
+            raw = data.get(key)
+            perfdata += lib.base.get_perfdata(
+                f'apache_system_{label}_per_cpu',
+                None if raw is None else round(float(raw) / cpu_count, 2),
+                uom=None,
+                _min=0,
+            )
+    if rates is not None:
+        perfdata += lib.base.get_perfdata(
+            'apache_requests_per_second',
+            round(rates['accesses'], 2),
+            uom=None,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'apache_bytes_per_second',
+            round(rates['bytes'], 2),
+            uom='B',
+            _min=0,
+        )
+        if 'cpu' in rates:
+            perfdata += lib.base.get_perfdata(
+                'apache_cpu_percent',
+                # rate of CPU milliseconds per second, so a full core is 1000ms/s = 100%
+                round(rates['cpu'] / 10, 2),
+                uom='%',
+                _min=0,
+            )
+        if 'duration' in rates and rates['accesses'] > 0:
+            perfdata += lib.base.get_perfdata(
+                'apache_seconds_per_request',
+                round(rates['duration'] / rates['accesses'] / 1000, 4),
+                uom='s',
+                _min=0,
+            )
 
-    if 'Total Duration' not in apache:
-        msg = (
-            f'{apache["BusyWorkers"]}/{apache["TotalWorkers"]}'
-            f' workers busy'
-            f' ({apache["WorkerUsagePercentage"]}%'
-            f'{lib.base.state2str(state, prefix=" ")}'
-            f'; {workers["finishing"]} "G")'
-            f', {apache["IdleWorkers"]} idle'
-            f', {workers["free"]} free'
-            f'; {lib.human.number2human(apache["Total Accesses"])} accesses'
-            f', {lib.human.bytes2human(apache["Total Bytes"])} traffic'
-            f'; Up {lib.human.seconds2human(apache["Uptime"])}'
-        )
-
-        # over and out
-        lib.base.oao(
-            msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
-        )
-
-    # === Third Stage===============================================================================
-    # Some more variables in newer versions of mod_status
-
-    prev_duration_global = lib.cache.get(
-        f'apache-httpd-status-{args.URL}-total-duration',
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    lib.cache.set(
-        f'apache-httpd-status-{args.URL}-total-duration',
-        apache['Total Duration'],
-        filename='linuxfabrik-monitoring-plugins-apache-httpd-status.db',
-    )
-    if prev_duration_global is False:
-        lib.base.oao('Waiting for more data (3).', STATE_OK)
-
-    # calculate "raw" values for the current interval from total values (continous counters)
-    duration_diff = apache['Total Duration'] - float(prev_duration_global)
-    if duration_diff <= 0 or apache['Total Accesses'] <= 0 or apache['Total Bytes'] < 0:
-        lib.base.oao('Waiting for more data (4).', STATE_OK)
-
-    perfdata += (
-        lib.base.get_perfdata(
-            'ConnsAsyncClosing',
-            apache['ConnsAsyncClosing'],
-            _min=0,
-        )
-        if 'ConnsAsyncClosing' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'ConnsAsyncKeepAlive',
-            apache['ConnsAsyncKeepAlive'],
-            _min=0,
-        )
-        if 'ConnsAsyncKeepAlive' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'ConnsAsyncWriting',
-            apache['ConnsAsyncWriting'],
-            _min=0,
-        )
-        if 'ConnsAsyncWriting' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'ConnsTotal',
-            apache['ConnsTotal'],
-            _min=0,
-        )
-        if 'ConnsTotal' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'Load1',
-            apache['Load1'],
-            _min=0,
-        )
-        if 'Load1' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'Load5',
-            apache['Load5'],
-            _min=0,
-        )
-        if 'Load5' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'Load15',
-            apache['Load15'],
-            _min=0,
-        )
-        if 'Load15' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'ParentServerConfigGeneration',
-            apache['ParentServerConfigGeneration'],
-            _min=0,
-        )
-        if 'ParentServerConfigGeneration' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'ParentServerMPMGeneration',
-            apache['ParentServerMPMGeneration'],
-            _min=0,
-        )
-        if 'ParentServerMPMGeneration' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'Processes',
-            apache['Processes'],
-            _min=0,
-        )
-        if 'Processes' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'Stopping',
-            apache['Stopping'],
-            _min=0,
-        )
-        if 'Stopping' in apache
-        else ''
-    )
-    perfdata += (
-        lib.base.get_perfdata(
-            'Total Duration',
-            duration_diff,
-            uom='s',
-            _min=0,
-        )
-        if 'Total Duration' in apache
-        else ''
-    )
-
-    msg = (
-        f'{apache["ServerName"]}:'
-        f' {apache["BusyWorkers"]}/{apache["TotalWorkers"]}'
-        f' workers busy'
-        f' ({apache["WorkerUsagePercentage"]}%'
-        f'{lib.base.state2str(state, prefix=" ")}'
-        f'; {workers["finishing"]} "G")'
-        f', {apache["IdleWorkers"]} idle'
-        f', {workers["free"]} free'
-        f'; {lib.human.number2human(apache["Total Accesses"])} accesses'
-        f', {lib.human.bytes2human(apache["Total Bytes"])} traffic'
-        f'; Up {lib.human.seconds2human(apache["Uptime"])}'
-    )
-
-    table_values = []
-    table_values.append(
-        {
-            'key': 'Current Time',
-            'value': apache['CurrentTime'],
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Restart Time',
-            'value': apache['RestartTime'],
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Check Interval',
-            'value': lib.human.seconds2human(uptime_diff),
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Uptime',
-            'value': lib.human.seconds2human(apache['Uptime']),
-        }
-    )
-    if 'ConnsTotal' in apache:
-        table_values.append(
+    # build table output
+    for flag, label, description in SCOREBOARD_FLAGS:
+        table_data.append(
             {
-                'key': 'Connections',
-                'value': apache['ConnsTotal'],
+                'flag': flag,
+                'state': description,
+                'slots': workers[label],
+                'usage': f'{round(workers[label] / slots * 100, 1)}%',
             }
         )
-    if 'ConnsAsyncWriting' in apache:
-        table_values.append(
-            {
-                'key': '  Async Writing',
-                'value': apache['ConnsAsyncWriting'],
-            }
-        )
-    if 'ConnsAsyncKeepAlive' in apache:
-        table_values.append(
-            {
-                'key': '  Async KeepAlive',
-                'value': apache['ConnsAsyncKeepAlive'],
-            }
-        )
-    if 'ConnsAsyncClosing' in apache:
-        table_values.append(
-            {
-                'key': '  Async Closing',
-                'value': apache['ConnsAsyncClosing'],
-            }
-        )
-    table_values.append(
-        {
-            'key': 'Requests',
-            'value': lib.human.number2human(apache['Total Accesses']),
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Bytes',
-            'value': lib.human.bytes2human(apache['Total Bytes']),
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Request Duration',
-            'value': lib.human.seconds2human(duration_diff),
-        }
-    )
-    if 'Load1' in apache:
-        table_values.append(
-            {
-                'key': 'Load1',
-                'value': apache['Load1'],
-            }
-        )
-    if 'Load15' in apache:
-        table_values.append(
-            {
-                'key': 'Load5',
-                'value': apache['Load5'],
-            }
-        )
-    if 'Load15' in apache:
-        table_values.append(
-            {
-                'key': 'Load15',
-                'value': apache['Load15'],
-            }
-        )
-    if 'Processes' in apache:
-        table_values.append(
-            {
-                'key': 'Processes',
-                'value': apache['Processes'],
-            }
-        )
-    if 'Stopping' in apache:
-        table_values.append(
-            {
-                'key': '  Stopping',
-                'value': apache['Stopping'],
-            }
-        )
-    table_values.append(
-        {
-            'key': 'Workers Total',
-            'value': apache['TotalWorkers'],
-        }
-    )
-    table_values.append(
-        {
-            'key': '  Busy',
-            'value': apache['BusyWorkers'],
-        }
-    )
-    table_values.append(
-        {
-            'key': '  Idle',
-            'value': apache['IdleWorkers'],
-        }
-    )
-    table_values.append(
-        {
-            'key': '  Usage (%)',
-            'value': str(apache['WorkerUsagePercentage'])
-            + lib.base.state2str(state, prefix=' '),
-        }
-    )
-    if 'ParentServerConfigGeneration' in apache:
-        table_values.append(
-            {
-                'key': 'Parent Server ConfigGeneration',
-                'value': apache['ParentServerConfigGeneration'],
-            }
-        )
-    if 'ParentServerMPMGeneration' in apache:
-        table_values.append(
-            {
-                'key': 'Parent Server MPMGeneration',
-                'value': apache['ParentServerMPMGeneration'],
-            }
-        )
-    table_values.append(
-        {
-            'key': 'Server Name',
-            'value': apache['ServerName'],
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Server MPM',
-            'value': apache['ServerMPM'],
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Server Version',
-            'value': apache['ServerVersion'],
-        }
-    )
-    table_values.append(
-        {
-            'key': 'Server Built',
-            'value': apache['Server Built'],
-        }
+    msg += '\n\n' + lib.base.get_table(
+        table_data,
+        ['flag', 'state', 'slots', 'usage'],
+        header=['Flag', 'Worker State', 'Slots', 'Usage'],
     )
 
-    msg = msg + '\n\n'
+    # Everything mod_status reports beyond the scoreboard, as a second table. This is
+    # the deployment's own record of what it is running and how it is behaving, and an
+    # admin reading a check result wants all of it, so none of it hides behind a
+    # verbosity switch.
+    details = []
 
-    # build the message
-    msg += lib.base.get_table(
-        table_values,
+    def detail(key, value, indent=0):
+        """Append one row, skipping a value the server did not report."""
+        if value is not None:
+            details.append({'key': '  ' * indent + key, 'value': value})
+
+    detail('Server Name', server_name or None)
+    detail('Server Version', data.get('ServerVersion'))
+    detail('Server MPM', data.get('ServerMPM'))
+    detail('Server Built', data.get('Server Built'))
+    detail('Current Time', data.get('CurrentTime'))
+    detail('Restart Time', data.get('RestartTime'))
+    detail(
+        'Uptime', lib.human.seconds2human(int(uptime)) if uptime is not None else None
+    )
+    detail('Parent Server ConfigGeneration', data.get('ParentServerConfigGeneration'))
+    detail('Parent Server MPMGeneration', data.get('ParentServerMPMGeneration'))
+
+    if rates is not None:
+        detail('Requests', f'{round(rates["accesses"], 1)}/s')
+        detail('Traffic', f'{lib.human.bytes2human(rates["bytes"])}/s')
+        if 'duration' in rates and rates['accesses'] > 0:
+            detail(
+                'Request Duration',
+                f'{round(rates["duration"] / rates["accesses"], 1)}ms mean',
+            )
+        if 'cpu' in rates:
+            detail('CPU Usage', f'{round(rates["cpu"] / 10, 2)}%')
+    for key in CPU_KEYS:
+        if key in data:
+            # Seconds since the last restart, kept as a plain number so it compares
+            # directly against the CPU time a process viewer reports. float() also
+            # normalises httpd's leading-dot notation ('.03') into something an admin
+            # reads as a number.
+            detail(key, f'{float(data[key])}s', indent=1)
+
+    detail('Connections', data.get('ConnsTotal'))
+    detail('Async Wait I/O', data.get('ConnsAsyncWaitIO'), indent=1)
+    detail('Async Writing', data.get('ConnsAsyncWriting'), indent=1)
+    detail('Async KeepAlive', data.get('ConnsAsyncKeepAlive'), indent=1)
+    detail('Async Closing', data.get('ConnsAsyncClosing'), indent=1)
+
+    detail('Processes', data.get('Processes'))
+    detail('Stopping', data.get('Stopping'), indent=1)
+
+    detail('Workers Total', slots)
+    detail('Occupied', f'{occupied} ({occupied_percent}%)', indent=1)
+    detail('Busy', data.get('BusyWorkers'), indent=1)
+    detail('Graceful', data.get('GracefulWorkers'), indent=1)
+    detail('Idle', data.get('IdleWorkers'), indent=1)
+
+    if 'Load1' in data:
+        detail(
+            'System Load',
+            f'whole machine, {cpu_count} CPUs' if cpu_count else 'whole machine, raw',
+        )
+        for key in ['Load1', 'Load5', 'Load15']:
+            raw = data.get(key)
+            if raw is None:
+                continue
+            value = raw
+            if cpu_count:
+                value = f'{raw} ({float(raw) / cpu_count:.2f} per CPU)'
+            detail(key, value, indent=1)
+
+    # A single newline: get_table() already ends its output with one, so the usual
+    # '\n\n' would leave two blank lines between the two tables instead of one.
+    msg += '\n' + lib.base.get_table(
+        details,
         ['key', 'value'],
         header=['Key', 'Value'],
         strip=False,
