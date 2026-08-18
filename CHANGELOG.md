@@ -33,6 +33,9 @@ Monitoring Plugins:
 Icinga Director:
 
 * the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
+* the Basic Service Sets also report excluded and pinned packages, so a host carrying a repository exclude or an APT pin goes WARNING
+* the Basic Service Sets no longer report a version lock on the monitoring plugins packages themselves
+* the Needs Restarting service runs hourly instead of once a day
 
 Grafana:
 

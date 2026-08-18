@@ -1264,6 +1264,10 @@ If you want to create a Service Set, edit `assets/icingaweb2-module-director/all
 
 If you want to move a service from one Service Set to another, you have to create a new UUID for the new service (this isn't even possible in the Icinga Director GUI).
 
+A `$` inside a variable value is macro syntax to Icinga 2 and has to be doubled. A regular expression such as `^linuxfabrik-monitoring-plugins$` has to be written `^linuxfabrik-monitoring-plugins$$` in the JSON, otherwise config validation fails with "Closing $ not found in macro format string" and rejects the whole deployment, not just that service. The plugin receives the single `$` after Icinga resolves the value.
+
+To make an exception for a single host, override the variable on that host's service instead of editing the Service Set (the Director renders every Service Set service with `import DirectorOverrideTemplate`, which merges `host.vars._override_servicevars["<service name>"]` over the values from the set). Editing the set itself changes every host carrying the tag.
+
 
 ### README Structure
 
