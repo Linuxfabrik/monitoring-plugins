@@ -18,6 +18,10 @@ Monitoring Plugins:
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account and the file permissions of a local NGINX installation
 
+Icinga Director:
+
+* the Huawei Dorado Service Set contains the storage pool check
+
 Documentation:
 
 * PLUGINS-FILE.md covers what the file-\* checks have in common, including what to do when a check cannot read a file
