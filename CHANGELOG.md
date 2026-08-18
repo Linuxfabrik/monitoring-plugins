@@ -53,6 +53,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* disk-usage: the warning and critical lines in the graphs stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 
 Build, CI/CD:

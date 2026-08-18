@@ -315,6 +315,26 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ["'/-usage'=32212254720B;64424509440;85899345920;0;107374182400"],
     },
+    {
+        'id': 'warn-perfdata-absolute-free-threshold-clamps-warn-line-only',
+        'test': 'stdout/single-root-nominal,,0',
+        # 150G/50G FREE on a 100 GiB /: only the warn line inverts, the crit
+        # line stays a real byte value. Pinning must not touch the crit line.
+        'params': '--match=/$ --warning=150GFREE --critical=50GFREE',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'/-usage'=32212254720B;0;53687091200;0;107374182400"],
+    },
+    {
+        'id': 'crit-perfdata-absolute-free-threshold-larger-than-filesystem',
+        'test': 'stdout/two-mounts-root-and-boot,,0',
+        # 10G/5G FREE on a 1 GiB /boot: total-threshold is negative, so the
+        # lines are pinned to 0 instead of being drawn off the chart. /boot
+        # alerts because it can never have 5 GiB free.
+        'params': '--warning=10GFREE --critical=5GFREE',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'/boot-usage'=314572800B;0;0;0;1073741824"],
+        'assert-not-in': [';-'],
+    },
     # Windows drive letters: the override matches `C:\` whether the user types
     # `C`, `C:` or `C:\`. The windows-drives fixture has C:\ (89.4%) and
     # D:\ (9.3%); without --mount both are OK (below the global 90%).

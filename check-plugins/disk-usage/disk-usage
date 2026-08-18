@@ -43,7 +43,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026081801'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
@@ -377,14 +377,19 @@ def _perfdata_thresholds(usage, threshold):
       the limit).
     - an absolute (byte) threshold drives the `-usage` field (used bytes);
       `USED` puts the line at `number` bytes, `FREE` at `total - number` bytes.
+
+    A `FREE` threshold larger than the filesystem itself (`5GFREE` on a 1 GiB
+    `/boot`) inverts to a negative line, which no graphing tool can draw. Such a
+    filesystem alerts no matter how little is used, so the line is pinned to 0:
+    every byte of usage is on the alerting side of it.
     """
     number, unit, method = threshold
     if unit == '%':
         percent_limit = float(number) if method == 'USED' else 100.0 - float(number)
-        return percent_limit, None
+        return max(percent_limit, 0.0), None
     limit_bytes = lib.human.human2bytes(''.join(threshold[:2]))
     usage_limit = limit_bytes if method == 'USED' else usage.total - limit_bytes
-    return None, usage_limit
+    return None, max(usage_limit, 0)
 
 
 def evaluate_disk_state(usage, warn, crit):
