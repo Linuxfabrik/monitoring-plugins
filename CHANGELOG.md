@@ -60,6 +60,10 @@ Monitoring Plugins:
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
 
+Icinga Director:
+
+* the Huawei Dorado Service Set runs all of its checks again, six of its services shared one name and only one of them was deployed
+
 Build, CI/CD:
 
 * the SELinux policy loads on RHEL 10 again, on fully updated hosts as well as on those still on the initial release
