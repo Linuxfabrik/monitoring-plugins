@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, and the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory. Every value is read back from the running installation rather than from a configuration file, so a path left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, or when a file or directory the server relies on can be modified by somebody other than root. Individual checks can be excluded with `--ignore`. Supports extended reporting via `--lengthy`. Requires root or sudo.
+Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, and the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory. Every value is read back from the running installation rather than from a configuration file, so a path left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, or when a file or directory the server relies on can be modified by somebody other than root. Individual checks can be excluded with `--ignore`. Requires root or sudo.
 
 The checks follow the "Minimize Apache Modules" and "Principles, Permissions, and Ownership" chapters of the CIS Apache HTTP Server 2.4 Benchmark.
 
@@ -14,7 +14,7 @@ The checks follow the "Minimize Apache Modules" and "Principles, Permissions, an
 * Requires root or sudo. Both `httpd` and `apachectl` refuse to parse the configuration as an unprivileged account, because they create the runtime directory while doing so.
 * The check re-parses the configuration from disk. A change that has been written but not reloaded is therefore reported as if it were already in force. The worker account is the exception: it is additionally compared against the accounts the running processes actually use.
 * The module checks report what CIS recommends disabling. A module a site knowingly needs is excluded with `--ignore`, for example `--ignore=^Status module$` on a host whose monitoring reads `mod_status`. The check still lists everything else.
-* A check that finds more than three modules names the first three and counts the rest. `--lengthy` prints the full list.
+* A check that finds more than three modules names the first three and counts the rest. The `Detail` column carries the full list.
 * The ownership and permission checks cover the configuration files the server itself reports reading, plus the runtime directories it resolves. They do not walk the whole installation tree, which would be both slow and unbounded.
 * The benchmark treats the core dump, lock, process ID and scoreboard file checks as ones an auditor confirms rather than as fully automatable. This check does the legwork and reports what it found; the judgement stays with the operator.
 * A scoreboard file that is not configured at all is compliant, and reported as such.
@@ -45,7 +45,7 @@ The binary is probed automatically: `httpd` first, which covers the Red Hat and 
 
 ```text
 usage: apache-httpd-security [-h] [-V] [--always-ok] [--brief]
-                             [--command COMMAND] [--ignore IGNORE] [--lengthy]
+                             [--command COMMAND] [--ignore IGNORE]
                              [--match MATCH]
                              [--no-match-severity {ok,warn,crit,unknown}]
                              [--no-perfdata] [--severity {warn,crit}]
@@ -62,8 +62,7 @@ maps to a copy-pasteable recommendation. Alerts when a module widens the
 attack surface without being needed, when the worker account is not a
 dedicated unprivileged system account, or when a file or directory the server
 relies on can be modified by somebody other than root. Individual checks can
-be excluded with --ignore. Supports extended reporting via --lengthy. Requires
-root or sudo.
+be excluded with --ignore. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -84,7 +83,6 @@ options:
                         default; use `(?i)` for case-insensitive matching. Can
                         be specified multiple times. Example:
                         `--ignore=^Status module$`
-  --lengthy             Extended reporting.
   --match MATCH         Only report the checks whose name matches this Python
                         regex. Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
@@ -153,10 +151,10 @@ sudo ./apache-httpd-security --brief --ignore=^Status
 6 of 15 checks failed.
 ```
 
-A host whose worker account and runtime paths are wrong, with `--lengthy` for the reasoning:
+A host whose worker account and runtime paths are wrong. The `Detail` column carries the reasoning:
 
 ```bash
-sudo ./apache-httpd-security --brief --lengthy
+sudo ./apache-httpd-security --brief
 ```
 
 ```text

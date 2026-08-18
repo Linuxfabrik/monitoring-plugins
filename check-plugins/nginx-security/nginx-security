@@ -42,11 +42,10 @@ ID file. Every path is taken from the values the binary itself reports, so a set
 its compiled-in default is checked just like one written into the configuration. Each finding
 maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack
 surface without being needed, when the worker account is privileged or can be logged into, or
-when a file the server relies on is readable or writable beyond root. Individual checks can be
-excluded with --ignore. Supports extended reporting via --lengthy. Requires root or sudo."""
+when a file the server relies on is readable or writable beyond root. Individual
+checks can be excluded with --ignore. Requires root or sudo."""
 
 DEFAULT_BRIEF = False
-DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
@@ -159,14 +158,6 @@ def parse_args():
         dest='IGNORE',
         action='append',
         default=None,
-    )
-
-    parser.add_argument(
-        '--lengthy',
-        help=lib.args.help('--lengthy'),
-        dest='LENGTHY',
-        action='store_true',
-        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -912,8 +903,7 @@ def main():
                 else lib.base.state2str(item_state, empty_ok=False)
             ),
         }
-        if args.LENGTHY:
-            row['detail'] = detail
+        row['detail'] = detail
         table_data.append(row)
 
     # every check was filtered out, so there is nothing to report on
@@ -956,12 +946,8 @@ def main():
 
     # build table output
     if table_data:
-        if args.LENGTHY:
-            keys = ['title', 'result', 'detail', 'state']
-            headers = ['Check', 'Result', 'Detail', 'State']
-        else:
-            keys = ['title', 'result', 'state']
-            headers = ['Check', 'Result', 'State']
+        keys = ['title', 'result', 'detail', 'state']
+        headers = ['Check', 'Result', 'Detail', 'State']
         sections.append(lib.base.get_table(table_data, keys, header=headers))
 
     msg = '\n\n'.join(sections)

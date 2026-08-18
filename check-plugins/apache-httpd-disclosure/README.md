@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks how much an Apache httpd server discloses about itself in its HTTP responses: the product and version banner in the `Server` response header, the server signature footer on generated error pages, and inode numbers leaked through `ETag` response headers. Every finding is measured on the response the server actually sends, so a value overridden further down the configuration or by a reverse proxy is reported as it reaches a client rather than as it is written in a configuration file. Each finding maps to a copy-pasteable configuration recommendation. Alerts when the server discloses its version, its signature or an inode number. Supports extended reporting via `--lengthy`.
+Checks how much an Apache httpd server discloses about itself in its HTTP responses: the product and version banner in the `Server` response header, the server signature footer on generated error pages, and inode numbers leaked through `ETag` response headers. Every finding is measured on the response the server actually sends, so a value overridden further down the configuration or by a reverse proxy is reported as it reaches a client rather than as it is written in a configuration file. Each finding maps to a copy-pasteable configuration recommendation. Alerts when the server discloses its version, its signature or an inode number.
 
 The checks follow the "Information Leakage" chapter of the CIS Apache HTTP Server 2.4 Benchmark. The `X-Powered-By` check has no counterpart there and is carried out anyway, because a forwarded backend header discloses the application stack just as effectively as the server banner does.
 
@@ -40,7 +40,7 @@ Two HTTP requests per run: one for the probe path, whose generated error page ca
 
 ```text
 usage: apache-httpd-disclosure [-h] [-V] [--always-ok] [--insecure]
-                               [--lengthy] [--no-perfdata] [--no-proxy]
+                               [--no-perfdata] [--no-proxy]
                                [--severity {warn,crit}] [--timeout TIMEOUT]
                                [--url URL]
 
@@ -52,7 +52,7 @@ server actually sends, so a value overridden further down the configuration or
 by a reverse proxy is reported as it reaches a client rather than as it is
 written in a configuration file. Each finding maps to a copy-pasteable
 configuration recommendation. Alerts when the server discloses its version,
-its signature or an inode number. Supports extended reporting via --lengthy.
+its signature or an inode number.
 
 options:
   -h, --help            show this help message and exit
@@ -60,7 +60,6 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --lengthy             Extended reporting.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -101,10 +100,10 @@ ETag inode       ! no `ETag` response header        ! [OK]
 Backend headers  ! no backend headers               ! [OK]
 ```
 
-The same server with `--lengthy`, which explains every result:
+The `Detail` column explains every result:
 
 ```bash
-./apache-httpd-disclosure --url=https://www.example.com --lengthy
+./apache-httpd-disclosure --url=https://www.example.com
 ```
 
 ```text

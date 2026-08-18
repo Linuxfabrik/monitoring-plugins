@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, and the ownership and permissions of the configuration directory and the process ID file. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, or when a file the server relies on is readable or writable beyond root. Individual checks can be excluded with `--ignore`. Supports extended reporting via `--lengthy`. Requires root or sudo.
+Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, and the ownership and permissions of the configuration directory and the process ID file. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, or when a file the server relies on is readable or writable beyond root. Individual checks can be excluded with `--ignore`. Requires root or sudo.
 
 The checks follow the "Minimize NGINX Modules" and "Permissions and Ownership" controls of the CIS NGINX Benchmark.
 
@@ -42,7 +42,7 @@ Symbolic links are followed, the way the benchmark's own audit does. A configura
 
 ```text
 usage: nginx-security [-h] [-V] [--always-ok] [--brief] [--command COMMAND]
-                      [--ignore IGNORE] [--lengthy] [--match MATCH]
+                      [--ignore IGNORE] [--match MATCH]
                       [--no-match-severity {ok,warn,crit,unknown}]
                       [--no-perfdata] [--severity {warn,crit}]
                       [--timeout TIMEOUT]
@@ -57,7 +57,7 @@ a copy-pasteable recommendation. Alerts when a dynamic module widens the
 attack surface without being needed, when the worker account is privileged or
 can be logged into, or when a file the server relies on is readable or
 writable beyond root. Individual checks can be excluded with --ignore.
-Supports extended reporting via --lengthy. Requires root or sudo.
+Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -77,7 +77,6 @@ options:
                         service needs. Case-sensitive by default; use `(?i)`
                         for case-insensitive matching. Can be specified
                         multiple times. Example: `--ignore=^Dynamic modules$`
-  --lengthy             Extended reporting.
   --match MATCH         Only report the checks whose name matches this Python
                         regex. Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
@@ -110,7 +109,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-security/
 A stock installation. The account side is clean out of the box, the configuration tree carries the distribution defaults:
 
 ```bash
-sudo ./nginx-security --lengthy
+sudo ./nginx-security
 ```
 
 ```text
@@ -143,7 +142,7 @@ Everything is ok. All 5 checks passed.
 A host whose worker runs as root, whose account can be logged into, and whose configuration anybody may rewrite:
 
 ```bash
-sudo ./nginx-security --brief --lengthy
+sudo ./nginx-security --brief
 ```
 
 ```text
@@ -194,7 +193,7 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
 
 ### The configuration tree check fails on a fresh installation
 
-Expected. Every distribution ships `0644` for files and `0755` for directories, while the benchmark wants `0640` and `0750`. Tighten the tree, or exclude the check with `--ignore=^Config tree access$`. Look at the `--lengthy` detail first: world-**writable** is a defect worth fixing on any system, world-**readable** is the hardening target.
+Expected. Every distribution ships `0644` for files and `0755` for directories, while the benchmark wants `0640` and `0750`. Tighten the tree, or exclude the check with `--ignore=^Config tree access$`. Look at the `Detail` column first: world-**writable** is a defect worth fixing on any system, world-**readable** is the hardening target.
 
 ### The modules directory keeps being reported after `chmod -R o= /etc/nginx`
 

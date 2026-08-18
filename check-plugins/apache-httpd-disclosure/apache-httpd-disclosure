@@ -31,7 +31,7 @@ headers. Every finding is measured on the response the server actually sends, so
 overridden further down the configuration or by a reverse proxy is reported as it reaches a
 client rather than as it is written in a configuration file. Each finding maps to a
 copy-pasteable configuration recommendation. Alerts when the server discloses its version,
-its signature or an inode number. Supports extended reporting via --lengthy."""
+its signature or an inode number."""
 
 # The checks follow the "Information Leakage" chapter of the CIS Apache HTTP
 # Server 2.4 Benchmark: the `Server` header, the server signature footer and
@@ -39,7 +39,6 @@ its signature or an inode number. Supports extended reporting via --lengthy."""
 # so the output does not age with the document.
 
 DEFAULT_INSECURE = False
-DEFAULT_LENGTHY = False
 DEFAULT_NO_PROXY = False
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
@@ -107,14 +106,6 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
-        '--lengthy',
-        help=lib.args.help('--lengthy'),
-        dest='LENGTHY',
-        action='store_true',
-        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -555,8 +546,7 @@ def main():
                 item_state, empty_ok=False
             ),
         }
-        if args.LENGTHY:
-            row['detail'] = detail
+        row['detail'] = detail
         table_data.append(row)
 
     # build the message
@@ -590,12 +580,8 @@ def main():
     )
 
     # build table output
-    if args.LENGTHY:
-        keys = ['title', 'result', 'detail', 'state']
-        headers = ['Check', 'Result', 'Detail', 'State']
-    else:
-        keys = ['title', 'result', 'state']
-        headers = ['Check', 'Result', 'State']
+    keys = ['title', 'result', 'detail', 'state']
+    headers = ['Check', 'Result', 'Detail', 'State']
     sections.append(lib.base.get_table(table_data, keys, header=headers))
 
     msg = '\n\n'.join(sections)

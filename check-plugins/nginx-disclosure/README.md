@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks how much an NGINX server discloses about itself and about the application behind it in its HTTP responses: the product and version banner in the `Server` response header, references to the server software in generated error pages, and headers an upstream application leaks through the proxy, such as `X-Powered-By`. Every finding is measured on the response the server actually sends, so a value overridden further down the configuration or by another proxy is reported as it reaches a client rather than as it is written in a configuration file. Each finding maps to a copy-pasteable configuration recommendation. Alerts when the server discloses its version, names itself on an error page, or forwards a header that identifies the backend. Supports extended reporting via `--lengthy`.
+Checks how much an NGINX server discloses about itself and about the application behind it in its HTTP responses: the product and version banner in the `Server` response header, references to the server software in generated error pages, and headers an upstream application leaks through the proxy, such as `X-Powered-By`. Every finding is measured on the response the server actually sends, so a value overridden further down the configuration or by another proxy is reported as it reaches a client rather than as it is written in a configuration file. Each finding maps to a copy-pasteable configuration recommendation. Alerts when the server discloses its version, names itself on an error page, or forwards a header that identifies the backend.
 
 The checks follow the information disclosure controls of the CIS NGINX Benchmark.
 
@@ -39,8 +39,8 @@ Two HTTP requests per run: one for the probe path, whose generated error page ca
 ## Help
 
 ```text
-usage: nginx-disclosure [-h] [-V] [--always-ok] [--insecure] [--lengthy]
-                        [--no-perfdata] [--no-proxy] [--severity {warn,crit}]
+usage: nginx-disclosure [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
+                        [--no-proxy] [--severity {warn,crit}]
                         [--timeout TIMEOUT] [--url URL]
 
 Checks how much an NGINX server discloses about itself and about the
@@ -52,8 +52,7 @@ actually sends, so a value overridden further down the configuration or by
 another proxy is reported as it reaches a client rather than as it is written
 in a configuration file. Each finding maps to a copy-pasteable configuration
 recommendation. Alerts when the server discloses its version, names itself on
-an error page, or forwards a header that identifies the backend. Supports
-extended reporting via --lengthy.
+an error page, or forwards a header that identifies the backend.
 
 options:
   -h, --help            show this help message and exit
@@ -61,7 +60,6 @@ options:
   --always-ok           Always returns OK.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --lengthy             Extended reporting.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -105,7 +103,7 @@ Backend headers ! no backend headers                      ! [OK]
 The same server after `server_tokens off`. The header is clean, the default error page still names the product:
 
 ```bash
-./nginx-disclosure --url=https://www.example.com --lengthy
+./nginx-disclosure --url=https://www.example.com
 ```
 
 ```text

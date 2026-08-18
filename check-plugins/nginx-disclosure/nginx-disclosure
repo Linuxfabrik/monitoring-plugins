@@ -32,8 +32,7 @@ measured on the response the server actually sends, so a value overridden furthe
 configuration or by another proxy is reported as it reaches a client rather than as it is
 written in a configuration file. Each finding maps to a copy-pasteable configuration
 recommendation. Alerts when the server discloses its version, names itself on an error page,
-or forwards a header that identifies the backend. Supports extended reporting via
---lengthy."""
+or forwards a header that identifies the backend."""
 
 # The checks follow the information disclosure controls of the CIS NGINX
 # Benchmark (v3.0.0): the `server_tokens` directive, the product name in the
@@ -42,7 +41,6 @@ or forwards a header that identifies the backend. Supports extended reporting vi
 # with the document.
 
 DEFAULT_INSECURE = False
-DEFAULT_LENGTHY = False
 DEFAULT_NO_PROXY = False
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
@@ -119,14 +117,6 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
-        '--lengthy',
-        help=lib.args.help('--lengthy'),
-        dest='LENGTHY',
-        action='store_true',
-        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -519,8 +509,7 @@ def main():
                 else lib.base.state2str(item_state, empty_ok=False)
             ),
         }
-        if args.LENGTHY:
-            row['detail'] = detail
+        row['detail'] = detail
         table_data.append(row)
 
     # build the message
@@ -554,12 +543,8 @@ def main():
     )
 
     # build table output
-    if args.LENGTHY:
-        keys = ['title', 'result', 'detail', 'state']
-        headers = ['Check', 'Result', 'Detail', 'State']
-    else:
-        keys = ['title', 'result', 'state']
-        headers = ['Check', 'Result', 'State']
+    keys = ['title', 'result', 'detail', 'state']
+    headers = ['Check', 'Result', 'Detail', 'State']
     sections.append(lib.base.get_table(table_data, keys, header=headers))
 
     msg = '\n\n'.join(sections)
