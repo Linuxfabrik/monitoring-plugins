@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026081801'
 
 DESCRIPTION = """Monitors Grassfish digital signage players via the Grassfish API. Lists players whose
 data transfer is overdue, whose last access exceeds the configured threshold, or who
@@ -35,7 +35,6 @@ Supports extended reporting via --lengthy."""
 
 DEFAULT_API_VERSION = '1.12'
 DEFAULT_BOX_STATE = ['activated']
-DEFAULT_CRIT = None
 DEFAULT_INSECURE = False
 DEFAULT_IS_INSTALLED = None
 DEFAULT_IS_LICENSED = None
@@ -497,28 +496,34 @@ def main():
         cnt['players'],
         _min=0,
     )
+    # Every one of these counters alerts from its first hit on, so the warn
+    # line sits at `0` (Nagios range: outside 0..0, i.e. greater than zero).
+    # None of them is bounded by --warning, which is a duration in hours.
     perfdata += lib.base.get_perfdata(
         'grassfish_play_unlicensed',
         cnt['unlicensed'],
+        warn='0',
         _min=0,
         _max=cnt['players'],
     )
     perfdata += lib.base.get_perfdata(
         'grassfish_play_transfer_overdue',
         cnt['transfer_overdue'],
-        crit=args.WARN,
+        warn='0',
         _min=0,
         _max=cnt['players'],
     )
     perfdata += lib.base.get_perfdata(
         'grassfish_play_access_overdue',
         cnt['access_overdue'],
+        warn='0',
         _min=0,
         _max=cnt['players'],
     )
     perfdata += lib.base.get_perfdata(
         'grassfish_play_warnings',
         cnt['warnings'],
+        warn='0',
         _min=0,
     )
 
