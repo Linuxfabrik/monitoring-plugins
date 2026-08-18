@@ -43,7 +43,7 @@ Written in Python, released into the public domain under the [UNLICENSE](https:/
 
 Full documentation is available at [linuxfabrik.github.io/monitoring-plugins](https://linuxfabrik.github.io/monitoring-plugins/). It is automatically built and deployed on every push to `main`.
 
-For a visual tour of what plugins look like in Icinga Web 2, see [POSTER.md](POSTER.md).
+For a visual tour of what plugins look like in Icinga Web 2, see [POSTER.md](https://linuxfabrik.github.io/monitoring-plugins/poster/).
 
 
 ## Try it Live
@@ -60,7 +60,11 @@ A public demo with the plugins wired into Icinga Web 2 and Grafana:
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
 ```
 
-**On Windows**, download [lfmp-latest.signed-packaged.windows.x86_64.zip](https://download.linuxfabrik.ch/monitoring-plugins/lfmp-latest.signed-packaged.windows.x86_64.zip), extract the signed MSI it contains and run it (double-click or `msiexec /i lfmp-*.msi /qn`).
+**On Windows**, install with the one-liner in an elevated PowerShell. It downloads the signed MSI, verifies its Authenticode signature and installs it silently:
+
+```powershell
+& ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1)))
+```
 
 Then run a plugin directly to verify it works, for example on Linux:
 
@@ -73,15 +77,15 @@ ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G|'cpu-usage'=5.1%;80;
 
 Every plugin supports `--help` and prints its version with `--version`.
 
-For more installation paths, see [INSTALL.md](INSTALL.md): the LFOps Ansible role for fleets (Linux and Windows), the source install for running the latest state in production, air-gapped and per-distribution setups, sudoers drop-ins and SELinux.
+For more installation paths, see [INSTALL.md](https://linuxfabrik.github.io/monitoring-plugins/install/): the LFOps Ansible role for fleets (Linux and Windows), the manual MSI download on Windows, reviewing the installer against its published sha256 checksum before running it, the source install for running the latest state in production, air-gapped and per-distribution setups, sudoers drop-ins and SELinux.
 
 Plugins that share setup steps:
 
-* [File plugins](PLUGINS-FILE.md)
-* [Keycloak plugins](PLUGINS-KEYCLOAK.md)
-* [MySQL / MariaDB plugins](PLUGINS-MYSQL.md)
-* [Rocket.Chat plugins](PLUGINS-ROCKETCHAT.md)
-* [WildFly / JBoss EAP plugins](PLUGINS-WILDFLY.md)
+* [File plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-file/)
+* [Keycloak plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/)
+* [MySQL / MariaDB plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
+* [Rocket.Chat plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-rocketchat/)
+* [WildFly / JBoss EAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-wildfly/)
 
 
 ## OS Compatibility
@@ -96,13 +100,13 @@ Plugins that share setup steps:
 
 Other Linux distributions run the plugins fine as long as Python 3.9 or newer is available; you just lose the pre-built native packages.
 
-[ROADMAP.md](ROADMAP.md) lists the date on which package builds for each release end, and which Python version that leaves as the minimum.
+[ROADMAP.md](https://linuxfabrik.github.io/monitoring-plugins/roadmap/) lists the date on which package builds for each release end, and which Python version that leaves as the minimum.
 
 
 ## Icinga, Grafana, Nagios
 
-* **Icinga Director**: import the shipped basket (Host Templates, Service Templates, ~150 Service Sets, Time Periods, Notifications). See [ICINGA.md](ICINGA.md).
-* **Grafana**: per-plugin dashboards under `check-plugins/<plugin>/grafana/`, provisioned with Grizzly today. See [GRAFANA.md](GRAFANA.md).
+* **Icinga Director**: import the shipped basket (Host Templates, Service Templates, ~150 Service Sets, Time Periods, Notifications). See [ICINGA.md](https://linuxfabrik.github.io/monitoring-plugins/icinga/).
+* **Grafana**: per-plugin dashboards under `check-plugins/<plugin>/grafana/`, provisioned with Grizzly today. See [GRAFANA.md](https://linuxfabrik.github.io/monitoring-plugins/grafana/).
 * **Plain Nagios, Naemon, Shinken, Sensu**: plugins emit standard Nagios plugin output and perfdata. Drop them into `/usr/lib64/nagios/plugins/` and reference them from your `command` definitions. Hosts, services and notifications stay in your existing configuration.
 
 
@@ -111,17 +115,17 @@ Other Linux distributions run the plugins fine as long as Python 3.9 or newer is
 
 ### Human-Readable Units
 
-Byte sizes use IEC (KiB, MiB, GiB, powers of 2) so values match what the shell shows. Large numbers, times, and bits-per-second follow their own conventions. The full unit reference is in [UNITS.md](UNITS.md).
+Byte sizes use IEC (KiB, MiB, GiB, powers of 2) so values match what the shell shows. Large numbers, times, and bits-per-second follow their own conventions. The full unit reference is in [UNITS.md](https://linuxfabrik.github.io/monitoring-plugins/units/).
 
 
 ### Thresholds and Ranges
 
-Where a check supports thresholds, `--warning` / `--critical` follow the [Nagios plugin format](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) (`start:end`, `~` for negative infinity, `@` to invert). The full threshold reference with examples is in [THRESHOLDS.md](THRESHOLDS.md).
+Where a check supports thresholds, `--warning` / `--critical` follow the [Nagios plugin format](https://nagios-plugins.org/doc/guidelines.html#THRESHOLDFORMAT) (`start:end`, `~` for negative infinity, `@` to invert). The full threshold reference with examples is in [THRESHOLDS.md](https://linuxfabrik.github.io/monitoring-plugins/thresholds/).
 
 
 ## Parameter Handling
 
-When you call a plugin directly from a shell, two things can trip you up. Through Icinga Director the rules are different (no `=` allowed, plus Icinga's own `$$` macro escaping); see the Parameter Handling section in [ICINGA.md](ICINGA.md).
+When you call a plugin directly from a shell, two things can trip you up. Through Icinga Director the rules are different (no `=` allowed, plus Icinga's own `$$` macro escaping); see the Parameter Handling section in [ICINGA.md](https://linuxfabrik.github.io/monitoring-plugins/icinga/).
 
 A value that starts with `-` is read by `argparse` as another option, so the plugin reports an unknown argument. Glue the value to its parameter instead of separating it with a space: long parameters as `./file-age --warning=-60:3600` (not `--warning -60:3600`), short parameters as `./file-age -w-60:3600`.
 
@@ -163,7 +167,7 @@ A: Many plugins support `--no-perfdata`, which suppresses the performance data s
 
 ## Troubleshooting
 
-For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](INSTALL.md). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](ICINGA.md).
+For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](https://linuxfabrik.github.io/monitoring-plugins/install/). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](https://linuxfabrik.github.io/monitoring-plugins/icinga/).
 
 Q: **A log-reading check (`logfile`, `mysql-logfile`, `openvpn-client-list`) exits UNKNOWN with "Refusing to read ...: resolved path is outside the allowed log directory". How do I monitor a log stored elsewhere?**
 
@@ -200,14 +204,14 @@ A: Depending on your signature versions or the healthiness of your signature cac
 1. [Submit an issue](https://github.com/Linuxfabrik/monitoring-plugins/issues/new/choose) (preferred).
 2. [Contact us](https://www.linuxfabrik.ch/en/contact) by email or web form and describe your problem.
 
-For vulnerabilities, follow the private disclosure process in [SECURITY.md](SECURITY.md).
+For vulnerabilities, follow the private disclosure process in [SECURITY.md](https://linuxfabrik.github.io/monitoring-plugins/security/).
 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for check-plugin developer guidelines, coding conventions, and the basket / Grafana deliverables. The [example plugin](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) is the reference skeleton.
+See [CONTRIBUTING.md](https://linuxfabrik.github.io/monitoring-plugins/contributing/) for check-plugin developer guidelines, coding conventions, and the basket / Grafana deliverables. The [example plugin](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/example/example) is the reference skeleton.
 
-Compiling and packaging (RPM, DEB, Windows MSI, Code Signing) is documented in [BUILD.md](BUILD.md). Helper scripts under `tools/` (basket generation, docs build, unit-test and linter runners) are described in [TOOLS.md](TOOLS.md).
+Compiling and packaging (RPM, DEB, Windows MSI, Code Signing) is documented in [BUILD.md](https://linuxfabrik.github.io/monitoring-plugins/build/). Helper scripts under `tools/` (basket generation, docs build, unit-test and linter runners) are described in [TOOLS.md](https://linuxfabrik.github.io/monitoring-plugins/tools/).
 
 
 ## Support the Project
@@ -217,8 +221,8 @@ Enterprise support, including an SLA and custom plugin development, is available
 If these plugins help you, consider a donation via
 [GitHub Sponsors](https://github.com/sponsors/Linuxfabrik) or
 [PayPal](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7AW3VVX62TR4A&source=url).
-Past sponsors are listed in [SPONSORS.md](SPONSORS.md); community quotes in
-[TESTIMONIALS.md](TESTIMONIALS.md). Sharing the project on social media, in
+Past sponsors are listed in [SPONSORS.md](https://linuxfabrik.github.io/monitoring-plugins/SPONSORS/); community quotes in
+[TESTIMONIALS.md](https://linuxfabrik.github.io/monitoring-plugins/testimonials/). Sharing the project on social media, in
 blog posts or via the [Show and tell category](https://github.com/Linuxfabrik/monitoring-plugins/discussions/categories/show-and-tell)
 on GitHub Discussions is always welcome.
 

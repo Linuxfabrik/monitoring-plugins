@@ -506,7 +506,8 @@ checksum and read it:
 ```powershell
 irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1 -OutFile install-monitoring-plugins.ps1
 irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1.sha256 -OutFile install-monitoring-plugins.ps1.sha256
-(Get-FileHash install-monitoring-plugins.ps1 -Algorithm SHA256).Hash   # compare against the .sha256
+$expected = (Get-Content install-monitoring-plugins.ps1.sha256).Split(' ')[0]
+if ((Get-FileHash install-monitoring-plugins.ps1 -Algorithm SHA256).Hash -eq $expected) { 'OK' } else { throw 'checksum mismatch' }
 Get-Content install-monitoring-plugins.ps1 | more
 ```
 
