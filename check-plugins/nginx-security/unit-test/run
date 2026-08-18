@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    # Stock nginx 1.30.4. The account side is clean out of the box; the
+    # configuration tree carries the distribution defaults 0644 and 0755, which
+    # the benchmark's hardening target does not accept.
+    {
+        'id': 'warn-stock-configuration-tree-is-world-readable',
+        'test': 'stdout/stock',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 7 checks failed.',
+            'nginx (uid 101)',
+            'Dedicated unprivileged system account.',
+            '9 paths readable by other.',
+            "'nginx_checks_failed'=1",
+        ],
+        'assert-not-in': ['path writable by other'],
+    },
+    # Everything below /etc/nginx tightened. What remains is the modules
+    # directory, which is a symlink whose target `chmod -R` never reaches.
+    {
+        'id': 'warn-hardened-tree-keeps-the-symlinked-modules-directory',
+        'test': 'stdout/hardened',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 of 9 paths', '1 path readable by other.'],
+    },
+    # The same host with the two account checks excluded, which is how a site
+    # accepts a finding it knows about.
+    {
+        'id': 'ok-hardened-without-the-tree-check',
+        'test': 'stdout/hardened',
+        'params': '--ignore=^Config',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. All 5 checks passed.'],
+    },
+    # Worker running as root, a member of a privileged group, an interactive
+    # shell, and a configuration file anybody may rewrite.
+    {
+        'id': 'warn-root-worker-and-writable-configuration',
+        'test': 'stdout/loose',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 7 checks failed.',
+            'root (uid 0)',
+            'runs as root',
+            'member of root',
+            'An interactive login shell.',
+            '1 path writable by other, 8 paths readable by other.',
+        ],
+    },
+    {
+        'id': 'crit-root-worker-with-severity-crit',
+        'test': 'stdout/loose',
+        'params': '--severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'ok-root-worker-with-always-ok',
+        'test': 'stdout/loose',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 of 7 checks failed.'],
+    },
+    # A password that can actually be used, as opposed to the "*" the
+    # distributions ship, which cannot.
+    {
+        'id': 'warn-account-carries-a-usable-password',
+        'test': 'stdout/usable-password',
+        'params': '--match=^Account --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'usable password',
+            'The account carries a password that can be used.',
+            '`passwd -l root`',
+        ],
+    },
+    # "*" is not a lock, but nothing can be logged in with either.
+    {
+        'id': 'ok-account-without-password-login',
+        'test': 'stdout/loose',
+        'params': '--match=^Account.locked --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no password login'],
+    },
+    # --brief drops the passing rows without changing the counts or the state.
+    {
+        'id': 'warn-brief-hides-passing-rows',
+        'test': 'stdout/loose',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['3 of 7 checks failed.', "'nginx_checks_evaluated'=7"],
+        'assert-not-in': ['[OK]'],
+    },
+    # Everything filtered out: report the configured severity, not a pass.
+    {
+        'id': 'ok-nothing-checked',
+        'test': 'stdout/stock',
+        'params': '--ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-nothing-checked-with-severity',
+        'test': 'stdout/stock',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nginx-security'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

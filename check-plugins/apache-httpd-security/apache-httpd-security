@@ -1,0 +1,1205 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import grp
+import os
+import pwd
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+try:
+    import psutil
+except ImportError:
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081801'
+
+DESCRIPTION = """Checks the local security posture of an Apache httpd installation: which
+modules the server has loaded, which account its worker processes run under, and the
+ownership and permissions of the configuration files, the process ID file, the lock file
+directory and the core dump directory. Every value is read back from the running
+installation rather than from a configuration file, so a path left at a compiled-in default
+and a directive overridden further down the configuration are both reported as they actually
+take effect. Each finding maps to a copy-pasteable recommendation. Alerts when a module
+widens the attack surface without being needed, when the worker account is not a dedicated
+unprivileged system account, or when a file or directory the server relies on can be
+modified by somebody other than root. Individual checks can be excluded with --ignore.
+Supports extended reporting via --lengthy. Requires root or sudo."""
+
+DEFAULT_BRIEF = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_TIMEOUT = 8
+DEFAULT_UID_MIN = 1000
+
+# The checks follow the "Minimize Apache Modules" and "Principles, Permissions,
+# and Ownership" chapters of the CIS Apache HTTP Server 2.4 Benchmark. The
+# benchmark numbering is deliberately not printed, so the output does not age
+# with the document.
+
+# Candidate binaries, in probe order. `httpd` covers the Red Hat and SUSE
+# families; on Debian and Ubuntu the binary is `apache2`, which refuses to parse
+# its own configuration unless the APACHE_* variables from /etc/apache2/envvars
+# are set, so the `apachectl` wrapper that sources them is the entry point there.
+# The reverse does not work: the Red Hat `apachectl` is a replacement script that
+# rejects `-S` and `-M` with "option is not supported".
+BINARY_CANDIDATES = ('httpd', 'apachectl')
+
+# Accounts that exist on practically every system and are shared by unrelated
+# daemons. CIS names nobody and daemon explicitly; the remaining entries are the
+# same idea under the names other distributions use.
+SHARED_ACCOUNTS = ('daemon', 'nfsnobody', 'nobody', 'nogroup')
+
+# Shells that cannot be used to log in. The benchmark names `/sbin/nologin` and
+# `/dev/null`; the remaining entries are the same two programs under the paths
+# other distributions install them at, plus `false`, which the NGINX benchmark
+# names for the identical control. An empty shell field is accepted for the same
+# reason: there is nothing to execute. Anything else is compared against
+# /etc/shells, which is the list of shells the system itself calls interactive.
+NOLOGIN_SHELLS = (
+    '',
+    '/bin/false',
+    '/bin/nologin',
+    '/dev/null',
+    '/sbin/nologin',
+    '/usr/bin/false',
+    '/usr/bin/nologin',
+    '/usr/sbin/nologin',
+)
+
+# Mutex mechanisms that place a lock file on disk, which is what turns the lock
+# file directory into something worth checking. Everything else (sem, pthread,
+# posixsem, sysvsem) keeps the mutex in memory.
+FILE_MUTEX_MECHANISMS = ('flock', 'fcntl', 'file')
+
+# "User: name="apache" id=48" and "Group: name="apache" id=48"
+ACCOUNT_REGEX = re.compile(
+    r'^(?P<kind>User|Group):\s+name="(?P<name>[^"]*)"\s+id=(?P<id>-?\d+)',
+)
+# "Mutex default: dir="/etc/httpd/run/" mechanism=default"
+# "Mutex watchdog-callback: using_defaults"
+MUTEX_REGEX = re.compile(
+    r'^Mutex\s+(?P<name>\S+):\s+(?P<body>.*)$',
+)
+MUTEX_DIR_REGEX = re.compile(r'dir="(?P<dir>[^"]*)"')
+MUTEX_MECHANISM_REGEX = re.compile(r'mechanism=(?P<mechanism>\S+)')
+# " autoindex_module (shared)"
+MODULE_REGEX = re.compile(r'^\s*(?P<module>\S+_module)\s+\((?:static|shared)\)')
+# "    (61) /etc/httpd/conf.modules.d/00-base.conf"
+INCLUDE_REGEX = re.compile(r'^\s*\((?:\*|\d+)\)\s+(?P<path>\S.*)$')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--command',
+        help='Path to the Apache httpd control binary. '
+        'Probed automatically if not given: `httpd` first, then `apachectl`. '
+        'Example: `--command=/usr/sbin/httpd`',
+        dest='COMMAND',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Any check whose name matches this Python regex will be dropped '
+        'from the report. '
+        'Use it for a finding the site knowingly accepts, for example the status '
+        'module on a host whose monitoring reads it. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore=^Status module$`',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only report the checks whose name matches this Python regex. '
+        + lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='State to report for a failed check. '
+        'One of `warn` or `crit`. '
+        'Default: %(default)s',
+        dest='SEVERITY',
+        choices=['warn', 'crit'],
+        default=DEFAULT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def find_binary(command):
+    """Return the Apache control binary to interrogate."""
+    if command:
+        if not os.path.isfile(command):
+            return (False, f'Command "{command}" not found.')
+        return (True, command)
+    for candidate in BINARY_CANDIDATES:
+        path = lib.shell.which(candidate)
+        if path:
+            return (True, path)
+    return (
+        False,
+        'Apache httpd does not seem to be installed: neither "httpd" nor '
+        '"apachectl" was found in PATH.',
+    )
+
+
+def run_binary(binary, cli_args, timeout):
+    """Run the Apache control binary and return its stdout.
+
+    A failing configuration test produces no output at all while still exiting
+    successfully on some builds, so an empty result is reported as an error
+    together with whatever the binary wrote to stderr.
+    """
+    success, result = lib.shell.shell_exec([binary, *cli_args], timeout=timeout)
+    if not success:
+        return (False, result)
+    stdout, stderr, _ = result
+    if not stdout.strip():
+        detail = stderr.strip().splitlines()
+        hint = detail[-1] if detail else 'no output'
+        return (
+            False,
+            f'"{os.path.basename(binary)} {" ".join(cli_args)}" returned nothing '
+            f'({hint}). The server configuration does not parse.',
+        )
+    return (True, stdout)
+
+
+def load_test_fixture(test_args, path):
+    """Return the content of one fixture file, or None if it does not exist."""
+    if not os.path.isfile(path):
+        return None
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    return stdout
+
+
+def parse_modules(stdout):
+    """Return the set of loaded module names from `httpd -M`."""
+    modules = set()
+    for line in stdout.splitlines():
+        match = MODULE_REGEX.match(line)
+        if match:
+            modules.add(match.group('module'))
+    return modules
+
+
+def parse_run_cfg(stdout):
+    """Return the resolved runtime settings from `httpd -S`.
+
+    These are effective values: a path the configuration never mentions is
+    reported here with the default the running server resolved it to.
+    """
+    result = {
+        'document_root': None,
+        'group': None,
+        'group_id': None,
+        'mutexes': [],
+        'pid_file': None,
+        'server_root': None,
+        'user': None,
+        'user_id': None,
+    }
+    for line in stdout.splitlines():
+        line = line.rstrip()
+        if line.startswith('ServerRoot:'):
+            result['server_root'] = line.partition(':')[2].strip().strip('"')
+        elif line.startswith('Main DocumentRoot:'):
+            result['document_root'] = line.partition(':')[2].strip().strip('"')
+        elif line.startswith('PidFile:'):
+            result['pid_file'] = line.partition(':')[2].strip().strip('"')
+        elif line.startswith('Mutex '):
+            match = MUTEX_REGEX.match(line)
+            if not match:
+                continue
+            body = match.group('body')
+            dir_match = MUTEX_DIR_REGEX.search(body)
+            mechanism_match = MUTEX_MECHANISM_REGEX.search(body)
+            result['mutexes'].append(
+                {
+                    'name': match.group('name'),
+                    'dir': dir_match.group('dir') if dir_match else None,
+                    'mechanism': (
+                        mechanism_match.group('mechanism') if mechanism_match else None
+                    ),
+                }
+            )
+        else:
+            match = ACCOUNT_REGEX.match(line)
+            if match:
+                kind = match.group('kind').lower()
+                result[kind] = match.group('name')
+                result[f'{kind}_id'] = int(match.group('id'))
+    return result
+
+
+def parse_includes(stdout):
+    """Return the configuration files the server reads, from `-D DUMP_INCLUDES`."""
+    paths = []
+    for line in stdout.splitlines():
+        match = INCLUDE_REGEX.match(line)
+        if match:
+            paths.append(match.group('path').strip())
+    return paths
+
+
+def parse_stat_fixture(stdout):
+    """Parse the stat stand-in used in test mode.
+
+    Git stores neither ownership nor the full permission bits, so a fixture tree
+    could not carry what these checks look at. One whitespace-separated line per
+    path instead: `<path> <owner> <group> <octal mode>`.
+    """
+    entries = {}
+    for line in stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 4:
+            continue
+        path, owner, group, mode = fields
+        entries[path] = {'owner': owner, 'group': group, 'mode': int(mode, 8)}
+    return entries
+
+
+def stat_path(path, stat_fixture):
+    """Return owner name, group name and permission bits of one path.
+
+    Returns None when the path does not exist, which several checks read as
+    "nothing to secure here".
+    """
+    if stat_fixture is not None:
+        return stat_fixture.get(path)
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return {
+        'owner': uid_to_name(info.st_uid),
+        'group': gid_to_name(info.st_gid),
+        'mode': stat.S_IMODE(info.st_mode),
+    }
+
+
+def uid_to_name(uid):
+    """Resolve a numeric user id, falling back to the number itself."""
+    try:
+        return pwd.getpwuid(uid).pw_name
+    except KeyError:
+        return str(uid)
+
+
+def gid_to_name(gid):
+    """Resolve a numeric group id, falling back to the number itself."""
+    try:
+        return grp.getgrgid(gid).gr_name
+    except KeyError:
+        return str(gid)
+
+
+def get_uid_min(account_fixture):
+    """Return UID_MIN, the boundary between system and regular accounts."""
+    if account_fixture is not None:
+        return account_fixture['uid_min']
+    try:
+        with open('/etc/login.defs', encoding='utf-8') as handle:
+            for line in handle:
+                if line.startswith('UID_MIN'):
+                    return int(line.split()[1])
+    except (OSError, IndexError, ValueError):
+        pass
+    return DEFAULT_UID_MIN
+
+
+def read_shadow_password(user):
+    """Return `(state, password)` for an account's shadow entry.
+
+    Read from the shadow database directly rather than through `passwd -S`,
+    whose output format differs between distributions. `state` tells the two
+    reasons for an absent value apart, because they mean different things to an
+    operator: `unreadable` is a missing privilege on this run, `missing` is an
+    account served by a directory service rather than by local files.
+    """
+    try:
+        with open('/etc/shadow', encoding='utf-8', errors='strict_or_latin1') as fh:
+            for line in fh:
+                fields = line.split(':')
+                if len(fields) > 1 and fields[0] == user:
+                    return ('found', fields[1])
+    except OSError:
+        return ('unreadable', None)
+    return ('missing', None)
+
+
+def read_login_shell(user):
+    """Return the login shell of an account, or None if it does not exist."""
+    try:
+        return pwd.getpwnam(user).pw_shell
+    except KeyError:
+        return None
+
+
+def read_interactive_shells():
+    """Return the shells the system itself lists as usable for logging in."""
+    shells = set()
+    try:
+        with open('/etc/shells', encoding='utf-8', errors='strict_or_latin1') as fh:
+            for line in fh:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    shells.add(line)
+    except OSError:
+        pass
+    return shells
+
+
+def check_account_shell(user, shell, interactive_shells, severity_state):
+    """The worker account must not have a shell anybody can log in with."""
+    if user is None or shell is None:
+        return (None, 'not evaluated', 'The account has no local entry.', None)
+    if shell in NOLOGIN_SHELLS or (
+        interactive_shells and shell not in interactive_shells
+    ):
+        return (STATE_OK, f'{user}: `{shell}`', 'Cannot be logged into.', None)
+    return (
+        severity_state,
+        f'{user}: `{shell}`',
+        'An interactive login shell.',
+        f'`chsh -s /sbin/nologin {user}`',
+    )
+
+
+def check_account_locked(user, state, shadow, severity_state):
+    """The worker account must not carry a usable password."""
+    if user is None:
+        return (None, 'not evaluated', 'The runtime dump named no user.', None)
+    if state == 'unreadable':
+        return (
+            None,
+            'not evaluated',
+            'The shadow database is not readable; run the check as root.',
+            None,
+        )
+    if state == 'missing':
+        return (
+            None,
+            'not evaluated',
+            f'`{user}` has no local shadow entry, so it is served elsewhere.',
+            None,
+        )
+    if shadow.startswith('!'):
+        return (STATE_OK, f'{user}: locked', 'The password is locked.', None)
+    if shadow.startswith('*'):
+        return (
+            STATE_OK,
+            f'{user}: no password login',
+            'No password can be used for this account.',
+            None,
+        )
+    if not shadow:
+        return (
+            severity_state,
+            f'{user}: no password at all',
+            'The account can be used without a password.',
+            f'`passwd -l {user}`',
+        )
+    return (
+        severity_state,
+        f'{user}: usable password',
+        'The account carries a password that can be used.',
+        f'`passwd -l {user}`',
+    )
+
+
+def own_mount_namespace():
+    """Return this process's mount namespace, or None where there is none."""
+    try:
+        return os.readlink('/proc/self/ns/mnt')
+    except OSError:
+        return None
+
+
+def get_worker_accounts(account_fixture):
+    """Return the account names the running Apache processes use.
+
+    A web server running in a container shows up in the host's process list
+    under a user id mapped into the host's range, which would be reported as a
+    stray account of the host's own installation. The mount namespace is what
+    separates the two reliably, so only processes sharing this one are counted.
+    """
+    if account_fixture is not None:
+        return account_fixture['processes']
+    namespace = own_mount_namespace()
+    accounts = []
+    for proc in psutil.process_iter(['name', 'pid', 'username']):
+        try:
+            if proc.info['name'] not in ('httpd', 'apache2'):
+                continue
+            if namespace is not None:
+                if os.readlink(f'/proc/{proc.info["pid"]}/ns/mnt') != namespace:
+                    continue
+            accounts.append(proc.info['username'])
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            continue
+    return accounts
+
+
+def parse_account_fixture(stdout):
+    """Parse the host account facts used in test mode.
+
+    `uid_min <n>` and one `process <account>` line per running Apache process.
+    """
+    result = {
+        'shadow': None,
+        'processes': [],
+        'shell': None,
+        'uid_min': DEFAULT_UID_MIN,
+    }
+    for line in stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            continue
+        if fields[0] == 'uid_min':
+            result['uid_min'] = int(fields[1])
+        elif fields[0] == 'process':
+            result['processes'].append(fields[1])
+        elif fields[0] in ('shadow', 'shell'):
+            result[fields[0]] = fields[1]
+    return result
+
+
+def parse_directive_fixture(stdout):
+    """Parse the directive stand-in used in test mode.
+
+    A fixture names the configuration files the server reads but cannot ship
+    their content, so the two directives `httpd -S` does not resolve are handed
+    over directly: one `<directive> <value>` line each.
+    """
+    directives = {}
+    for line in stdout.splitlines():
+        fields = line.split(None, 1)
+        if len(fields) != 2:
+            continue
+        directives[fields[0].lower()] = fields[1].strip().strip('"')
+    return directives
+
+
+def read_directive(config_paths, directive, directive_fixture):
+    """Return the last value a directive is given across the configuration files.
+
+    Only reached for the two directives that `httpd -S` does not resolve. Lines
+    are read in the order the server includes the files, so the last hit wins,
+    which is how Apache treats a directive repeated at server level.
+    """
+    if directive_fixture is not None:
+        return directive_fixture.get(directive.lower())
+    pattern = re.compile(rf'^\s*{directive}\s+(?P<value>\S+)', re.IGNORECASE)
+    value = None
+    for path in config_paths:
+        try:
+            with open(path, encoding='utf-8', errors='strict_or_latin1') as handle:
+                for line in handle:
+                    match = pattern.match(line)
+                    if match:
+                        value = match.group('value').strip('"')
+        except OSError:
+            continue
+    return value
+
+
+# How many module names the result column shows before it starts counting. The
+# proxy family alone is fourteen modules on a stock Red Hat install, and a table
+# cell is the wrong place for a list that long. Every name still reaches the
+# operator through the recommendation, which is prose and may run wide.
+MODULE_NAMES_IN_SUMMARY = 2
+
+
+def summarize_modules(loaded):
+    """Render a module list short enough to keep the table readable."""
+    if len(loaded) <= MODULE_NAMES_IN_SUMMARY:
+        return ', '.join(loaded)
+    shown = ', '.join(loaded[:MODULE_NAMES_IN_SUMMARY])
+    return f'{shown} and {len(loaded) - MODULE_NAMES_IN_SUMMARY} more'
+
+
+def check_module_absent(modules, names, subject, severity_state, remediation):
+    """Report a module group that the server should not have loaded."""
+    loaded = sorted(name for name in modules if any(re.search(n, name) for n in names))
+    if not loaded:
+        return (
+            STATE_OK,
+            f'{subject} not loaded',
+            'Not loaded, so not part of the attack surface.',
+            None,
+        )
+    return (
+        severity_state,
+        summarize_modules(loaded),
+        'Loaded, and reachable from any .htaccess.',
+        f'{remediation} Loaded: {", ".join(loaded)}.',
+    )
+
+
+def check_module_present(modules, name, subject, severity_state, remediation):
+    """Report a module that the server is expected to have loaded."""
+    if name in modules:
+        return (STATE_OK, f'{name} loaded', f'{subject} available.', None)
+    return (
+        severity_state,
+        f'{name} not loaded',
+        f'{subject} unavailable.',
+        remediation,
+    )
+
+
+def check_worker_account(run_cfg, uid_min, worker_accounts, severity_state):
+    """The workers must run under a dedicated unprivileged account."""
+    user = run_cfg['user']
+    user_id = run_cfg['user_id']
+    if user is None:
+        return (None, 'not evaluated', 'The runtime dump named no user.', None)
+
+    problems = []
+    if user_id == 0 or user == 'root':
+        problems.append('runs as root')
+    if user in SHARED_ACCOUNTS:
+        problems.append(f'`{user}` is a shared account')
+    if user_id is not None and user_id >= uid_min:
+        problems.append(f'uid {user_id} >= UID_MIN {uid_min}')
+    # Only the master process is allowed to stay root. Anything else means the
+    # workers never dropped privileges.
+    stray = sorted({a for a in worker_accounts if a not in (user, 'root', None)})
+    if stray:
+        problems.append(f'processes run as {", ".join(stray)}')
+
+    result = f'{user}:{run_cfg["group"]} (uid {user_id})'
+    if not problems:
+        return (
+            STATE_OK,
+            result,
+            'Dedicated unprivileged system account.',
+            None,
+        )
+    return (
+        severity_state,
+        result,
+        '; '.join(problems) + '.',
+        'Create a dedicated system account for the web server '
+        '(`groupadd -r apache; useradd apache -r -g apache -s /sbin/nologin`) '
+        'and point the `User` and `Group` directives at it.',
+    )
+
+
+def check_config_ownership(config_paths, stat_fixture, field, expected, severity_state):
+    """Configuration files belong to root."""
+    offenders = []
+    for path in config_paths:
+        info = stat_path(path, stat_fixture)
+        if info is None:
+            continue
+        if info[field] != expected:
+            offenders.append(f'{path} ({info[field]})')
+    if not offenders:
+        return (
+            STATE_OK,
+            f'{len(config_paths)} {lib.txt.pluralize("file", len(config_paths))}',
+            f'Every configuration file has {field} `{expected}`.',
+            None,
+        )
+    command = 'chown' if field == 'owner' else 'chgrp'
+    paths = ' '.join(o.split(' ')[0] for o in offenders)
+    return (
+        severity_state,
+        f'{len(offenders)} of {len(config_paths)} '
+        f'{lib.txt.pluralize("file", len(config_paths))}',
+        f'{len(offenders)} {lib.txt.pluralize("file", len(offenders))} '
+        f'with a foreign {field}.',
+        f'`{command} {expected} {paths}`',
+    )
+
+
+def check_config_other_write(config_paths, stat_fixture, severity_state):
+    """Nothing the server reads may be writable by other."""
+    offenders = []
+    for path in config_paths:
+        info = stat_path(path, stat_fixture)
+        if info is None:
+            continue
+        if info['mode'] & stat.S_IWOTH:
+            offenders.append(f'{path} ({info["mode"]:04o})')
+    if not offenders:
+        return (
+            STATE_OK,
+            f'{len(config_paths)} {lib.txt.pluralize("file", len(config_paths))}',
+            'No configuration file is writable by other.',
+            None,
+        )
+    paths = ' '.join(o.split(' ')[0] for o in offenders)
+    return (
+        severity_state,
+        f'{len(offenders)} of {len(config_paths)} '
+        f'{lib.txt.pluralize("file", len(config_paths))}',
+        f'{len(offenders)} {lib.txt.pluralize("file", len(offenders))} '
+        f'writable by other.',
+        f'`chmod o-w {paths}` (currently '
+        f'{", ".join(o.split(" ", 1)[1].strip("()") for o in offenders)})',
+    )
+
+
+def check_secured_directory(
+    path, document_root, stat_fixture, severity_state, subject, is_directory=False
+):
+    """Shared audit for every runtime path the server relies on.
+
+    The core dump directory, the lock file, the process ID file and the
+    scoreboard file raise the same three questions about the directory they
+    live in: is it outside the document root, is it owned by root, and can
+    anybody else write to it.
+
+    `CoreDumpDirectory` and the mutex location name a directory, while `PidFile`
+    and `ScoreBoardFile` name a file inside one, so the caller says which of the
+    two it is passing.
+    """
+    if path is None:
+        return (STATE_OK, 'not configured', f'No {subject} in use.', None)
+
+    if is_directory or path.endswith('/'):
+        directory = path
+    else:
+        directory = os.path.dirname(path) or path
+    directory = os.path.normpath(directory)
+    info = stat_path(directory, stat_fixture)
+    if info is None:
+        return (
+            None,
+            directory,
+            'The directory could not be read.',
+            None,
+        )
+
+    problems = []
+    if document_root and (
+        directory == os.path.normpath(document_root)
+        or directory.startswith(os.path.normpath(document_root) + os.sep)
+    ):
+        problems.append('inside the document root')
+    if info['owner'] != 'root':
+        problems.append(f'owned by `{info["owner"]}`')
+    if info['mode'] & (stat.S_IWGRP | stat.S_IWOTH):
+        problems.append(f'writable beyond its owner ({info["mode"]:04o})')
+
+    if not problems:
+        return (
+            STATE_OK,
+            directory,
+            'Root-owned, restricted, outside the document root.',
+            None,
+        )
+    return (
+        severity_state,
+        directory,
+        '; '.join(problems) + '.',
+        f'Move the {subject} to a root-owned directory outside the document root '
+        f'and run `chown root {directory}; chmod go-w {directory}`.',
+    )
+
+
+def check_mutex(run_cfg, document_root, stat_fixture, severity_state):
+    """A file-based mutex needs a secured lock file directory."""
+    file_mutexes = [
+        mutex
+        for mutex in run_cfg['mutexes']
+        if mutex['mechanism'] in FILE_MUTEX_MECHANISMS
+    ]
+    if not file_mutexes:
+        return (
+            STATE_OK,
+            'no file-based mutex',
+            'Held in memory, so there is no lock file to secure.',
+            None,
+        )
+    names = ', '.join(sorted(m['name'] for m in file_mutexes))
+    directories = sorted({m['dir'] for m in file_mutexes if m['dir']})
+    if not directories:
+        return (
+            severity_state,
+            names,
+            'A file-based mutex mechanism is in use but names no directory.',
+            'Set `Mutex default` to let the platform pick an in-memory mechanism.',
+        )
+    for directory in directories:
+        item_state, result, detail, recommendation = check_secured_directory(
+            directory,
+            document_root,
+            stat_fixture,
+            severity_state,
+            'lock file',
+            is_directory=True,
+        )
+        if item_state != STATE_OK:
+            return (item_state, f'{names} in {result}', detail, recommendation)
+    return (
+        STATE_OK,
+        f'{names} in {", ".join(directories)}',
+        'Root-owned and not writable by others.',
+        None,
+    )
+
+
+def collect_data(args):
+    """Gather every data source, live or from fixtures."""
+    if args.TEST is None:
+        binary = lib.base.coe(find_binary(args.COMMAND))
+        modules = lib.base.coe(run_binary(binary, ['-M'], args.TIMEOUT))
+        run_cfg = lib.base.coe(run_binary(binary, ['-S'], args.TIMEOUT))
+        includes = lib.base.coe(
+            run_binary(binary, ['-t', '-D', 'DUMP_INCLUDES'], args.TIMEOUT),
+        )
+        stat_fixture = None
+        account_fixture = None
+        directive_fixture = None
+    else:
+        base = args.TEST[0]
+        modules = load_test_fixture(args.TEST, f'{base}-modules')
+        run_cfg = load_test_fixture(args.TEST, f'{base}-runcfg')
+        includes = load_test_fixture(args.TEST, f'{base}-includes')
+        if modules is None or run_cfg is None or includes is None:
+            lib.base.cu(f'Fixtures for "{base}" not found.')
+        raw_stat = load_test_fixture(args.TEST, f'{base}-stat')
+        stat_fixture = parse_stat_fixture(raw_stat or '')
+        raw_account = load_test_fixture(args.TEST, f'{base}-account')
+        account_fixture = parse_account_fixture(raw_account or '')
+        raw_directives = load_test_fixture(args.TEST, f'{base}-directives')
+        directive_fixture = parse_directive_fixture(raw_directives or '')
+
+    return {
+        'account_fixture': account_fixture,
+        'directive_fixture': directive_fixture,
+        'includes': parse_includes(includes),
+        'modules': parse_modules(modules),
+        'run_cfg': parse_run_cfg(run_cfg),
+        'stat_fixture': stat_fixture,
+    }
+
+
+def build_checks(data, severity_state):
+    """Return the full list of (title, result) pairs."""
+    modules = data['modules']
+    run_cfg = data['run_cfg']
+    config_paths = data['includes']
+    stat_fixture = data['stat_fixture']
+    document_root = run_cfg['document_root']
+    uid_min = get_uid_min(data['account_fixture'])
+    worker_accounts = get_worker_accounts(data['account_fixture'])
+    user = run_cfg['user']
+    account_fixture = data['account_fixture']
+    if account_fixture is not None:
+        shell = account_fixture['shell']
+        shadow = account_fixture['shadow']
+        shadow_state = 'found' if shadow is not None else 'missing'
+        interactive_shells = set()
+    else:
+        shell = read_login_shell(user) if user else None
+        shadow_state, shadow = (
+            read_shadow_password(user) if user else ('missing', None)
+        )
+        interactive_shells = read_interactive_shells()
+
+    # The core dump directory and the scoreboard file are the only two values
+    # `httpd -S` does not resolve, so they are read from the configuration files
+    # the server itself named.
+    directive_fixture = data['directive_fixture']
+    core_dump_dir = read_directive(
+        config_paths, 'CoreDumpDirectory', directive_fixture
+    )
+    if core_dump_dir is None:
+        # "The default core dump directory is the ServerRoot directory."
+        core_dump_dir = run_cfg['server_root']
+    score_board_file = read_directive(
+        config_paths, 'ScoreBoardFile', directive_fixture
+    )
+
+    return [
+        (
+            'Log config module',
+            check_module_present(
+                modules,
+                'log_config_module',
+                'Request logging',
+                severity_state,
+                'Load `mod_log_config`; without it the server keeps no access log.',
+            ),
+        ),
+        (
+            'WebDAV modules',
+            check_module_absent(
+                modules,
+                [r'^dav_module$', r'^dav_\w+_module$'],
+                'WebDAV modules',
+                severity_state,
+                'Comment out the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and '
+                '`mod_dav_lock`.',
+            ),
+        ),
+        (
+            'Status module',
+            check_module_absent(
+                modules,
+                [r'^status_module$'],
+                'Status module',
+                severity_state,
+                'Comment out the `LoadModule` line for `mod_status`, or exclude '
+                'this check with `--ignore=^Status module$` if the module feeds '
+                'your monitoring.',
+            ),
+        ),
+        (
+            'Autoindex module',
+            check_module_absent(
+                modules,
+                [r'^autoindex_module$'],
+                'Autoindex module',
+                severity_state,
+                'Comment out the `LoadModule` line for `mod_autoindex` so a directory '
+                'without an index file stops listing its content.',
+            ),
+        ),
+        (
+            'Proxy modules',
+            check_module_absent(
+                modules,
+                [r'^proxy_\w*module$', r'^proxy_module$'],
+                'Proxy modules',
+                severity_state,
+                'Comment out the `LoadModule` lines for the `mod_proxy` family unless '
+                'the host really is a reverse proxy.',
+            ),
+        ),
+        (
+            'User directories module',
+            check_module_absent(
+                modules,
+                [r'^userdir_module$'],
+                'User directories module',
+                severity_state,
+                'Comment out the `LoadModule` line for `mod_userdir` so home '
+                'directories stop being served.',
+            ),
+        ),
+        (
+            'Info module',
+            check_module_absent(
+                modules,
+                [r'^info_module$'],
+                'Info module',
+                severity_state,
+                'Comment out the `LoadModule` line for `mod_info`; it exposes the '
+                'whole configuration, including credentials of other modules.',
+            ),
+        ),
+        (
+            'Basic and digest auth',
+            check_module_absent(
+                modules,
+                [r'^auth_basic_module$', r'^auth_digest_module$'],
+                'Basic and digest authentication modules',
+                severity_state,
+                'Comment out the `LoadModule` lines for `mod_auth_basic` and '
+                '`mod_auth_digest`.',
+            ),
+        ),
+        (
+            'Worker account',
+            check_worker_account(run_cfg, uid_min, worker_accounts, severity_state),
+        ),
+        (
+            'Account shell',
+            check_account_shell(user, shell, interactive_shells, severity_state),
+        ),
+        (
+            'Account locked',
+            check_account_locked(user, shadow_state, shadow, severity_state),
+        ),
+        (
+            'Config file owner',
+            check_config_ownership(
+                config_paths, stat_fixture, 'owner', 'root', severity_state
+            ),
+        ),
+        (
+            'Config file group',
+            check_config_ownership(
+                config_paths, stat_fixture, 'group', 'root', severity_state
+            ),
+        ),
+        (
+            'Config other write',
+            check_config_other_write(config_paths, stat_fixture, severity_state),
+        ),
+        (
+            'Core dump directory',
+            check_secured_directory(
+                core_dump_dir,
+                document_root,
+                stat_fixture,
+                severity_state,
+                'core dump directory',
+                is_directory=True,
+            ),
+        ),
+        (
+            'Lock file',
+            check_mutex(run_cfg, document_root, stat_fixture, severity_state),
+        ),
+        (
+            'Pid file',
+            check_secured_directory(
+                run_cfg['pid_file'],
+                document_root,
+                stat_fixture,
+                severity_state,
+                'process ID file',
+            ),
+        ),
+        (
+            'ScoreBoard file',
+            check_secured_directory(
+                score_board_file,
+                document_root,
+                stat_fixture,
+                severity_state,
+                'scoreboard file',
+            ),
+        ),
+    ]
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    data = collect_data(args)
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    sections = []
+    recommendations = []
+    table_data = []
+    severity_state = lib.base.str2state(args.SEVERITY)
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    failed = 0
+    evaluated = 0
+    for title, (item_state, result, detail, recommendation) in build_checks(
+        data, severity_state
+    ):
+        # --match (include) is applied first, then --ignore (exclude), so a
+        # check hit by --ignore is dropped even if it also matches --match.
+        if compiled_match and not any(item.search(title) for item in compiled_match):
+            continue
+        if any(item.search(title) for item in compiled_ignore):
+            continue
+
+        # `item_state` is None for a check that could not be carried out. Such a
+        # check must neither drive the overall state nor be counted as a pass.
+        if item_state is not None:
+            evaluated += 1
+            state = lib.base.get_worst(state, item_state)
+            if item_state != STATE_OK:
+                failed += 1
+                if recommendation:
+                    recommendations.append(f'{title}: {recommendation}')
+        if args.BRIEF and item_state == STATE_OK:
+            continue
+        row = {
+            'title': title,
+            'result': result,
+            'state': (
+                ''
+                if item_state is None
+                else lib.base.state2str(item_state, empty_ok=False)
+            ),
+        }
+        if args.LENGTHY:
+            row['detail'] = detail
+        table_data.append(row)
+
+    # every check was filtered out, so there is nothing to report on
+    if not evaluated:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    if failed:
+        sections.append(f'{failed} of {evaluated} checks failed.')
+    else:
+        sections.append(f'Everything is ok. All {evaluated} checks passed.')
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    perfdata += lib.base.get_perfdata(
+        'apache_httpd_checks_failed',
+        failed,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'apache_httpd_checks_evaluated',
+        evaluated,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'apache_httpd_modules_loaded',
+        len(data['modules']),
+        uom=None,
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = ['title', 'result', 'detail', 'state']
+            headers = ['Check', 'Result', 'Detail', 'State']
+        else:
+            keys = ['title', 'result', 'state']
+            headers = ['Check', 'Result', 'State']
+        sections.append(lib.base.get_table(table_data, keys, header=headers))
+
+    msg = '\n\n'.join(sections)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

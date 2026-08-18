@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    # Apache 2.4.62 on Rocky 9 with "ServerTokens Full", "ServerSignature On"
+    # and "FileETag INode MTime Size". All three checks fire.
+    {
+        'id': 'warn-everything-disclosed',
+        'test': 'stdout/leaky,,404',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 4 checks report disclosed information.',
+            'Set `ServerTokens Prod`',
+            'Set `ServerSignature Off`',
+            'Set `FileETag MTime Size`',
+            "'apache_httpd_disclosures'=3",
+        ],
+    },
+    {
+        'id': 'warn-everything-disclosed-lengthy',
+        'test': 'stdout/leaky,,404',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Discloses version and operating system.',
+            'Discloses the inode number `44bb856`.',
+        ],
+    },
+    # Same fixture, the operator wants to be paged for a disclosure.
+    {
+        'id': 'crit-everything-disclosed-with-severity-crit',
+        'test': 'stdout/leaky,,404',
+        'params': '--severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    # --always-ok must mask the state without changing the message.
+    {
+        'id': 'ok-everything-disclosed-with-always-ok',
+        'test': 'stdout/leaky,,404',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 of 4 checks report disclosed information.'],
+    },
+    # "ServerTokens Prod", "ServerSignature Off", "FileETag MTime Size".
+    {
+        'id': 'ok-hardened',
+        'test': 'stdout/hardened,,404',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Nothing disclosed in 4 checks.',
+            '`Server: Apache`',
+            "'apache_httpd_disclosures'=0",
+        ],
+        'assert-not-in': ['Recommendations:'],
+    },
+    # Distribution default: no signature, no inode, but the banner still names
+    # the version and the operating system.
+    {
+        'id': 'warn-distribution-default-banner',
+        'test': 'stdout/stock-rhel,,404',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 4 checks report disclosed information.',
+            '`Server: Apache/2.4.62 (Rocky Linux)`',
+        ],
+        'assert-not-in': ['Set `ServerSignature Off`'],
+    },
+    # "ServerTokens Minor" still discloses a version and therefore fails.
+    {
+        'id': 'warn-partial-version-banner',
+        'test': 'stdout/partial-version,,404',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['`Server: Apache/2.4`', 'Discloses a partial version.'],
+    },
+    # A reverse proxy in front of the server strips the banner entirely.
+    {
+        'id': 'ok-no-server-header',
+        'test': 'stdout/no-server-header,,404',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no `Server` response header'],
+    },
+    # The base URL does not answer (authentication, redirect, firewall), so the
+    # ETag cannot be read. That check must not count as a pass.
+    {
+        'id': 'ok-etag-not-evaluated',
+        'test': 'stdout/main-unreachable,,404',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Nothing disclosed in 3 checks. 1 not evaluated.',
+            'not evaluated',
+            "'apache_httpd_checks_evaluated'=3",
+        ],
+    },
+    # A reverse proxy answers the probe. Auditing it against Apache specifics
+    # would be a false all-clear for the instance behind it, so the check stops
+    # with the one line that tells the operator where to point it instead.
+    {
+        'id': 'unknown-answered-by-another-product',
+        'test': 'stdout/nginx-front,,404',
+        'params': '--lengthy',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'This URL is answered by nginx, not by Apache httpd.',
+            'Point `--url` at the Apache httpd instance you want to check.',
+        ],
+        'assert-not-in': [
+            'Set `ServerTokens Prod`',
+            'server_tokens',
+            'Check',
+            'ETag',
+        ],
+    },
+    # Seen in the wild: the header is set but its value names nothing, so there
+    # is no backend to disclose and no finding to report.
+    {
+        'id': 'ok-backend-header-with-placeholder-value',
+        'test': 'stdout/placeholder-header,,404',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Nothing disclosed in 4 checks.'],
+        'assert-not-in': ['x-powered-by'],
+    },
+    {
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist,,404',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../apache-httpd-disclosure'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

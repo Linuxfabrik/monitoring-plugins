@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    # Stock nginx with the default "server_tokens on": the banner names the
+    # version and the default error page names the product.
+    {
+        'id': 'warn-default-server-tokens-on',
+        'test': 'stdout/tokens-on,,404',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 of 3 checks report disclosed information.',
+            '`Server: nginx/1.30.4`',
+            'Set `server_tokens off;`',
+            'Point `error_page` at pages of your own',
+            "'nginx_disclosures'=2",
+        ],
+    },
+    # The interesting case: "server_tokens off" satisfies 2.5.1 but leaves the
+    # product name in the error page footer, so 2.5.2 still fires. That is why
+    # the benchmark keeps them as two separate controls.
+    {
+        'id': 'warn-server-tokens-off-still-names-product-in-error-page',
+        'test': 'stdout/tokens-off,,404',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 3 checks report disclosed information.',
+            '`Server: nginx`',
+            'Product token only, no version disclosed.',
+            '`nginx` on the probed error page',
+        ],
+        'assert-not-in': ['Set `server_tokens off;`'],
+    },
+    # An upstream application leaks its stack through the proxy.
+    {
+        'id': 'warn-backend-header-forwarded',
+        'test': 'stdout/backend-headers,,404',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '`x-powered-by: PHP/8.2.18`',
+            'proxy_hide_header X-Powered-By;',
+            'fastcgi_hide_header X-Powered-By;',
+        ],
+    },
+    {
+        'id': 'crit-backend-header-with-severity-crit',
+        'test': 'stdout/backend-headers,,404',
+        'params': '--severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'ok-backend-header-with-always-ok',
+        'test': 'stdout/backend-headers,,404',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['`x-powered-by: PHP/8.2.18`'],
+    },
+    # "server_tokens off" plus an error_page of one's own: nothing left to find.
+    {
+        'id': 'ok-custom-error-page',
+        'test': 'stdout/custom-error-page,,404',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Nothing disclosed in 3 checks.',
+            "'nginx_disclosures'=0",
+        ],
+        'assert-not-in': ['Recommendations:'],
+    },
+    # Another product answers the probe. Auditing it against NGINX specifics
+    # would be a false all-clear for the instance behind it, so the check stops
+    # with the one line that tells the operator where to point it instead.
+    {
+        'id': 'unknown-answered-by-another-product',
+        'test': 'stdout/apache-front,,404',
+        'params': '--lengthy',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'This URL is answered by apache, not by NGINX.',
+            'Point `--url` at the NGINX instance you want to check.',
+        ],
+        'assert-not-in': [
+            'Set `server_tokens off;`',
+            'ServerTokens',
+            'Check',
+            'Error page',
+        ],
+    },
+    {
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist,,404',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nginx-disclosure'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

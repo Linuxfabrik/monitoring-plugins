@@ -1,0 +1,381 @@
+{
+    "Command": {
+        "cmd-check-nginx-security": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nginx_security_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$nginx_security_brief$"
+                },
+                "--command": {
+                    "value": "$nginx_security_command$"
+                },
+                "--ignore": {
+                    "value": "$nginx_security_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$nginx_security_lengthy$"
+                },
+                "--match": {
+                    "value": "$nginx_security_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$nginx_security_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$nginx_security_no_perfdata$"
+                },
+                "--severity": {
+                    "value": "$nginx_security_severity$"
+                },
+                "--timeout": {
+                    "value": "$nginx_security_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/nginx-security",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nginx-security",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "c6a21798-786b-4ab8-9270-c8d36ecabc2f"
+        },
+        "cmd-check-nginx-security-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/nginx-security",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-nginx-security"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-nginx-security-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "c867dc97-e5c2-4ebe-bf67-d37d68d778be"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-nginx-security": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nginx-security",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nginx-security.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, and the ownership and permissions of the configuration directory and the process ID file. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, or when a file the server relies on is readable or writable beyond root. Individual checks can be excluded with --ignore. Supports extended reporting via --lengthy. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-security/",
+            "object_name": "tpl-service-nginx-security",
+            "object_type": "template",
+            "retry_interval": 3600,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "nginx_security_always_ok": false,
+                "nginx_security_brief": false,
+                "nginx_security_ignore": [],
+                "nginx_security_lengthy": false,
+                "nginx_security_match": [],
+                "nginx_security_no_match_severity": "ok",
+                "nginx_security_no_perfdata": false,
+                "nginx_security_severity": "warn",
+                "nginx_security_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "95dff1d5-53da-43c1-b7d5-fb7902253df1"
+        },
+        "tpl-service-nginx-security-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nginx-security-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-nginx-security"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-nginx-security-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b3c8b457-b1f4-4cb5-8e36-fb51d3391e8d"
+        }
+    },
+    "DataList": {
+        "nginx_security_no_match_severity_list": {
+            "list_name": "nginx_security_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "605df82c-b607-46b2-a998-06d9dc3df665"
+        },
+        "nginx_security_severity_list": {
+            "list_name": "nginx_security_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "945a171c-6461-40d0-aee1-ed855b32428b"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "nginx_security_always_ok",
+            "caption": "Nginx Security: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4b3a25ac-2066-4a0f-a5e9-c7f769a1e30e"
+        },
+        "2": {
+            "varname": "nginx_security_brief",
+            "caption": "Nginx Security: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "78a9bf6d-9af5-490d-9580-9dd78789a6b4"
+        },
+        "3": {
+            "varname": "nginx_security_command",
+            "caption": "Nginx Security: Command",
+            "description": "Path to the NGINX binary. Probed automatically in the PATH if not given. Example: `--command=/usr/local/nginx/sbin/nginx`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6e356180-c61b-4047-b5a1-aa6df1567110"
+        },
+        "4": {
+            "varname": "nginx_security_ignore",
+            "caption": "Nginx Security: Ignore",
+            "description": "Any check whose name matches this Python regex will be dropped from the report. Use it for a finding the site knowingly accepts, for example a dynamic module the service needs. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=^Dynamic modules$`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bc1ccae3-e6c1-4549-93c4-615ade690dbd"
+        },
+        "5": {
+            "varname": "nginx_security_lengthy",
+            "caption": "Nginx Security: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "05d18e3e-1eee-4e79-9708-c26e865d33a7"
+        },
+        "6": {
+            "varname": "nginx_security_match",
+            "caption": "Nginx Security: Match",
+            "description": "Only report the checks whose name matches this Python regex. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "19ee0e0a-5c10-4b8a-86ea-f314dc9e1f14"
+        },
+        "7": {
+            "varname": "nginx_security_no_match_severity",
+            "caption": "Nginx Security: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nginx_security_no_match_severity_list"
+            },
+            "uuid": "b17b604b-cde8-46c6-b830-c415e960645b"
+        },
+        "8": {
+            "varname": "nginx_security_no_perfdata",
+            "caption": "Nginx Security: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b39cb612-c7ca-431d-9f22-3bb48ba5e31d"
+        },
+        "9": {
+            "varname": "nginx_security_severity",
+            "caption": "Nginx Security: Severity",
+            "description": "State to report for a failed check. One of `warn` or `crit`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nginx_security_severity_list"
+            },
+            "uuid": "827d07ff-d9ca-4d8e-a74b-43eace77eb9b"
+        },
+        "10": {
+            "varname": "nginx_security_timeout",
+            "caption": "Nginx Security: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aabaedf3-f36e-4a39-abb9-49c98fe9bac8"
+        }
+    }
+}

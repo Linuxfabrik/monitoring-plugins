@@ -1,0 +1,15 @@
+---
+variants:
+  - linux
+  - sudo
+
+overwrites:
+  '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["check_interval"]': 86400
+  '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["retry_interval"]': 3600
+  # The Apache Service Sets ship the status check, which reads mod_status, so
+  # the module is present on purpose on every host that runs both. The pattern
+  # is anchored on the left only: a trailing "$" would reach Icinga's macro
+  # resolver as an unclosed macro delimiter.
+  '["ServiceTemplate"]["tpl-service-apache-httpd-security"]["vars"]["apache_httpd_security_ignore"]':
+    - '^Status module'

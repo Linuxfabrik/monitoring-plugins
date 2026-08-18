@@ -1,0 +1,288 @@
+{
+    "Command": {
+        "cmd-check-nginx-disclosure": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nginx_disclosure_always_ok$"
+                },
+                "--insecure": {
+                    "set_if": "$nginx_disclosure_insecure$"
+                },
+                "--lengthy": {
+                    "set_if": "$nginx_disclosure_lengthy$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$nginx_disclosure_no_perfdata$"
+                },
+                "--no-proxy": {
+                    "set_if": "$nginx_disclosure_no_proxy$"
+                },
+                "--severity": {
+                    "value": "$nginx_disclosure_severity$"
+                },
+                "--timeout": {
+                    "value": "$nginx_disclosure_timeout$"
+                },
+                "--url": {
+                    "value": "$nginx_disclosure_url$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/nginx-disclosure",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nginx-disclosure",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "d2655e09-173f-4fb9-b1ff-5a25ece49cb6"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-nginx-disclosure": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nginx-disclosure",
+            "check_interval": 3600,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nginx-disclosure.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks how much an NGINX server discloses about itself and about the application behind it in its HTTP responses: the product and version banner in the `Server` response header, references to the server software in generated error pages, and headers an upstream application leaks through the proxy, such as `X-Powered-By`. Every finding is measured on the response the server actually sends, so a value overridden further down the configuration or by another proxy is reported as it reaches a client rather than as it is written in a configuration file. Each finding maps to a copy-pasteable configuration recommendation. Alerts when the server discloses its version, names itself on an error page, or forwards a header that identifies the backend. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-disclosure/",
+            "object_name": "tpl-service-nginx-disclosure",
+            "object_type": "template",
+            "retry_interval": 900,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "nginx_disclosure_always_ok": false,
+                "nginx_disclosure_insecure": false,
+                "nginx_disclosure_lengthy": false,
+                "nginx_disclosure_no_perfdata": false,
+                "nginx_disclosure_no_proxy": false,
+                "nginx_disclosure_severity": "warn",
+                "nginx_disclosure_timeout": 8,
+                "nginx_disclosure_url": "http://localhost"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "e37f930e-6873-489c-a79c-073bb4d03cc5"
+        },
+        "tpl-service-nginx-disclosure-no-agent": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nginx-disclosure",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-nginx-disclosure"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-nginx-disclosure-no-agent",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": false,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "81561dd9-e9b1-4246-a4b5-fb111838278f"
+        }
+    },
+    "DataList": {
+        "nginx_disclosure_severity_list": {
+            "list_name": "nginx_disclosure_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "c827ac9f-269a-4675-b415-bc5a845cbe3a"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "nginx_disclosure_always_ok",
+            "caption": "Nginx Disclosure: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "90d11e02-4de6-438d-a69e-5e5e17bc06a7"
+        },
+        "2": {
+            "varname": "nginx_disclosure_insecure",
+            "caption": "Nginx Disclosure: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "87f05a37-addb-4db3-921a-db195f75d9d1"
+        },
+        "3": {
+            "varname": "nginx_disclosure_lengthy",
+            "caption": "Nginx Disclosure: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "05cb6e14-6059-42ef-a616-28a485a397e9"
+        },
+        "4": {
+            "varname": "nginx_disclosure_no_perfdata",
+            "caption": "Nginx Disclosure: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "71d3b1dd-5b3d-48e1-8fa6-a0274e44e41b"
+        },
+        "5": {
+            "varname": "nginx_disclosure_no_proxy",
+            "caption": "Nginx Disclosure: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a93942ac-8456-4962-ad6e-6bc9e789bf6e"
+        },
+        "6": {
+            "varname": "nginx_disclosure_severity",
+            "caption": "Nginx Disclosure: Severity",
+            "description": "State to report for a server that discloses information. One of `warn` or `crit`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nginx_disclosure_severity_list"
+            },
+            "uuid": "b54a3cf3-6b5f-4365-9136-e8b7674c18eb"
+        },
+        "7": {
+            "varname": "nginx_disclosure_timeout",
+            "caption": "Nginx Disclosure: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4648dca7-252d-4ffd-9197-7238b66c9cee"
+        },
+        "8": {
+            "varname": "nginx_disclosure_url",
+            "caption": "Nginx Disclosure: URL",
+            "description": "Base URL of the NGINX server to inspect. Example: `--url=https://www.example.com`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ee7e94e0-68d7-40b7-843f-8a99cb071829"
+        }
+    }
+}

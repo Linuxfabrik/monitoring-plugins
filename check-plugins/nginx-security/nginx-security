@@ -1,0 +1,979 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import grp
+import os
+import pwd
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+try:
+    import psutil
+except ImportError:
+    print('Python module "psutil" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026081801'
+
+DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
+modules it loads, which account its worker processes run under, whether that account can be
+logged into, and the ownership and permissions of the configuration directory and the process
+ID file. Every path is taken from the values the binary itself reports, so a setting left at
+its compiled-in default is checked just like one written into the configuration. Each finding
+maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack
+surface without being needed, when the worker account is privileged or can be logged into, or
+when a file the server relies on is readable or writable beyond root. Individual checks can be
+excluded with --ignore. Supports extended reporting via --lengthy. Requires root or sudo."""
+
+DEFAULT_BRIEF = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_TIMEOUT = 8
+DEFAULT_UID_MIN = 1000
+
+# The checks follow the "Minimize NGINX Modules" and "Permissions and Ownership"
+# controls of the CIS NGINX Benchmark (v3.0.0). The benchmark numbering is
+# deliberately not printed, so the output does not age with the document.
+
+# Candidate binaries, in probe order. Every distribution installs the same name,
+# unlike Apache, whose control wrapper differs between families.
+BINARY_CANDIDATES = ('nginx',)
+
+# Accounts that exist on practically every system and are shared by unrelated
+# daemons, so a web server dropping to one of them shares its reach.
+SHARED_ACCOUNTS = ('daemon', 'nfsnobody', 'nobody', 'nogroup')
+
+# Groups whose members can raise their privileges, which defeats the point of a
+# dedicated unprivileged worker account.
+PRIVILEGED_GROUPS = ('adm', 'root', 'sudo', 'wheel')
+
+# Shells that cannot be used to log in. The benchmark names `/sbin/nologin`,
+# `/bin/nologin` and `/bin/false`; the remaining entries are the same programs
+# under the paths other distributions install them at, plus `/dev/null`, which
+# the Apache benchmark names for the identical control. An empty shell field is
+# accepted for the same reason: there is nothing to execute. Anything else is
+# compared against /etc/shells, the list of shells the system itself calls
+# interactive.
+NOLOGIN_SHELLS = (
+    '',
+    '/bin/false',
+    '/bin/nologin',
+    '/dev/null',
+    '/sbin/nologin',
+    '/usr/bin/false',
+    '/usr/bin/nologin',
+    '/usr/sbin/nologin',
+)
+
+# The benchmark asks for no access at all beyond the owner and the group: files
+# at 0640 or tighter, directories at 0750 or tighter. Both come down to "no bit
+# set for other", which is what is matched here.
+OTHER_ACCESS_MASK = stat.S_IRWXO
+
+# The process ID file may be world readable but not world writable, and must
+# belong to root.
+PID_FILE_MAX_MODE = 0o644
+
+# "# configuration file /etc/nginx/nginx.conf:"
+CONFIG_FILE_REGEX = re.compile(r'^# configuration file (?P<path>.+):$')
+# "    load_module modules/ngx_http_geoip_module.so;"
+LOAD_MODULE_REGEX = re.compile(r'^\s*load_module\s+(?P<module>\S+?);')
+# "user  nginx;" and "user www-data www-data;"
+USER_DIRECTIVE_REGEX = re.compile(r'^\s*user\s+(?P<user>\S+?)(\s+(?P<group>\S+?))?;')
+# "pid        /run/nginx.pid;"
+PID_DIRECTIVE_REGEX = re.compile(r'^\s*pid\s+(?P<path>\S+?);')
+# "--conf-path=/etc/nginx/nginx.conf"
+CONFIGURE_ARG_REGEX = re.compile(r'--(?P<key>[a-z-]+)=(?P<value>\S+)')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--command',
+        help='Path to the NGINX binary. '
+        'Probed automatically in the PATH if not given. '
+        'Example: `--command=/usr/local/nginx/sbin/nginx`',
+        dest='COMMAND',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Any check whose name matches this Python regex will be dropped '
+        'from the report. '
+        'Use it for a finding the site knowingly accepts, for example a dynamic '
+        'module the service needs. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Example: `--ignore=^Dynamic modules$`',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only report the checks whose name matches this Python regex. '
+        + lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='State to report for a failed check. '
+        'One of `warn` or `crit`. '
+        'Default: %(default)s',
+        dest='SEVERITY',
+        choices=['warn', 'crit'],
+        default=DEFAULT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def find_binary(command):
+    """Return the NGINX binary to interrogate."""
+    if command:
+        if not os.path.isfile(command):
+            return (False, f'Command "{command}" not found.')
+        return (True, command)
+    for candidate in BINARY_CANDIDATES:
+        path = lib.shell.which(candidate)
+        if path:
+            return (True, path)
+    return (
+        False,
+        'NGINX does not seem to be installed: "nginx" was not found in PATH.',
+    )
+
+
+def run_binary(binary, cli_args, timeout, on_stderr=False):
+    """Run the NGINX binary and return the stream that carries its answer.
+
+    `nginx -V` writes to stderr while `nginx -T` writes to stdout, so the caller
+    says which one it wants. A configuration that does not parse produces no
+    dump at all, which is reported together with whatever the binary complained
+    about.
+    """
+    success, result = lib.shell.shell_exec([binary, *cli_args], timeout=timeout)
+    if not success:
+        return (False, result)
+    stdout, stderr, _ = result
+    wanted = stderr if on_stderr else stdout
+    if not wanted.strip():
+        detail = (stdout if on_stderr else stderr).strip().splitlines()
+        hint = detail[-1] if detail else 'no output'
+        return (
+            False,
+            f'"{os.path.basename(binary)} {" ".join(cli_args)}" returned nothing '
+            f'({hint}). The server configuration does not parse.',
+        )
+    return (True, wanted)
+
+
+def load_test_fixture(test_args, path):
+    """Return the content of one fixture file, or None if it does not exist."""
+    if not os.path.isfile(path):
+        return None
+    test_args[0] = path
+    stdout, _, _ = lib.lftest.test(test_args)
+    return stdout
+
+
+def parse_configure_args(stdout):
+    """Return the compile-time paths and accounts from `nginx -V`.
+
+    These are the effective values for everything the configuration does not
+    override, so they are what a check falls back to rather than a guess.
+    """
+    result = {}
+    for match in CONFIGURE_ARG_REGEX.finditer(stdout):
+        result[match.group('key')] = match.group('value')
+    return result
+
+
+def parse_dump(stdout):
+    """Return the configuration files, dynamic modules and directives.
+
+    `nginx -T` prints the whole parsed configuration, every included file behind
+    its own marker, so one call answers which files the server reads and what
+    they say.
+    """
+    result = {'files': [], 'group': None, 'modules': [], 'pid': None, 'user': None}
+    for line in stdout.splitlines():
+        match = CONFIG_FILE_REGEX.match(line)
+        if match:
+            result['files'].append(match.group('path').strip())
+            continue
+        match = LOAD_MODULE_REGEX.match(line)
+        if match:
+            result['modules'].append(match.group('module').strip('"\''))
+            continue
+        match = USER_DIRECTIVE_REGEX.match(line)
+        if match:
+            result['user'] = match.group('user')
+            result['group'] = match.group('group')
+            continue
+        match = PID_DIRECTIVE_REGEX.match(line)
+        if match:
+            result['pid'] = match.group('path')
+    return result
+
+
+def parse_stat_fixture(stdout):
+    """Parse the stat stand-in used in test mode.
+
+    Git stores neither ownership nor the full permission bits, so a fixture tree
+    could not carry what these checks look at. One whitespace-separated line per
+    path instead: `<path> <owner> <group> <octal mode> <type>`, where type is
+    `f` or `d`.
+    """
+    entries = {}
+    for line in stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 5:
+            continue
+        path, owner, group, mode, kind = fields
+        entries[path] = {
+            'group': group,
+            'is_dir': kind == 'd',
+            'mode': int(mode, 8),
+            'owner': owner,
+        }
+    return entries
+
+
+def parse_account_fixture(stdout):
+    """Parse the host account facts used in test mode."""
+    result = {
+        'groups': [],
+        'shadow': None,
+        'processes': [],
+        'shell': None,
+        'uid': None,
+        'uid_min': DEFAULT_UID_MIN,
+    }
+    for line in stdout.splitlines():
+        fields = line.split(None, 1)
+        if len(fields) != 2:
+            continue
+        key, value = fields
+        if key == 'uid_min':
+            result['uid_min'] = int(value)
+        elif key == 'uid':
+            result['uid'] = int(value)
+        elif key == 'process':
+            result['processes'].append(value)
+        elif key == 'group':
+            result['groups'].append(value)
+        elif key in ('shadow', 'shell'):
+            result[key] = value
+    return result
+
+
+def uid_to_name(uid):
+    """Resolve a numeric user id, falling back to the number itself."""
+    try:
+        return pwd.getpwuid(uid).pw_name
+    except KeyError:
+        return str(uid)
+
+
+def gid_to_name(gid):
+    """Resolve a numeric group id, falling back to the number itself."""
+    try:
+        return grp.getgrgid(gid).gr_name
+    except KeyError:
+        return str(gid)
+
+
+def stat_path(path, stat_fixture):
+    """Return owner, group, permission bits and kind of one path."""
+    if stat_fixture is not None:
+        return stat_fixture.get(path)
+    try:
+        info = os.stat(path)
+    except OSError:
+        return None
+    return {
+        'group': gid_to_name(info.st_gid),
+        'is_dir': stat.S_ISDIR(info.st_mode),
+        'mode': stat.S_IMODE(info.st_mode),
+        'owner': uid_to_name(info.st_uid),
+    }
+
+
+def walk_config_tree(directory, stat_fixture):
+    """Return every path below the configuration directory, the directory first.
+
+    The benchmark audits the whole configuration directory rather than only the
+    files the server includes, because an unreferenced file there still leaks
+    what it contains.
+    """
+    if stat_fixture is not None:
+        prefix = directory.rstrip('/') + '/'
+        return sorted(
+            path
+            for path in stat_fixture
+            if path == directory or path.startswith(prefix)
+        )
+    paths = [directory]
+    for root, dirnames, filenames in os.walk(directory):
+        paths.extend(os.path.join(root, name) for name in dirnames)
+        paths.extend(os.path.join(root, name) for name in filenames)
+    return sorted(paths)
+
+
+def get_uid_min(account_fixture):
+    """Return UID_MIN, the boundary between system and regular accounts."""
+    if account_fixture is not None:
+        return account_fixture['uid_min']
+    try:
+        with open('/etc/login.defs', encoding='utf-8') as handle:
+            for line in handle:
+                if line.startswith('UID_MIN'):
+                    return int(line.split()[1])
+    except (OSError, IndexError, ValueError):
+        pass
+    return DEFAULT_UID_MIN
+
+
+def own_mount_namespace():
+    """Return this process's mount namespace, or None where there is none."""
+    try:
+        return os.readlink('/proc/self/ns/mnt')
+    except OSError:
+        return None
+
+
+def get_worker_accounts(account_fixture):
+    """Return the account names the running NGINX processes use.
+
+    A web server running in a container shows up in the host's process list
+    under a user id mapped into the host's range, which would be reported as a
+    stray account of the host's own installation. The mount namespace is what
+    separates the two reliably, so only processes sharing this one are counted.
+    """
+    if account_fixture is not None:
+        return account_fixture['processes']
+    namespace = own_mount_namespace()
+    accounts = []
+    for proc in psutil.process_iter(['name', 'pid', 'username']):
+        try:
+            if proc.info['name'] != 'nginx':
+                continue
+            if namespace is not None:
+                if os.readlink(f'/proc/{proc.info["pid"]}/ns/mnt') != namespace:
+                    continue
+            accounts.append(proc.info['username'])
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+            continue
+    return accounts
+
+
+def read_account(user, account_fixture):
+    """Return uid, groups, shell and shadow state of the worker account."""
+    if account_fixture is not None:
+        return {
+            'groups': account_fixture['groups'],
+            'shadow': account_fixture['shadow'],
+            'shadow_state': (
+                'found' if account_fixture['shadow'] is not None else 'missing'
+            ),
+            'shell': account_fixture['shell'],
+            'uid': account_fixture['uid'],
+        }
+    try:
+        entry = pwd.getpwnam(user)
+    except (KeyError, TypeError):
+        return None
+    groups = [g.gr_name for g in grp.getgrall() if user in g.gr_mem]
+    try:
+        groups.append(grp.getgrgid(entry.pw_gid).gr_name)
+    except KeyError:
+        pass
+    shadow_state, shadow = read_shadow_password(user)
+    return {
+        'groups': sorted(set(groups)),
+        'shadow': shadow,
+        'shadow_state': shadow_state,
+        'shell': entry.pw_shell,
+        'uid': entry.pw_uid,
+    }
+
+
+def read_shadow_password(user):
+    """Return `(state, password)` for an account's shadow entry.
+
+    Read from the shadow database directly rather than through `passwd -S`,
+    whose output format differs between distributions. `state` tells the two
+    reasons for an absent value apart, because they mean different things to an
+    operator: `unreadable` is a missing privilege on this run, `missing` is an
+    account served by a directory service rather than by local files.
+    """
+    try:
+        with open('/etc/shadow', encoding='utf-8', errors='strict_or_latin1') as fh:
+            for line in fh:
+                fields = line.split(':')
+                if len(fields) > 1 and fields[0] == user:
+                    return ('found', fields[1])
+    except OSError:
+        return ('unreadable', None)
+    return ('missing', None)
+
+
+def read_interactive_shells():
+    """Return the shells the system itself lists as usable for logging in."""
+    shells = set()
+    try:
+        with open('/etc/shells', encoding='utf-8', errors='strict_or_latin1') as fh:
+            for line in fh:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    shells.add(line)
+    except OSError:
+        pass
+    return shells
+
+
+def check_dynamic_modules(modules, severity_state):
+    """Only the dynamic modules the service really needs should be loaded."""
+    if not modules:
+        return (
+            STATE_OK,
+            'none loaded',
+            'No dynamic module adds to the attack surface.',
+            None,
+        )
+    names = sorted(os.path.basename(m) for m in modules)
+    return (
+        severity_state,
+        f'{len(names)} loaded',
+        'Each one has to be needed by the service.',
+        f'Drop the `load_module` line of every module the service does not need, '
+        f'or exclude this check with `--ignore=^Dynamic modules$` once you have '
+        f'confirmed them. Loaded: {", ".join(names)}.',
+    )
+
+
+def check_worker_account(user, account, uid_min, worker_accounts, severity_state):
+    """The workers must run under a dedicated unprivileged account."""
+    if user is None:
+        return (
+            severity_state,
+            'no `user` directive',
+            'Without it the server falls back to the account it was built with.',
+            'Set `user nginx;` in the main context and create that account as a '
+            'system account.',
+        )
+    if account is None:
+        return (
+            None,
+            user,
+            f'`{user}` has no account entry on this host.',
+            None,
+        )
+
+    problems = []
+    if account['uid'] == 0:
+        problems.append('runs as root')
+    if user in SHARED_ACCOUNTS:
+        problems.append(f'`{user}` is a shared account')
+    if account['uid'] is not None and account['uid'] >= uid_min:
+        problems.append(f'uid {account["uid"]} >= UID_MIN {uid_min}')
+    privileged = sorted(set(account['groups']) & set(PRIVILEGED_GROUPS))
+    if privileged:
+        problems.append(f'member of {", ".join(privileged)}')
+    # Only the master process is allowed to stay root. Anything else means the
+    # workers never dropped privileges.
+    stray = sorted({a for a in worker_accounts if a not in (user, 'root', None)})
+    if stray:
+        problems.append(f'processes run as {", ".join(stray)}')
+
+    result = f'{user} (uid {account["uid"]})'
+    if not problems:
+        return (STATE_OK, result, 'Dedicated unprivileged system account.', None)
+    return (
+        severity_state,
+        result,
+        '; '.join(problems) + '.',
+        'Create a dedicated system account for the web server '
+        '(`useradd --system --shell /sbin/nologin nginx`), keep it out of '
+        'privileged groups, and point the `user` directive at it.',
+    )
+
+
+def check_account_shell(user, account, interactive_shells, severity_state):
+    """The worker account must not have a shell anybody can log in with."""
+    if user is None or account is None:
+        return (None, 'not evaluated', 'The account has no local entry.', None)
+    shell = account['shell']
+    if shell in NOLOGIN_SHELLS or (
+        interactive_shells and shell not in interactive_shells
+    ):
+        return (STATE_OK, f'{user}: `{shell}`', 'Cannot be logged into.', None)
+    return (
+        severity_state,
+        f'{user}: `{shell}`',
+        'An interactive login shell.',
+        f'`usermod -s /sbin/nologin {user}`',
+    )
+
+
+def check_account_locked(user, account, severity_state):
+    """The worker account must not carry a usable password."""
+    if user is None or account is None:
+        return (None, 'not evaluated', 'The account has no local entry.', None)
+    state = account['shadow_state']
+    if state == 'unreadable':
+        return (
+            None,
+            'not evaluated',
+            'The shadow database is not readable; run the check as root.',
+            None,
+        )
+    if state == 'missing':
+        return (
+            None,
+            'not evaluated',
+            f'`{user}` has no local shadow entry, so it is served elsewhere.',
+            None,
+        )
+    shadow = account['shadow']
+    if shadow.startswith('!'):
+        return (STATE_OK, f'{user}: locked', 'The password is locked.', None)
+    if shadow.startswith('*'):
+        return (
+            STATE_OK,
+            f'{user}: no password login',
+            'No password can be used for this account.',
+            None,
+        )
+    if not shadow:
+        return (
+            severity_state,
+            f'{user}: no password at all',
+            'The account can be used without a password.',
+            f'`passwd -l {user}`',
+        )
+    return (
+        severity_state,
+        f'{user}: usable password',
+        'The account carries a password that can be used.',
+        f'`passwd -l {user}`',
+    )
+
+
+def check_tree_ownership(paths, stat_fixture, severity_state):
+    """Everything below the configuration directory belongs to root:root."""
+    offenders = []
+    for path in paths:
+        info = stat_path(path, stat_fixture)
+        if info is None:
+            continue
+        if info['owner'] != 'root' or info['group'] != 'root':
+            offenders.append(f'{path} ({info["owner"]}:{info["group"]})')
+    if not offenders:
+        return (
+            STATE_OK,
+            f'{len(paths)} {lib.txt.pluralize("path", len(paths))}',
+            'Everything belongs to `root:root`.',
+            None,
+        )
+    return (
+        severity_state,
+        f'{len(offenders)} of {len(paths)} {lib.txt.pluralize("path", len(paths))}',
+        f'{len(offenders)} {lib.txt.pluralize("path", len(offenders))} '
+        f'with a foreign owner or group.',
+        f'`chown root:root {" ".join(o.split(" ")[0] for o in offenders)}` '
+        f'(currently {", ".join(offenders)})',
+    )
+
+
+def check_tree_access(paths, stat_fixture, severity_state):
+    """Nothing below the configuration directory is reachable by other.
+
+    World-writable and world-readable are reported apart, because they are not
+    the same kind of problem. A configuration anybody may rewrite is a defect on
+    any system; a configuration anybody may read is the benchmark's hardening
+    target, which every distribution default (0644 and 0755) misses.
+    """
+    writable = []
+    readable = []
+    for path in paths:
+        info = stat_path(path, stat_fixture)
+        if info is None:
+            continue
+        if info['mode'] & stat.S_IWOTH:
+            writable.append(f'{path} ({info["mode"]:04o})')
+        elif info['mode'] & OTHER_ACCESS_MASK:
+            readable.append(f'{path} ({info["mode"]:04o})')
+    offenders = writable + readable
+    if not offenders:
+        return (
+            STATE_OK,
+            f'{len(paths)} {lib.txt.pluralize("path", len(paths))}',
+            'Nothing is reachable by other.',
+            None,
+        )
+    detail = []
+    if writable:
+        detail.append(
+            f'{len(writable)} {lib.txt.pluralize("path", len(writable))} '
+            f'writable by other'
+        )
+    if readable:
+        detail.append(
+            f'{len(readable)} {lib.txt.pluralize("path", len(readable))} '
+            f'readable by other'
+        )
+    return (
+        severity_state,
+        f'{len(offenders)} of {len(paths)} {lib.txt.pluralize("path", len(paths))}',
+        ', '.join(detail) + '.',
+        f'`chmod o= {" ".join(o.split(" ")[0] for o in offenders)}` '
+        f'(currently {", ".join(offenders)})',
+    )
+
+
+def check_pid_file(path, stat_fixture, severity_state):
+    """The process ID file belongs to root and is not writable by anybody else."""
+    if path is None:
+        return (None, 'not evaluated', 'No process ID file path is known.', None)
+    info = stat_path(path, stat_fixture)
+    if info is None:
+        return (
+            None,
+            path,
+            'The file does not exist; the server is probably not running.',
+            None,
+        )
+    problems = []
+    if info['owner'] != 'root' or info['group'] != 'root':
+        problems.append(f'owned by `{info["owner"]}:{info["group"]}`')
+    if info['mode'] & ~PID_FILE_MAX_MODE:
+        problems.append(f'mode {info["mode"]:04o} is wider than 0644')
+    if not problems:
+        return (
+            STATE_OK,
+            f'{path} ({info["mode"]:04o})',
+            'Owned by `root:root` and not writable by others.',
+            None,
+        )
+    return (
+        severity_state,
+        f'{path} ({info["mode"]:04o})',
+        '; '.join(problems) + '.',
+        f'`chown root:root {path}; chmod 644 {path}`',
+    )
+
+
+def collect_data(args):
+    """Gather every data source, live or from fixtures."""
+    if args.TEST is None:
+        binary = lib.base.coe(find_binary(args.COMMAND))
+        configure = lib.base.coe(
+            run_binary(binary, ['-V'], args.TIMEOUT, on_stderr=True),
+        )
+        dump = lib.base.coe(run_binary(binary, ['-T'], args.TIMEOUT))
+        stat_fixture = None
+        account_fixture = None
+    else:
+        base = args.TEST[0]
+        configure = load_test_fixture(args.TEST, f'{base}-configure')
+        dump = load_test_fixture(args.TEST, f'{base}-dump')
+        if configure is None or dump is None:
+            lib.base.cu(f'Fixtures for "{base}" not found.')
+        raw_stat = load_test_fixture(args.TEST, f'{base}-stat')
+        stat_fixture = parse_stat_fixture(raw_stat or '')
+        raw_account = load_test_fixture(args.TEST, f'{base}-account')
+        account_fixture = parse_account_fixture(raw_account or '')
+
+    return {
+        'account_fixture': account_fixture,
+        'configure': parse_configure_args(configure),
+        'dump': parse_dump(dump),
+        'stat_fixture': stat_fixture,
+    }
+
+
+def build_checks(data, severity_state):
+    """Return the full list of (title, result) pairs."""
+    configure = data['configure']
+    dump = data['dump']
+    stat_fixture = data['stat_fixture']
+    account_fixture = data['account_fixture']
+
+    # Everything the configuration leaves out falls back to what the binary was
+    # built with, which is the value actually in force.
+    user = dump['user'] or configure.get('user')
+    pid_path = dump['pid'] or configure.get('pid-path')
+    conf_path = configure.get('conf-path') or (
+        dump['files'][0] if dump['files'] else None
+    )
+    config_dir = os.path.dirname(conf_path) if conf_path else None
+
+    uid_min = get_uid_min(account_fixture)
+    worker_accounts = get_worker_accounts(account_fixture)
+    account = read_account(user, account_fixture) if user else None
+    interactive_shells = set() if account_fixture is not None else (
+        read_interactive_shells()
+    )
+    paths = walk_config_tree(config_dir, stat_fixture) if config_dir else []
+
+    return [
+        (
+            'Dynamic modules',
+            check_dynamic_modules(dump['modules'], severity_state),
+        ),
+        (
+            'Worker account',
+            check_worker_account(
+                user, account, uid_min, worker_accounts, severity_state
+            ),
+        ),
+        (
+            'Account shell',
+            check_account_shell(user, account, interactive_shells, severity_state),
+        ),
+        (
+            'Account locked',
+            check_account_locked(user, account, severity_state),
+        ),
+        (
+            'Config tree owner',
+            check_tree_ownership(paths, stat_fixture, severity_state),
+        ),
+        (
+            'Config tree access',
+            check_tree_access(paths, stat_fixture, severity_state),
+        ),
+        (
+            'Pid file',
+            check_pid_file(pid_path, stat_fixture, severity_state),
+        ),
+    ]
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    data = collect_data(args)
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    sections = []
+    recommendations = []
+    table_data = []
+    severity_state = lib.base.str2state(args.SEVERITY)
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    failed = 0
+    evaluated = 0
+    for title, (item_state, result, detail, recommendation) in build_checks(
+        data, severity_state
+    ):
+        # --match (include) is applied first, then --ignore (exclude), so a
+        # check hit by --ignore is dropped even if it also matches --match.
+        if compiled_match and not any(item.search(title) for item in compiled_match):
+            continue
+        if any(item.search(title) for item in compiled_ignore):
+            continue
+
+        # `item_state` is None for a check that could not be carried out. Such a
+        # check must neither drive the overall state nor be counted as a pass.
+        if item_state is not None:
+            evaluated += 1
+            state = lib.base.get_worst(state, item_state)
+            if item_state != STATE_OK:
+                failed += 1
+                if recommendation:
+                    recommendations.append(f'{title}: {recommendation}')
+        if args.BRIEF and item_state == STATE_OK:
+            continue
+        row = {
+            'title': title,
+            'result': result,
+            'state': (
+                ''
+                if item_state is None
+                else lib.base.state2str(item_state, empty_ok=False)
+            ),
+        }
+        if args.LENGTHY:
+            row['detail'] = detail
+        table_data.append(row)
+
+    # every check was filtered out, so there is nothing to report on
+    if not evaluated:
+        lib.base.oao(
+            'Nothing checked.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    if failed:
+        sections.append(f'{failed} of {evaluated} checks failed.')
+    else:
+        sections.append(f'Everything is ok. All {evaluated} checks passed.')
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+
+    perfdata += lib.base.get_perfdata(
+        'nginx_checks_failed',
+        failed,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nginx_checks_evaluated',
+        evaluated,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nginx_dynamic_modules_loaded',
+        len(data['dump']['modules']),
+        uom=None,
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = ['title', 'result', 'detail', 'state']
+            headers = ['Check', 'Result', 'Detail', 'State']
+        else:
+            keys = ['title', 'result', 'state']
+            headers = ['Check', 'Result', 'State']
+        sections.append(lib.base.get_table(table_data, keys, header=headers))
+
+    msg = '\n\n'.join(sections)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

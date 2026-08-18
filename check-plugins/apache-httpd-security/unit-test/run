@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    # Stock httpd 2.4.62 on Rocky 9. The distribution loads every module it
+    # packages, so the whole section 2 fires while section 3 is clean.
+    {
+        'id': 'warn-rhel-stock-loads-every-module',
+        'test': 'stdout/rhel-stock',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '7 of 18 checks failed.',
+            'info_module',
+            'status_module',
+            "'apache_httpd_checks_failed'=7",
+        ],
+    },
+    {
+        'id': 'ok-rhel-stock-file-and-account-checks-are-clean',
+        'test': 'stdout/rhel-stock',
+        # lib.lftest.run() splits params on whitespace, so a regex passed here
+        # must not contain spaces.
+        'params': '--match=(ccount|Config|dump|Lock|Pid|ScoreBoard)',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. All 10 checks passed.',
+            'apache:apache (uid 48)',
+        ],
+        'assert-not-in': ['info_module'],
+    },
+    # Stock apache2 2.4.68 on Debian 12, which ships a much smaller module set.
+    {
+        'id': 'warn-debian-stock-loads-fewer-modules',
+        'test': 'stdout/debian-stock',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 18 checks failed.',
+            'status_module',
+            'www-data:www-data (uid 33)',
+        ],
+        'assert-not-in': ['info_module', 'dav_module'],
+    },
+    # Same host, the two runtime paths Debian resolves differently from RHEL.
+    {
+        'id': 'ok-debian-stock-runtime-paths',
+        'test': 'stdout/debian-stock',
+        'params': '--match=^Pid --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/run/apache2', 'Root-owned'],
+    },
+    # Every module CIS asks about commented out, ownership untouched.
+    {
+        'id': 'ok-hardened',
+        'test': 'stdout/hardened',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. All 18 checks passed.',
+            "'apache_httpd_checks_failed'=0",
+        ],
+        'assert-not-in': ['Recommendations:'],
+    },
+    # Shared "nobody" account, a file-based mutex in the world-writable /tmp, a
+    # core dump directory inside the document root and a world-writable
+    # configuration file.
+    {
+        'id': 'warn-shared-account-and-loose-paths',
+        'test': 'stdout/shared-account',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '11 of 18 checks failed.',
+            'nobody:nobody (uid 65534)',
+            '`nobody` is a shared account',
+            'uid 65534 >= UID_MIN 1000',
+            '/etc/httpd/conf.d/zz-bad.conf',
+            'writable beyond its owner (1777)',
+            'inside the document root',
+        ],
+    },
+    {
+        'id': 'crit-shared-account-with-severity-crit',
+        'test': 'stdout/shared-account',
+        'params': '--severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'ok-shared-account-with-always-ok',
+        'test': 'stdout/shared-account',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['11 of 18 checks failed.'],
+    },
+    # --brief drops the passing rows but must not change the counts, the
+    # recommendations or the state.
+    {
+        'id': 'warn-brief-hides-passing-rows',
+        'test': 'stdout/rhel-stock',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['7 of 18 checks failed.', "'apache_httpd_checks_evaluated'=18"],
+        'assert-not-in': ['[OK]'],
+    },
+    # A host whose monitoring reads mod_status knowingly accepts that finding.
+    {
+        'id': 'warn-ignore-status-module-anchored',
+        'test': 'stdout/rhel-stock',
+        'params': '--ignore=^Status',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['6 of 17 checks failed.'],
+        'assert-not-in': ['status_module'],
+    },
+    # The same exclusion written as an unanchored substring.
+    {
+        'id': 'warn-ignore-status-module-by-substring',
+        'test': 'stdout/rhel-stock',
+        'params': '--ignore=Status',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['6 of 17 checks failed.'],
+        'assert-not-in': ['status_module'],
+    },
+    # Everything filtered out: report the configured severity, not a pass.
+    {
+        'id': 'ok-nothing-checked',
+        'test': 'stdout/rhel-stock',
+        'params': '--ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-nothing-checked-with-severity',
+        'test': 'stdout/rhel-stock',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    # A worker running under an account other than the configured one means the
+    # processes never dropped to it. The master staying root is expected and
+    # must not be reported.
+    {
+        'id': 'warn-stray-worker-process',
+        'test': 'stdout/stray-process',
+        'params': '--match=^Worker --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['processes run as www-data'],
+        'assert-not-in': ['processes run as root'],
+    },
+    # An interactive shell and a usable password on the worker account, which
+    # is what CIS asks about separately from the account being dedicated.
+    {
+        'id': 'warn-account-shell-and-password-usable',
+        'test': 'stdout/stray-process',
+        'params': '--match=^Account --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 of 2 checks failed.',
+            '`/bin/bash`',
+            'An interactive login shell.',
+            'usable password',
+            '`chsh -s /sbin/nologin nobody`',
+            '`passwd -l nobody`',
+        ],
+    },
+    # A locked account with a nologin shell passes both.
+    {
+        'id': 'ok-account-locked-with-nologin-shell',
+        'test': 'stdout/rhel-stock',
+        'params': '--match=^Account --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Cannot be logged into.', 'The password is locked.'],
+    },
+    # Debian sets the password field to "*", which is not a lock but still
+    # leaves no password to log in with.
+    {
+        'id': 'ok-account-without-password-login',
+        'test': 'stdout/debian-stock',
+        'params': '--match=^Account --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no password login'],
+    },
+    {
+        'id': 'unknown-missing-fixture',
+        'test': 'stdout/does-not-exist',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['not found'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../apache-httpd-security'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

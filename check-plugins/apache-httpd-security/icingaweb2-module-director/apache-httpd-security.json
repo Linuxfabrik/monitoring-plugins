@@ -1,0 +1,383 @@
+{
+    "Command": {
+        "cmd-check-apache-httpd-security": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$apache_httpd_security_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$apache_httpd_security_brief$"
+                },
+                "--command": {
+                    "value": "$apache_httpd_security_command$"
+                },
+                "--ignore": {
+                    "value": "$apache_httpd_security_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$apache_httpd_security_lengthy$"
+                },
+                "--match": {
+                    "value": "$apache_httpd_security_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$apache_httpd_security_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$apache_httpd_security_no_perfdata$"
+                },
+                "--severity": {
+                    "value": "$apache_httpd_security_severity$"
+                },
+                "--timeout": {
+                    "value": "$apache_httpd_security_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/apache-httpd-security",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-apache-httpd-security",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "67fbdeda-14f8-4d0e-8419-bbb9dc357b15"
+        },
+        "cmd-check-apache-httpd-security-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/apache-httpd-security",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-apache-httpd-security"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-apache-httpd-security-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "7e62433c-ec1c-4161-9fc1-2dc082c3b0d9"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-apache-httpd-security": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-apache-httpd-security",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "apache-httpd-security.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, and the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory. Every value is read back from the running installation rather than from a configuration file, so a path left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, or when a file or directory the server relies on can be modified by somebody other than root. Individual checks can be excluded with --ignore. Supports extended reporting via --lengthy. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-security/",
+            "object_name": "tpl-service-apache-httpd-security",
+            "object_type": "template",
+            "retry_interval": 3600,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "apache_httpd_security_always_ok": false,
+                "apache_httpd_security_brief": false,
+                "apache_httpd_security_ignore": [
+                    "^Status module"
+                ],
+                "apache_httpd_security_lengthy": false,
+                "apache_httpd_security_match": [],
+                "apache_httpd_security_no_match_severity": "ok",
+                "apache_httpd_security_no_perfdata": false,
+                "apache_httpd_security_severity": "warn",
+                "apache_httpd_security_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "bd450cb1-2bf5-4861-8477-23d06fd1b8f8"
+        },
+        "tpl-service-apache-httpd-security-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-apache-httpd-security-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-apache-httpd-security"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-apache-httpd-security-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b7d853b5-a3f8-4213-8a20-9cd8fb85d201"
+        }
+    },
+    "DataList": {
+        "apache_httpd_security_no_match_severity_list": {
+            "list_name": "apache_httpd_security_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "53b412cc-8717-447e-928c-f724591b0743"
+        },
+        "apache_httpd_security_severity_list": {
+            "list_name": "apache_httpd_security_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "bc8fc19b-4baf-4f69-a055-de5ee631b155"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "apache_httpd_security_always_ok",
+            "caption": "Apache httpd Security: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "7136e7c4-e670-46c1-a5a1-a7198d4af039"
+        },
+        "2": {
+            "varname": "apache_httpd_security_brief",
+            "caption": "Apache httpd Security: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "0444e472-ab79-4091-9ef0-cd9b0749cff4"
+        },
+        "3": {
+            "varname": "apache_httpd_security_command",
+            "caption": "Apache httpd Security: Command",
+            "description": "Path to the Apache httpd control binary. Probed automatically if not given: `httpd` first, then `apachectl`. Example: `--command=/usr/sbin/httpd`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a19de564-0eba-485d-b5d7-817cb75e3198"
+        },
+        "4": {
+            "varname": "apache_httpd_security_ignore",
+            "caption": "Apache httpd Security: Ignore",
+            "description": "Any check whose name matches this Python regex will be dropped from the report. Use it for a finding the site knowingly accepts, for example the status module on a host whose monitoring reads it. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore=^Status module$`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bf95ab16-45b3-4af2-907d-c2b1a9684292"
+        },
+        "5": {
+            "varname": "apache_httpd_security_lengthy",
+            "caption": "Apache httpd Security: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "28f94179-6983-4b41-97ff-0cc1194ab73e"
+        },
+        "6": {
+            "varname": "apache_httpd_security_match",
+            "caption": "Apache httpd Security: Match",
+            "description": "Only report the checks whose name matches this Python regex. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "962fb242-d87a-4865-82f1-2711b6952111"
+        },
+        "7": {
+            "varname": "apache_httpd_security_no_match_severity",
+            "caption": "Apache httpd Security: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "apache_httpd_security_no_match_severity_list"
+            },
+            "uuid": "93472aa7-f53c-4ba2-9ac8-a47760e5f8ef"
+        },
+        "8": {
+            "varname": "apache_httpd_security_no_perfdata",
+            "caption": "Apache httpd Security: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f33483bf-b0d8-4403-be1d-026bf69e3f2a"
+        },
+        "9": {
+            "varname": "apache_httpd_security_severity",
+            "caption": "Apache httpd Security: Severity",
+            "description": "State to report for a failed check. One of `warn` or `crit`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "apache_httpd_security_severity_list"
+            },
+            "uuid": "c637b661-047d-4b6b-8451-6246ed738b0d"
+        },
+        "10": {
+            "varname": "apache_httpd_security_timeout",
+            "caption": "Apache httpd Security: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e28d7491-9a39-4761-97f8-6227c093310f"
+        }
+    }
+}
