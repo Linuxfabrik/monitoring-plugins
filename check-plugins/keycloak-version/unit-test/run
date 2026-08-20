@@ -41,7 +41,22 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The restricted-account fixture is what Keycloak returns to an account without the
+# "manage-realm" role in the administration realm: the systemInfo section carrying the
+# version is missing entirely. `--path` points nowhere so the file-first path falls
+# through to the API path, the same way the container testcases do it.
+TESTS = [
+    {
+        'id': 'unknown-account-without-manage-realm',
+        'test': 'stdout/serverinfo-restricted-account',
+        'params': '--path=/nonexistent',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['manage-realm'],
+        'assert-not-in': ['Traceback'],
+    },
+]
 
 # All Keycloak majors from 18 onwards that ship as
 # `quay.io/keycloak/keycloak:<major>.<minor>[.<patch>]`. Each entry is the
@@ -56,12 +71,12 @@ IMAGES = [
     ('quay.io/keycloak/keycloak:23.0.7', 'v23'),
     ('quay.io/keycloak/keycloak:24.0.5', 'v24'),
     ('quay.io/keycloak/keycloak:25.0.6', 'v25'),
-    ('quay.io/keycloak/keycloak:26.6', 'v26'),
+    ('quay.io/keycloak/keycloak:26.7.2', 'v26'),
 ]
 
 
 class TestCheck(unittest.TestCase):
-    pass
+    check = '../keycloak-version'
 
 
 def _check_image(test, image_pair):
@@ -111,6 +126,7 @@ def _check_image(test, image_pair):
         test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT))
 
 
+lib.lftest.attach_tests(TestCheck, TESTS)
 lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
 
 

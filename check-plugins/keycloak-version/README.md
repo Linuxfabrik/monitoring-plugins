@@ -10,6 +10,7 @@ Checks the installed Keycloak version against the endoflife.date API and alerts 
 * Verified against Keycloak 17 to 26
 * All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
 * See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials (only needed if `version.txt` is not available).
+* On that fallback path the account needs the client role `manage-realm` of the `master-realm` client. Keycloak 26.7 and later report the `systemInfo` section of `/admin/serverinfo` only to an account holding that role
 
 **Data Collection:**
 
@@ -115,7 +116,7 @@ Keycloak v21.0.1 (EOL 2023-04-19 -30d [WARNING], major 22.0.4 available, minor 2
 * WARN if `--check-major` is set and a new major version is available.
 * WARN if `--check-minor` is set and a new minor version is available.
 * WARN if `--check-patch` is set and a new patch version is available.
-* UNKNOWN if the installed version cannot be determined.
+* UNKNOWN if the installed version cannot be determined, for example because `version.txt` is missing and the account the check authenticates with may not read the system information.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -124,6 +125,13 @@ Keycloak v21.0.1 (EOL 2023-04-19 -30d [WARNING], major 22.0.4 available, minor 2
 | Name | Type | Description |
 |----|----|----|
 | keycloak-version | Number | Installed Keycloak version as float (e.g. "18.0.3" becomes "18.03"). |
+
+
+## Troubleshooting
+
+### `Keycloak reports no "systemInfo" for this account.`
+
+`version.txt` was not readable below `--path`, so the check asked the API for the version, and Keycloak answered without the section that carries it. It hands that section out only to an account holding the client role `manage-realm` of the `master-realm` client. Point `--path` at the installation directory so the check reads the file instead, or assign that role to the account named in `--username`. See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for the full account setup.
 
 
 ## Credits, License

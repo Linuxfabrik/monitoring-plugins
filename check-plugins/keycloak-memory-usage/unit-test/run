@@ -22,7 +22,56 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Fixtures captured from a real `/admin/serverinfo` response. The restricted-account
+# one is what Keycloak returns to an account without the "manage-realm" role in the
+# administration realm: the memoryInfo section is missing entirely.
+TESTS = [
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/serverinfo-full',
+        'params': '--warning=80 --critical=90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1% - total: 21.5GiB'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/serverinfo-heap-80-percent',
+        'params': '--warning=80 --critical=90',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'80%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/serverinfo-heap-80-percent',
+        'params': '--warning=50 --critical=75',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'80%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/serverinfo-heap-80-percent',
+        'params': '--warning=50 --critical=75 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'80%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/serverinfo-heap-80-percent',
+        'params': '--warning=50 --critical=75 --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'unknown-account-without-manage-realm',
+        'test': 'stdout/serverinfo-restricted-account',
+        'params': '--warning=80 --critical=90',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['manage-realm'],
+        'assert-not-in': ['Traceback'],
+    },
+]
 
 IMAGES = [
     ('quay.io/keycloak/keycloak:18.0.2', 'v18'),
@@ -33,12 +82,12 @@ IMAGES = [
     ('quay.io/keycloak/keycloak:23.0.7', 'v23'),
     ('quay.io/keycloak/keycloak:24.0.5', 'v24'),
     ('quay.io/keycloak/keycloak:25.0.6', 'v25'),
-    ('quay.io/keycloak/keycloak:26.6', 'v26'),
+    ('quay.io/keycloak/keycloak:26.7.2', 'v26'),
 ]
 
 
 class TestCheck(unittest.TestCase):
-    pass
+    check = '../keycloak-memory-usage'
 
 
 def _check_image(test, image_pair):
@@ -90,6 +139,7 @@ def _check_image(test, image_pair):
         test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT))
 
 
+lib.lftest.attach_tests(TestCheck, TESTS)
 lib.lftest.attach_each(TestCheck, IMAGES, _check_image, id_func=lambda it: it[1])
 
 

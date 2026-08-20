@@ -17,13 +17,17 @@ import lib.args
 import lib.base
 import lib.human
 import lib.keycloak
+import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026073001'
+__version__ = '2026082001'
 
-DESCRIPTION = """Reports statistics from a Keycloak server via its HTTP API, including realm count,
-client count, user count, and active sessions. Tested with Keycloak 17 and later."""
+DESCRIPTION = """Reports runtime facts of a Keycloak server via its HTTP API: uptime, the account
+the service runs under, its Java runtime, and which Keycloak features are enabled and
+disabled. Alerts if the server does not report this data to the account the check
+authenticates with, which Keycloak grants only to an account holding the
+"manage-realm" role in its administration realm. Tested with Keycloak 17 and later."""
 
 DEFAULT_CLIENT_ID = 'admin-cli'
 DEFAULT_INSECURE = False
@@ -106,6 +110,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -140,51 +151,63 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
+    if args.TEST is None:
+        # Discover the OIDC endpoints for the realm (no authentication needed),
+        # obtain an admin access token and call the Admin REST API (fetch the
+        # realm's details).
+        oidc_config = lib.base.coe(lib.keycloak.discover_oidc_endpoints(args))
+        admin_token = lib.base.coe(lib.keycloak.obtain_admin_token(args, oidc_config))
+        server_info = lib.base.coe(
+            lib.keycloak.get_data(args, admin_token, '/admin/serverinfo')
+        )
+    else:
+        # do not call the API, put in test data
+        server_info = lib.lftest.test_json(args.TEST)
+
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
 
-    # fetch data
-    # Discover the OIDC endpoints for the realm (no authentication needed),
-    # obtain an admin access token and call the Admin REST API (fetch the realm's details).
-    oidc_config = lib.base.coe(lib.keycloak.discover_oidc_endpoints(args))
-    admin_token = lib.base.coe(lib.keycloak.obtain_admin_token(args, oidc_config))
-    server_info = lib.base.coe(
-        lib.keycloak.get_data(args, admin_token, '/admin/serverinfo')
+    # analyze data
+    system_info = lib.base.coe(
+        lib.keycloak.get_server_info_section(server_info, 'systemInfo')
     )
+    uptime = system_info.get('uptimeMillis', 0) / 1000
+
+    features = server_info.get('features') or []
+    enabled_features, disabled_features = [], []
+    for feature in features:
+        name = feature.get('name', 'n/a')
+        feature_type = str(feature.get('type', 'n/a')).lower()
+        if feature.get('enabled'):
+            enabled_features.append(f'{name} ({feature_type})')
+        else:
+            disabled_features.append(f'{name} ({feature_type})')
+    if not features:
+        # Keycloak versions that do not list the features individually name the
+        # disabled ones in the profile instead.
+        profile_info = server_info.get('profileInfo') or {}
+        disabled_features = profile_info.get('disabledFeatures') or []
+    enabled_features.sort()
+    disabled_features.sort()
 
     # build the message
-    uptime = server_info.get('systemInfo').get('uptimeMillis') / 1000
     msg += f'Up {lib.human.seconds2human(uptime)}, '
-    msg += f'running under user `{server_info.get("systemInfo").get("userName")}`; '
+    msg += f'running under user `{system_info.get("userName", "n/a")}`; '
 
-    msg += f'Java v{server_info.get("systemInfo").get("javaVersion")}, '
-    msg += f'{server_info.get("systemInfo").get("javaVm")}, '
-    msg += f'{server_info.get("systemInfo").get("javaHome")}\n'
+    msg += f'Java v{system_info.get("javaVersion", "n/a")}, '
+    msg += f'{system_info.get("javaVm", "n/a")}, '
+    msg += f'{system_info.get("javaHome", "n/a")}\n'
 
-    if server_info.get('features'):
-        # available in newer keycloak versions
-        enabled_features, disabled_features = [], []
-        for feature in server_info.get('features', []):
-            if feature.get('enabled'):
-                enabled_features.append(
-                    f'{feature.get("name")} ({feature.get("type").lower()})'
-                )
-            else:
-                disabled_features.append(
-                    f'{feature.get("name")} ({feature.get("type").lower()})'
-                )
-        enabled_features.sort()
-        enabled_features = '\n* '.join(enabled_features)
-        msg += '\nEnabled Features: '
-        msg += f'\n* {enabled_features}\n' if enabled_features else 'None\n'
-    else:
-        disabled_features = server_info.get('profileInfo').get('disabledFeatures')
-    disabled_features.sort()
-    disabled_features = '\n* '.join(disabled_features) + '\n'
+    enabled_list = '\n* '.join(enabled_features)
+    msg += '\nEnabled Features: '
+    msg += f'\n* {enabled_list}\n' if enabled_features else 'None\n'
+
+    disabled_list = '\n* '.join(disabled_features)
     msg += '\nDisabled Features: '
-    msg += f'\n* {disabled_features}\n' if disabled_features else 'None\n'
+    msg += f'\n* {disabled_list}\n' if disabled_features else 'None\n'
 
     perfdata += lib.base.get_perfdata(
         'uptime',

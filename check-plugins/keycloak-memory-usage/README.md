@@ -3,11 +3,12 @@
 
 ## Overview
 
-Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP API and alerts when memory usage exceeds configurable thresholds.
+Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP API. Alerts when memory usage exceeds the configured thresholds, and if the server does not report memory information to the account the check authenticates with, which Keycloak grants only to an account holding the "manage-realm" role in its administration realm. Tested with Keycloak 17 and later.
 
 **Important Notes:**
 
 * Verified against Keycloak 17 to 26
+* The account the check authenticates with needs the client role `manage-realm` of the `master-realm` client. Keycloak 26.7 and later report the `memoryInfo` section of `/admin/serverinfo` only to an account holding that role, so an account set up with a narrower role reports UNKNOWN after the server is upgraded
 * All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
 * See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials.
 
@@ -39,8 +40,11 @@ usage: keycloak-memory-usage [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
                              [--username USERNAME] [--warning WARN]
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP
-API. Alerts when memory usage exceeds the configured thresholds. Tested with
-Keycloak 17 and later.
+API. Alerts when memory usage exceeds the configured thresholds, and if the
+server does not report memory information to the account the check
+authenticates with, which Keycloak grants only to an account holding the
+"manage-realm" role in its administration realm. Tested with Keycloak 17 and
+later.
 
 options:
   -h, --help            show this help message and exit
@@ -87,7 +91,7 @@ Output:
 * OK if memory usage is below `--warning` (default: 80%).
 * WARN if memory usage is >= `--warning` (default: 80%).
 * CRIT if memory usage is >= `--critical` (default: 90%).
-* UNKNOWN on API connection errors or missing data in the Keycloak response.
+* UNKNOWN if the account the check authenticates with may not read the memory information, on API connection errors, or if Keycloak answers without usable heap figures.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -99,6 +103,13 @@ Output:
 | total | Bytes | Total available memory. |
 | usage_percent | Percentage | Percentage of memory currently in use. |
 | used | Bytes | Memory currently in use. |
+
+
+## Troubleshooting
+
+### `Keycloak reports no "memoryInfo" for this account.`
+
+Keycloak answered without the section that carries the memory figures. It hands that section out only to an account holding the client role `manage-realm` of the `master-realm` client, and only in the administration realm (`master`). Assign that role to the account named in `--username`, or point `--username` at an account that already has it. See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for the full account setup.
 
 
 ## Credits, License

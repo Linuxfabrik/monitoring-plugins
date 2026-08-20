@@ -7,25 +7,26 @@ against the `master` realm. Tested with Keycloak 18 and later.
 ## Plugins in this group
 
 * `keycloak-memory-usage`: JVM heap usage of the Keycloak server.
-* `keycloak-stats`: realm, client, user and active-session counts.
+* `keycloak-stats`: uptime, service account, Java runtime and the enabled and
+  disabled Keycloak features.
 * `keycloak-version`: installed Keycloak version, with an EOL check against
   the Keycloak release schedule.
 
 
 ## Authentication
 
-All three plugins need a Keycloak user in the `master` realm with read access
-to the Admin REST API. Reading `/admin/serverinfo` is a privileged operation,
-so the user needs exactly one of the following minimal roles:
+All three plugins need a Keycloak user in the `master` realm that may read the
+Admin REST API. Reading `/admin/serverinfo` is a privileged operation: the user
+needs the client role `manage-realm` of the `master-realm` client. In the
+role-mapping dialog, switch the filter from *Realm roles* to *Client roles* and
+pick the `master-realm` client to see it.
 
-* Client role `query-groups` of the `master-realm` client (recommended, least
-  privilege). In the role-mapping dialog, switch the filter from *Realm roles*
-  to *Client roles* and pick the `master-realm` client to see it.
-* Realm role `create-realm` on the `master` realm (fallback if the client-role
-  option is not available in your workflow).
-
-Any role of the `master-realm` client other than `impersonation` works too;
-pick the narrowest one you are comfortable with.
+Keycloak 26.7 and later hand out the `systemInfo`, `memoryInfo` and `cpuInfo`
+sections of `/admin/serverinfo` only to an account holding that role. Earlier
+releases accepted any admin role in the `master` realm, so an account set up
+with a narrower role such as `query-groups` keeps working until the server is
+upgraded and then reports UNKNOWN. Granting `manage-realm` is valid on every
+release.
 
 Setup in the Admin Console (Keycloak 19 and later):
 
@@ -35,8 +36,7 @@ Setup in the Admin Console (Keycloak 19 and later):
    **turn the "Temporary" toggle off** so the password does not expire at
    first login, *Save*.
 3. *Role mapping > Assign role*. Switch the filter to the `master-realm`
-   client and assign `query-groups`. If you prefer the realm-role fallback,
-   stay on *Realm roles* and assign `create-realm` instead.
+   client and assign `manage-realm`.
 
 The plugins are invoked with `--url`, `--realm master` (the default),
 `--username keycloak-monitoring` and `--password`.
