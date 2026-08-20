@@ -243,6 +243,45 @@ sudoers file, so create your own in the Icinga Director. Do not edit the shipped
 basket files.
 
 
+## When sudo asks for a password
+
+A check command that prepends `/usr/bin/sudo` without a matching sudoers entry
+never reaches the plugin. What the monitoring server gets is sudo's own output,
+including its lecture about respecting the privacy of others:
+
+```text
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+```
+
+sudo exits 1 for this, so the service goes WARNING rather than UNKNOWN and
+looks like an alert about the files, while nothing about them was checked at
+all.
+
+The cause is always that sudo found no entry matching this exact call. The file
+plugins are not in the shipped sudoers file (see above), and an entry of your
+own matches only when every argument is identical to what the check command
+generates, in the same order. A threshold changed in the Icinga Director or one
+more parameter set on the service is enough to stop it from matching.
+
+Reproduce it as the monitoring user, where `--non-interactive` turns the
+password prompt into an immediate error:
+
+```bash
+sudo --user=icinga sudo --non-interactive /usr/lib64/nagios/plugins/file-age --filename /backup/myapp/*
+```
+
+Then either write the sudoers entry with every argument pinned as described
+above, or drop the sudo call and open the path for the monitoring user with an
+ACL. Reading file metadata needs no read permission on the files themselves,
+only the right to traverse the directories above them, so a check on the age,
+size or count of a file often comes down to one `x` bit:
+
+```bash
+setfacl --modify=u:icinga:rx /backup /backup/myapp
+```
+
+
 ## Worked example: a file only root can reach
 
 Say you want to alert when `/var/log/audit/audit.log` grows past a size. The
