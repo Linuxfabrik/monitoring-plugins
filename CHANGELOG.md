@@ -71,6 +71,7 @@ Monitoring Plugins:
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing when Keycloak withholds the server info
+* php-status: no longer warns about `post_max_size` versus `upload_max_filesize`. The two only limit each other for classic form uploads, not for the chunked uploads Nextcloud and others use; both values keep being reported
 
 Icinga Director:
 
