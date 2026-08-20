@@ -21,20 +21,19 @@ import lib.human
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082001'
 
 DESCRIPTION = """Checks index sizes, fragmentation, and consistent engine and collation usage
 across all schemas in MySQL/MariaDB, and lists the largest tables by combined data and index
 size so storage growth can be traced before raising memory settings such as the InnoDB buffer
 pool. Alerts on mixed storage engines or collations within a single schema, and on table sizes
-that cross the optional --warning / --critical thresholds. Supports extended reporting via
---lengthy."""
+that cross the optional --warning / --critical thresholds. `--match` and `--ignore` narrow
+every aggregate and every check down to a single schema or table. Supports extended
+reporting via --lengthy."""
 
 DEFAULT_CRIT = ''
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
-DEFAULT_IGNORE_SCHEMAS = ''
-DEFAULT_IGNORE_TABLES = ''
 DEFAULT_LENGTHY = False
 DEFAULT_TIMEOUT = 3
 DEFAULT_TOP = 10
@@ -96,29 +95,48 @@ def parse_args():
         default=DEFAULT_DEFAULTS_GROUP,
     )
 
+    # Append parameters must always use `default=None` instead of a list,
+    # because argparse appends user values to the default list instead of
+    # replacing it (see https://bugs.python.org/issue16399).
+    # After parsing, assign the actual defaults in main() if the value is
+    # still None.
+    parser.add_argument(
+        '--ignore',
+        help='Ignore tables whose name matches this Python regular expression. '
+        'Matched against the fully qualified table identifier `schema.table`, '
+        'so one pattern can drop a whole schema or a single table. Excluded '
+        'tables contribute to no aggregate and to no check; system schemas are '
+        'skipped unconditionally. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Default: %(default)s. '
+        'Example: `--ignore="^(icinga_director|icingaweb2|icingadb)\\."` to skip the '
+        'schemas that mix utf8 / utf8mb4 collations by design. '
+        'Example: `--ignore="\\.(tmp_|backup_)"` to mute noisy temporary and backup '
+        'tables that legitimately differ from the schema-wide engine or collation.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    # Deprecated parameters: hidden from --help, still accepted so existing
+    # service definitions keep working. Both are matched against the bare
+    # schema resp. table name, which is what they did when MySQL evaluated
+    # them via `NOT REGEXP`.
     parser.add_argument(
         '--ignore-schemas',
-        help='Regular expression matched against `SCHEMA_NAME` (case-sensitive). Schemas '
-        'whose name matches are skipped entirely (no aggregate contribution, no checks). '
-        'Useful for known-mixed schemas that the admin cannot or does not want to fix '
-        '(common with Icinga Director / Icinga Web 2 / Icinga DB schemas, which mix '
-        'utf8 / utf8mb4 collations by design). System schemas are skipped unconditionally. '
-        'Default: %(default)s. '
-        'Example: `--ignore-schemas="^(icinga_director|icingaweb2|icingadb)$"`',
+        help=argparse.SUPPRESS,
         dest='IGNORE_SCHEMAS',
-        default=DEFAULT_IGNORE_SCHEMAS,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
         '--ignore-tables',
-        help='Regular expression matched against `TABLE_NAME` (case-sensitive). Tables '
-        'whose name matches are excluded from every aggregate and every per-schema check. '
-        'Useful for muting noisy temporary or backup tables that legitimately differ from '
-        'the schema-wide engine/collation. '
-        'Default: %(default)s. '
-        'Example: `--ignore-tables="^(tmp_|backup_)"`',
+        help=argparse.SUPPRESS,
         dest='IGNORE_TABLES',
-        default=DEFAULT_IGNORE_TABLES,
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -127,6 +145,23 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check tables whose name matches this Python regular expression. '
+        'Matched against the fully qualified table identifier `schema.table`. '
+        'A schema without any table cannot match, so it drops out of the report '
+        'while this is given. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Default: %(default)s. '
+        'Example: `--match="^shop\\."` to check the `shop` schema only. '
+        'Example: `--match="^shop\\.orders$"` to check one table only.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -169,6 +204,143 @@ def parse_args():
     return args
 
 
+def get_schemas(conn, excluded):
+    # SCHEMA_NAME and others must be uppercase due to MySQL 8+
+    sql = f"""
+        select SCHEMA_NAME
+        from information_schema.schemata
+        where SCHEMA_NAME not in ({excluded});
+    """  # nosec B608
+    return [row['SCHEMA_NAME'] for row in lib.base.coe(lib.db_mysql.select(conn, sql))]
+
+
+def get_tables(conn, excluded):
+    # One row per table for every user schema, aggregated in Python further
+    # down. `--match` and `--ignore` are Python regexes and are evaluated
+    # here, not by the server, so the aggregates have to be built from the
+    # surviving rows. The scan is a once-a-day check.
+    sql = f"""
+        select TABLE_SCHEMA as table_schema,
+            TABLE_NAME as table_name,
+            TABLE_TYPE as table_type,
+            ENGINE as engine,
+            TABLE_COLLATION as table_collation,
+            TABLE_ROWS as table_rows,
+            DATA_LENGTH as data_length,
+            INDEX_LENGTH as index_length
+        from information_schema.tables
+        where TABLE_SCHEMA not in ({excluded});
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def get_column_charsets(conn, excluded):
+    # `select distinct` collapses this to a handful of rows per table
+    # instead of one row per column, which keeps the result set close to
+    # the size of the table list itself.
+    sql = f"""
+        select distinct TABLE_SCHEMA as table_schema,
+            TABLE_NAME as table_name,
+            CHARACTER_SET_NAME as character_set_name,
+            COLLATION_NAME as collation_name
+        from information_schema.columns
+        where TABLE_SCHEMA not in ({excluded});
+    """  # nosec B608
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def compile_filters(args):
+    """Compile the filter regexes once. lib.txt.compile_regex() returns a
+    (success, result) tuple per pattern and names the parameter in its error
+    message, so an invalid pattern exits UNKNOWN via lib.base.coe().
+    """
+    return {
+        key: [lib.base.coe(item) for item in lib.txt.compile_regex(patterns, key)]
+        for key, patterns in (
+            ('--ignore', args.IGNORE),
+            ('--ignore-schemas', args.IGNORE_SCHEMAS),
+            ('--ignore-tables', args.IGNORE_TABLES),
+            ('--match', args.MATCH),
+        )
+    }
+
+
+def keep_table(schema, table, filters):
+    """Decide whether a table survives the filters.
+
+    `--match` (include) is applied first, then `--ignore` (exclude), so a
+    table hit by `--ignore` is dropped even if it also matches `--match`.
+    Both are matched against the fully qualified `schema.table` name, so a
+    single pattern addresses either level.
+
+    The deprecated `--ignore-schemas` / `--ignore-tables` are matched
+    against the bare schema resp. table name, which is what they did while
+    MySQL evaluated them via `NOT REGEXP`.
+    """
+    if any(item.search(schema) for item in filters['--ignore-schemas']):
+        return False
+    if any(item.search(table) for item in filters['--ignore-tables']):
+        return False
+    identifier = f'{schema}.{table}'
+    if filters['--match'] and not any(
+        item.search(identifier) for item in filters['--match']
+    ):
+        return False
+    return not any(item.search(identifier) for item in filters['--ignore'])
+
+
+def filter_tables(rows, filters):
+    """Drop the rows whose `table_schema` / `table_name` the filters
+    exclude.
+    """
+    return [
+        row
+        for row in rows
+        if keep_table(row['table_schema'] or '', row['table_name'] or '', filters)
+    ]
+
+
+def group_by_schema(rows):
+    """Bucket table or column rows by their schema name."""
+    grouped = {}
+    for row in rows:
+        grouped.setdefault(row['table_schema'], []).append(row)
+    return grouped
+
+
+def sum_or_none(values):
+    """Sum the non-NULL values. Mirrors SQL `sum()`: a group whose values
+    are all NULL sums to NULL, not to 0, and the index-vs-data comparison
+    below depends on that distinction.
+    """
+    present = [int(value) for value in values if value is not None]
+    return sum(present) if present else None
+
+
+def summarize_schema(rows):
+    """Aggregate one schema's table rows the way the former per-schema
+    `group by TABLE_SCHEMA` query did. Views are counted as tables and
+    contribute NULL to the sums, exactly as they did in SQL.
+    """
+    totals = [
+        row['data_length'] + row['index_length']
+        if row['data_length'] is not None and row['index_length'] is not None
+        else None
+        for row in rows
+    ]
+    return {
+        'sum_rows': sum_or_none(row['table_rows'] for row in rows),
+        'sum_data': sum_or_none(row['data_length'] for row in rows),
+        'sum_index': sum_or_none(row['index_length'] for row in rows),
+        'sum_data_index': sum_or_none(totals),
+        'cnt_tables': len(rows),
+        'engines': sorted({row['engine'] for row in rows if row['engine']}),
+        'table_collations': sorted(
+            {row['table_collation'] for row in rows if row['table_collation']}
+        ),
+    }
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -188,6 +360,16 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.IGNORE_SCHEMAS is None:
+        args.IGNORE_SCHEMAS = []
+    if args.IGNORE_TABLES is None:
+        args.IGNORE_TABLES = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
@@ -197,32 +379,37 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
-    # The --ignore-tables and --ignore-schemas regexes are interpolated into the SQL
-    # string. The values come from the CLI (admin-controlled), and any embedded single
-    # quotes are escaped to keep the surrounding SQL literal valid. MySQL itself rejects
-    # malformed regex patterns at query time and `lib.base.coe()` surfaces the error.
-    ignore_tables_clause = ''
-    if args.IGNORE_TABLES:
-        safe_regex = args.IGNORE_TABLES.replace("'", "''")
-        ignore_tables_clause = f" and TABLE_NAME NOT REGEXP '{safe_regex}'"
-    ignore_schemas_clause = ''
-    ignore_schemas_tbl_clause = ''
-    if args.IGNORE_SCHEMAS:
-        safe_regex = args.IGNORE_SCHEMAS.replace("'", "''")
-        ignore_schemas_clause = f" and SCHEMA_NAME NOT REGEXP '{safe_regex}'"
-        ignore_schemas_tbl_clause = f" and TABLE_SCHEMA NOT REGEXP '{safe_regex}'"
-
-    # SCHEMA_NAME and others must be uppercase due to MySQL 8+
     excluded = ', '.join(f'"{s}"' for s in SYSTEM_SCHEMAS)
-    sql = f"""
-        select SCHEMA_NAME
-        from information_schema.schemata
-        where SCHEMA_NAME not in ({excluded})
-            {ignore_schemas_clause};
-    """  # nosec B608
-    dblist = lib.base.coe(lib.db_mysql.select(conn, sql))
+    schema_names = get_schemas(conn, excluded)
+    all_table_rows = get_tables(conn, excluded)
+    all_column_rows = get_column_charsets(conn, excluded)
+
+    lib.db_mysql.close(conn)
 
     # init some vars
+    filters = compile_filters(args)
+    # Filter before aggregating, so every schema summary, every consistency
+    # finding, the top-tables list and the perfdata describe the same set of
+    # tables.
+    schema_names = [
+        name
+        for name in schema_names
+        if not any(item.search(name) for item in filters['--ignore-schemas'])
+    ]
+    tables_by_schema = group_by_schema(filter_tables(all_table_rows, filters))
+    columns_by_schema = group_by_schema(filter_tables(all_column_rows, filters))
+    schemas_with_tables = {row['table_schema'] for row in all_table_rows}
+    # Three cases per schema: it still has tables (scanned), it never had any
+    # (empty), or the filters took all of them away (not reported at all). A
+    # schema without a table cannot match `--match`, so it drops out of the
+    # report while `--match` is given.
+    scanned_schemas = []
+    empty_schemas = []
+    for schema_name in schema_names:
+        if schema_name in tables_by_schema:
+            scanned_schemas.append(schema_name)
+        elif schema_name not in schemas_with_tables and not args.MATCH:
+            empty_schemas.append(schema_name)
     state = STATE_OK
     perfdata = ''
     results = {
@@ -232,7 +419,6 @@ def main():
         'colcharset': '',
         'colcollation': '',
     }
-    empty_schemas = []
     per_schema_rows = []
     total_data_size = 0
     total_index_size = 0
@@ -245,36 +431,16 @@ def main():
     crit_bytes = lib.human.humanrange2bytes(args.CRITICAL) if args.CRITICAL else None
 
     # analyze data
-    # schema names come from MySQL itself (information_schema.schemata), not from user input
-    for schema in dblist:
-        schema_name = schema['SCHEMA_NAME']
-        sql = f'''
-            select TABLE_SCHEMA,
-                sum(TABLE_ROWS) as sum_rows,
-                sum(DATA_LENGTH) as sum_data,
-                sum(INDEX_LENGTH) as sum_index,
-                sum(DATA_LENGTH+INDEX_LENGTH) as sum_data_index,
-                count(distinct ENGINE) as cnt_engines,
-                count(TABLE_NAME) as cnt_tables,
-                count(distinct(TABLE_COLLATION)) as cnt_collations
-            from information_schema.tables
-            where TABLE_SCHEMA="{schema_name}"
-                {ignore_tables_clause}
-            group by TABLE_SCHEMA
-            order by TABLE_SCHEMA;
-        '''  # nosec B608
-        dbinfo = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
-        if dbinfo is None:
-            empty_schemas.append(schema_name)
-            continue
+    for schema_name in scanned_schemas:
+        summary = summarize_schema(tables_by_schema[schema_name])
 
         # MySQL returns SQL NULL as Python None (not the string "NULL"); use is/is not
         # None for the guards.
-        sum_data = dbinfo['sum_data']
-        sum_index = dbinfo['sum_index']
-        sum_rows = dbinfo['sum_rows']
-        sum_total = dbinfo['sum_data_index']
-        cnt_tables = dbinfo['cnt_tables']
+        sum_data = summary['sum_data']
+        sum_index = summary['sum_index']
+        sum_rows = summary['sum_rows']
+        sum_total = summary['sum_data_index']
+        cnt_tables = summary['cnt_tables']
 
         total_data_size += int(sum_data or 0)
         total_index_size += int(sum_index or 0)
@@ -291,66 +457,36 @@ def main():
             data_h = lib.human.bytes2human(sum_data)
             results['index'] += f'{schema_name} ({idx_h} / {data_h}), '
 
-        if dbinfo['cnt_engines'] > 1:
-            results['engine'] += f'{schema_name} ({dbinfo["cnt_engines"]}x), '
+        engines_list = summary['engines']
+        tcoll_list = summary['table_collations']
+        column_rows = columns_by_schema.get(schema_name, [])
+        ccharset_list = sorted(
+            {
+                row['character_set_name']
+                for row in column_rows
+                if row['character_set_name']
+            }
+        )
+        ccoll_list = sorted(
+            {row['collation_name'] for row in column_rows if row['collation_name']}
+        )
 
-        if dbinfo['cnt_collations'] > 1:
-            results['collation'] += f'{schema_name} ({dbinfo["cnt_collations"]}x), '
+        if len(engines_list) > 1:
+            results['engine'] += f'{schema_name} ({len(engines_list)}x), '
 
-        sql = f'''
-            select distinct(CHARACTER_SET_NAME)
-            from information_schema.COLUMNS
-            where CHARACTER_SET_NAME is not null
-                and TABLE_SCHEMA = "{schema_name}"
-                {ignore_tables_clause};
-        '''  # nosec B608
-        distinct_column_charset = lib.base.coe(lib.db_mysql.select(conn, sql))
-        if len(distinct_column_charset) > 1:
-            results['colcharset'] += (
-                f'{schema_name} ({len(distinct_column_charset)}x), '
-            )
+        if len(tcoll_list) > 1:
+            results['collation'] += f'{schema_name} ({len(tcoll_list)}x), '
 
-        sql = f'''
-            select distinct(COLLATION_NAME)
-            from information_schema.COLUMNS
-            where COLLATION_NAME is not null
-                and TABLE_SCHEMA = "{schema_name}"
-                {ignore_tables_clause};
-        '''  # nosec B608
-        distinct_column_collation = lib.base.coe(lib.db_mysql.select(conn, sql))
-        if len(distinct_column_collation) > 1:
-            results['colcollation'] += (
-                f'{schema_name} ({len(distinct_column_collation)}x), '
-            )
+        if len(ccharset_list) > 1:
+            results['colcharset'] += f'{schema_name} ({len(ccharset_list)}x), '
 
-        # Collect per-schema details for the optional --lengthy table.
-        sql = f'''
-            select distinct ENGINE
-            from information_schema.tables
-            where TABLE_SCHEMA="{schema_name}"
-                and ENGINE is not null
-                {ignore_tables_clause};
-        '''  # nosec B608
-        engine_rows = lib.base.coe(lib.db_mysql.select(conn, sql))
-        engines_list = sorted(r['ENGINE'] for r in engine_rows)
-
-        sql = f'''
-            select distinct TABLE_COLLATION
-            from information_schema.tables
-            where TABLE_SCHEMA="{schema_name}"
-                and TABLE_COLLATION is not null
-                {ignore_tables_clause};
-        '''  # nosec B608
-        tcoll_rows = lib.base.coe(lib.db_mysql.select(conn, sql))
-        tcoll_list = sorted(r['TABLE_COLLATION'] for r in tcoll_rows)
-
-        ccharset_list = sorted(r['CHARACTER_SET_NAME'] for r in distinct_column_charset)
-        ccoll_list = sorted(r['COLLATION_NAME'] for r in distinct_column_collation)
+        if len(ccoll_list) > 1:
+            results['colcollation'] += f'{schema_name} ({len(ccoll_list)}x), '
 
         # Compact issue summary for the default (non-lengthy) table.
         issues = []
-        if dbinfo['cnt_engines'] > 1:
-            issues.append(f'{dbinfo["cnt_engines"]} engines')
+        if len(engines_list) > 1:
+            issues.append(f'{len(engines_list)} engines')
         if len(tcoll_list) > 1:
             issues.append(f'{len(tcoll_list)} table collations')
         if len(ccharset_list) > 1:
@@ -358,6 +494,7 @@ def main():
         if len(ccoll_list) > 1:
             issues.append(f'{len(ccoll_list)} column collations')
 
+        # Collect per-schema details for the optional --lengthy table.
         per_schema_rows.append(
             {
                 'schema': schema_name,
@@ -379,29 +516,29 @@ def main():
     # settings such as innodb_buffer_pool_size. The list is reported by default;
     # it only drives the state when --warning / --critical size thresholds are
     # given.
-    sql = f"""
-        select TABLE_SCHEMA,
-            TABLE_NAME,
-            coalesce(DATA_LENGTH, 0) as data_size,
-            coalesce(INDEX_LENGTH, 0) as index_size,
-            coalesce(DATA_LENGTH, 0) + coalesce(INDEX_LENGTH, 0) as total_size
-        from information_schema.tables
-        where TABLE_TYPE = 'BASE TABLE'
-            and TABLE_SCHEMA not in ({excluded})
-            {ignore_schemas_tbl_clause}
-            {ignore_tables_clause}
-        order by total_size desc
-        limit {int(args.TOP)};
-    """  # nosec B608
-    top_tables = lib.base.coe(lib.db_mysql.select(conn, sql))
-
-    lib.db_mysql.close(conn)
+    base_tables = [
+        row
+        for schema_name in scanned_schemas
+        for row in tables_by_schema[schema_name]
+        if row['table_type'] == 'BASE TABLE'
+    ]
+    # `coalesce()` semantics: a NULL size counts as 0 here, unlike the
+    # per-schema sums above. Sorted by schema and table name as well, so the
+    # order of equally sized tables does not jump between runs.
+    base_tables.sort(
+        key=lambda row: (
+            -(int(row['data_length'] or 0) + int(row['index_length'] or 0)),
+            row['table_schema'],
+            row['table_name'],
+        )
+    )
+    top_tables = base_tables[: max(int(args.TOP), 0)]
 
     top_rows = []
     for tbl in top_tables:
-        data_size = int(tbl['data_size'] or 0)
-        index_size = int(tbl['index_size'] or 0)
-        total_size = int(tbl['total_size'] or 0)
+        data_size = int(tbl['data_length'] or 0)
+        index_size = int(tbl['index_length'] or 0)
+        total_size = data_size + index_size
         # Thresholds apply to the combined footprint (the table is ranked by it),
         # so the per-row state and its marker live on the Total column.
         tbl_state = lib.base.get_state(
@@ -413,8 +550,8 @@ def main():
         state = lib.base.get_worst(state, tbl_state)
         top_rows.append(
             {
-                'schema': tbl['TABLE_SCHEMA'],
-                'table': tbl['TABLE_NAME'],
+                'schema': tbl['table_schema'],
+                'table': tbl['table_name'],
                 'data': lib.human.bytes2human(data_size),
                 'index': lib.human.bytes2human(index_size),
                 'total': f'{lib.human.bytes2human(total_size)}'
@@ -424,7 +561,7 @@ def main():
         # Per-table perfdata so Grafana can trend each table's footprint. Sanitize
         # the `<schema>_<table>` label so exotic names stay perfdata-safe.
         label = (
-            re.sub(r'\W+', '_', f'{tbl["TABLE_SCHEMA"]}_{tbl["TABLE_NAME"]}') + '_size'
+            re.sub(r'\W+', '_', f'{tbl["table_schema"]}_{tbl["table_name"]}') + '_size'
         )
         perfdata += lib.base.get_perfdata(
             label,
@@ -476,7 +613,7 @@ def main():
     # from the table-size thresholds above, so the header reflects the worst
     # state, not just the consistency findings.
     summary = (
-        f'{len(dblist)} user schema(s) scanned,'
+        f'{len(scanned_schemas) + len(empty_schemas)} user schema(s) scanned,'
         f' {total_tables} table(s),'
         f' {lib.human.number2human(total_rows)} rows,'
         f' {lib.human.bytes2human(total_data_size)} data,'
@@ -561,7 +698,11 @@ def main():
     # would turn the blank line between two adjacent tables into two blank lines.
     msg = '\n\n'.join(section.rstrip() for section in sections)
 
-    perfdata += lib.base.get_perfdata('mysql_database_count', len(dblist), _min=0)
+    perfdata += lib.base.get_perfdata(
+        'mysql_database_count',
+        len(scanned_schemas) + len(empty_schemas),
+        _min=0,
+    )
     perfdata += lib.base.get_perfdata(
         'mysql_total_data_size',
         total_data_size,

@@ -12,13 +12,16 @@ The top-tables list is the fast way to find cleanup candidates. Bumping `innodb_
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * User account requires access to INFORMATION_SCHEMA (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
+* `--match` and `--ignore` take Python regular expressions and are matched against the fully qualified table identifier `schema.table`, so the same parameter scopes the check to a schema (`^shop\.`) or to a single table (`^shop\.orders$`). Both filter before anything is counted or aggregated, so a filtered check reports only what it was asked to look at
+* `--ignore-schemas` and `--ignore-tables` still work but are deprecated and no longer shown in `--help`. They match the bare schema resp. table name; move them to `--ignore`
+* A schema without any table cannot match `--match`, so it drops out of the report while `--match` is given
 
 **Data Collection:**
 
 * Queries `information_schema.schemata` for all non-system schemas. The system schemas `information_schema`, `mysql`, `percona`, `performance_schema`, and `sys` are skipped.
-* For each schema, queries `information_schema.tables` for row counts, data/index sizes, storage engine counts, and collation counts
-* Queries `information_schema.tables` once more for the largest `--top` base tables across all scanned schemas, ranked by `DATA_LENGTH + INDEX_LENGTH` (descending). `--ignore-schemas` and `--ignore-tables` apply to this list as well. Views are excluded.
-* Queries `information_schema.COLUMNS` for distinct character sets and collations per schema
+* Queries `information_schema.tables` for the row counts, data/index sizes, storage engines and collations of every table in those schemas
+* Queries `information_schema.COLUMNS` for the distinct character sets and collations per table
+* The largest `--top` base tables are ranked by `DATA_LENGTH + INDEX_LENGTH` (descending) across all scanned schemas. Views are excluded from that list
 * Empty schemas (no tables) are surfaced as an info note in the output but do not change the state - they are common in fresh installs and lazy-init applications.
 * Logic is taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_databases() and has been verified in sync with MySQLTuner. Intentional deviation: the index-vs-data-size check additionally requires one of the two sizes to exceed 10 MiB, otherwise tiny schemas (where indices proportionally dwarf data) generate constant noise.
 
@@ -43,8 +46,7 @@ The top-tables list is the fast way to find cleanup candidates. Bumping `innodb_
 usage: mysql-database-metrics [-h] [-V] [--always-ok] [-c CRITICAL]
                               [--defaults-file DEFAULTS_FILE]
                               [--defaults-group DEFAULTS_GROUP]
-                              [--ignore-schemas IGNORE_SCHEMAS]
-                              [--ignore-tables IGNORE_TABLES] [--lengthy]
+                              [--ignore IGNORE] [--lengthy] [--match MATCH]
                               [--no-perfdata] [--timeout TIMEOUT] [--top TOP]
                               [-w WARNING]
 
@@ -53,7 +55,9 @@ across all schemas in MySQL/MariaDB, and lists the largest tables by combined
 data and index size so storage growth can be traced before raising memory
 settings such as the InnoDB buffer pool. Alerts on mixed storage engines or
 collations within a single schema, and on table sizes that cross the optional
---warning / --critical thresholds. Supports extended reporting via --lengthy.
+--warning / --critical thresholds. `--match` and `--ignore` narrow every
+aggregate and every check down to a single schema or table. Supports extended
+reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -72,26 +76,34 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
-  --ignore-schemas IGNORE_SCHEMAS
-                        Regular expression matched against `SCHEMA_NAME`
-                        (case-sensitive). Schemas whose name matches are
-                        skipped entirely (no aggregate contribution, no
-                        checks). Useful for known-mixed schemas that the admin
-                        cannot or does not want to fix (common with Icinga
-                        Director / Icinga Web 2 / Icinga DB schemas, which mix
-                        utf8 / utf8mb4 collations by design). System schemas
-                        are skipped unconditionally. Default: . Example:
-                        `--ignore-
-                        schemas="^(icinga_director|icingaweb2|icingadb)$"`
-  --ignore-tables IGNORE_TABLES
-                        Regular expression matched against `TABLE_NAME` (case-
-                        sensitive). Tables whose name matches are excluded
-                        from every aggregate and every per-schema check.
-                        Useful for muting noisy temporary or backup tables
-                        that legitimately differ from the schema-wide
-                        engine/collation. Default: . Example: `--ignore-
-                        tables="^(tmp_|backup_)"`
+  --ignore IGNORE       Ignore tables whose name matches this Python regular
+                        expression. Matched against the fully qualified table
+                        identifier `schema.table`, so one pattern can drop a
+                        whole schema or a single table. Excluded tables
+                        contribute to no aggregate and to no check; system
+                        schemas are skipped unconditionally. Case-sensitive by
+                        default; use `(?i)` for case-insensitive matching. Can
+                        be specified multiple times. Default: None. Example:
+                        `--ignore="^(icinga_director|icingaweb2|icingadb)\."`
+                        to skip the schemas that mix utf8 / utf8mb4 collations
+                        by design. Example: `--ignore="\.(tmp_|backup_)"` to
+                        mute noisy temporary and backup tables that
+                        legitimately differ from the schema-wide engine or
+                        collation.
   --lengthy             Extended reporting. Default: False
+  --match MATCH         Only check tables whose name matches this Python
+                        regular expression. Matched against the fully
+                        qualified table identifier `schema.table`. A schema
+                        without any table cannot match, so it drops out of the
+                        report while this is given. Case-sensitive by default;
+                        use `(?i)` for case-insensitive matching. Can be
+                        specified multiple times. If both `--match` and
+                        `--ignore` are given, an item must match `--match` AND
+                        not match `--ignore` to be reported (include first,
+                        exclude second). Default: None. Example:
+                        `--match="^shop\."` to check the `shop` schema only.
+                        Example: `--match="^shop\.orders$"` to check one table
+                        only.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -178,7 +190,14 @@ sakila ! 23     ! 6.5MiB ! 2 column collations
 
 `rental` (2.7MiB) and `payment` (2.2MiB) cross the 2M warning threshold; none reaches 10M, so the overall state is WARN.
 
-The Director Basket activates `--lengthy` by default and pre-fills `--ignore-schemas` with `^icinga`, so admins running the shipped `MySQL Schemas Service Set` get the verbose table without the well-known Icinga-ecosystem mixed-collation noise (Icinga Director, Icinga Web 2 and Icinga DB ship schemas with mixed utf8/utf8mb4 collations by design).
+Scope the check to one schema, or mute a noisy one:
+
+```bash
+./mysql-database-metrics --match="^sakila\."
+./mysql-database-metrics --ignore="^icinga" --ignore="\.(tmp_|backup_)"
+```
+
+The Director Basket activates `--lengthy` by default and pre-fills `--ignore` with `^icinga`, so admins running the shipped `MySQL Schemas Service Set` get the verbose table without the well-known Icinga-ecosystem mixed-collation noise (Icinga Director, Icinga Web 2 and Icinga DB ship schemas with mixed utf8/utf8mb4 collations by design).
 
 
 ## States
@@ -189,6 +208,7 @@ The Director Basket activates `--lengthy` by default and pre-fills `--ignore-sch
 * WARN if more than one charset is used across the text-like columns of a schema.
 * WARN if more than one collation is used across the text-like columns of a schema.
 * WARN/CRIT if a single table's combined data + index size crosses `--warning` / `--critical`. These thresholds are unset by default, so the top-tables list is reported without alerting unless you set them.
+* Tables dropped by `--match` / `--ignore` contribute to no aggregate and to no check, so a check filtered down to nothing reports OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

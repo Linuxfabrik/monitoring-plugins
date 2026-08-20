@@ -14,11 +14,14 @@ Checks user schemas in MySQL/MariaDB for two replication- and performance-releva
 * User account requires access to `INFORMATION_SCHEMA` (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
 
+* `--match` and `--ignore` take Python regular expressions and are matched against the fully qualified table identifier `schema.table`, so the same parameter scopes the check to a schema (`^shop\.`) or to a single table (`^shop\.orders$`). Both filter before anything is counted or aggregated, so a filtered check reports only what it was asked to look at
+* `--ignore-schemas` and `--ignore-tables` still work but are deprecated and no longer shown in `--help`. They match the bare schema resp. table name; move them to `--ignore`
+
 **Data Collection:**
 
 * Single `LEFT JOIN` query against `information_schema.tables` and `information_schema.statistics` to find base tables with zero entries in `statistics` (no index at all). Replaces the previous O(schemas * tables) per-table query storm
 * Single `NOT EXISTS` query against `information_schema.statistics` filtered on `INDEX_NAME = 'PRIMARY'` to find InnoDB base tables without a user-defined `PRIMARY KEY`
-* `count(*)` against `information_schema.tables` for the total base-table count emitted as perfdata
+* Query against `information_schema.tables` listing every base table in the user schemas, counted for the total emitted as perfdata
 * Logic for the "no indexes" check taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):mysql_tables() and verified in sync with MySQLTuner. The InnoDB-without-`PRIMARY KEY` check is a Linuxfabrik addition
 
 
@@ -41,10 +44,9 @@ Checks user schemas in MySQL/MariaDB for two replication- and performance-releva
 ```text
 usage: mysql-table-indexes [-h] [-V] [--always-ok] [-c CRITICAL]
                            [--defaults-file DEFAULTS_FILE]
-                           [--defaults-group DEFAULTS_GROUP]
-                           [--ignore-schemas IGNORE_SCHEMAS]
-                           [--ignore-tables IGNORE_TABLES] [--lengthy]
-                           [--no-perfdata] [--timeout TIMEOUT] [-w WARNING]
+                           [--defaults-group DEFAULTS_GROUP] [--ignore IGNORE]
+                           [--lengthy] [--match MATCH] [--no-perfdata]
+                           [--timeout TIMEOUT] [-w WARNING]
 
 Checks user schemas in MySQL/MariaDB for two replication- and
 performance-relevant defects: base tables with no index at all (mysqltuner's
@@ -52,7 +54,8 @@ performance-relevant defects: base tables with no index at all (mysqltuner's
 KEY`. The second case is a documented hotspot for ROW-based replication: the
 replica has to materialise each row event against an internal hidden 6-byte
 index, which can degrade to a full table scan per row event. Alerts when
-either count crosses `--warning` / `--critical`.
+either count crosses `--warning` / `--critical`. `--match` and `--ignore`
+narrow the scan down to a single schema or table.
 
 options:
   -h, --help            show this help message and exit
@@ -70,15 +73,28 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
-  --ignore-schemas IGNORE_SCHEMAS
-                        Regex of schema names to exclude from the check.
-                        Evaluated by MySQL via `NOT REGEXP`. Example:
-                        `--ignore-schemas=^icinga`. Default: <none>
-  --ignore-tables IGNORE_TABLES
-                        Regex of table names to exclude from the check.
-                        Evaluated by MySQL via `NOT REGEXP`. Example:
-                        `--ignore-tables=^tmp_`. Default: <none>
+  --ignore IGNORE       Ignore tables whose name matches this Python regular
+                        expression. Matched against the fully qualified table
+                        identifier `schema.table`, so one pattern can drop a
+                        whole schema or a single table. Case-sensitive by
+                        default; use `(?i)` for case-insensitive matching. Can
+                        be specified multiple times. Default: None. Example:
+                        `--ignore="^icinga_director\."` to skip a schema whose
+                        tables are managed by the application. Example:
+                        `--ignore="\.tmp_"` to skip temporary tables
+                        everywhere.
   --lengthy             Extended reporting. Default: False
+  --match MATCH         Only check tables whose name matches this Python
+                        regular expression. Matched against the fully
+                        qualified table identifier `schema.table`. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Default: None.
+                        Example: `--match="^shop\."` to check the `shop`
+                        schema only. Example: `--match="^shop\.orders$"` to
+                        check one table only.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -98,6 +114,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-table-index
 
 ```bash
 ./mysql-table-indexes --defaults-file=/var/spool/icinga2/.my.cnf
+```
+
+Scope the check to one schema, or mute a noisy one:
+
+```bash
+./mysql-table-indexes --match="^employees\."
+./mysql-table-indexes --ignore="^(staging|tmp)\."
 ```
 
 OK output:
@@ -133,6 +156,7 @@ Recommendations:
 
 * WARN if the number of tables without any index is at or above `--warning` (default: 1). CRIT at `--critical` (default: 10).
 * WARN if the number of InnoDB tables without a user-defined `PRIMARY KEY` is at or above `--warning`. CRIT at `--critical`.
+* Tables dropped by `--match` / `--ignore` never reach the thresholds and are not part of the total, so a check filtered down to nothing reports OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

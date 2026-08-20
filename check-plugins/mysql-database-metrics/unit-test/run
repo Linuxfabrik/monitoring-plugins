@@ -42,7 +42,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -116,6 +116,47 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_WARN)
         test.assertIn('[WARNING]', combined)
+
+        def run(*extra_args):
+            cmd = [
+                'python3',
+                '../mysql-database-metrics',
+                f'--defaults-file={defaults_file}',
+                *extra_args,
+            ]
+            print(f'Run plugin: {" ".join(cmd)}', flush=True)
+            result = subprocess.run(
+                cmd,
+                cwd=here,
+                capture_output=True,
+                text=True,
+            )
+            combined = result.stdout + result.stderr
+            print(f'Script output:\n{combined.strip()}', flush=True)
+            return result.returncode, combined
+
+        # --ignore takes the seeded table out of every aggregate, so the
+        # top-tables section no longer knows about it.
+        returncode, combined = run(r'--ignore=^test\.')
+        test.assertEqual(returncode, STATE_OK)
+        test.assertNotIn('countries', combined)
+
+        # --match keeps it. `--warning=1B` still fires on it, which proves
+        # the surviving row reaches the size thresholds.
+        returncode, combined = run(r'--match=^test\.countries$', '--warning=1B')
+        test.assertEqual(returncode, STATE_WARN)
+        test.assertIn('countries', combined)
+
+        # The deprecated, hidden --ignore-tables still filters on the bare
+        # table name.
+        returncode, combined = run('--ignore-tables=^countries$')
+        test.assertEqual(returncode, STATE_OK)
+        test.assertNotIn('countries', combined)
+
+        # An unparseable regex is a configuration error, not a finding.
+        returncode, combined = run('--ignore=[')
+        test.assertEqual(returncode, STATE_UNKNOWN)
+        test.assertIn('--ignore', combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

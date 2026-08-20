@@ -17,14 +17,16 @@
                 "--defaults-group": {
                     "value": "$mysql_storage_engines_defaults_group$"
                 },
-                "--ignore-schemas": {
-                    "value": "$mysql_storage_engines_ignore_schemas$"
-                },
-                "--ignore-tables": {
-                    "value": "$mysql_storage_engines_ignore_tables$"
+                "--ignore": {
+                    "value": "$mysql_storage_engines_ignore$",
+                    "repeat_key": true
                 },
                 "--lengthy": {
                     "set_if": "$mysql_storage_engines_lengthy$"
+                },
+                "--match": {
+                    "value": "$mysql_storage_engines_match$",
+                    "repeat_key": true
                 },
                 "--no-perfdata": {
                     "set_if": "$mysql_storage_engines_no_perfdata$"
@@ -144,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables, and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes beyond mysqltuner by comparing each column to its own type ceiling (`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long before they hit the duplicate-key error.",
+            "notes": "Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and sizes, flags InnoDB-enabled-but-no-InnoDB-tables, hunts fragmented tables, and warns when an `AUTO_INCREMENT` value approaches its column-type maximum. The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes beyond mysqltuner by comparing each column to its own type ceiling (`TINYINT` to `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long before they hit the duplicate-key error. `--match` and `--ignore` narrow every check down to a single schema or table.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-storage-engines/",
             "object_name": "tpl-service-mysql-storage-engines",
             "object_type": "template",
@@ -160,7 +162,9 @@
                 "mysql_storage_engines_critical_fragmented_tables": "4",
                 "mysql_storage_engines_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_storage_engines_defaults_group": "client",
+                "mysql_storage_engines_ignore": [],
                 "mysql_storage_engines_lengthy": true,
+                "mysql_storage_engines_match": [],
                 "mysql_storage_engines_no_perfdata": false,
                 "mysql_storage_engines_timeout": 3,
                 "mysql_storage_engines_warning_autoincrement_pct": "75",
@@ -226,28 +230,17 @@
             "uuid": "5f5bf9dc-2db9-4534-80ee-5d8fe6d644b4"
         },
         "6": {
-            "varname": "mysql_storage_engines_ignore_schemas",
-            "caption": "MySQL Storage Engines: Ignore Schemas",
-            "description": "Regex of schema names to exclude from every check (no aggregate contribution, no per-schema alerts). Evaluated by MySQL via `NOT REGEXP`. Example: `--ignore-schemas=^icinga`. Default: <none>",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "varname": "mysql_storage_engines_ignore",
+            "caption": "MySQL Storage Engines: Ignore",
+            "description": "Ignore tables whose name matches this Python regular expression. Matched against the fully qualified table identifier `schema.table`, so one pattern can drop a whole schema or a single table. Excluded tables contribute to no aggregate and to no check. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "9bd4513e-4d50-4934-8d50-251fb1ab37f7"
+            "uuid": "fdf50ac4-dfd9-408b-b966-4914d90874e8"
         },
         "7": {
-            "varname": "mysql_storage_engines_ignore_tables",
-            "caption": "MySQL Storage Engines: Ignore Tables",
-            "description": "Regex of table names to exclude from every check. Evaluated by MySQL via `NOT REGEXP`. Example: `--ignore-tables=^tmp_`. Default: <none>",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "091ecced-6907-4e93-bd9c-97acad493838"
-        },
-        "8": {
             "varname": "mysql_storage_engines_lengthy",
             "caption": "MySQL Storage Engines: Lengthy?",
             "description": "Extended reporting.",
@@ -255,6 +248,17 @@
             "format": null,
             "settings": {},
             "uuid": "850de6d6-8c1c-4a98-931f-5cd9e95437ab"
+        },
+        "8": {
+            "varname": "mysql_storage_engines_match",
+            "caption": "MySQL Storage Engines: Match",
+            "description": "Only check tables whose name matches this Python regular expression. Matched against the fully qualified table identifier `schema.table`. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f180e220-fa51-489c-9d81-de4ae5efe736"
         },
         "9": {
             "varname": "mysql_storage_engines_no_perfdata",

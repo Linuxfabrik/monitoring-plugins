@@ -14,11 +14,14 @@ Checks storage engine health in MySQL/MariaDB. Lists per-engine table counts and
 * User account requires access to INFORMATION_SCHEMA (user with no privileges is sufficient) and SELECT privileges on all schemas and tables to provide accurate results
 * [For most INFORMATION_SCHEMA tables, each MySQL user has the right to access them, but can see only the rows in the tables that correspond to objects for which the user has the proper access privileges.](https://dev.mysql.com/doc/refman/5.7/en/information-schema-introduction.html#information-schema-privileges) [So you can't grant permission to INFORMATION_SCHEMA directly, you have to grant SELECT permission to the tables on your own schemas, and as you do, those tables will start showing up in INFORMATION_SCHEMA queries.](https://stackoverflow.com/questions/60499772/cannot-grant-mysql-user-access-to-information-schema-database)
 
+* `--match` and `--ignore` take Python regular expressions and are matched against the fully qualified table identifier `schema.table`, so the same parameter scopes the check to a schema (`^shop\.`) or to a single table (`^shop\.orders$`). Both filter before anything is counted or aggregated, so a filtered check reports only what it was asked to look at
+* `--ignore-schemas` and `--ignore-tables` still work but are deprecated and no longer shown in `--help`. They match the bare schema resp. table name; move them to `--ignore`
+
 **Data Collection:**
 
 * Queries `SHOW GLOBAL VARIABLES` for `innodb_file_per_table`
 * Queries `information_schema.engines` for available storage engines
-* Queries `information_schema.tables` grouped by `ENGINE` for per-engine counts and data/index sizes
+* Queries `information_schema.tables` for the engine and the data/index sizes of every table, and reports the counts and sizes per engine
 * Queries `information_schema.tables` for fragmentation candidates (`DATA_LENGTH > 100 MiB` and `DATA_FREE / (DATA_LENGTH + INDEX_LENGTH + DATA_FREE) > 10%`)
 * Joins `information_schema.tables` against `information_schema.columns` (filtered by `EXTRA = 'auto_increment'`) so the `AUTO_INCREMENT` percentage can be computed against the actual column ceiling
 * Logic taken from [MySQLTuner](https://github.com/major/MySQLTuner-perl):check_storage_engines() and verified in sync with MySQLTuner
@@ -46,8 +49,7 @@ usage: mysql-storage-engines [-h] [-V] [--always-ok]
                              [--critical-fragmented-tables CRITICAL_FRAG]
                              [--defaults-file DEFAULTS_FILE]
                              [--defaults-group DEFAULTS_GROUP]
-                             [--ignore-schemas IGNORE_SCHEMAS]
-                             [--ignore-tables IGNORE_TABLES] [--lengthy]
+                             [--ignore IGNORE] [--lengthy] [--match MATCH]
                              [--no-perfdata] [--timeout TIMEOUT]
                              [--warning-autoincrement-pct WARNING_AI]
                              [--warning-fragmented-tables WARNING_FRAG]
@@ -59,7 +61,8 @@ The fragmentation rule mirrors mysqltuner: only tables larger than 100 MiB
 with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes beyond
 mysqltuner by comparing each column to its own type ceiling (`TINYINT` to
 `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long
-before they hit the duplicate-key error.
+before they hit the duplicate-key error. `--match` and `--ignore` narrow every
+check down to a single schema or table.
 
 options:
   -h, --help            show this help message and exit
@@ -80,16 +83,29 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
-  --ignore-schemas IGNORE_SCHEMAS
-                        Regex of schema names to exclude from every check (no
-                        aggregate contribution, no per-schema alerts).
-                        Evaluated by MySQL via `NOT REGEXP`. Example:
-                        `--ignore-schemas=^icinga`. Default: <none>
-  --ignore-tables IGNORE_TABLES
-                        Regex of table names to exclude from every check.
-                        Evaluated by MySQL via `NOT REGEXP`. Example:
-                        `--ignore-tables=^tmp_`. Default: <none>
+  --ignore IGNORE       Ignore tables whose name matches this Python regular
+                        expression. Matched against the fully qualified table
+                        identifier `schema.table`, so one pattern can drop a
+                        whole schema or a single table. Excluded tables
+                        contribute to no aggregate and to no check. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. Default:
+                        None. Example: `--ignore="^icinga_director\."` to skip
+                        a schema whose tables are managed by the application.
+                        Example: `--ignore="\.tmp_"` to skip temporary tables
+                        everywhere.
   --lengthy             Extended reporting. Default: False
+  --match MATCH         Only check tables whose name matches this Python
+                        regular expression. Matched against the fully
+                        qualified table identifier `schema.table`. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Default: None.
+                        Example: `--match="^shop\."` to check the `shop`
+                        schema only. Example: `--match="^shop\.orders$"` to
+                        check one table only.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -112,6 +128,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-storage-eng
 
 ```bash
 ./mysql-storage-engines --defaults-file=/var/spool/icinga2/.my.cnf --lengthy
+```
+
+Scope the check to one schema, or mute a noisy one:
+
+```bash
+./mysql-storage-engines --match="^sakila\."
+./mysql-storage-engines --ignore="\.(tmp_|backup_)"
 ```
 
 OK output:
@@ -147,6 +170,7 @@ Recommendations:
 * WARN if `InnoDB` is enabled but no `InnoDB` tables exist.
 * WARN if the number of fragmented tables crosses `--warning-fragmented-tables` (default: 1). CRIT at `--critical-fragmented-tables` (default: 5).
 * WARN if any table's `AUTO_INCREMENT` value is at `--warning-autoincrement-pct` (default: 75%) or more of the column-type maximum. CRIT at `--critical-autoincrement-pct` (default: 90%).
+* Tables dropped by `--match` / `--ignore` contribute to no aggregate and to no check. Filtering away every `InnoDB` table therefore reports "InnoDB is enabled but no InnoDB tables exist".
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

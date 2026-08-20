@@ -20,14 +20,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082001'
 
 DESCRIPTION = """Checks user schemas in MySQL/MariaDB for two replication- and performance-relevant
 defects: base tables with no index at all (mysqltuner's `mysql_tables()` check) and
 InnoDB base tables without a user-defined `PRIMARY KEY`. The second case is a documented
 hotspot for ROW-based replication: the replica has to materialise each row event against an
 internal hidden 6-byte index, which can degrade to a full table scan per row event. Alerts
-when either count crosses `--warning` / `--critical`."""
+when either count crosses `--warning` / `--critical`. `--match` and `--ignore` narrow the
+scan down to a single schema or table."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -98,23 +99,44 @@ def parse_args():
         default=DEFAULT_DEFAULTS_GROUP,
     )
 
+    # Append parameters must always use `default=None` instead of a list,
+    # because argparse appends user values to the default list instead of
+    # replacing it (see https://bugs.python.org/issue16399).
+    # After parsing, assign the actual defaults in main() if the value is
+    # still None.
+    parser.add_argument(
+        '--ignore',
+        help='Ignore tables whose name matches this Python regular expression. '
+        'Matched against the fully qualified table identifier `schema.table`, '
+        'so one pattern can drop a whole schema or a single table. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        'Default: %(default)s. '
+        'Example: `--ignore="^icinga_director\\."` to skip a schema whose tables '
+        'are managed by the application. '
+        'Example: `--ignore="\\.tmp_"` to skip temporary tables everywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    # Deprecated parameters: hidden from --help, still accepted so existing
+    # service definitions keep working. Both are matched against the bare
+    # schema resp. table name, which is what they did when MySQL evaluated
+    # them via `NOT REGEXP`.
     parser.add_argument(
         '--ignore-schemas',
-        help='Regex of schema names to exclude from the check. Evaluated by '
-        'MySQL via `NOT REGEXP`. '
-        'Example: `--ignore-schemas=^icinga`. '
-        'Default: <none>',
+        help=argparse.SUPPRESS,
         dest='IGNORE_SCHEMAS',
+        action='append',
         default=None,
     )
 
     parser.add_argument(
         '--ignore-tables',
-        help='Regex of table names to exclude from the check. Evaluated by '
-        'MySQL via `NOT REGEXP`. '
-        'Example: `--ignore-tables=^tmp_`. '
-        'Default: <none>',
+        help=argparse.SUPPRESS,
         dest='IGNORE_TABLES',
+        action='append',
         default=None,
     )
 
@@ -124,6 +146,21 @@ def parse_args():
         dest='LENGTHY',
         action='store_true',
         default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only check tables whose name matches this Python regular expression. '
+        'Matched against the fully qualified table identifier `schema.table`. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + ' Default: %(default)s. '
+        'Example: `--match="^shop\\."` to check the `shop` schema only. '
+        'Example: `--match="^shop\\.orders$"` to check one table only.',
+        dest='MATCH',
+        action='append',
+        default=None,
     )
 
     parser.add_argument(
@@ -157,12 +194,7 @@ def parse_args():
     return args
 
 
-def get_tables_without_any_index(
-    conn,
-    excluded,
-    ignore_schemas_clause,
-    ignore_tables_clause,
-):
+def get_tables_without_any_index(conn, excluded):
     # LEFT JOIN onto information_schema.statistics: a base table with no
     # entries in statistics has no index at all. Single query, replaces the
     # previous O(schemas * tables) round-trip storm.
@@ -177,20 +209,13 @@ def get_tables_without_any_index(
         where t.TABLE_SCHEMA not in ({excluded})
             and t.TABLE_TYPE = 'BASE TABLE'
             and s.INDEX_NAME is null
-            {ignore_schemas_clause}
-            {ignore_tables_clause.replace('TABLE_NAME', 't.TABLE_NAME')}
         order by t.TABLE_SCHEMA, t.TABLE_NAME
         ;
     """  # nosec B608
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
-def get_innodb_tables_without_pk(
-    conn,
-    excluded,
-    ignore_schemas_clause,
-    ignore_tables_clause,
-):
+def get_innodb_tables_without_pk(conn, excluded):
     # `NOT EXISTS` against statistics filtered to `INDEX_NAME = 'PRIMARY'`
     # catches InnoDB base tables where the admin did not define a primary key.
     # InnoDB synthesises a hidden 6-byte clustered index in that case, but
@@ -211,31 +236,77 @@ def get_innodb_tables_without_pk(
                     and s.TABLE_NAME = t.TABLE_NAME
                     and s.INDEX_NAME = 'PRIMARY'
             )
-            {ignore_schemas_clause}
-            {ignore_tables_clause.replace('TABLE_NAME', 't.TABLE_NAME')}
         order by t.TABLE_SCHEMA, t.TABLE_NAME
         ;
     """  # nosec B608
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
 
-def get_total_tables(
-    conn,
-    excluded,
-    ignore_schemas_clause,
-    ignore_tables_clause,
-):
+def get_base_tables(conn, excluded):
+    # Returns the names instead of a `count(*)`, because `--match` and
+    # `--ignore` are Python regexes and are evaluated here, not by the
+    # server. The scan is a once-a-day check and the result set is one
+    # row per base table.
     sql = f"""
-        select count(*) as cnt
+        select TABLE_SCHEMA as table_schema,
+            TABLE_NAME as table_name
         from information_schema.tables
         where TABLE_SCHEMA not in ({excluded})
             and TABLE_TYPE = 'BASE TABLE'
-            {ignore_schemas_clause}
-            {ignore_tables_clause}
         ;
     """  # nosec B608
-    row = lib.base.coe(lib.db_mysql.select(conn, sql, fetchone=True))
-    return int(row['cnt'])
+    return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def compile_filters(args):
+    """Compile the filter regexes once. lib.txt.compile_regex() returns a
+    (success, result) tuple per pattern and names the parameter in its error
+    message, so an invalid pattern exits UNKNOWN via lib.base.coe().
+    """
+    return {
+        key: [lib.base.coe(item) for item in lib.txt.compile_regex(patterns, key)]
+        for key, patterns in (
+            ('--ignore', args.IGNORE),
+            ('--ignore-schemas', args.IGNORE_SCHEMAS),
+            ('--ignore-tables', args.IGNORE_TABLES),
+            ('--match', args.MATCH),
+        )
+    }
+
+
+def keep_table(schema, table, filters):
+    """Decide whether a table survives the filters.
+
+    `--match` (include) is applied first, then `--ignore` (exclude), so a
+    table hit by `--ignore` is dropped even if it also matches `--match`.
+    Both are matched against the fully qualified `schema.table` name, so a
+    single pattern addresses either level.
+
+    The deprecated `--ignore-schemas` / `--ignore-tables` are matched
+    against the bare schema resp. table name, which is what they did while
+    MySQL evaluated them via `NOT REGEXP`.
+    """
+    if any(item.search(schema) for item in filters['--ignore-schemas']):
+        return False
+    if any(item.search(table) for item in filters['--ignore-tables']):
+        return False
+    identifier = f'{schema}.{table}'
+    if filters['--match'] and not any(
+        item.search(identifier) for item in filters['--match']
+    ):
+        return False
+    return not any(item.search(identifier) for item in filters['--ignore'])
+
+
+def filter_tables(rows, filters):
+    """Drop the rows whose `table_schema` / `table_name` the filters
+    exclude.
+    """
+    return [
+        row
+        for row in rows
+        if keep_table(row['table_schema'] or '', row['table_name'] or '', filters)
+    ]
 
 
 def format_table_list(rows, lengthy):
@@ -268,6 +339,16 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.IGNORE_SCHEMAS is None:
+        args.IGNORE_SCHEMAS = []
+    if args.IGNORE_TABLES is None:
+        args.IGNORE_TABLES = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     # fetch data
     mysql_connection = {
         'defaults_file': args.DEFAULTS_FILE,
@@ -277,44 +358,21 @@ def main():
     conn = lib.base.coe(lib.db_mysql.connect(mysql_connection))
     lib.base.coe(lib.db_mysql.check_privileges(conn, 'SELECT'))
 
-    # The `--ignore-tables` and `--ignore-schemas` regexes are interpolated
-    # into the SQL. Values come from the CLI (admin-controlled), embedded
-    # single quotes are escaped to keep the literal valid. MySQL rejects
-    # malformed regex patterns at query time and `lib.base.coe()` surfaces
-    # the error.
-    ignore_tables_clause = ''
-    if args.IGNORE_TABLES:
-        safe = args.IGNORE_TABLES.replace("'", "''")
-        ignore_tables_clause = f" and TABLE_NAME not regexp '{safe}'"
-    ignore_schemas_clause = ''
-    if args.IGNORE_SCHEMAS:
-        safe = args.IGNORE_SCHEMAS.replace("'", "''")
-        ignore_schemas_clause = f" and t.TABLE_SCHEMA not regexp '{safe}'"
-
     excluded = ', '.join(f"'{s}'" for s in SYSTEM_SCHEMAS)
 
-    no_index_rows = get_tables_without_any_index(
-        conn,
-        excluded,
-        ignore_schemas_clause,
-        ignore_tables_clause,
-    )
-    no_pk_rows = get_innodb_tables_without_pk(
-        conn,
-        excluded,
-        ignore_schemas_clause,
-        ignore_tables_clause,
-    )
-    total_tables = get_total_tables(
-        conn,
-        excluded,
-        ignore_schemas_clause.replace('t.TABLE_SCHEMA', 'TABLE_SCHEMA'),
-        ignore_tables_clause,
-    )
+    no_index_rows = get_tables_without_any_index(conn, excluded)
+    no_pk_rows = get_innodb_tables_without_pk(conn, excluded)
+    base_table_rows = get_base_tables(conn, excluded)
 
     lib.db_mysql.close(conn)
 
     # init some vars
+    filters = compile_filters(args)
+    # Filter before counting, so the thresholds, the perfdata and the listed
+    # tables all describe the same set of tables.
+    no_index_rows = filter_tables(no_index_rows, filters)
+    no_pk_rows = filter_tables(no_pk_rows, filters)
+    total_tables = len(filter_tables(base_table_rows, filters))
     state = STATE_OK
     sections = []
     # All recommendations from all WARN/CRIT paths land here and render once

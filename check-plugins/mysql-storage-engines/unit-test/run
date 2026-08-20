@@ -42,7 +42,7 @@ import unittest
 sys.path.insert(0, '..')
 
 import lib.lftest
-from lib.globals import STATE_OK
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
@@ -64,23 +64,60 @@ def _check_image(test, containerfile):
         path,
         seed='CREATE TABLE seed_innodb (id INT PRIMARY KEY) ENGINE=InnoDB',
     ) as (_container, defaults_file):
-        cmd = [
-            'python3',
-            '../mysql-storage-engines',
-            f'--defaults-file={defaults_file}',
-        ]
-        print(f'Run plugin: {" ".join(cmd)}', flush=True)
-        result = subprocess.run(
-            cmd,
-            cwd=os.path.dirname(os.path.abspath(__file__)),
-            capture_output=True,
-            text=True,
-        )
-        combined = result.stdout + result.stderr
-        print(f'Script output:\n{combined.strip()}', flush=True)
 
-        test.assertEqual(result.returncode, STATE_OK)
+        def run(*extra_args):
+            cmd = [
+                'python3',
+                '../mysql-storage-engines',
+                f'--defaults-file={defaults_file}',
+                *extra_args,
+            ]
+            print(f'Run plugin: {" ".join(cmd)}', flush=True)
+            result = subprocess.run(
+                cmd,
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+                capture_output=True,
+                text=True,
+            )
+            combined = result.stdout + result.stderr
+            print(f'Script output:\n{combined.strip()}', flush=True)
+            return result.returncode, combined
+
+        returncode, combined = run()
+        test.assertEqual(returncode, STATE_OK)
         test.assertIn('Everything is ok.', combined)
+        test.assertIn('1 table across 1 engine', combined)
+
+        # --lengthy renders the per-engine table, which is where the engine
+        # name shows up at all.
+        returncode, combined = run('--lengthy')
+        test.assertEqual(returncode, STATE_OK)
+        test.assertIn('InnoDB', combined)
+
+        # Filtering away the only InnoDB table leaves the server with InnoDB
+        # enabled but unused, which is exactly the WARN path. Proves the
+        # per-engine aggregate is built from the surviving tables.
+        returncode, combined = run(r'--ignore=^test\.')
+        test.assertEqual(returncode, STATE_WARN)
+        test.assertIn('no `InnoDB` tables exist', combined)
+
+        # --match keeps it, so the aggregate is not simply dropping
+        # everything it sees.
+        returncode, combined = run(r'--match=^test\.seed_innodb$', '--lengthy')
+        test.assertEqual(returncode, STATE_OK)
+        test.assertIn('InnoDB', combined)
+        test.assertIn('1 table across 1 engine', combined)
+
+        # The deprecated, hidden --ignore-tables still filters on the bare
+        # table name.
+        returncode, combined = run('--ignore-tables=^seed_innodb$')
+        test.assertEqual(returncode, STATE_WARN)
+        test.assertIn('no `InnoDB` tables exist', combined)
+
+        # An unparseable regex is a configuration error, not a finding.
+        returncode, combined = run('--match=[')
+        test.assertEqual(returncode, STATE_UNKNOWN)
+        test.assertIn('--match', combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

@@ -20,7 +20,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081901'
+__version__ = '2026082001'
 
 DESCRIPTION = """Reports the two index-housekeeping findings that MySQLTuner
 flags inside its `mysql_pfs()` block: unused indexes (never read since the last server
@@ -291,34 +291,49 @@ def _drop_index_sql(schema, table, index):
     return f'ALTER TABLE `{schema}`.`{table}` DROP INDEX `{index}`;'
 
 
-def _index_id(row, index_key):
-    """Return the fully qualified index identifier that `--match` and
-    `--ignore` are matched against, for example `shop.orders.idx_a`.
-    A single identifier lets one pattern address a schema, a table or an
-    index name, which is what an admin scoping a cleanup actually needs.
+def compile_filters(args):
+    """Compile the filter regexes once. lib.txt.compile_regex() returns a
+    (success, result) tuple per pattern and names the parameter in its error
+    message, so an invalid pattern exits UNKNOWN via lib.base.coe().
     """
-    schema = row.get('schema_name') or ''
-    table = row.get('table_name') or ''
-    index = row.get(index_key) or ''
-    return f'{schema}.{table}.{index}'
+    return {
+        key: [lib.base.coe(item) for item in lib.txt.compile_regex(patterns, key)]
+        for key, patterns in (('--ignore', args.IGNORE), ('--match', args.MATCH))
+    }
 
 
-def _filter_index_rows(rows, index_key, compiled_match, compiled_ignore):
-    """Apply the `--match` (include) and `--ignore` (exclude) filters.
-    `--match` is applied first, then `--ignore`, so an index hit by
-    `--ignore` is dropped even if it also matches `--match`.
+def keep_index(schema, table, index, filters):
+    """Decide whether an index survives the filters.
+
+    `--match` (include) is applied first, then `--ignore` (exclude), so an
+    index hit by `--ignore` is dropped even if it also matches `--match`.
+    Both are matched against the fully qualified `schema.table.index` name,
+    so a single pattern addresses any of the three levels, which is what an
+    admin scoping a cleanup actually needs.
     """
-    result = []
-    for row in rows:
-        identifier = _index_id(row, index_key)
-        if compiled_match and not any(
-            item.search(identifier) for item in compiled_match
-        ):
-            continue
-        if any(item.search(identifier) for item in compiled_ignore):
-            continue
-        result.append(row)
-    return result
+    identifier = f'{schema}.{table}.{index}'
+    if filters['--match'] and not any(
+        item.search(identifier) for item in filters['--match']
+    ):
+        return False
+    return not any(item.search(identifier) for item in filters['--ignore'])
+
+
+def filter_index_rows(rows, index_key, filters):
+    """Drop the rows whose `schema_name` / `table_name` / index name the
+    filters exclude. `index_key` names the column carrying the index name,
+    which differs between the unused and the redundant view.
+    """
+    return [
+        row
+        for row in rows
+        if keep_index(
+            row.get('schema_name') or '',
+            row.get('table_name') or '',
+            row.get(index_key) or '',
+            filters,
+        )
+    ]
 
 
 def _top_schema(unused_rows, redundant_rows):
@@ -425,29 +440,11 @@ def main():
     lib.db_mysql.close(conn)
 
     # init some vars
-    # compile user-supplied regex patterns. lib.txt.compile_regex() returns a
-    # (success, result) tuple per pattern and names the parameter in its error
-    # message, so an invalid pattern exits UNKNOWN via lib.base.coe().
-    compiled_match = [
-        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
-    ]
-    compiled_ignore = [
-        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
-    ]
+    filters = compile_filters(args)
     # Filter before counting, so the thresholds, the perfdata, the hotspot hint
     # and the tables all describe the same set of indexes.
-    unused_rows = _filter_index_rows(
-        unused_rows,
-        'index_name',
-        compiled_match,
-        compiled_ignore,
-    )
-    redundant_rows = _filter_index_rows(
-        redundant_rows,
-        'redundant_name',
-        compiled_match,
-        compiled_ignore,
-    )
+    unused_rows = filter_index_rows(unused_rows, 'index_name', filters)
+    redundant_rows = filter_index_rows(redundant_rows, 'redundant_name', filters)
     sections = []
     perfdata = ''
     unused_count = len(unused_rows)
