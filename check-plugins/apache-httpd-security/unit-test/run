@@ -24,10 +24,10 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '7 of 18 checks failed.',
+            '8 of 22 checks failed.',
             'info_module',
             'status_module',
-            "'apache_httpd_checks_failed'=7",
+            "'apache_httpd_checks_failed'=8",
         ],
     },
     {
@@ -50,7 +50,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '3 of 18 checks failed.',
+            '4 of 22 checks failed.',
             'status_module',
             'www-data:www-data (uid 33)',
         ],
@@ -71,7 +71,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 18 checks passed.',
+            'Everything is ok. All 22 checks passed.',
             "'apache_httpd_checks_failed'=0",
         ],
         'assert-not-in': ['Recommendations:'],
@@ -85,7 +85,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '11 of 18 checks failed.',
+            '12 of 22 checks failed.',
             'nobody:nobody (uid 65534)',
             '`nobody` is a shared account',
             'uid 65534 >= UID_MIN 1000',
@@ -106,7 +106,7 @@ TESTS = [
         'test': 'stdout/shared-account',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['11 of 18 checks failed.'],
+        'assert-in': ['12 of 22 checks failed.'],
     },
     # --brief drops the passing rows but must not change the counts, the
     # recommendations or the state.
@@ -115,7 +115,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 18 checks failed.', "'apache_httpd_checks_evaluated'=18"],
+        'assert-in': ['8 of 22 checks failed.', "'apache_httpd_checks_evaluated'=22"],
         'assert-not-in': ['[OK]'],
     },
     # A host whose monitoring reads mod_status knowingly accepts that finding.
@@ -124,7 +124,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=^Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['6 of 17 checks failed.'],
+        'assert-in': ['7 of 21 checks failed.'],
         'assert-not-in': ['status_module'],
     },
     # The same exclusion written as an unanchored substring.
@@ -133,7 +133,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['6 of 17 checks failed.'],
+        'assert-in': ['7 of 21 checks failed.'],
         'assert-not-in': ['status_module'],
     },
     # Everything filtered out: report the configured severity, not a pass.
@@ -194,6 +194,43 @@ TESTS = [
         'params': '--match=^Account',
         'assert-retc': STATE_OK,
         'assert-in': ['no password login'],
+    },
+    # A stock server sets none of the four request limits. Three of them keep a
+    # compiled-in value the benchmark accepts, while an absent LimitRequestBody
+    # leaves the body capped at 1 GiB, which it does not.
+    {
+        'id': 'warn-stock-request-limits-keep-the-defaults',
+        'test': 'stdout/rhel-stock',
+        'params': '--match=^Request',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 of 4 checks failed.',
+            '1073741824 (default)',
+            'Above the recommended maximum of 102400.',
+        ],
+    },
+    # All four written out at the values the benchmark asks for.
+    {
+        'id': 'ok-hardened-request-limits',
+        'test': 'stdout/hardened',
+        'params': '--match=^Request',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. All 4 checks passed.', '102400'],
+        'assert-not-in': ['(default)'],
+    },
+    # A zero, a value above the maximum, two values for the same directive, and
+    # a value that is not a number at all, which cannot be judged.
+    {
+        'id': 'warn-loose-request-limits',
+        'test': 'stdout/loose-limits',
+        'params': '--match=^Request',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 3 checks failed.',
+            '0 means the number of header fields is unlimited.',
+            '0, 10485760',
+            '`LimitRequestLine abc` is not a number.',
+        ],
     },
     {
         'id': 'unknown-missing-fixture',

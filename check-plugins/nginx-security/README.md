@@ -3,9 +3,9 @@
 
 ## Overview
 
-Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, and the ownership and permissions of the configuration directory and the process ID file. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, or when a file the server relies on is readable or writable beyond root. Individual checks can be excluded with `--ignore`. Requires root or sudo.
+Checks the local security posture of an NGINX installation: which dynamic modules it loads, which account its worker processes run under, whether that account can be logged into, the ownership and permissions of the configuration directory and the process ID file, and how large a request body the server accepts. Every path is taken from the values the binary itself reports, so a setting left at its compiled-in default is checked just like one written into the configuration. Each finding maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack surface without being needed, when the worker account is privileged or can be logged into, when a file the server relies on is readable or writable beyond root, or when the request body size is left unlimited or at the built-in default. Individual checks can be excluded with `--ignore`. Requires root or sudo.
 
-The checks follow the "Minimize NGINX Modules" and "Permissions and Ownership" controls of the CIS NGINX Benchmark.
+The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and "Request Limits" controls of the CIS NGINX Benchmark.
 
 **Important Notes:**
 
@@ -15,6 +15,8 @@ The checks follow the "Minimize NGINX Modules" and "Permissions and Ownership" c
 * **The configuration tree check fails on a stock installation by design.** The distributions ship `0644` for files and `0755` for directories, and the benchmark's hardening target is `0640` and `0750`, so world-readable is a finding. World-writable and world-readable are reported apart, because only the first is a defect on any system. Exclude the check with `--ignore=^Config tree access$` if the site accepts the distribution default.
 * A web server running in a container shows up in the host's process list under a mapped user id. Only processes sharing this host's mount namespace are counted, so a containerised NGINX does not make the host's check report a stray account.
 * Whether a loaded dynamic module is really needed is a judgement only the operator can make. The check lists what is loaded and leaves the decision; `--ignore=^Dynamic modules$` records that it has been made.
+* **The request body check fails on a stock installation by design.** A configuration that never mentions `client_max_body_size` does not leave the body unlimited, it caps it at 1 MiB, which is small enough to reject an ordinary file upload with a `413` that names no cause. The benchmark asks for the limit to be written out, at a value the site has decided on. Such a value carries `(default)` in the result column.
+* Every `client_max_body_size` the configuration sets is reported, whatever block it sits in, so a permissive `location` is visible even when the `http` block is restrictive. Which block a value belongs to is not resolved. The benchmark names no upper bound, because how large a request an application has to accept is an application question; only a `0`, which removes the limit entirely, is reported as a finding.
 
 ### Data Collection
 
@@ -49,15 +51,16 @@ usage: nginx-security [-h] [-V] [--always-ok] [--brief] [--command COMMAND]
 
 Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that
-account can be logged into, and the ownership and permissions of the
-configuration directory and the process ID file. Every path is taken from the
-values the binary itself reports, so a setting left at its compiled-in default
-is checked just like one written into the configuration. Each finding maps to
-a copy-pasteable recommendation. Alerts when a dynamic module widens the
-attack surface without being needed, when the worker account is privileged or
-can be logged into, or when a file the server relies on is readable or
-writable beyond root. Individual checks can be excluded with --ignore.
-Requires root or sudo.
+account can be logged into, the ownership and permissions of the configuration
+directory and the process ID file, and how large a request body the server
+accepts. Every path is taken from the values the binary itself reports, so a
+setting left at its compiled-in default is checked just like one written into
+the configuration. Each finding maps to a copy-pasteable recommendation.
+Alerts when a dynamic module widens the attack surface without being needed,
+when the worker account is privileged or can be logged into, when a file the
+server relies on is readable or writable beyond root, or when the request body
+size is left unlimited or at the built-in default. Individual checks can be
+excluded with --ignore. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -165,7 +168,8 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
     * the worker account has a shell the system lists in `/etc/shells`,
     * the worker account carries a password that can be used, or none at all,
     * something below the configuration directory is not owned by `root:root`, or is readable or writable by other,
-    * the process ID file is not owned by `root:root`, or its mode is wider than `0644`.
+    * the process ID file is not owned by `root:root`, or its mode is wider than `0644`,
+    * `client_max_body_size` is not configured anywhere, or is set to `0`, which removes the limit.
 * Returns UNKNOWN if `nginx` is not found, if the binary given via `--command` does not exist, or if the configuration does not parse, in which case `nginx -T` produces no dump at all.
 * A check that cannot be carried out is reported as not evaluated and neither counts nor drives the state. That covers an account served by a directory service rather than by local files, a shadow database the check may not read, and a process ID file that does not exist because the server is not running.
 * If `--match` and `--ignore` between them exclude every check, the plugin prints "Nothing checked." and returns the state given by `--no-match-severity` (OK by default).
@@ -198,6 +202,12 @@ Expected. Every distribution ships `0644` for files and `0755` for directories, 
 ### The modules directory keeps being reported after `chmod -R o= /etc/nginx`
 
 `/etc/nginx/modules` is usually a symlink to a directory elsewhere, and `chmod -R` does not follow it. Tighten the target instead, or accept it: the module files themselves are shipped by the package and readable anyway.
+
+### `Request body limit` fires on a fresh installation
+
+Expected, and the reason is worth knowing before the value is changed: a request body above `client_max_body_size` is answered with `413 Request Entity Too Large` by NGINX itself, so the request never reaches the application behind it, and the application's own upload settings (`upload_max_filesize` and `post_max_size` in PHP, for example) never come into play. An unconfigured directive caps every request at 1 MiB.
+
+Set `client_max_body_size` in the `http` block to the largest request the site has to accept, raise it in the `location` blocks that take uploads, and reload.
 
 ### `Account locked` is not evaluated
 

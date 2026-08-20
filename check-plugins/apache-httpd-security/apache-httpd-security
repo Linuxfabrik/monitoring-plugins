@@ -33,19 +33,21 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026082001'
 
 DESCRIPTION = """Checks the local security posture of an Apache httpd installation: which
-modules the server has loaded, which account its worker processes run under, and the
-ownership and permissions of the configuration files, the process ID file, the lock file
-directory and the core dump directory. Every value is read back from the running
-installation rather than from a configuration file, so a path left at a compiled-in default
-and a directive overridden further down the configuration are both reported as they actually
-take effect. Each finding maps to a copy-pasteable recommendation. Alerts when a module
-widens the attack surface without being needed, when the worker account is not a dedicated
-unprivileged system account, or when a file or directory the server relies on can be
-modified by somebody other than root. Individual checks can be excluded with
---ignore. Requires root or sudo."""
+modules the server has loaded, which account its worker processes run under, the ownership
+and permissions of the configuration files, the process ID file, the lock file directory and
+the core dump directory, and how large a request the server accepts. Paths and accounts are
+read back from the running installation rather than from a configuration file, so a value
+left at a compiled-in default and a directive overridden further down the configuration are
+both reported as they actually take effect. The request limits are taken from the
+configuration files the server itself names, and where a directive is absent the value httpd
+falls back to is reported instead. Each finding maps to a copy-pasteable recommendation.
+Alerts when a module widens the attack surface without being needed, when the worker account
+is not a dedicated unprivileged system account, when a file or directory the server relies on
+can be modified by somebody other than root, or when a request limit is more permissive than
+recommended. Individual checks can be excluded with --ignore. Requires root or sudo."""
 
 DEFAULT_BRIEF = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -53,10 +55,10 @@ DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
 DEFAULT_UID_MIN = 1000
 
-# The checks follow the "Minimize Apache Modules" and "Principles, Permissions,
-# and Ownership" chapters of the CIS Apache HTTP Server 2.4 Benchmark. The
-# benchmark numbering is deliberately not printed, so the output does not age
-# with the document.
+# The checks follow the "Minimize Apache Modules", "Principles, Permissions, and
+# Ownership" and "Request Limits" chapters of the CIS Apache HTTP Server 2.4
+# Benchmark. The benchmark numbering is deliberately not printed, so the output
+# does not age with the document.
 
 # Candidate binaries, in probe order. `httpd` covers the Red Hat and SUSE
 # families; on Debian and Ubuntu the binary is `apache2`, which refuses to parse
@@ -92,6 +94,61 @@ NOLOGIN_SHELLS = (
 # file directory into something worth checking. Everything else (sem, pthread,
 # posixsem, sysvsem) keeps the mutex in memory.
 FILE_MUTEX_MECHANISMS = ('flock', 'fcntl', 'file')
+
+# The "Request Limits" chapter of the benchmark, as (title, directive, benchmark
+# maximum, value in force when the directive is absent, what a zero does, extra
+# advice). Each of the four is a plain count without a unit suffix, and each one
+# keeps a compiled-in value when it is not configured, so every check has a
+# number to judge even on a configuration that never mentions the directive.
+#
+# The absent values are the compiled-in ones from `httpd.h`
+# (DEFAULT_LIMIT_REQUEST_LINE, _FIELDS, _FIELDSIZE) and `core.c`
+# (AP_DEFAULT_LIMIT_REQ_BODY). The body one is the surprise: an absent
+# LimitRequestBody caps the body at 1 GiB rather than leaving it unlimited as
+# the directive's documentation suggests, and only an explicit zero lifts the
+# cap. Verified against httpd 2.4.68: a request announcing 1073741824 bytes is
+# accepted, one byte more is answered with 413.
+#
+# What a zero does was measured on the same server: LimitRequestLine 0 answers
+# every request with 414 and LimitRequestFieldSize 0 answers every request with
+# 400, because both values size the buffer the request is read into. For the
+# other two a zero means "no limit", which is why the benchmark rules it out.
+REQUEST_LIMITS = (
+    (
+        'Request line limit',
+        'LimitRequestLine',
+        8190,
+        8190,
+        'every request is answered with 414',
+        None,
+    ),
+    (
+        'Request fields limit',
+        'LimitRequestFields',
+        100,
+        100,
+        'the number of header fields is unlimited',
+        None,
+    ),
+    (
+        'Request field size limit',
+        'LimitRequestFieldSize',
+        8190,
+        8190,
+        'every request is answered with 400',
+        None,
+    ),
+    (
+        'Request body limit',
+        'LimitRequestBody',
+        102400,
+        1073741824,
+        'the request body is unlimited',
+        'The directive caps every upload the server accepts, so raise it '
+        'deliberately for the vhost or directory that needs more instead of '
+        'lifting it everywhere.',
+    ),
+)
 
 # "User: name="apache" id=48" and "Group: name="apache" id=48"
 ACCOUNT_REGEX = re.compile(
@@ -562,39 +619,53 @@ def parse_directive_fixture(stdout):
     """Parse the directive stand-in used in test mode.
 
     A fixture names the configuration files the server reads but cannot ship
-    their content, so the two directives `httpd -S` does not resolve are handed
-    over directly: one `<directive> <value>` line each.
+    their content, so the directives read from those files are handed over
+    directly: one `<directive> <value>` line each, repeated as often as the
+    configuration it stands for sets the directive.
     """
     directives = {}
     for line in stdout.splitlines():
         fields = line.split(None, 1)
         if len(fields) != 2:
             continue
-        directives[fields[0].lower()] = fields[1].strip().strip('"')
+        directives.setdefault(fields[0].lower(), []).append(
+            fields[1].strip().strip('"')
+        )
     return directives
 
 
-def read_directive(config_paths, directive, directive_fixture):
-    """Return the last value a directive is given across the configuration files.
+def read_directive_values(config_paths, directive, directive_fixture):
+    """Return every value a directive is given across the configuration files.
 
-    Only reached for the two directives that `httpd -S` does not resolve. Lines
-    are read in the order the server includes the files, so the last hit wins,
-    which is how Apache treats a directive repeated at server level.
+    The files are read in the order the server includes them, so the values come
+    back in that order. Which `<VirtualHost>` or `<Directory>` block a value sits
+    in is deliberately not tracked: a request limit is judged value by value, and
+    one that is too permissive is a finding wherever it is written.
     """
     if directive_fixture is not None:
-        return directive_fixture.get(directive.lower())
+        return list(directive_fixture.get(directive.lower(), []))
     pattern = re.compile(rf'^\s*{directive}\s+(?P<value>\S+)', re.IGNORECASE)
-    value = None
+    values = []
     for path in config_paths:
         try:
             with open(path, encoding='utf-8', errors='strict_or_latin1') as handle:
                 for line in handle:
                     match = pattern.match(line)
                     if match:
-                        value = match.group('value').strip('"')
+                        values.append(match.group('value').strip('"'))
         except OSError:
             continue
-    return value
+    return values
+
+
+def read_directive(config_paths, directive, directive_fixture):
+    """Return the last value a directive is given across the configuration files.
+
+    Used for the paths that `httpd -S` does not resolve. The last hit wins, which
+    is how Apache treats a directive repeated at server level.
+    """
+    values = read_directive_values(config_paths, directive, directive_fixture)
+    return values[-1] if values else None
 
 
 # How many module names the result column shows before it starts counting. The
@@ -836,6 +907,66 @@ def check_mutex(run_cfg, document_root, stat_fixture, severity_state):
     )
 
 
+def check_request_limit(limit, values, severity_state):
+    """Report one request limit against the benchmark maximum.
+
+    `limit` is one REQUEST_LIMITS entry and `values` are the values the
+    configuration gives that directive, in include order. An empty list means
+    nothing configures the directive and the compiled-in value is what the
+    server enforces, which is reported just like a configured one. Every value
+    is judged on its own, so a single permissive vhost is reported even when the
+    server level is fine.
+    """
+    _, directive, maximum, absent, zero_effect, advice = limit
+    configured = []
+    for value in values:
+        try:
+            configured.append(int(value))
+        except ValueError:
+            # httpd refuses to start on a value that is not a number, so a
+            # running server cannot have one. Rather than guess what it
+            # enforces, the check hands back "not evaluated".
+            return (
+                None,
+                value,
+                f'`{directive} {value}` is not a number.',
+                None,
+            )
+
+    in_force = configured or [absent]
+    shown = ', '.join(str(value) for value in dict.fromkeys(in_force))
+    if not configured:
+        shown += ' (default)'
+
+    zeroed = [value for value in in_force if value == 0]
+    too_large = [value for value in in_force if value > maximum]
+    if not zeroed and not too_large:
+        return (
+            STATE_OK,
+            shown,
+            f'At or below the recommended maximum of {maximum}.',
+            None,
+        )
+
+    reasons = []
+    if zeroed:
+        reasons.append(f'0 means {zero_effect}')
+    if too_large:
+        reasons.append(f'above the recommended maximum of {maximum}')
+    recommendation = (
+        f'Set `{directive} {maximum}` in the server configuration and lower any '
+        f'block that overrides it with a larger value.'
+    )
+    if advice:
+        recommendation += f' {advice}'
+    return (
+        severity_state,
+        shown,
+        '; '.join(reasons).capitalize() + '.',
+        recommendation,
+    )
+
+
 def collect_data(args):
     """Gather every data source, live or from fixtures."""
     if args.TEST is None:
@@ -895,9 +1026,9 @@ def build_checks(data, severity_state):
         )
         interactive_shells = read_interactive_shells()
 
-    # The core dump directory and the scoreboard file are the only two values
+    # The core dump directory and the scoreboard file are two of the values
     # `httpd -S` does not resolve, so they are read from the configuration files
-    # the server itself named.
+    # the server itself named, as the request limits are further down.
     directive_fixture = data['directive_fixture']
     core_dump_dir = read_directive(
         config_paths, 'CoreDumpDirectory', directive_fixture
@@ -909,7 +1040,7 @@ def build_checks(data, severity_state):
         config_paths, 'ScoreBoardFile', directive_fixture
     )
 
-    return [
+    checks = [
         (
             'Log config module',
             check_module_present(
@@ -1062,6 +1193,21 @@ def build_checks(data, severity_state):
             ),
         ),
     ]
+
+    # The request limits come last because they are the only checks that judge a
+    # value rather than a module, an account or a file.
+    for limit in REQUEST_LIMITS:
+        checks.append(
+            (
+                limit[0],
+                check_request_limit(
+                    limit,
+                    read_directive_values(config_paths, limit[1], directive_fixture),
+                    severity_state,
+                ),
+            )
+        )
+    return checks
 
 
 def main():

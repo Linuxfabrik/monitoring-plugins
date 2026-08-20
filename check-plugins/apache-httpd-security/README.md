@@ -3,9 +3,9 @@
 
 ## Overview
 
-Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, and the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory. Every value is read back from the running installation rather than from a configuration file, so a path left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, or when a file or directory the server relies on can be modified by somebody other than root. Individual checks can be excluded with `--ignore`. Requires root or sudo.
+Checks the local security posture of an Apache httpd installation: which modules the server has loaded, which account its worker processes run under, the ownership and permissions of the configuration files, the process ID file, the lock file directory and the core dump directory, and how large a request the server accepts. Paths and accounts are read back from the running installation rather than from a configuration file, so a value left at a compiled-in default and a directive overridden further down the configuration are both reported as they actually take effect. The request limits are taken from the configuration files the server itself names, and where a directive is absent the value httpd falls back to is reported instead. Each finding maps to a copy-pasteable recommendation. Alerts when a module widens the attack surface without being needed, when the worker account is not a dedicated unprivileged system account, when a file or directory the server relies on can be modified by somebody other than root, or when a request limit is more permissive than recommended. Individual checks can be excluded with `--ignore`. Requires root or sudo.
 
-The checks follow the "Minimize Apache Modules" and "Principles, Permissions, and Ownership" chapters of the CIS Apache HTTP Server 2.4 Benchmark.
+The checks follow the "Minimize Apache Modules", "Principles, Permissions, and Ownership" and "Request Limits" chapters of the CIS Apache HTTP Server 2.4 Benchmark.
 
 **Important Notes:**
 
@@ -18,10 +18,13 @@ The checks follow the "Minimize Apache Modules" and "Principles, Permissions, an
 * The ownership and permission checks cover the configuration files the server itself reports reading, plus the runtime directories it resolves. They do not walk the whole installation tree, which would be both slow and unbounded.
 * The benchmark treats the core dump, lock, process ID and scoreboard file checks as ones an auditor confirms rather than as fully automatable. This check does the legwork and reports what it found; the judgement stays with the operator.
 * A scoreboard file that is not configured at all is compliant, and reported as such.
+* The four request limits are reported whether or not the configuration sets them, because httpd enforces a value either way. An absent `LimitRequestLine`, `LimitRequestFields` or `LimitRequestFieldSize` leaves a compiled-in value the benchmark accepts, so those pass. An absent `LimitRequestBody` caps the request body at 1 GiB, which the benchmark does not accept, so a stock installation fails that one until the directive is written out. Such a value carries `(default)` in the result column.
+* `LimitRequestBody` may also be set per virtual host, directory or location. Every value the configuration files carry is reported and judged, so a single permissive block is visible even when the server level is restrictive. Which block a value belongs to is not resolved; the recommendation names the value, and the operator knows where it lives.
+* `LimitRequestBody` caps every upload the server accepts, and an upload rejected by it never reaches the application. A host that has to accept larger uploads raises the directive for the vhost or location in question and excludes this check with `--ignore=^Request body limit$`, rather than lifting the limit everywhere.
 
 ### Data Collection
 
-Three invocations of the Apache control binary per run, all of which only read: `-M` for the loaded modules, `-S` for the resolved runtime settings (server root, document root, process ID file, mutex mechanisms and directories, user and group with their numeric ids), and `-t -D DUMP_INCLUDES` for the list of configuration files. The paths that come out of these are then inspected with `stat`. `UID_MIN` is read from `/etc/login.defs`, and the running worker processes are enumerated via `psutil`. The core dump directory and the scoreboard file are the only two values the runtime dump does not resolve; they are read from the configuration files the server itself named. Nothing is stored between runs.
+Three invocations of the Apache control binary per run, all of which only read: `-M` for the loaded modules, `-S` for the resolved runtime settings (server root, document root, process ID file, mutex mechanisms and directories, user and group with their numeric ids), and `-t -D DUMP_INCLUDES` for the list of configuration files. The paths that come out of these are then inspected with `stat`. `UID_MIN` is read from `/etc/login.defs`, and the running worker processes are enumerated via `psutil`. The core dump directory, the scoreboard file and the four request limits are the values the runtime dump does not resolve; they are read from the configuration files the server itself named. Nothing is stored between runs.
 
 The binary is probed automatically: `httpd` first, which covers the Red Hat and SUSE families, then `apachectl`, which is the entry point on Debian and Ubuntu because `apache2` refuses to parse its own configuration without the variables from `/etc/apache2/envvars`. Use `--command` to point at a binary in a non-standard location.
 
@@ -53,16 +56,20 @@ usage: apache-httpd-security [-h] [-V] [--always-ok] [--brief]
 
 Checks the local security posture of an Apache httpd installation: which
 modules the server has loaded, which account its worker processes run under,
-and the ownership and permissions of the configuration files, the process ID
-file, the lock file directory and the core dump directory. Every value is read
-back from the running installation rather than from a configuration file, so a
-path left at a compiled-in default and a directive overridden further down the
-configuration are both reported as they actually take effect. Each finding
-maps to a copy-pasteable recommendation. Alerts when a module widens the
-attack surface without being needed, when the worker account is not a
-dedicated unprivileged system account, or when a file or directory the server
-relies on can be modified by somebody other than root. Individual checks can
-be excluded with --ignore. Requires root or sudo.
+the ownership and permissions of the configuration files, the process ID file,
+the lock file directory and the core dump directory, and how large a request
+the server accepts. Paths and accounts are read back from the running
+installation rather than from a configuration file, so a value left at a
+compiled-in default and a directive overridden further down the configuration
+are both reported as they actually take effect. The request limits are taken
+from the configuration files the server itself names, and where a directive is
+absent the value httpd falls back to is reported instead. Each finding maps to
+a copy-pasteable recommendation. Alerts when a module widens the attack
+surface without being needed, when the worker account is not a dedicated
+unprivileged system account, when a file or directory the server relies on can
+be modified by somebody other than root, or when a request limit is more
+permissive than recommended. Individual checks can be excluded with --ignore.
+Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -192,7 +199,8 @@ WebDAV modules          ! WebDAV modules not loaded    ! [OK]
     * a module CIS recommends disabling is loaded, or the log config module is missing,
     * the worker account runs as root, is an account shared with other daemons (`daemon`, `nfsnobody`, `nobody`, `nogroup`), has a uid at or above `UID_MIN`, or a running process uses an account other than the configured one,
     * a configuration file is not owned by `root:root`, or is writable by other,
-    * the core dump directory, the lock file directory, the process ID file directory or the scoreboard file directory sits inside the document root, is not owned by root, or is writable beyond its owner.
+    * the core dump directory, the lock file directory, the process ID file directory or the scoreboard file directory sits inside the document root, is not owned by root, or is writable beyond its owner,
+    * a request limit is above the value the benchmark recommends, or is zero, which lifts the limit for `LimitRequestBody` and `LimitRequestFields` and breaks every request for `LimitRequestLine` and `LimitRequestFieldSize`.
 * Returns UNKNOWN if neither `httpd` nor `apachectl` is found, if the binary given via `--command` does not exist, or if the configuration does not parse, in which case the binary produces no output at all.
 * A check that cannot be carried out, because a directory could not be read for example, is reported as not evaluated. It does not count towards the result and does not drive the state.
 * If `--match` and `--ignore` between them exclude every check, the plugin prints "Nothing checked." and returns the state given by `--no-match-severity` (OK by default).
@@ -225,6 +233,12 @@ That is expected on the Red Hat family, which ships a `LoadModule` line for ever
 ### The status module check fires on a host you monitor
 
 `mod_status` is what the `apache-httpd-status` check reads, so a host running that check will keep failing this one. Exclude it deliberately with `--ignore=^Status module$` and keep the rest of the report.
+
+### `Request body limit` fires on a fresh installation
+
+Expected. A configuration that never mentions `LimitRequestBody` does not leave the request body unlimited, it caps it at 1 GiB, which is far above the 102400 bytes the benchmark asks for. Write the directive out, at a value that covers the largest upload the site has to accept, and reload.
+
+Note what the directive does before lowering it on a host that takes uploads: a request body above the limit is answered with `413 Request Entity Too Large` by httpd itself, so the application never sees the upload, and the application's own upload settings (`upload_max_filesize` and `post_max_size` in PHP, for example) never come into play. Raise the limit for the vhost, directory or location that needs it, and exclude this check with `--ignore=^Request body limit$` on a host where a larger limit is deliberate.
 
 ### The worker account check fires although the account is correct
 

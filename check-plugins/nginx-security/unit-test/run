@@ -25,11 +25,11 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '1 of 7 checks failed.',
+            '2 of 8 checks failed.',
             'nginx (uid 101)',
             'Dedicated unprivileged system account.',
             '9 paths readable by other.',
-            "'nginx_checks_failed'=1",
+            "'nginx_checks_failed'=2",
         ],
         'assert-not-in': ['path writable by other'],
     },
@@ -49,7 +49,7 @@ TESTS = [
         'test': 'stdout/hardened',
         'params': '--ignore=^Config',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok. All 5 checks passed.'],
+        'assert-in': ['Everything is ok. All 6 checks passed.'],
     },
     # Worker running as root, a member of a privileged group, an interactive
     # shell, and a configuration file anybody may rewrite.
@@ -59,7 +59,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '3 of 7 checks failed.',
+            '4 of 8 checks failed.',
             'root (uid 0)',
             'runs as root',
             'member of root',
@@ -79,7 +79,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['3 of 7 checks failed.'],
+        'assert-in': ['4 of 8 checks failed.'],
     },
     # A password that can actually be used, as opposed to the "*" the
     # distributions ship, which cannot.
@@ -108,7 +108,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['3 of 7 checks failed.', "'nginx_checks_evaluated'=7"],
+        'assert-in': ['4 of 8 checks failed.', "'nginx_checks_evaluated'=8"],
         'assert-not-in': ['[OK]'],
     },
     # Everything filtered out: report the configured severity, not a pass.
@@ -125,6 +125,36 @@ TESTS = [
         'params': '--ignore=. --no-match-severity=warn',
         'assert-retc': STATE_WARN,
         'assert-in': ['Nothing checked.'],
+    },
+    # Nothing configures the request body size, so the built-in default applies
+    # everywhere without anybody having decided so.
+    {
+        'id': 'warn-stock-request-body-limit-is-the-default',
+        'test': 'stdout/stock',
+        'params': '--match=^Request',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1m (default)',
+            'Not configured, so the built-in default applies everywhere.',
+        ],
+    },
+    # A restrictive limit in the http block, raised in the location that takes
+    # uploads, which is what the benchmark asks for.
+    {
+        'id': 'ok-hardened-request-body-limit',
+        'test': 'stdout/hardened',
+        'params': '--match=^Request',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2m, 50m'],
+        'assert-not-in': ['(default)'],
+    },
+    # A zero is the one value that really does remove the limit.
+    {
+        'id': 'warn-request-body-limit-lifted',
+        'test': 'stdout/loose',
+        'params': '--match=^Request',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['0 removes the limit, so a request body may be any size.'],
     },
     {
         'id': 'unknown-missing-fixture',

@@ -19,10 +19,10 @@ Icinga Director:
 Monitoring Plugins:
 
 * apache-httpd-disclosure: reports what an Apache httpd server gives away about itself in its HTTP responses ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
-* apache-httpd-security: audits the loaded modules, the worker account and the file permissions of a local Apache httpd installation ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
+* apache-httpd-security: audits the loaded modules, the worker account, the file permissions and the request limits of a local Apache httpd installation ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
 * file-growth: alerts when a file grows or shrinks faster than a configured rate ([#48](https://github.com/Linuxfabrik/monitoring-plugins/issues/48))
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
-* nginx-security: audits the loaded modules, the worker account and the file permissions of a local NGINX installation
+* nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
 
 Icinga Director:
 

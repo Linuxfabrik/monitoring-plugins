@@ -33,17 +33,18 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026082001'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
-logged into, and the ownership and permissions of the configuration directory and the process
-ID file. Every path is taken from the values the binary itself reports, so a setting left at
-its compiled-in default is checked just like one written into the configuration. Each finding
-maps to a copy-pasteable recommendation. Alerts when a dynamic module widens the attack
-surface without being needed, when the worker account is privileged or can be logged into, or
-when a file the server relies on is readable or writable beyond root. Individual
-checks can be excluded with --ignore. Requires root or sudo."""
+logged into, the ownership and permissions of the configuration directory and the process ID
+file, and how large a request body the server accepts. Every path is taken from the values
+the binary itself reports, so a setting left at its compiled-in default is checked just like
+one written into the configuration. Each finding maps to a copy-pasteable recommendation.
+Alerts when a dynamic module widens the attack surface without being needed, when the worker
+account is privileged or can be logged into, when a file the server relies on is readable or
+writable beyond root, or when the request body size is left unlimited or at the built-in
+default. Individual checks can be excluded with --ignore. Requires root or sudo."""
 
 DEFAULT_BRIEF = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -51,9 +52,10 @@ DEFAULT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 8
 DEFAULT_UID_MIN = 1000
 
-# The checks follow the "Minimize NGINX Modules" and "Permissions and Ownership"
-# controls of the CIS NGINX Benchmark (v3.0.0). The benchmark numbering is
-# deliberately not printed, so the output does not age with the document.
+# The checks follow the "Minimize NGINX Modules", "Permissions and Ownership"
+# and "Request Limits" controls of the CIS NGINX Benchmark (v3.0.0). The
+# benchmark numbering is deliberately not printed, so the output does not age
+# with the document.
 
 # Candidate binaries, in probe order. Every distribution installs the same name,
 # unlike Apache, whose control wrapper differs between families.
@@ -98,6 +100,20 @@ PID_FILE_MAX_MODE = 0o644
 CONFIG_FILE_REGEX = re.compile(r'^# configuration file (?P<path>.+):$')
 # "    load_module modules/ngx_http_geoip_module.so;"
 LOAD_MODULE_REGEX = re.compile(r'^\s*load_module\s+(?P<module>\S+?);')
+# "        client_max_body_size 10m;"
+CLIENT_MAX_BODY_SIZE_REGEX = re.compile(r'^\s*client_max_body_size\s+(?P<size>\S+?);')
+# An NGINX size is a byte count with an optional k, m or g suffix, each a
+# multiple of 1024.
+NGINX_SIZE_REGEX = re.compile(r'^\d+[kKmMgG]?$')
+
+# What NGINX enforces when nothing configures client_max_body_size
+# (`ngx_http_core_module.c`), and the value it turns into. The benchmark names
+# no upper bound for the directive, because how large a request an application
+# has to accept is an application question. What it does ask for is that the
+# limit is written down rather than inherited silently, which is also what keeps
+# the value visible to whoever debugs a 413 later on.
+CLIENT_MAX_BODY_SIZE_DEFAULT = '1m'
+
 # "user  nginx;" and "user www-data www-data;"
 USER_DIRECTIVE_REGEX = re.compile(r'^\s*user\s+(?P<user>\S+?)(\s+(?P<group>\S+?))?;')
 # "pid        /run/nginx.pid;"
@@ -282,7 +298,14 @@ def parse_dump(stdout):
     its own marker, so one call answers which files the server reads and what
     they say.
     """
-    result = {'files': [], 'group': None, 'modules': [], 'pid': None, 'user': None}
+    result = {
+        'client_max_body_size': [],
+        'files': [],
+        'group': None,
+        'modules': [],
+        'pid': None,
+        'user': None,
+    }
     for line in stdout.splitlines():
         match = CONFIG_FILE_REGEX.match(line)
         if match:
@@ -300,6 +323,13 @@ def parse_dump(stdout):
         match = PID_DIRECTIVE_REGEX.match(line)
         if match:
             result['pid'] = match.group('path')
+            continue
+        match = CLIENT_MAX_BODY_SIZE_REGEX.match(line)
+        if match:
+            # Every occurrence is kept, whatever block it sits in: one
+            # permissive `location` is worth reporting even when the `http`
+            # block is restrictive.
+            result['client_max_body_size'].append(match.group('size'))
     return result
 
 
@@ -780,6 +810,57 @@ def collect_data(args):
     }
 
 
+def check_request_body_limit(sizes, severity_state):
+    """The size of a request body has to be limited on purpose.
+
+    An absent directive is not an unlimited one: NGINX falls back to
+    CLIENT_MAX_BODY_SIZE_DEFAULT, small enough that an ordinary file upload is
+    answered with a 413 naming no cause. The benchmark therefore asks for the
+    limit to be written out, with the locations that need more overriding it.
+    Which block a value sits in is not tracked, so the check reports what the
+    configuration sets rather than which URL gets which limit.
+    """
+    unreadable = [size for size in sizes if not NGINX_SIZE_REGEX.match(size)]
+    if unreadable:
+        # NGINX refuses to start on a size it cannot read, so a running server
+        # cannot have one. Rather than guess, the check hands back
+        # "not evaluated".
+        return (
+            None,
+            ', '.join(unreadable),
+            f'`client_max_body_size {unreadable[0]}` is not a size.',
+            None,
+        )
+
+    remediation = (
+        'Set `client_max_body_size` in the `http` block to the largest request '
+        'the site has to accept, and raise it in the `location` blocks that '
+        'take uploads.'
+    )
+    if not sizes:
+        return (
+            severity_state,
+            f'{CLIENT_MAX_BODY_SIZE_DEFAULT} (default)',
+            'Not configured, so the built-in default applies everywhere.',
+            remediation,
+        )
+
+    shown = ', '.join(dict.fromkeys(sizes))
+    if [size for size in sizes if int(size.rstrip('kKmMgG')) == 0]:
+        return (
+            severity_state,
+            shown,
+            '0 removes the limit, so a request body may be any size.',
+            remediation,
+        )
+    return (
+        STATE_OK,
+        shown,
+        'Configured rather than left at the built-in default.',
+        None,
+    )
+
+
 def build_checks(data, severity_state):
     """Return the full list of (title, result) pairs."""
     configure = data['configure']
@@ -834,6 +915,10 @@ def build_checks(data, severity_state):
         (
             'Pid file',
             check_pid_file(pid_path, stat_fixture, severity_state),
+        ),
+        (
+            'Request body limit',
+            check_request_body_limit(dump['client_max_body_size'], severity_state),
         ),
     ]
 
