@@ -14,6 +14,7 @@ The check is meant as a trip-wire only: it surfaces the findings, not the full p
 * `sys.schema_unused_indexes` and `sys.schema_redundant_indexes` exist in MySQL 5.7+ and MariaDB 10.6+
 * Counters are cumulative since the last server start. Restarting the server resets them, so a freshly booted host may take a few hours before unused-index numbers settle (the query pattern needs time to exercise all indexes)
 * System schemas (`mysql`, `information_schema`, `performance_schema`, `sys`) are excluded, matching the WHERE clause used by mysqltuner
+* `--match` and `--ignore` take Python regular expressions and are matched against the fully qualified index identifier `schema.table.index`, so the same parameter scopes the check to a schema (`^shop\.`), to a table (`^shop\.orders\.`) or to an index name across all tables (`\.idx_legacy$`). Both filter the findings before the counters, the thresholds, the hotspot hint and the perfdata are calculated, so a filtered check reports only what it was asked to look at
 * Index housekeeping is never a wake-up-at-night finding, so the plugin only emits WARN (and the implicit OK), never CRIT
 * Output ships a ready-to-paste `ALTER TABLE ... DROP INDEX` statement per finding. `--lengthy` shows the full statement; the default truncates after 80 characters so the table stays readable in Icinga Web 2
 * Redundant indexes are safe to drop because the dominant index already covers every query the redundant one served. Unused indexes need verification first: "unused since last server start" can miss weekly or monthly jobs, recently restarted servers, and indexes that back foreign-key constraints. Wait at least one full business cycle before dropping
@@ -44,7 +45,8 @@ The check is meant as a trip-wire only: it surfaces the findings, not the full p
 ```text
 usage: mysql-index-health [-h] [-V] [--always-ok]
                           [--defaults-file DEFAULTS_FILE]
-                          [--defaults-group DEFAULTS_GROUP] [--lengthy]
+                          [--defaults-group DEFAULTS_GROUP] [--ignore IGNORE]
+                          [--lengthy] [--match MATCH]
                           [--min-uptime-hours MIN_UPTIME_HOURS]
                           [--no-perfdata] [--timeout TIMEOUT]
                           [--warning-redundant WARN_REDUNDANT]
@@ -58,14 +60,15 @@ views are populated by the Performance Schema; the plugin reports
 STATE_UNKNOWN with a clear hint when `performance_schema = OFF` (the MariaDB
 default). The check is meant as a trip-wire only: it surfaces the findings,
 not the full per-index analysis. System schemas (`mysql`,
-`information_schema`, `performance_schema`, `sys`) are excluded. Counters are
-cumulative since server start; restarting the server resets them, so the
-plugin stays silent (STATE_OK with a wait hint) until server uptime crosses
-`--min-uptime-hours` (default 24h). This avoids the false-clean signal right
-after a restart and the false-positive "unused" signal that would fire before
-weekly or monthly jobs have had a chance to touch their indexes. Index
-housekeeping is never a wake-up-at-night finding, so the plugin only emits
-WARN (and the implicit OK), never CRIT.
+`information_schema`, `performance_schema`, `sys`) are excluded. `--match` and
+`--ignore` narrow the report further, down to a single schema, table or index
+name. Counters are cumulative since server start; restarting the server resets
+them, so the plugin stays silent (STATE_OK with a wait hint) until server
+uptime crosses `--min-uptime-hours` (default 24h). This avoids the false-clean
+signal right after a restart and the false-positive "unused" signal that would
+fire before weekly or monthly jobs have had a chance to touch their indexes.
+Index housekeeping is never a wake-up-at-night finding, so the plugin only
+emits WARN (and the implicit OK), never CRIT.
 
 options:
   -h, --help            show this help message and exit
@@ -79,7 +82,29 @@ options:
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client
+  --ignore IGNORE       Ignore indexes whose name matches this Python regular
+                        expression. Matched against the fully qualified index
+                        identifier `schema.table.index`, so one pattern can
+                        drop a whole schema, a single table or one index name
+                        across all tables. Case-sensitive by default; use
+                        `(?i)` for case-insensitive matching. Can be specified
+                        multiple times. Default: None. Example:
+                        `--ignore="^icinga_director\."` to skip a schema whose
+                        indexes are managed by the application. Example:
+                        `--ignore="\.idx_legacy$"` to skip one index name
+                        everywhere.
   --lengthy             Extended reporting.
+  --match MATCH         Only report indexes whose name matches this Python
+                        regular expression. Matched against the fully
+                        qualified index identifier `schema.table.index`. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Default: None.
+                        Example: `--match="^shop\."` to report on the `shop`
+                        schema only. Example: `--match="^shop\.orders\."` to
+                        report on one table only.
   --min-uptime-hours MIN_UPTIME_HOURS
                         Minimum server uptime (in hours) before the plugin
                         starts evaluating findings. Performance Schema
@@ -112,6 +137,18 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-index-healt
 
 ```bash
 ./mysql-index-health --defaults-file=/var/spool/icinga2/.my.cnf
+```
+
+Skip the schemas whose indexes are managed by an application and are not the admin's to drop:
+
+```bash
+./mysql-index-health --ignore="^(icinga_director|icingaweb2|icingadb)\."
+```
+
+Report on one schema only:
+
+```bash
+./mysql-index-health --match="^shop\."
 ```
 
 OK output:
@@ -157,6 +194,7 @@ Unused indexes (verify before dropping: "unused since last server start" can mis
 * WARN if the unused- or redundant-index count crosses `--warning-unused` / `--warning-redundant` (default: any > 0).
 * No CRIT path: index housekeeping is never a wake-up-at-night finding.
 * UNKNOWN if `performance_schema = OFF` on the server (the views cannot be populated).
+* Indexes dropped by `--match` / `--ignore` never reach the thresholds, so a check filtered down to nothing reports OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

@@ -63,7 +63,7 @@ class TestCheck(unittest.TestCase):
     pass
 
 
-def _run_plugin(defaults_file):
+def _run_plugin(defaults_file, *extra_args):
     return subprocess.run(
         [
             'python3',
@@ -72,6 +72,7 @@ def _run_plugin(defaults_file):
             # Disable the 24h warmup gate so the unit test can observe
             # findings on a freshly booted container (Uptime starts at 0).
             '--min-uptime-hours=0',
+            *extra_args,
         ],
         cwd=HERE,
         capture_output=True,
@@ -160,10 +161,37 @@ def _check_image(test, containerfile):
         out = result.stdout + result.stderr
         print(f'Phase 3 output:\n{out.strip()}', flush=True)
         test.assertIn(result.returncode, (STATE_OK, STATE_WARN, STATE_UNKNOWN))
-        if result.returncode == STATE_WARN:
-            test.assertIn('redundant index', out)
-            test.assertIn('mysql_redundant_indexes', out)
-            test.assertIn('mysqltuner --pfstat', out)
+        if result.returncode != STATE_WARN:
+            return
+        test.assertIn('redundant index', out)
+        test.assertIn('mysql_redundant_indexes', out)
+        test.assertIn('mysqltuner --pfstat', out)
+
+        # Phase 4: the same findings, filtered away. `--ignore` on the
+        # schema and a `--match` that selects nothing must both bring
+        # the check back to OK with zero counters, because the filters
+        # run before the counting and the thresholds.
+        for filter_arg in ('--ignore=^t\\.', '--match=^nomatch\\.'):
+            result = _run_plugin(defaults_file, filter_arg)
+            out = result.stdout + result.stderr
+            print(f'Phase 4 output ({filter_arg}):\n{out.strip()}', flush=True)
+            test.assertEqual(result.returncode, STATE_OK)
+            test.assertIn('0 unused indexes', out)
+            test.assertIn('0 redundant indexes', out)
+
+        # A `--match` that selects the findings keeps them, so the
+        # filter is not simply dropping everything it sees.
+        result = _run_plugin(defaults_file, '--match=^t\\.x\\.')
+        out = result.stdout + result.stderr
+        print(f'Phase 4 output (--match=^t.x.):\n{out.strip()}', flush=True)
+        test.assertEqual(result.returncode, STATE_WARN)
+        test.assertIn('redundant index', out)
+
+        # An unparseable regex is a configuration error, not a finding.
+        result = _run_plugin(defaults_file, '--ignore=[')
+        out = result.stdout + result.stderr
+        test.assertEqual(result.returncode, STATE_UNKNOWN)
+        test.assertIn('--ignore', out)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)
