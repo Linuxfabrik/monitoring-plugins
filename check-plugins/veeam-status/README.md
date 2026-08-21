@@ -114,35 +114,35 @@ Output:
 ```text
 1 Job failed [CRITICAL], 5 VMs failed [CRITICAL], "Backup_2014-10-18T044119" ran for 1W 3D [WARNING], Fileserver02 Replication ran for 1D 17h [WARNING], 2 Jobs with warnings [WARNING], 3 VMs with warnings [WARNING], "Backup Volume 01" 18.3% used - total: 1005.5GiB, used: 184.2GiB, free: 821.3GiB
 
-Key                         ! Value                    
+Key                         ! Value
 ----------------------------+--------------------------
-BackedUpVms                 ! 38                       
-BackupServers               ! 2                        
-FailedJobRuns               ! 1 [CRITICAL]             
-FailedVmLastestStates       ! 5 [CRITICAL]             
-FullBackupPointsSize        ! 1.1TiB                   
-IncrementalBackupPointsSize ! 0.0B                     
-MaxBackupJobDuration        ! 1W 3D [WARNING]          
-MaxDurationBackupJobName    ! Backup_2014-10-18T044119 
-MaxDurationReplicaJobName   ! Fileserver02 Replication 
-MaxJobDuration              ! 16m                      
-MaxReplicaJobDuration       ! 1D 17h [WARNING]         
-ProtectedVms                ! 38                       
-ProxyServers                ! 6                        
-ReplicaRestorePointsSize    ! 0.0B                     
-ReplicatedVms               ! 2                        
-RepositoryServers           ! 6                        
-RestorePoints               ! 38                       
-RunningJobs                 ! 0                        
-ScheduledBackupJobs         ! 2                        
-ScheduledJobs               ! 8                        
-ScheduledReplicaJobs        ! 0                        
-SourceVmsSize               ! 2.7TiB                   
-SuccessBackupPercents       ! 100%                     
-SuccessfulJobRuns           ! 7                        
-SuccessfulVmLastestStates   ! 38                       
-TotalJobRuns                ! 12                       
-WarningsJobRuns             ! 2 [WARNING]              
+BackedUpVms                 ! 38
+BackupServers               ! 2
+FailedJobRuns               ! 1 [CRITICAL]
+FailedVmLastestStates       ! 5 [CRITICAL]
+FullBackupPointsSize        ! 1.1TiB
+IncrementalBackupPointsSize ! 0.0B
+MaxBackupJobDuration        ! 1W 3D [WARNING]
+MaxDurationBackupJobName    ! Backup_2014-10-18T044119
+MaxDurationReplicaJobName   ! Fileserver02 Replication
+MaxJobDuration              ! 16m
+MaxReplicaJobDuration       ! 1D 17h [WARNING]
+ProtectedVms                ! 38
+ProxyServers                ! 6
+ReplicaRestorePointsSize    ! 0.0B
+ReplicatedVms               ! 2
+RepositoryServers           ! 6
+RestorePoints               ! 38
+RunningJobs                 ! 0
+ScheduledBackupJobs         ! 2
+ScheduledJobs               ! 8
+ScheduledReplicaJobs        ! 0
+SourceVmsSize               ! 2.7TiB
+SuccessBackupPercents       ! 100%
+SuccessfulJobRuns           ! 7
+SuccessfulVmLastestStates   ! 38
+TotalJobRuns                ! 12
+WarningsJobRuns             ! 2 [WARNING]
 WarningVmLastestStates      ! 3 [WARNING]
 ```
 

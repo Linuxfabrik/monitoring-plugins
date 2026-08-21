@@ -20,7 +20,7 @@ Lists all clients currently connected to an OpenVPN server by parsing the status
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openvpn-client-list> |
 | Nagios/Icinga Check Name              | `check_openvpn_client_list` |
 | Check Interval Recommendation         | Every 5 minutes |
@@ -71,10 +71,10 @@ Output:
 
 Common Name      External IP  Internal    IP Connected since
 -----------      -----------  ----------- ------------------
-a@linuxfabrik.ch 1.2.3.4      10.123.11.4 Mon Jun  7 07:59:53 2021 
-b@linuxfabrik.ch 2.3.4.5      10.123.11.5 Mon Jun  7 08:05:56 2021 
-c@linuxfabrik.ch 3.4.5.6      10.123.11.3 Mon May 31 23:08:47 2021 
-d@linuxfabrik.ch 4.5.6.7      10.123.11.6 Mon Jun  7 09:29:07 2021 
+a@linuxfabrik.ch 1.2.3.4      10.123.11.4 Mon Jun  7 07:59:53 2021
+b@linuxfabrik.ch 2.3.4.5      10.123.11.5 Mon Jun  7 08:05:56 2021
+c@linuxfabrik.ch 3.4.5.6      10.123.11.3 Mon May 31 23:08:47 2021
+d@linuxfabrik.ch 4.5.6.7      10.123.11.6 Mon Jun  7 09:29:07 2021
 e@linuxfabrik.ch 5.6.7.8      10.123.11.2 Mon May 31 23:08:38 2021
 ```
 

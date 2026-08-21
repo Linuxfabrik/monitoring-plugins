@@ -222,20 +222,20 @@ Output:
 ```text
 7 results from warning query `select * from data where network = "A" and WaitingUpdates > 3` [WARNING] and 3 results from critical query `select * from data where network <> "A" and WaitingUpdates > 4` [CRITICAL]
 
-date       ! network ! hostname ! waitingupdates 
+date       ! network ! hostname ! waitingupdates
 -----------+---------+----------+----------------
-2023-01-01 ! A       ! erin     ! 4              
-2023-01-01 ! A       ! faythe   ! 5              
-2023-01-01 ! A       ! frank    ! 6              
-2023-01-01 ! A       ! grace    ! 7              
-2023-01-01 ! A       ! heidi    ! 8              
-2023-01-01 ! A       ! ivan     ! 9              
-2023-01-01 ! A       ! judy     ! 10             
+2023-01-01 ! A       ! erin     ! 4
+2023-01-01 ! A       ! faythe   ! 5
+2023-01-01 ! A       ! frank    ! 6
+2023-01-01 ! A       ! grace    ! 7
+2023-01-01 ! A       ! heidi    ! 8
+2023-01-01 ! A       ! ivan     ! 9
+2023-01-01 ! A       ! judy     ! 10
 
-date       ! network ! hostname ! waitingupdates 
+date       ! network ! hostname ! waitingupdates
 -----------+---------+----------+----------------
-2023-01-01 ! B       ! peggy    ! 5              
-2023-01-01 ! B       ! rupert   ! 6              
+2023-01-01 ! B       ! peggy    ! 5
+2023-01-01 ! B       ! rupert   ! 6
 2023-01-01 ! B       ! sybil    ! 7
 ```
 

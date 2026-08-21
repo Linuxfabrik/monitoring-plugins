@@ -18,7 +18,7 @@ Tests if a path is writable and readable by creating, writing, reading, and dele
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/path-rw-test> |
 | Nagios/Icinga Check Name              | `check_path_rw_test` |
 | Check Interval Recommendation         | Every minute |

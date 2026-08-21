@@ -20,7 +20,7 @@ Retrieves recent events from the NodeBB event log via the admin API. Reports adm
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-events> |
 | Nagios/Icinga Check Name              | `check_nodebb_events` |
 | Check Interval Recommendation         | Every minute |
@@ -65,9 +65,9 @@ Output:
 ```text
 Latest event: #770 uid=2 username settings-change 1.2.3.4 (10M 1W ago)
 
-eid ! uid ! displayname ! type            ! timestamp                        ! ip      
+eid ! uid ! displayname ! type            ! timestamp                        ! ip
 ----+-----+-------------+-----------------+----------------------------------+---------
-770 ! 2   ! alice       ! settings-change ! 2021-09-03 14:59:48 (10M 1W ago) ! 1.2.3.4 
+770 ! 2   ! alice       ! settings-change ! 2021-09-03 14:59:48 (10M 1W ago) ! 1.2.3.4
 769 ! 2   ! bob         ! password-reset  ! 2021-09-03 14:30:01 (10M 1W ago) ! 1.2.3.4
 ```
 

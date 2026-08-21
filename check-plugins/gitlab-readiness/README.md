@@ -76,21 +76,21 @@ Output:
 ```text
 There are issues with gitaly_check. Run `curl http://localhost/-/readiness?all=1` for full results.
 
-Service           ! Message                                                     
+Service           ! Message
 ------------------+-------------------------------------------------------------
-cache             ! Running                                                     
-chat              ! Running                                                     
-cluster_cache     ! Running                                                     
-db                ! Running                                                     
-db_load_balancing ! Running                                                     
-feature_flag      ! Running                                                     
-gitaly            ! [WARNING] 14:connections to all backends failing; last e... 
-master            ! Running                                                     
-queues            ! Running                                                     
-rate_limiting     ! Running                                                     
-repository_cache  ! Running                                                     
-sessions          ! Running                                                     
-shared_state      ! Running                                                     
+cache             ! Running
+chat              ! Running
+cluster_cache     ! Running
+db                ! Running
+db_load_balancing ! Running
+feature_flag      ! Running
+gitaly            ! [WARNING] 14:connections to all backends failing; last e...
+master            ! Running
+queues            ! Running
+rate_limiting     ! Running
+repository_cache  ! Running
+sessions          ! Running
+shared_state      ! Running
 trace_chunks      ! Running
 ```
 

@@ -86,11 +86,11 @@ Output:
 ```text
 30 updates available. [WARNING]
 
-Package    ! Installed     ! Upgrade to           ! Type 
+Package    ! Installed     ! Upgrade to           ! Type
 -----------+---------------+----------------------+------
-audit      ! 3.0.7-5       ! 3.1.2-1              ! B    
-bind-utils ! 32:9.11.36-11 ! 32:9.11.36-16.el8_10 !      
-gcc-c++    ! 8.5.0-20      ! 8.5.0-26             ! BSB  
+audit      ! 3.0.7-5       ! 3.1.2-1              ! B
+bind-utils ! 32:9.11.36-11 ! 32:9.11.36-16.el8_10 !
+gcc-c++    ! 8.5.0-20      ! 8.5.0-26             ! BSB
 ```
 
 

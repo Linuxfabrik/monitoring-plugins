@@ -98,12 +98,12 @@ Output:
 ```text
 Everything is ok.
 
-ID    ! Customer     ! Tag  ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! Expires in 
+ID    ! Customer     ! Tag  ! Size (alloc/avail)  ! Dev ! Maint. ! Locked ! Busy  ! Expires in
 ------+--------------+------+---------------------+-----+--------+--------+-------+------------
-55577 ! BK-200999-1  ! prod ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! 11M 2W     
-55556 ! BK-200999-2  ! test ! 186.3GiB / 186.3GiB ! 2   ! False  ! False  ! False ! 10M 5D     
-55558 ! BK-200999-3  ! prod ! 4.5TiB / 4.5TiB     ! 2   ! False  ! False  ! False ! 9M 4D      
-55560 ! BK-200999-4  ! test ! 1.8TiB / 1.8TiB     ! 1   ! False  ! False  ! False ! 8M 3D      
+55577 ! BK-200999-1  ! prod ! 9.1TiB / 9.1TiB     ! 1   ! False  ! False  ! False ! 11M 2W
+55556 ! BK-200999-2  ! test ! 186.3GiB / 186.3GiB ! 2   ! False  ! False  ! False ! 10M 5D
+55558 ! BK-200999-3  ! prod ! 4.5TiB / 4.5TiB     ! 2   ! False  ! False  ! False ! 9M 4D
+55560 ! BK-200999-4  ! test ! 1.8TiB / 1.8TiB     ! 1   ! False  ! False  ! False ! 8M 3D
 ```
 
 

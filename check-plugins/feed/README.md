@@ -28,7 +28,7 @@ object ApiUser "linuxfabrik-check-api-user" {
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/feed> |
 | Nagios/Icinga Check Name              | `check_feed` |
 | Check Interval Recommendation         | Every hour |

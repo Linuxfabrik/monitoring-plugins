@@ -109,11 +109,11 @@ Output:
 ```text
 There are critical errors.
 
-ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! Usage Upd. ! Used                   ! Used %             
+ID    ! Customer     ! Tag   ! User         ! Name   ! Type  ! Locked ! Usage Upd. ! Used                   ! Used %
 ------+--------------+-------+--------------+--------+-------+--------+------------+------------------------+--------------------
-99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! False  ! 2h 18m ago ! 13.2GiB / 139.7GiB    ! 9.4%               
-99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! False  ! 2h 18m ago ! 3.3GiB / 46.6GiB      ! 7.1%               
-99946 ! BK-200999-9  ! tag90 ! SBI-AB123456 ! bucket ! swift ! False  ! 2h 18m ago ! 856.6GiB / 931.3GiB   ! 92.0% [WARNING]    
+99924 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! prod   ! swift ! False  ! 2h 18m ago ! 13.2GiB / 139.7GiB    ! 9.4%
+99925 ! BK-200999-2  ! tag03 ! SBI-AB123456 ! test   ! swift ! False  ! 2h 18m ago ! 3.3GiB / 46.6GiB      ! 7.1%
+99946 ! BK-200999-9  ! tag90 ! SBI-AB123456 ! bucket ! swift ! False  ! 2h 18m ago ! 856.6GiB / 931.3GiB   ! 92.0% [WARNING]
 ```
 
 

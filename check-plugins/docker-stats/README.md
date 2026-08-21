@@ -25,7 +25,7 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-stats> |
 | Nagios/Icinga Check Name              | `check_docker_stats` |
 | Check Interval Recommendation         | Every minute |
@@ -120,10 +120,10 @@ Output:
 ```text
 Everything is ok. 3 containers checked.
 
-Container                 ! CPU % ! Mem % 
+Container                 ! CPU % ! Mem %
 --------------------------+-------+-------
-myconti_app-logger_1      ! 0.0   ! 0.0   
-myconti_backend-core_1    ! 0.1   ! 33.9  
+myconti_app-logger_1      ! 0.0   ! 0.0
+myconti_backend-core_1    ! 0.1   ! 33.9
 myconti_ds_1              ! 0.0   ! 11.42
 ```
 

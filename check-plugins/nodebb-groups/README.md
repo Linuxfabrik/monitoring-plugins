@@ -20,7 +20,7 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-groups> |
 | Nagios/Icinga Check Name              | `check_nodebb_groups` |
 | Check Interval Recommendation         | Every day |
@@ -67,7 +67,7 @@ Output:
 ```text
 57 groups, newest group: "Lorem ipsum" (private) with 2 members (created 2022-03-06 16:21:16 (4M 1W ago) ago)
 
-createtime                      ! slug        ! memberCount 
+createtime                      ! slug        ! memberCount
 --------------------------------+-------------+-------------
 2022-03-06 16:21:16 (4M 1W ago) ! lorem-ipsum ! 2
 ...

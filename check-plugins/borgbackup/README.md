@@ -69,7 +69,7 @@ Output:
 
 ```text
 Last Backup started 2021-06-02 23:05:07, ended 2021-06-02 23:05:43, took 36s.
-* Create retc: 0, State: 
+* Create retc: 0, State:
 * Prune retc: 0, State:
 ```
 

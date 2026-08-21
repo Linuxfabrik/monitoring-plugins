@@ -19,7 +19,7 @@ Checks the state of systemd-timesyncd, including synchronization status, server 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-systemd-timesyncd> |
 | Nagios/Icinga Check Name              | `check_ntp_systemd_timesyncd` |
 | Check Interval Recommendation         | Every minute |

@@ -102,9 +102,9 @@ Output:
 ```text
 venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `/path/to/my/venv/bin/python3 -m pip list --outdated --exclude=boto3 --exclude=pip --local`
 
-Package  ! Version ! Latest  ! Type  
+Package  ! Version ! Latest  ! Type
 ---------+---------+---------+-------
-botocore ! 1.29.41 ! 1.29.78 ! wheel 
+botocore ! 1.29.41 ! 1.29.78 ! wheel
 pyspnego ! 0.7.0   ! 0.8.0   ! wheel
 ```
 

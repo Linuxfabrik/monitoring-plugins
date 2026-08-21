@@ -21,7 +21,7 @@ Checks OpenStack Swift object storage account statistics, including total contai
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-swift-stat> |
 | Nagios/Icinga Check Name              | `check_openstack_swift_stat` |
 | Check Interval Recommendation         | Every 15 minutes |
@@ -74,12 +74,12 @@ Output:
 ```text
 Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota
 
-Container ! Items  ! Quota    ! Used           ! Free              
+Container ! Items  ! Quota    ! Used           ! Free
 ----------+--------+----------+----------------+-------------------
-01        ! 2.4M   ! 0.0B     ! 2.2TiB         !                   
-02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING] 
-03        ! 107.7K ! 0.0B     ! 111.8GiB       !                   
-04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB          
+01        ! 2.4M   ! 0.0B     ! 2.2TiB         !
+02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]
+03        ! 107.7K ! 0.0B     ! 111.8GiB       !
+04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB
 ```
 
 

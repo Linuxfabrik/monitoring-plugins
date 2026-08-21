@@ -138,4 +138,3 @@ Icinga Web 2. Click any thumbnail (or zoom your browser) to read the plugin outp
 If you zoom in, for example on *CPU Usage*:
 
 ![image](https://download.linuxfabrik.ch/monitoring-plugins/assets/img/linuxfabrik-monitoring-check-plugins-cpu-usage.png)
-

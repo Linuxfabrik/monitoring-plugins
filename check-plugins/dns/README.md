@@ -16,7 +16,7 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dns> |
 | Nagios/Icinga Check Name              | `check_dns` |
 | Check Interval Recommendation         | Every 15 minutes |

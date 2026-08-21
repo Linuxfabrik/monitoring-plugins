@@ -1,4 +1,4 @@
-name: 'Linuxfabrik: Dependabot auto-merge'
+name: 'Linuxfabrik: Auto-merge'
 
 on:
   pull_request: {}
@@ -17,7 +17,7 @@ env:
   FROZEN_LOCKFILES: '["pip:/lockfiles/py39", "pip:/lockfiles/py310"]'
 
 jobs:
-  auto-merge:
+  dependabot:
     runs-on: 'ubuntu-latest'
     if: 'github.actor == ''dependabot[bot]'''
     permissions:
@@ -59,6 +59,27 @@ jobs:
           && (steps.meta.outputs.update-type == 'version-update:semver-patch'
               || steps.meta.outputs.update-type == 'version-update:semver-minor')
         run: |
+          gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"
+        env:
+          GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          PR_URL: '${{ github.event.pull_request.html_url }}'
+
+  # The weekly hook bump carries nothing but `rev:` changes in
+  # .pre-commit-config.yaml, and it arrives in every repository at once.
+  # Merging that by hand is pure overhead, so it goes in as soon as the
+  # required checks pass. The same fallback as above applies, and it is only
+  # safe because the ruleset keeps enforcing those checks server-side.
+  pre-commit-autoupdate:
+    runs-on: 'ubuntu-latest'
+    if: >-
+      github.actor == 'linuxfabrik-automation[bot]'
+      && github.head_ref == 'chore/pre-commit-autoupdate'
+    permissions:
+      contents: 'write'
+      pull-requests: 'write'
+    steps:
+
+      - run: |
           gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"
         env:
           GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'

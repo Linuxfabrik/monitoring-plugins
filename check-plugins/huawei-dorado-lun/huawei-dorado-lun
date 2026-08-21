@@ -311,7 +311,7 @@ def parse_args():
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
-        + ' Appends what every API request returned, so the appliance\'s own answers '
+        + " Appends what every API request returned, so the appliance's own answers "
         'can be read while working out how it reports something. Session tokens are '
         'redacted. The output is as long as those answers are, so this is a debugging '
         'aid rather than something to leave switched on.',
@@ -406,8 +406,7 @@ def main():
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
     compiled_ignore_regex = [
-        lib.base.coe(item)
-        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
     device_threshold_state = lib.base.str2state(args.DEVICE_THRESHOLD_SEVERITY)
     unmapped_state = lib.base.str2state(args.UNMAPPED_SEVERITY)
@@ -458,9 +457,7 @@ def main():
         # The appliance carries the fill threshold the storage administrator set for
         # this LUN, and a switch saying whether it is in use at all.
         device_state = STATE_OK
-        device_threshold = lib.huawei_dorado.as_code(
-            lun.get('ISCSITHINLUNTHRESHOLD')
-        )
+        device_threshold = lib.huawei_dorado.as_code(lun.get('ISCSITHINLUNTHRESHOLD'))
         if (
             usage_percent is not None
             and is_true(lun.get('ENABLEISCSITHINLUNTHRESHOLD'))
@@ -554,7 +551,9 @@ def main():
         lun['running'] = lib.huawei_dorado.get_running_status(lun.get('RUNNINGSTATUS'))
         lun['state'] = lib.base.state2str(lun['row_state'], empty_ok=False)
         lun['thin'] = (
-            'thin' if lib.huawei_dorado.as_code(lun.get('ALLOCTYPE')) == ALLOCTYPE_THIN else 'thick'
+            'thin'
+            if lib.huawei_dorado.as_code(lun.get('ALLOCTYPE')) == ALLOCTYPE_THIN
+            else 'thick'
         )
         # Both the operator's thresholds and the appliance's own limit judge this
         # number, so the cell carries the worse of the two. Marking it with only one of

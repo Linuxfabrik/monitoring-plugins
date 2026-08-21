@@ -225,7 +225,7 @@ def parse_args():
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
-        + ' Appends what every API request returned, so the appliance\'s own answers '
+        + " Appends what every API request returned, so the appliance's own answers "
         'can be read while working out how it reports something. Session tokens are '
         'redacted. The output is as long as those answers are, so this is a debugging '
         'aid rather than something to leave switched on.',
@@ -277,7 +277,9 @@ def get_processes_by_ip(result):
     - **dict**: `management_ip` to the list of processes reported for it.
 
     ### Example
-    >>> get_processes_by_ip({'data': [{'management_ip': '192.0.2.11', 'processes': []}]})
+    >>> get_processes_by_ip(
+    ...     {'data': [{'management_ip': '192.0.2.11', 'processes': []}]}
+    ... )
     {'192.0.2.11': []}
     """
     by_ip = {}
@@ -409,9 +411,7 @@ def main():
                 continue
 
             status = lib.huawei_pacific.as_code(process.get('process_status'))
-            process_state = (
-                STATE_OK if status == PROCESS_STATUS_RUNNING else STATE_CRIT
-            )
+            process_state = STATE_OK if status == PROCESS_STATUS_RUNNING else STATE_CRIT
             if process_state != STATE_OK:
                 not_running += 1
             state = lib.base.get_worst(state, process_state)

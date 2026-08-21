@@ -1021,24 +1021,18 @@ def build_checks(data, severity_state):
         interactive_shells = set()
     else:
         shell = read_login_shell(user) if user else None
-        shadow_state, shadow = (
-            read_shadow_password(user) if user else ('missing', None)
-        )
+        shadow_state, shadow = read_shadow_password(user) if user else ('missing', None)
         interactive_shells = read_interactive_shells()
 
     # The core dump directory and the scoreboard file are two of the values
     # `httpd -S` does not resolve, so they are read from the configuration files
     # the server itself named, as the request limits are further down.
     directive_fixture = data['directive_fixture']
-    core_dump_dir = read_directive(
-        config_paths, 'CoreDumpDirectory', directive_fixture
-    )
+    core_dump_dir = read_directive(config_paths, 'CoreDumpDirectory', directive_fixture)
     if core_dump_dir is None:
         # "The default core dump directory is the ServerRoot directory."
         core_dump_dir = run_cfg['server_root']
-    score_board_file = read_directive(
-        config_paths, 'ScoreBoardFile', directive_fixture
-    )
+    score_board_file = read_directive(config_paths, 'ScoreBoardFile', directive_fixture)
 
     checks = [
         (
