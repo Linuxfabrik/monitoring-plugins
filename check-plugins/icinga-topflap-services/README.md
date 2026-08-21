@@ -101,15 +101,15 @@ Output:
 ```text
 There are warnings. (lookback=1D warn=7 crit=19)
 
-Host            ! Service                 ! Cnt ! State     
+Host            ! Service                 ! Cnt ! State
 ----------------+-------------------------+-----+-----------
-srv-mon01       ! Swap Usage              ! 12  ! [WARNING] 
-srv-analytics01 ! Load                    ! 10  ! [WARNING] 
-srv-analytics01 ! CPU Usage               ! 8   ! [WARNING] 
-srv-vcs01       ! Swap Usage              ! 6   ! [OK]      
-srv-cloud02     ! Apache httpd Status     ! 4   ! [OK]      
-srv-repo01      ! Journald Usage          ! 2   ! [OK]      
-srv-cloud01     ! Nextcloud Stats         ! 2   ! [OK]      
+srv-mon01       ! Swap Usage              ! 12  ! [WARNING]
+srv-analytics01 ! Load                    ! 10  ! [WARNING]
+srv-analytics01 ! CPU Usage               ! 8   ! [WARNING]
+srv-vcs01       ! Swap Usage              ! 6   ! [OK]
+srv-cloud02     ! Apache httpd Status     ! 4   ! [OK]
+srv-repo01      ! Journald Usage          ! 2   ! [OK]
+srv-cloud01     ! Nextcloud Stats         ! 2   ! [OK]
 ```
 
 

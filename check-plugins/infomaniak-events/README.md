@@ -99,9 +99,9 @@ Output:
 ```text
 information: Wave of fraudulent e-mails () - see https://infomaniakstatus.com/en/
 
-Type        ! Title                            ! Services     ! Start               ! End                             ! Duration 
+Type        ! Title                            ! Services     ! Start               ! End                             ! Duration
 ------------+----------------------------------+--------------+---------------------+---------------------------------+----------
-impacting   ! Public Cloud: service disruption ! public_cloud ! 2023-05-10 19:30:15 ! 2023-05-10 20:12:02 (1M 3W ago) ! 41m 47s  
+impacting   ! Public Cloud: service disruption ! public_cloud ! 2023-05-10 19:30:15 ! 2023-05-10 20:12:02 (1M 3W ago) ! 41m 47s
 ```
 
 

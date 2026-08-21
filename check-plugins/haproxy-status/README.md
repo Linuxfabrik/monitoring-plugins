@@ -119,9 +119,9 @@ Output:
 ```text
 static static: DOWN, static BACKEND: DOWN, app app1: DOWN, app app2: DOWN, app app3: DOWN, app app4: DOWN, app BACKEND: DOWN
 
-Proxy name ! Server name ! Sessions ! RqBytes  ! RspBytes ! Rsp5xx ! Rq/s ! Status        
+Proxy name ! Server name ! Sessions ! RqBytes  ! RspBytes ! Rsp5xx ! Rq/s ! Status
 -----------+-------------+----------+----------+----------+--------+------+---------------
-main       ! FRONTEND    ! 0/3000   ! 0.0B     ! 0.0B     ! 0      ! 0    ! OPEN          
+main       ! FRONTEND    ! 0/3000   ! 0.0B     ! 0.0B     ! 0      ! 0    ! OPEN
 static     ! static      ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
 static     ! BACKEND     ! 0/300    ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
 app        ! app1        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
@@ -129,7 +129,7 @@ app        ! app2        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN
 app        ! app3        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
 app        ! app4        ! 0        ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
 app        ! BACKEND     ! 0/300    ! 0.0B     ! 0.0B     ! 0      !      ! DOWN [WARNING]
-stats      ! FRONTEND    ! 0/3000   ! 443.2KiB ! 8.6MiB   ! 733    ! 0    ! OPEN          
+stats      ! FRONTEND    ! 0/3000   ! 443.2KiB ! 8.6MiB   ! 733    ! 0    ! OPEN
 stats      ! BACKEND     ! 0/300    ! 443.2KiB ! 8.6MiB   ! 733    !      ! UP
 ```
 
@@ -138,9 +138,9 @@ With `--lengthy`:
 ```text
 static static: DOWN, static BACKEND: DOWN, app app1: DOWN, app app2: DOWN, app app3: DOWN, app app4: DOWN, app BACKEND: DOWN
 
-Proxy name ! Server name ! Queued ! Sessions ! RqBytes  ! RspBytes ! RqLB ! Rate ! Rsp2xx ! Rsp4xx ! Rsp5xx ! Rq/s ! LastReq ! RqRspTime ! Status        
+Proxy name ! Server name ! Queued ! Sessions ! RqBytes  ! RspBytes ! RqLB ! Rate ! Rsp2xx ! Rsp4xx ! Rsp5xx ! Rq/s ! LastReq ! RqRspTime ! Status
 -----------+-------------+--------+----------+----------+----------+------+------+--------+--------+--------+------+---------+-----------+---------------
-main       ! FRONTEND    !        ! 0/3000   ! 0.0B     ! 0.0B     !      ! 0/0  ! 0      ! 0      ! 0      ! 0    !         !           ! OPEN          
+main       ! FRONTEND    !        ! 0/3000   ! 0.0B     ! 0.0B     !      ! 0/0  ! 0      ! 0      ! 0      ! 0    !         !           ! OPEN
 static     ! static      ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
 static     ! BACKEND     ! 0      ! 0/300    ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
 app        ! app1        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
@@ -148,7 +148,7 @@ app        ! app2        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0   
 app        ! app3        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
 app        ! app4        ! 0      ! 0        ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
 app        ! BACKEND     ! 0      ! 0/300    ! 0.0B     ! 0.0B     ! 0    ! 0    ! 0      ! 0      ! 0      !      !         ! 0         ! DOWN [WARNING]
-stats      ! FRONTEND    !        ! 0/3000   ! 443.2KiB ! 8.6MiB   !      ! 0/0  ! 2397   ! 0      ! 733    ! 0    !         !           ! OPEN          
+stats      ! FRONTEND    !        ! 0/3000   ! 443.2KiB ! 8.6MiB   !      ! 0/0  ! 2397   ! 0      ! 733    ! 0    !         !           ! OPEN
 stats      ! BACKEND     ! 0      ! 0/300    ! 443.2KiB ! 8.6MiB   ! 0    ! 0    ! 0      ! 0      ! 733    !      ! 3m 22s  ! 0         ! UP
 ```
 

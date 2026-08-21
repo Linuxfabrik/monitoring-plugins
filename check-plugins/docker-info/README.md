@@ -18,7 +18,7 @@ Displays system-wide Docker information including container counts (running, pau
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/docker-info> |
 | Nagios/Icinga Check Name              | `check_docker_info` |
 | Check Interval Recommendation         | Every day |

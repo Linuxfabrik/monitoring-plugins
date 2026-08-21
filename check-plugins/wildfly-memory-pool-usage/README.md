@@ -97,13 +97,13 @@ Output:
 ```text
 Everything is ok.
 
-name                   ! Type     ! Usage used / committed / max    ! Collection used / committed/ max 
+name                   ! Type     ! Usage used / committed / max    ! Collection used / committed/ max
 -----------------------+----------+---------------------------------+----------------------------------
-Code_Cache             ! NON_HEAP ! 37.6MiB / 38.1MiB / 240.0MiB   ! N/A                              
-Metaspace              ! NON_HEAP ! 124.6MiB / 137.4MiB / 256.0MiB ! N/A                              
-Compressed_Class_Space ! NON_HEAP ! 16.7MiB / 20.1MiB / 248.0MiB   ! N/A                              
-Eden_Space             ! HEAP     ! 28.3MiB / 43.8MiB / 136.5MiB   ! 0.0B / 43.8MiB / 136.5MiB        
-Survivor_Space         ! HEAP     ! 86.0KiB / 5.4MiB / 17.1MiB     ! 86.0KiB / 5.4MiB / 17.1MiB       
+Code_Cache             ! NON_HEAP ! 37.6MiB / 38.1MiB / 240.0MiB   ! N/A
+Metaspace              ! NON_HEAP ! 124.6MiB / 137.4MiB / 256.0MiB ! N/A
+Compressed_Class_Space ! NON_HEAP ! 16.7MiB / 20.1MiB / 248.0MiB   ! N/A
+Eden_Space             ! HEAP     ! 28.3MiB / 43.8MiB / 136.5MiB   ! 0.0B / 43.8MiB / 136.5MiB
+Survivor_Space         ! HEAP     ! 86.0KiB / 5.4MiB / 17.1MiB     ! 86.0KiB / 5.4MiB / 17.1MiB
 Tenured_Gen            ! HEAP     ! 65.7MiB / 109.0MiB / 341.4MiB  ! 65.4MiB / 81.8MiB / 341.4MiB
 ```
 

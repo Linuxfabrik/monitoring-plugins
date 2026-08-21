@@ -114,7 +114,7 @@ Output:
 ```text
 1 screen is off (accessed > 10 hours ago). 1 screen checked. Filter: --box-state=['activated']
 
-Box ID    ! Name                 ! Screen1 On      ! Screen2 On 
+Box ID    ! Name                 ! Screen1 On      ! Screen2 On
 ----------+----------------------+-----------------+------------
 GP111-111 ! Grassfish Player 111 ! False [WARNING] ! None
 ```

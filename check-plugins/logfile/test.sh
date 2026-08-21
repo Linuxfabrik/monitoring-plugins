@@ -85,4 +85,3 @@ echo -e '\n\n7. run'
 echo "inode: $(ls -i $logfile)"
 
 cmd
-

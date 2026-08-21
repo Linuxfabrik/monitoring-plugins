@@ -161,8 +161,7 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help=lib.args.help('--brief')
-        + ' Worth setting on an array with many ports. '
+        help=lib.args.help('--brief') + ' Worth setting on an array with many ports. '
         'Default: %(default)s',
         dest='BRIEF',
         action='store_true',
@@ -357,7 +356,7 @@ def parse_args():
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
-        + ' Appends what every API request returned, so the appliance\'s own answers '
+        + " Appends what every API request returned, so the appliance's own answers "
         'can be read while working out how it reports something. Session tokens are '
         'redacted. The output is as long as those answers are, so this is a debugging '
         'aid rather than something to leave switched on.',
@@ -391,7 +390,9 @@ def get_speeds(port):
       fall short of. It is `None` here, which makes the caller compare against the maximum.
 
     ### Example
-    >>> get_speeds({'kind': 'FC', 'RUNSPEED': '8000', 'CONFSPEED': '0', 'MAXSPEED': '32000'})
+    >>> get_speeds(
+    ...     {'kind': 'FC', 'RUNSPEED': '8000', 'CONFSPEED': '0', 'MAXSPEED': '32000'}
+    ... )
     (8000, None, 32000)
     """
     fields = PORT_FIELDS.get(port.get('kind'), {})
@@ -527,8 +528,7 @@ def main():
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
     compiled_ignore_regex = [
-        lib.base.coe(item)
-        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
     link_down_state = lib.base.str2state(args.LINK_DOWN_SEVERITY)
     slow_port_state = lib.base.str2state(args.SLOW_PORT_SEVERITY)
@@ -636,9 +636,7 @@ def main():
             lib.base.get_worst(health_state, running_state),
             lib.base.get_worst(speed_state, error_state),
         )
-        port['health'] = lib.huawei_dorado.get_health_status(
-            port.get('HEALTHSTATUS')
-        )
+        port['health'] = lib.huawei_dorado.get_health_status(port.get('HEALTHSTATUS'))
         port['link'] = lib.huawei_dorado.get_running_status(port.get('RUNNINGSTATUS'))
         # One state per row, in the last column. IcingaWeb replaces a state with an
         # icon, which shifts everything to the right of it, so a second one mid-row
@@ -649,8 +647,7 @@ def main():
         port['speed'] = '--' if speed is None else f'{speed}'
         if speed is not None and expected_speed and speed < expected_speed:
             port['speed'] = (
-                f'{speed}/{expected_speed}'
-                f'{lib.base.state2str(speed_state, prefix=" ")}'
+                f'{speed}/{expected_speed}{lib.base.state2str(speed_state, prefix=" ")}'
             )
         port['errors'] = (
             f'{sum(error_rates.values()):.2f}'

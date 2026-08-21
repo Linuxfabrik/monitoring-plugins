@@ -18,7 +18,7 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-w32tm> |
 | Nagios/Icinga Check Name              | `check_ntp_w32tm` |
 | Check Interval Recommendation         | Every minute |

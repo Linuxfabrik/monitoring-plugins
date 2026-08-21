@@ -76,13 +76,13 @@ Output:
 ```text
 Everything is ok.
 
-License Type     ! Usage                     
+License Type     ! Usage
 -----------------+---------------------------
-Player           ! 9/10 (1 available)        
-DsPlayerEntry    ! 1156/1400 (244 available) 
-DsPlayerAdvanced ! 283/400 (117 available)   
-DsPlayerPro      ! 820/843 (23 available)    
-EntryPlayer      ! 51/100 (49 available)     
+Player           ! 9/10 (1 available)
+DsPlayerEntry    ! 1156/1400 (244 available)
+DsPlayerAdvanced ! 283/400 (117 available)
+DsPlayerPro      ! 820/843 (23 available)
+EntryPlayer      ! 51/100 (49 available)
 AdvancedPlayer   ! 25/150 (125 available)
 ```
 

@@ -101,16 +101,16 @@ There are warnings.
 
 Latest snapshot 17h 52m ago [WARNING] (2022-12-04 16:10:05@www.example.com:/home, ID 34751e52); 3 snapshots found
 
-Short ID ! Timestamp           ! Age               ! Host                  ! Paths ! Tags 
+Short ID ! Timestamp           ! Age               ! Host                  ! Paths ! Tags
 ---------+---------------------+-------------------+-----------------------+-------+------
-34751e52 ! 2022-12-04 16:10:05 ! 17h 52m [WARNING] ! www.example.com       ! /home !      
-f958e789 ! 2022-12-04 16:08:51 ! 17h 53m           ! www.example.com       ! /home !      
-4d2a09b2 ! 2022-12-04 16:08:49 ! 17h 53m           ! www.example.com       ! /home !      
+34751e52 ! 2022-12-04 16:10:05 ! 17h 52m [WARNING] ! www.example.com       ! /home !
+f958e789 ! 2022-12-04 16:08:51 ! 17h 53m           ! www.example.com       ! /home !
+4d2a09b2 ! 2022-12-04 16:08:49 ! 17h 53m           ! www.example.com       ! /home !
 
 
 Latest snapshot 17m 38s ago (2022-12-05 09:45:00@www.example.com:/home, ID a5cae06b); 1 snapshot found
 
-Short ID ! Timestamp           ! Age     ! Host                  ! Paths ! Tags 
+Short ID ! Timestamp           ! Age     ! Host                  ! Paths ! Tags
 ---------+---------------------+---------+-----------------------+-------+------
 a5cae06b ! 2022-12-05 09:45:00 ! 17m 38s ! www.example.com       ! /home ! myTag
 ```

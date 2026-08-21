@@ -62,10 +62,10 @@ Output:
 ```text
 0/0/3 of 3 monitors are down/paused/up, 24h uptime: 99.976%
 
-Name                      ! Type    ! State 
+Name                      ! Type    ! State
 --------------------------+---------+-------
-001 cloud.linuxfabrik.io  ! HTTP(s) ! [OK]  
-001 office.linuxfabrik.io ! HTTP(s) ! [OK]  
+001 cloud.linuxfabrik.io  ! HTTP(s) ! [OK]
+001 office.linuxfabrik.io ! HTTP(s) ! [OK]
 001 ws.linuxfabrik.io     ! HTTP(s) ! [OK]
 ```
 

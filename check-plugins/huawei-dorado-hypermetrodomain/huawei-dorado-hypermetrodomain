@@ -197,7 +197,7 @@ def parse_args():
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
-        + ' Appends what every API request returned, so the appliance\'s own answers '
+        + " Appends what every API request returned, so the appliance's own answers "
         'can be read while working out how it reports something. Session tokens are '
         'redacted. The output is as long as those answers are, so this is a debugging '
         'aid rather than something to leave switched on.',
@@ -253,8 +253,7 @@ def main():
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
     compiled_ignore_regex = [
-        lib.base.coe(item)
-        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
 
     # analyze data
@@ -266,14 +265,18 @@ def main():
         label = re.sub(r'\W+', '_', hypermetrodomain['UUID'])
 
         if args.MATCH and not any(
-            lib.base.coe(lib.txt.match_regex(pattern, str(hypermetrodomain.get(field, ''))))
+            lib.base.coe(
+                lib.txt.match_regex(pattern, str(hypermetrodomain.get(field, '')))
+            )
             for pattern in compiled_match_regex
             for field in MATCH_FIELDS
         ):
             continue
 
         if args.IGNORE and any(
-            lib.base.coe(lib.txt.match_regex(pattern, str(hypermetrodomain.get(field, ''))))
+            lib.base.coe(
+                lib.txt.match_regex(pattern, str(hypermetrodomain.get(field, '')))
+            )
             for pattern in compiled_ignore_regex
             for field in MATCH_FIELDS
         ):

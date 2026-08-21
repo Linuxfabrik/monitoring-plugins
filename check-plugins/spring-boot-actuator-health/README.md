@@ -112,21 +112,21 @@ Overall status of the application: UP, API Status Code: 200 [CRITICAL]
 
 Component ! Status ! State
 ----------+--------+------
-db        ! UP     ! [OK] 
-diskSpace ! UP     ! [OK] 
-ping      ! UP     ! [OK] 
+db        ! UP     ! [OK]
+diskSpace ! UP     ! [OK]
+ping      ! UP     ! [OK]
 ssl       ! UP     ! [OK]
 
-Component ! Detail          ! value                               ! State     
+Component ! Detail          ! value                               ! State
 ----------+-----------------+-------------------------------------+-----------
-db        ! database        ! PostgreSQL                          ! [OK]      
-db        ! validationQuery ! isValid()                           ! [OK]      
-diskSpace ! total           ! 1998678130688                       ! [OK]      
+db        ! database        ! PostgreSQL                          ! [OK]
+db        ! validationQuery ! isValid()                           ! [OK]
+diskSpace ! total           ! 1998678130688                       ! [OK]
 diskSpace ! free            ! 1086117941248 > 100000000,200000000 ! [CRITICAL]
-diskSpace ! threshold       ! 10485760                            ! [OK]      
-diskSpace ! path            ! /.                                  ! [OK]      
-diskSpace ! exists          ! True                                ! [OK]      
-ssl       ! validChains     ! []                                  ! [OK]      
+diskSpace ! threshold       ! 10485760                            ! [OK]
+diskSpace ! path            ! /.                                  ! [OK]
+diskSpace ! exists          ! True                                ! [OK]
+ssl       ! validChains     ! []                                  ! [OK]
 ssl       ! invalidChains   ! []                                  ! [OK]
 ```
 

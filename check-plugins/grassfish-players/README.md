@@ -108,13 +108,13 @@ Output:
 ```text
 There are 6 players with warnings: 2 unlicensed, 2 transfer overdue, 6 accessed > 10 hours ago. 6 players checked. Filter: --box-state=['activated']
 
-Box ID    ! License Type            ! Name                 ! Box State ! Lic             ! Transfer          ! Last Access                                
+Box ID    ! License Type            ! Name                 ! Box State ! Lic             ! Transfer          ! Last Access
 ----------+-------------------------+----------------------+-----------+-----------------+-------------------+--------------------------------------------
-GP111-111 ! Player                  ! Grassfish Player 111 ! Activated ! True            ! Complete          ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING] 
-GP112-112 ! DsPlayerAdvancedSaas    ! Grassfish Player 112 ! Activated ! True            ! Pending           ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING] 
-GP113-113 ! ColorDoorSignPlayerSaas ! Grassfish Player 113 ! Activated ! True            ! Overdue [WARNING] ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING] 
-GP114-114 ! ColorDoorSignPlayerSaas ! Grassfish Player 114 ! Activated ! True            ! Complete          ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING] 
-GP115-115 ! ColorDoorSignPlayerSaas ! Grassfish Player 115 ! Activated ! False [WARNING] ! Complete          ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING] 
+GP111-111 ! Player                  ! Grassfish Player 111 ! Activated ! True            ! Complete          ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING]
+GP112-112 ! DsPlayerAdvancedSaas    ! Grassfish Player 112 ! Activated ! True            ! Pending           ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING]
+GP113-113 ! ColorDoorSignPlayerSaas ! Grassfish Player 113 ! Activated ! True            ! Overdue [WARNING] ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING]
+GP114-114 ! ColorDoorSignPlayerSaas ! Grassfish Player 114 ! Activated ! True            ! Complete          ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING]
+GP115-115 ! ColorDoorSignPlayerSaas ! Grassfish Player 115 ! Activated ! False [WARNING] ! Complete          ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING]
 GP117-117 ! ColorDoorSignPlayerSaas ! Grassfish Player 117 ! Activated ! False [WARNING] ! Overdue [WARNING] ! 2020-03-09 14:07:53 (2Y 12M ago) [WARNING]
 ```
 

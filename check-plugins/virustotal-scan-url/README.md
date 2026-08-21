@@ -77,7 +77,7 @@ Output:
 ```text
 9/97 security vendors flagged https://secure.eicar.org/eicar.com as malicious.
 
-Engine      ! Result     ! Method    ! Category           
+Engine      ! Result     ! Method    ! Category
 ------------+------------+-----------+--------------------
 Antiy-AVL   ! malicious  ! blacklist ! malicious [WARNING]
 AutoShun    ! malicious  ! blacklist ! malicious [WARNING]
@@ -87,7 +87,7 @@ Fortinet    ! malware    ! blacklist ! malicious [WARNING]
 G-Data      ! malware    ! blacklist ! malicious [WARNING]
 Lionic      ! malware    ! blacklist ! malicious [WARNING]
 Sophos      ! malware    ! blacklist ! malicious [WARNING]
-URLQuery    ! suspicious ! blacklist ! suspicious         
+URLQuery    ! suspicious ! blacklist ! suspicious
 VIPRE       ! malware    ! blacklist ! malicious [WARNING]
 ```
 

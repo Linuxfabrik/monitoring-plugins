@@ -15,7 +15,7 @@ Checks the number of currently banned IP addresses across all fail2ban jails. Re
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fail2ban> |
 | Nagios/Icinga Check Name              | `check_fail2ban` |
 | Check Interval Recommendation         | Every minute |

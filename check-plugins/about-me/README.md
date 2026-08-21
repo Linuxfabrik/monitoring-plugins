@@ -111,21 +111,21 @@ Listening TCP/UDP Ports (ordered by port, proto, ip):
 * [::]:111/udp6
 
 Non-default Software (ordered by name):
-name               ! version    ! from_repo                              ! installtime      
+name               ! version    ! from_repo                              ! installtime
 -------------------+------------+----------------------------------------+------------------
-at                 ! 3.1.20     ! baseos                                 ! 2022-12-07 07:18 
-bash-completion    ! 2.7        ! baseos                                 ! 2022-10-04 09:59 
-bzip2              ! 1.0.6      ! baseos                                 ! 2022-10-04 11:40 
-chrony             ! 4.2        ! baseos                                 ! 2022-12-07 07:17 
-yum-utils          ! 4.0.21     ! baseos                                 ! 2023-11-28 03:21 
-zstd               ! 1.4.4      ! appstream                              ! 2023-08-29 08:02 
+at                 ! 3.1.20     ! baseos                                 ! 2022-12-07 07:18
+bash-completion    ! 2.7        ! baseos                                 ! 2022-10-04 09:59
+bzip2              ! 1.0.6      ! baseos                                 ! 2022-10-04 11:40
+chrony             ! 4.2        ! baseos                                 ! 2022-12-07 07:17
+yum-utils          ! 4.0.21     ! baseos                                 ! 2023-11-28 03:21
+zstd               ! 1.4.4      ! appstream                              ! 2023-08-29 08:02
 
 Non-default Users:
-user        ! pw ! uid  ! gid  ! comment                   ! home_dir           ! user_shell    
+user        ! pw ! uid  ! gid  ! comment                   ! home_dir           ! user_shell
 ------------+----+------+------+---------------------------+--------------------+---------------
-apache      ! x  ! 48   ! 48   ! Apache                    ! /usr/share/httpd   ! /sbin/nologin 
-postfix     ! x  ! 89   ! 89   !                           ! /var/spool/postfix ! /sbin/nologin 
-redis       ! x  ! 991  ! 986  ! Redis Database Server     ! /var/lib/redis     ! /sbin/nologin 
+apache      ! x  ! 48   ! 48   ! Apache                    ! /usr/share/httpd   ! /sbin/nologin
+postfix     ! x  ! 89   ! 89   !                           ! /var/spool/postfix ! /sbin/nologin
+redis       ! x  ! 991  ! 986  ! Redis Database Server     ! /var/lib/redis     ! /sbin/nologin
 
 systemctl get-default:
 * multi-user.target
@@ -145,11 +145,11 @@ systemctl list-unit-files --type=automount --state=enabled --state=static:
 * proc-sys-fs-binfmt_misc.automount
 
 systemctl list-timers:
-unit                               ! activates                      ! next                         
+unit                               ! activates                      ! next
 -----------------------------------+--------------------------------+------------------------------
-fstrim.timer                       ! fstrim.service                 ! Mon 2024-04-15 01:07:55 CEST 
-systemd-tmpfiles-clean.timer       ! systemd-tmpfiles-clean.service ! Thu 2024-04-11 04:35:37 CEST 
-unbound-anchor.timer               ! unbound-anchor.service         ! Thu 2024-04-11 00:00:00 CEST 
+fstrim.timer                       ! fstrim.service                 ! Mon 2024-04-15 01:07:55 CEST
+systemd-tmpfiles-clean.timer       ! systemd-tmpfiles-clean.service ! Thu 2024-04-11 04:35:37 CEST
+unbound-anchor.timer               ! unbound-anchor.service         ! Thu 2024-04-11 00:00:00 CEST
 
 crontab:
 01 * * * * root run-parts /etc/cron.hourly

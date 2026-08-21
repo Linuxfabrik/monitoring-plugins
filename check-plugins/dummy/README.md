@@ -9,7 +9,7 @@ Returns a freely configurable message, state, and perfdata. Useful for testing m
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dummy> |
 | Nagios/Icinga Check Name              | `check_dummy` |
 | Check Interval Recommendation         | Every minute |

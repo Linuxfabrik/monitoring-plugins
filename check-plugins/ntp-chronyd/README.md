@@ -19,7 +19,7 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-chronyd> |
 | Nagios/Icinga Check Name              | `check_ntp_chronyd` |
 | Check Interval Recommendation         | Every minute |
@@ -92,7 +92,7 @@ Example of an alert:
 ```text
 NTP server not reachable. No NTP server is used.
 
-MS Name/IP address         Stratum Poll Reach LastRx Last sample               
+MS Name/IP address         Stratum Poll Reach LastRx Last sample
 ===============================================================================
 ^? ntp1.hetzner.de               0   6     0     -     +0ns[   +0ns] +/-    0ns
 ```

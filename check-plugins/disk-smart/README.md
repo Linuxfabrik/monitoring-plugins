@@ -25,7 +25,7 @@ Queries SMART (Self-Monitoring, Analysis, and Reporting Technology) data from ha
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-smart> |
 | Nagios/Icinga Check Name              | `check_disk_smart` |
 | Check Interval Recommendation         | Every 8 hours |

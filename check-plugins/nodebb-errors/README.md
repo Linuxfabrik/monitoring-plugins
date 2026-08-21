@@ -20,7 +20,7 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-errors> |
 | Nagios/Icinga Check Name              | `check_nodebb_errors` |
 | Check Interval Recommendation         | Every minute |

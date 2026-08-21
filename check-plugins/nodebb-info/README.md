@@ -20,7 +20,7 @@ Retrieves NodeBB process and system information via the admin API, including Nod
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-info> |
 | Nagios/Icinga Check Name              | `check_nodebb_info` |
 | Check Interval Recommendation         | Every minute |
