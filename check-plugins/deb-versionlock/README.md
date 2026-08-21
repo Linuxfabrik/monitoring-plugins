@@ -164,7 +164,7 @@ APT stops reading these files where they are named:
 * OK if nothing is held back, or if the number of holds is within `--warning`.
 * WARN or CRIT depending on how the number of holds compares to `--warning` and `--critical`, which take [Nagios range expressions](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/THRESHOLDS.md). The default `--warning=0` alerts on the first hold. Pins count towards the same number.
 * WARN, whatever the thresholds say, if `--check-pinning` finds a preferences file APT refuses.
-* OK if `--match` and `--ignore` leave nothing to check, unless `--no-match-severity` says otherwise.
+* OK if `--match` and `--ignore` leave nothing to check, unless `--no-match-severity` says otherwise. The summary then still names how many holds and pins the host carries and says that the filters dropped them, so an all-green service does not read like a check that never ran.
 * UNKNOWN if APT cannot be asked for its held packages, which means the check is deployed on a host that does not install its packages with APT, or that its APT installation is damaged. APT's own error message is part of the output.
 * `--always-ok` forces OK for everything the thresholds decide. It does not cover UNKNOWN, which is reported whatever else is set.
 

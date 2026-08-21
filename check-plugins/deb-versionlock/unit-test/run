@@ -132,19 +132,28 @@ TESTS = [
         'assert-in': ['1 hold in place.'],
         'assert-not-in': ['coreutils'],
     },
+    # Holds are in place, the filters drop all of them. The line names what the host
+    # carries, so an all-green service does not read like a check that never ran.
     {
-        'id': 'ok-nothing-checked',
+        'id': 'ok-everything-filtered-out',
         'test': 'stdout/debian12-two-holds,,0',
         'params': '--match=^nothing-here$',
         'assert-retc': STATE_OK,
-        'assert-in': ['Nothing checked.', "'holds'=0"],
+        'assert-in': [
+            'Everything is ok. 2 holds in place, filtered out by',
+            "'holds'=0",
+        ],
+        'assert-not-in': ['Nothing checked.'],
     },
+    # The same run where the site asked for a state on it. The verdict is not OK, so
+    # the line carries the facts and the state marker without claiming everything is ok.
     {
-        'id': 'warn-nothing-checked',
+        'id': 'warn-everything-filtered-out',
         'test': 'stdout/debian12-two-holds,,0',
         'params': '--match=^nothing-here$ --no-match-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': ['2 holds in place, filtered out by'],
+        'assert-not-in': ['Everything is ok.'],
     },
     # Extended reporting adds where the hold has to be removed.
     {

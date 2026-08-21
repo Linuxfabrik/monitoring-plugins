@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081202'
+__version__ = '2026082101'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -550,6 +550,24 @@ def get_pins(root):
     return entries, refused
 
 
+def count_entries(rows):
+    """Render how many holds and pins a list of entries holds.
+
+    A pin keeps a package at a version the archive offers rather than at the one
+    installed, so the two kinds are named separately instead of being summed up as
+    holds. Used for the entries that are reported as well as for the ones the filters
+    dropped, so both lines count the same way.
+    """
+    holds = sum(1 for row in rows if row['source'] == 'hold')
+    pins = len(rows) - holds
+    counted = []
+    if holds:
+        counted.append(f'{holds} {lib.txt.pluralize("hold", holds)}')
+    if pins:
+        counted.append(f'{pins} {lib.txt.pluralize("pin", pins)}')
+    return ' and '.join(counted)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -618,6 +636,7 @@ def main():
     state = lib.base.get_state(len(table_data), args.WARN, args.CRIT, _operator='range')
 
     # build the message
+    nothing_matched = False
     if not entries:
         # Nothing is held back, which is what a healthy host looks like. Both searches are
         # named where both ran, so the admin sees that --check-pinning took effect rather
@@ -629,20 +648,14 @@ def main():
         )
         state = STATE_OK
     elif not table_data:
-        # holds exist, but the filters dropped all of them
-        msg = 'Nothing checked.'
+        # Holds or pins are in place, the filters dropped every one of them. The host is
+        # not an unchecked host, so the line says what it carries and why none of it is
+        # listed, rather than leaving the impression of a check that never ran.
+        nothing_matched = True
+        msg = f'{count_entries(entries)} in place, filtered out by --match or --ignore.'
         state = lib.base.str2state(args.NO_MATCH_SEVERITY)
     else:
-        # a pin keeps a package at a version the archive offers rather than at the one
-        # installed, so the two kinds are named separately instead of being summed up
-        holds_count = sum(1 for row in table_data if row['source'] == 'hold')
-        pins_count = len(table_data) - holds_count
-        counted = []
-        if holds_count:
-            counted.append(f'{holds_count} {lib.txt.pluralize("hold", holds_count)}')
-        if pins_count:
-            counted.append(f'{pins_count} {lib.txt.pluralize("pin", pins_count)}')
-        msg = f'{" and ".join(counted)} in place.'
+        msg = f'{count_entries(table_data)} in place.'
     if refused:
         # APT gives up on such a file and then fails every command that works out package
         # priorities, so the host cannot install or upgrade anything until it is fixed
@@ -652,6 +665,11 @@ def main():
             f'{len(refused)} preferences {lib.txt.pluralize("file", len(refused))}, '
             f'so installing and upgrading fails on this host.'
         )
+    if nothing_matched and state == STATE_OK:
+        # The verdict goes first, where an admin scanning the service list reads it.
+        # Only once nothing above raised the state, so the line never claims everything
+        # is fine and then names a preferences file APT refuses.
+        msg = f'Everything is ok. {msg}'
     msg += lib.base.state2str(state, prefix=' ')
     perfdata += lib.base.get_perfdata(
         'holds',

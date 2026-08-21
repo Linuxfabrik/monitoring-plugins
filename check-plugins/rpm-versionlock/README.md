@@ -159,7 +159,7 @@ redis   ! [main]                ! exclude     ! /etc/dnf/dnf.conf
 * WARN if a `versionlock.toml` declares a version dnf 5 does not act on, so the locks in it are not applied. They are not counted as locks in place, because they are not.
 * WARN if a lock list holds an entry the package manager cannot parse. It looks like a lock in the file but holds nothing, so it is named separately instead of being counted as one.
 * A single entry dnf 5 marks invalid, because it carries a condition key the package manager does not know or no condition at all, is not counted as a lock either. dnf 5 reports it the same way under `dnf5 versionlock list`.
-* OK if `--match` and `--ignore` leave nothing to check, unless `--no-match-severity` says otherwise.
+* OK if `--match` and `--ignore` leave nothing to check, unless `--no-match-severity` says otherwise. The summary then still names how many locks and exclusions the host carries and says that the filters dropped them, so an all-green service does not read like a check that never ran.
 * UNKNOWN if the host has no dnf or yum configuration at all, which means the check is deployed on a host that does not install its packages with RPM.
 * `--always-ok` forces OK for everything the thresholds decide. It does not cover UNKNOWN, which is reported whatever else is set.
 
@@ -252,7 +252,7 @@ An entry that names a `.repo` file or `/etc/dnf/dnf.conf` is not a version lock 
 
 An exclusion in `/etc/yum/repos.d` on a dnf 5 host, or in `/usr/share/dnf5/repos.d` on a dnf 4 host, is reported although that generation never reads the directory. Move it to `/etc/yum.repos.d`, which both of them read, or delete it.
 
-### `N of the exclusions are written down but not in force`
+### `N exclusions are written down but not in force`
 
 The exclusions are in the files, but something switches them off: the repository section they sit in is `enabled=0`, or `disable_excludes` in `/etc/dnf/dnf.conf` names that repository, `main`, or every scope at once (`all` on dnf 4, `*` on dnf 5). The entries stay in the report, because an exclusion written down is worth seeing and because the same files have to produce the same list whichever generation is installed.
 

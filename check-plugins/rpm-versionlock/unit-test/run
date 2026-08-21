@@ -155,21 +155,30 @@ TESTS = [
         'assert-in': ['2 version locks in place.'],
         'assert-not-in': ['curl'],
     },
+    # Locks are in place, the filters drop all of them. The line names what the host
+    # carries, so an all-green service does not read like a check that never ran.
     {
-        'id': 'ok-nothing-checked',
+        'id': 'ok-everything-filtered-out',
         'test': '',
         'params': '--config-root=config/rhel9-two-locks-one-exclude '
         '--match=^nothing-here$',
         'assert-retc': STATE_OK,
-        'assert-in': ['Nothing checked.', "'locks'=0"],
+        'assert-in': [
+            'Everything is ok. 2 version locks and 1 exclusion in place, filtered out by',
+            "'locks'=0",
+        ],
+        'assert-not-in': ['Nothing checked.'],
     },
+    # The same run where the site asked for a state on it. The verdict is not OK, so
+    # the line carries the facts and the state marker without claiming everything is ok.
     {
-        'id': 'warn-nothing-checked',
+        'id': 'warn-everything-filtered-out',
         'test': '',
         'params': '--config-root=config/rhel9-two-locks-one-exclude '
         '--match=^nothing-here$ --no-match-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Nothing checked.'],
+        'assert-in': ['2 version locks and 1 exclusion in place, filtered out by'],
+        'assert-not-in': ['Everything is ok.'],
     },
     # Extended reporting adds the file a lock has to be removed from.
     {
@@ -191,7 +200,7 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             '4 exclusions in place.',
-            '3 of the exclusions are written down but not in force',
+            '3 exclusions are written down but not in force',
             'live-repo-package',
             'main-config-package',
             'named-repo-package',
@@ -208,7 +217,7 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             '2 exclusions in place.',
-            '2 of the exclusions are written down but not in force',
+            '2 exclusions are written down but not in force',
         ],
     },
     # The same configuration in dnf 5's spelling. Reading only `all` would report both
@@ -220,8 +229,23 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             '2 exclusions in place.',
-            '2 of the exclusions are written down but not in force',
+            '2 exclusions are written down but not in force',
         ],
+    },
+    # A single exclusion, and it is the inert one, which is what a mirror host looks
+    # like: the repository exists for `reposync --repoid=...` to enable per run and is
+    # switched off for everything else. The summary has to say so in the singular.
+    {
+        'id': 'warn-single-exclude-not-in-force',
+        'test': '',
+        'params': '--config-root=config/single-inert-exclude --check-excludes',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 exclusion in place.',
+            '1 exclusion is written down but not in force',
+            'off-repo-package',
+        ],
+        'assert-not-in': ['exclusions are'],
     },
     # Package exclusions, off unless asked for.
     {
@@ -537,6 +561,18 @@ TESTS = [
             'No version locks in place.',
         ],
         'assert-not-in': ['bash', 'glibc'],
+    },
+    # The same with a single lock in the file, which has to read "is not applied".
+    {
+        'id': 'warn-dnf5-single-lock-not-applied',
+        'test': '',
+        'params': '--config-root=config/dnf5-single-lock-not-applied',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 lock configuration is not applied at all',
+            'the 1 lock in it is not applied',
+        ],
+        'assert-not-in': ['bash'],
     },
     # A single entry the package manager marks invalid holds nothing, whether the reason
     # is a condition key it does not know or a package name with no condition at all.

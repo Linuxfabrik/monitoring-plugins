@@ -685,7 +685,7 @@ Rules:
 * Multiple items checked, and ...
     * ... everything ok? Print "Everything is ok." or the most important output in the first line, and optional the items and their data attached in multiple lines.
     * ... there are warnings or errors? Print "There are warnings." or "There are errors." or the most important output in the first line, and optional the items and their data attached in multiple lines.
-* Based on parameters etc. nothing is checked at the end? Print "Nothing checked."
+* Based on parameters etc. nothing is checked at the end? Print "Nothing checked." Where the plugin still knows what its filters dropped, name that instead: "2 version locks and 1 exclusion in place, filtered out by `--match` or `--ignore`." tells the admin what the host carries and why none of it is listed, while "Nothing checked." reads like a check that never ran. Put "Everything is ok." in front of it only after everything else has had its say on the state, so the line never claims all is well and then reports a problem below it. Reference implementations: `rpm-versionlock` and `deb-versionlock`.
 * Wrong username or password? Print "Failed to authenticate."
 * Use short "Units of Measurements" without white spaces, including these terms:
     * Bits: use `human.bits2human()`
