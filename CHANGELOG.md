@@ -24,15 +24,6 @@ Monitoring Plugins:
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
 
-Icinga Director:
-
-* the Huawei Dorado Service Set contains the storage pool check
-
-Documentation:
-
-* PLUGINS-FILE.md covers what the file-\* checks have in common, including what to do when a check cannot read a file
-* ROADMAP.md states when package builds for each release end
-
 ### Changed
 
 Monitoring Plugins:
@@ -46,6 +37,8 @@ Icinga Director:
 * the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
 * the Basic Service Sets also report excluded and pinned packages, so a host carrying a repository exclude or an APT pin goes WARNING
 * the Basic Service Sets no longer report a version lock on the monitoring plugins packages themselves
+* the Basic Service Sets no longer report the exclusions and pins that the Grafana and InfluxData repository configurations set
+* the Huawei Dorado Service Set runs the storage pool check
 * the Needs Restarting service runs hourly instead of once a day
 
 Grafana:
@@ -71,7 +64,7 @@ Monitoring Plugins:
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing when Keycloak withholds the server info
-* php-status: no longer warns about `post_max_size` versus `upload_max_filesize`. The two only limit each other for classic form uploads, not for the chunked uploads Nextcloud and others use; both values keep being reported
+* php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
 
 Icinga Director:
 
