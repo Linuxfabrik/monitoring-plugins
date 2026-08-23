@@ -20,7 +20,7 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-users> |
 | Nagios/Icinga Check Name              | `check_nodebb_users` |
 | Check Interval Recommendation         | Every minute |
@@ -73,10 +73,10 @@ Output:
 ```text
 402 users, latest active user: alice <alice@example.com>, online 2022-07-12 10:17:23 (22s ago)
 
-uid ! userslug         ! lastonline                        ! banned ! admin ! ip              
+uid ! userslug         ! lastonline                        ! banned ! admin ! ip
 ----+------------------+-----------------------------------+--------+-------+-----------------
-373 ! alice            ! 2022-07-12 10:17:23 (22s ago)     ! False  ! False ! 1.2.3.4         
-2   ! bob              ! 2022-07-12 10:17:17 (28s ago)     ! False  ! True  ! 2.3.4.5   
+373 ! alice            ! 2022-07-12 10:17:23 (22s ago)     ! False  ! False ! 1.2.3.4
+2   ! bob              ! 2022-07-12 10:17:17 (28s ago)     ! False  ! True  ! 2.3.4.5
 ...
 ```
 

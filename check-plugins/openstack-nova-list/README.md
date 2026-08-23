@@ -21,7 +21,7 @@ Lists all OpenStack Nova compute instances (virtual servers) and checks their st
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openstack-nova-list> |
 | Nagios/Icinga Check Name              | `check_openstack_nova_list` |
 | Check Interval Recommendation         | Every minute |
@@ -70,9 +70,9 @@ Output:
 ```text
 2 servers checked. 1 active, 0 migrating, 1 demand verify resize, 0 in error. Last status update 2023-06-13 12:34:00 UTC (3h 6m ago).
 
-Name              ! ID                                   ! Updated (UTC)                      ! Status                   
+Name              ! ID                                   ! Updated (UTC)                      ! Status
 ------------------+--------------------------------------+----------------------------------+--------------------------
-first_server      ! 48f44934-2bdf-4aed-84f8-df0960689620 ! 2023-06-08 16:39:51 (3D 18h ago) ! VERIFY_RESIZE [WARNING] 
+first_server      ! 48f44934-2bdf-4aed-84f8-df0960689620 ! 2023-06-08 16:39:51 (3D 18h ago) ! VERIFY_RESIZE [WARNING]
 second_server     ! 38654a93-435d-40ea-bd39-64d01b186830 ! 2023-06-12 09:11:09 (2h 45s ago) ! ACTIVE
 ```
 

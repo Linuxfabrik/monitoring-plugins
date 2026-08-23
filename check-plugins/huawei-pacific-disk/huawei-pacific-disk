@@ -70,8 +70,7 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help=lib.args.help('--brief')
-        + ' Worth setting on a cluster with many disks. '
+        help=lib.args.help('--brief') + ' Worth setting on a cluster with many disks. '
         'Default: %(default)s',
         dest='BRIEF',
         action='store_true',
@@ -229,7 +228,7 @@ def parse_args():
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
-        + ' Appends what every API request returned, so the appliance\'s own answers '
+        + " Appends what every API request returned, so the appliance's own answers "
         'can be read while working out how it reports something. Session tokens are '
         'redacted. The output is as long as those answers are, so this is a debugging '
         'aid rather than something to leave switched on.',
@@ -286,9 +285,7 @@ def main():
     if args.TEST is None:
         pools = lib.huawei_pacific.get_data('data_service/diskpool', args)
         lib.huawei_pacific.assert_ok(pools, 'the disk pools')
-        disk_pools = {
-            pool.get('poolId'): pool for pool in pools.get('diskPools', [])
-        }
+        disk_pools = {pool.get('poolId'): pool for pool in pools.get('diskPools', [])}
         pool_ids = list(disk_pools)
         per_pool = {}
         for pool_id in pool_ids:
@@ -303,9 +300,7 @@ def main():
         test_base = args.TEST[0]
         pools = lib.lftest.test_json(args.TEST, f'{test_base}-diskpools')
         lib.huawei_pacific.assert_ok(pools, 'the disk pools')
-        disk_pools = {
-            pool.get('poolId'): pool for pool in pools.get('diskPools', [])
-        }
+        disk_pools = {pool.get('poolId'): pool for pool in pools.get('diskPools', [])}
         pool_ids = list(disk_pools)
         per_pool = {
             pool_id: lib.lftest.test_json(args.TEST, f'{test_base}-disks-{pool_id}')
@@ -326,8 +321,7 @@ def main():
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
     compiled_ignore_regex = [
-        lib.base.coe(item)
-        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
 
     # analyze data

@@ -20,7 +20,7 @@ Checks the clock offset of ntpd in milliseconds compared to the configured NTP s
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ntp-ntpd> |
 | Nagios/Icinga Check Name              | `check_ntp_ntpd` |
 | Check Interval Recommendation         | Every minute |

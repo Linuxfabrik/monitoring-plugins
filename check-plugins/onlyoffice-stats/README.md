@@ -18,7 +18,7 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/onlyoffice-stats> |
 | Nagios/Icinga Check Name              | `check_onlyoffice_stats` |
 | Check Interval Recommendation         | Every 30 minutes |

@@ -72,13 +72,13 @@ Output:
 ```text
 Everything is ok @ https://status.trustid.ch
 
-Component Name                    ! Published                 ! State 
+Component Name                    ! Published                 ! State
 ----------------------------------+---------------------------+-------
-AutoIdent - Operational           ! 2025-03-05 08:00:00+01:00 ! [OK]  
-TrustID API Service - Operational ! 2025-02-24 23:12:10+01:00 ! [OK]  
-TrustID BO Service - Operational  ! 2025-02-10 13:15:00+01:00 ! [OK]  
-TrustID IDP Service - Operational ! 2025-02-10 13:15:00+01:00 ! [OK]  
-TrustID SSE Service - Operational ! 2025-02-10 13:15:00+01:00 ! [OK]  
+AutoIdent - Operational           ! 2025-03-05 08:00:00+01:00 ! [OK]
+TrustID API Service - Operational ! 2025-02-24 23:12:10+01:00 ! [OK]
+TrustID BO Service - Operational  ! 2025-02-10 13:15:00+01:00 ! [OK]
+TrustID IDP Service - Operational ! 2025-02-10 13:15:00+01:00 ! [OK]
+TrustID SSE Service - Operational ! 2025-02-10 13:15:00+01:00 ! [OK]
 VideoIdent - Operational          ! 2025-03-05 08:00:00+01:00 ! [OK]
 ```
 
@@ -91,16 +91,16 @@ Output:
 ```text
 Major incidents @ https://status.kobv.de
 
-Component Name                  ! Pub Date                        ! State      
+Component Name                  ! Pub Date                        ! State
 --------------------------------+---------------------------------+------------
-GVI via SRU - Major Outage      ! Thu, 06 Mar 2025 14:44:59 +0100 ! [CRITICAL] 
-ALBERT - Operational            ! Wed, 05 Mar 2025 20:54:24 +0100 ! [OK]       
-B-TU Laubert - Operational      ! Thu, 27 Feb 2025 14:48:15 +0100 ! [OK]       
-FHP FHPKat+ - Operational       ! Thu, 20 Feb 2025 18:43:16 +0100 ! [OK]       
-Fernleihe - Operational         ! Thu, 06 Mar 2025 15:46:05 +0100 ! [OK]       
-K2 Portal - Operational         ! Tue, 04 Mar 2025 11:15:00 +0100 ! [OK]       
-OPUS Uni Würzburg - Operational ! Tue, 18 Feb 2025 02:49:47 +0100 ! [OK]       
-Opus Uni Potsdam - Operational  ! Fri, 14 Feb 2025 13:45:45 +0100 ! [OK]       
+GVI via SRU - Major Outage      ! Thu, 06 Mar 2025 14:44:59 +0100 ! [CRITICAL]
+ALBERT - Operational            ! Wed, 05 Mar 2025 20:54:24 +0100 ! [OK]
+B-TU Laubert - Operational      ! Thu, 27 Feb 2025 14:48:15 +0100 ! [OK]
+FHP FHPKat+ - Operational       ! Thu, 20 Feb 2025 18:43:16 +0100 ! [OK]
+Fernleihe - Operational         ! Thu, 06 Mar 2025 15:46:05 +0100 ! [OK]
+K2 Portal - Operational         ! Tue, 04 Mar 2025 11:15:00 +0100 ! [OK]
+OPUS Uni Würzburg - Operational ! Tue, 18 Feb 2025 02:49:47 +0100 ! [OK]
+Opus Uni Potsdam - Operational  ! Fri, 14 Feb 2025 13:45:45 +0100 ! [OK]
 THW WILBERT - Operational       ! Wed, 26 Feb 2025 14:15:32 +0100 ! [OK]
 ```
 

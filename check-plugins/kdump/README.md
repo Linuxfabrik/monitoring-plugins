@@ -26,7 +26,7 @@ Checks the kernel crash dump (kdump) subsystem. Verifies that the system is read
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kdump> |
 | Nagios/Icinga Check Name              | `check_kdump` |
 | Check Interval Recommendation         | Every 15 minutes |
@@ -108,7 +108,7 @@ Sample output on a host with captured crash dumps (the full inventory is always 
 ```text
 2 kernel crash dumps in /var/crash [WARNING], newest 18m 3s ago (2026-07-15 11:07:59).
 
-Dump                          ! Size     ! State    
+Dump                          ! Size     ! State
 ------------------------------+----------+----------
 127.0.0.1-2026-07-15-11:07:59 ! 87.6MiB  ! [WARNING]
 127.0.0.1-2026-07-15-10:56:21 ! 102.6MiB ! [WARNING]

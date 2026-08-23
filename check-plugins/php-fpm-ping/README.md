@@ -33,7 +33,7 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-fpm-ping> |
 | Nagios/Icinga Check Name              | `check_php_fpm_ping` |
 | Check Interval Recommendation         | Every minute |

@@ -129,10 +129,10 @@ Output:
 ```text
 Everything is ok. 3 containers checked.
 
-Container                 ! CPU % ! Mem % 
+Container                 ! CPU % ! Mem %
 --------------------------+-------+-------
-myconti_app-logger_1      ! 0.0   ! 0.0   
-myconti_backend-core_1    ! 0.1   ! 33.9  
+myconti_app-logger_1      ! 0.0   ! 0.0
+myconti_backend-core_1    ! 0.1   ! 33.9
 myconti_ds_1              ! 0.0   ! 11.42
 ```
 

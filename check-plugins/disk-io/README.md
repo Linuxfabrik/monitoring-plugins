@@ -31,7 +31,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-io> |
 | Nagios/Icinga Check Name              | `check_disk_io` |
 | Check Interval Recommendation         | Every minute |
@@ -162,18 +162,18 @@ Output:
 ```text
 /dev/dm-8: 5.6KiB/s read1, 2.2MiB/s write1, 2.2MiB/s total, 10.0MiB/s max
 
-Name ! MntPnts        ! DvMppr           ! RWmax/s ! R1/s   ! W1/s    ! R5/s   ! W5/s    ! RW5/s   
+Name ! MntPnts        ! DvMppr           ! RWmax/s ! R1/s   ! W1/s    ! R5/s   ! W5/s    ! RW5/s
 -----+----------------+------------------+---------+--------+---------+--------+---------+---------
-dm-0 ! /              ! rl-root          ! 10.0MiB ! 0.0B   ! 426.0B  ! 0.0B   ! 343.0B  ! 343.0B  
-vda2 ! /boot          !                  ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
-vda1 ! /boot/efi      !                  ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
-dm-5 ! /var           ! rl-var           ! 10.0MiB ! 0.0B   ! 586.0B  ! 0.0B   ! 1.1KiB  ! 1.1KiB  
-dm-8 ! /data          ! rl-lv_data       ! 10.0MiB ! 5.6KiB ! 2.2MiB  ! 8.3KiB ! 2.3MiB  ! 2.3MiB  
-dm-6 ! /tmp           ! rl-tmp           ! 10.0MiB ! 0.0B   ! 4.8KiB  ! 0.0B   ! 7.1KiB  ! 7.1KiB  
-dm-7 ! /home          ! rl-home          ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
-dm-2 ! /var/tmp       ! rl-var_tmp       ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B    
-dm-4 ! /var/log       ! rl-var_log       ! 10.0MiB ! 0.0B   ! 51.8KiB ! 0.0B   ! 51.2KiB ! 51.2KiB 
-dm-3 ! /var/log/audit ! rl-var_log_audit ! 10.0MiB ! 0.0B   ! 918.0B  ! 0.0B   ! 876.0B  ! 876.0B  
+dm-0 ! /              ! rl-root          ! 10.0MiB ! 0.0B   ! 426.0B  ! 0.0B   ! 343.0B  ! 343.0B
+vda2 ! /boot          !                  ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B
+vda1 ! /boot/efi      !                  ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B
+dm-5 ! /var           ! rl-var           ! 10.0MiB ! 0.0B   ! 586.0B  ! 0.0B   ! 1.1KiB  ! 1.1KiB
+dm-8 ! /data          ! rl-lv_data       ! 10.0MiB ! 5.6KiB ! 2.2MiB  ! 8.3KiB ! 2.3MiB  ! 2.3MiB
+dm-6 ! /tmp           ! rl-tmp           ! 10.0MiB ! 0.0B   ! 4.8KiB  ! 0.0B   ! 7.1KiB  ! 7.1KiB
+dm-7 ! /home          ! rl-home          ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B
+dm-2 ! /var/tmp       ! rl-var_tmp       ! 10.0MiB ! 0.0B   ! 0.0B    ! 0.0B   ! 0.0B    ! 0.0B
+dm-4 ! /var/log       ! rl-var_log       ! 10.0MiB ! 0.0B   ! 51.8KiB ! 0.0B   ! 51.2KiB ! 51.2KiB
+dm-3 ! /var/log/audit ! rl-var_log_audit ! 10.0MiB ! 0.0B   ! 918.0B  ! 0.0B   ! 876.0B  ! 876.0B
 
 Top 5 processes that generate the most I/O traffic (r/w):
 1. nfsd: 149.2GiB/5.7TiB

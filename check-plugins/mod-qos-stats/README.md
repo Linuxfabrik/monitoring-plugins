@@ -69,12 +69,12 @@ Output:
 ```text
 Everything is ok.
 
-Type Host              Port Key                                   Configured Current 
----- ----              ---- ---                                   ---------- ------- 
-base proxy.example.com 0    QS_AllConn (All)                      None       381     
-virt www.example.com   443  QS_LocRequestLimitMatch ([^.*$])      90         3       
-virt www.example.com   443  QS_LocKBytesPerSecLimitMatch ([^.*$]) 1250       14      
-virt www.example.com   443  QS_CondLocRequestLimitMatch ([^.*$])  1          3       
+Type Host              Port Key                                   Configured Current
+---- ----              ---- ---                                   ---------- -------
+base proxy.example.com 0    QS_AllConn (All)                      None       381
+virt www.example.com   443  QS_LocRequestLimitMatch ([^.*$])      90         3
+virt www.example.com   443  QS_LocKBytesPerSecLimitMatch ([^.*$]) 1250       14
+virt www.example.com   443  QS_CondLocRequestLimitMatch ([^.*$])  1          3
 virt www.example.com   443  QS_SrvMaxConn ([])                    100        0
 ```
 

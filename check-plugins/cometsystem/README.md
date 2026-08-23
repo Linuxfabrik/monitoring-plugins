@@ -90,10 +90,10 @@ Output:
 ```text
 There are critical errors on Web Sensor SN 17965562.
 
-Ch# ! Name                 ! Alarm ! Value            
+Ch# ! Name                 ! Alarm ! Value
 ----+----------------------+-------+------------------
-ch1 ! Temperature          ! high  ! 27.3C [CRITICAL] 
-ch2 ! Relative humidity    !       ! 43.1%RH          
+ch1 ! Temperature          ! high  ! 27.3C [CRITICAL]
+ch2 ! Relative humidity    !       ! 43.1%RH
 ch3 ! Dew point            ! low   ! 13.7C
 ch4 ! Atmospheric pressure !       ! 958.6hPa
 ```

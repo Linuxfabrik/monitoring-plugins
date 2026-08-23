@@ -36,7 +36,7 @@ object ApiUser "linuxfabrik-check-dmesg" {
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dmesg> |
 | Nagios/Icinga Check Name              | `check_dmesg` |
 | Check Interval Recommendation         | Every minute |

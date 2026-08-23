@@ -23,7 +23,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/disk-usage> |
 | Nagios/Icinga Check Name              | `check_disk_usage` |
 | Check Interval Recommendation         | Every minute |
@@ -136,15 +136,15 @@ Output:
 ```text
 Everything is ok. (warn=90%USED crit=95%USED)
 
-Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%  
+Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%
 ---------------+------+-----------+----------+----------+-------
-/              ! xfs  ! 4.0GiB    ! 2.4GiB   ! 1.5GiB   ! 61.4% 
-/boot          ! xfs  ! 1014.0MiB ! 287.1MiB ! 726.9MiB ! 28.3% 
-/var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4% 
-/tmp           ! xfs  ! 1014.0MiB ! 39.5MiB  ! 974.5MiB ! 3.9%  
-/var/log       ! xfs  ! 1014.0MiB ! 190.9MiB ! 823.1MiB ! 18.8% 
-/var/tmp       ! xfs  ! 1014.0MiB ! 39.4MiB  ! 974.6MiB ! 3.9%  
-/var/log/audit ! xfs  ! 506.7MiB  ! 63.9MiB  ! 442.7MiB ! 12.6% 
+/              ! xfs  ! 4.0GiB    ! 2.4GiB   ! 1.5GiB   ! 61.4%
+/boot          ! xfs  ! 1014.0MiB ! 287.1MiB ! 726.9MiB ! 28.3%
+/var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4%
+/tmp           ! xfs  ! 1014.0MiB ! 39.5MiB  ! 974.5MiB ! 3.9%
+/var/log       ! xfs  ! 1014.0MiB ! 190.9MiB ! 823.1MiB ! 18.8%
+/var/tmp       ! xfs  ! 1014.0MiB ! 39.4MiB  ! 974.6MiB ! 3.9%
+/var/log/audit ! xfs  ! 506.7MiB  ! 63.9MiB  ! 442.7MiB ! 12.6%
 /home          ! xfs  ! 1014.0MiB ! 130.1MiB ! 883.9MiB ! 12.8%
 ```
 
@@ -159,10 +159,10 @@ Output:
 ```text
 There are critical errors. (warn=90%USED crit=450MFREE)
 
-Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%             
+Mountpoint     ! Type ! Size      ! Used     ! Avail    ! Use%
 ---------------+------+-----------+----------+----------+------------------
-/var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4%            
-/var/log       ! xfs  ! 1014.0MiB ! 190.9MiB ! 823.1MiB ! 18.8%            
+/var           ! xfs  ! 4.0GiB    ! 1.4GiB   ! 2.6GiB   ! 34.4%
+/var/log       ! xfs  ! 1014.0MiB ! 190.9MiB ! 823.1MiB ! 18.8%
 /var/log/audit ! xfs  ! 506.7MiB  ! 64.2MiB  ! 442.5MiB ! 12.7% [CRITICAL]|
 ```
 

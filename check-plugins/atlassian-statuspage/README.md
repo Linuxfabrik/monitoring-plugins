@@ -96,7 +96,7 @@ Output:
 ```text
 Minor incidents @ bexio AG (https://www.bexio-status.com, TZ Europe/Zurich): BCV interface currently unavailable / We are currently investigating this issue. (2026-04-21 10:58:27) (see https://stspg.io/2kxj9lf26m7f)
 
-Service                                                        ! Status         ! Updated (Europe/Zurich) ! State    
+Service                                                        ! Status         ! Updated (Europe/Zurich) ! State
 ---------------------------------------------------------------+----------------+-------------------------+----------
 bLink / https://status.blink.six-group.com/#/service-providers ! partial_outage ! 2026-04-21 10:58:27     ! [WARNING]
 Banking / Fetch transactions                                   ! partial_outage ! 2026-04-21 10:58:27     ! [WARNING]

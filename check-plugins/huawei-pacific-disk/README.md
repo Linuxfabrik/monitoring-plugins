@@ -145,7 +145,7 @@ There are critical errors.
 
 Pool  ! Media    ! Status     ! State
 ------+----------+------------+------
-pool0 ! ssd_disk ! normal (0) ! [OK] 
+pool0 ! ssd_disk ! normal (0) ! [OK]
 
 Node  ! Pool ! Slot ! Capacity ! Remaining Life ! Status      ! State
 ------+------+------+----------+----------------+-------------+-----------
@@ -167,7 +167,7 @@ There are critical errors.
 
 Pool  ! Media    ! Status     ! State
 ------+----------+------------+------
-pool0 ! ssd_disk ! normal (0) ! [OK] 
+pool0 ! ssd_disk ! normal (0) ! [OK]
 
 Node  ! Pool ! Slot ! Type           ! Role                        ! Serial ! Capacity ! Remaining Life ! Status      ! State
 ------+------+------+----------------+-----------------------------+--------+----------+----------------+-------------+-----------

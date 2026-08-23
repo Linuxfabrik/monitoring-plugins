@@ -19,7 +19,7 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/openjdk-redhat-version> |
 | Nagios/Icinga Check Name              | `check_openjdk_redhat_version` |
 | Check Interval Recommendation         | Every day |

@@ -104,17 +104,17 @@ Output:
 ```text
 Major incidents @ Exoscale (exoscale.com, TZ Europe/Zurich): [Network] Transient network disturbance / Situation has been resolved, we're monitoring the situation (2023-10-10 09:03:06) (see https://exoscalestatus.com/incidents/81315)
 
-Service                            ! State 
+Service                            ! State
 -----------------------------------+-------
-Global.DNS                         ! [OK]  
-Global.Portal                      ! [OK]  
-CH-GVA-2                           ! [OK]  
-CH-GVA-2.API                       ! [OK]  
-AT-VIE-1.Network Load Balancer NLB ! [CRITICAL] 
-AT-VIE-1.Object Storage SOS        ! [OK]       
-AT-VIE-2                           ! [CRITICAL] 
+Global.DNS                         ! [OK]
+Global.Portal                      ! [OK]
+CH-GVA-2                           ! [OK]
+CH-GVA-2.API                       ! [OK]
+AT-VIE-1.Network Load Balancer NLB ! [CRITICAL]
+AT-VIE-1.Object Storage SOS        ! [OK]
+AT-VIE-2                           ! [CRITICAL]
 
-Upcoming Maintenance                                ! Type      ! Start               ! End      
+Upcoming Maintenance                                ! Type      ! Start               ! End
 ----------------------------------------------------+-----------+---------------------+----------
 Core Network Architecture - Internal routing update ! scheduled ! 2023-09-20 07:00:00 ! open end
 ```
@@ -128,11 +128,11 @@ Output:
 ```text
 Major incidents @ Ascent Global Logistics (ascentlogistics.com, TZ America/Detroit): Service PEAK - Customer API  Production seems to be down / According to our monitoring system this service has become unresponsive, we're investigating. (2022-04-20 18:27:16)
 
-Service                               ! State      
+Service                               ! State
 --------------------------------------+------------
-Ascent Websites.Main Ascent Website   ! [OK]       
-PEAK.PEAK - Customer API  Integration ! [CRITICAL] 
-PEAK.PEAK - Customer API  Production  ! [CRITICAL] 
+Ascent Websites.Main Ascent Website   ! [OK]
+PEAK.PEAK - Customer API  Integration ! [CRITICAL]
+PEAK.PEAK - Customer API  Production  ! [CRITICAL]
 Global IT Monitoring                  ! [CRITICAL]
 ```
 

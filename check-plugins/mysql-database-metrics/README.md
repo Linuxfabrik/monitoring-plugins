@@ -137,20 +137,20 @@ There are warnings.
 
 Top 10 tables by size:
 
-Schema ! Table      ! Data     ! Index    ! Total   
+Schema ! Table      ! Data     ! Index    ! Total
 -------+------------+----------+----------+---------
-sakila ! rental     ! 1.5MiB   ! 1.2MiB   ! 2.7MiB  
-sakila ! payment    ! 1.5MiB   ! 736.0KiB ! 2.2MiB  
+sakila ! rental     ! 1.5MiB   ! 1.2MiB   ! 2.7MiB
+sakila ! payment    ! 1.5MiB   ! 736.0KiB ! 2.2MiB
 sakila ! inventory  ! 160.0KiB ! 144.0KiB ! 304.0KiB
 sakila ! film       ! 176.0KiB ! 80.0KiB  ! 256.0KiB
 sakila ! film_actor ! 176.0KiB ! 80.0KiB  ! 256.0KiB
 sakila ! film_text  ! 176.0KiB ! 16.0KiB  ! 192.0KiB
 sakila ! customer   ! 80.0KiB  ! 48.0KiB  ! 128.0KiB
-sakila ! address    ! 80.0KiB  ! 16.0KiB  ! 96.0KiB 
-sakila ! staff      ! 64.0KiB  ! 32.0KiB  ! 96.0KiB 
+sakila ! address    ! 80.0KiB  ! 16.0KiB  ! 96.0KiB
+sakila ! staff      ! 64.0KiB  ! 32.0KiB  ! 96.0KiB
 sakila ! city       ! 48.0KiB  ! 16.0KiB  ! 64.0KiB
 
-Schema ! Tables ! Rows  ! Data   ! Index  ! Total  ! Engines ! Table Collations   ! Column Charsets ! Column Collations              
+Schema ! Tables ! Rows  ! Data   ! Index  ! Total  ! Engines ! Table Collations   ! Column Charsets ! Column Collations
 -------+--------+-------+--------+--------+--------+---------+--------------------+-----------------+--------------------------------
 sakila ! 23     ! 47372 ! 4.1MiB ! 2.4MiB ! 6.5MiB ! InnoDB  ! utf8mb4_general_ci ! utf8mb4         ! utf8mb4_bin, utf8mb4_general_ci
 ```
@@ -170,20 +170,20 @@ There are warnings. (warn=2M crit=10M)
 
 Top 10 tables by size (warn=2M crit=10M):
 
-Schema ! Table      ! Data     ! Index    ! Total           
+Schema ! Table      ! Data     ! Index    ! Total
 -------+------------+----------+----------+-----------------
 sakila ! rental     ! 1.5MiB   ! 1.2MiB   ! 2.7MiB [WARNING]
 sakila ! payment    ! 1.5MiB   ! 736.0KiB ! 2.2MiB [WARNING]
-sakila ! inventory  ! 160.0KiB ! 144.0KiB ! 304.0KiB        
-sakila ! film       ! 176.0KiB ! 80.0KiB  ! 256.0KiB        
-sakila ! film_actor ! 176.0KiB ! 80.0KiB  ! 256.0KiB        
-sakila ! film_text  ! 176.0KiB ! 16.0KiB  ! 192.0KiB        
-sakila ! customer   ! 80.0KiB  ! 48.0KiB  ! 128.0KiB        
-sakila ! address    ! 80.0KiB  ! 16.0KiB  ! 96.0KiB         
-sakila ! staff      ! 64.0KiB  ! 32.0KiB  ! 96.0KiB         
+sakila ! inventory  ! 160.0KiB ! 144.0KiB ! 304.0KiB
+sakila ! film       ! 176.0KiB ! 80.0KiB  ! 256.0KiB
+sakila ! film_actor ! 176.0KiB ! 80.0KiB  ! 256.0KiB
+sakila ! film_text  ! 176.0KiB ! 16.0KiB  ! 192.0KiB
+sakila ! customer   ! 80.0KiB  ! 48.0KiB  ! 128.0KiB
+sakila ! address    ! 80.0KiB  ! 16.0KiB  ! 96.0KiB
+sakila ! staff      ! 64.0KiB  ! 32.0KiB  ! 96.0KiB
 sakila ! city       ! 48.0KiB  ! 16.0KiB  ! 64.0KiB
 
-Schema ! Tables ! Size   ! Issues             
+Schema ! Tables ! Size   ! Issues
 -------+--------+--------+--------------------
 sakila ! 23     ! 6.5MiB ! 2 column collations
 ```

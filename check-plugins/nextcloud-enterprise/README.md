@@ -70,11 +70,11 @@ Account Manager: Firstname Lastname, +49 711 252 123 45, firstname.lastname@next
 
            ! hasSubscription ! users ! endDate ! mcu   ! mcuUsers ! level
 -----------+-----------------+-------+---------+-------+----------+------
-groupware  ! False           !       ! None    !       !          !      
-talk       ! False           ! 0     ! None    ! False ! 0        !      
-collabora  ! False           ! 0     ! None    !       !          !      
-onlyoffice ! False           ! 0     ! None    !       !          !      
-outlook    ! False           ! 0     ! None    !       !          ! old  
+groupware  ! False           !       ! None    !       !          !
+talk       ! False           ! 0     ! None    ! False ! 0        !
+collabora  ! False           ! 0     ! None    !       !          !
+onlyoffice ! False           ! 0     ! None    !       !          !
+outlook    ! False           ! 0     ! None    !       !          ! old
 sip_bridge ! False           ! 0     ! None    !       !          !
 ```
 

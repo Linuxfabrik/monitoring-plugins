@@ -20,7 +20,7 @@ Monitors NodeBB database statistics via the admin API, including memory usage an
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-database> |
 | Nagios/Icinga Check Name              | `check_nodebb_database` |
 | Check Interval Recommendation         | Every minute |

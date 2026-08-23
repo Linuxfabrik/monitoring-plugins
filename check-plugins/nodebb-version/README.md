@@ -21,7 +21,7 @@ Checks if a NodeBB update is available by comparing the installed version agains
 ## Fact Sheet
 
 | Fact | Value |
-|----|----| 
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nodebb-version> |
 | Nagios/Icinga Check Name              | `check_nodebb_version` |
 | Check Interval Recommendation         | Every day |

@@ -86,10 +86,10 @@ Output:
 ```text
 wlp0s20f3: 28.1MiB/s rx, 5.6KiB/s tx (current)
 
-Interface ! rxtx-max/s ! rx1/s   ! tx1/s  ! rx5/s    ! tx5/s  ! rxtx5/s  
+Interface ! rxtx-max/s ! rx1/s   ! tx1/s  ! rx5/s    ! tx5/s  ! rxtx5/s
 ----------+------------+---------+--------+----------+--------+----------
-tun0      ! 10.0MiB    ! 0.0B    ! 0.0B   ! 2.8B     ! 7.8B   ! 10.6B    
-tun2      ! 10.0MiB    ! 183.0B  ! 106.0B ! 2.9B     ! 7.9B   ! 10.8B    
+tun0      ! 10.0MiB    ! 0.0B    ! 0.0B   ! 2.8B     ! 7.8B   ! 10.6B
+tun2      ! 10.0MiB    ! 183.0B  ! 106.0B ! 2.9B     ! 7.9B   ! 10.8B
 wlp0s20f3 ! 30.0MiB    ! 28.1MiB ! 5.6KiB ! 25.1 MiB ! 2.9KiB ! 25.1MiB [WARNING]
 ```
 

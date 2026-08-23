@@ -97,8 +97,7 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help=lib.args.help('--brief')
-        + ' Worth setting on an array with many disks. '
+        help=lib.args.help('--brief') + ' Worth setting on an array with many disks. '
         'Default: %(default)s',
         dest='BRIEF',
         action='store_true',
@@ -338,7 +337,7 @@ def parse_args():
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
-        + ' Appends what every API request returned, so the appliance\'s own answers '
+        + " Appends what every API request returned, so the appliance's own answers "
         'can be read while working out how it reports something. Session tokens are '
         'redacted. The output is as long as those answers are, so this is a debugging '
         'aid rather than something to leave switched on.',
@@ -417,8 +416,7 @@ def main():
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
     compiled_ignore_regex = [
-        lib.base.coe(item)
-        for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
     unused_disk_state = lib.base.str2state(args.UNUSED_DISK_SEVERITY)
 
@@ -500,9 +498,7 @@ def main():
         if health_mark is not None and not 0 <= health_mark <= HEALTH_MARK_MAX:
             health_mark = None
         health_mark_state = STATE_OK
-        if health_mark is not None and (
-            args.WARN_HEALTH_MARK or args.CRIT_HEALTH_MARK
-        ):
+        if health_mark is not None and (args.WARN_HEALTH_MARK or args.CRIT_HEALTH_MARK):
             health_mark_state = lib.base.get_state(
                 health_mark,
                 args.WARN_HEALTH_MARK or None,
@@ -597,9 +593,7 @@ def main():
                 ),
             ),
         )
-        disk['health'] = lib.huawei_dorado.get_health_status(
-            disk.get('HEALTHSTATUS')
-        )
+        disk['health'] = lib.huawei_dorado.get_health_status(disk.get('HEALTHSTATUS'))
         disk['running'] = lib.huawei_dorado.get_running_status(
             disk.get('RUNNINGSTATUS')
         )
@@ -622,8 +616,7 @@ def main():
         disk['health_mark'] = (
             '--'
             if health_mark is None
-            else f'{health_mark}'
-            f'{lib.base.state2str(health_mark_state, prefix=" ")}'
+            else f'{health_mark}{lib.base.state2str(health_mark_state, prefix=" ")}'
         )
         disk['LOGICTYPE'] = (
             f'free{lib.base.state2str(unused_state, prefix=" ")}'
