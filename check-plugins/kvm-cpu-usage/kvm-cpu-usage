@@ -1,0 +1,529 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.kvm
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082401'
+
+DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
+much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
+machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host
+makes a machine wait for CPU for too large a share of its time. Runs without root or sudo."""
+
+DEFAULT_COUNT = (
+    5  # measurements; if the check runs once per minute, this is a 5 minute average
+)
+DEFAULT_CRIT = '90'
+DEFAULT_CRIT_STEAL = '25'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
+DEFAULT_URL = lib.kvm.DEFAULT_URI
+DEFAULT_WARN = '80'
+DEFAULT_WARN_STEAL = '10'
+
+# Where the previous measurements are kept, so cumulative nanosecond counters can be
+# reported as the rates a dashboard can aggregate (see CONTRIBUTING.md, #320). One
+# file per connection: two hypervisors may well run a machine of the same name, and
+# mixing their counters into one history would produce a rate out of two unrelated
+# measurements.
+DB = 'linuxfabrik-monitoring-plugins-kvm-cpu-usage-{}.db'
+
+VCPU_DELAY_REGEX = re.compile(r'^vcpu\.(\d+)\.delay$')
+VCPU_TIME_REGEX = re.compile(r'^vcpu\.(\d+)\.time$')
+
+NANOSECONDS_PER_SECOND = 10**9
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--count',
+        help='Number of measurements the reported values are averaged over. '
+        'A machine has to stay above a threshold for the whole span to alert, '
+        'so a single busy minute does not. '
+        'Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the CPU usage of a machine, in percent of the '
+        'virtual CPUs assigned to it. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-steal',
+        help='CRIT threshold for the share of its time a machine spends waiting '
+        'for CPU the host is using elsewhere, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT_STEAL',
+        default=DEFAULT_CRIT_STEAL,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='libvirt connection URI, passed to `virsh --connect`. '
+        'Use `qemu+ssh://user@host/system` to check a host that runs no local '
+        'monitoring agent. '
+        'Only QEMU/KVM connections report the data this check needs. '
+        'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the CPU usage of a machine, in percent of the '
+        'virtual CPUs assigned to it. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-steal',
+        help='WARN threshold for the share of its time a machine spends waiting '
+        'for CPU the host is using elsewhere, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN_STEAL',
+        default=DEFAULT_WARN_STEAL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_counters(stats):
+    """Pick the cumulative counters and the virtual CPU count out of one machine's
+    statistics.
+
+    Returns a `(cpu_time, vcpu_time, delay, vcpu_count)` tuple, all nanosecond
+    counters except the count.
+
+    `cpu.time` covers the whole hypervisor process, so it includes the emulator and
+    I/O threads working on the machine's behalf and not only its virtual CPUs. That
+    makes it the right measure of what the machine costs the host, and the wrong one
+    for how saturated the machine itself is: measured against the virtual CPU count
+    it exceeds 100% for a perfectly healthy machine. Verified against libvirt 12.0.0
+    on a guest saturating both of its virtual CPUs, where `cpu.time` came to 100.5%
+    and the virtual CPUs themselves to 99.8%.
+
+    libvirt numbers the virtual CPUs sparsely after a hotplug, so the per-CPU
+    entries are collected by their key rather than by counting up to `vcpu.current`.
+    """
+    delay = 0
+    vcpu_time = 0
+    vcpus = 0
+    for key, value in stats.items():
+        if VCPU_DELAY_REGEX.match(key):
+            delay += value
+            vcpus += 1
+        elif VCPU_TIME_REGEX.match(key):
+            vcpu_time += value
+    # `vcpu.current` is what the machine is assigned; the number of per-CPU entries
+    # is only what libvirt happened to report. Prefer the former, fall back to the
+    # latter, and never end up dividing by zero.
+    vcpu_count = stats.get('vcpu.current') or vcpus or 1
+    return stats.get('cpu.time', 0), vcpu_time, delay, vcpu_count
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if args.TEST is None:
+        # Only running machines. A machine that is shut off still reports a
+        # `cpu.time`, but that value is shared by all shut-off machines and grows
+        # between two runs, so a rate computed from it would be invented.
+        domstats = lib.base.coe(
+            lib.kvm.get_domstats(
+                uri=args.URL,
+                groups=['cpu-total', 'vcpu'],
+                running_only=True,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        domstats = lib.kvm.parse_domstats(stdout)
+
+    if not domstats:
+        lib.base.oao('No running virtual machines found.', STATE_OK)
+
+    # Record this measurement and read back the rates. `compute_load()` returns a
+    # rate over the last two samples and one over the whole `--count` span; the
+    # long one is what the thresholds judge, so a single busy minute cannot alert.
+    # A machine that has not been measured `--count` times yet is simply absent
+    # from the result, which is how the ones that have been running all along keep
+    # being reported while a freshly started machine warms up.
+    if args.TEST is None:
+        conn = lib.base.coe(
+            lib.db_sqlite.connect(filename=DB.format(re.sub(r'\W+', '_', args.URL)))
+        )
+        # The timestamp is stored with sub-second resolution. Rounded to whole
+        # seconds, a window of five samples taken a few seconds apart is recorded
+        # as spanning up to two seconds less than it really did, and every rate
+        # computed from it comes out that much too high. The error grows the
+        # shorter the check interval is, and a manual run next to the scheduled
+        # one shortens it further.
+        definition = """
+            name        TEXT NOT NULL,
+            cpu_time    INT NOT NULL,
+            vcpu_time   INT NOT NULL,
+            delay       INT NOT NULL,
+            timestamp   REAL NOT NULL
+        """
+        lib.base.coe(
+            lib.db_sqlite.create_table(conn, definition, drop_table_first=False)
+        )
+        lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+        now = lib.time.now(as_type='float')
+        for name, stats in domstats.items():
+            cpu_time, vcpu_time, delay, _ = get_counters(stats)
+            lib.base.coe(
+                lib.db_sqlite.insert(
+                    conn,
+                    {
+                        'cpu_time': cpu_time,
+                        'delay': delay,
+                        'name': name,
+                        'timestamp': now,
+                        'vcpu_time': vcpu_time,
+                    },
+                )
+            )
+        # Prune per machine. Trimming the table to a total row count lets whichever
+        # machine is sampled most often evict the history of the others, which
+        # happens as soon as the check runs twice over the same connection.
+        lib.base.coe(
+            lib.db_sqlite.cut_per_sensor(conn, sensorcol='name', _max=args.COUNT)
+        )
+        lib.base.coe(lib.db_sqlite.commit(conn))
+        loads = lib.base.coe(
+            lib.db_sqlite.compute_load(
+                conn,
+                sensorcol='name',
+                datacols=['cpu_time', 'vcpu_time', 'delay'],
+                count=args.COUNT,
+            )
+        )
+        lib.db_sqlite.close(conn)
+        rates = {item['name']: item for item in (loads or [])}
+    else:
+        # In test mode there is no history to average over, so the fixture values
+        # are taken as the per-second rates themselves, for both spans. A fixture
+        # saying `cpu.time=900000000` on one virtual CPU is 90%.
+        rates = {}
+        for name, stats in domstats.items():
+            cpu_time, vcpu_time, delay, _ = get_counters(stats)
+            rates[name] = {
+                'cpu_time1': cpu_time,
+                'cpu_timen': cpu_time,
+                'delay1': delay,
+                'delayn': delay,
+                'vcpu_time1': vcpu_time,
+                'vcpu_timen': vcpu_time,
+            }
+
+    # init some vars
+    cores_used = 0.0
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    steal_offenders = []
+    steal_state_worst = STATE_OK
+    table_data = []
+    waiting = []
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # analyze data
+    for name in sorted(domstats):
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        # Not measured often enough yet: the first runs after an install, after the
+        # cache was wiped, or after this machine was started. Name the machine
+        # instead of dropping it, so nobody wonders why it is missing.
+        if name not in rates:
+            waiting.append(name)
+            continue
+
+        _, _, _, vcpu_count = get_counters(domstats[name])
+        load = rates[name]
+
+        # A rate of nanoseconds of CPU per second of wall clock is the number of
+        # host cores the machine kept busy. Divided by the virtual CPUs it was
+        # given, that is how saturated the machine itself is.
+        #
+        # `delay` is the same kernel counter the guest sees as its steal time,
+        # not an approximation of it. libvirt reads field 2 of
+        # /proc/<pid>/task/<tid>/schedstat (qemu_driver.c:qemuGetSchedstatDelay),
+        # which the kernel fills from `task->sched_info.run_delay`
+        # (fs/proc/base.c:proc_pid_schedstat), the time a thread was queued and
+        # not running (kernel/sched/stats.h:sched_info_arrive). KVM builds the
+        # steal counter it hands to the guest from that very field
+        # (arch/x86/kvm/x86.c:record_steal_time). Checked against Linux 7.1 and
+        # libvirt 12.0.0; arch/x86/kvm/Kconfig selects SCHED_INFO, so the counter
+        # cannot be missing on a host that runs KVM in the first place.
+        # Two different questions, two different counters. `cpu.time` is what the
+        # machine costs the host, emulation included, and is reported as cores.
+        # The saturation of the machine itself is measured against its own virtual
+        # CPUs only, which is what keeps the percentage inside 0..100.
+        cores = load['cpu_timen'] / NANOSECONDS_PER_SECOND
+        cores_used += cores
+        cpu_percent = round(
+            load['vcpu_timen'] / NANOSECONDS_PER_SECOND / vcpu_count * 100, 1
+        )
+        steal_percent = round(
+            load['delayn'] / NANOSECONDS_PER_SECOND / vcpu_count * 100, 1
+        )
+        cpu_percent_now = round(
+            load['vcpu_time1'] / NANOSECONDS_PER_SECOND / vcpu_count * 100, 1
+        )
+        steal_percent_now = round(
+            load['delay1'] / NANOSECONDS_PER_SECOND / vcpu_count * 100, 1
+        )
+
+        cpu_state = lib.base.get_state(
+            cpu_percent, args.WARN, args.CRIT, _operator='range'
+        )
+        steal_state = lib.base.get_state(
+            steal_percent, args.WARN_STEAL, args.CRIT_STEAL, _operator='range'
+        )
+        item_state = lib.base.get_worst(cpu_state, steal_state)
+        state = lib.base.get_worst(state, item_state)
+
+        if steal_state != STATE_OK:
+            steal_offenders.append(f'{name} ({steal_percent}%)')
+            steal_state_worst = lib.base.get_worst(steal_state_worst, steal_state)
+
+        table_data.append(
+            {
+                'cpu': f'{cpu_percent}%',
+                'name': name,
+                'steal': f'{steal_percent}%',
+                # The verdict of the whole row, kept in its own column at the end
+                # of the line: IcingaWeb replaces the marker with an icon and would
+                # break the table alignment anywhere else.
+                'state': lib.base.state2str(item_state, empty_ok=False),
+                'vcpus': vcpu_count,
+            }
+        )
+
+        perfdata_name = re.sub(r'\W+', '_', name)
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_cpu_usage',
+            cpu_percent,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_cpu_steal',
+            steal_percent,
+            uom='%',
+            warn=args.WARN_STEAL,
+            crit=args.CRIT_STEAL,
+            _min=0,
+            _max=100,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_cpu_cores',
+            round(cores, 3),
+            uom=None,
+            _min=0,
+        )
+        # The value of the last interval alone, carrying no thresholds: it is what
+        # a live graph shows, and comparing it with the averaged one above is how a
+        # spike is told apart from a machine that has been busy all along.
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_cpu_usage1',
+            cpu_percent_now,
+            uom='%',
+            _min=0,
+            _max=100,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_cpu_steal1',
+            steal_percent_now,
+            uom='%',
+            _min=0,
+            _max=100,
+        )
+
+    # nothing left to report on
+    if not domstats:
+        lib.base.oao('No running virtual machines found.', STATE_OK)
+    if not table_data and not waiting:
+        lib.base.oao(
+            f'Nothing checked. {len(domstats)} running virtual machines are '
+            f'filtered out by `--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    checked = len(table_data)
+    if not checked:
+        # Every machine is still without a baseline, so there is nothing to report
+        # yet. Naming that plainly beats a summary of zeroes.
+        msg += f'Waiting for more data: {", ".join(waiting)}'
+    else:
+        msg += (
+            f'{checked} VM{"s" if checked != 1 else ""}, {cores_used:.2f} cores used, '
+            f'averaged over {args.COUNT} measurements'
+        )
+        if steal_offenders:
+            msg += (
+                f'. Waiting for host CPU: {", ".join(steal_offenders)}'
+                f'{lib.base.state2str(steal_state_worst, prefix=" ")}'
+            )
+        if waiting:
+            msg += f'. Waiting for more data: {", ".join(waiting)}'
+    perfdata += lib.base.get_perfdata(
+        'cpu_cores_used',
+        round(cores_used, 2),
+        uom=None,
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['name', 'vcpus', 'cpu', 'steal', 'state'],
+            header=['VM Name', 'vCPUs', 'CPU', 'Steal', 'State'],
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

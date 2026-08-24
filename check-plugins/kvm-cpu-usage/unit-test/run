@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures hold `virsh domstats --cpu-total --vcpu` output in the layout
+# captured from a live host running libvirt 12.0.0. Their counters are the
+# per-second rates the check would otherwise compute from two runs, which is what
+# `--test` feeds it directly.
+#
+# The two interesting ones reproduce a measurement rather than an assumption. A
+# guest saturating its single virtual CPU was measured with a free host core, and
+# again while three other processes competed for the same core:
+#
+#   saturated-guest        92.0% CPU,  0.1% steal
+#   guest-starved-by-host  25.8% CPU, 75.4% steal
+#
+# The CPU figure is measured against the machine's own virtual CPUs. The cores
+# figure next to it comes from the whole hypervisor process and is therefore a
+# little higher, because it also carries the emulator and I/O threads.
+#
+# That pair is the reason the check reports steal at all: on CPU usage alone the
+# starved guest looks calmer than the healthy one.
+TESTS = [
+    {
+        'id': 'ok-idle-guests',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 VMs', 'mailstore01', 'nextcloud01'],
+    },
+    {
+        'id': 'ok-no-running-machines',
+        'test': 'stdout/no-running-domains,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running virtual machines found.'],
+    },
+    # Same fixture, three threshold combinations.
+    {
+        'id': 'ok-cpu-below-warning',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '--warning=95 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['92.0%'],
+    },
+    {
+        'id': 'warn-cpu-above-warning',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'92\.0%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-cpu-above-critical',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'92\.0%.*\[CRITICAL\]',
+    },
+    # The cores figure is what says how much of the host a machine occupies, and
+    # it is deliberately not the same number as the percentage: 92.0% of one
+    # virtual CPU is 0.92 cores of guest work, while the machine costs the host
+    # 0.93 cores once the emulator threads are counted in.
+    {
+        'id': 'ok-cores-used',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '--warning=95 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['0.93 cores used'],
+    },
+    # Same fixture again, this time varying the steal thresholds.
+    {
+        'id': 'ok-steal-below-warning',
+        'test': 'stdout/guest-starved-by-host,,0',
+        'params': '--warning-steal=80 --critical-steal=90',
+        'assert-retc': STATE_OK,
+        'assert-in': ['75.4%'],
+    },
+    {
+        'id': 'warn-steal-above-warning',
+        'test': 'stdout/guest-starved-by-host,,0',
+        'params': '--critical-steal=90',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Waiting for host CPU: nextcloud01 (75.4%)'],
+    },
+    {
+        'id': 'crit-steal-above-critical',
+        'test': 'stdout/guest-starved-by-host,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Waiting for host CPU.*\[CRITICAL\]',
+    },
+    {
+        # The point of reporting steal: the starved guest uses less CPU than the
+        # healthy one, so CPU usage alone would call it the quieter machine.
+        'id': 'crit-starved-guest-looks-idle-on-cpu-alone',
+        'test': 'stdout/guest-starved-by-host,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['25.8%', '75.4%'],
+    },
+    {
+        # libvirt numbers the virtual CPUs sparsely after a hotplug. Here four are
+        # assigned but only vcpu.0 and vcpu.3 report, and the usage is still
+        # measured against the four the machine was given.
+        'id': 'ok-sparse-vcpu-numbering',
+        'test': 'stdout/sparse-vcpu-numbering,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['39.8%', '1.60 cores used'],
+    },
+    {
+        # `cpu.time` covers the whole hypervisor process and is larger than the
+        # time the virtual CPUs themselves ran. Measuring the percentage against
+        # the former let a healthy machine report above 100%; it is measured
+        # against the latter, so the fixture's 927 ms of process time and 920 ms
+        # of virtual CPU time come out as 92.0%, not 92.7%.
+        'id': 'ok-percentage-excludes-emulator-threads',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '--warning=95 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['92.0%'],
+        'assert-not-in': ['92.7%'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'92\.0%.*\[CRITICAL\]',
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and the
+        # exit code: the CRIT state is still reported.
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/saturated-guest,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'ok-match-keeps-machine',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=nextcloud01',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['mailstore01'],
+    },
+    {
+        # --ignore wins over --match, so the machine is dropped even though it
+        # matches both.
+        'id': 'ok-ignore-drops-machine',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=mailstore01 --ignore=mailstore01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-cpu-usage'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
