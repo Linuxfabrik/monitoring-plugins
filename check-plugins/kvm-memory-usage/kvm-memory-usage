@@ -1,0 +1,446 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.kvm
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082401'
+
+DESCRIPTION = """Reports how much memory each virtual machine of a libvirt host has been given, how
+much of it the guest operating system actually needs, and how much of the host's memory
+the machine occupies. Alerts if a guest is running out of memory. Also reports how much
+of the host's memory is promised to the running machines, which is the number that says
+whether the host can still honour all of those promises. Runs without root or sudo."""
+
+DEFAULT_CRIT = '90'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
+DEFAULT_URL = lib.kvm.DEFAULT_URI
+DEFAULT_WARN = '80'
+
+BYTES_PER_KIB = 1024
+
+# How old the guest's own memory report may be before it is treated as absent. The
+# balloon driver refreshes it once per `<memballoon><stats period='N'/>`, which is a
+# handful of seconds on any sane configuration, and libvirt stamps every report with
+# the host's wall clock (verified against libvirt 12.0.0: `balloon.last-update` sat
+# three seconds behind `date +%s` on a machine collecting every five seconds). A
+# report that is ten minutes old therefore does not come from a slow period, it comes
+# from a guest that has stopped answering, and reporting its last known memory figures
+# as current would be worse than reporting none.
+STALE_AFTER = 600  # seconds
+
+NODEMEMSTATS_TOTAL_REGEX = re.compile(r'^total\s*:\s*([0-9]+)\s*KiB\s*$', re.MULTILINE)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the memory a guest operating system needs, in '
+        'percent of the memory the guest sees. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='libvirt connection URI, passed to `virsh --connect`. '
+        'Use `qemu+ssh://user@host/system` to check a host that runs no local '
+        'monitoring agent. '
+        'Only QEMU/KVM connections report the data this check needs. '
+        'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the memory a guest operating system needs, in '
+        'percent of the memory the guest sees. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_host_memory(stdout):
+    """Pick the host's total memory, in bytes, out of `virsh nodememstats` output.
+
+    Returns 0 when the total is missing, which leaves the share of the host memory
+    the machines were promised unreported rather than divided by zero.
+    """
+    match = NODEMEMSTATS_TOTAL_REGEX.search(stdout)
+    return int(match.group(1)) * BYTES_PER_KIB if match else 0
+
+
+def get_guest_memory(stats, now):
+    """Work out what the guest operating system reports about its own memory.
+
+    Returns a `(total, used, reason)` tuple. The two sizes are byte counts, and are
+    both 0 when the guest does not report anything usable, in which case `reason`
+    names the case, because each of the three has a different fix:
+
+    - `absent`: nobody switched the collection on for this machine. libvirt does not
+      do it by itself ("By default, collection is not enabled", formatdomain.rst on
+      the memballoon `period`), so this is what a machine on a plain host looks like.
+    - `silent`: the collection is on and the guest answers, but sends no memory
+      figures. Measured on a Windows Server guest, whose balloon driver answered once
+      while booting and reported nothing but the timestamp of that answer: the driver
+      alone replies, only the service shipped next to it gathers the numbers. What is
+      missing is inside the guest, not on the host.
+    - `stale`: the guest reported at some point and has stopped.
+
+    The timestamp is what tells the first two apart: libvirt only has one to report
+    once the guest has answered at least once.
+
+    "Used" is what the guest has no way to free: its total memory minus the memory
+    the kernel says is available for a new process. Subtracting the *free* memory
+    instead would count the page cache as used and report almost every healthy Linux
+    guest as nearly full.
+    """
+    last_update = stats.get('balloon.last-update', 0)
+    total = stats.get('balloon.available', 0)
+    usable = stats.get('balloon.usable', 0)
+    if not total or not usable:
+        return 0, 0, 'silent' if last_update else 'absent'
+    # A report the guest stopped refreshing is not a memory figure any more.
+    if last_update and now - last_update > STALE_AFTER:
+        return 0, 0, 'stale'
+    return total * BYTES_PER_KIB, max(total - usable, 0) * BYTES_PER_KIB, ''
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if args.TEST is None:
+        # Only running machines. A machine that is shut off occupies no memory on
+        # the host, and the memory it will be given once it starts is a plan, not a
+        # measurement.
+        domstats = lib.base.coe(
+            lib.kvm.get_domstats(
+                uri=args.URL,
+                groups=['balloon'],
+                running_only=True,
+                timeout=args.TIMEOUT,
+            )
+        )
+        now = lib.time.now()
+    else:
+        domstats = lib.kvm.parse_domstats(lib.lftest.test_text(args.TEST))
+        # A fixture carries the clock of the moment it was captured, so the staleness
+        # check judges it against the newest report it holds. Against the real clock
+        # every fixture would go stale on its own the day after it was written.
+        now = max(
+            [stats.get('balloon.last-update', 0) for stats in domstats.values()] or [0]
+        )
+
+    if not domstats:
+        lib.base.oao('No running virtual machines found.', STATE_OK)
+
+    if args.TEST is None:
+        nodememstats = lib.base.coe(
+            lib.kvm.virsh(['nodememstats'], uri=args.URL, timeout=args.TIMEOUT)
+        )
+    else:
+        nodememstats = lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-nodememstats')
+
+    # init some vars
+    assigned_total = 0
+    host_memory = get_host_memory(nodememstats)
+    msg = ''
+    perfdata = ''
+    offenders = []
+    offenders_state_worst = STATE_OK
+    resident_total = 0
+    state = STATE_OK
+    table_data = []
+    # Why a machine contributes no guest figures, one list per case. Every one of
+    # them is reported, because each is fixed somewhere else.
+    guest_stats_missing = {'absent': [], 'silent': [], 'stale': []}
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # analyze data
+    for name in sorted(domstats):
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        stats = domstats[name]
+        # What the machine currently has, which is what it was given minus whatever
+        # the host has taken back through the balloon. `balloon.maximum` is the
+        # ceiling it could grow to again, not what it holds now.
+        assigned = stats.get('balloon.current', 0) * BYTES_PER_KIB
+        # The resident set of the hypervisor process, so what the machine really
+        # occupies on the host right now. A guest that has never touched all of its
+        # memory occupies less than it was given.
+        resident = stats.get('balloon.rss', 0) * BYTES_PER_KIB
+        guest_total, guest_used, guest_reason = get_guest_memory(stats, now)
+
+        assigned_total += assigned
+        resident_total += resident
+
+        if guest_total:
+            guest_percent = round(guest_used / guest_total * 100, 1)
+            item_state = lib.base.get_state(
+                guest_percent, args.WARN, args.CRIT, _operator='range'
+            )
+            state = lib.base.get_worst(state, item_state)
+            if item_state != STATE_OK:
+                offenders.append(f'{name} ({guest_percent}%)')
+                offenders_state_worst = lib.base.get_worst(
+                    offenders_state_worst, item_state
+                )
+        else:
+            # Nothing to judge without the guest's own report. The machine is still
+            # listed with what the host knows about it, and named below so nobody
+            # has to work out why its guest columns are empty.
+            guest_percent = None
+            item_state = STATE_OK
+            guest_stats_missing[guest_reason].append(name)
+
+        table_data.append(
+            {
+                'assigned': lib.human.bytes2human(assigned),
+                'guest_used': lib.human.bytes2human(guest_used) if guest_total else '-',
+                'guest_percent': f'{guest_percent}%' if guest_total else '-',
+                'name': name,
+                'resident': lib.human.bytes2human(resident),
+                # The verdict of the whole row, kept in its own column at the end of
+                # the line: IcingaWeb replaces the marker with an icon and would
+                # break the table alignment anywhere else.
+                'state': lib.base.state2str(item_state, empty_ok=False),
+            }
+        )
+
+        perfdata_name = re.sub(r'\W+', '_', name)
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_memory_assigned',
+            assigned,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_memory_host',
+            resident,
+            uom='B',
+            _min=0,
+        )
+        if guest_total:
+            perfdata += lib.base.get_perfdata(
+                f'{perfdata_name}_memory_used',
+                guest_used,
+                uom='B',
+                _min=0,
+                _max=guest_total,
+            )
+            perfdata += lib.base.get_perfdata(
+                f'{perfdata_name}_memory_usage',
+                guest_percent,
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
+
+    # nothing left to report on
+    if not table_data:
+        lib.base.oao(
+            f'Nothing checked. {len(domstats)} running virtual machines are '
+            f'filtered out by `--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    checked = len(table_data)
+    msg += (
+        f'{checked} VM{"s" if checked != 1 else ""}, '
+        f'{lib.human.bytes2human(assigned_total)} assigned'
+    )
+    if host_memory:
+        commitment = round(assigned_total / host_memory * 100, 1)
+        msg += f" ({commitment}% of the host's {lib.human.bytes2human(host_memory)})"
+        perfdata += lib.base.get_perfdata(
+            'memory_commitment',
+            commitment,
+            uom='%',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'memory_host_total',
+            host_memory,
+            uom='B',
+            _min=0,
+        )
+    msg += f', {lib.human.bytes2human(resident_total)} in use on the host'
+    if offenders:
+        msg += (
+            f'. Low on memory: {", ".join(offenders)}'
+            f'{lib.base.state2str(offenders_state_worst, prefix=" ")}'
+        )
+    if guest_stats_missing['absent']:
+        msg += (
+            f'. No guest memory stats: {", ".join(guest_stats_missing["absent"])} '
+            f'(enable with `virsh dommemstat NAME --period 10 --live --config`)'
+        )
+    if guest_stats_missing['silent']:
+        msg += (
+            f'. Answering but reporting no memory: '
+            f'{", ".join(guest_stats_missing["silent"])} '
+            f'(fix it inside the machine: on Windows install the virtio guest tools '
+            f'and run `blnsvr -i`, on Linux load the `virtio_balloon` module)'
+        )
+    if guest_stats_missing['stale']:
+        msg += (
+            f'. Guest memory stats have stopped coming in: '
+            f'{", ".join(guest_stats_missing["stale"])}'
+        )
+    perfdata += lib.base.get_perfdata(
+        'memory_assigned',
+        assigned_total,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'memory_host_used',
+        resident_total,
+        uom='B',
+        _min=0,
+    )
+
+    # build table output
+    msg += '\n\n' + lib.base.get_table(
+        table_data,
+        ['name', 'assigned', 'guest_used', 'guest_percent', 'resident', 'state'],
+        header=['VM Name', 'Assigned', 'Guest Used', 'Guest %', 'Host Used', 'State'],
+        hide_empty=True,
+    )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

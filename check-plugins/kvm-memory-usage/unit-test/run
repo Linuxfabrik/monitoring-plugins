@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures hold `virsh domstats --balloon` output in the layout captured from a
+# live host running libvirt 12.0.0, and every one of them has a `-nodememstats`
+# companion holding the `virsh nodememstats` output of the same host, because the
+# check asks that connection two questions.
+#
+# Three of them cover the ways a machine ends up without guest figures, which look
+# alike in the table and are fixed in three different places:
+#
+#   no-guest-stats                 nobody switched the collection on
+#   windows-guest-without-figures  the guest answers but sends no figures
+#   stale-guest-stats              the guest reported once and then stopped
+#
+# That case is the normal one on a server. libvirt does not collect the guest's own
+# memory figures unless the machine carries `<memballoon><stats period='N'/>`, and it
+# never puts that there by itself. A workstation is misleading here: virt-manager
+# sets the period to five seconds on every machine it watches
+# (virtManager/lib/statsmanager.py), so the numbers appear as soon as it is running
+# and vanish again on a headless host.
+TESTS = [
+    {
+        'id': 'ok-two-idle-guests',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 VMs', 'mailstore01', 'nextcloud01'],
+    },
+    {
+        'id': 'ok-no-running-machines',
+        'test': 'stdout/no-running-domains,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running virtual machines found.'],
+    },
+    {
+        # "Used" is the memory the guest cannot free, so total minus what its kernel
+        # reports as available. Taking the free memory instead would count the page
+        # cache as used and put the same machine at 13.9%.
+        'id': 'ok-page-cache-is-not-used-memory',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['14.9%'],
+        'assert-not-in': ['13.9%'],
+    },
+    # Same fixture, three threshold combinations.
+    {
+        'id': 'ok-below-warning',
+        'test': 'stdout/guest-low-on-memory,,0',
+        'params': '--warning=95 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['93.0%'],
+    },
+    {
+        'id': 'warn-above-warning',
+        'test': 'stdout/guest-low-on-memory,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Low on memory: nextcloud01 (93.0%)'],
+    },
+    {
+        'id': 'crit-above-critical',
+        'test': 'stdout/guest-low-on-memory,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Low\son\smemory.*\[CRITICAL\]',
+    },
+    {
+        # A machine occupies less of the host than it was given for as long as the
+        # guest has not touched all of it, which is why both numbers are reported.
+        'id': 'ok-assigned-and-occupied-differ',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['6.0GiB assigned', '2.8GiB in use on the host'],
+    },
+    {
+        # Three machines of 16 GiB each on a host that has 30.7 GiB. Nothing is
+        # wrong yet, and the check says so, but the number is the one that decides
+        # whether the next machine can be started.
+        'id': 'ok-overcommitted-host',
+        'test': 'stdout/overcommitted-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ["156.6% of the host's 30.7GiB"],
+    },
+    {
+        # Nobody turned the guest side on. The machines are still reported with what
+        # the host knows about them, the two guest columns are left out entirely
+        # rather than printed as a wall of hyphens, and the message says how to get
+        # the numbers.
+        'id': 'ok-no-guest-stats',
+        'test': 'stdout/no-guest-stats,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No guest memory stats: mailstore01, nextcloud01', 'dommemstat'],
+        'assert-not-in': ['Guest Used'],
+    },
+    {
+        # Captured from a live host. The Windows machine answers libvirt, so the
+        # collection is switched on for it, but it sends no memory figures at all -
+        # it answered once at boot and has been quiet since. That is a different
+        # problem from the one above and is fixed inside the guest, so it is
+        # reported as its own case rather than lumped in with "not enabled".
+        'id': 'ok-guest-answers-without-figures',
+        'test': 'stdout/windows-guest-without-figures,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Answering but reporting no memory: winsrv01'],
+        'assert-not-in': ['No guest memory stats'],
+    },
+    {
+        # One machine reported an hour ago and has not been heard from since. Its
+        # last known figures are not printed as if they were current.
+        'id': 'ok-stale-guest-stats',
+        'test': 'stdout/stale-guest-stats,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Guest memory stats have stopped coming in: nextcloud01'],
+        'assert-not-in': ['23.4%'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/guest-low-on-memory,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'93\.0%.*\[CRITICAL\]',
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and the
+        # exit code: the CRIT state is still reported.
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/guest-low-on-memory,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'ok-match-keeps-machine',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=nextcloud01',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['mailstore01'],
+    },
+    {
+        # --ignore wins over --match, so the machine is dropped even though it
+        # matches both.
+        'id': 'ok-ignore-drops-machine',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=mailstore01 --ignore=mailstore01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-memory-usage'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
