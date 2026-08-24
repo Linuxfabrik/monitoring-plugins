@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401 / v7.0.0'
+__version__ = '2026082401 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -367,6 +367,16 @@ def get_lftags(distro):
     # cache values referenced by lftag expressions below
     db_flavor = lib.db_mysql.get_flavor()
     os_family = distro['os_family']
+    # A libvirt host runs either the monolithic daemon or the modular one, never
+    # both. Each is asked about by service and by socket: a socket-activated daemon
+    # reports its own service as disabled, because the socket carries the
+    # enablement, so asking only about the service misses the whole installation.
+    libvirtd_enabled = run_cmd(
+        ['systemctl', 'is-enabled', 'libvirtd.service'], ignore_output=True
+    ) or run_cmd(['systemctl', 'is-enabled', 'libvirtd.socket'], ignore_output=True)
+    virtqemud_enabled = run_cmd(
+        ['systemctl', 'is-enabled', 'virtqemud.service'], ignore_output=True
+    ) or run_cmd(['systemctl', 'is-enabled', 'virtqemud.socket'], ignore_output=True)
     lftags = [
         # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
         #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
@@ -736,16 +746,17 @@ def get_lftags(distro):
         {
             'sw': 'KVM Host',
             'package': [],
-            'expr': [
-                run_cmd(
-                    ['systemctl', 'is-enabled', 'libvirtd.service'], ignore_output=True
-                )
-            ],
+            'expr': [libvirtd_enabled, virtqemud_enabled],
         },
         {
             'sw': 'LibreNMS',
             'package': [],
             'expr': [lib.disk.dir_exists('/opt/librenms')],
+        },
+        {
+            'sw': 'libvirtd',
+            'package': [],
+            'expr': [libvirtd_enabled],
         },
         {
             'sw': 'Logstash Client',
@@ -1189,6 +1200,11 @@ def get_lftags(distro):
                     ['systemctl', 'is-enabled', 'valkey.service'], ignore_output=True
                 )
             ],
+        },
+        {
+            'sw': 'virtqemud',
+            'package': [],
+            'expr': [virtqemud_enabled],
         },
         {
             'sw': 'vsftpd',

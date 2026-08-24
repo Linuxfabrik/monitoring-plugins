@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Icinga Director:
 
 * the MySQL Database Metrics, Storage Engines and Table Indexes services swap their `Ignore Schemas` / `Ignore Tables` fields for `Match` / `Ignore`. Re-import the basket and move your patterns over, the old fields are no longer handed to the check
+* the KVM Host Service Set no longer carries the libvirtd unit check. Which libvirt daemon a host runs is not a property of it being a KVM host, so the check moved into a `libvirtd` and a `virtqemud` Service Set of its own. Tag your hypervisors with whichever of the two they run, otherwise they lose the check on the next deployment; `about-me --tags` names the right one
 
 ### Added
 
@@ -24,6 +25,10 @@ Monitoring Plugins:
 * kvm-cpu-usage: reports the CPU each virtual machine of a libvirt host uses, and how much CPU the host makes it wait for ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
+
+Icinga Director:
+
+* `libvirtd Service Set` (host tag `libvirtd`) and `virtqemud Service Set` (host tag `virtqemud`), one per libvirt daemon. A host runs either the monolithic daemon or the modular one
 
 ### Changed
 
@@ -71,6 +76,7 @@ Monitoring Plugins:
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing when Keycloak withholds the server info
+* about-me: recognises a KVM host again. It only ever asked about `libvirtd`, which current installations do not run, so no hypervisor with the modular daemons was tagged
 * kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
 
