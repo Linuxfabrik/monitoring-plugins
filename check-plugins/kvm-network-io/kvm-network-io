@@ -1,0 +1,702 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.cache
+import lib.db_sqlite
+import lib.human
+import lib.kvm
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082401'
+
+DESCRIPTION = """Reports what a libvirt host's virtual machines send and receive over each of their
+network interfaces, together with the frames those interfaces lost. Warns when an
+interface sustains a large share of the most traffic it has ever carried, which is a
+saturation signal rather than an emergency. Optional thresholds alert on lost frames;
+which of the two loss counters carries anything depends on how the interface is attached
+to the host, and both are reported. Runs without root or sudo."""
+
+DEFAULT_COUNT = (
+    5  # measurements; if the check runs once per minute, this is a 5 minute average
+)
+DEFAULT_CRIT_DROPS = None
+DEFAULT_CRIT_ERRORS = None
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
+DEFAULT_URL = lib.kvm.DEFAULT_URI
+DEFAULT_WARN = 80  # % of the traffic the interface has been seen to carry
+DEFAULT_WARN_DROPS = None
+DEFAULT_WARN_ERRORS = None
+
+# Where the previous measurements and the observed maximum traffic are kept, so the
+# cumulative counters can be reported as the rates a dashboard can aggregate (see
+# CONTRIBUTING.md, #320). One file per connection: two hypervisors may well run a
+# machine of the same name, and mixing their counters into one history would produce a
+# rate out of two unrelated measurements.
+DB = 'linuxfabrik-monitoring-plugins-kvm-network-io-{}.db'
+
+# What an interface is assumed to carry before anything has been measured. Without a
+# floor, the first measurement would define the maximum, and an interface that happened
+# to be quiet on the first run would then warn about every packet it carries afterwards.
+# The same figure the disk check uses, so the two calibrate alike.
+MIN_BANDWIDTH = 10 * 1024 * 1024  # bytes per second
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--count',
+        help='Number of measurements the reported values are averaged over. '
+        'An interface has to stay above a threshold for the whole span to alert, '
+        'so a single busy minute does not. '
+        'Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+
+    parser.add_argument(
+        '--critical-drops',
+        help='CRIT threshold for the number of frames per second an interface drops, '
+        'incoming and outgoing together. '
+        'This is the counter that moves on a machine attached through a bridge or a '
+        'virtual network. '
+        'Supports Nagios ranges. '
+        'Default: unset, dropped frames are reported but do not alert',
+        dest='CRIT_DROPS',
+        default=DEFAULT_CRIT_DROPS,
+    )
+
+    parser.add_argument(
+        '--critical-errors',
+        help='CRIT threshold for the number of frames per second an interface reports '
+        'as bad, incoming and outgoing together. '
+        'This counter stays at zero for a machine attached through a bridge or a '
+        'virtual network, where the host does not fill it. '
+        'Supports Nagios ranges. '
+        'Default: unset, bad frames are reported but do not alert',
+        dest='CRIT_ERRORS',
+        default=DEFAULT_CRIT_ERRORS,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='libvirt connection URI, passed to `virsh --connect`. '
+        'Use `qemu+ssh://user@host/system` to check a host that runs no local '
+        'monitoring agent. '
+        'Only QEMU/KVM connections report the data this check needs. '
+        'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the traffic on an interface, in percent of the most '
+        'it has ever been seen to carry. '
+        'This part never goes critical: an interface working hard is worth a look, '
+        'not a call at night. '
+        'Default: %(default)s (percent)',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-drops',
+        help='WARN threshold for the number of frames per second an interface drops, '
+        'incoming and outgoing together. '
+        'This is the counter that moves on a machine attached through a bridge or a '
+        'virtual network. '
+        'Supports Nagios ranges. '
+        'Default: unset, dropped frames are reported but do not alert',
+        dest='WARN_DROPS',
+        default=DEFAULT_WARN_DROPS,
+    )
+
+    parser.add_argument(
+        '--warning-errors',
+        help='WARN threshold for the number of frames per second an interface reports '
+        'as bad, incoming and outgoing together. '
+        'This counter stays at zero for a machine attached through a bridge or a '
+        'virtual network, where the host does not fill it. '
+        'Supports Nagios ranges. '
+        'Default: unset, bad frames are reported but do not alert',
+        dest='WARN_ERRORS',
+        default=DEFAULT_WARN_ERRORS,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_interfaces(domstats):
+    """Pick the per-interface counters out of the statistics of every machine.
+
+    Returns `{'<machine>/nic<index>': {counter: value, 'device': str}}`.
+
+    An interface is keyed by its position in the machine rather than by the name
+    libvirt reports for it. That name is the host-side tap device (`vnet4`), which
+    libvirt hands out from a counter when the machine starts and which the machine
+    does not keep: the same interface of the same machine, unchanged and with the
+    same MAC address, was measured as `vnet1` before a restart and as `vnet4` after
+    it. Keyed by that name, every restart would start a new history and a new set of
+    graphs. The device is still reported, because it is what an administrator needs
+    to watch the traffic on the host.
+
+    A machine reports its interfaces as a flat `net.<index>.<field>` list with a
+    `net.count` in front of it, so the fields are collected by their index. An
+    interface libvirt could not read is left out: it contributes a `net.count` but no
+    counters, and a row of zeroes would claim it carried no traffic rather than that
+    nothing is known about it.
+
+    Receive and transmit are from the machine's point of view, as libvirt reports
+    them: `rx` is what the guest received. libvirt swaps the counters of the host-side
+    tap device to get there ("The returned statistics are always from domain POV",
+    `virNetDevTapInterfaceStats()`), so reading `/proc/net/dev` or `ip -s link` for
+    the same device gives the opposite and would put every graph the wrong way round.
+    Verified against libvirt 12.0.0, where a machine's reported 70993 received bytes
+    were the tap device's 70993 *transmitted* ones.
+    """
+    interfaces = {}
+    for machine, stats in domstats.items():
+        for index in range(stats.get('net.count', 0)):
+            prefix = f'net.{index}.'
+            if f'{prefix}rx.bytes' not in stats:
+                continue
+            interfaces[f'{machine}/nic{index}'] = {
+                'device': stats.get(f'{prefix}name', ''),
+                'rx_bytes': stats.get(f'{prefix}rx.bytes', 0),
+                'rx_drop': stats.get(f'{prefix}rx.drop', 0),
+                'rx_errs': stats.get(f'{prefix}rx.errs', 0),
+                'rx_pkts': stats.get(f'{prefix}rx.pkts', 0),
+                'tx_bytes': stats.get(f'{prefix}tx.bytes', 0),
+                'tx_drop': stats.get(f'{prefix}tx.drop', 0),
+                'tx_errs': stats.get(f'{prefix}tx.errs', 0),
+                'tx_pkts': stats.get(f'{prefix}tx.pkts', 0),
+            }
+    return interfaces
+
+
+def get_max_bandwidth(interface, current_bandwidth, filename):
+    """Return the most traffic this interface has been seen to carry, updating it.
+
+    Kept per interface and across runs, so the threshold calibrates itself instead of
+    asking an administrator for a number that depends on the host's network. Never
+    drops below `MIN_BANDWIDTH`.
+    """
+    historic_bandwidth = lib.cache.get(
+        f'kvm-network-io-{interface}-bandwidth-max',
+        filename=filename,
+    )
+    max_bandwidth = max(
+        int(historic_bandwidth or 0),
+        int(current_bandwidth),
+        MIN_BANDWIDTH,
+    )
+    lib.cache.set(
+        f'kvm-network-io-{interface}-bandwidth-max',
+        max_bandwidth,
+        filename=filename,
+    )
+    return max_bandwidth
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if args.TEST is None:
+        # Only running machines. A machine that is shut off has no interface on the
+        # host at all, so there are no counters to compute a rate from.
+        domstats = lib.base.coe(
+            lib.kvm.get_domstats(
+                uri=args.URL,
+                groups=['interface'],
+                running_only=True,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        domstats = lib.kvm.parse_domstats(stdout)
+
+    interfaces = get_interfaces(domstats)
+    if not interfaces:
+        lib.base.oao(
+            'No running virtual machines with network interfaces found.', STATE_OK
+        )
+
+    db_filename = DB.format(re.sub(r'\W+', '_', args.URL))
+
+    # Record this measurement and read back the rates. `compute_load()` returns a rate
+    # over the last two samples and one over the whole `--count` span; the long one is
+    # what the thresholds judge, so a single busy minute cannot alert. An interface
+    # that has not been measured `--count` times yet is simply absent from the result,
+    # which is how the ones that have been running all along keep being reported while
+    # a freshly started machine warms up.
+    if args.TEST is None:
+        conn = lib.base.coe(lib.db_sqlite.connect(filename=db_filename))
+        # The timestamp is stored with sub-second resolution. Rounded to whole seconds,
+        # a window of five samples taken a few seconds apart is recorded as spanning up
+        # to two seconds less than it really did, and every rate computed from it comes
+        # out that much too high.
+        definition = """
+            name        TEXT NOT NULL,
+            rx_bytes    INT NOT NULL,
+            rx_drop     INT NOT NULL,
+            rx_errs     INT NOT NULL,
+            rx_pkts     INT NOT NULL,
+            tx_bytes    INT NOT NULL,
+            tx_drop     INT NOT NULL,
+            tx_errs     INT NOT NULL,
+            tx_pkts     INT NOT NULL,
+            timestamp   REAL NOT NULL
+        """
+        lib.base.coe(
+            lib.db_sqlite.create_table(conn, definition, drop_table_first=False)
+        )
+        lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+        now = lib.time.now(as_type='float')
+        for name, counters in interfaces.items():
+            row = {key: value for key, value in counters.items() if key != 'device'}
+            lib.base.coe(
+                lib.db_sqlite.insert(conn, {'name': name, 'timestamp': now, **row})
+            )
+        # Prune per interface. Trimming the table to a total row count lets whichever
+        # interface is sampled most often evict the history of the others, which
+        # happens as soon as one machine carries more interfaces than another.
+        lib.base.coe(
+            lib.db_sqlite.cut_per_sensor(conn, sensorcol='name', _max=args.COUNT)
+        )
+        lib.base.coe(lib.db_sqlite.commit(conn))
+        loads = lib.base.coe(
+            lib.db_sqlite.compute_load(
+                conn,
+                sensorcol='name',
+                datacols=[
+                    'rx_bytes',
+                    'rx_drop',
+                    'rx_errs',
+                    'rx_pkts',
+                    'tx_bytes',
+                    'tx_drop',
+                    'tx_errs',
+                    'tx_pkts',
+                ],
+                count=args.COUNT,
+            )
+        )
+        # Closed before the maximum traffic is read back below, which opens the same
+        # file again: a connection still holding a write keeps the other one out.
+        lib.db_sqlite.close(conn)
+        rates = {item['name']: item for item in (loads or [])}
+    else:
+        # In test mode there is no history to average over, so the fixture counters are
+        # taken as the per-second rates themselves, for both spans. A fixture saying
+        # `rx.bytes=1048576` is 1 MiB/s.
+        rates = {}
+        for name, counters in interfaces.items():
+            rates[name] = {}
+            for counter, value in counters.items():
+                if counter == 'device':
+                    continue
+                rates[name][f'{counter}1'] = value
+                rates[name][f'{counter}n'] = value
+
+    # init some vars
+    busy_interfaces = []
+    busy_state_worst = STATE_OK
+    failing_interfaces = []
+    failing_state_worst = STATE_OK
+    msg = ''
+    perfdata = ''
+    rx_total = 0
+    state = STATE_OK
+    table_data = []
+    tx_total = 0
+    waiting = []
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # analyze data
+    for name in sorted(interfaces):
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        # Not measured often enough yet: the first runs after an install, after the
+        # cache was wiped, or after this machine was started. Name the interface
+        # instead of dropping it, so nobody wonders why it is missing.
+        if name not in rates:
+            waiting.append(name)
+            continue
+
+        load = rates[name]
+        rx1 = load['rx_bytes1']
+        tx1 = load['tx_bytes1']
+        rx = load['rx_bytesn']
+        tx = load['tx_bytesn']
+        throughput1 = rx1 + tx1
+        throughput = rx + tx
+        rx_total += rx
+        tx_total += tx
+        # Both loss counters are reported, and which of the two carries anything
+        # depends on how the machine is attached to the host. On the usual bridge or
+        # virtual network the host side is a tap device, whose driver fills neither
+        # error counter: it accounts a malformed frame from the guest as a frame error
+        # (`tun_net_get_stats64()` in the kernel's `drivers/net/tun.c`), and the
+        # kernel prints that in a column of its own that libvirt does not read, while
+        # the column libvirt does read holds `rx_errors`, which the driver never
+        # touches (`net/core/net-procfs.c`). There the drops are the counter that
+        # moves, and they move for a reason worth knowing about: a queue the guest is
+        # not draining, or a frame the host could not take from it. A machine attached
+        # straight to a host interface, or through macvtap, is accounted for by that
+        # interface's own driver, and there the error counter carries the usual
+        # meaning. Checked against Linux 7.1.
+        errors = load['rx_errsn'] + load['tx_errsn']
+        drops = load['rx_dropn'] + load['tx_dropn']
+
+        if args.TEST is None:
+            max_bandwidth = get_max_bandwidth(name, throughput1, db_filename)
+        else:
+            # No cache in test mode: a fixture must judge the same way on every run,
+            # and a maximum remembered from an earlier one would make it judge
+            # differently the second time.
+            max_bandwidth = max(int(throughput1), MIN_BANDWIDTH)
+
+        # Traffic is compared with what this interface has carried before rather than
+        # with an absolute number, because a machine on a 1 GbE host and one on a
+        # 25 GbE fabric share no scale. WARN only, on purpose: an interface working
+        # hard is a reason to look, not a reason to be woken up.
+        busy_state = lib.base.get_state(
+            throughput,
+            max_bandwidth * args.WARN / 100,
+            None,
+        )
+        drops_state = lib.base.get_state(
+            round(drops, 1), args.WARN_DROPS, args.CRIT_DROPS, _operator='range'
+        )
+        errors_state = lib.base.get_state(
+            round(errors, 1), args.WARN_ERRORS, args.CRIT_ERRORS, _operator='range'
+        )
+        item_state = lib.base.get_worst(busy_state, drops_state, errors_state)
+        state = lib.base.get_worst(state, item_state)
+
+        if busy_state != STATE_OK:
+            busy_interfaces.append(
+                f'{name} ({lib.human.bytes2human(throughput)}/s of '
+                f'{lib.human.bytes2human(max_bandwidth)}/s)'
+            )
+            busy_state_worst = lib.base.get_worst(busy_state_worst, busy_state)
+        if errors_state != STATE_OK:
+            failing_interfaces.append(f'{name} ({errors:.1f}/s bad)')
+            failing_state_worst = lib.base.get_worst(failing_state_worst, errors_state)
+        if drops_state != STATE_OK:
+            failing_interfaces.append(f'{name} ({drops:.1f}/s dropped)')
+            failing_state_worst = lib.base.get_worst(failing_state_worst, drops_state)
+
+        machine, _, nic = name.partition('/')
+        table_data.append(
+            {
+                'device': interfaces[name]['device'] or '-',
+                'drops': f'{drops:.1f}/s',
+                'errors': f'{errors:.1f}/s',
+                'max': f'{lib.human.bytes2human(max_bandwidth)}/s',
+                'name': machine,
+                'nic': nic,
+                'rx': f'{lib.human.bytes2human(rx)}/s',
+                'rx1': f'{lib.human.bytes2human(rx1)}/s',
+                # The verdict of the whole row, kept in its own column at the end of
+                # the line: IcingaWeb replaces the marker with an icon and would break
+                # the table alignment anywhere else.
+                'state': lib.base.state2str(item_state, empty_ok=False),
+                'throughput': f'{lib.human.bytes2human(throughput)}/s',
+                'tx': f'{lib.human.bytes2human(tx)}/s',
+                'tx1': f'{lib.human.bytes2human(tx1)}/s',
+            }
+        )
+
+        perfdata_name = re.sub(r'\W+', '_', name)
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_rx_bytes_per_second',
+            rx,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_rx_bytes_per_second1',
+            rx1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_tx_bytes_per_second',
+            tx,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_tx_bytes_per_second1',
+            tx1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_throughput',
+            throughput,
+            uom='B',
+            warn=int(max_bandwidth * args.WARN / 100),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_throughput1',
+            throughput1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_rx_packets_per_second',
+            round(load['rx_pktsn'], 1),
+            uom=None,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_tx_packets_per_second',
+            round(load['tx_pktsn'], 1),
+            uom=None,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_errors_per_second',
+            round(errors, 1),
+            uom=None,
+            warn=args.WARN_ERRORS,
+            crit=args.CRIT_ERRORS,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_drops_per_second',
+            round(drops, 1),
+            uom=None,
+            warn=args.WARN_DROPS,
+            crit=args.CRIT_DROPS,
+            _min=0,
+        )
+
+    # nothing left to report on
+    if not table_data and not waiting:
+        lib.base.oao(
+            f'Nothing checked. {len(interfaces)} network interfaces are filtered out '
+            f'by `--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    checked = len(table_data)
+    if not checked:
+        # Every interface is still without a baseline, so there is nothing to report
+        # yet. Naming that plainly beats a summary of zeroes.
+        msg += f'Waiting for more data: {", ".join(waiting)}'
+    else:
+        machines = len({row['name'] for row in table_data})
+        msg += (
+            f'{machines} VM{"s" if machines != 1 else ""}, '
+            f'{checked} NIC{"s" if checked != 1 else ""}, '
+            f'{lib.human.bytes2human(rx_total)}/s in, '
+            f'{lib.human.bytes2human(tx_total)}/s out, '
+            f'averaged over {args.COUNT} measurements'
+        )
+        if failing_interfaces:
+            msg += (
+                f'. Losing frames: {", ".join(failing_interfaces)}'
+                f'{lib.base.state2str(failing_state_worst, prefix=" ")}'
+            )
+        if busy_interfaces:
+            msg += (
+                f'. Working hard: {", ".join(busy_interfaces)}'
+                f'{lib.base.state2str(busy_state_worst, prefix=" ")}'
+            )
+        if waiting:
+            msg += f'. Waiting for more data: {", ".join(waiting)}'
+    perfdata += lib.base.get_perfdata(
+        'rx_bytes_per_second',
+        rx_total,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'tx_bytes_per_second',
+        tx_total,
+        uom='B',
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        cols = ['name', 'nic', 'rx', 'tx', 'drops', 'errors', 'state']
+        header = [
+            'VM Name',
+            'NIC',
+            f'In/s ({args.COUNT}x)',
+            f'Out/s ({args.COUNT}x)',
+            'Dropped',
+            'Bad',
+            'State',
+        ]
+        if args.LENGTHY:
+            cols = [
+                'name',
+                'nic',
+                'device',
+                'rx1',
+                'tx1',
+                'rx',
+                'tx',
+                'throughput',
+                'max',
+                'drops',
+                'errors',
+                'state',
+            ]
+            header = [
+                'VM Name',
+                'NIC',
+                'Device',
+                'In/s',
+                'Out/s',
+                f'In/s ({args.COUNT}x)',
+                f'Out/s ({args.COUNT}x)',
+                f'Total/s ({args.COUNT}x)',
+                'Max/s',
+                'Dropped',
+                'Bad',
+                'State',
+            ]
+        msg += '\n\n' + lib.base.get_table(table_data, cols, header=header)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

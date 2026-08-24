@@ -1,0 +1,344 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: kvm-network-io
+spec:
+  schemaVersion: 42
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: kvm-network-io
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*kvm-network-io.*/
+      current:
+        text: cmd-check-kvm-network-io
+        value: cmd-check-kvm-network-io
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  # What each interface of each machine carried, averaged over the check's
+  # own period. Inbound and outbound share the panel: same unit, same
+  # question, and the ratio between them says what a machine is for.
+  # Both are from the machine's point of view, so inbound is what the
+  # guest received.
+  - title: kvm-network-io - Traffic per Interface
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: Bps
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: traffic
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /(_rx_bytes_per_second$|_tx_bytes_per_second$)/
+
+  # The same figure summed over every checked interface, which is what the
+  # machines together put on the host's network. Kept apart from the
+  # per-interface panel because a host total would dwarf the machines on
+  # one axis.
+  - title: kvm-network-io - Traffic of All Machines
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: Bps
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: total
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /(^rx_bytes_per_second$|^tx_bytes_per_second$)/
+
+  # Packets rather than bytes. A machine sending many small packets loads
+  # the host quite differently from one moving the same bytes in few
+  # large ones, and only this panel tells the two apart.
+  - title: kvm-network-io - Packets per Interface
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: pps
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: packets
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /(_rx_packets_per_second$|_tx_packets_per_second$)/
+
+  # Two different things on one panel, deliberately: an error is a frame
+  # the interface could not handle and is alerted on, a drop is one it
+  # decided not to take and is not. Seeing them next to each other is
+  # what tells a saturated queue apart from a broken path.
+  - title: kvm-network-io - Errors and Drops per Interface
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: errors
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /(_errors_per_second$|_drops_per_second$)/

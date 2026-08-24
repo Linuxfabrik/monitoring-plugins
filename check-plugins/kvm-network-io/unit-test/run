@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures hold `virsh domstats --interface` output in the layout captured from a
+# live host running libvirt 12.0.0. Their counters are the per-second rates the check
+# would otherwise compute from two runs, which is what `--test` feeds it directly, and
+# the maximum traffic is taken from the fixture itself instead of the cache, so a
+# fixture judges the same way on every run.
+#
+# Two things these fixtures pin, both of which are easy to get backwards:
+#
+# - `rx` is what the *guest* received. libvirt reports the counters from the machine's
+#   point of view and swaps the host-side tap device's own counters to get there, so
+#   `/proc/net/dev` and `ip -s link` show the opposite for the same device. Measured on
+#   a live host: a machine's 70993 received bytes were the tap device's 70993
+#   transmitted ones.
+# - Which loss counter carries anything depends on how the machine is attached to the
+#   host, so both are reported and neither is judged unless asked for. On the usual
+#   bridge or virtual network the host side is a tap device, whose driver never fills
+#   the error counter libvirt reads, and the drops are the only thing that moves. A
+#   machine on macvtap or straight on a host interface is accounted for by that
+#   interface's own driver, and there the error counter carries its usual meaning.
+TESTS = [
+    {
+        'id': 'ok-two-idle-guests',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 VMs, 3 NICs', 'mailstore01', 'nextcloud01'],
+    },
+    {
+        # The received counter is reported as inbound traffic and the transmitted one
+        # as outbound, in that order. Swapped, every graph on the host would be the
+        # wrong way round and nobody would notice.
+        'id': 'ok-received-is-inbound',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'mailstore01.*96\.0KiB/s.*32\.0KiB/s',
+    },
+    {
+        'id': 'ok-no-running-machines',
+        'test': 'stdout/no-running-domains,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running virtual machines with network interfaces found.'],
+    },
+    {
+        # A machine can run without a network interface. It contributes nothing to
+        # report on, and is not an error either.
+        'id': 'ok-machine-without-interfaces',
+        'test': 'stdout/no-interfaces,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running virtual machines with network interfaces found.'],
+    },
+    {
+        # libvirt counts an interface it could not read in `net.count` but reports no
+        # counters for it. Reporting it as a row of zeroes would claim it carried no
+        # traffic rather than that nothing is known about it.
+        'id': 'ok-unreadable-interface-is-left-out',
+        'test': 'stdout/unreadable-interface,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 VM, 1 NIC'],
+        'assert-not-in': ['nic1'],
+    },
+    # Same fixture, three threshold settings.
+    {
+        'id': 'warn-interface-working-hard',
+        'test': 'stdout/busy-nic,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Working hard: nextcloud01/nic0 (10.0MiB/s of 10.0MiB/s)'],
+    },
+    {
+        'id': 'ok-throughput-below-warning',
+        'test': 'stdout/busy-nic,,0',
+        'params': '--warning=101',
+        'assert-retc': STATE_OK,
+        'assert-in': ['8.0MiB/s in', '2.0MiB/s out'],
+    },
+    {
+        # The throughput part never goes critical, whatever the threshold: an
+        # interface working hard is a reason to look, not a reason to be woken up.
+        'id': 'warn-throughput-never-criticals',
+        'test': 'stdout/busy-nic,,0',
+        'params': '--warning=1',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    # Neither loss counter is judged unless a threshold is given for it, because what
+    # counts as too much depends on the machine and on how it is attached.
+    {
+        'id': 'ok-losses-are-reported-not-judged',
+        'test': 'stdout/failing-nic,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['5.0/s'],
+    },
+    {
+        'id': 'warn-bad-frames',
+        'test': 'stdout/failing-nic,,0',
+        'params': '--warning-errors=1',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Losing frames: nextcloud01/nic0 (5.0/s bad)'],
+    },
+    {
+        'id': 'crit-bad-frames',
+        'test': 'stdout/failing-nic,,0',
+        'params': '--warning-errors=1 --critical-errors=4',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Losing\sframes.*\[CRITICAL\]',
+    },
+    {
+        # Incoming and outgoing are added up, so an interface losing frames in one
+        # direction alone is reported just as one losing them in both.
+        'id': 'warn-losses-count-both-directions',
+        'test': 'stdout/failing-nic,,0',
+        'params': '--warning-errors=1',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['5.0/s'],
+        'assert-not-in': ['3.0/s'],
+    },
+    {
+        # 160 dropped frames per second and not one bad one. This is what a machine on
+        # a bridge looks like when it is in trouble: the counter that would carry the
+        # errors is one the host never fills for such an interface.
+        'id': 'ok-drops-are-reported-without-a-threshold',
+        'test': 'stdout/dropping-nic,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['160.0/s'],
+    },
+    {
+        'id': 'warn-dropped-frames',
+        'test': 'stdout/dropping-nic,,0',
+        'params': '--warning-drops=100',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Losing frames: nextcloud01/nic0 (160.0/s dropped)'],
+    },
+    {
+        'id': 'crit-dropped-frames',
+        'test': 'stdout/dropping-nic,,0',
+        'params': '--warning-drops=100 --critical-drops=150',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Losing\sframes.*\[CRITICAL\]',
+    },
+    {
+        # Without --lengthy the table carries the averaged rates and the errors; with
+        # it, the host-side device, the last interval, the total, the observed maximum
+        # and the drops as well.
+        'id': 'ok-lengthy-adds-columns',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Device', 'vnet0', 'Max/s'],
+    },
+    {
+        'id': 'ok-not-lengthy-hides-columns',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['vnet0', 'Max/s'],
+    },
+    {
+        'id': 'ok-always-ok-masks-warn',
+        'test': 'stdout/busy-nic,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and the exit
+        # code: the WARN state is still reported.
+        'id': 'warn-no-perfdata',
+        'test': 'stdout/busy-nic,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['|'],
+    },
+    {
+        # The filters see `<machine>/nic<index>`, so one pattern picks a single
+        # interface and another picks every interface of a machine.
+        'id': 'ok-match-one-interface',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=nextcloud01/nic1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 VM, 1 NIC'],
+        'assert-not-in': ['mailstore01'],
+    },
+    {
+        'id': 'ok-match-whole-machine',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=^nextcloud01/',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 VM, 2 NICs'],
+    },
+    {
+        # --ignore wins over --match, so the interface is dropped even though it
+        # matches both.
+        'id': 'ok-ignore-drops-interface',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=mailstore01 --ignore=mailstore01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-network-io'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
