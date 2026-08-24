@@ -8,6 +8,12 @@
                 "--input": {
                     "value": "$countdown_input$",
                     "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$countdown_lengthy$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$countdown_no_perfdata$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/countdown",
@@ -21,6 +27,16 @@
                 {
                     "datafield_id": 2,
                     "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
                     "var_filter": null
                 }
             ],
@@ -52,7 +68,7 @@
             "enable_flapping": null,
             "enable_notifications": true,
             "enable_passive_checks": null,
-            "enable_perfdata": null,
+            "enable_perfdata": true,
             "event_command": null,
             "fields": [],
             "flapping_threshold_high": null,
@@ -65,7 +81,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Counts down to one or more user-defined expiration dates, such as certificate renewals, contract deadlines, or license expirations. Alerts when the remaining days fall below the configured warning or critical thresholds. Each item can have its own thresholds. Past dates are reported as expired.",
+            "notes": "Counts down to one or more user-defined expiration dates, such as certificate renewals, contract deadlines, or license expirations. Alerts when the number of days left falls below the warning or critical threshold configured for that date. Every date carries its own thresholds. Past dates are reported as expired. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/countdown/",
             "object_name": "tpl-service-countdown",
             "object_type": "template",
@@ -77,7 +93,9 @@
             "vars": {
                 "criticality": "C",
                 "countdown_always_ok": false,
-                "countdown_input": []
+                "countdown_input": [],
+                "countdown_lengthy": true,
+                "countdown_no_perfdata": false
             },
             "volatile": null,
             "zone": null,
@@ -97,13 +115,31 @@
         "2": {
             "varname": "countdown_input",
             "caption": "Countdown: Input",
-            "description": "Countdown item in the format \"Display Name, YYYY-MM-DD, warn, crit\". Can be specified multiple times. Example: `--input \"Supermicro SYS1, 2025-01-10, 50, 30\"`.",
+            "description": "One date to count down to, in the format \"Display Name, YYYY-MM-DD, warn, crit\". Both thresholds are a number of days left and may be omitted; \"none\" switches one off, so that state is never returned for that date. A plain number alerts once fewer days than that are left. Supports Nagios ranges. The display name may contain commas, the date field separates it from the thresholds. Can be specified multiple times. Default thresholds: 50/30 days. Example: `--input \"Supermicro SYS1, 2027-01-10, 50, 30\"`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "082bf062-c243-447d-b132-abf4fc526621"
+        },
+        "3": {
+            "varname": "countdown_lengthy",
+            "caption": "Countdown: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6a32cc09-052d-42c1-a9fa-1eb81aafb960"
+        },
+        "4": {
+            "varname": "countdown_no_perfdata",
+            "caption": "Countdown: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fd5e5e38-a455-4556-9849-bda9604f8ed6"
         }
     }
 }

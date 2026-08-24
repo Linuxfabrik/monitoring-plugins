@@ -11,25 +11,35 @@
 """See the check's README for more details."""
 
 import argparse
-import datetime
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.time
-import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026040801'
+__version__ = '2026082401'
 
-DESCRIPTION = """Counts down to one or more user-defined expiration dates, such as certificate renewals,
-contract deadlines, or license expirations. Alerts when the remaining days fall below
-the configured warning or critical thresholds. Each item can have its own thresholds.
-Past dates are reported as expired."""
+DESCRIPTION = """Counts down to one or more user-defined expiration dates, such as
+certificate renewals, contract deadlines, or license expirations. Alerts when the number
+of days left falls below the warning or critical threshold configured for that date.
+Every date carries its own thresholds. Past dates are reported as expired.
+Supports extended reporting via --lengthy."""
 
-DEFAULT_WARN = 50  # days
-DEFAULT_CRIT = 30  # days
+DEFAULT_CRIT = '30'  # days left
+DEFAULT_LENGTHY = False
+DEFAULT_WARN = '50'  # days left
+
+DATE_PATTERN = '%Y-%m-%d'
+
+# The date field is what separates the display name from the thresholds, which is why a
+# display name is free to contain commas.
+RE_DATE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+# A threshold given as a plain number, as opposed to a Nagios range expression.
+RE_PLAIN_NUMBER = re.compile(r'^-?\d+(\.\d+)?$')
 
 
 def parse_args():
@@ -57,17 +67,122 @@ def parse_args():
 
     parser.add_argument(
         '--input',
-        help='Countdown item in the format "Display Name, YYYY-MM-DD, warn, crit". '
+        help='One date to count down to, in the format '
+        '"Display Name, YYYY-MM-DD, warn, crit". '
+        'Both thresholds are a number of days left and may be omitted; '
+        '"none" switches one off, so that state is never returned for that date. '
+        'A plain number alerts once fewer days than that are left. '
+        'Supports Nagios ranges. '
+        'The display name may contain commas, the date field separates it from the '
+        'thresholds. '
         'Can be specified multiple times. '
-        'Example: `--input "Supermicro SYS1, 2025-01-10, 50, 30"`.',
+        f'Default thresholds: {DEFAULT_WARN}/{DEFAULT_CRIT} days. '
+        'Example: `--input "Supermicro SYS1, 2027-01-10, 50, 30"`.',
         dest='INPUT',
         type=lib.args.csv,
         required=True,
         action='append',
     )
 
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def normalize_threshold(threshold):
+    """Turns one threshold field of `--input` into a Nagios range expression.
+
+    Returns `(True, result)` with the range, or with `None` when the threshold is
+    switched off, and `(False, errormessage)` on a malformed expression.
+    """
+    if threshold.strip().lower() in ('', 'none'):
+        return (True, None)
+    if RE_PLAIN_NUMBER.match(threshold):
+        # A plain number has always meant "alert once fewer days than this are left",
+        # which is the Nagios range `N:`. Both express the very same comparison, so
+        # every threshold ever configured keeps its meaning while the range syntax
+        # becomes available on top of it.
+        threshold = f'{threshold}:'
+    success, result = lib.base.match_range(0, threshold)
+    if not success:
+        return (False, result)
+    return (True, threshold)
+
+
+def parse_item(fields):
+    """Turns one `--input` value into a date to count down to.
+
+    Returns `(True, result)` with the item, or `(False, errormessage)` naming the
+    offending value, so an admin running dozens of dates knows which one to correct.
+    """
+    given = ', '.join(fields)
+    date_index = next(
+        (index for index, field in enumerate(fields) if RE_DATE.match(field)),
+        None,
+    )
+    if date_index is None:
+        return (
+            False,
+            f'Found no expiration date in "{given}". Expected a date in YYYY-MM-DD '
+            f'format, as in "Display Name, 2027-01-10, 50, 30".',
+        )
+    if date_index == 0:
+        return (
+            False,
+            f'Found no display name in front of the date in "{given}". Expected '
+            f'"Display Name, {fields[0]}, 50, 30".',
+        )
+
+    name = ', '.join(fields[:date_index])
+    thresholds = fields[date_index + 1 :]
+    if len(thresholds) > 2:
+        return (
+            False,
+            f'Expected a warning and a critical threshold behind the date of "{name}", '
+            f'but got {len(thresholds)} fields: "{", ".join(thresholds)}".',
+        )
+
+    try:
+        date = lib.time.timestr2datetime(fields[date_index], DATE_PATTERN).date()
+    except ValueError:
+        return (False, f'"{fields[date_index]}" of "{name}" is not a valid date.')
+
+    warn = thresholds[0] if thresholds else DEFAULT_WARN
+    crit = thresholds[1] if len(thresholds) > 1 else DEFAULT_CRIT
+    ranges = {}
+    for kind, threshold in (('Warning', warn), ('Critical', crit)):
+        success, result = normalize_threshold(threshold)
+        if not success:
+            return (False, f'{kind} threshold "{threshold}" of "{name}": {result}.')
+        ranges[kind] = result
+
+    return (
+        True,
+        {
+            'crit': 'none' if ranges['Critical'] is None else crit,
+            'crit_range': ranges['Critical'],
+            'date': date,
+            'date_str': fields[date_index],
+            'name': name,
+            'warn': 'none' if ranges['Warning'] is None else warn,
+            'warn_range': ranges['Warning'],
+        },
+    )
 
 
 def main():
@@ -79,52 +194,73 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
+    items = [lib.base.coe(parse_item(fields)) for fields in args.INPUT]
+
     # init some vars
-    msg = ''
-    line_state = STATE_OK
+    perfdata = ''
     state = STATE_OK
+    table_data = []
+    # Read the clock once, so that a run straddling midnight does not count one date
+    # against today and the next one against tomorrow.
+    today = lib.time.now(as_type='datetime').date()
 
-    try:
-        # ['Supermicro SYS1, 2022-01-10, 50, None', 'Contract XMPL.COM, 2021-12-24, 50, 30']
-        for line in args.INPUT:
-            item, expiration_date, warn, crit = line
-
-            expiration_date = datetime.datetime.strptime(expiration_date, '%Y-%m-%d')
-            today = lib.time.now(as_type='datetime')
-            delta = expiration_date - today
-            delta = int(delta.days) + 1
-
-            if crit.lower() != 'none' and delta < int(crit):
-                line_state = STATE_CRIT
-            elif warn.lower() != 'none' and delta < int(warn):
-                line_state = STATE_WARN
-            else:
-                line_state = STATE_OK
-
-            if delta > 0:
-                # build the message
-                msg += f'* {item} expires in {delta} {lib.txt.pluralize("day", delta)} (thresholds {warn}/{crit}){lib.base.state2str(line_state, prefix=" ")}\n'
-            elif delta == 0:
-                msg += f'* {item} expires today{lib.base.state2str(line_state, prefix=" ")}\n'
-            else:
-                msg += f'* {item} expired {abs(delta)} {lib.txt.pluralize("day", abs(delta))} ago{lib.base.state2str(line_state, prefix=" ")}\n'
-
-            state = lib.base.get_worst(line_state, state)
-
-        if state == STATE_CRIT:
-            msg = 'There are one or more criticals.\n' + msg
-        elif state == STATE_WARN:
-            msg = 'There are one or more warnings.\n' + msg
-        else:
-            msg = 'Everything is ok.\n' + msg
-
-        # over and out
-        lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
-
-    except Exception:
-        lib.base.cu(
-            'Something seems to be wrong with the input parameter format or its timestamps'
+    # analyze data
+    for item in items:
+        # Both sides are plain dates, so the difference is a whole number of days and
+        # does not depend on the time of day the check happens to run at.
+        days_left = (item['date'] - today).days
+        item_state = lib.base.get_state(
+            days_left,
+            item['warn_range'],
+            item['crit_range'],
+            _operator='range',
         )
+        state = lib.base.get_worst(state, item_state)
+
+        table_data.append(
+            {
+                'crit': item['crit'],
+                'days_left': days_left,
+                'expires': item['date_str'],
+                'name': item['name'],
+                'state': lib.base.state2str(item_state, empty_ok=False),
+                'warn': item['warn'],
+            }
+        )
+
+        label = re.sub(r'\W+', '_', item['name']).strip('_').lower()
+        perfdata += lib.base.get_perfdata(
+            f'{label}_days_left',
+            days_left,
+            uom=None,
+            warn=item['warn_range'],
+            crit=item['crit_range'],
+            _min=None,
+            _max=None,
+        )
+
+    # build the message
+    headers = {
+        STATE_CRIT: 'There are one or more criticals.',
+        STATE_WARN: 'There are one or more warnings.',
+        STATE_OK: 'Everything is ok.',
+    }
+    msg = headers.get(state, headers[STATE_OK])
+
+    # build table output
+    if args.LENGTHY:
+        keys = ['name', 'expires', 'days_left', 'warn', 'crit', 'state']
+        header = ['Name', 'Expires', 'Left', 'Warn', 'Crit', 'State']
+    else:
+        keys = ['name', 'expires', 'days_left', 'state']
+        header = ['Name', 'Expires', 'Left', 'State']
+    msg += '\n\n' + lib.base.get_table(table_data, keys, header=header)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

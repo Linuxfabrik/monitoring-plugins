@@ -1,0 +1,376 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import datetime
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The check takes every date to count down to on the command line and reads nothing
+# else, so there is no command whose stdout a fixture could stand in for and no
+# `stdout/` directory. `lib.lftest.run()` appends `--test=` to every call regardless,
+# which the check discards along with any other parameter it does not know.
+NO_FIXTURE = ''
+
+
+def in_days(days):
+    """The ISO date that many days from today.
+
+    A testcase pins the distance to today rather than a calendar date, because the
+    state of a countdown moves as soon as the calendar passes the threshold.
+    """
+    return (datetime.date.today() + datetime.timedelta(days=days)).isoformat()
+
+
+def row(name, days, state, warn=None, crit=None):
+    """A regex matching one table row, from the display name to the state.
+
+    Spelling the row out column by column pins the column order, and ending on the
+    state pins that the state is the last column, which is what keeps the table
+    readable in a web interface that renders it as an icon.
+    """
+    columns = [name, in_days(days), str(days)]
+    if warn is not None:
+        columns += [warn, crit]
+    columns.append(rf'\[{state}\]')
+    return r'\s+!\s+'.join(columns)
+
+
+TESTS = [
+    # The state matrix, driven by the distance to today against the same 50/30
+    # thresholds.
+    {
+        'id': 'ok-far-from-expiring',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, 50, 30"',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'Name', 'Expires', 'Left', 'State'],
+        'assert-regex': row('Contract', 500, 'OK'),
+    },
+    {
+        'id': 'ok-exactly-at-the-warning-threshold',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(50)}, 50, 30"',
+        'assert-retc': STATE_OK,
+        'assert-regex': row('Contract', 50, 'OK'),
+    },
+    {
+        'id': 'warn-one-day-below-the-warning-threshold',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(49)}, 50, 30"',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are one or more warnings.'],
+        'assert-regex': row('Contract', 49, 'WARNING'),
+    },
+    {
+        'id': 'warn-exactly-at-the-critical-threshold',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(30)}, 50, 30"',
+        'assert-retc': STATE_WARN,
+        'assert-regex': row('Contract', 30, 'WARNING'),
+    },
+    {
+        'id': 'crit-one-day-below-the-critical-threshold',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(29)}, 50, 30"',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are one or more criticals.'],
+        'assert-regex': row('Contract', 29, 'CRITICAL'),
+    },
+    {
+        'id': 'crit-expires-today',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(0)}, 50, 30"',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': row('Contract', 0, 'CRITICAL'),
+    },
+    {
+        'id': 'crit-already-expired-counts-negative',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(-100)}, 50, 30"',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': row('Contract', -100, 'CRITICAL'),
+    },
+    # Switching a threshold off.
+    {
+        'id': 'warn-expired-with-critical-switched-off',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(-100)}, 50, none" --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': row('Contract', -100, 'WARNING', warn='50', crit='none'),
+    },
+    {
+        'id': 'ok-expired-with-both-thresholds-switched-off',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(-100)}, none, none" --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-regex': row('Contract', -100, 'OK', warn='none', crit='none'),
+    },
+    {
+        'id': 'ok-threshold-switched-off-case-insensitively',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(-100)}, NONE, None"',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-empty-threshold-field-switches-warning-off',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(10)}, , 30" --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': row('Contract', 10, 'CRITICAL', warn='none', crit='30'),
+    },
+    # Omitted threshold fields fall back to the defaults.
+    {
+        'id': 'ok-both-thresholds-omitted',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}" --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': row('Contract', 500, 'OK', warn='50', crit='30'),
+    },
+    {
+        'id': 'crit-both-thresholds-omitted',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(10)}"',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'warn-critical-threshold-omitted',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(40)}, 100" --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': row('Contract', 40, 'WARNING', warn='100', crit='30'),
+    },
+    # Nagios ranges. A plain number keeps meaning "alert once fewer days than this are
+    # left", so it has to reach the same verdict as the equivalent `N:` range.
+    {
+        'id': 'ok-plain-number-and-range-agree',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, 50:, 30:"',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-range-with-lower-bound',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(40)}, 50:, 30:" --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': row('Contract', 40, 'WARNING', warn='50:', crit='30:'),
+    },
+    {
+        'id': 'crit-range-with-lower-bound',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(10)}, 50:, 30:"',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-range-with-upper-bound',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(100)}, ~:400, none"',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-range-with-upper-bound',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, ~:400, none"',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'warn-inside-an-at-range',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(5)}, @0:10, none"',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-outside-an-at-range',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(50)}, @0:10, none"',
+        'assert-retc': STATE_OK,
+    },
+    # A display name may contain commas, because the date field separates it from the
+    # thresholds.
+    {
+        'id': 'ok-display-name-containing-a-comma',
+        'test': NO_FIXTURE,
+        'params': f'--input="Example Ltd, Zurich, {in_days(500)}, 50, 30"',
+        'assert-retc': STATE_OK,
+        'assert-regex': row('Example Ltd, Zurich', 500, 'OK'),
+    },
+    # Several dates: the worst one drives the overall state, every one is reported.
+    {
+        'id': 'crit-worst-of-several-dates',
+        'test': NO_FIXTURE,
+        'params': (
+            f'--input="Fine, {in_days(500)}, 50, 30" '
+            f'--input="Due, {in_days(40)}, 50, 30" '
+            f'--input="Overdue, {in_days(-5)}, 50, 30"'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are one or more criticals.'],
+        'assert-regex': row('Due', 40, 'WARNING'),
+    },
+    {
+        'id': 'ok-several-dates-all-fine',
+        'test': NO_FIXTURE,
+        'params': (
+            f'--input="One, {in_days(500)}, 50, 30" '
+            f'--input="Two, {in_days(600)}, 50, 30"'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    # The table keeps one row per date, in the order they were given.
+    {
+        'id': 'ok-rows-keep-the-order-of-the-input',
+        'test': NO_FIXTURE,
+        'params': (
+            f'--input="Alpha, {in_days(500)}, 50, 30" '
+            f'--input="Bravo, {in_days(600)}, 50, 30"'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Alpha.*\n.*Bravo',
+    },
+    # --lengthy adds columns rather than rows.
+    {
+        'id': 'ok-lengthy-adds-the-threshold-columns',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, 50, 30" --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Name', 'Expires', 'Left', 'Warn', 'Crit', 'State'],
+    },
+    {
+        'id': 'ok-without-lengthy-the-threshold-columns-stay-out',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, 50, 30"',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Name', 'Expires', 'Left', 'State'],
+        'assert-not-in': ['Warn', 'Crit'],
+    },
+    # Perfdata is complete regardless of what the table shows.
+    {
+        'id': 'ok-perfdata-label-is-sanitized',
+        'test': NO_FIXTURE,
+        'params': f'--input="Supermicro X11 (SerNo ABCD), {in_days(500)}, 50, 30"',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'supermicro_x11_serno_abcd_days_left'=500;50:;30:"],
+    },
+    {
+        'id': 'ok-perfdata-reports-negative-days-when-expired',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(-100)}, none, none"',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'contract_days_left'=-100"],
+    },
+    {
+        'id': 'ok-no-perfdata-suppresses-the-metrics',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, 50, 30" --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['|', 'days_left'],
+    },
+    # --always-ok hides the alert but keeps the report.
+    {
+        'id': 'ok-always-ok-suppresses-a-critical',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(-100)}, 50, 30" --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['There are one or more criticals.', '[CRITICAL]'],
+    },
+    # Malformed input names the offending value instead of raising.
+    {
+        'id': 'unknown-no-date-at-all',
+        'test': NO_FIXTURE,
+        'params': '--input="Contract"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no expiration date in "Contract".'],
+    },
+    {
+        'id': 'unknown-empty-input',
+        'test': NO_FIXTURE,
+        'params': '--input=""',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no expiration date'],
+    },
+    {
+        'id': 'unknown-date-not-in-iso-format',
+        'test': NO_FIXTURE,
+        'params': '--input="Contract, 31.12.2027, 60, 30"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no expiration date', 'YYYY-MM-DD'],
+    },
+    {
+        'id': 'unknown-date-that-does-not-exist',
+        'test': NO_FIXTURE,
+        'params': '--input="Contract, 2027-02-30, 60, 30"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['"2027-02-30" of "Contract" is not a valid date.'],
+    },
+    {
+        'id': 'unknown-no-display-name',
+        'test': NO_FIXTURE,
+        'params': '--input="2027-12-31, 60, 30"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no display name in front of the date'],
+    },
+    {
+        'id': 'unknown-threshold-is-not-a-number-or-range',
+        'test': NO_FIXTURE,
+        'params': '--input="Contract, 2027-12-31, sixty, 30"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Warning threshold "sixty" of "Contract"'],
+    },
+    {
+        'id': 'unknown-critical-threshold-is-not-a-number-or-range',
+        'test': NO_FIXTURE,
+        'params': '--input="Contract, 2027-12-31, 60, thirty"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Critical threshold "thirty" of "Contract"'],
+    },
+    {
+        'id': 'unknown-more-fields-than-expected',
+        'test': NO_FIXTURE,
+        'params': '--input="Contract, 2027-12-31, 60, 30, 20"',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['but got 3 fields'],
+    },
+    {
+        'id': 'unknown-the-offending-date-is-named-among-several',
+        'test': NO_FIXTURE,
+        'params': (
+            f'--input="Fine, {in_days(500)}, 50, 30" '
+            '--input="Broken, 2027-12-31, sixty, 30"'
+        ),
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['of "Broken"'],
+    },
+    # Unknown parameters are tolerated, so a check rolled out ahead of the plugin does
+    # not take the host down with it.
+    {
+        'id': 'ok-tolerates-an-unknown-parameter',
+        'test': NO_FIXTURE,
+        'params': f'--input="Contract, {in_days(500)}, 50, 30" --not-a-parameter',
+        'assert-retc': STATE_OK,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../countdown'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
