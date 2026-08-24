@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')  # Adds higher directory to python modules path.
+
+
+import os
+import tempfile
+import unittest
+
+import lib.base
+import lib.shell
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+
+def tmpdir_with_files(**sizes):
+    """A directory holding one file per given name, each of the given size."""
+    tmpdir = tempfile.mkdtemp()
+    for name, size in sizes.items():
+        with open(os.path.join(tmpdir, f'{name}.bin'), 'wb') as file:
+            file.write(b'x' * size)
+    return tmpdir
+
+
+class TestCheck(unittest.TestCase):
+    def _run(self, filename, *extra):
+        cmd = ['../file-size', '--filename', filename, *extra]
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(stderr, '')
+        return stdout, retc
+
+    def test_ok_every_file_within_the_size_range(self):
+        tmpdir = tmpdir_with_files(small=1024, medium=2048)
+        stdout, retc = self._run(f'{tmpdir}/*.bin', '--warning', '1M')
+        self.assertEqual(retc, STATE_OK)
+        self.assertIn(
+            'Everything is ok. Size of 2 files checked, all in (0.0B..1.0MiB).', stdout
+        )
+
+    def test_warn_names_the_range_the_file_broke(self):
+        tmpdir = tmpdir_with_files(small=1024, big=20480)
+        stdout, retc = self._run(f'{tmpdir}/*.bin', '--warning', '10K')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn(
+            'Size of 2 files checked. 1 not in (0.0B..10.0KiB) [WARNING].', stdout
+        )
+
+    def test_crit_and_warn_are_counted_per_severity(self):
+        # the big file is outside both ranges, so both clauses count it: the message
+        # says how many files each range holds, not how many the check gave up on
+        tmpdir = tmpdir_with_files(small=1024, medium=15360, big=40960)
+        stdout, retc = self._run(
+            f'{tmpdir}/*.bin', '--warning', '10K', '--critical', '30K'
+        )
+        self.assertEqual(retc, STATE_CRIT)
+        self.assertIn('2 not in (0.0B..10.0KiB) [WARNING]', stdout)
+        self.assertIn('1 not in (0.0B..30.0KiB) [CRITICAL]', stdout)
+
+    def test_a_lower_bound_alerts_on_a_file_that_is_too_small(self):
+        tmpdir = tmpdir_with_files(small=1024)
+        stdout, retc = self._run(f'{tmpdir}/*.bin', '--warning', '10K:')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('1 not in (10.0KiB..inf) [WARNING]', stdout)
+
+    def test_a_single_file_reports_inline_instead_of_as_a_table(self):
+        tmpdir = tmpdir_with_files(only=1024)
+        stdout, retc = self._run(f'{tmpdir}/*.bin', '--warning', '1M')
+        self.assertEqual(retc, STATE_OK)
+        self.assertIn('Checked ', stdout)
+        self.assertIn('1.0KiB', stdout)
+        self.assertNotIn('! Size', stdout)
+
+    def test_brief_hides_the_rows_within_the_thresholds(self):
+        tmpdir = tmpdir_with_files(small=1024, big=20480)
+        stdout, retc = self._run(f'{tmpdir}/*.bin', '--warning', '10K', '--brief')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('big.bin', stdout)
+        self.assertNotIn('small.bin', stdout)
+
+    def test_unknown_when_the_glob_matches_nothing(self):
+        tmpdir = tempfile.mkdtemp()
+        stdout, retc = self._run(f'{tmpdir}/*.bin')
+        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertIn('No files found.', stdout)
+
+
+if __name__ == '__main__':
+    unittest.main()

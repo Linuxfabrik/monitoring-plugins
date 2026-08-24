@@ -99,7 +99,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-count/
 Output:
 
 ```text
-Found 1 matching file (thresholds 1/None)|'file_count'=1;1;;0;
+Found 1 matching file, in (0..1)|'file_count'=1;1;;0
 ```
 
 

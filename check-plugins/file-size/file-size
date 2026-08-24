@@ -21,7 +21,7 @@ import lib.disk
 import lib.human
 import lib.lftest
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 PYTHON_MOD = None
 try:
@@ -33,7 +33,7 @@ except ModuleNotFoundError as e:
     PYTHON_MOD = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026082401'
 
 DESCRIPTION = """Checks file sizes against configurable thresholds using human-readable units (e.g.
 25M, 1G). Supports glob patterns, SMB shares, and optional aggregation (mean or
@@ -193,7 +193,8 @@ def main():
     msg = ''
     perfdata = ''
     table_data = []
-    alert_count = 0
+    crit_count = 0
+    warn_count = 0
 
     # convert human readable nagios ranges to something that the Linuxfabrik libraries
     # can understand
@@ -262,25 +263,39 @@ def main():
         table_data[i]['state_hr'] = lib.base.state2str(
             table_data[i]['state'], empty_ok=False
         )
-        if table_data[i]['state']:
-            alert_count += 1
+        # Counted per severity, not by the worst state of a file: a file outside the
+        # critical range is usually outside the warning range too, and the message
+        # says how many files each range holds, not how many the check gave up on.
+        if not lib.base.coe(lib.base.match_range(item['size'], WARN)):
+            warn_count += 1
+        if not lib.base.coe(lib.base.match_range(item['size'], CRIT)):
+            crit_count += 1
         state = lib.base.get_worst(state, table_data[i]['state'])
 
     # build the message
-    msg += f'{len(table_data)} {lib.txt.pluralize("file", len(table_data))} checked. '
-    if state == STATE_OK:
-        msg += (
-            f'{lib.txt.pluralize("", len(table_data), "It is,All are")}'
-            f' within the given size thresholds'
-            f' ({args.WARN}/{args.CRIT}).'
+    # One clause per severity, naming how many files broke its size range, so the
+    # message says what was compared instead of repeating the range syntax.
+    clauses = []
+    for count, spec, item_state in (
+        (warn_count, WARN, STATE_WARN),
+        (crit_count, CRIT, STATE_CRIT),
+    ):
+        if not count:
+            continue
+        clause = f'{count} ' + lib.base.coe(
+            lib.base.range2txt(spec, fmt=lib.human.bytes2human)
         )
+        clause += lib.base.state2str(item_state, prefix=' ')
+        clauses.append(clause)
+
+    head = f'Size of {len(table_data)} {lib.txt.pluralize("file", len(table_data))} checked'
+    if clauses:
+        msg += f'{head}. ' + ', '.join(clauses) + '.'
     else:
-        msg += (
-            f'{alert_count}'
-            f' {lib.txt.pluralize("", alert_count, "is,are")}'
-            f' outside the given size thresholds'
-            f' ({args.WARN}/{args.CRIT}).'
+        condition = lib.base.coe(
+            lib.base.range2txt(WARN, fmt=lib.human.bytes2human, view='ok')
         )
+        msg += f'Everything is ok. {head}, all {condition}.'
     if len(table_data) == 1:
         # show info on first line when there is only one hit
         msg += (

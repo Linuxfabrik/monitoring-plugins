@@ -22,7 +22,7 @@ import lib.disk
 import lib.human
 import lib.time
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 PYTHON_MOD = None
 try:
@@ -34,7 +34,7 @@ except ModuleNotFoundError as e:
     PYTHON_MOD = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026082401'
 
 DESCRIPTION = """Checks how fast files grow or shrink, by comparing their size against
 the previous check runs and reporting the change as a rate per second. Supports glob
@@ -308,8 +308,9 @@ def main():
     state = STATE_OK
     msg = ''
     perfdata = ''
-    alert_count = 0
+    crit_count = 0
     waiting_count = 0
+    warn_count = 0
 
     # convert human readable nagios ranges to something that the Linuxfabrik libraries
     # can understand
@@ -388,8 +389,14 @@ def main():
             item['rate_hr'] = f'{lib.human.bytes2human(rates[0])}/s'
         item['size_hr'] = lib.human.bytes2human(item['size'])
         item['samples'] = len(item['measurements'])
-        if item['state']:
-            alert_count += 1
+        # Counted per severity, not by the worst state of a file: a file outside the
+        # critical range is usually outside the warning range too, and the message
+        # says how many files each range holds. Both counts go through the same
+        # windowed rule as the state, so a burst does not show up here either.
+        if get_state_of_rates(rates, WARN, None, args.COUNT):
+            warn_count += 1
+        if get_state_of_rates(rates, None, CRIT, args.COUNT):
+            crit_count += 1
         state = lib.base.get_worst(state, item['state'])
 
     # build the message
@@ -399,20 +406,28 @@ def main():
         # answer with this one sentence, so this one does too.
         lib.base.oao('Waiting for more data.', STATE_OK, always_ok=args.ALWAYS_OK)
 
-    msg += f'{len(current)} {lib.txt.pluralize("file", len(current))} checked. '
-    if state == STATE_OK:
-        msg += (
-            f'{lib.txt.pluralize("", len(current), "It is,All are")}'
-            f' within the given thresholds'
-            f' ({args.WARN}/{args.CRIT} per second).'
-        )
+    # One clause per severity, naming how many files broke its rate range, so the
+    # message says what was compared instead of repeating the range syntax.
+    def rate2human(value):
+        return f'{lib.human.bytes2human(value)}/s'
+
+    clauses = []
+    for count, spec, item_state in (
+        (warn_count, WARN, STATE_WARN),
+        (crit_count, CRIT, STATE_CRIT),
+    ):
+        if not count:
+            continue
+        clause = f'{count} ' + lib.base.coe(lib.base.range2txt(spec, fmt=rate2human))
+        clause += lib.base.state2str(item_state, prefix=' ')
+        clauses.append(clause)
+
+    head = f'Growth of {len(current)} {lib.txt.pluralize("file", len(current))} checked'
+    if clauses:
+        msg += f'{head}. ' + ', '.join(clauses) + '.'
     else:
-        msg += (
-            f'{alert_count}'
-            f' {lib.txt.pluralize("", alert_count, "is,are")}'
-            f' outside the given thresholds'
-            f' ({args.WARN}/{args.CRIT} per second).'
-        )
+        condition = lib.base.coe(lib.base.range2txt(WARN, fmt=rate2human, view='ok'))
+        msg += f'Everything is ok. {head}, all {condition}.'
     if len(current) == 1:
         # show info on first line when there is only one hit
         msg += (

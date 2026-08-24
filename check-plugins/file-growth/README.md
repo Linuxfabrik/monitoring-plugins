@@ -136,13 +136,13 @@ Waiting for more data.
 Output once a second measurement exists:
 
 ```text
-1 file checked. It is within the given thresholds (~:1M/~:10M per second). Checked /var/log/messages: 12.4KiB/s
+Everything is ok. Growth of 1 file checked, all in (-inf..1.0MiB/s). Checked /var/log/messages: 12.4KiB/s
 ```
 
 A runaway log file, alerting after three consecutive runs above the threshold:
 
 ```text
-1 file checked. 1 is outside the given thresholds (~:1M/~:10M per second). Checked /var/log/messages: 3.0MiB/s [WARNING]
+Growth of 1 file checked. 1 not in (-inf..1.0MiB/s) [WARNING]. Checked /var/log/messages: 3.0MiB/s [WARNING]
 ```
 
 Converting a rate into a threshold. The thresholds are per second, so divide the amount you care about by the length of the period:
@@ -168,7 +168,7 @@ Watching a whole directory, with a single aggregated series instead of one per f
 ```
 
 ```text
-3 files checked. 1 is outside the given thresholds (~:1M/~:10M per second).
+Growth of 3 files checked. 1 not in (-inf..1.0MiB/s) [WARNING].
 
 File                  ! Growth   ! State
 ----------------------+----------+----------
@@ -192,7 +192,7 @@ rate rests on:
 ```
 
 ```text
-3 files checked. 1 is outside the given thresholds (~:1M/~:10M per second).
+Growth of 3 files checked. 1 not in (-inf..1.0MiB/s) [WARNING].
 
 File              ! Growth   ! Size   ! Samples ! State
 ------------------+----------+--------+---------+----------

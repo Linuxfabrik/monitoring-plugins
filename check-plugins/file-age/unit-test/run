@@ -542,7 +542,100 @@ class TestVerbositySwitches(unittest.TestCase):
         stdout, _stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
         self.assertEqual(retc, STATE_OK)
         self.assertNotIn('old.log', stdout)
-        self.assertNotIn('Age', stdout)
+        self.assertNotIn('! Age', stdout)
+
+
+class TestMessage(unittest.TestCase):
+    """The age thresholds apply to a single item, the count thresholds to the number
+    of items that broke them. The message has to keep the two apart.
+    """
+
+    def _tmpdir_with_one_old_and_one_new_file(self):
+        tmpdir = tempfile.mkdtemp()
+        bash = f"""
+        touch -d '2 hours ago' {tmpdir}/old.log
+        touch {tmpdir}/new.log
+        """
+        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
+        return tmpdir
+
+    def _run(self, tmpdir, *extra):
+        cmd = [
+            '../file-age',
+            '--filename',
+            f'{tmpdir}/*.log',
+            *extra,
+        ]
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        self.assertEqual(stderr, '')
+        return stdout, retc
+
+    def test_nothing_outside_the_age_thresholds(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(tmpdir, '--warning', '99999')
+        self.assertEqual(retc, STATE_OK)
+        self.assertIn('Everything is ok. Age of 2 items checked, all in (0s..', stdout)
+
+    def test_the_warning_clause_names_its_age_range(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(tmpdir, '--warning', '60')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('Age of 2 items checked. 1 not in (0s..1m) [WARNING].', stdout)
+
+    def test_both_clauses_appear_with_their_own_marker(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(tmpdir, '--warning', '60', '--critical', '120')
+        self.assertEqual(retc, STATE_CRIT)
+        self.assertIn('1 not in (0s..1m) [WARNING]', stdout)
+        self.assertIn('1 not in (0s..2m) [CRITICAL]', stdout)
+
+    def test_a_severity_without_a_hit_is_not_mentioned(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, _retc = self._run(tmpdir, '--warning', '60')
+        # the critical age was not broken by anything, so it has nothing to say
+        self.assertNotIn('CRITICAL', stdout.split('\n')[0])
+
+    def test_a_configured_count_range_is_named_and_tolerates(self):
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(
+            tmpdir,
+            '--warning',
+            '60',
+            '--warning-count',
+            '0:5',
+            '--critical-count',
+            '0:5',
+        )
+        self.assertEqual(retc, STATE_OK)
+        self.assertIn('Everything is ok.', stdout)
+        self.assertIn('1 not in (0s..1m), warning count=1 in (0..5).', stdout)
+        self.assertNotIn('[WARNING]', stdout.split('\n')[0])
+
+    def test_a_configured_count_range_alerts_on_too_few(self):
+        # "at least 3 files younger than a minute", the case a bare age clause would
+        # read backwards: one item broke the age range, and that is too few, not too
+        # many
+        tmpdir = self._tmpdir_with_one_old_and_one_new_file()
+        stdout, retc = self._run(
+            tmpdir,
+            '--warning',
+            '60:',
+            '--warning-count',
+            '3:',
+        )
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn(
+            '1 not in (1m..inf), warning count=1 not in (3..inf) [WARNING]', stdout
+        )
+
+    def test_a_breached_count_is_reported_without_a_single_hit(self):
+        # no file at all, so nothing broke an age range, and the count range is still
+        # the reason the check alerts
+        tmpdir = tempfile.mkdtemp()
+        stdout, retc = self._run(tmpdir, '--warning', '60:', '--warning-count', '3:')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('Age of 0 items checked.', stdout)
+        self.assertIn('warning count=0 not in (3..inf) [WARNING]', stdout)
 
 
 if __name__ == '__main__':

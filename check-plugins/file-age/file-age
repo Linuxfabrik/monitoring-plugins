@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026082401'
 
 DESCRIPTION = """Checks the time since last modification of one or more files or directories. Supports
 glob patterns (including recursive), SMB shares, and optional aggregation (mean or
@@ -95,15 +95,20 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for file age in seconds. Default: >= %(default)s (365d).',
+        help='CRIT threshold for the file age in seconds. '
+        'Supports Nagios ranges. '
+        'Example: `20:` alerts if a file is younger than 20 seconds. '
+        'Default: %(default)s (365 days)',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
         '--critical-count',
-        help='CRIT threshold for the number of files exceeding the critical age. '
-        'Default: > %(default)s.',
+        help='CRIT threshold for the number of files outside the critical age. '
+        'Supports Nagios ranges. '
+        'Example: `2:` alerts if fewer than 2 files are outside the critical age. '
+        'Default: %(default)s',
         dest='CRIT_COUNT',
         default=DEFAULT_CRIT_COUNT,
     )
@@ -203,15 +208,20 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for file age in seconds. Default: >= %(default)s (30d).',
+        help='WARN threshold for the file age in seconds. '
+        'Supports Nagios ranges. '
+        'Example: `15:` alerts if a file is younger than 15 seconds. '
+        'Default: %(default)s (30 days)',
         dest='WARN',
         default=DEFAULT_WARN,
     )
 
     parser.add_argument(
         '--warning-count',
-        help='WARN threshold for the number of files exceeding the warning age. '
-        'Default: > %(default)s.',
+        help='WARN threshold for the number of files outside the warning age. '
+        'Supports Nagios ranges. '
+        'Example: `3:` alerts if fewer than 3 files are outside the warning age. '
+        'Default: %(default)s',
         dest='WARN_COUNT',
         default=DEFAULT_WARN_COUNT,
     )
@@ -241,12 +251,8 @@ def main():
         if proto != 'smb':
             lib.base.cu(f'The protocol "{proto}" is not supported.')
 
-    # init some vars
+    # fetch data
     items = []
-    file_count = 0
-    crit_count = 0
-    warn_count = 0
-    ages = []
 
     if args.FILENAME:
         for item in lib.disk.glob(args.FILENAME):
@@ -258,28 +264,7 @@ def main():
                 continue
             if stat.S_ISDIR(st.st_mode) and args.ONLY_FILES:
                 continue
-
-            # brandnew files might get negative values
-            age = abs(lib.time.now() - st.st_mtime)
-            ages.append(age)
-            item_state = STATE_OK
-            # not using elif, as the item could contribute to both the warn_count and crit_count
-            if not lib.base.coe(lib.base.match_range(age, args.WARN)):
-                item_state = STATE_WARN
-                warn_count += 1
-            if not lib.base.coe(lib.base.match_range(age, args.CRIT)):
-                item_state = STATE_CRIT
-                crit_count += 1
-
-            file_count += 1
-            items.append(
-                {
-                    'name': str(item),
-                    'age': age,
-                    'state': item_state,
-                    'mtime': st.st_mtime,
-                }
-            )
+            items.append({'name': str(item), 'mtime': st.st_mtime})
 
     if args.URL:
         if not HAVE_SMB:
@@ -294,43 +279,111 @@ def main():
                     continue
                 if item.is_dir() and args.ONLY_FILES:
                     continue
-
-                # brandnew files might get negative values
-                age = abs(lib.time.now() - item.stat().st_mtime)
-                ages.append(age)
-                item_state = STATE_OK
-                # not using elif, as the item could contribute to both the warn_count and crit_count
-                if not lib.base.coe(lib.base.match_range(age, args.WARN)):
-                    item_state = STATE_WARN
-                    warn_count += 1
-                if not lib.base.coe(lib.base.match_range(age, args.CRIT)):
-                    item_state = STATE_CRIT
-                    crit_count += 1
-
-                file_count += 1
-                items.append(
-                    {
-                        'name': item.name,
-                        'age': age,
-                        'state': item_state,
-                        'mtime': item.stat().st_mtime,
-                    }
-                )
+                items.append({'name': item.name, 'mtime': item.stat().st_mtime})
             except smbprotocol.exceptions.SMBOSError:
                 # it is normal that files disappear while reading
                 pass
 
-    # build the message
-    if not lib.base.coe(lib.base.match_range(crit_count, args.CRIT_COUNT)):
-        state = STATE_CRIT
-    elif not lib.base.coe(lib.base.match_range(warn_count, args.WARN_COUNT)):
-        state = STATE_WARN
-    else:
-        state = STATE_OK
+    # init some vars
+    crit_count = 0
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    warn_count = 0
 
-    # Render the per-item table the way the other file checks do. --brief hides
-    # the rows within the thresholds; it is a display filter only, every item
-    # was checked above and still drives the state and the perfdata.
+    # analyze data
+    for item in items:
+        # brandnew files might get negative values
+        item['age'] = abs(lib.time.now() - item['mtime'])
+        item['state'] = STATE_OK
+        # not using elif, as the item could contribute to both the warn_count and crit_count
+        if not lib.base.coe(lib.base.match_range(item['age'], args.WARN)):
+            item['state'] = STATE_WARN
+            warn_count += 1
+        if not lib.base.coe(lib.base.match_range(item['age'], args.CRIT)):
+            item['state'] = STATE_CRIT
+            crit_count += 1
+
+    # The age thresholds decide how many items are too old, the count thresholds decide
+    # what that number means for the check. Both counts are compared, so the message
+    # below can say which of the two broke.
+    warn_breached = not lib.base.coe(lib.base.match_range(warn_count, args.WARN_COUNT))
+    crit_breached = not lib.base.coe(lib.base.match_range(crit_count, args.CRIT_COUNT))
+    if warn_breached:
+        state = STATE_WARN
+    if crit_breached:
+        state = STATE_CRIT
+
+    # build the message
+    # One clause per severity, naming how many items broke its age range. The count
+    # range is named wherever the admin set one, because it is then the count that
+    # decides the state, and a bare "1 not in (0s..15s)" would read as "one item too
+    # old" where the check really means "too few fresh ones". The marker sits on the
+    # clause whose count broke its threshold.
+    severities = (
+        {
+            'age': args.WARN,
+            'breached': warn_breached,
+            'count': warn_count,
+            'count_default': DEFAULT_WARN_COUNT,
+            'count_spec': args.WARN_COUNT,
+            'name': 'warning',
+            'state': STATE_WARN,
+        },
+        {
+            'age': args.CRIT,
+            'breached': crit_breached,
+            'count': crit_count,
+            'count_default': DEFAULT_CRIT_COUNT,
+            'count_spec': args.CRIT_COUNT,
+            'name': 'critical',
+            'state': STATE_CRIT,
+        },
+    )
+
+    clauses = []
+    for severity in severities:
+        if not severity['count'] and not severity['breached']:
+            continue
+        clause = f'{severity["count"]} ' + lib.base.coe(
+            lib.base.range2txt(severity['age'], fmt=lib.human.seconds2human)
+        )
+        if str(severity['count_spec']) != str(severity['count_default']):
+            clause += ', ' + lib.base.coe(
+                lib.base.range2txt(
+                    severity['count_spec'],
+                    value=severity['count'],
+                    value_name=f'{severity["name"]} count',
+                    view='alert' if severity['breached'] else 'ok',
+                )
+            )
+        if severity['breached']:
+            clause += lib.base.state2str(severity['state'], prefix=' ')
+        clauses.append(clause)
+
+    head = f'Age of {len(items)} {lib.txt.pluralize("item", len(items))} checked'
+    if clauses:
+        prefix = 'Everything is ok. ' if state == STATE_OK else ''
+        msg = f'{prefix}{head}. ' + ', '.join(clauses) + '.'
+    else:
+        condition = lib.base.coe(
+            lib.base.range2txt(args.WARN, fmt=lib.human.seconds2human, view='ok')
+        )
+        msg = f'Everything is ok. {head}, all {condition}.'
+
+    ages = [item['age'] for item in items]
+    if args.PERFDATA_MODE == 'mean' and ages:
+        perfdata += lib.base.get_perfdata(
+            label='mean-ages', value=round(statistics.mean(ages), 3), uom='s'
+        )
+    elif args.PERFDATA_MODE == 'median' and ages:
+        perfdata += lib.base.get_perfdata(
+            label='median-ages', value=round(statistics.median(ages), 3), uom='s'
+        )
+
+    # build table output
+    # --brief hides the rows within the thresholds; it is a display filter only, every
+    # item was checked above and still drives the state and the perfdata.
     rows = [item for item in items if item['state']] if args.BRIEF else items
     for item in rows:
         item['age_hr'] = lib.human.seconds2human(item['age'])
@@ -346,68 +399,7 @@ def main():
         # replacing `[WARNING]` with an icon breaks the monospace table
         keys.append('state_hr')
         header.append('State')
-        file_msg = lib.base.get_table(rows, keys, header=header)
-    else:
-        file_msg = ''
-
-    # human-readable thresholds, so every message can name what it compared
-    # against, the way the other checks do
-    warn_hr = (
-        lib.human.seconds2human(args.WARN)
-        if isinstance(lib.base.guess_type(args.WARN), int)
-        else args.WARN
-    )
-    crit_hr = (
-        lib.human.seconds2human(args.CRIT)
-        if isinstance(lib.base.guess_type(args.CRIT), int)
-        else args.CRIT
-    )
-
-    if state == STATE_OK:
-        if warn_count == 0 and crit_count == 0:
-            msg = (
-                f'Everything is ok. {file_count}'
-                f' {lib.txt.pluralize("item", file_count)}'
-                f' checked, all within the specified'
-                f' count ({args.WARN_COUNT}/{args.CRIT_COUNT})'
-                f' and time ({warn_hr}/{crit_hr}) range.\n\n'
-            ) + file_msg
-        else:
-            msg = (
-                f'Everything is ok. {file_count}'
-                f' {lib.txt.pluralize("item", file_count)}'
-                f' checked. All within the specified'
-                f' count range, but {warn_count}'
-                f' outside "{warn_hr}" time range,'
-                f' and {crit_count}'
-                f' outside "{crit_hr}" time range.'
-                f'\n\n'
-            ) + file_msg
-    else:
-        msg = (
-            f'{warn_count}'
-            f' {lib.txt.pluralize("item", warn_count)}'
-            f' outside count range "{args.WARN_COUNT}"'
-            f' and outside "{warn_hr}" time range.'
-            f' {crit_count}'
-            f' {lib.txt.pluralize("item", crit_count)}'
-            f' outside count range "{args.CRIT_COUNT}"'
-            f' and outside "{crit_hr}" time range.'
-            f' {file_count}'
-            f' {lib.txt.pluralize("item", file_count)}'
-            f' checked. \n\n'
-        ) + file_msg
-
-    # calc perfdata if requested
-    perfdata = ''
-    if args.PERFDATA_MODE == 'mean' and len(ages) > 0:
-        perfdata += lib.base.get_perfdata(
-            label='mean-ages', value=round(statistics.mean(ages), 3), uom='s'
-        )
-    elif args.PERFDATA_MODE == 'median' and len(ages) > 0:
-        perfdata += lib.base.get_perfdata(
-            label='median-ages', value=round(statistics.median(ages), 3), uom='s'
-        )
+        msg += '\n\n' + lib.base.get_table(rows, keys, header=header)
 
     # over and out
     lib.base.oao(

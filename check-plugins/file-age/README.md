@@ -10,7 +10,7 @@ This plugin is part of the file plugin group. Selecting files with globs, readin
 **Important Notes:**
 
 * Thresholds support Nagios ranges (e.g. `15:` to alert when files are *younger* than 15 seconds, or `10` for a simple upper bound)
-* The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate
+* The `--warning-count` and `--critical-count` thresholds control how many files may exceed the age thresholds before the check alerts. This allows monitoring whether an application produces or removes files at the expected rate. When one of them is set, the plugin output names it, so a `3:` that alerts because too *few* files are fresh does not read as one file being too old
 * `--brief` hides the rows within the thresholds, `--lengthy` adds the absolute modification time as a column. The two combine, and neither changes the state or the performance data.
 
 **Data Collection:**
@@ -62,11 +62,14 @@ options:
                         alerting are unaffected: every item still emits
                         performance data and still drives the overall check
                         state, so this is safe to leave on.
-  -c, --critical CRIT   CRIT threshold for file age in seconds. Default: >=
-                        31536000 (365d).
+  -c, --critical CRIT   CRIT threshold for the file age in seconds. Supports
+                        Nagios ranges. Example: `20:` alerts if a file is
+                        younger than 20 seconds. Default: 31536000 (365 days)
   --critical-count CRIT_COUNT
-                        CRIT threshold for the number of files exceeding the
-                        critical age. Default: > 0.
+                        CRIT threshold for the number of files outside the
+                        critical age. Supports Nagios ranges. Example: `2:`
+                        alerts if fewer than 2 files are outside the critical
+                        age. Default: 0
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
@@ -88,11 +91,14 @@ options:
   -u, --url URL         SMB URL of the file or directory to check, starting
                         with `smb://`. Mutually exclusive with --filename.
   --username USERNAME   Username for SMB authentication.
-  -w, --warning WARN    WARN threshold for file age in seconds. Default: >=
-                        2592000 (30d).
+  -w, --warning WARN    WARN threshold for the file age in seconds. Supports
+                        Nagios ranges. Example: `15:` alerts if a file is
+                        younger than 15 seconds. Default: 2592000 (30 days)
   --warning-count WARN_COUNT
-                        WARN threshold for the number of files exceeding the
-                        warning age. Default: > 0.
+                        WARN threshold for the number of files outside the
+                        warning age. Supports Nagios ranges. Example: `3:`
+                        alerts if fewer than 3 files are outside the warning
+                        age. Default: 0
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/
@@ -126,7 +132,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-age/
 Output with the default thresholds:
 
 ```text
-Everything is ok. 3 items checked, all within the specified count (0/0) and time (1M/1Y) range.
+Everything is ok. Age of 3 items checked, all in (0s..1M).
 
 File                  ! Age      ! State
 ----------------------+----------+------
@@ -135,14 +141,14 @@ File                  ! Age      ! State
 /tmp/test/file-today  ! 256ms    ! [OK]
 ```
 
-Alerting on anything older than a day:
+Alerting on anything older than a day. One clause per severity, naming how many items broke its age range:
 
 ```bash
 ./file-age --filename='/tmp/test/*' --warning=86400 --critical=31536000
 ```
 
 ```text
-2 items outside count range "0" and outside "1D" time range. 0 items outside count range "0" and outside "1Y" time range. 3 items checked.
+Age of 3 items checked. 2 not in (0s..1D) [WARNING].
 
 File                  ! Age      ! State
 ----------------------+----------+----------
@@ -154,7 +160,7 @@ File                  ! Age      ! State
 The same run with `--brief`, which drops the rows within the thresholds:
 
 ```text
-2 items outside count range "0" and outside "1D" time range. 0 items outside count range "0" and outside "1Y" time range. 3 items checked.
+Age of 3 items checked. 2 not in (0s..1D) [WARNING].
 
 File                  ! Age      ! State
 ----------------------+----------+----------
@@ -174,9 +180,9 @@ File                  ! Age      ! Last Modified       ! State
 
 ## States
 
-* OK if all items are within the specified count and time ranges.
-* WARN if the number of items exceeding the warning age is outside the `--warning-count` range (default: > 0).
-* CRIT if the number of items exceeding the critical age is outside the `--critical-count` range (default: > 0).
+* OK if the number of items outside the warning and the critical age range stays within the `--warning-count` and `--critical-count` ranges.
+* WARN if the number of items outside the warning age range is outside the `--warning-count` range (default: more than 0).
+* CRIT if the number of items outside the critical age range is outside the `--critical-count` range (default: more than 0).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

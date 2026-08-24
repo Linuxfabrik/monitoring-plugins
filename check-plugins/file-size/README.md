@@ -109,7 +109,7 @@ Warn if file is greater than 25M, crit if it is greater than 1G:
 Output:
 
 ```text
-1 file checked. It is within the given size thresholds (25M/1G). Checked /var/log/coolwsd.log: 119.9KiB
+Everything is ok. Size of 1 file checked, all in (0.0B..25.0MiB). Checked /var/log/coolwsd.log: 119.9KiB
 ```
 
 Warn if files are not within 6 to 10 KB, crit if files are larger than 14 KB (plus showing the various formats):
@@ -121,7 +121,7 @@ Warn if files are not within 6 to 10 KB, crit if files are larger than 14 KB (pl
 Output:
 
 ```text
-28 files checked. 21 are outside the given size thresholds (6 KiB:10k/:14 KB).
+Size of 28 files checked. 21 not in (6.0KiB..10.0KiB) [WARNING], 10 not in (0.0B..14.0KiB) [CRITICAL].
 
 File                                   ! Size    ! State
 ---------------------------------------+---------+------------

@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082401'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
@@ -291,33 +291,37 @@ def main():
         else:
             lib.base.cu(f'The protocol "{proto}" is not supported.')
 
+    state = STATE_OK
+    if not lib.base.coe(lib.base.match_range(file_count, args.WARN)):
+        state = STATE_WARN
     if not lib.base.coe(lib.base.match_range(file_count, args.CRIT)):
         state = STATE_CRIT
-    elif not lib.base.coe(lib.base.match_range(file_count, args.WARN)):
-        state = STATE_WARN
-    else:
-        state = STATE_OK
 
-    # Without a threshold there is nothing to name, and printing "None" would read like
-    # a value the admin set.
-    thresholds = ''
-    if args.WARN is not None or args.CRIT is not None:
-        thresholds = (
-            f' (thresholds {args.WARN if args.WARN is not None else "-"}'
-            f'/{args.CRIT if args.CRIT is not None else "-"})'
-        )
+    # build the message
+    # Name the range the count broke, or the one it stayed within. Without a threshold
+    # there is nothing to name, and printing "None" would read like a value the admin
+    # set.
+    if state == STATE_CRIT:
+        spec, view = args.CRIT, 'alert'
+    elif state == STATE_WARN:
+        spec, view = args.WARN, 'alert'
+    else:
+        spec, view = (args.WARN if args.WARN is not None else args.CRIT), 'ok'
+    condition = lib.base.coe(lib.base.range2txt(spec, view=view))
+    if condition:
+        condition = f', {condition}{lib.base.state2str(state, prefix=" ")}'
 
     if exceeded_threshold:
         # Report "more than" the threshold value we broke at
         display_count = file_count - 1
         msg = (
             f'Found more than {display_count} matching '
-            f'{lib.txt.pluralize("file", display_count)}{thresholds}'
+            f'{lib.txt.pluralize("file", display_count)}{condition}'
         )
     else:
         msg = (
             f'Found {file_count} matching '
-            f'{lib.txt.pluralize("file", file_count)}{thresholds}'
+            f'{lib.txt.pluralize("file", file_count)}{condition}'
         )
 
     perfdata = lib.base.get_perfdata(
