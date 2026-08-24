@@ -34,6 +34,8 @@ Some repositories use [pre-commit](https://pre-commit.com/) for automated lintin
 pre-commit install
 ```
 
+The hooks only see staged files, so a file nobody edits is never checked. Running them over everything with `pre-commit run --all-files` is therefore a repository-wide rewrite, and it belongs in a commit of its own: the last one arrived inside an unrelated change and its damage surfaced weeks later. The `Linuxfabrik: Apply pre-commit hooks repository-wide` workflow does that run whenever the hook configuration changes and opens a pull request for it, so there is normally nothing left to do by hand.
+
 
 ### Commit Messages
 

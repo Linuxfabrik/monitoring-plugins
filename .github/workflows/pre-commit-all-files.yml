@@ -1,0 +1,65 @@
+name: 'Linuxfabrik: Apply pre-commit hooks repository-wide'
+
+# The hooks only ever see staged files, so a file nobody edits is never checked.
+# A hook added or bumped months ago then reaches hundreds of files the first time
+# someone runs it by hand, and that diff lands in whatever commit that person was
+# working on. It happened once already: a repository-wide run rewrote 827 files
+# under a commit message about renaming a workflow, and four plugin test suites
+# failed weeks later on fixtures the hooks had normalised.
+#
+# So the sweep runs here instead, as soon as the hook configuration changes, and
+# arrives as a pull request of its own that someone reads.
+
+on:
+  push:
+    branches: ['main']
+    paths: ['.pre-commit-config.yaml']
+  workflow_dispatch: {}
+
+permissions: read-all
+
+jobs:
+  apply:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Generate app token'
+        id: 'app-token'
+        uses: 'actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1' # v3.2.0
+        with:
+          client-id: '${{ vars.LF_AUTOMATION_CLIENT_ID }}'
+          private-key: '${{ secrets.LF_AUTOMATION_APP_PRIVATE_KEY }}'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          token: '${{ steps.app-token.outputs.token }}'
+
+      - name: 'Set up Python'
+        uses: 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97' # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: 'Install pre-commit'
+        run: 'pip install --require-hashes --requirement .github/pre-commit/requirements.txt'
+
+      # The linting hooks report findings the fixing hooks cannot repair, and this
+      # workflow is not about those, so their exit code is ignored. What matters is
+      # what the fixing hooks wrote, which the next step turns into a pull request.
+      # Nothing to fix means no pull request.
+      - name: 'Run every hook against every file'
+        run: 'pre-commit run --all-files || true'
+
+      - name: 'Create Pull Request'
+        uses: 'peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1' # v8
+        with:
+          token: '${{ steps.app-token.outputs.token }}'
+          commit-message: 'style: apply pre-commit hooks repository-wide'
+          title: 'style: apply pre-commit hooks repository-wide'
+          body: |
+            The hook configuration changed, so every file went through the hooks.
+
+            Read the diff before merging. Unit-test fixtures and vendored vendor
+            files are verbatim captures and are excluded from the whitespace
+            hooks, so any file of that kind showing up here means an exclusion is
+            missing rather than a file needing a fix.
+          branch: 'style/pre-commit-all-files'
