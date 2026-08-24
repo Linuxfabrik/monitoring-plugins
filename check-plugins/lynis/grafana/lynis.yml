@@ -115,6 +115,36 @@ spec:
         operator: '='
         value: hosts_total
 
+    - alias: hosts_reachable
+      refId: hosts_reachable
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: hosts_reachable
+
     - alias: hosts_audited
       refId: hosts_audited
       groupBy:

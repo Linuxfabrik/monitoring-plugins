@@ -40,6 +40,7 @@ Monitoring Plugins:
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 * file-age, file-count, file-growth, file-size: the summary line names the range a file broke in plain words (`2 not in (0s..2D) [WARNING]`) instead of repeating the threshold syntax
 * kvm-vm: reports a machine set to start with the host but not running, and no longer needs root, so it is gone from the sudoers allowlist
+* lynis: alerts when no host was audited and says why, and counts answering hosts apart from probed addresses
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`, and keep working
 * nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 

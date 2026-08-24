@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import collections
 import concurrent.futures
 import os
 import re
@@ -27,23 +28,26 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026082401'
 
 DESCRIPTION = """Runs a full security audit across the hosts of a subnet and reports each host's
 hardening posture. From a single management host it discovers the targets (the subnet of the
 default interface, a chosen interface, or an explicit host list), connects to each one over SSH,
 copies a self-contained copy of the audit tool over, runs a privileged system audit (root via
 password-less sudo by default), retrieves the machine-readable report, and removes its temporary
-files. A host that does not answer within the connect timeout is skipped. The check is meant to run
-at most once per day; the worst per-host result determines the overall state. Security posture is
-informational drift rather than a time-critical availability event, so by default only WARNING is
-raised."""
+files. A host that does not answer within the connect timeout is skipped, and the summary keeps
+the addresses probed apart from the hosts that answered. The check is meant to run at most once
+per day; the worst per-host result determines the overall state. Alerts when a host is below the
+hardening index threshold or reports a lynis warning, and when the scan audited no host at all,
+naming why the targets did not answer. Security posture is informational drift rather than a
+time-critical availability event, so by default only WARNING is raised."""
 
 DEFAULT_AUDIT_TIMEOUT = 600
 DEFAULT_CONNECT_TIMEOUT = 3
 DEFAULT_CRIT = ''
 DEFAULT_LENGTHY = False
 DEFAULT_MAX_WORKERS = 10
+DEFAULT_NO_MATCH_SEVERITY = 'warn'
 DEFAULT_PORT = 22
 DEFAULT_WARN = '65:'
 
@@ -326,6 +330,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -516,28 +528,52 @@ def build_lynis_command(args, base_dir):
     return ' '.join(parts)
 
 
+def connect_reason(text):
+    """Reduce ssh's own error output for one target to a single comparable
+    reason, so identical causes can be counted across targets. ssh prefixes the
+    reason with its own name and with the target it tried ("ssh: connect to host
+    192.0.2.1 port 22: Connection timed out") and prints a multi-line block
+    before the decisive line (for example on a changed host key), so the prefix
+    is dropped and the last meaningful line wins.
+    """
+    reason = ''
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.lower().startswith(('warning:', 'debug')):
+            continue
+        reason = line
+    reason = re.sub(r'^ssh: (?:connect to host \S+ port \d+: )?', '', reason)
+    return reason[:200] if reason else 'no answer on SSH'
+
+
 def probe_host(host, args, ssh_opts):
-    """Attempt an SSH connection to `host` and run a trivial command. Returns:
+    """Attempt an SSH connection to `host` and run a trivial command. Returns a
+    (status, reason) tuple, where status is one of:
     - 'ok'   : connected and authenticated, ready to audit
     - 'auth' : host answered on SSH but authentication failed (wrong user/key);
                typical when auto-discovery probes a raw IP that has no matching
                `~/.ssh/config` host alias
     - 'down' : host did not answer (no SSH, filtered, or connect timeout)
+    The reason carries ssh's own wording for a 'down' target, so an address that
+    simply has no host behind it can be told apart from a target that is
+    unreachable because of a configuration problem (changed host key,
+    unresolvable name, missing `ssh`/`sshpass` binary, ...).
     """
     lib.base.verbose(args.VERBOSE, f'{host}: probing SSH connection...')
     success, result = ssh_exec(host, args, ssh_opts, 'true')
     if success and result[2] == 0:
         lib.base.verbose(args.VERBOSE, f'{host}: reachable')
-        return 'ok'
+        return ('ok', '')
     stderr = result[1] if success else str(result)
     if 'permission denied' in stderr.lower():
         lib.base.verbose(
             args.VERBOSE,
             f'{host}: SSH reachable but authentication failed, skipping audit',
         )
-        return 'auth'
-    lib.base.verbose(args.VERBOSE, f'{host}: not reachable, skipping')
-    return 'down'
+        return ('auth', '')
+    reason = connect_reason(stderr)
+    lib.base.verbose(args.VERBOSE, f'{host}: not reachable ({reason}), skipping')
+    return ('down', reason)
 
 
 def prepare_lynis_source(source):
@@ -862,20 +898,23 @@ def main():
 
         def process_host(host):
             """Probe and (if reachable and authenticated) audit one host.
-            Returns a (host, success, result) tuple, or None to skip the host.
+            Returns a (host, outcome, result) tuple, where outcome is 'ok' for an
+            audited host, 'failed' for a host that answered on SSH but could not
+            be audited, and 'down' for an address that did not answer at all
+            (result then carries ssh's reason).
             A failure on a single host must never abort the whole subnet scan,
             so any unexpected error is caught and reported as that host's
             result instead of propagating out of the worker pool.
             """
             try:
-                status = probe_host(host, args, ssh_opts)
+                status, reason = probe_host(host, args, ssh_opts)
                 if status == 'down':
-                    return None
+                    return (host, 'down', reason)
                 if status == 'auth':
                     # host is up on SSH but we could not authenticate; surface
                     # it instead of silently skipping, so wrong credentials are
                     # visible
-                    return (host, False, 'SSH authentication failed')
+                    return (host, 'failed', 'SSH authentication failed')
                 success, result = audit_host(host, args, ssh_opts, base_dir, lynis_cmd)
                 if success:
                     report = parse_report(result)
@@ -885,19 +924,17 @@ def main():
                     )
                 else:
                     lib.base.verbose(args.VERBOSE, f'{host}: audit failed ({result})')
-                return (host, success, result)
+                return (host, 'ok' if success else 'failed', result)
             except Exception as exc:  # isolate per-host failures from the scan
                 lib.base.verbose(args.VERBOSE, f'{host}: audit failed ({exc})')
-                return (host, False, f'audit error: {exc}')
+                return (host, 'failed', f'audit error: {exc}')
 
         try:
             # Audit hosts in parallel. map() preserves the input order, so the
             # output table is deterministic regardless of completion order.
             workers = max(1, min(args.MAX_WORKERS, len(targets))) if targets else 1
             with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-                for entry in pool.map(process_host, targets):
-                    if entry is not None:
-                        results.append(entry)
+                results.extend(pool.map(process_host, targets))
         finally:
             if tmp_dir is not None and lib.disk.dir_exists(tmp_dir):
                 lib.disk.rm_dir(tmp_dir)
@@ -905,7 +942,7 @@ def main():
         # do not connect, put in test data
         stdout, _, _ = lib.lftest.test(args.TEST)
         targets = ['203.0.113.1']
-        results = [('203.0.113.1', True, stdout)]
+        results = [('203.0.113.1', 'ok', stdout)]
 
     # init some vars
     msg = ''
@@ -913,6 +950,8 @@ def main():
     perfdata = ''
     table_data = []
     audited = 0
+    reachable = 0
+    unreachable = collections.Counter()
     total_warnings = 0
     total_suggestions = 0
 
@@ -921,8 +960,16 @@ def main():
     # replaces "[WARNING]" with an icon and would otherwise break a monospace
     # table where the marked column is not the last one.
     profile_label = args.LYNIS_PROFILE if args.LYNIS_PROFILE else 'default'
-    for host, success, result in results:
-        if not success:
+    for host, outcome, result in results:
+        if outcome == 'down':
+            # An address that does not answer on SSH is not a host, so it must
+            # not show up as a failed one. The reason is counted instead, which
+            # is what tells a dead address apart from a target this check cannot
+            # reach because of a configuration problem.
+            unreachable[result] += 1
+            continue
+        reachable += 1
+        if outcome != 'ok':
             # no report, so no client-side hostname/IP; fall back to the target
             host_state = STATE_UNKNOWN
             state = lib.base.get_worst(state, host_state)
@@ -967,8 +1014,28 @@ def main():
         )
 
     # build the message
-    msg += f'{audited}/{len(targets)} {lib.txt.pluralize("host", len(targets))} audited'
+    # The number of targets is the number of addresses probed, not the number of
+    # hosts found: auto-discovery hands over every address of the subnet. Report
+    # both, so a scan that found nothing is not mistaken for a scan of nothing.
+    msg += f'{audited}/{reachable} {lib.txt.pluralize("host", reachable)} audited'
+    msg += (
+        f' ({len(targets)} {lib.txt.pluralize("address", len(targets), "es")} probed)'
+    )
+    if unreachable:
+        # Cap the list: a subnet scan produces one entry per dead address, and
+        # the reasons repeat.
+        top = unreachable.most_common(3)
+        listed = ', '.join(f'{count} x {reason}' for reason, count in top)
+        rest = sum(unreachable.values()) - sum(count for _, count in top)
+        if rest:
+            listed += f', {rest} more'
+        msg += f'\n\nNot reachable over SSH: {listed}'
+    if not audited:
+        # Nothing was audited, so a green result would only mean that nothing
+        # was looked at.
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
     perfdata += lib.base.get_perfdata('hosts_total', len(targets), _min=0)
+    perfdata += lib.base.get_perfdata('hosts_reachable', reachable, _min=0)
     perfdata += lib.base.get_perfdata('hosts_audited', audited, _min=0)
     perfdata += lib.base.get_perfdata('warnings', total_warnings, _min=0)
     perfdata += lib.base.get_perfdata('suggestions', total_suggestions, _min=0)

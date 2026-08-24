@@ -10,7 +10,9 @@
 
 import concurrent.futures
 import os
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -70,6 +72,51 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestNothingAudited(unittest.TestCase):
+    """A fixture cannot cover what the plugin does when no target answers,
+    because --test replaces the whole SSH transport. These cases point the
+    plugin at an address from the documentation range (RFC 5737) that has no
+    host behind it, which is what a subnet scan hits on almost every address.
+    """
+
+    def run_plugin(self, *params):
+        """Run the plugin against an unreachable address and return
+        (stdout, returncode).
+        """
+        with tempfile.TemporaryDirectory() as source:
+            # The plugin only requires a `lynis` executable in the given source
+            # directory, so no local lynis installation is needed here: the
+            # probe fails long before the copy would be pushed.
+            with open(os.path.join(source, 'lynis'), 'w') as file:
+                file.write('#!/bin/sh\n')
+            result = subprocess.run(
+                [
+                    '../lynis',
+                    '--host=192.0.2.1',
+                    '--connect-timeout=1',
+                    f'--lynis-source={source}',
+                    *params,
+                ],
+                capture_output=True,
+                check=False,
+                text=True,
+            )
+        return result.stdout, result.returncode
+
+    def test_warn_no_host_answered(self):
+        stdout, retc = self.run_plugin()
+        self.assertEqual(retc, STATE_WARN)
+        # the addresses probed stay apart from the hosts that answered
+        self.assertIn('0/0 hosts audited (1 address probed)', stdout)
+        # and the summary says why nothing was reached
+        self.assertIn('Not reachable over SSH:', stdout)
+
+    def test_ok_no_match_severity_overrides(self):
+        stdout, retc = self.run_plugin('--no-match-severity=ok')
+        self.assertEqual(retc, STATE_OK)
+        self.assertIn('0/0 hosts audited (1 address probed)', stdout)
 
 
 # Cross-distro container tests.

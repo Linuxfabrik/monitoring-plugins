@@ -3,7 +3,7 @@
 
 ## Overview
 
-Runs a full security audit across the hosts of a subnet and reports each host's hardening posture. From a single management host it discovers the targets (the subnet of the default interface, a chosen interface, or an explicit host list), connects to each one over SSH, copies a self-contained copy of the audit tool over, runs a privileged system audit (root via password-less sudo by default), retrieves the machine-readable report, and removes its temporary files. A host that does not answer within the connect timeout is skipped. The check is meant to run at most once per day; the worst per-host result determines the overall state. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Hosts are audited in parallel.
+Runs a full security audit across the hosts of a subnet and reports each host's hardening posture. From a single management host it discovers the targets (the subnet of the default interface, a chosen interface, or an explicit host list), connects to each one over SSH, copies a self-contained copy of the audit tool over, runs a privileged system audit (root via password-less sudo by default), retrieves the machine-readable report, and removes its temporary files. A host that does not answer within the connect timeout is skipped, and the summary keeps the addresses probed apart from the hosts that answered. The check is meant to run at most once per day; the worst per-host result determines the overall state. Alerts when a host is below the hardening index threshold or reports a lynis warning, and when the scan audited no host at all, naming why the targets did not answer. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Hosts are audited in parallel.
 
 **Important Notes:**
 
@@ -13,12 +13,15 @@ Runs a full security audit across the hosts of a subnet and reports each host's 
 * `lynis` is a script that must be executed, so the plugin uses the first target partition that is writable and not mounted `noexec` (hardened hosts often mount `/var/tmp` and `/tmp` `noexec`).
 * The copy is pushed with `rsync` when it is available on the management host (faster), otherwise with `scp -r`; neither requires `tar` on the target.
 * A security audit is posture drift, not a time-critical availability event, so by default only WARNING is raised. The default critical threshold is empty on purpose, to avoid paging someone at night for a hardening drop.
+* Auto-discovery hands over every address of the subnet, so a /24 means 254 probed addresses and only a handful of hosts. The summary reports both numbers, and a scan that audited nothing raises WARNING instead of reporting an empty success (`--no-match-severity`).
+* The management host is audited like every other target, over SSH to itself (`--host=127.0.0.1`), so it needs a running `sshd` and working key authentication for the account that runs the check.
 
 **Data Collection:**
 
 * The per-host state is the worst of: the hardening index against `--warning` / `--critical` (Nagios ranges, default warns below 65), and the presence of any lynis warning.
 * Every lynis warning raises at least WARNING. A warning is a concrete finding, not noise; accept it on the host (see Troubleshooting), not in this plugin.
 * Auto-discovery probes raw IP addresses, which do not match per-host `~/.ssh/config` aliases. For `--network` / `--interface` discovery, provide working credentials with `--username` and `--identity`.
+* Addresses that do not answer on SSH are not listed one by one, but their reasons are counted and reported (`254 x Connection timed out`). This separates an address with no host behind it from a target the check cannot reach because of a configuration problem, for example a changed host key or a name that does not resolve.
 
 
 ## Fact Sheet
@@ -47,9 +50,9 @@ usage: lynis [-h] [-V] [--always-ok] [--audit-timeout AUDIT_TIMEOUT]
              [--lynis-test LYNIS_TEST]
              [--lynis-test-category LYNIS_TEST_CATEGORY]
              [--lynis-test-group LYNIS_TEST_GROUP] [--max-workers MAX_WORKERS]
-             [--network NETWORK] [--no-perfdata] [-p PASSWORD] [--port PORT]
-             [--quiet] [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose]
-             [-w WARN]
+             [--network NETWORK] [--no-match-severity {ok,warn,crit,unknown}]
+             [--no-perfdata] [-p PASSWORD] [--port PORT] [--quiet]
+             [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose] [-w WARN]
 
 Runs a full security audit across the hosts of a subnet and reports each
 host's hardening posture. From a single management host it discovers the
@@ -58,10 +61,13 @@ explicit host list), connects to each one over SSH, copies a self-contained
 copy of the audit tool over, runs a privileged system audit (root via
 password-less sudo by default), retrieves the machine-readable report, and
 removes its temporary files. A host that does not answer within the connect
-timeout is skipped. The check is meant to run at most once per day; the worst
-per-host result determines the overall state. Security posture is
-informational drift rather than a time-critical availability event, so by
-default only WARNING is raised.
+timeout is skipped, and the summary keeps the addresses probed apart from the
+hosts that answered. The check is meant to run at most once per day; the worst
+per-host result determines the overall state. Alerts when a host is below the
+hardening index threshold or reports a lynis warning, and when the scan
+audited no host at all, naming why the targets did not answer. Security
+posture is informational drift rather than a time-critical availability event,
+so by default only WARNING is raised.
 
 options:
   -h, --help            show this help message and exit
@@ -164,6 +170,9 @@ options:
                         discovery. Can be specified multiple times. Takes
                         precedence over --interface. Example:
                         `--network=192.0.2.0/24`
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: warn
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -236,7 +245,9 @@ Accept a finding on every target (fleet-wide), controlled from the monitoring co
 Output of a subnet scan (without `--lengthy` parameter):
 
 ```text
-16/254 hosts audited
+16/16 hosts audited (254 addresses probed)
+
+Not reachable over SSH: 238 x Connection timed out
 
 Host:Report                            ! Warn ! HIdx ! State
 ---------------------------------------+------+------+----------
@@ -260,13 +271,22 @@ mail01:/var/log/lynis-report.dat       ! 0    ! 72   !
 
 A full audit takes roughly one minute per host (measured on Rocky Linux 9). Because hosts are audited in parallel (`--max-workers`, default 10), wall-clock time for a subnet is far lower: the scan above audited 16 reachable hosts out of a /24 in about 3 minutes.
 
+A scan that reached nothing, with the reason the addresses gave:
+
+```text
+0/0 hosts audited (254 addresses probed)
+
+Not reachable over SSH: 254 x Connection timed out
+```
+
 
 ## States
 
 * OK if the hardening index is within the `--warning` / `--critical` range and the host reports no lynis warnings.
 * WARN if the hardening index drops below `--warning` (default: 65), or the host reports at least one lynis warning.
+* WARN if not a single host was audited, so that a scan which checked nothing is not reported as a clean result. The reasons the addresses gave are listed with the summary. Use `--no-match-severity` to report OK, CRITICAL or UNKNOWN instead.
 * CRIT if the hardening index drops below `--critical` (empty by default, so CRIT is never raised unless a threshold is set).
-* UNKNOWN for a reachable host that could not be audited (SSH authentication failed, no executable work directory, audit produced no report, ...). Hosts that do not answer on SSH are skipped silently.
+* UNKNOWN for a reachable host that could not be audited (SSH authentication failed, no executable work directory, audit produced no report, ...).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -274,7 +294,8 @@ A full audit takes roughly one minute per host (measured on Rocky Linux 9). Beca
 
 | Name | Type | Description |
 |----|----|----|
-| hosts_total | Number | Number of target hosts considered. |
+| hosts_total | Number | Number of addresses probed. |
+| hosts_reachable | Number | Number of addresses that answered on SSH. |
 | hosts_audited | Number | Number of hosts that were successfully audited. |
 | warnings | Number | Total number of lynis warnings across all audited hosts. |
 | suggestions | Number | Total number of lynis suggestions across all audited hosts. |
@@ -286,6 +307,18 @@ Lynis reads its settings from profile files. `default.prf` is the default profil
 
 
 ## Troubleshooting
+
+### The scan audited no host
+
+```text
+0/0 hosts audited (254 addresses probed)
+```
+
+Every address was probed and none of them answered on SSH, so nothing was audited and the check reports WARNING. The reasons the addresses gave are listed right below the summary, so read them first.
+
+`Connection timed out` or `No route to host` on every address of a subnet usually means the scan is pointed at the wrong network, or that SSH is filtered between the management host and the targets. `Connection refused` means something answered at that address but nothing listens on the SSH port, so check `--port`. `Host key verification failed` means the target's host key is unknown or has changed for the account running the check; verify the key and update that account's `known_hosts`. `Could not resolve hostname` names a target that DNS does not know.
+
+On a subnet scan, a large number of timeouts next to a handful of audited hosts is normal: a /24 has 254 addresses and rarely 254 hosts.
 
 ### `SSH authentication failed`
 
