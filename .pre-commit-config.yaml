@@ -20,8 +20,15 @@ repos:
       - id: 'check-added-large-files'
       - id: 'check-merge-conflict'
       - id: 'check-yaml'
+      # Unit-test fixtures are verbatim captures of what a command, an endpoint or a
+      # configuration file really contains, down to a missing trailing newline or a
+      # line carrying a single space. Both are what the test asserts on, so neither
+      # hook may normalise them. Vendor MIBs are shipped as received for the same
+      # reason: a diff against the vendor's own file has to stay empty.
       - id: 'end-of-file-fixer'
+        exclude: '/unit-test/(config|fixtures|retc|stderr|stdout|wordpress)/|/device-mibs/'
       - id: 'trailing-whitespace'
+        exclude: '/unit-test/(config|fixtures|retc|stderr|stdout|wordpress)/|/device-mibs/'
 
   - repo: 'https://github.com/astral-sh/ruff-pre-commit'
     rev: 'v0.16.4'
