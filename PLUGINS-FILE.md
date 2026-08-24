@@ -243,45 +243,6 @@ sudoers file, so create your own in the Icinga Director. Do not edit the shipped
 basket files.
 
 
-## When sudo asks for a password
-
-A check command that prepends `/usr/bin/sudo` without a matching sudoers entry
-never reaches the plugin. What the monitoring server gets is sudo's own output,
-including its lecture about respecting the privacy of others:
-
-```text
-sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
-sudo: a password is required
-```
-
-sudo exits 1 for this, so the service goes WARNING rather than UNKNOWN and
-looks like an alert about the files, while nothing about them was checked at
-all.
-
-The cause is always that sudo found no entry matching this exact call. The file
-plugins are not in the shipped sudoers file (see above), and an entry of your
-own matches only when every argument is identical to what the check command
-generates, in the same order. A threshold changed in the Icinga Director or one
-more parameter set on the service is enough to stop it from matching.
-
-Reproduce it as the monitoring user, where `--non-interactive` turns the
-password prompt into an immediate error:
-
-```bash
-sudo --user=icinga sudo --non-interactive /usr/lib64/nagios/plugins/file-age --filename /backup/myapp/*
-```
-
-Then either write the sudoers entry with every argument pinned as described
-above, or drop the sudo call and open the path for the monitoring user with an
-ACL. Reading file metadata needs no read permission on the files themselves,
-only the right to traverse the directories above them, so a check on the age,
-size or count of a file often comes down to one `x` bit:
-
-```bash
-setfacl --modify=u:icinga:rx /backup /backup/myapp
-```
-
-
 ## Worked example: a file only root can reach
 
 Say you want to alert when `/var/log/audit/audit.log` grows past a size. The
@@ -311,3 +272,63 @@ set the threshold just under `max_log_file` so it catches rotation having
 stopped, or watch the thing you actually care about: `file-count` on
 `/var/log/audit/*.log` to see whether rotation is keeping up, or
 `systemd-unit` on `auditd.service`.
+
+
+## When sudo asks for a password
+
+A check command that prepends `/usr/bin/sudo` without a matching sudoers entry
+never reaches the plugin. What the monitoring server gets is sudo's own output,
+including its lecture about respecting the privacy of others:
+
+```text
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+```
+
+sudo exits 1 for this, so the service goes WARNING rather than UNKNOWN and
+looks like an alert about the files, while nothing about them was checked at
+all. The plugin never ran, which is why nothing you change about the files has
+any effect here: an ACL granted while the check command still calls sudo leaves
+the output exactly as it was.
+
+The cause is always that sudo found no entry matching this exact call. Two
+things lead there:
+
+* **The service uses a `-sudo` check command.** The file checks ship no such
+  variant and the plugins are not in the shipped sudoers file (see above). A
+  service set up against an earlier release keeps the command it was given
+  until you point it elsewhere, so an upgrade turns it into this error.
+* **A sudoers entry of your own stopped matching.** It matches only when every
+  argument is identical to what the check command generates, in the same order.
+  A threshold changed in the Icinga Director or one more parameter set on the
+  service is enough.
+
+Compare the command Icinga runs, shown on the service in Icinga Web 2, against
+your sudoers entry argument by argument. Reproduce it as the monitoring user,
+where `--non-interactive` turns the password prompt into an immediate error:
+
+```bash
+sudo --user=icinga sudo --non-interactive /usr/lib64/nagios/plugins/file-age --filename '/backup/myapp/*'
+```
+
+Then take one of the two routes out.
+
+**Drop the sudo call and open the path with an ACL.** Point the service at the
+shipped check command, the one without `/usr/bin/sudo`, and deploy. Reading
+file metadata needs no read permission on the files themselves, only the right
+to traverse the directories above them, so a check on the age, size or count of
+a file often comes down to one `x` bit:
+
+```bash
+setfacl --modify=u:icinga:rx /backup /backup/myapp
+```
+
+Confirm as the monitoring user, this time without sudo, before you deploy:
+
+```bash
+sudo --user=icinga /usr/lib64/nagios/plugins/file-age --filename '/backup/myapp/*'
+```
+
+**Keep sudo and pin every argument** as described above. Reach for this only
+when the path cannot be opened up at all, and expect to edit the sudoers entry
+every time a threshold on that service changes.
