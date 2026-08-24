@@ -40,7 +40,8 @@ Typical subjects are hardware support contracts, insurance policies, domain regi
 
 ## Help
 
-```textusage: countdown [-h] [-V] [--always-ok] --input INPUT [--lengthy]
+```text
+usage: countdown [-h] [-V] [--always-ok] --input INPUT [--lengthy]
                  [--no-perfdata]
 
 Counts down to one or more user-defined expiration dates, such as certificate
