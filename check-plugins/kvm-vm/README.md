@@ -93,11 +93,11 @@ Output:
 4 VMs: 1 running, 3 shut off
 
 VM Name     ! Autostart ! Persistent ! State
-------------+-----------+------------+---------
-debian13    ! no        ! yes        ! shut off
-fedora43    ! no        ! yes        ! shut off
-mailstore01 ! yes       ! yes        ! shut off
-nextcloud01 ! yes       ! yes        ! running
+------------+-----------+------------+---------------
+debian13    ! no        ! yes        ! shut off [OK]
+fedora43    ! no        ! yes        ! shut off [OK]
+mailstore01 ! yes       ! yes        ! shut off [OK]
+nextcloud01 ! yes       ! yes        ! running [OK]
 ```
 
 A machine that is set to start with the host and is not running:

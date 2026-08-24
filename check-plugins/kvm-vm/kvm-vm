@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026082402'
 
 DESCRIPTION = """Lists the virtual machines of a libvirt host and checks the state of each
 one. Alerts if a machine has crashed, is paused, idle or suspended by guest power
@@ -230,7 +230,8 @@ def main():
                 'autostart': 'yes' if name in autostart else 'no',
                 'name': name,
                 'persistent': 'yes' if name in persistent else 'no',
-                'state': f'{domain_state}{lib.base.state2str(item_state, prefix=" ")}',
+                'state': f'{domain_state} '
+                f'{lib.base.state2str(item_state, empty_ok=False)}',
             }
         )
 
