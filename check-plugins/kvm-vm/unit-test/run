@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures hold `virsh domstats --state` output. Three of them were captured
+# from a live host running libvirt 12.0.0:
+#
+#   eleven-domains-one-running          a hypervisor with one machine up
+#   no-domains                          a host libvirt knows no machine on
+#   paused-domain-and-name-with-spaces  a suspended machine, and a machine whose
+#                                       name contains spaces, which libvirt allows
+#
+# The remaining two carry a state that cannot be produced on demand. Their layout
+# is the captured one, only the reported state differs:
+#
+#   crashed-domain  state 6, the one state the check reports CRITICAL
+#   unknown-state   state 8, one past libvirt's current enumeration, standing in
+#                   for a state a later libvirt release adds
+TESTS = [
+    {
+        'id': 'ok-all-machines-in-expected-state',
+        'test': 'stdout/eleven-domains-one-running,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['11 VMs: 1 running, 10 shut off'],
+    },
+    {
+        # The state belongs at the end of the row: a web interface replaces
+        # `[WARNING]` with an icon and would break the column alignment anywhere
+        # else.
+        'id': 'ok-state-is-the-last-column',
+        'test': 'stdout/eleven-domains-one-running,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'!\s+State\s*\n[-+]+\n',
+    },
+    {
+        'id': 'ok-no-machines-at-all',
+        'test': 'stdout/no-domains,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No virtual machines found.'],
+    },
+    {
+        # A machine whose name contains a space used to end the check with a stack
+        # trace, because the name was recovered by splitting a table row on
+        # whitespace.
+        'id': 'warn-name-with-spaces',
+        'test': 'stdout/paused-domain-and-name-with-spaces,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['lf test vm'],
+    },
+    {
+        'id': 'warn-paused-machine',
+        'test': 'stdout/paused-domain-and-name-with-spaces,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'paused\s+\[WARNING\]',
+    },
+    {
+        'id': 'crit-crashed-machine',
+        'test': 'stdout/crashed-domain,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'crashed\s+\[CRITICAL\]',
+    },
+    {
+        # A state libvirt adds later is named by its number and reported, rather
+        # than silently counted as if everything were fine.
+        'id': 'warn-state-outside-the-known-enumeration',
+        'test': 'stdout/unknown-state,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['state 8'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/crashed-domain,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'crashed\s+\[CRITICAL\]',
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and the
+        # exit code: the CRIT state is still reported.
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/crashed-domain,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'ok-match-keeps-machine',
+        'test': 'stdout/crashed-domain,,0',
+        'params': '--match=nextcloud01',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['mailstore01'],
+    },
+    {
+        # --ignore wins over --match, so the machine is dropped even though it
+        # matches both.
+        'id': 'ok-ignore-drops-machine',
+        'test': 'stdout/crashed-domain,,0',
+        'params': '--match=mailstore01 --ignore=mailstore01',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['mailstore01'],
+    },
+    {
+        # Filtering every machine away is a different situation from a host that
+        # has none, and the message says which one it is.
+        'id': 'ok-everything-filtered-out',
+        'test': 'stdout/eleven-domains-one-running,,0',
+        'params': '--ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', '11 virtual machines are filtered out'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/eleven-domains-one-running,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/eleven-domains-one-running,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-vm'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

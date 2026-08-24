@@ -5,11 +5,28 @@
                 "--always-ok": {
                     "set_if": "$kvm_vm_always_ok$"
                 },
+                "--ignore": {
+                    "value": "$kvm_vm_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$kvm_vm_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$kvm_vm_no_match_severity$"
+                },
                 "--no-perfdata": {
                     "set_if": "$kvm_vm_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$kvm_vm_timeout$"
+                },
+                "--url": {
+                    "value": "$kvm_vm_url$"
                 }
             },
-            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/kvm-vm",
+            "command": "/usr/lib64/nagios/plugins/kvm-vm",
             "disabled": false,
             "fields": [
                 {
@@ -19,6 +36,31 @@
                 },
                 {
                     "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -64,7 +106,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Lists all virtual machines on a KVM host using \"virsh list\" and checks their states. Alerts on VMs that are not in the expected running state. Reports VM name, state, autostart configuration, and persistent status. Requires root or sudo.",
+            "notes": "Lists the virtual machines of a libvirt host and checks the state of each one. Alerts if a machine has crashed, is paused, idle or suspended by guest power management, and if a machine that is configured to start together with the host is not running. Runs without root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-vm/",
             "object_name": "tpl-service-kvm-vm",
             "object_type": "template",
@@ -76,11 +118,49 @@
             "vars": {
                 "criticality": "A",
                 "kvm_vm_always_ok": false,
-                "kvm_vm_no_perfdata": false
+                "kvm_vm_ignore": [],
+                "kvm_vm_match": [],
+                "kvm_vm_no_match_severity": "ok",
+                "kvm_vm_no_perfdata": false,
+                "kvm_vm_timeout": 8,
+                "kvm_vm_url": "qemu:///system"
             },
             "volatile": null,
             "zone": null,
             "uuid": "c29973ca-c785-4029-b147-228a3d7b9a0f"
+        }
+    },
+    "DataList": {
+        "kvm_vm_no_match_severity_list": {
+            "list_name": "kvm_vm_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "b872f668-8c6d-425b-b375-c43d61483ffb"
         }
     },
     "Datafield": {
@@ -94,6 +174,41 @@
             "uuid": "7437e68e-888c-434c-b205-98052040ec9f"
         },
         "2": {
+            "varname": "kvm_vm_ignore",
+            "caption": "KVM VM: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "74754461-cc1c-4d0d-bae8-3785a464ba35"
+        },
+        "3": {
+            "varname": "kvm_vm_match",
+            "caption": "KVM VM: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "66040377-04c0-48f7-a8ee-392ab3251872"
+        },
+        "4": {
+            "varname": "kvm_vm_no_match_severity",
+            "caption": "KVM VM: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "kvm_vm_no_match_severity_list"
+            },
+            "uuid": "9949b47a-e4de-47e5-92bb-cf2992793fad"
+        },
+        "5": {
             "varname": "kvm_vm_no_perfdata",
             "caption": "KVM VM: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -101,6 +216,28 @@
             "format": null,
             "settings": {},
             "uuid": "297647f0-e538-4a74-a2b2-b676dd63cb9a"
+        },
+        "6": {
+            "varname": "kvm_vm_timeout",
+            "caption": "KVM VM: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "01827789-b024-48cf-8005-805d0313686c"
+        },
+        "7": {
+            "varname": "kvm_vm_url",
+            "caption": "KVM VM: URL",
+            "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent. Only QEMU/KVM connections report the data this check needs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "86546e08-237c-4d25-95a4-423bd3e881b1"
         }
     }
 }

@@ -15,16 +15,29 @@ import sys
 
 import lib.args
 import lib.base
-import lib.shell
+import lib.kvm
+import lib.lftest
+import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082401'
 
-DESCRIPTION = """Lists all virtual machines on a KVM host using "virsh list" and checks their states.
-Alerts on VMs that are not in the expected running state. Reports VM name, state,
-autostart configuration, and persistent status.
-Requires root or sudo."""
+DESCRIPTION = """Lists the virtual machines of a libvirt host and checks the state of each
+one. Alerts if a machine has crashed, is paused, idle or suspended by guest power
+management, and if a machine that is configured to start together with the host is not
+running. Runs without root or sudo."""
+
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
+DEFAULT_URL = lib.kvm.DEFAULT_URI
+
+# How each of libvirt's domain states is judged. Everything this does not name is
+# reported WARN, which covers the states below and any state libvirt appends to its
+# enumeration later: an unrecognised state is worth a look, and saying so beats
+# passing it over in silence.
+CRIT_STATES = ('crashed',)
+OK_STATES = ('in shutdown', 'running', 'shut off')
 
 
 def parse_args():
@@ -49,6 +62,31 @@ def parse_args():
         action='store_true',
         default=False,
     )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
     parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
@@ -57,8 +95,43 @@ def parse_args():
         default=False,
     )
 
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='libvirt connection URI, passed to `virsh --connect`. '
+        'Use `qemu+ssh://user@host/system` to check a host that runs no local '
+        'monitoring agent. '
+        'Only QEMU/KVM connections report the data this check needs. '
+        'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_severity(domain_state):
+    """Return the state to report for one of libvirt's domain states."""
+    if domain_state in CRIT_STATES:
+        return STATE_CRIT
+    if domain_state in OK_STATES:
+        return STATE_OK
+    return STATE_WARN
 
 
 def main():
@@ -70,130 +143,155 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     # fetch data
-    stdout, stderr, retc = lib.base.coe(
-        lib.shell.shell_exec(['virsh', 'list', '--all']),
-    )
-    if stderr or retc != 0:
-        lib.base.oao(f'{stderr}', STATE_WARN)
-    # we got a VM list and their states - strip first two header and last two empty rows
-    vm_list = stdout.strip().split('\n')[2:]
+    if args.TEST is None:
+        # `domstats` reports every domain, running or not, and quotes the domain
+        # name, so a name containing a space stays readable. Autostart and
+        # persistence are not part of it and are asked for separately.
+        domstats = lib.base.coe(
+            lib.kvm.get_domstats(
+                uri=args.URL,
+                groups=['state'],
+                running_only=False,
+                timeout=args.TIMEOUT,
+            )
+        )
+        autostart = set(
+            lib.base.coe(
+                lib.kvm.get_domains(
+                    uri=args.URL,
+                    filters=['autostart'],
+                    timeout=args.TIMEOUT,
+                )
+            )
+        )
+        persistent = set(
+            lib.base.coe(
+                lib.kvm.get_domains(
+                    uri=args.URL,
+                    filters=['persistent'],
+                    timeout=args.TIMEOUT,
+                )
+            )
+        )
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        domstats = lib.kvm.parse_domstats(stdout)
+        autostart = set()
+        persistent = set()
 
     # init some vars
+    counts = {}
+    msg = ''
+    not_running = []
     perfdata = ''
     state = STATE_OK
     table_data = []
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
 
-    # count the VM states
-    running, idle, paused, in_shutdown, shut_off, crashed, pmsuspended = (
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-    )
-    if vm_list:
-        for vm in vm_list:
-            vm = ' '.join(
-                vm.replace('shut off', 'shut_off')
-                .replace('in shutdown', 'in_shutdown')
-                .split()
-            )
-            vm_id, vm_name, vm_state = vm.split(' ')
-            table_data.append(
-                {
-                    'vm_id': vm_id,
-                    'vm_name': vm_name,
-                    'vm_state': vm_state,
-                }
-            )
+    # analyze data
+    for name in sorted(domstats):
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
 
-            running += 1 if vm_state == 'running' else 0
-            idle += 1 if vm_state == 'idle' else 0
-            paused += 1 if vm_state == 'paused' else 0
-            in_shutdown += 1 if vm_state == 'in_shutdown' else 0
-            shut_off += 1 if vm_state == 'shut_off' else 0
-            crashed += 1 if vm_state == 'crashed' else 0
-            pmsuspended += 1 if vm_state == 'pmsuspended' else 0
+        # A state libvirt does not name is reported by its number instead of being
+        # dropped, so a value added to the enumeration later still shows up.
+        state_id = domstats[name].get('state.state')
+        domain_state = lib.kvm.DOMAIN_STATES.get(state_id, f'state {state_id}')
+        counts[domain_state] = counts.get(domain_state, 0) + 1
 
-        msg = 'VMs: '
-        if running:
-            # build the message
-            msg += f'{running} running, '
-        if shut_off:
-            msg += f'{shut_off} shut_off, '
-        if in_shutdown:
-            msg += f'{in_shutdown} in_shutdown, '
+        item_state = get_severity(domain_state)
+        state = lib.base.get_worst(state, item_state)
 
-        if idle:
-            msg += f'{idle} idle (WARN), '
-            state = lib.base.get_worst(state, STATE_WARN)
-        if paused:
-            msg += f'{paused} paused (WARN), '
-            state = lib.base.get_worst(state, STATE_WARN)
-        if pmsuspended:
-            msg += f'{pmsuspended} pmsuspended (WARN), '
+        # A machine set to start with the host and yet not running is the one case
+        # a plain state count cannot show: "shut off" is a perfectly normal state
+        # for every other machine on the host.
+        autostart_down = name in autostart and domain_state != 'running'
+        if autostart_down:
+            not_running.append(name)
+            item_state = lib.base.get_worst(item_state, STATE_WARN)
             state = lib.base.get_worst(state, STATE_WARN)
 
-        if crashed:
-            msg += f'{crashed} crashed (CRIT), '
-            state = lib.base.get_worst(state, STATE_CRIT)
-        msg = msg[:-2]
-    else:
-        msg = 'No VMs running.'
-    msg += '\n\n'
-
-    if table_data:
-        msg += lib.base.get_table(
-            table_data,
-            [
-                'vm_id',
-                'vm_name',
-                'vm_state',
-            ],
-            header=[
-                'ID',
-                'VM Name',
-                'State',
-            ],
+        table_data.append(
+            {
+                'autostart': 'yes' if name in autostart else 'no',
+                'name': name,
+                'persistent': 'yes' if name in persistent else 'no',
+                'state': f'{domain_state}{lib.base.state2str(item_state, prefix=" ")}',
+            }
         )
 
+    # A host that has no machines at all and a host whose machines were all filtered
+    # out look the same in the table, but they are different situations and only the
+    # second one is what `--no-match-severity` is about.
+    if not domstats:
+        lib.base.oao('No virtual machines found.', STATE_OK, always_ok=args.ALWAYS_OK)
+    if not table_data:
+        lib.base.oao(
+            f'Nothing checked. {len(domstats)} virtual machines are filtered out by '
+            f'`--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    total = len(table_data)
+    summary = ', '.join(
+        f'{counts[item]} {item}{lib.base.state2str(get_severity(item), prefix=" ")}'
+        for item in sorted(counts)
+    )
+    msg += f'{total} VM{"s" if total != 1 else ""}: {summary}'
+    if not_running:
+        msg += (
+            f'. Set to start with the host but not running: {", ".join(not_running)}'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
+
+    # Every state libvirt knows is reported, including the ones nobody is in, so a
+    # dashboard keeps a stable set of metrics instead of losing a line whenever the
+    # host happens to have no machine in that state. A state outside that
+    # enumeration deliberately gets no metric of its own, which would appear and
+    # disappear with the libvirt release; it is named in the message instead.
+    for domain_state in sorted(lib.kvm.DOMAIN_STATES.values()):
+        # A count that is a problem the moment it leaves zero carries the range `0`,
+        # so a dashboard draws the alerting line where the check draws it.
+        severity = get_severity(domain_state)
+        warn = '0' if severity == STATE_WARN else None
+        crit = '0' if severity == STATE_CRIT else None
+        perfdata += lib.base.get_perfdata(
+            f'vm_{domain_state.replace(" ", "_")}',
+            counts.get(domain_state, 0),
+            uom=None,
+            warn=warn,
+            crit=crit,
+            _min=0,
+        )
     perfdata += lib.base.get_perfdata(
-        'vm_running',
-        running,
+        'vm_autostart_down',
+        len(not_running),
+        uom=None,
+        warn='0',
         _min=0,
     )
-    perfdata += lib.base.get_perfdata(
-        'vm_idle',
-        idle,
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'vm_paused',
-        paused,
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'vm_in_shutdown',
-        in_shutdown,
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'vm_shut_off',
-        shut_off,
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'vm_crashed',
-        crashed,
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'vm_pmsuspended',
-        pmsuspended,
-        _min=0,
+
+    # build table output
+    msg += '\n\n' + lib.base.get_table(
+        table_data,
+        ['name', 'autostart', 'persistent', 'state'],
+        header=['VM Name', 'Autostart', 'Persistent', 'State'],
     )
 
     # over and out

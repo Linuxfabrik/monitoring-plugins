@@ -32,6 +32,7 @@ Monitoring Plugins:
 * countdown: reports its dates as a table, thresholds accept Nagios ranges, and days left are reported as performance data
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 * file-age, file-count, file-growth, file-size: the summary line names the range a file broke in plain words (`2 not in (0s..2D) [WARNING]`) instead of repeating the threshold syntax
+* kvm-vm: reports a machine set to start with the host but not running, and no longer needs root, so it is gone from the sudoers allowlist
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`, and keep working
 * nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 
@@ -47,6 +48,7 @@ Icinga Director:
 Grafana:
 
 * apache-httpd-status: re-import the dashboard, the metric names changed
+* kvm-vm: import the dashboard, the check ships one now
 
 ### Removed
 
@@ -68,6 +70,7 @@ Monitoring Plugins:
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing when Keycloak withholds the server info
+* kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
 
 Icinga Director:
