@@ -31,6 +31,7 @@ Monitoring Plugins:
 * apache-httpd-status: worker usage counts every busy slot, so a graceful restart no longer reads as an idle server; rates replace per-interval totals and `ExtendedStatus Off` no longer blanks most metrics
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`, and keep working
+* nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 
 Icinga Director:
 

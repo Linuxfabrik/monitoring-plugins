@@ -13,24 +13,38 @@
 import argparse
 import base64
 import json
+import re
 import sys
 
 import lib.args
 import lib.base
 import lib.human
+import lib.lftest
 import lib.txt
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082401'
 
 DESCRIPTION = """Monitors Nextcloud usage statistics via the server info API, including active user
-counts over time, file shares by category, and storage metrics."""
+counts over time, file shares by category, and storage metrics. Optionally lists the accounts
+consuming the most storage via --top, to identify who fills up the data directory. The listing is
+informative only: it never changes the state of the check and produces no performance data."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
+DEFAULT_TOP = 5
+# The account listing is answered by a different endpoint than the rest of this check, and
+# its cost grows with the number of accounts on the instance. Measured against Nextcloud
+# 33.0.3 on MariaDB 11.8: about 2.7 ms per account once every home directory exists, but
+# about 110 ms for every account whose home has never been materialised, which is what a
+# freshly synced directory looks like. 1000 fresh accounts took 85 seconds that way. The
+# budget therefore has to be far above the network timeout of the rest of the check, and is
+# kept as its own parameter so the two never have to be traded against each other. Keep it
+# below the timeout the monitoring agent grants the check.
+DEFAULT_TOP_TIMEOUT = 240
 DEFAULT_URL = 'http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info'
 DEFAULT_USERNAME = 'admin'
 
@@ -90,11 +104,40 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--top',
+        help='Number of top storage-consuming accounts to list. '
+        'Use `--top=0` to disable. '
+        'Default: %(default)s',
+        dest='TOP',
+        type=int,
+        default=DEFAULT_TOP,
+    )
+
+    parser.add_argument(
+        '--top-timeout',
+        help='Network timeout in seconds for fetching the account list used by '
+        '`--top`. Runs much longer than the timeout of the other requests, because '
+        'the endpoint answers slower the more accounts the instance has. Keep it '
+        'below the timeout the monitoring agent grants the check. '
+        'Default: %(default)s (seconds)',
+        dest='TOP_TIMEOUT',
+        type=int,
+        default=DEFAULT_TOP_TIMEOUT,
     )
 
     parser.add_argument(
@@ -116,6 +159,95 @@ def parse_args():
     return args
 
 
+def get_users_url(url):
+    """Derive the account listing endpoint from the server info endpoint. Both are OCS
+    routes below the same installation root, so the root is everything in front of the
+    `/ocs/<version>.php/` segment. The OCS version the user pointed at is carried over
+    instead of being hardcoded, so an installation reachable only via `v1.php` keeps
+    working.
+    """
+    if '/ocs/' not in url:
+        return (False, f'Cannot derive the account listing endpoint from "{url}".')
+    root, rest = url.rsplit('/ocs/', 1)
+    ocs_version = rest.split('/')[0]
+    if not re.fullmatch(r'v\d+\.php', ocs_version):
+        return (False, f'Cannot derive the account listing endpoint from "{url}".')
+    return (True, f'{root}/ocs/{ocs_version}/cloud/users/details?format=json')
+
+
+def get_accounts(result):
+    """Pick account name and storage usage out of an account listing, sorted by usage,
+    biggest first.
+
+    Nextcloud fills the `quota` object from three different code paths, and only the
+    first one carries every field: the regular one, a reduced one holding just `quota`
+    and `used` for an account whose home is not reachable, and an empty one when reading
+    the storage raised. An account without a usable `used` value is therefore skipped
+    rather than sorted in as a zero, which would park a broken account at the bottom of
+    the list and make it look empty instead of unreadable.
+    """
+    accounts = []
+    for name, data in result.get('ocs', {}).get('data', {}).get('users', {}).items():
+        quota = data.get('quota')
+        if not isinstance(quota, dict):
+            continue
+        used = quota.get('used')
+        if not isinstance(used, (int, float)) or isinstance(used, bool):
+            continue
+        # `total` is the limit including anything the instance counts on top of the
+        # quota. It is absent on the reduced path, and Nextcloud fills it with one of the
+        # negative markers of OCP\Files\FileInfo when there is no usable limit:
+        # SPACE_NOT_COMPUTED (-1), SPACE_UNKNOWN (-2), SPACE_UNLIMITED (-3). None of them
+        # can be related a usage to, so anything at or below zero counts as "no limit".
+        total = quota.get('total')
+        if not isinstance(total, (int, float)) or isinstance(total, bool) or total <= 0:
+            total = None
+        accounts.append((name, used, total))
+    accounts.sort(key=lambda item: item[1], reverse=True)
+    return accounts
+
+
+def get_top_users(url, header, args):
+    """Fetch the account listing and return it ready to be printed."""
+    success, users_url = get_users_url(url)
+    if not success:
+        return (False, users_url)
+    success, result = lib.url.fetch(
+        users_url,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        timeout=args.TOP_TIMEOUT,
+    )
+    if not success:
+        return (False, result)
+    try:
+        result = json.loads(result)
+    except Exception:
+        return (False, 'The account listing did not return a JSON object.')
+    if result.get('ocs', {}).get('meta', {}).get('status') != 'ok':
+        return (False, 'The account listing did not return an "ok" state.')
+    return (True, get_accounts(result))
+
+
+def format_top(accounts, count):
+    """Render the top storage consumers as a numbered list. An account without a quota
+    limit is printed with its usage alone, because there is nothing to relate it to.
+    """
+    if count <= 0 or not accounts:
+        return ''
+    # An instance can hold fewer accounts than asked for, so the heading counts what is
+    # actually listed below it instead of repeating the parameter.
+    listed = min(count, len(accounts))
+    lines = [f'\nTop {listed} {lib.txt.pluralize("account", listed)} by storage usage:']
+    for i, (name, used, total) in enumerate(accounts[:count], start=1):
+        line = f'{i}. {name}: {lib.human.bytes2human(used)}'
+        if total:
+            line += f' of {lib.human.bytes2human(total)} ({used / total * 100:.1f}%)'
+        lines.append(line)
+    return '\n'.join(lines) + '\n'
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -125,37 +257,63 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    if not args.URL.startswith('http'):
-        lib.base.cu('--url parameter has to start with "http://" or https://".')
-    if not args.URL.endswith('/info'):
-        lib.base.cu('--url parameter has to end in "/info".')
-    url = args.URL + '?format=json&skipApps=false'
+    # fetch data
+    accounts = []
+    top_error = ''
+    if args.TEST is None:
+        if not args.URL.startswith('http'):
+            lib.base.cu('--url parameter has to start with "http://" or https://".')
+        if not args.URL.endswith('/info'):
+            lib.base.cu('--url parameter has to end in "/info".')
+        url = args.URL + '?format=json&skipApps=false'
 
-    # Add the authentication and api request header
-    auth = f'{args.USERNAME}:{args.PASSWORD}'
-    encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
-    header = {
-        'Authorization': f'Basic {encoded_auth}',
-        'OCS-APIRequest': 'true',
-    }
-    # and get the info from the API
-    jsonst = lib.base.coe(
-        lib.url.fetch(
-            url,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            timeout=args.TIMEOUT,
+        # Add the authentication and api request header
+        auth = f'{args.USERNAME}:{args.PASSWORD}'
+        encoded_auth = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(auth)))
+        header = {
+            'Authorization': f'Basic {encoded_auth}',
+            'OCS-APIRequest': 'true',
+        }
+        # and get the info from the API
+        jsonst = lib.base.coe(
+            lib.url.fetch(
+                url,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-    )
-    try:
-        result = json.loads(jsonst)
-    except Exception:
-        lib.base.cu('ValueError: No JSON object could be decoded')
+        try:
+            result = json.loads(jsonst)
+        except Exception:
+            lib.base.cu('ValueError: No JSON object could be decoded')
 
-    if result['ocs']['meta']['status'] != 'ok':
-        lib.base.cu('Sorry, something went wrong - no "ok" state returned.')
+        if result['ocs']['meta']['status'] != 'ok':
+            lib.base.cu('Sorry, something went wrong - no "ok" state returned.')
 
+        if args.TOP > 0:
+            # The account listing is a second endpoint and answers slower the more
+            # accounts the instance has. It only feeds the informative listing at the
+            # end of the output, so a failure here is reported in place and leaves both
+            # the state and the rest of the output alone.
+            success, top_result = get_top_users(args.URL, header, args)
+            if success:
+                accounts = top_result
+            else:
+                top_error = top_result
+    else:
+        # do not call the API, put in test data. args.TEST[0] is the fixture base path;
+        # the plugin appends `-info` (the server info document) and, for scenarios that
+        # exercise `--top`, `-users` (the account listing).
+        test_base = args.TEST[0]
+        result = lib.lftest.test_json(args.TEST, f'{test_base}-info')
+        if args.TOP > 0:
+            accounts = get_accounts(
+                lib.lftest.test_json(args.TEST, f'{test_base}-users')
+            )
+
+    # analyze data
     # extract some application specific data
     nc_system_apps_num_installed = result['ocs']['data']['nextcloud']['system']['apps'][
         'num_installed'
@@ -295,8 +453,24 @@ def main():
     msg += (
         f'* Web: {nc_server_webserver},'
         f' local memcache: {local_mc},'
-        f' locking memcache: {locking_mc}'
+        f' locking memcache: {locking_mc}\n'
     )
+
+    # The account listing closes the output. It carries no state and no perfdata, it only
+    # answers who fills up the data directory once something else reported it filling up.
+    if args.TOP > 0 and top_error:
+        msg += f'\nTop {args.TOP} accounts by storage usage: unavailable, {top_error}\n'
+    elif args.TOP > 0 and not accounts:
+        # The listing answered, but named nobody. An account whose storage could not be
+        # read is dropped on the way here, and the endpoint reports only the accounts the
+        # user behind --username is allowed to see. Saying so beats dropping the section
+        # without a word, which reads like the instance has no accounts.
+        msg += (
+            f'\nTop {args.TOP} accounts by storage usage: none reported,'
+            f' check that {args.USERNAME} may list accounts.\n'
+        )
+    else:
+        msg += format_top(accounts, args.TOP)
 
     perfdata += lib.base.get_perfdata(
         'nc_system_apps_num_installed',

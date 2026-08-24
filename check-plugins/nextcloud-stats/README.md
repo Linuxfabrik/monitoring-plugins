@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics. Also reports PHP, database, and web server configuration details.
+Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics. Also reports PHP, database, and web server configuration details. Optionally lists the accounts consuming the most storage via `--top`, to identify who fills up the data directory. The listing is informative only: it never changes the state of the check and produces no performance data.
 
 **Important Notes:**
 
@@ -13,11 +13,15 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 * If you simply want to check the availability of the Nextcloud web frontend, you have to use other checks
 * If a Nextcloud App leads to a "500 Internal Server Error", the Nextcloud API often still remains intact, so this check cannot report that
 * Might take up to 30 seconds for the first time; after that, still takes a few seconds
+* `--top` queries a second endpoint whose runtime grows with the number of accounts on the instance. On a test instance with 1206 accounts one run took about three seconds. Budget roughly three milliseconds per account, and raise `--top-timeout` together with the timeout the monitoring agent grants the check if your instance is larger
+* The first run after a batch of accounts was created (a directory sync, a migration) is far slower, because Nextcloud materialises the home directory of every account that does not have one yet while answering. Budget about 110 milliseconds per such account for that one run: on a test instance, 1000 freshly created accounts took 85 seconds. Answering the request also creates those home directories on disk, so with `--top` enabled this check writes to the monitored system. Set `--top=0` if that is not acceptable
+* The usage reported per account is the account's own home storage. Group folders and shares received from others are not counted towards it
 
 **Data Collection:**
 
 * Queries the Nextcloud serverinfo API endpoint (`/ocs/v2.php/apps/serverinfo/api/v1/info`) using HTTP Basic authentication
 * Reports active users (last 5 minutes, 1 hour, 24 hours), total files, apps, shares (by type), storage distribution, PHP settings, database type/size, and web server/memcache configuration
+* Optional top-N accounts by storage usage (`--top`, default: 5), read from the account listing endpoint (`/ocs/v2.php/cloud/users/details`) below the same installation root as `--url`. The endpoint cannot sort or filter, so the plugin reads all accounts and ranks them itself. Accounts with a quota limit are shown with the share of it they use; accounts without a limit are shown with their usage alone
 
 
 ## Fact Sheet
@@ -38,26 +42,41 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 ```text
 usage: nextcloud-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                        [--no-proxy] --password PASSWORD [--timeout TIMEOUT]
-                       [--url URL] [--username USERNAME]
+                       [--top TOP] [--top-timeout TOP_TIMEOUT] [--url URL]
+                       [--username USERNAME]
 
 Monitors Nextcloud usage statistics via the server info API, including active
 user counts over time, file shares by category, and storage metrics.
+Optionally lists the accounts consuming the most storage via --top, to
+identify who fills up the data directory. The listing is informative only: it
+never changes the state of the check and produces no performance data.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  --insecure           This option explicitly allows insecure SSL connections.
-  --no-perfdata        Suppress the performance data section from the output.
-                       The status message and the exit code are unaffected, so
-                       alerting keeps working while trending data is dropped.
-  --no-proxy           Do not use a proxy.
-  --password PASSWORD  Password for authenticating against the Nextcloud API.
-  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
-  --url URL            Nextcloud server info API URL. Default: http://localhos
-                       t/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
-  --username USERNAME  Username for authenticating against the Nextcloud API.
-                       Default: admin
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  --no-proxy            Do not use a proxy.
+  --password PASSWORD   Password for authenticating against the Nextcloud API.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
+  --top TOP             Number of top storage-consuming accounts to list. Use
+                        `--top=0` to disable. Default: 5
+  --top-timeout TOP_TIMEOUT
+                        Network timeout in seconds for fetching the account
+                        list used by `--top`. Runs much longer than the
+                        timeout of the other requests, because the endpoint
+                        answers slower the more accounts the instance has.
+                        Keep it below the timeout the monitoring agent grants
+                        the check. Default: 240 (seconds)
+  --url URL             Nextcloud server info API URL. Default: http://localho
+                        st/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
+  --username USERNAME   Username for authenticating against the Nextcloud API.
+                        Default: admin
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/
@@ -67,7 +86,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/
 ## Usage Examples
 
 ```bash
-./nextcloud-stats --username nextcloud-stats --password mypassword --url http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
+./nextcloud-stats --username=nextcloud-stats --password=linuxfabrik --url=http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info
 ```
 
 Output:
@@ -80,12 +99,26 @@ Output:
 * PHP: v8.2.13, upload_max_filesize=9.8GiB, max_execution_time=3600s, memory_limit=1.0GiB
 * DB: mysql v10.6.16, size=2.9GiB
 * Web: Apache, local memcache: Memcache\Redis, locking memcache: Memcache\Redis
+
+Top 5 accounts by storage usage:
+1. jdoe: 109.7MiB of 5.0GiB (2.1%)
+2. asmith: 79.7MiB of 1.0GiB (7.8%)
+3. mmueller: 64.7MiB of 500.0MiB (12.9%)
+4. admin: 59.7MiB
+5. jbrown: 0.0B
+```
+
+Without the account listing, which skips the second endpoint entirely:
+
+```bash
+./nextcloud-stats --username=nextcloud-stats --password=linuxfabrik --top=0
 ```
 
 
 ## States
 
 * Always returns OK.
+* An account listing that fails or names nobody does not change that. The check reports the server info numbers as usual and states in place of the listing why it is missing.
 
 
 ## Perfdata / Metrics
@@ -127,6 +160,18 @@ Check the Nextcloud API endpoint URL. Maybe change from http(s)://localhost to h
 `HTTP error "401 Unauthorized" while fetching http://...`
 
 Password is correct? Maybe you enabled 2FA. Use an app password for your monitoring server.
+
+### The account listing is reported as unavailable
+
+`Top 5 accounts by storage usage: unavailable, URL error "timed out" for http://...`
+
+The account listing did not answer within `--top-timeout`. The endpoint gets slower the more accounts the instance has, and it is slowest on the first run after a batch of accounts was created, because it materialises their home directories while answering. Let that run finish once with a raised `--top-timeout`, or set `--top=0` if the listing is not worth the runtime. Whatever value you pick has to stay below the timeout the monitoring agent grants the check, otherwise the agent kills the plugin before it can report anything.
+
+### The account listing reports nobody
+
+`Top 5 accounts by storage usage: none reported, check that nextcloud-stats may list accounts.`
+
+The account listing answered, but named no account. It only returns accounts the user behind `--username` is allowed to see, which requires an administrator, a delegated administrator or a group administrator. Give the monitoring account one of those roles, or set `--top=0`.
 
 ### `Failed to execute script 'nextcloud-stats' due to unhandled exception!`
 

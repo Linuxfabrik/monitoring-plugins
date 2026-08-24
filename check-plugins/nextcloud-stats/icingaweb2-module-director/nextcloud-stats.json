@@ -20,6 +20,12 @@
                 "--timeout": {
                     "value": "$nextcloud_stats_timeout$"
                 },
+                "--top": {
+                    "value": "$nextcloud_stats_top$"
+                },
+                "--top-timeout": {
+                    "value": "$nextcloud_stats_top_timeout$"
+                },
                 "--url": {
                     "value": "$nextcloud_stats_url$"
                 },
@@ -69,6 +75,16 @@
                     "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -76,7 +92,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-nextcloud-stats",
             "object_type": "object",
-            "timeout": 30,
+            "timeout": 300,
             "vars": {},
             "zone": null,
             "uuid": "47c44caa-4725-4f9c-9150-da3f6101c9f9"
@@ -112,7 +128,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics.",
+            "notes": "Monitors Nextcloud usage statistics via the server info API, including active user counts over time, file shares by category, and storage metrics. Optionally lists the accounts consuming the most storage via --top, to identify who fills up the data directory. The listing is informative only: it never changes the state of the check and produces no performance data.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-stats/",
             "object_name": "tpl-service-nextcloud-stats",
             "object_type": "template",
@@ -128,6 +144,8 @@
                 "nextcloud_stats_no_perfdata": false,
                 "nextcloud_stats_no_proxy": false,
                 "nextcloud_stats_timeout": 8,
+                "nextcloud_stats_top": 5,
+                "nextcloud_stats_top_timeout": 240,
                 "nextcloud_stats_url": "http://localhost/nextcloud/ocs/v2.php/apps/serverinfo/api/v1/info",
                 "nextcloud_stats_username": "admin"
             },
@@ -196,6 +214,28 @@
             "uuid": "c1074f28-cfaf-47cb-ae0f-312a04f1b02b"
         },
         "7": {
+            "varname": "nextcloud_stats_top",
+            "caption": "Nextcloud Stats: Top",
+            "description": "Number of top storage-consuming accounts to list. Use `--top=0` to disable.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fb09ce6f-95c7-4886-beb9-91add0fbafb4"
+        },
+        "8": {
+            "varname": "nextcloud_stats_top_timeout",
+            "caption": "Nextcloud Stats: Top Timeout",
+            "description": "Network timeout in seconds for fetching the account list used by `--top`. Runs much longer than the timeout of the other requests, because the endpoint answers slower the more accounts the instance has. Keep it below the timeout the monitoring agent grants the check.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b4227f83-0fd2-4621-bfcf-77af60fece2b"
+        },
+        "9": {
             "varname": "nextcloud_stats_url",
             "caption": "Nextcloud Stats: URL",
             "description": "Nextcloud server info API URL.",
@@ -206,7 +246,7 @@
             },
             "uuid": "ae000d17-2a05-425e-ba52-8b046f72fa6b"
         },
-        "8": {
+        "10": {
             "varname": "nextcloud_stats_username",
             "caption": "Nextcloud Stats: Username",
             "description": "Username for authenticating against the Nextcloud API.",

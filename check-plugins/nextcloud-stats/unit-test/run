@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+# Every fixture was captured from a Nextcloud 33.0.3 container on MariaDB 11.8 holding
+# 1206 accounts. A scenario needs a `-info` fixture (the server info document) and, as
+# soon as `--top` is on, a `-users` fixture (the account listing). The `-users` fixtures
+# carry the account objects verbatim as the API returned them, reduced to the accounts a
+# scenario needs, so the quota shapes are the real ones: bench1 to bench3 were given a
+# quota of 5GB / 1GB / 500MB, while admin and the bench accounts above them run without a
+# limit and therefore report `-3` in every quota field.
+#
+# The return code slot carries the HTTP status code the endpoint answered with.
+TESTS = [
+    {
+        # Accounts with and without a quota limit side by side. Only the limited ones can
+        # show a percentage, the others are listed with their usage alone.
+        'id': 'ok-top-mixed-quota',
+        'test': 'stdout/mixed-quota,,200',
+        'params': '--password=linuxfabrik',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Top 5 accounts by storage usage:',
+            '1. bench1: 109.7MiB of 5.0GiB (2.1%)',
+            '2. bench2: 79.7MiB of 1.0GiB (7.8%)',
+            '3. bench3: 64.7MiB of 500.0MiB (12.9%)',
+            '4. admin: 59.7MiB',
+        ],
+    },
+    {
+        # The heading counts what is listed below it, not what --top asked for, and the
+        # noun follows that count.
+        'id': 'ok-top-fewer-accounts-than-asked-for',
+        'test': 'stdout/two-users,,200',
+        'params': '--password=linuxfabrik --top=5',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Top 2 accounts by storage usage:'],
+        'assert-not-in': ['Top 5 accounts'],
+    },
+    {
+        'id': 'ok-top-one-account-is-singular',
+        'test': 'stdout/two-users,,200',
+        'params': '--password=linuxfabrik --top=1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Top 1 account by storage usage:'],
+    },
+    {
+        # Nobody has a limit, so no line may claim a percentage.
+        'id': 'ok-top-without-quota-limits',
+        'test': 'stdout/unlimited-quota,,200',
+        'params': '--password=linuxfabrik --top=3',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Top 3 accounts by storage usage:', '1. admin: 59.7MiB'],
+        'assert-not-in': ['%)'],
+    },
+    {
+        'id': 'ok-top-disabled',
+        'test': 'stdout/mixed-quota,,200',
+        'params': '--password=linuxfabrik --top=0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['4 users'],
+        'assert-not-in': ['by storage usage'],
+    },
+    {
+        # The listing answered but named nobody, which is what a --username without the
+        # permission to list accounts produces. The check stays OK and says so.
+        'id': 'ok-top-listing-names-nobody',
+        'test': 'stdout/no-accounts,,200',
+        'params': '--password=linuxfabrik --username=svc-monitoring',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'none reported, check that svc-monitoring may list accounts.',
+        ],
+    },
+]
+
+# Not covered here: a listing that times out or answers with something other than JSON.
+# Both reach the plugin through the live request rather than through a fixture, so
+# `--test` cannot drive them. Verified by hand against the container instead, with
+# `--top-timeout=1`: the check reports the server info numbers as usual, keeps STATE_OK,
+# and closes with the reason the listing is missing.
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nextcloud-stats'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
