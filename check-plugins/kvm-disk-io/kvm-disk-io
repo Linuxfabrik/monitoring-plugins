@@ -1,0 +1,665 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.cache
+import lib.db_sqlite
+import lib.human
+import lib.kvm
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082401'
+
+DESCRIPTION = """Reports how much a libvirt host's virtual machines read and write, and how long
+their storage takes to answer. Warns when a disk sustains a large share of the most
+throughput it has ever delivered, which is a saturation signal rather than an emergency,
+and alerts on sustained latency, which is where a hung disk shows up. Runs without root
+or sudo."""
+
+DEFAULT_COUNT = (
+    5  # measurements; if the check runs once per minute, this is a 5 minute average
+)
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
+DEFAULT_URL = lib.kvm.DEFAULT_URI
+DEFAULT_WARN = 80  # % of the throughput the disk has been seen to deliver
+
+# Where the previous measurements and the observed maximum throughput are kept, so the
+# cumulative counters can be reported as the rates a dashboard can aggregate (see
+# CONTRIBUTING.md, #320). One file per connection: two hypervisors may well run a
+# machine of the same name, and mixing their counters into one history would produce a
+# rate out of two unrelated measurements.
+DB = 'linuxfabrik-monitoring-plugins-kvm-disk-io-{}.db'
+
+# What a disk is assumed to manage before anything has been measured. Without a floor,
+# the first measurement would define the maximum, and a machine that happened to be
+# idle on the first run would then warn about every byte it moves afterwards.
+MIN_BANDWIDTH = 10 * 1024 * 1024  # bytes per second
+
+NANOSECONDS_PER_MILLISECOND = 10**6
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--await-critical',
+        help='CRIT threshold for the average time a read or write takes to complete, '
+        'in milliseconds. '
+        'Meant for a disk that is effectively hung. '
+        'Supports Nagios ranges. '
+        'Default: unset, latency is reported but does not alert',
+        dest='AWAIT_CRIT',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--await-warning',
+        help='WARN threshold for the average time a read or write takes to complete, '
+        'in milliseconds. '
+        'Supports Nagios ranges. '
+        'Default: unset, latency is reported but does not alert',
+        dest='AWAIT_WARN',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--count',
+        help='Number of measurements the reported values are averaged over. '
+        'A disk has to stay above a threshold for the whole span to alert, '
+        'so a single busy minute does not. '
+        'Default: %(default)s',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='libvirt connection URI, passed to `virsh --connect`. '
+        'Use `qemu+ssh://user@host/system` to check a host that runs no local '
+        'monitoring agent. '
+        'Only QEMU/KVM connections report the data this check needs. '
+        'Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the throughput of a disk, in percent of the most it '
+        'has ever been seen to deliver. '
+        'This part never goes critical: a disk working hard is worth a look, not a '
+        'call at night. '
+        'Default: %(default)s (percent)',
+        dest='WARN',
+        type=int,
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_disks(domstats):
+    """Pick the per-disk counters out of the statistics of every machine.
+
+    Returns `{'<machine>/<disk>': {counter: value}}`. The machine name is part of the
+    key because the disk name is only unique within its machine: virtually every
+    machine has a `vda`.
+
+    A machine reports its disks as a flat `block.<index>.<field>` list with a
+    `block.count` in front of it, so the fields are collected by their index. The
+    index is the fallback name for a disk libvirt did not name, which happens for a
+    disk without a target the guest could address.
+
+    A drive with no medium in it is left out. libvirt lists an empty CD-ROM drive
+    among the block devices of a machine, counters and all, and virtually every
+    machine has one, so keeping them would put a row that can never move anything
+    next to every machine on the host.
+
+    Such a drive is recognised by the absence of `block.<index>.backingIndex`.
+    libvirt hands an identifier to every storage source it prepares, and it prepares
+    none for a drive it considers empty, which is a local source without a path, a
+    source of no type at all, or a network source without a protocol
+    (`virStorageSourceIsEmpty()`, whose own documentation names the empty CD-ROM
+    drive as the example). `block.<index>.path` looks like the same test and is not:
+    libvirt only reports a path for local storage, so a disk on Ceph or iSCSI has
+    none and would be dropped by it. Verified against libvirt 12.0.0.
+    """
+    disks = {}
+    for machine, stats in domstats.items():
+        for index in range(stats.get('block.count', 0)):
+            prefix = f'block.{index}.'
+            if f'{prefix}backingIndex' not in stats:
+                continue
+            name = stats.get(f'{prefix}name', index)
+            disks[f'{machine}/{name}'] = {
+                'rd_bytes': stats.get(f'{prefix}rd.bytes', 0),
+                'rd_reqs': stats.get(f'{prefix}rd.reqs', 0),
+                'rd_times': stats.get(f'{prefix}rd.times', 0),
+                'wr_bytes': stats.get(f'{prefix}wr.bytes', 0),
+                'wr_reqs': stats.get(f'{prefix}wr.reqs', 0),
+                'wr_times': stats.get(f'{prefix}wr.times', 0),
+            }
+    return disks
+
+
+def get_await(times_per_second, reqs_per_second):
+    """Average time a read or write took to complete, in milliseconds.
+
+    This is what `iostat` calls await. Both arguments are rates over the same span, so
+    their ratio is the time counter divided by the number of requests that finished,
+    which is the latency per request no matter how long the span was.
+
+    Unlike a busy percentage, latency stays meaningful on a device that works on
+    several requests at once, which every backing store of a virtual machine does.
+    Returns 0.0 when nothing completed, because then there is no latency to report.
+
+    libvirt counts these times in nanoseconds, unlike the kernel's own block layer
+    statistics, which are milliseconds.
+    """
+    if not reqs_per_second:
+        return 0.0
+    return round(
+        times_per_second / reqs_per_second / NANOSECONDS_PER_MILLISECOND,
+        1,
+    )
+
+
+def get_max_bandwidth(disk, current_bandwidth, filename):
+    """Return the most throughput this disk has been seen to deliver, updating it.
+
+    Kept per disk and across runs, so the threshold calibrates itself instead of
+    asking an administrator for a number that depends on the backing store. Never
+    drops below `MIN_BANDWIDTH`.
+    """
+    historic_bandwidth = lib.cache.get(
+        f'kvm-disk-io-{disk}-bandwidth-max',
+        filename=filename,
+    )
+    max_bandwidth = max(
+        int(historic_bandwidth or 0),
+        int(current_bandwidth),
+        MIN_BANDWIDTH,
+    )
+    lib.cache.set(
+        f'kvm-disk-io-{disk}-bandwidth-max',
+        max_bandwidth,
+        filename=filename,
+    )
+    return max_bandwidth
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if args.TEST is None:
+        # Only running machines. A machine that is shut off does no I/O, and its
+        # counters stand still, so a rate computed from them would be a row of zeroes.
+        domstats = lib.base.coe(
+            lib.kvm.get_domstats(
+                uri=args.URL,
+                groups=['block'],
+                running_only=True,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        domstats = lib.kvm.parse_domstats(stdout)
+
+    disks = get_disks(domstats)
+    if not disks:
+        lib.base.oao('No running virtual machines with disks found.', STATE_OK)
+
+    db_filename = DB.format(re.sub(r'\W+', '_', args.URL))
+
+    # Record this measurement and read back the rates. `compute_load()` returns a rate
+    # over the last two samples and one over the whole `--count` span; the long one is
+    # what the thresholds judge, so a single busy minute cannot alert. A disk that has
+    # not been measured `--count` times yet is simply absent from the result, which is
+    # how the ones that have been running all along keep being reported while a
+    # freshly started machine warms up.
+    if args.TEST is None:
+        conn = lib.base.coe(lib.db_sqlite.connect(filename=db_filename))
+        # The timestamp is stored with sub-second resolution. Rounded to whole seconds,
+        # a window of five samples taken a few seconds apart is recorded as spanning up
+        # to two seconds less than it really did, and every rate computed from it comes
+        # out that much too high.
+        definition = """
+            name        TEXT NOT NULL,
+            rd_bytes    INT NOT NULL,
+            rd_reqs     INT NOT NULL,
+            rd_times    INT NOT NULL,
+            wr_bytes    INT NOT NULL,
+            wr_reqs     INT NOT NULL,
+            wr_times    INT NOT NULL,
+            timestamp   REAL NOT NULL
+        """
+        lib.base.coe(
+            lib.db_sqlite.create_table(conn, definition, drop_table_first=False)
+        )
+        lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
+        now = lib.time.now(as_type='float')
+        for name, counters in disks.items():
+            lib.base.coe(
+                lib.db_sqlite.insert(conn, {'name': name, 'timestamp': now, **counters})
+            )
+        # Prune per disk. Trimming the table to a total row count lets whichever disk
+        # is sampled most often evict the history of the others, which happens as soon
+        # as one machine carries more disks than another.
+        lib.base.coe(
+            lib.db_sqlite.cut_per_sensor(conn, sensorcol='name', _max=args.COUNT)
+        )
+        lib.base.coe(lib.db_sqlite.commit(conn))
+        loads = lib.base.coe(
+            lib.db_sqlite.compute_load(
+                conn,
+                sensorcol='name',
+                datacols=[
+                    'rd_bytes',
+                    'rd_reqs',
+                    'rd_times',
+                    'wr_bytes',
+                    'wr_reqs',
+                    'wr_times',
+                ],
+                count=args.COUNT,
+            )
+        )
+        # Closed before the maximum throughput is read back below, which opens the same
+        # file again: a connection still holding a write keeps the other one out.
+        lib.db_sqlite.close(conn)
+        rates = {item['name']: item for item in (loads or [])}
+    else:
+        # In test mode there is no history to average over, so the fixture counters are
+        # taken as the per-second rates themselves, for both spans. A fixture saying
+        # `rd.bytes=8388608` is 8 MiB/s.
+        rates = {}
+        for name, counters in disks.items():
+            rates[name] = {}
+            for counter, value in counters.items():
+                rates[name][f'{counter}1'] = value
+                rates[name][f'{counter}n'] = value
+
+    # init some vars
+    busy_disks = []
+    busy_state_worst = STATE_OK
+    msg = ''
+    perfdata = ''
+    read_total = 0
+    slow_disks = []
+    slow_state_worst = STATE_OK
+    state = STATE_OK
+    table_data = []
+    waiting = []
+    write_total = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # analyze data
+    for name in sorted(disks):
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        # Not measured often enough yet: the first runs after an install, after the
+        # cache was wiped, or after this machine was started. Name the disk instead of
+        # dropping it, so nobody wonders why it is missing.
+        if name not in rates:
+            waiting.append(name)
+            continue
+
+        load = rates[name]
+        read1 = load['rd_bytes1']
+        write1 = load['wr_bytes1']
+        read = load['rd_bytesn']
+        write = load['wr_bytesn']
+        throughput1 = read1 + write1
+        throughput = read + write
+        read_total += read
+        write_total += write
+
+        if args.TEST is None:
+            max_bandwidth = get_max_bandwidth(name, throughput1, db_filename)
+        else:
+            # No cache in test mode: a fixture must judge the same way on every run,
+            # and a maximum remembered from an earlier one would make it judge
+            # differently the second time.
+            max_bandwidth = max(int(throughput1), MIN_BANDWIDTH)
+
+        # Throughput is compared with what this disk has managed before rather than
+        # with an absolute number, because what is a lot depends entirely on the
+        # backing store. WARN only, on purpose: a disk working hard is a reason to
+        # look, not a reason to be woken up.
+        busy_state = lib.base.get_state(
+            throughput,
+            max_bandwidth * args.WARN / 100,
+            None,
+        )
+        await_ms = get_await(
+            load['rd_timesn'] + load['wr_timesn'],
+            load['rd_reqsn'] + load['wr_reqsn'],
+        )
+        read_await_ms = get_await(load['rd_timesn'], load['rd_reqsn'])
+        write_await_ms = get_await(load['wr_timesn'], load['wr_reqsn'])
+        # Latency is the part that may go critical, because this is where a disk that
+        # has stopped answering shows up. Both thresholds are unset by default, and
+        # `get_state()` then reports OK, so latency is graphed and not judged.
+        await_state = lib.base.get_state(
+            await_ms, args.AWAIT_WARN, args.AWAIT_CRIT, _operator='range'
+        )
+        item_state = lib.base.get_worst(busy_state, await_state)
+        state = lib.base.get_worst(state, item_state)
+
+        if busy_state != STATE_OK:
+            busy_disks.append(
+                f'{name} ({lib.human.bytes2human(throughput)}/s of '
+                f'{lib.human.bytes2human(max_bandwidth)}/s)'
+            )
+            busy_state_worst = lib.base.get_worst(busy_state_worst, busy_state)
+        if await_state != STATE_OK:
+            slow_disks.append(f'{name} ({await_ms}ms)')
+            slow_state_worst = lib.base.get_worst(slow_state_worst, await_state)
+
+        machine, _, disk = name.partition('/')
+        table_data.append(
+            {
+                'await': f'{await_ms}ms',
+                'disk': disk,
+                'max': f'{lib.human.bytes2human(max_bandwidth)}/s',
+                'name': machine,
+                'read': f'{lib.human.bytes2human(read)}/s',
+                'read1': f'{lib.human.bytes2human(read1)}/s',
+                # The verdict of the whole row, kept in its own column at the end of
+                # the line: IcingaWeb replaces the marker with an icon and would break
+                # the table alignment anywhere else.
+                'state': lib.base.state2str(item_state, empty_ok=False),
+                'throughput': f'{lib.human.bytes2human(throughput)}/s',
+                'write': f'{lib.human.bytes2human(write)}/s',
+                'write1': f'{lib.human.bytes2human(write1)}/s',
+            }
+        )
+
+        perfdata_name = re.sub(r'\W+', '_', name)
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_read_bytes_per_second',
+            read,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_read_bytes_per_second1',
+            read1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_write_bytes_per_second',
+            write,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_write_bytes_per_second1',
+            write1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_throughput',
+            throughput,
+            uom='B',
+            warn=int(max_bandwidth * args.WARN / 100),
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_throughput1',
+            throughput1,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_read_iops',
+            round(load['rd_reqsn'], 1),
+            uom=None,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_write_iops',
+            round(load['wr_reqsn'], 1),
+            uom=None,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_await',
+            await_ms,
+            uom='ms',
+            warn=args.AWAIT_WARN,
+            crit=args.AWAIT_CRIT,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_read_await',
+            read_await_ms,
+            uom='ms',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_write_await',
+            write_await_ms,
+            uom='ms',
+            _min=0,
+        )
+
+    # nothing left to report on
+    if not table_data and not waiting:
+        lib.base.oao(
+            f'Nothing checked. {len(disks)} disks are filtered out by `--match` or '
+            f'`--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    checked = len(table_data)
+    if not checked:
+        # Every disk is still without a baseline, so there is nothing to report yet.
+        # Naming that plainly beats a summary of zeroes.
+        msg += f'Waiting for more data: {", ".join(waiting)}'
+    else:
+        machines = len({row['name'] for row in table_data})
+        msg += (
+            f'{machines} VM{"s" if machines != 1 else ""}, '
+            f'{checked} disk{"s" if checked != 1 else ""}, '
+            f'{lib.human.bytes2human(read_total)}/s read, '
+            f'{lib.human.bytes2human(write_total)}/s write, '
+            f'averaged over {args.COUNT} measurements'
+        )
+        if slow_disks:
+            msg += (
+                f'. Slow storage: {", ".join(slow_disks)}'
+                f'{lib.base.state2str(slow_state_worst, prefix=" ")}'
+            )
+        if busy_disks:
+            msg += (
+                f'. Working hard: {", ".join(busy_disks)}'
+                f'{lib.base.state2str(busy_state_worst, prefix=" ")}'
+            )
+        if waiting:
+            msg += f'. Waiting for more data: {", ".join(waiting)}'
+    perfdata += lib.base.get_perfdata(
+        'read_bytes_per_second',
+        read_total,
+        uom='B',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'write_bytes_per_second',
+        write_total,
+        uom='B',
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        cols = ['name', 'disk', 'read', 'write', 'await', 'state']
+        header = [
+            'VM Name',
+            'Disk',
+            f'Read/s ({args.COUNT}x)',
+            f'Write/s ({args.COUNT}x)',
+            'Await',
+            'State',
+        ]
+        if args.LENGTHY:
+            cols = [
+                'name',
+                'disk',
+                'read1',
+                'write1',
+                'read',
+                'write',
+                'throughput',
+                'max',
+                'await',
+                'state',
+            ]
+            header = [
+                'VM Name',
+                'Disk',
+                'Read/s',
+                'Write/s',
+                f'Read/s ({args.COUNT}x)',
+                f'Write/s ({args.COUNT}x)',
+                f'Total/s ({args.COUNT}x)',
+                'Max/s',
+                'Await',
+                'State',
+            ]
+        msg += '\n\n' + lib.base.get_table(table_data, cols, header=header)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

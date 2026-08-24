@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The fixtures hold `virsh domstats --block` output in the layout captured from a live
+# host running libvirt 12.0.0. Their counters are the per-second rates the check would
+# otherwise compute from two runs, which is what `--test` feeds it directly, and the
+# maximum throughput is taken from the fixture itself instead of the cache, so a
+# fixture judges the same way on every run.
+#
+# `two-idle-guests` and `cdrom-with-medium` are the pair that pins the rule for empty
+# drives: the first machine's `sda` is an empty CD-ROM drive and is left out, the
+# second one has an installation image in it and is reported.
+#
+# The `slow-disk` fixture is the one that pins the unit of the latency figure. libvirt
+# counts the time an I/O took in nanoseconds, unlike the kernel's own block layer
+# statistics, which are milliseconds. Its 6120000000 over ten requests is 612 ms, and
+# reading the counter as milliseconds would report 0.6 ms instead: a disk that has
+# stopped answering would look like the healthiest one on the host.
+TESTS = [
+    {
+        'id': 'ok-two-idle-guests',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 VMs, 2 disks', 'mailstore01', 'nextcloud01'],
+    },
+    {
+        'id': 'ok-no-running-machines',
+        'test': 'stdout/no-running-domains,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running virtual machines with disks found.'],
+    },
+    {
+        # A machine can run without a disk of its own, booting over the network. It
+        # contributes nothing to report on, and is not an error either.
+        'id': 'ok-machine-without-disks',
+        'test': 'stdout/no-disks,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running virtual machines with disks found.'],
+    },
+    # Same fixture, two threshold settings.
+    {
+        'id': 'warn-disk-working-hard',
+        'test': 'stdout/busy-disk,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Working hard: nextcloud01/vda (48.0MiB/s of 48.0MiB/s)'],
+    },
+    {
+        'id': 'ok-throughput-below-warning',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--warning=101',
+        'assert-retc': STATE_OK,
+        'assert-in': ['40.0MiB/s read', '8.0MiB/s write'],
+    },
+    # The throughput part never goes critical on purpose: a disk working hard is a
+    # reason to look, not a reason to be woken up. Even at a warning threshold of 1
+    # percent the worst it reports is a WARNING.
+    {
+        'id': 'warn-throughput-never-criticals',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--warning=1',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    # Same fixture, three latency settings. Both latency thresholds are off by
+    # default, so a disk taking 612 ms per request is reported and not judged.
+    {
+        'id': 'ok-latency-without-thresholds',
+        'test': 'stdout/slow-disk,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['612.0ms'],
+    },
+    {
+        'id': 'warn-latency-above-warning',
+        'test': 'stdout/slow-disk,,0',
+        'params': '--await-warning=500',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Slow storage: nextcloud01/vda (612.0ms)'],
+    },
+    {
+        'id': 'crit-latency-above-critical',
+        'test': 'stdout/slow-disk,,0',
+        'params': '--await-warning=100 --await-critical=500',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Slow\sstorage.*\[CRITICAL\]',
+    },
+    {
+        # libvirt counts in nanoseconds. Read as milliseconds, the same fixture would
+        # report 0.6 ms and the hung disk would look like the healthiest one.
+        'id': 'ok-latency-is-read-as-nanoseconds',
+        'test': 'stdout/slow-disk,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['612.0ms'],
+        'assert-not-in': ['0.6ms'],
+    },
+    {
+        # A disk the guest cannot address has no name, and is reported under its
+        # position instead of being dropped.
+        'id': 'ok-unnamed-disk',
+        'test': 'stdout/unnamed-disk,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['mailstore01', '8.0KiB/s'],
+    },
+    {
+        # Without --lengthy the table carries the averaged rates and the latency;
+        # with it, the last interval, the total and the observed maximum as well.
+        'id': 'ok-lengthy-adds-columns',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Max/s', '10.0MiB/s'],
+    },
+    {
+        'id': 'ok-not-lengthy-hides-columns',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Max/s'],
+    },
+    {
+        'id': 'ok-always-ok-masks-warn',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and the exit
+        # code: the WARN state is still reported.
+        'id': 'warn-no-perfdata',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['|'],
+    },
+    {
+        # An empty CD-ROM drive is a block device to libvirt, counters and all, and
+        # virtually every machine has one. It can never move anything, so it is left
+        # out rather than parked next to every machine as a row of zeroes.
+        'id': 'ok-empty-drive-is-left-out',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 VMs, 2 disks'],
+        'assert-not-in': ['sda'],
+    },
+    {
+        # The same drive with an installation image in it does move something, and is
+        # reported. Recognising the empty one by its missing path instead would have
+        # dropped this drive too, along with every disk on Ceph or iSCSI: libvirt
+        # reports a path for local storage only.
+        'id': 'ok-drive-with-medium-is-reported',
+        'test': 'stdout/cdrom-with-medium,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 VM, 2 disks', 'sda', '2.0MiB/s'],
+    },
+    {
+        # The filters see `<machine>/<disk>`, so one pattern picks a single disk and
+        # another picks every disk of a machine.
+        'id': 'ok-match-one-disk',
+        'test': 'stdout/cdrom-with-medium,,0',
+        'params': '--match=nextcloud01/sda',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['vda'],
+    },
+    {
+        'id': 'ok-match-whole-machine',
+        'test': 'stdout/cdrom-with-medium,,0',
+        'params': '--match=^nextcloud01/',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 VM, 2 disks'],
+    },
+    {
+        # --ignore wins over --match, so the disk is dropped even though it matches
+        # both.
+        'id': 'ok-ignore-drops-disk',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=mailstore01 --ignore=mailstore01',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-disk-io'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
