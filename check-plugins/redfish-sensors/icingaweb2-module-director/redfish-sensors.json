@@ -37,6 +37,9 @@
                 "--password": {
                     "value": "$redfish_sensors_password$"
                 },
+                "--proxy": {
+                    "value": "$redfish_sensors_proxy$"
+                },
                 "--retries": {
                     "value": "$redfish_sensors_retries$"
                 },
@@ -123,16 +126,21 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 15,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -343,7 +351,7 @@
         "10": {
             "varname": "redfish_sensors_no_proxy",
             "caption": "Redfish Sensors: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -361,6 +369,17 @@
             "uuid": "b2e57e6e-3e8d-4881-a90d-667a6f5b885f"
         },
         "12": {
+            "varname": "redfish_sensors_proxy",
+            "caption": "Redfish Sensors: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "321ab7bc-2731-4560-95d3-e31d43fb8fd3"
+        },
+        "13": {
             "varname": "redfish_sensors_retries",
             "caption": "Redfish Sensors: Retries",
             "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
@@ -371,7 +390,7 @@
             },
             "uuid": "45a174fe-ec73-486b-a531-8caab030d9c2"
         },
-        "13": {
+        "14": {
             "varname": "redfish_sensors_timeout",
             "caption": "Redfish Sensors: Timeout",
             "description": "Network timeout in seconds.",
@@ -382,7 +401,7 @@
             },
             "uuid": "177a3150-bab7-4dac-82d5-f29b6c15be87"
         },
-        "14": {
+        "15": {
             "varname": "redfish_sensors_url",
             "caption": "Redfish Sensors: URL",
             "description": "Redfish API URL.",
@@ -393,7 +412,7 @@
             },
             "uuid": "081877df-622b-4c93-998b-398d394f8527"
         },
-        "15": {
+        "16": {
             "varname": "redfish_sensors_username",
             "caption": "Redfish Sensors: Username",
             "description": "Redfish API username.",
@@ -404,7 +423,7 @@
             },
             "uuid": "c34296a7-23b9-43d8-b87c-fc6d013d1e00"
         },
-        "16": {
+        "17": {
             "varname": "redfish_sensors_verbose",
             "caption": "Redfish Sensors: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. For this check that also writes a trace of every Redfish request, with timings, to linuxfabrik-monitoring-plugins-redfish-trace.log below the temporary directory. Unlike this check's output, the trace survives a check that the monitoring server terminates for exceeding its timeout, which is what makes it useful against a slow management controller.",

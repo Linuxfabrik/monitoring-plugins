@@ -64,7 +64,7 @@ usage: icingaweb2-module-updates [-h] [-V] [--always-ok] [--branch BRANCH]
                                  [--no-match-severity {ok,warn,crit,unknown}]
                                  [--no-perfdata] [--no-proxy]
                                  [--no-version-severity {ok,warn,crit,unknown}]
-                                 [--path PATH] [--repo REPO]
+                                 [--path PATH] [--proxy PROXY] [--repo REPO]
                                  [--timeout TIMEOUT] [--token TOKEN]
                                  [--token-file TOKEN_FILE]
                                  [--unknown-repo-severity {ok,warn,crit,unknown}]
@@ -125,7 +125,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --no-version-severity {ok,warn,crit,unknown}
                         State to report for a module whose version cannot be
                         compared, which is what a Git checkout reporting its
@@ -135,6 +136,16 @@ options:
                         where `module_path` in `/etc/icingaweb2/config.ini`
                         names another one. Can be specified multiple times.
                         Default: /usr/share/icingaweb2/modules
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --repo REPO           Where a module is published, as `module,
                         user/repository`. Adds a module the check does not
                         know, and overrides one it does. Can be specified

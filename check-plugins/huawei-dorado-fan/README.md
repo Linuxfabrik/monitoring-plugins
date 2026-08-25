@@ -39,8 +39,9 @@ usage: huawei-dorado-fan [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                          [--insecure] [--no-insecure] [--match MATCH]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                         [--password-file PASSWORD_FILE] [--scope SCOPE]
-                         [--timeout TIMEOUT] -u URL --username USERNAME [-v]
+                         [--password-file PASSWORD_FILE] [--proxy PROXY]
+                         [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                         --username USERNAME [-v]
 
 Checks the health and running status of all fans on a Huawei OceanStor Dorado
 storage system via the REST API (/fan endpoint). Alerts when any fan reports a
@@ -89,7 +90,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
@@ -99,6 +101,16 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.

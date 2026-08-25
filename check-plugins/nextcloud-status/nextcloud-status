@@ -22,7 +22,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081301'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors the health of a Nextcloud instance via its status endpoint, reporting
 whether the instance is installed, whether a pending database upgrade blocks it, and whether
@@ -103,6 +103,13 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -238,6 +245,7 @@ def fetch_status(args):
         extended=True,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         response_on_error=True,
         timeout=args.TIMEOUT,
     )

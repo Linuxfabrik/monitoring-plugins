@@ -29,6 +29,9 @@
                 "--offset-eol": {
                     "value": "$rhel_version_offset_eol$"
                 },
+                "--proxy": {
+                    "value": "$rhel_version_proxy$"
+                },
                 "--timeout": {
                     "value": "$rhel_version_timeout$"
                 },
@@ -91,6 +94,11 @@
                 },
                 {
                     "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -264,7 +272,7 @@
         "8": {
             "varname": "rhel_version_no_proxy",
             "caption": "Rhel Version: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -282,6 +290,17 @@
             "uuid": "2efcd6f2-d885-4f36-a152-c943d1109eb3"
         },
         "10": {
+            "varname": "rhel_version_proxy",
+            "caption": "Rhel Version: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "32a17949-9547-486b-850a-1620c79690c8"
+        },
+        "11": {
             "varname": "rhel_version_timeout",
             "caption": "Rhel Version: Timeout",
             "description": "Network timeout in seconds.",
@@ -292,7 +311,7 @@
             },
             "uuid": "6395964b-57da-42c4-b677-5f36e93c3aed"
         },
-        "11": {
+        "12": {
             "varname": "rhel_version_unreachable_severity",
             "caption": "Rhel Version: Unreachable Severity",
             "description": "State to report when the online source is unreachable. What is used instead - bundled offline data, a cached copy, or nothing at all - is named in the output, and a clean result then only covers what that fallback could confirm.",

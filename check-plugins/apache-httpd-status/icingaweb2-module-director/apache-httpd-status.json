@@ -17,6 +17,9 @@
                 "--no-proxy": {
                     "set_if": "$apache_httpd_status_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$apache_httpd_status_proxy$"
+                },
                 "--timeout": {
                     "value": "$apache_httpd_status_timeout$"
                 },
@@ -67,6 +70,11 @@
                 },
                 {
                     "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -179,13 +187,24 @@
         "5": {
             "varname": "apache_httpd_status_no_proxy",
             "caption": "Apache httpd Status: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "f6d37de4-1e8d-4c01-9d04-684c9219c5b5"
         },
         "6": {
+            "varname": "apache_httpd_status_proxy",
+            "caption": "Apache httpd Status: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c2523598-aa2d-4397-aafd-35259ba48275"
+        },
+        "7": {
             "varname": "apache_httpd_status_timeout",
             "caption": "Apache httpd Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -196,7 +215,7 @@
             },
             "uuid": "fcc850d7-be87-4c04-a16f-703ea8a8f467"
         },
-        "7": {
+        "8": {
             "varname": "apache_httpd_status_url",
             "caption": "Apache httpd Status: URL",
             "description": "Apache Server Status URL. The plugin appends the \"auto\" query parameter itself.",
@@ -207,7 +226,7 @@
             },
             "uuid": "d7cc0d4b-1d51-45e4-82e4-4f0bac9bc658"
         },
-        "8": {
+        "9": {
             "varname": "apache_httpd_status_warning",
             "caption": "Apache httpd Status: Warning",
             "description": "WARN threshold for the percentage of occupied worker slots. Supports Nagios ranges.",

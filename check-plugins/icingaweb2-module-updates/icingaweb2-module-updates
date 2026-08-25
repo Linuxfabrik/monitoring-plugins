@@ -27,7 +27,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the Icinga Web 2 modules installed on this host against their
 releases on GitHub, so a module installed from a tarball or a Git checkout does not
@@ -271,6 +271,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--repo',
         help='Where a module is published, as `module, user/repository`. '
         'Adds a module the check does not know, and overrides one it does. '
@@ -465,6 +472,7 @@ def get_latest(repo, args, header, github):
         header=header,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
     if not success:
@@ -476,6 +484,7 @@ def get_latest(repo, args, header, github):
             header=header,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
             timeout=args.TIMEOUT,
         )
         if not success:
@@ -533,6 +542,7 @@ def get_commits_behind(repo, version, args, header, github):
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
             )
             if not success:

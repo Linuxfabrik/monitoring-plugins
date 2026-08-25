@@ -33,8 +33,8 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 ```text
 usage: grassfish-licenses [-h] [-V] [--always-ok] [--api-version API_VERSION]
                           -H HOSTNAME [--insecure] [--no-perfdata]
-                          [--no-proxy] [--port PORT] [--timeout TIMEOUT]
-                          --token TOKEN [-u URL]
+                          [--no-proxy] [--port PORT] [--proxy PROXY]
+                          [--timeout TIMEOUT] --token TOKEN [-u URL]
 
 Monitors available Grassfish digital signage licenses via the Grassfish API.
 Alerts when no more licenses are available. Requires a Grassfish hostname and
@@ -54,8 +54,19 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --port PORT           Grassfish port number. Default: 443
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --token TOKEN         Grassfish API token.
   -u, --url URL         Grassfish API URL. Default: /gv2/webservices/API

@@ -36,6 +36,9 @@
                 "--perfdata-key": {
                     "value": "$json_values_perfdata_key$"
                 },
+                "--proxy": {
+                    "value": "$json_values_proxy$"
+                },
                 "--state-key": {
                     "value": "$json_values_state_key$"
                 },
@@ -148,6 +151,11 @@
                 },
                 {
                     "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -305,7 +313,7 @@
         "9": {
             "varname": "json_values_no_proxy",
             "caption": "JSON Values: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -334,6 +342,17 @@
             "uuid": "b93fad8c-fce9-4da1-9a52-4cafd24be166"
         },
         "12": {
+            "varname": "json_values_proxy",
+            "caption": "JSON Values: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "46b808b7-52f6-4c52-bed0-346e63829a4b"
+        },
+        "13": {
             "varname": "json_values_state_key",
             "caption": "JSON Values: State Key",
             "description": "Name of the JSON key containing the state. Supports dot-notation for nested keys (e.g. `meta.state`). Example: `--state-key=meta.state`.",
@@ -344,7 +363,7 @@
             },
             "uuid": "75571016-fd19-4c6d-b20d-9465c6d6cbe2"
         },
-        "13": {
+        "14": {
             "varname": "json_values_timeout",
             "caption": "JSON Values: Timeout",
             "description": "Network timeout in seconds.",
@@ -355,7 +374,7 @@
             },
             "uuid": "4cac9b5d-abbf-4798-af42-8ad0b3ce26e2"
         },
-        "14": {
+        "15": {
             "varname": "json_values_token",
             "caption": "JSON Values: Token",
             "description": "HTTP bearer token. Adds an `Authorization: Bearer <token>` header to the URL request. Can be combined with --header to send additional custom headers (e.g. `--token=linuxfabrik --header=\"Accept: application/json\"`); a manual `--header=\"Authorization: ...\"` is overridden by --token if both are specified.",
@@ -366,7 +385,7 @@
             },
             "uuid": "9afac39b-ef73-4399-bffa-8a7561279edd"
         },
-        "15": {
+        "16": {
             "varname": "json_values_url",
             "caption": "JSON Values: URL",
             "description": "URL of the JSON file, starting with \"http://\", \"https://\", or \"smb://\". Mutually exclusive with --filename.",
@@ -377,7 +396,7 @@
             },
             "uuid": "cdd0ffc9-c0fd-4187-bf53-dc6390e2da83"
         },
-        "16": {
+        "17": {
             "varname": "json_values_username",
             "caption": "JSON Values: Username",
             "description": "Username for SMB authentication.",
@@ -388,7 +407,7 @@
             },
             "uuid": "5bbfa4b7-268a-4c3f-9034-f7f056c2e68d"
         },
-        "17": {
+        "18": {
             "varname": "json_values_warning",
             "caption": "JSON Values: Warning",
             "description": "Nagios range expression evaluated for the WARN state against the value of the JSON key referenced by --warning-key. Example: `--warning-key=days --warning=7`. Example: `--warning-key=detailedInfo.count1 --warning=@80:90`.",
@@ -399,7 +418,7 @@
             },
             "uuid": "f39eace0-5510-4ad2-83b5-e3ef0a353eba"
         },
-        "18": {
+        "19": {
             "varname": "json_values_warning_key",
             "caption": "JSON Values: Warning Key",
             "description": "Name of the JSON key whose value should be evaluated against --warning for the WARN state. Supports dot-notation for nested keys (e.g. `detailedInfo.count1`). The value at the resolved key must be numeric in the JSON, otherwise the check returns UNKNOWN. Example: `--warning-key=days`. Example: `--warning-key=detailedInfo.count1`.",

@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks each backup device (slot) across all Infomaniak Swiss Backup products via the
 Infomaniak API. Alerts when storage usage exceeds the configured thresholds or when
@@ -133,6 +133,13 @@ def parse_args():
         default=DEFAULT_NO_PROXY,
     )
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--severity',
         help='Severity for alerting on locked devices. Default: %(default)s',
         dest='SEVERITY',
@@ -198,6 +205,7 @@ def main():
                 args.TOKEN,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
             )
         )

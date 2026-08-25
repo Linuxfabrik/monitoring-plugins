@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$apache_httpd_disclosure_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$apache_httpd_disclosure_proxy$"
+                },
                 "--severity": {
                     "value": "$apache_httpd_disclosure_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -225,13 +233,24 @@
         "4": {
             "varname": "apache_httpd_disclosure_no_proxy",
             "caption": "Apache httpd Disclosure: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "12936f54-2ce5-461b-9972-b5622c4c452c"
         },
         "5": {
+            "varname": "apache_httpd_disclosure_proxy",
+            "caption": "Apache httpd Disclosure: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "636bc52b-132f-43ac-9f71-8fec3c33efc2"
+        },
+        "6": {
             "varname": "apache_httpd_disclosure_severity",
             "caption": "Apache httpd Disclosure: Severity",
             "description": "State to report for a server that discloses information. One of `warn` or `crit`.",
@@ -244,7 +263,7 @@
             },
             "uuid": "a678513f-0dfe-46b0-815d-438154970f62"
         },
-        "6": {
+        "7": {
             "varname": "apache_httpd_disclosure_timeout",
             "caption": "Apache httpd Disclosure: Timeout",
             "description": "Network timeout in seconds.",
@@ -255,7 +274,7 @@
             },
             "uuid": "1a2e9923-dc78-435d-9f8d-1b671d2318b2"
         },
-        "7": {
+        "8": {
             "varname": "apache_httpd_disclosure_url",
             "caption": "Apache httpd Disclosure: URL",
             "description": "Base URL of the Apache httpd server to inspect. Example: `--url=https://www.example.com`",

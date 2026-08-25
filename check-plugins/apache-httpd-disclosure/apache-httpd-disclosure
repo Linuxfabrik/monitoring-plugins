@@ -22,7 +22,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081801'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks how much an Apache httpd server discloses about itself in its HTTP
 responses: the product and version banner in the `Server` response header, the server
@@ -125,6 +125,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--severity',
         help='State to report for a server that discloses information. '
         'One of `warn` or `crit`. '
@@ -177,6 +184,7 @@ def fetch_response(url, args):
         extended=True,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         response_on_error=True,
         timeout=args.TIMEOUT,
     )

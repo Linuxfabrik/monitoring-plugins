@@ -41,7 +41,8 @@ usage: apache-tomcat-version [-h] [-V] [--always-ok]
                              [--catalina-home CATALINA_HOME] [--check-major]
                              [--check-minor] [--check-patch] [--insecure]
                              [--no-perfdata] [--no-proxy]
-                             [--offset-eol OFFSET_EOL] [--timeout TIMEOUT]
+                             [--offset-eol OFFSET_EOL] [--proxy PROXY]
+                             [--timeout TIMEOUT]
                              [--unreachable-severity {ok,warn,crit,unknown}]
 
 Checks the installed Apache Tomcat version against the endoflife.date API and
@@ -73,10 +74,21 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --offset-eol OFFSET_EOL
                         Alert n days before ("-30") or after an EOL date ("30"
                         or "+30"). Default: -30 days
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
                         State to report when the online source is unreachable.

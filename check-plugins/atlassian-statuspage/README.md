@@ -34,8 +34,9 @@ Monitors a public Atlassian Statuspage for incidents, degraded services, and sch
 
 ```text
 usage: atlassian-statuspage [-h] [-V] [--always-ok] [--insecure]
-                            [--no-perfdata] [--no-proxy] [--service SERVICE]
-                            [--timeout TIMEOUT] [--url URL]
+                            [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                            [--service SERVICE] [--timeout TIMEOUT]
+                            [--url URL]
 
 Monitors a public Atlassian Statuspage for incidents, degraded services, and
 scheduled maintenance windows. Reports the overall status indicator, the name
@@ -54,7 +55,17 @@ options:
   --no-perfdata      Suppress the performance data section from the output.
                      The status message and the exit code are unaffected, so
                      alerting keeps working while trending data is dropped.
-  --no-proxy         Do not use a proxy.
+  --no-proxy         Do not use a proxy, not even one the environment names.
+                     Overrides `--proxy`.
+  --proxy PROXY      Proxy to reach the target through. The scheme defaults to
+                     `http` when omitted. Overrides the proxy the environment
+                     names (`http_proxy`, `https_proxy`, `all_proxy`) together
+                     with the exceptions it lists in `no_proxy`, and is itself
+                     overridden by `--no-proxy`. Without either parameter the
+                     environment applies. Credentials belong into the
+                     environment variable rather than here, because a command-
+                     line argument is visible to every user on the host.
+                     Example: `--proxy=http://proxy.example.com:3128`.
   --service SERVICE  Regex matching the "name" field of a service. Only
                      incidents affecting a matching service, matching degraded
                      services, and maintenance windows affecting a matching

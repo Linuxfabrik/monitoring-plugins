@@ -35,7 +35,8 @@ Retrieves common analytics values from a Matomo instance, including visits, uniq
 usage: matomo-reporting [-h] [-V] [--always-ok] [--date DATE]
                         [--idsite IDSITE] [--insecure] [--metric METRIC]
                         [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                        [--period PERIOD] [--timeout TIMEOUT] [-u URL]
+                        [--period PERIOD] [--proxy PROXY] [--timeout TIMEOUT]
+                        [-u URL]
 
 Retrieves common analytics values from a Matomo instance, including visits,
 unique visitors, bounce rate, and actions. Supports one or multiple websites
@@ -58,10 +59,21 @@ options:
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
-  --no-proxy           Do not use a proxy.
+  --no-proxy           Do not use a proxy, not even one the environment names.
+                       Overrides `--proxy`.
   --password PASSWORD  Matomo REST API access token. Default: anonymous
   --period PERIOD      Matomo REST API period parameter. Example: `range` or
                        `day`. Default: day
+  --proxy PROXY        Proxy to reach the target through. The scheme defaults
+                       to `http` when omitted. Overrides the proxy the
+                       environment names (`http_proxy`, `https_proxy`,
+                       `all_proxy`) together with the exceptions it lists in
+                       `no_proxy`, and is itself overridden by `--no-proxy`.
+                       Without either parameter the environment applies.
+                       Credentials belong into the environment variable rather
+                       than here, because a command-line argument is visible
+                       to every user on the host. Example:
+                       `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        Matomo URL. Default: https://demo.matomo.org
 

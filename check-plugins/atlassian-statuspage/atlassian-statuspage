@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors a public Atlassian Statuspage for incidents, degraded services, and
 scheduled maintenance windows. Reports the overall status indicator, the name and latest
@@ -85,6 +85,13 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -194,6 +201,7 @@ def main():
                 f'{args.URL.rstrip("/")}/api/v2/summary.json',
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
             )
         )

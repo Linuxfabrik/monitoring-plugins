@@ -37,6 +37,9 @@
                 "--password": {
                     "value": "$redfish_storage_password$"
                 },
+                "--proxy": {
+                    "value": "$redfish_storage_proxy$"
+                },
                 "--retries": {
                     "value": "$redfish_storage_retries$"
                 },
@@ -123,16 +126,21 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 15,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -343,7 +351,7 @@
         "10": {
             "varname": "redfish_storage_no_proxy",
             "caption": "Redfish Storage: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -361,6 +369,17 @@
             "uuid": "77904e59-da06-4e8f-a17b-2a632985a6b1"
         },
         "12": {
+            "varname": "redfish_storage_proxy",
+            "caption": "Redfish Storage: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d7d09b20-7082-41ca-954a-e0c24b34c0da"
+        },
+        "13": {
             "varname": "redfish_storage_retries",
             "caption": "Redfish Storage: Retries",
             "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
@@ -371,7 +390,7 @@
             },
             "uuid": "78bf9467-bdb5-4114-ae03-e64f4ddfda72"
         },
-        "13": {
+        "14": {
             "varname": "redfish_storage_timeout",
             "caption": "Redfish Storage: Timeout",
             "description": "Network timeout in seconds.",
@@ -382,7 +401,7 @@
             },
             "uuid": "59ca2c35-414e-4763-82e2-3b59c39524f6"
         },
-        "14": {
+        "15": {
             "varname": "redfish_storage_url",
             "caption": "Redfish Storage: URL",
             "description": "Redfish API URL.",
@@ -393,7 +412,7 @@
             },
             "uuid": "a2f07a98-af67-482c-a037-669e8edf578b"
         },
-        "15": {
+        "16": {
             "varname": "redfish_storage_username",
             "caption": "Redfish Storage: Username",
             "description": "Redfish API username.",
@@ -404,7 +423,7 @@
             },
             "uuid": "b2bd915d-f555-4258-bb09-83a3d9984f88"
         },
-        "16": {
+        "17": {
             "varname": "redfish_storage_verbose",
             "caption": "Redfish Storage: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. For this check that also writes a trace of every Redfish request, with timings, to linuxfabrik-monitoring-plugins-redfish-trace.log below the temporary directory. Unlike this check's output, the trace survives a check that the monitoring server terminates for exceeding its timeout, which is what makes it useful against a slow management controller.",

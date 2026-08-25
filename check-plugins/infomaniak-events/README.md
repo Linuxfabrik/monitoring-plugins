@@ -56,7 +56,8 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 ```text
 usage: infomaniak-events [-h] [-V] [--always-ok] [--ignore-regex IGNORE_REGEX]
                          [--insecure] [--no-perfdata] [--no-proxy]
-                         [--service SERVICE] [--timeout TIMEOUT] --token TOKEN
+                         [--proxy PROXY] [--service SERVICE]
+                         [--timeout TIMEOUT] --token TOKEN
 
 Monitors the Infomaniak status page for open events and incidents. Alerts when
 active events are reported.
@@ -75,7 +76,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --service SERVICE     Only report events for this service category. Can be
                         specified multiple times. If not specified, all
                         categories are reported. Example: `--service

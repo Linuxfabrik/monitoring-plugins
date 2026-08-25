@@ -17,6 +17,9 @@
                 "--no-proxy": {
                     "set_if": "$nextcloud_status_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$nextcloud_status_proxy$"
+                },
                 "--timeout": {
                     "value": "$nextcloud_status_timeout$"
                 },
@@ -75,6 +78,11 @@
                 },
                 {
                     "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -285,13 +293,24 @@
         "5": {
             "varname": "nextcloud_status_no_proxy",
             "caption": "Nextcloud Status: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "3076a93c-fba6-446d-9038-2053f593e15a"
         },
         "6": {
+            "varname": "nextcloud_status_proxy",
+            "caption": "Nextcloud Status: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "696613ca-57a7-4905-9417-4f4f650c2b57"
+        },
+        "7": {
             "varname": "nextcloud_status_timeout",
             "caption": "Nextcloud Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -302,7 +321,7 @@
             },
             "uuid": "4fe496dc-3453-4cfd-aca5-49e7b786c8e2"
         },
-        "7": {
+        "8": {
             "varname": "nextcloud_status_unavailable_severity",
             "caption": "Nextcloud Status: Unavailable Severity",
             "description": "State to report when the instance does not answer with a status document. A refused connection, a timeout, an HTTP error or an unparsable body all mean that the instance is serving nobody. A rejected host name is reported as UNKNOWN regardless of this setting, because that is a wrong `--url` rather than a broken instance.",
@@ -315,7 +334,7 @@
             },
             "uuid": "22c49aab-82d0-441e-8de1-c36b73650938"
         },
-        "8": {
+        "9": {
             "varname": "nextcloud_status_upgrade_severity",
             "caption": "Nextcloud Status: Upgrade Severity",
             "description": "State to report when the instance needs a database upgrade while maintenance mode is off. The instance answers every request with the upgrade page until `occ upgrade` has run, so it serves nobody.",
@@ -328,7 +347,7 @@
             },
             "uuid": "78bbcc95-498a-4ee6-8f87-d3e914595986"
         },
-        "9": {
+        "10": {
             "varname": "nextcloud_status_url",
             "caption": "Nextcloud Status: URL",
             "description": "Nextcloud status URL endpoint.",

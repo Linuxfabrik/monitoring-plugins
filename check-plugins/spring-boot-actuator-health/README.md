@@ -36,7 +36,8 @@ usage: spring-boot-actuator-health [-h] [-V] [--always-ok]
                                    [--component-severity COMPONENT_NAME,API_STATUS,NAGIOS_STATE]
                                    [--detail-severity COMPONENT_NAME,DETAIL_NAME,WARN,CRIT]
                                    [--insecure] [--no-perfdata] [--no-proxy]
-                                   [--timeout TIMEOUT] [--url URL] [--verbose]
+                                   [--proxy PROXY] [--timeout TIMEOUT]
+                                   [--url URL] [--verbose]
 
 Monitors a Spring Boot application via its Actuator /health endpoint. Checks
 overall health status and individual component states (database, disk, mail,
@@ -67,7 +68,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Spring Boot Actuator health endpoint URL. Example:
                         `--url http://server:80/health/diskSpace`. Default:

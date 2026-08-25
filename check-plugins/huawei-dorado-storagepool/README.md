@@ -48,7 +48,8 @@ usage: huawei-dorado-storagepool [-h] [-V] [--always-ok]
                                  [--no-perfdata] [--no-proxy] [--performance]
                                  [--password PASSWORD]
                                  [--password-file PASSWORD_FILE]
-                                 [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                                 [--proxy PROXY] [--scope SCOPE]
+                                 [--timeout TIMEOUT] -u URL
                                  --username USERNAME [-w WARN]
                                  [--warning-overprovisioning WARN_OVERPROVISIONING]
                                  [-v]
@@ -126,7 +127,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --performance         Additionally report the I/O counters of every storage
                         pool. Costs one API request per object, so a large
                         appliance may need a higher --timeout.
@@ -139,6 +141,16 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.

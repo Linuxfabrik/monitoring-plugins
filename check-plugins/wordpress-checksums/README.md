@@ -57,8 +57,8 @@ usage: wordpress-checksums [-h] [-V] [--always-ok]
                            [--no-checksum-data-severity {ok,warn,crit,unknown}]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--path PATH]
-                           [--severity {ok,warn,crit}] [--timeout TIMEOUT]
-                           [--total-timeout TOTAL_TIMEOUT]
+                           [--proxy PROXY] [--severity {ok,warn,crit}]
+                           [--timeout TIMEOUT] [--total-timeout TOTAL_TIMEOUT]
                            [--unreachable-severity {ok,warn,crit,unknown}]
 
 Verifies the files of a local WordPress installation against the checksums
@@ -119,10 +119,21 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --path PATH           Local path to your WordPress installation, typically
                         within your Webserver's Document Root. Default:
                         /var/www/html/wordpress
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --severity {ok,warn,crit}
                         Severity for alerting. Applies to a file that does not
                         match its published checksum. Raise it to `crit` on an

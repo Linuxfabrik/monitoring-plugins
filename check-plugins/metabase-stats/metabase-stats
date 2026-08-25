@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Retrieves recent activity and usage statistics from a Metabase instance via its API.
 Reports active users, executed queries, dashboards, and other operational metrics.
@@ -115,6 +115,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -181,6 +188,7 @@ def get_token(metabase_url, user, password, expire):
         encoding='serialized-json',
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
     if not success:
@@ -211,6 +219,7 @@ def get_data(metabase_url, token, data={}):
         encoding='serialized-json',
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
 
@@ -227,6 +236,7 @@ def get_json(metabase_url, token, data={}):
         encoding='serialized-json',
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
 

@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -268,6 +268,13 @@ def parse_args():
         'Document Root. Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -640,6 +647,7 @@ def get_checksums(args, key, endpoint, extract, algorithm, timeout):
             extended=True,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
             response_on_error=True,
             timeout=timeout,
         )

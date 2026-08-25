@@ -34,7 +34,7 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 ```text
 usage: sap-open-concur-com [-h] [--always-ok] [-V]
                            --datacenter {us,us2,eu,eu2,cn,pscc} [--insecure]
-                           [--no-proxy]
+                           [--no-proxy] [--proxy PROXY]
                            [--service {Analysis/Intelligence,Compleat (TMC Services),Expense,Imaging,Invoice,Mobile,Request,Travel,All}]
                            [--timeout TIMEOUT] [--utc-offset UTC_OFFSET]
 
@@ -49,7 +49,18 @@ options:
                         SAP Concur datacenter to query. Default: eu2
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --service {Analysis/Intelligence,Compleat (TMC Services),Expense,Imaging,Invoice,Mobile,Request,Travel,All}
                         SAP Concur service to check. One of
                         "Analysis/Intelligence", "Compleat (TMC Services)",

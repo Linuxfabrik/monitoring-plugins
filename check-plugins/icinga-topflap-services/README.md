@@ -45,9 +45,9 @@ Detects fast-flapping Icinga services by counting state changes per service with
 ```text
 usage: icinga-topflap-services [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
                                [--lookback LOOKBACK] [--no-proxy]
-                               [--password PASSWORD] [--pwfile PWFILE]
-                               [--timeout TIMEOUT] [--url URL]
-                               [--username USERNAME] [-w WARN]
+                               [--password PASSWORD] [--proxy PROXY]
+                               [--pwfile PWFILE] [--timeout TIMEOUT]
+                               [--url URL] [--username USERNAME] [-w WARN]
 
 Detects fast-flapping Icinga services by counting state changes per service
 within a configurable lookback interval. Queries the Icinga DB event history
@@ -63,9 +63,20 @@ options:
   --insecure           This option explicitly allows insecure SSL connections.
   --lookback LOOKBACK  Time window in seconds to consider for state change
                        counting. Default: 14400
-  --no-proxy           Do not use a proxy.
+  --no-proxy           Do not use a proxy, not even one the environment names.
+                       Overrides `--proxy`.
   --password PASSWORD  Icinga Web 2 password. Takes precedence over the value
                        in `--pwfile`.
+  --proxy PROXY        Proxy to reach the target through. The scheme defaults
+                       to `http` when omitted. Overrides the proxy the
+                       environment names (`http_proxy`, `https_proxy`,
+                       `all_proxy`) together with the exceptions it lists in
+                       `no_proxy`, and is itself overridden by `--no-proxy`.
+                       Without either parameter the environment applies.
+                       Credentials belong into the environment variable rather
+                       than here, because a command-line argument is visible
+                       to every user on the host. Example:
+                       `--proxy=http://proxy.example.com:3128`.
   --pwfile PWFILE      Path to a password file containing "url", "user" and
                        "password" for Icinga Web 2. Example: `--pwfile
                        /var/spool/icinga2/.icingaweb`. Default:

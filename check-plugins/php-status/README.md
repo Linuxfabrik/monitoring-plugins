@@ -150,8 +150,8 @@ On the subject of OPcache see also:
 ```text
 usage: php-status [-h] [-V] [--always-ok] [--config CONFIG] [-c CRIT] [--dev]
                   [--ignore-multiple-masters] [--insecure] [--module MODULES]
-                  [--no-perfdata] [--no-proxy] [--timeout TIMEOUT] [--top TOP]
-                  [--url URL] [-w WARN]
+                  [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                  [--timeout TIMEOUT] [--top TOP] [--url URL] [-w WARN]
 
 Checks PHP configuration and health, including startup errors, missing
 modules, and misconfigured php.ini directives. Optionally reads extended PHP
@@ -185,7 +185,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --top TOP             Number of largest OPcache scripts to list, sorted by
                         memory consumption (descending). Use `--top=0` to

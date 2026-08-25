@@ -114,7 +114,7 @@ The overall state is the worst of all pools. Perfdata labels are prefixed with t
 ```text
 usage: php-fpm-status [-h] [-V] [--always-ok] [-c CRIT]
                       [--critical-slowreq CRIT_SLOW_REQUESTS] [--insecure]
-                      [--lengthy] [--no-perfdata] [--no-proxy]
+                      [--lengthy] [--no-perfdata] [--no-proxy] [--proxy PROXY]
                       [--severity {warn,crit}] [--test TEST]
                       [--timeout TIMEOUT] [-u URL] [-w WARN]
                       [--warning-slowreq WARN_SLOW_REQUESTS]
@@ -155,7 +155,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --severity {warn,crit}
                         Severity for alerting. Applied to pools that are
                         unreachable or whose status JSON cannot be parsed.

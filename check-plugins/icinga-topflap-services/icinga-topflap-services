@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081301'
+__version__ = '2026082501'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
@@ -108,6 +108,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--pwfile',
         help='Path to a password file containing "url", "user" and "password" for Icinga Web 2. '
         'Example: `--pwfile /var/spool/icinga2/.icingaweb`. '
@@ -165,6 +172,7 @@ def get_data(args):
         header=header,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
 

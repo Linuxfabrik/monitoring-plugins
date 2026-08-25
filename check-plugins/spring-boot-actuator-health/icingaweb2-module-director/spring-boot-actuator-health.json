@@ -22,6 +22,9 @@
                 "--no-proxy": {
                     "set_if": "$spring_boot_actuator_health_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$spring_boot_actuator_health_proxy$"
+                },
                 "--timeout": {
                     "value": "$spring_boot_actuator_health_timeout$"
                 },
@@ -77,6 +80,11 @@
                 },
                 {
                     "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -201,13 +209,24 @@
         "6": {
             "varname": "spring_boot_actuator_health_no_proxy",
             "caption": "Spring Boot Actuator Health: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "a0608290-bfdb-43cc-845f-62118bbf8174"
         },
         "7": {
+            "varname": "spring_boot_actuator_health_proxy",
+            "caption": "Spring Boot Actuator Health: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b18ff7d2-6899-4b0a-8fff-760574cd94b2"
+        },
+        "8": {
             "varname": "spring_boot_actuator_health_timeout",
             "caption": "Spring Boot Actuator Health: Timeout",
             "description": "Network timeout in seconds.",
@@ -218,7 +237,7 @@
             },
             "uuid": "bb231ad9-6bd1-4fe4-afd6-6a16e199c800"
         },
-        "8": {
+        "9": {
             "varname": "spring_boot_actuator_health_url",
             "caption": "Spring Boot Actuator Health: URL",
             "description": "Spring Boot Actuator health endpoint URL. Example: `--url http://server:80/health/diskSpace`.",
@@ -229,7 +248,7 @@
             },
             "uuid": "5b789799-e63f-48cc-b085-e7c95f5ab174"
         },
-        "9": {
+        "10": {
             "varname": "spring_boot_actuator_health_verbose",
             "caption": "Spring Boot Actuator Health: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",

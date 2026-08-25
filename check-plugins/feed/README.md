@@ -47,7 +47,7 @@ usage: feed [-h] [-V] [--always-ok] [--icinga-callback]
             [--icinga-service-name ICINGA_SERVICE_NAME]
             [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
             [--insecure] [--latest] [--no-proxy] [--no-summary]
-            [--timeout TIMEOUT] [--url FEED_URL] [-w WARN]
+            [--proxy PROXY] [--timeout TIMEOUT] [--url FEED_URL] [-w WARN]
 
 Monitors an RSS or Atom feed for new entries and alerts when new items appear
 within a configurable time window (default: 3 days). If Icinga callback is
@@ -75,9 +75,20 @@ options:
                         connections.
   --latest              Return the newest feed item, even if its timestamp is
                         in the future.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --no-summary          Suppress the feed item summary in the output. Default:
                         False
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 5
   --url FEED_URL        RSS or Atom feed URL. Default:
                         https://www.heise.de/security/rss/alert-news-atom.xml

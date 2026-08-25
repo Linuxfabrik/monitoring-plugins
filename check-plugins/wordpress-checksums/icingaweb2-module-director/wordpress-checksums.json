@@ -37,6 +37,9 @@
                 "--path": {
                     "value": "$wordpress_checksums_path$"
                 },
+                "--proxy": {
+                    "value": "$wordpress_checksums_proxy$"
+                },
                 "--severity": {
                     "value": "$wordpress_checksums_severity$"
                 },
@@ -125,6 +128,11 @@
                 },
                 {
                     "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -421,7 +429,7 @@
         "10": {
             "varname": "wordpress_checksums_no_proxy",
             "caption": "WordPress Checksums: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -439,6 +447,17 @@
             "uuid": "c6ee4c1e-a0f5-4542-b319-3974976755b2"
         },
         "12": {
+            "varname": "wordpress_checksums_proxy",
+            "caption": "WordPress Checksums: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6696a2c1-46b8-4bc3-986a-f849b28b6911"
+        },
+        "13": {
             "varname": "wordpress_checksums_severity",
             "caption": "WordPress Checksums: Severity",
             "description": "Severity for alerting. Applies to a file that does not match its published checksum. Raise it to `crit` on an installation nobody hand-patches, where a mismatch can only mean the files were tampered with.",
@@ -451,7 +470,7 @@
             },
             "uuid": "f27e2094-47fa-4cbb-a454-740d4312141e"
         },
-        "13": {
+        "14": {
             "varname": "wordpress_checksums_timeout",
             "caption": "WordPress Checksums: Timeout",
             "description": "Network timeout in seconds. Applies to a single request. The run as a whole is bounded by --total-timeout.",
@@ -462,7 +481,7 @@
             },
             "uuid": "3c0f2d12-2f26-497a-aa28-50e39754cee9"
         },
-        "14": {
+        "15": {
             "varname": "wordpress_checksums_total_timeout",
             "caption": "WordPress Checksums: Total Timeout",
             "description": "Seconds the run may spend asking wordpress.org, across all requests. One request is made per component, so a host that cannot reach wordpress.org would otherwise wait --timeout seconds per component and be killed by the monitoring agent before it printed anything. Components not reached within the budget are reported as unqueried, the same way a failed request is. Keep it below the timeout the monitoring agent grants the check. Raise it on an installation with many plugins on a slow link.",
@@ -473,7 +492,7 @@
             },
             "uuid": "7bf6168f-5fbd-4560-a0d9-afb9ac4b65b2"
         },
-        "15": {
+        "16": {
             "varname": "wordpress_checksums_unreachable_severity",
             "caption": "WordPress Checksums: Unreachable Severity",
             "description": "State to report when the online source is unreachable. What is used instead - bundled offline data, a cached copy, or nothing at all - is named in the output, and a clean result then only covers what that fallback could confirm. Covers both a component verified against an expired cached copy and one that could not be verified at all for want of one. Raise it where the host is expected to reach wordpress.org, so a broken egress rule or an expired proxy credential surfaces instead of quietly reducing what the check covers.",

@@ -23,7 +23,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors an RSS or Atom feed for new entries and alerts when new items appear within
 a configurable time window (default: 3 days). If Icinga callback is enabled, the
@@ -121,6 +121,13 @@ def parse_args():
         default=DEFAULT_NO_SUMMARY,  # False
     )
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s',
         dest='TIMEOUT',
@@ -147,11 +154,12 @@ def parse_args():
     return args
 
 
-def fetch_feed_latest_item(feed_url, insecure=False, no_proxy=False, timeout=5):
+def fetch_feed_latest_item(feed_url, insecure=False, no_proxy=False, proxy=None, timeout=5):
     success, myfeed = lib.feedparser.parse(
         feed_url,
         insecure=insecure,
         no_proxy=no_proxy,
+        proxy=proxy,
         timeout=timeout,
     )
     if not success:
@@ -161,12 +169,13 @@ def fetch_feed_latest_item(feed_url, insecure=False, no_proxy=False, timeout=5):
     return (True, myfeed['entries'][0])
 
 
-def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, timeout=5):
+def fetch_feed_todays_item(feed_url, insecure=False, no_proxy=False, proxy=None, timeout=5):
     """Fetch the newest feed item starting from now/today, or older."""
     success, myfeed = lib.feedparser.parse(
         feed_url,
         insecure=insecure,
         no_proxy=no_proxy,
+        proxy=proxy,
         timeout=timeout,
     )
     if not success:
@@ -226,6 +235,7 @@ def get_feed_state(feed_id, delta, args):
                 attrs='state,acknowledgement',
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
             )
             if not success:
@@ -277,6 +287,7 @@ def main():
                 args.FEED_URL,
                 args.INSECURE,
                 args.NO_PROXY,
+                args.PROXY,
                 args.TIMEOUT,
             )
         )
@@ -287,6 +298,7 @@ def main():
                 args.FEED_URL,
                 args.INSECURE,
                 args.NO_PROXY,
+                args.PROXY,
                 args.TIMEOUT,
             )
         )

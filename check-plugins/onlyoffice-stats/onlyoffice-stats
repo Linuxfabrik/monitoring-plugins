@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors OnlyOffice Document Server statistics and license usage via the HTTP API.
 Reports active connections, document editing sessions, and license consumption.
@@ -84,6 +84,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -125,6 +132,7 @@ def main():
                 args.URL + '/info/info.json',
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
             )
         )

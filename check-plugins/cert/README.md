@@ -160,7 +160,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --ports PORTS         TCP port to probe on every scanned target. A range is
                         written `start-end`. Only applies to --source=scan.
                         Can be specified multiple times. If not specified, a
@@ -168,15 +169,15 @@ options:
                         465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006,
                         8200, 8443, 8883, 9090, 9443, 10000). Example:
                         `--ports=443 --ports=993 --ports=8000-8100`
-  --proxy PROXY         Proxy to reach the target through, overriding the
-                        proxy the environment names. The scheme defaults to
-                        `http` when omitted. Without this parameter the
-                        environment applies (`http_proxy`, `https_proxy`,
-                        `all_proxy` and the exceptions in `no_proxy`); `--no-
-                        proxy` ignores that too. Credentials belong into the
-                        environment variable rather than here, because a
-                        command-line argument is visible to every user on the
-                        host. Example:
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`. Only applies
                         to --source=url.
   --severity {crit,warn}

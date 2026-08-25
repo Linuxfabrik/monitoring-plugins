@@ -23,7 +23,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors virtual services on a KEMP LoadMaster appliance via its REST API. Alerts
 when any virtual service or its real servers are in a non-operational state."""
@@ -112,6 +112,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--severity',
         help=lib.args.help('--severity') + ' Default: %(default)s',
         dest='SEVERITY',
@@ -170,6 +177,7 @@ def main():
                 url,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
                 header={'Authorization': f'Basic {encoded_auth}'},
             )

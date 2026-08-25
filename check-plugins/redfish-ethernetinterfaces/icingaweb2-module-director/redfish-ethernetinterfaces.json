@@ -37,6 +37,9 @@
                 "--password": {
                     "value": "$redfish_ethernetinterfaces_password$"
                 },
+                "--proxy": {
+                    "value": "$redfish_ethernetinterfaces_proxy$"
+                },
                 "--retries": {
                     "value": "$redfish_ethernetinterfaces_retries$"
                 },
@@ -123,16 +126,21 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 15,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -343,7 +351,7 @@
         "10": {
             "varname": "redfish_ethernetinterfaces_no_proxy",
             "caption": "Redfish Ethernetinterfaces: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -361,6 +369,17 @@
             "uuid": "eda2e078-1bc1-4274-a27c-9f88308d9267"
         },
         "12": {
+            "varname": "redfish_ethernetinterfaces_proxy",
+            "caption": "Redfish Ethernetinterfaces: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cc2747c3-52b6-4654-8900-983a1ab87d5c"
+        },
+        "13": {
             "varname": "redfish_ethernetinterfaces_retries",
             "caption": "Redfish Ethernetinterfaces: Retries",
             "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
@@ -371,7 +390,7 @@
             },
             "uuid": "ed265d4a-0c1f-4ee1-b354-3e426c2a3647"
         },
-        "13": {
+        "14": {
             "varname": "redfish_ethernetinterfaces_timeout",
             "caption": "Redfish Ethernetinterfaces: Timeout",
             "description": "Network timeout in seconds.",
@@ -382,7 +401,7 @@
             },
             "uuid": "af84eb76-9f5d-451b-a09f-9e1f02c0956c"
         },
-        "14": {
+        "15": {
             "varname": "redfish_ethernetinterfaces_url",
             "caption": "Redfish Ethernetinterfaces: URL",
             "description": "Redfish API URL.",
@@ -393,7 +412,7 @@
             },
             "uuid": "648c93a0-ebfd-495b-9803-8567f698cc13"
         },
-        "15": {
+        "16": {
             "varname": "redfish_ethernetinterfaces_username",
             "caption": "Redfish Ethernetinterfaces: Username",
             "description": "Redfish API username.",
@@ -404,7 +423,7 @@
             },
             "uuid": "a5e350fb-c3b7-40a0-a59b-ad5aeb2015c5"
         },
-        "16": {
+        "17": {
             "varname": "redfish_ethernetinterfaces_verbose",
             "caption": "Redfish Ethernetinterfaces: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. For this check that also writes a trace of every Redfish request, with timings, to linuxfabrik-monitoring-plugins-redfish-trace.log below the temporary directory. Unlike this check's output, the trace survives a check that the monitoring server terminates for exceeding its timeout, which is what makes it useful against a slow management controller.",

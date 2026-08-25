@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$axenita_stats_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$axenita_stats_proxy$"
+                },
                 "--timeout": {
                     "value": "$axenita_stats_timeout$"
                 },
@@ -51,6 +54,11 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -150,13 +158,24 @@
         "4": {
             "varname": "axenita_stats_no_proxy",
             "caption": "Axenita Stats: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "07cae681-155d-4b23-8109-6bdd4016e802"
         },
         "5": {
+            "varname": "axenita_stats_proxy",
+            "caption": "Axenita Stats: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ad2daa41-9213-4753-bc33-25e6f1ee9af2"
+        },
+        "6": {
             "varname": "axenita_stats_timeout",
             "caption": "Axenita Stats: Timeout",
             "description": "Network timeout in seconds.",
@@ -167,7 +186,7 @@
             },
             "uuid": "4951c549-0147-4211-8bff-04dcc420d850"
         },
-        "6": {
+        "7": {
             "varname": "axenita_stats_url",
             "caption": "Axenita Stats: URL",
             "description": "Axenita API URL.",

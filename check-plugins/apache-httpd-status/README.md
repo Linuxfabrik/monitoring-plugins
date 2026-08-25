@@ -112,8 +112,8 @@ Verified against real installations of httpd 2.2.15 (CentOS 6), 2.4.6 (CentOS 7)
 
 ```text
 usage: apache-httpd-status [-h] [-V] [--always-ok] [-c CRIT] [--insecure]
-                           [--no-perfdata] [--no-proxy] [--timeout TIMEOUT]
-                           [-u URL] [-w WARN]
+                           [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                           [--timeout TIMEOUT] [-u URL] [-w WARN]
 
 Monitors Apache httpd via the mod_status endpoint (server-status?auto).
 Reports worker slot usage, worker and connection states, request and traffic
@@ -135,7 +135,18 @@ options:
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
-  --no-proxy           Do not use a proxy.
+  --no-proxy           Do not use a proxy, not even one the environment names.
+                       Overrides `--proxy`.
+  --proxy PROXY        Proxy to reach the target through. The scheme defaults
+                       to `http` when omitted. Overrides the proxy the
+                       environment names (`http_proxy`, `https_proxy`,
+                       `all_proxy`) together with the exceptions it lists in
+                       `no_proxy`, and is itself overridden by `--no-proxy`.
+                       Without either parameter the environment applies.
+                       Credentials belong into the environment variable rather
+                       than here, because a command-line argument is visible
+                       to every user on the host. Example:
+                       `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -u, --url URL        Apache Server Status URL. The plugin appends the "auto"
                        query parameter itself. Default:

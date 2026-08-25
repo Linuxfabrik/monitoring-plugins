@@ -58,8 +58,9 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--ignore-pattern IGNORE_PATTERN]
                       [--ignore-regex IGNORE_REGEX] [--insecure]
                       [--no-insecure] [--no-perfdata] [--no-proxy]
-                      [--priority PRIORITY] [--severity {warn,crit}]
-                      [--since SINCE] [--timeout TIMEOUT] [--unit UNIT]
+                      [--priority PRIORITY] [--proxy PROXY]
+                      [--severity {warn,crit}] [--since SINCE]
+                      [--timeout TIMEOUT] [--unit UNIT]
                       [--user-unit USER_UNIT]
 
 Queries the systemd journal using journalctl and alerts when matching entries
@@ -114,9 +115,20 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --priority PRIORITY   Filter output by message priorities or priority ranges
                         (passed to journalctl). Default: emerg..err
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --severity {warn,crit}
                         Severity for alerts when journalctl returns results.
                         Default: warn

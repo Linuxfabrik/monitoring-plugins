@@ -35,8 +35,8 @@ Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP A
 ```text
 usage: keycloak-memory-usage [-h] [-V] [--always-ok] [--client-id CLIENT_ID]
                              [--critical CRIT] [--insecure] [--no-perfdata]
-                             [--no-proxy] [-p PASSWORD] [--realm REALM]
-                             [--timeout TIMEOUT] [--url URL]
+                             [--no-proxy] [-p PASSWORD] [--proxy PROXY]
+                             [--realm REALM] [--timeout TIMEOUT] [--url URL]
                              [--username USERNAME] [--warning WARN]
 
 Monitors Java heap and non-heap memory usage of a Keycloak server via its HTTP
@@ -59,9 +59,20 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   -p, --password PASSWORD
                         Keycloak API password. Default: admin
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --realm REALM         Keycloak API realm. Default: master
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Keycloak API URL. Default: http://127.0.0.1:8080

@@ -37,6 +37,9 @@
                 "--password": {
                     "value": "$redfish_processors_password$"
                 },
+                "--proxy": {
+                    "value": "$redfish_processors_proxy$"
+                },
                 "--retries": {
                     "value": "$redfish_processors_retries$"
                 },
@@ -123,16 +126,21 @@
                 },
                 {
                     "datafield_id": 14,
-                    "is_required": "y",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 15,
                     "is_required": "n",
                     "var_filter": null
                 },
                 {
+                    "datafield_id": 15,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
                     "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -343,7 +351,7 @@
         "10": {
             "varname": "redfish_processors_no_proxy",
             "caption": "Redfish Processors: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -361,6 +369,17 @@
             "uuid": "89eb649f-2fb0-43f2-b2f0-378dd771c103"
         },
         "12": {
+            "varname": "redfish_processors_proxy",
+            "caption": "Redfish Processors: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e081f673-bfeb-4fb6-989e-eee6460c5acb"
+        },
+        "13": {
             "varname": "redfish_processors_retries",
             "caption": "Redfish Processors: Retries",
             "description": "Number of extra attempts if a request to the Redfish API fails, before the check gives up. Helps against an occasionally slow or flaky management controller.",
@@ -371,7 +390,7 @@
             },
             "uuid": "522be7bf-caf9-4693-a24b-91e5da46dafe"
         },
-        "13": {
+        "14": {
             "varname": "redfish_processors_timeout",
             "caption": "Redfish Processors: Timeout",
             "description": "Network timeout in seconds.",
@@ -382,7 +401,7 @@
             },
             "uuid": "c059afba-0462-48cb-9f41-c5213fb31c5a"
         },
-        "14": {
+        "15": {
             "varname": "redfish_processors_url",
             "caption": "Redfish Processors: URL",
             "description": "Redfish API URL.",
@@ -393,7 +412,7 @@
             },
             "uuid": "b8819efb-b690-4bde-90a4-025603d4d930"
         },
-        "15": {
+        "16": {
             "varname": "redfish_processors_username",
             "caption": "Redfish Processors: Username",
             "description": "Redfish API username.",
@@ -404,7 +423,7 @@
             },
             "uuid": "31f11d3e-3b1c-44d9-be96-5448a614cf77"
         },
-        "16": {
+        "17": {
             "varname": "redfish_processors_verbose",
             "caption": "Redfish Processors: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. For this check that also writes a trace of every Redfish request, with timings, to linuxfabrik-monitoring-plugins-redfish-trace.log below the temporary directory. Unlike this check's output, the trace survives a check that the monitoring server terminates for exceeding its timeout, which is what makes it useful against a slow management controller.",

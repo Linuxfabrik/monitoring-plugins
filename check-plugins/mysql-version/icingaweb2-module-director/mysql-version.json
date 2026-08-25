@@ -26,6 +26,9 @@
                 "--offset-eol": {
                     "value": "$mysql_version_offset_eol$"
                 },
+                "--proxy": {
+                    "value": "$mysql_version_proxy$"
+                },
                 "--timeout": {
                     "value": "$mysql_version_timeout$"
                 },
@@ -83,6 +86,11 @@
                 },
                 {
                     "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -246,7 +254,7 @@
         "7": {
             "varname": "mysql_version_no_proxy",
             "caption": "MySQL Version: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -264,6 +272,17 @@
             "uuid": "dfefad84-0b83-49ed-b96a-e19a7e7d0e75"
         },
         "9": {
+            "varname": "mysql_version_proxy",
+            "caption": "MySQL Version: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c48f19dd-e29e-4038-bfb3-9c71157efc7d"
+        },
+        "10": {
             "varname": "mysql_version_timeout",
             "caption": "MySQL Version: Timeout",
             "description": "Network timeout in seconds.",
@@ -274,7 +293,7 @@
             },
             "uuid": "09c0d9fe-1b2e-4585-b366-b586f7f6c086"
         },
-        "10": {
+        "11": {
             "varname": "mysql_version_unreachable_severity",
             "caption": "MySQL Version: Unreachable Severity",
             "description": "State to report when the online source is unreachable. What is used instead - bundled offline data, a cached copy, or nothing at all - is named in the output, and a clean result then only covers what that fallback could confirm.",

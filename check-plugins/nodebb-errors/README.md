@@ -33,8 +33,8 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 
 ```text
 usage: nodebb-errors [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
-                     [--no-proxy] [--severity {warn,crit}] [--timeout TIMEOUT]
-                     -p TOKEN [--url URL]
+                     [--no-proxy] [--proxy PROXY] [--severity {warn,crit}]
+                     [--timeout TIMEOUT] -p TOKEN [--url URL]
 
 Retrieves recent server-side errors from NodeBB via the admin API. Alerts when
 errors are found in the error log.
@@ -49,7 +49,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --severity {warn,crit}
                         Severity for alerts that do not depend on thresholds.
                         One of "warn" or "crit". Default: warn

@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$mod_qos_stats_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$mod_qos_stats_proxy$"
+                },
                 "--timeout": {
                     "value": "$mod_qos_stats_timeout$"
                 },
@@ -51,6 +54,11 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -150,13 +158,24 @@
         "4": {
             "varname": "mod_qos_stats_no_proxy",
             "caption": "mod_qos Stats: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "f556c256-3d80-4642-9382-5a679a200559"
         },
         "5": {
+            "varname": "mod_qos_stats_proxy",
+            "caption": "mod_qos Stats: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0f05da9b-79f2-4450-9427-48062dc8de3a"
+        },
+        "6": {
             "varname": "mod_qos_stats_timeout",
             "caption": "mod_qos Stats: Timeout",
             "description": "Network timeout in seconds.",
@@ -167,7 +186,7 @@
             },
             "uuid": "8e5bf25b-8f8a-44c2-8eb7-f59a35b5e061"
         },
-        "6": {
+        "7": {
             "varname": "mod_qos_stats_url",
             "caption": "mod_qos Stats: URL",
             "description": "URL of the mod_qos machine-readable status handler.",

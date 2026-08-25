@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$gitlab_readiness_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$gitlab_readiness_proxy$"
+                },
                 "--severity": {
                     "value": "$gitlab_readiness_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -180,13 +188,24 @@
         "4": {
             "varname": "gitlab_readiness_no_proxy",
             "caption": "Gitlab Readiness: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "5522b10e-ff07-420f-bd51-8a2d63871849"
         },
         "5": {
+            "varname": "gitlab_readiness_proxy",
+            "caption": "Gitlab Readiness: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0bd01894-afe6-4e51-a235-2fc3c6e7f0a3"
+        },
+        "6": {
             "varname": "gitlab_readiness_severity",
             "caption": "Gitlab Readiness: Severity",
             "description": "Severity for alerting.",
@@ -199,7 +218,7 @@
             },
             "uuid": "46d90e23-16b7-4ba0-9e19-714281ce4d51"
         },
-        "6": {
+        "7": {
             "varname": "gitlab_readiness_timeout",
             "caption": "Gitlab Readiness: Timeout",
             "description": "Network timeout in seconds.",
@@ -210,7 +229,7 @@
             },
             "uuid": "37042d91-c602-457f-9a66-66e899aba7a7"
         },
-        "7": {
+        "8": {
             "varname": "gitlab_readiness_url",
             "caption": "Gitlab Readiness: URL",
             "description": "GitLab readiness URL endpoint.",

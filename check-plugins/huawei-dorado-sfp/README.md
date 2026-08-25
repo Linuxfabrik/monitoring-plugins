@@ -44,7 +44,7 @@ usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--brief]
                          [--lengthy] [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                         [--password-file PASSWORD_FILE]
+                         [--password-file PASSWORD_FILE] [--proxy PROXY]
                          [--rx-power-critical RX_POWER_CRIT]
                          [--rx-power-warning RX_POWER_WARN] [--scope SCOPE]
                          [--tx-power-critical TX_POWER_CRIT]
@@ -118,7 +118,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
@@ -128,6 +129,16 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --rx-power-critical RX_POWER_CRIT
                         CRIT threshold for the receive power of a module, as a
                         Nagios range in dBm. Defaults to the operating range

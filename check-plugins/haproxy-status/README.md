@@ -57,7 +57,7 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 ```text
 usage: haproxy-status [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                       [--insecure] [--lengthy] [--no-perfdata] [--no-proxy]
-                      [--timeout TIMEOUT] [-u URL] [-w WARN]
+                      [--proxy PROXY] [--timeout TIMEOUT] [-u URL] [-w WARN]
 
 Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error
@@ -90,7 +90,18 @@ options:
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
                        alerting keeps working while trending data is dropped.
-  --no-proxy           Do not use a proxy.
+  --no-proxy           Do not use a proxy, not even one the environment names.
+                       Overrides `--proxy`.
+  --proxy PROXY        Proxy to reach the target through. The scheme defaults
+                       to `http` when omitted. Overrides the proxy the
+                       environment names (`http_proxy`, `https_proxy`,
+                       `all_proxy`) together with the exceptions it lists in
+                       `no_proxy`, and is itself overridden by `--no-proxy`.
+                       Without either parameter the environment applies.
+                       Credentials belong into the environment variable rather
+                       than here, because a command-line argument is visible
+                       to every user on the host. Example:
+                       `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT    Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL        HAProxy stats URI. Accepts
                        `unix:///path/to/haproxy.sock` or an HTTP(S) URL. For

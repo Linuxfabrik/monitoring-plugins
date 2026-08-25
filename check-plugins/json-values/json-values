@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Parses a JSON object from a file, URL, or SMB share and extracts message, state,
 and perfdata values from configurable keys. Useful for integrating custom applications or
@@ -167,6 +167,13 @@ def parse_args():
         dest='PERFDATA_KEY',
         type=str,
         default=DEFAULT_PERFDATA_KEY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -363,6 +370,7 @@ def load_source(args):
                 args.URL,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
                 timeout=args.TIMEOUT,
                 header=build_request_headers(args.TOKEN, args.HEADER),
             )

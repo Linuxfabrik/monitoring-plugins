@@ -31,7 +31,8 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 ```text
 usage: xml [-h] [-V] [--always-ok] [--expect EXPECT] [--insecure]
            [--namespace NAMESPACES] [--no-proxy] [--password PASSWORD]
-           [--timeout TIMEOUT] --url URL [--username USERNAME] --xpath XPATH
+           [--proxy PROXY] [--timeout TIMEOUT] --url URL [--username USERNAME]
+           --xpath XPATH
 
 Fetches an XML document via HTTP(S) and checks for a matching string using
 XPath expressions. Supports namespace prefixes and HTTP Basic Authentication.
@@ -50,8 +51,19 @@ options:
                         Can be specified multiple times. Example: `--
                         namespace="prefix1:https://schemas.xmlsoap.org/prefix1
                         /"`.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --password PASSWORD   HTTP Basic Auth password.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 7 (seconds)
   --url URL             XML endpoint URL.
   --username USERNAME   HTTP Basic Auth username.

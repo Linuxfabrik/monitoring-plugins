@@ -34,7 +34,8 @@ Monitors the health and performance of an Axenita/Achilles installation by query
 
 ```text
 usage: axenita-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
-                     [--no-proxy] [--timeout TIMEOUT] [--url URL]
+                     [--no-proxy] [--proxy PROXY] [--timeout TIMEOUT]
+                     [--url URL]
 
 Monitors the health and performance of an Axenita/Achilles installation by
 querying four API endpoints: ReadModel state, active user sessions, build
@@ -50,7 +51,17 @@ options:
   --no-perfdata      Suppress the performance data section from the output.
                      The status message and the exit code are unaffected, so
                      alerting keeps working while trending data is dropped.
-  --no-proxy         Do not use a proxy.
+  --no-proxy         Do not use a proxy, not even one the environment names.
+                     Overrides `--proxy`.
+  --proxy PROXY      Proxy to reach the target through. The scheme defaults to
+                     `http` when omitted. Overrides the proxy the environment
+                     names (`http_proxy`, `https_proxy`, `all_proxy`) together
+                     with the exceptions it lists in `no_proxy`, and is itself
+                     overridden by `--no-proxy`. Without either parameter the
+                     environment applies. Credentials belong into the
+                     environment variable rather than here, because a command-
+                     line argument is visible to every user on the host.
+                     Example: `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT  Network timeout in seconds. Default: 3 (seconds)
   --url URL          Axenita API URL. Default:
                      http://localhost:10000/achilles/ar

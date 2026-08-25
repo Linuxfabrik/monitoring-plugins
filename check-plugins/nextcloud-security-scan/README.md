@@ -35,8 +35,8 @@ Checks the security of a Nextcloud (or ownCloud) server using the Nextcloud secu
 
 ```text
 usage: nextcloud-security-scan [-h] [-V] [--always-ok] [--insecure]
-                               [--no-proxy] [--path PATH] [--timeout TIMEOUT]
-                               [--trigger TRIGGER] -u URL
+                               [--no-proxy] [--path PATH] [--proxy PROXY]
+                               [--timeout TIMEOUT] [--trigger TRIGGER] -u URL
 
 Checks the security of a private Nextcloud server using the Nextcloud security
 scanner. Reports the assigned security rating and alerts on known
@@ -49,7 +49,8 @@ options:
   -V, --version      show program's version number and exit
   --always-ok        Always returns OK.
   --insecure         This option explicitly allows insecure SSL connections.
-  --no-proxy         Do not use a proxy.
+  --no-proxy         Do not use a proxy, not even one the environment names.
+                     Overrides `--proxy`.
   --path PATH        Local path to the Nextcloud installation, typically the
                      web server document root. When set, the plugin reads the
                      installed version via `occ` and triggers an immediate re-
@@ -57,6 +58,15 @@ options:
                      last saw, so the rating no longer lags a Nextcloud
                      update. Requires running on the Nextcloud server with
                      sudo for the UID owning config/config.php.
+  --proxy PROXY      Proxy to reach the target through. The scheme defaults to
+                     `http` when omitted. Overrides the proxy the environment
+                     names (`http_proxy`, `https_proxy`, `all_proxy`) together
+                     with the exceptions it lists in `no_proxy`, and is itself
+                     overridden by `--no-proxy`. Without either parameter the
+                     environment applies. Credentials belong into the
+                     environment variable rather than here, because a command-
+                     line argument is visible to every user on the host.
+                     Example: `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT  Network timeout in seconds. Default: 7 (seconds)
   --trigger TRIGGER  Trigger a re-scan if the result on scan.nextcloud.com is
                      older than this many days. Default: 14 (days)

@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$uptimerobot_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$uptimerobot_proxy$"
+                },
                 "--timeout": {
                     "value": "$uptimerobot_timeout$"
                 },
@@ -51,6 +54,11 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -150,13 +158,24 @@
         "4": {
             "varname": "uptimerobot_no_proxy",
             "caption": "Uptimerobot: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "890200bc-45bb-4159-a441-c87dfaca52fa"
         },
         "5": {
+            "varname": "uptimerobot_proxy",
+            "caption": "Uptimerobot: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a49ae19e-8ad4-4402-82ac-8409657add03"
+        },
+        "6": {
             "varname": "uptimerobot_timeout",
             "caption": "Uptimerobot: Timeout",
             "description": "Network timeout in seconds.",
@@ -167,7 +186,7 @@
             },
             "uuid": "d9110461-ccca-4df9-9246-e523da090514"
         },
-        "6": {
+        "7": {
             "varname": "uptimerobot_url",
             "caption": "Uptimerobot: URL",
             "description": "UptimeRobot status page URL.",

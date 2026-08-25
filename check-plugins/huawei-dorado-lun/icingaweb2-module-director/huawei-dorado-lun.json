@@ -58,6 +58,9 @@
                 "--password-file": {
                     "value": "$huawei_dorado_lun_password_file$"
                 },
+                "--proxy": {
+                    "value": "$huawei_dorado_lun_proxy$"
+                },
                 "--scope": {
                     "value": "$huawei_dorado_lun_scope$"
                 },
@@ -190,7 +193,7 @@
                 },
                 {
                     "datafield_id": 22,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -200,11 +203,16 @@
                 },
                 {
                     "datafield_id": 24,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 25,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 26,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -530,7 +538,7 @@
         "15": {
             "varname": "huawei_dorado_lun_no_proxy",
             "caption": "Huawei Dorado Lun: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -568,6 +576,17 @@
             "uuid": "011e38a5-557e-46a6-a9a2-a70d293bc59d"
         },
         "19": {
+            "varname": "huawei_dorado_lun_proxy",
+            "caption": "Huawei Dorado Lun: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c3e1e97c-1644-43e7-b4af-16c1d1eb195a"
+        },
+        "20": {
             "varname": "huawei_dorado_lun_scope",
             "caption": "Huawei Dorado Lun: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -578,7 +597,7 @@
             },
             "uuid": "e5a4ae8d-e177-48f2-9332-5c30822ea39d"
         },
-        "20": {
+        "21": {
             "varname": "huawei_dorado_lun_timeout",
             "caption": "Huawei Dorado Lun: Timeout",
             "description": "Network timeout in seconds.",
@@ -589,7 +608,7 @@
             },
             "uuid": "cc0dda20-aa07-4d37-8d9b-978240b42dbe"
         },
-        "21": {
+        "22": {
             "varname": "huawei_dorado_lun_unmapped_severity",
             "caption": "Huawei Dorado Lun: Unmapped Severity",
             "description": "State to report for a LUN that is not mapped to any host. Only takes effect together with `--include-unmapped`, which is what brings those LUNs into the check in the first place. Worth raising on an array where every LUN is meant to be in use, so a LUN that dropped out of its mapping view is noticed.",
@@ -602,7 +621,7 @@
             },
             "uuid": "faa92a46-dee9-4798-a7a9-9ad31753ddd0"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_lun_url",
             "caption": "Huawei Dorado Lun: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -613,7 +632,7 @@
             },
             "uuid": "ff26a4ee-8b24-4848-ae53-e3d581d162ba"
         },
-        "23": {
+        "24": {
             "varname": "huawei_dorado_lun_username",
             "caption": "Huawei Dorado Lun: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -624,7 +643,7 @@
             },
             "uuid": "d849d82b-2228-4f59-9a4a-b3af122c7258"
         },
-        "24": {
+        "25": {
             "varname": "huawei_dorado_lun_warning",
             "caption": "Huawei Dorado Lun: Warning",
             "description": "WARN threshold for the used capacity of a thin LUN, as a Nagios range in percent. Off by default, because a thin LUN that is full is doing what it was created for; what runs out is the pool behind it. Example: `--warning=85`",
@@ -635,7 +654,7 @@
             },
             "uuid": "e8820704-59a5-4848-a0a9-b497fe1cc250"
         },
-        "25": {
+        "26": {
             "varname": "huawei_dorado_lun_verbose",
             "caption": "Huawei Dorado Lun: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

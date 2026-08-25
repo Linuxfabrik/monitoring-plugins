@@ -20,7 +20,7 @@ import lib.url
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors memory utilization on FortiGate appliances running FortiOS via the REST API. First checks against the globally configured memory-use-threshold on the appliance, then falls back to command-line thresholds if no global configuration exists. Alerts when memory usage exceeds the configured thresholds."""
 
@@ -108,6 +108,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -150,7 +157,7 @@ def main():
     )
     result = lib.base.coe(
         lib.url.fetch_json(
-            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, proxy=args.PROXY, timeout=args.TIMEOUT
         )
     )
 
@@ -162,7 +169,7 @@ def main():
     url = f'https://{args.HOSTNAME}/api/v2/cmdb/system/global?access_token={token}'
     thresholds = lib.base.coe(
         lib.url.fetch_json(
-            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, proxy=args.PROXY, timeout=args.TIMEOUT
         )
     )
     warn = thresholds['results'].get('memory-use-threshold-green', args.WARN)

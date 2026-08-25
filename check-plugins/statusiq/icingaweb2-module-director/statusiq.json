@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$statusiq_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$statusiq_proxy$"
+                },
                 "--retries": {
                     "value": "$statusiq_retries$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -159,13 +167,24 @@
         "4": {
             "varname": "statusiq_no_proxy",
             "caption": "Statusiq: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "0b6c13dd-1faf-4035-a80b-7ea71dc095a4"
         },
         "5": {
+            "varname": "statusiq_proxy",
+            "caption": "Statusiq: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "dda05780-f437-41d6-9b93-c27a24b938ef"
+        },
+        "6": {
             "varname": "statusiq_retries",
             "caption": "Statusiq: Retries",
             "description": "Number of extra attempts if the status page does not answer with its feed, before the check gives up. Helps against a status page that intermittently returns an error page or an empty response instead.",
@@ -176,7 +195,7 @@
             },
             "uuid": "22f46353-1084-4061-bf4b-84c74e4ec4bc"
         },
-        "6": {
+        "7": {
             "varname": "statusiq_timeout",
             "caption": "Statusiq: Timeout",
             "description": "Network timeout in seconds.",
@@ -187,7 +206,7 @@
             },
             "uuid": "fcb1fb7f-dc87-45c5-a055-67f132697f4f"
         },
-        "7": {
+        "8": {
             "varname": "statusiq_url",
             "caption": "Statusiq: URL",
             "description": "StatusIQ status page URL.",

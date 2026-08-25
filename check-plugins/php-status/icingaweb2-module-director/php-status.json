@@ -31,6 +31,9 @@
                 "--no-proxy": {
                     "set_if": "$php_status_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$php_status_proxy$"
+                },
                 "--timeout": {
                     "value": "$php_status_timeout$"
                 },
@@ -109,6 +112,11 @@
                 },
                 {
                     "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -265,13 +273,24 @@
         "9": {
             "varname": "php_status_no_proxy",
             "caption": "PHP Status: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "1cdf44d2-2b6b-434b-92d5-41bb2800dc19"
         },
         "10": {
+            "varname": "php_status_proxy",
+            "caption": "PHP Status: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "581b8d69-f592-4b2c-8618-8816f512033b"
+        },
+        "11": {
             "varname": "php_status_timeout",
             "caption": "PHP Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -282,7 +301,7 @@
             },
             "uuid": "a45b9da4-1508-46db-b844-7797bcbd97ef"
         },
-        "11": {
+        "12": {
             "varname": "php_status_top",
             "caption": "PHP Status: Top",
             "description": "Number of largest OPcache scripts to list, sorted by memory consumption (descending). Use `--top=0` to disable.",
@@ -293,7 +312,7 @@
             },
             "uuid": "97fb6bd7-1514-4d58-a3e9-1e7d7066f4ec"
         },
-        "12": {
+        "13": {
             "varname": "php_status_url",
             "caption": "PHP Status: URL",
             "description": "URL to the optional PHP `monitoring.php` helper script. The helper runs in the context of the single PHP-FPM master that serves this URL and reports only that master's OPcache and php.ini settings. To check several PHP-FPM services on a host, deploy one monitoring.php per service and run this plugin once per URL. Without it the plugin still works, but with reduced accuracy.",
@@ -304,7 +323,7 @@
             },
             "uuid": "b12706cc-8a72-48e5-a89d-5581ccd96c32"
         },
-        "13": {
+        "14": {
             "varname": "php_status_warning",
             "caption": "PHP Status: Warning",
             "description": "WARN threshold for OPcache memory and key usage, in percent.",

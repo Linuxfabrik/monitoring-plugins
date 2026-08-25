@@ -41,8 +41,8 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--max-backup-job-duration MAX_BACKUP_JOB_DURATION]
                     [--max-replica-job-duration MAX_REPLICA_JOB_DURATION]
                     [--no-insecure] [--no-perfdata] [--no-proxy] -p PASSWORD
-                    [--timeout TIMEOUT] [--url URL] --username USERNAME
-                    [-w WARN]
+                    [--proxy PROXY] [--timeout TIMEOUT] [--url URL]
+                    --username USERNAME [-w WARN]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
                     [--warnings-job-runs WARNINGS_JOB_RUNS]
 
@@ -78,9 +78,20 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   -p, --password PASSWORD
                         Veeam REST API password.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             Veeam REST API URL. Default: https://localhost:9398
   --username USERNAME   Veeam REST API username. Default: Administrator

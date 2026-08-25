@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$nginx_disclosure_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$nginx_disclosure_proxy$"
+                },
                 "--severity": {
                     "value": "$nginx_disclosure_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -225,13 +233,24 @@
         "4": {
             "varname": "nginx_disclosure_no_proxy",
             "caption": "Nginx Disclosure: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "a93942ac-8456-4962-ad6e-6bc9e789bf6e"
         },
         "5": {
+            "varname": "nginx_disclosure_proxy",
+            "caption": "Nginx Disclosure: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7691af51-16e5-448d-9f4a-0f737fbe76d6"
+        },
+        "6": {
             "varname": "nginx_disclosure_severity",
             "caption": "Nginx Disclosure: Severity",
             "description": "State to report for a server that discloses information. One of `warn` or `crit`.",
@@ -244,7 +263,7 @@
             },
             "uuid": "b54a3cf3-6b5f-4365-9136-e8b7674c18eb"
         },
-        "6": {
+        "7": {
             "varname": "nginx_disclosure_timeout",
             "caption": "Nginx Disclosure: Timeout",
             "description": "Network timeout in seconds.",
@@ -255,7 +274,7 @@
             },
             "uuid": "4648dca7-252d-4ffd-9197-7238b66c9cee"
         },
-        "7": {
+        "8": {
             "varname": "nginx_disclosure_url",
             "caption": "Nginx Disclosure: URL",
             "description": "Base URL of the NGINX server to inspect. Example: `--url=https://www.example.com`",

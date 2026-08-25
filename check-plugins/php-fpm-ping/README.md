@@ -46,7 +46,7 @@ Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK
 
 ```text
 usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
-                    [--no-proxy] [--response RESPONSE]
+                    [--no-proxy] [--proxy PROXY] [--response RESPONSE]
                     [--severity {warn,crit}] [--timeout TIMEOUT] [-u URL]
 
 Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns
@@ -62,7 +62,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --response RESPONSE   Expected PHP-FPM ping response string. Default: pong
   --severity {warn,crit}
                         Severity for alerting. Default: warn

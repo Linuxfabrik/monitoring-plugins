@@ -22,7 +22,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors the high-availability cluster status on FortiGate appliances running FortiOS
 via the REST API. Alerts if the number of HA members differs from the expected count
@@ -109,6 +109,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -133,7 +140,7 @@ def main():
     url = f'https://{args.HOSTNAME}/api/v2/monitor/system/ha-statistics/select/?access_token={urllib.parse.quote(args.PASSWORD)}'
     result = lib.base.coe(
         lib.url.fetch_json(
-            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, proxy=args.PROXY, timeout=args.TIMEOUT
         )
     )
     member_count = len(result['results'])

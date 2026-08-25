@@ -25,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the security of a private Nextcloud server using the Nextcloud security scanner.
 Reports the assigned security rating and alerts on known vulnerabilities in the
@@ -92,6 +92,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -140,6 +147,7 @@ def get_uuid_from_scan_nextcloud_com(nc_url, args):
         data=data,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
     if not success:
@@ -168,6 +176,7 @@ def trigger_rescan_nextcloud_com(nc_url, args):
         data=data,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
     if not success:
@@ -189,6 +198,7 @@ def get_scan_result_from_scan_nextcloud_com(nc_uuid, args):
         url,
         insecure=args.INSECURE,
         no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
         timeout=args.TIMEOUT,
     )
     if not success:

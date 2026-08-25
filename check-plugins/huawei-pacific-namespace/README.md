@@ -47,6 +47,7 @@ usage: huawei-pacific-namespace [-h] [-V] [--always-ok]
                                 [--no-perfdata] [--no-proxy]
                                 [--password PASSWORD]
                                 [--password-file PASSWORD_FILE]
+                                [--proxy PROXY]
                                 [--read-only-severity {ok,warn,crit,unknown}]
                                 [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                 --username USERNAME [-v]
@@ -98,7 +99,8 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --password PASSWORD   Huawei OceanStor Pacific API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
@@ -108,6 +110,16 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --read-only-severity {ok,warn,crit,unknown}
                         State to report for a namespace that is read-only. A
                         namespace can be set read-only on purpose, which is

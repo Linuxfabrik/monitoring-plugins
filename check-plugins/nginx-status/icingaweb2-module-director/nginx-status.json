@@ -17,6 +17,9 @@
                 "--no-proxy": {
                     "set_if": "$nginx_status_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$nginx_status_proxy$"
+                },
                 "--timeout": {
                     "value": "$nginx_status_timeout$"
                 },
@@ -67,6 +70,11 @@
                 },
                 {
                     "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -179,13 +187,24 @@
         "5": {
             "varname": "nginx_status_no_proxy",
             "caption": "Nginx Status: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "d41a0c05-0562-4a89-8c0c-d51f7fbd8aec"
         },
         "6": {
+            "varname": "nginx_status_proxy",
+            "caption": "Nginx Status: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e9cb0f5b-ad68-4605-8334-9d0427773dc4"
+        },
+        "7": {
             "varname": "nginx_status_timeout",
             "caption": "Nginx Status: Timeout",
             "description": "Network timeout in seconds.",
@@ -196,7 +215,7 @@
             },
             "uuid": "d24c2d06-55e2-477f-a2b5-7106db626501"
         },
-        "7": {
+        "8": {
             "varname": "nginx_status_url",
             "caption": "Nginx Status: URL",
             "description": "NGINX stub_status URL.",
@@ -207,7 +226,7 @@
             },
             "uuid": "753284b2-4121-4bb6-84de-70ac7dc15d9c"
         },
-        "8": {
+        "9": {
             "varname": "nginx_status_warning",
             "caption": "Nginx Status: Warning",
             "description": "WARN threshold for the number of active connections.",

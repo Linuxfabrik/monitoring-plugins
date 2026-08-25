@@ -36,6 +36,9 @@
                 "--no-proxy": {
                     "set_if": "$dmesg_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$dmesg_proxy$"
+                },
                 "--timeout": {
                     "value": "$dmesg_timeout$"
                 }
@@ -100,6 +103,11 @@
                 },
                 {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -335,13 +343,24 @@
         "11": {
             "varname": "dmesg_no_proxy",
             "caption": "Dmesg: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "b2b7051d-346d-4604-a679-6e184a19a585"
         },
         "12": {
+            "varname": "dmesg_proxy",
+            "caption": "Dmesg: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "436d571b-aa97-4d22-9fe6-02260d138e08"
+        },
+        "13": {
             "varname": "dmesg_timeout",
             "caption": "Dmesg: Timeout",
             "description": "Network timeout in seconds.",

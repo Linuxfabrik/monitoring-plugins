@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$gitlab_liveness_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$gitlab_liveness_proxy$"
+                },
                 "--severity": {
                     "value": "$gitlab_liveness_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -180,13 +188,24 @@
         "4": {
             "varname": "gitlab_liveness_no_proxy",
             "caption": "Gitlab Liveness: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "717e76f1-a214-45c2-a519-9db1b8a8ca9d"
         },
         "5": {
+            "varname": "gitlab_liveness_proxy",
+            "caption": "Gitlab Liveness: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2bfc8670-f29a-467b-9533-aa5af539b566"
+        },
+        "6": {
             "varname": "gitlab_liveness_severity",
             "caption": "Gitlab Liveness: Severity",
             "description": "Severity for alerting.",
@@ -199,7 +218,7 @@
             },
             "uuid": "cd507035-2485-4563-9d24-f3bac1b9256a"
         },
-        "6": {
+        "7": {
             "varname": "gitlab_liveness_timeout",
             "caption": "Gitlab Liveness: Timeout",
             "description": "Network timeout in seconds.",
@@ -210,7 +229,7 @@
             },
             "uuid": "bf233a50-9d87-4538-884a-1f04beed5acb"
         },
-        "7": {
+        "8": {
             "varname": "gitlab_liveness_url",
             "caption": "Gitlab Liveness: URL",
             "description": "GitLab liveness URL endpoint.",

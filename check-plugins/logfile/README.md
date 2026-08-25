@@ -57,8 +57,9 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
                [--ignore-pattern IGNORE_PATTERN] [--ignore-regex IGNORE_REGEX]
                [--insecure] [--no-insecure] [--no-perfdata] [--no-proxy]
-               [--suppress-lines] [--timeout TIMEOUT] [-w WARN]
-               [--warning-pattern WARN_PATTERN] [--warning-regex WARN_REGEX]
+               [--proxy PROXY] [--suppress-lines] [--timeout TIMEOUT]
+               [-w WARN] [--warning-pattern WARN_PATTERN]
+               [--warning-regex WARN_REGEX]
 
 Scans a logfile for matching patterns or regular expressions and alerts based
 on the number of matches found. Only the lines added since the previous run
@@ -128,7 +129,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --suppress-lines      Suppress the found lines in the output and only report
                         the number of findings.
   --timeout TIMEOUT     Network timeout in seconds. Default: 5 (seconds)

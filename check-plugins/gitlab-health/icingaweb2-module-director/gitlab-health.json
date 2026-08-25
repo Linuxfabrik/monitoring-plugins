@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$gitlab_health_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$gitlab_health_proxy$"
+                },
                 "--severity": {
                     "value": "$gitlab_health_severity$"
                 },
@@ -59,6 +62,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -180,13 +188,24 @@
         "4": {
             "varname": "gitlab_health_no_proxy",
             "caption": "Gitlab Health: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "2879c63c-ea12-4132-8041-be97538c7ccc"
         },
         "5": {
+            "varname": "gitlab_health_proxy",
+            "caption": "Gitlab Health: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "41740de7-e706-46f7-b4f3-b929692777a3"
+        },
+        "6": {
             "varname": "gitlab_health_severity",
             "caption": "Gitlab Health: Severity",
             "description": "Severity for alerting.",
@@ -199,7 +218,7 @@
             },
             "uuid": "7ade705a-13a3-497e-9e6d-2453585349ee"
         },
-        "6": {
+        "7": {
             "varname": "gitlab_health_timeout",
             "caption": "Gitlab Health: Timeout",
             "description": "Network timeout in seconds.",
@@ -210,7 +229,7 @@
             },
             "uuid": "f8292335-7d2a-4b53-858e-523e3786e474"
         },
-        "7": {
+        "8": {
             "varname": "gitlab_health_url",
             "caption": "Gitlab Health: URL",
             "description": "GitLab health URL endpoint.",

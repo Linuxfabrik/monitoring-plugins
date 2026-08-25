@@ -36,8 +36,8 @@ usage: wildfly-deployment-status [-h] [-V] [--always-ok]
                                  [--instance INSTANCE]
                                  [--mode {standalone,domain}] [--no-perfdata]
                                  [--no-proxy] [--node NODE] -p PASSWORD
-                                 [--timeout TIMEOUT] [--url URL]
-                                 --username USERNAME
+                                 [--proxy PROXY] [--timeout TIMEOUT]
+                                 [--url URL] --username USERNAME
 
 Checks the deployment status of applications on a WildFly/JBoss AS server via
 its HTTP management API. Alerts when any deployment is not in the expected
@@ -61,10 +61,21 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --node NODE           WildFly node (host) when running in domain mode.
   -p, --password PASSWORD
                         WildFly management API password.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --url URL             WildFly management API URL. Default:
                         http://localhost:9990

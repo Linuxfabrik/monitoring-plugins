@@ -36,9 +36,10 @@ usage: json-values [-h] [-V] [--always-ok] [-c CRIT]
                    [--critical-key CRITICAL_KEY] [--filename FILENAME]
                    [--header HEADER] [--insecure] [--message-key MESSAGE_KEY]
                    [--no-perfdata] [--no-proxy] [--password PASSWORD]
-                   [--perfdata-key PERFDATA_KEY] [--state-key STATE_KEY]
-                   [--timeout TIMEOUT] [--token TOKEN] [-u URL]
-                   [--username USERNAME] [-w WARN] [--warning-key WARNING_KEY]
+                   [--perfdata-key PERFDATA_KEY] [--proxy PROXY]
+                   [--state-key STATE_KEY] [--timeout TIMEOUT] [--token TOKEN]
+                   [-u URL] [--username USERNAME] [-w WARN]
+                   [--warning-key WARNING_KEY]
 
 Parses a JSON object from a file, URL, or SMB share and extracts message,
 state, and perfdata values from configurable keys. Useful for integrating
@@ -83,13 +84,24 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
   --password PASSWORD   Password for SMB authentication.
   --perfdata-key PERFDATA_KEY
                         Name of the JSON key containing the perfdata. Supports
                         dot-notation for nested keys (e.g. `meta.perfdata`).
                         Example: `--perfdata-key=meta.perfdata`. Default:
                         perfdata
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --state-key STATE_KEY
                         Name of the JSON key containing the state. Supports
                         dot-notation for nested keys (e.g. `meta.state`).

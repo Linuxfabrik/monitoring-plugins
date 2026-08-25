@@ -32,7 +32,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary
 SQLite database and runs configurable SQL queries against it. Separate queries can be
@@ -162,6 +162,13 @@ def parse_args():
         '--password',
         help='SMB or HTTP Basic Auth Password.',
         dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -305,6 +312,7 @@ def main():
                     header=header,
                     insecure=args.INSECURE,
                     no_proxy=args.NO_PROXY,
+                    proxy=args.PROXY,
                     timeout=args.TIMEOUT,
                 )
             )

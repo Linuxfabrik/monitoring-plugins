@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks system and disk temperatures on QNAP appliances running QTS via the API.
 Alerts when temperatures exceed the configured thresholds."""
@@ -94,6 +94,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -137,7 +144,7 @@ def main():
     )
     result = lib.base.coe(
         lib.url.fetch(
-            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, timeout=args.TIMEOUT
+            url, insecure=args.INSECURE, no_proxy=args.NO_PROXY, proxy=args.PROXY, timeout=args.TIMEOUT
         )
     )
     data = xmltodict.parse(result)['QDocRoot']

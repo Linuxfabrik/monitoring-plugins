@@ -47,7 +47,8 @@ usage: infomaniak-swiss-backup-devices [-h] [-V] --account-id ACCOUNT_ID
                                        [--ignore-tag IGNORE_TAG]
                                        [--ignore-user IGNORE_USER]
                                        [--insecure] [--no-perfdata]
-                                       [--no-proxy] [--severity {warn,crit}]
+                                       [--no-proxy] [--proxy PROXY]
+                                       [--severity {warn,crit}]
                                        [--timeout TIMEOUT] --token TOKEN
                                        [-w WARN]
 
@@ -86,7 +87,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --severity {warn,crit}
                         Severity for alerting on locked devices. Default: warn
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)

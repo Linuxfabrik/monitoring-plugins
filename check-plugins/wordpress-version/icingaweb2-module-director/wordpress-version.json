@@ -29,6 +29,9 @@
                 "--path": {
                     "value": "$wordpress_version_path$"
                 },
+                "--proxy": {
+                    "value": "$wordpress_version_proxy$"
+                },
                 "--timeout": {
                     "value": "$wordpress_version_timeout$"
                 },
@@ -91,6 +94,11 @@
                 },
                 {
                     "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -255,7 +263,7 @@
         "7": {
             "varname": "wordpress_version_no_proxy",
             "caption": "WordPress Version: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -284,6 +292,17 @@
             "uuid": "304adc53-1aa8-49d7-8f74-249596c748c9"
         },
         "10": {
+            "varname": "wordpress_version_proxy",
+            "caption": "WordPress Version: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e306c999-d85a-44fc-adce-aa6ab3f9a305"
+        },
+        "11": {
             "varname": "wordpress_version_timeout",
             "caption": "WordPress Version: Timeout",
             "description": "Network timeout in seconds.",
@@ -294,7 +313,7 @@
             },
             "uuid": "7feefd9f-7b32-490f-9bce-0233b6e1051e"
         },
-        "11": {
+        "12": {
             "varname": "wordpress_version_unreachable_severity",
             "caption": "WordPress Version: Unreachable Severity",
             "description": "State to report when the online source is unreachable. What is used instead - bundled offline data, a cached copy, or nothing at all - is named in the output, and a clean result then only covers what that fallback could confirm.",

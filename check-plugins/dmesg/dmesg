@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
@@ -219,6 +219,13 @@ def parse_args():
     # always alerts as CRIT. Kept hidden via SUPPRESS for backwards compatibility
     # with existing service templates.
     parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--severity',
         help=argparse.SUPPRESS,
         dest='SEVERITY',
@@ -385,6 +392,7 @@ def main():
             attrs='state,acknowledgement',
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
             timeout=args.TIMEOUT,
         )
         if success:

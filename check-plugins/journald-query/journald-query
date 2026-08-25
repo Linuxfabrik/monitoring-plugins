@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -201,6 +201,13 @@ def parse_args():
         'Default: %(default)s',
         dest='PRIORITY',
         default=DEFAULT_PRIORITY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -512,6 +519,7 @@ def main():
             attrs='state,acknowledgement',
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
             timeout=args.TIMEOUT,
         )
         if success:

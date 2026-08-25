@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$cometsystem_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$cometsystem_proxy$"
+                },
                 "--severity": {
                     "value": "$cometsystem_severity$",
                     "repeat_key": true
@@ -60,6 +63,11 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "y",
                     "var_filter": null
                 }
@@ -204,13 +212,24 @@
         "4": {
             "varname": "cometsystem_no_proxy",
             "caption": "Cometsystem: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "c09e6783-33e5-4c87-95c0-9cfd4bcff722"
         },
         "5": {
+            "varname": "cometsystem_proxy",
+            "caption": "Cometsystem: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "66bc2566-c1d2-46d0-bef1-008cbb4f5198"
+        },
+        "6": {
             "varname": "cometsystem_severity",
             "caption": "Cometsystem: Severity",
             "description": "Severity for alerting. Order matters, first match on part of a channel name wins. Have a look at the README for details. Can be specified multiple times. Example: `--severity temp:high:crit --severity dew:low:crit --severity humi:ok --severity warn`. Default: warn.",
@@ -221,7 +240,7 @@
             },
             "uuid": "43fc8b68-e53a-4a47-8310-7cad75ec0fe6"
         },
-        "6": {
+        "7": {
             "varname": "cometsystem_timeout",
             "caption": "Cometsystem: Timeout",
             "description": "Network timeout in seconds.",
@@ -232,7 +251,7 @@
             },
             "uuid": "40571a25-43dc-426b-825d-b610c2e1c00c"
         },
-        "7": {
+        "8": {
             "varname": "cometsystem_url",
             "caption": "Cometsystem: URL",
             "description": "Comet System URL pointing to the JSON endpoint. Example: `http://example.com/values.json`.",

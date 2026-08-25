@@ -37,8 +37,8 @@ Collects and displays key system information: OS and kernel version, CPU configu
 
 ```text
 usage: about-me [-h] [-V] [--always-ok] [--dmidecode] [--insecure]
-                [--no-perfdata] [--no-proxy] [--public-ip-url PUBLIC_IP_URL]
-                [--tags] [--timeout TIMEOUT]
+                [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                [--public-ip-url PUBLIC_IP_URL] [--tags] [--timeout TIMEOUT]
 
 Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk
@@ -62,7 +62,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --public-ip-url PUBLIC_IP_URL
                         One or more comma-separated URLs to "what is my ip"
                         online services for fetching the public IP address.

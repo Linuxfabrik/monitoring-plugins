@@ -14,6 +14,9 @@
                 "--no-proxy": {
                     "set_if": "$statuspal_no_proxy$"
                 },
+                "--proxy": {
+                    "value": "$statuspal_proxy$"
+                },
                 "--timeout": {
                     "value": "$statuspal_timeout$"
                 },
@@ -51,6 +54,11 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -150,13 +158,24 @@
         "4": {
             "varname": "statuspal_no_proxy",
             "caption": "Statuspal: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "a05b85c1-aea8-4723-adcd-50200c2a0229"
         },
         "5": {
+            "varname": "statuspal_proxy",
+            "caption": "Statuspal: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9e06e1b7-622b-47e2-9eb9-803d342df837"
+        },
+        "6": {
             "varname": "statuspal_timeout",
             "caption": "Statuspal: Timeout",
             "description": "Network timeout in seconds.",
@@ -167,7 +186,7 @@
             },
             "uuid": "dfab5f87-db79-43f2-97b8-9cb0c5e4f3d5"
         },
-        "6": {
+        "7": {
             "varname": "statuspal_url",
             "caption": "Statuspal: URL",
             "description": "Statuspal API URL pointing to the summary endpoint.",

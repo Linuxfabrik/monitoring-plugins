@@ -49,6 +49,9 @@
                 "--priority": {
                     "value": "$journald_query_priority$"
                 },
+                "--proxy": {
+                    "value": "$journald_query_proxy$"
+                },
                 "--severity": {
                     "value": "$journald_query_severity$"
                 },
@@ -167,6 +170,11 @@
                 },
                 {
                     "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -400,7 +408,7 @@
         "14": {
             "varname": "journald_query_no_proxy",
             "caption": "Journald Query: No Proxy?",
-            "description": "Do not use a proxy.",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -418,6 +426,17 @@
             "uuid": "365b15ae-a51c-4e48-a457-994549b05d76"
         },
         "16": {
+            "varname": "journald_query_proxy",
+            "caption": "Journald Query: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6152a13b-e966-4c68-8ee9-a9a697e440e4"
+        },
+        "17": {
             "varname": "journald_query_severity",
             "caption": "Journald Query: Severity",
             "description": "Severity for alerts when journalctl returns results.",
@@ -430,7 +449,7 @@
             },
             "uuid": "13f9360c-fa85-47f2-9503-9e91a73695f7"
         },
-        "17": {
+        "18": {
             "varname": "journald_query_since",
             "caption": "Journald Query: Since",
             "description": "Show entries on or newer than the specified date (passed to journalctl).",
@@ -441,7 +460,7 @@
             },
             "uuid": "858a4298-5f7e-41af-be65-a0028115b7be"
         },
-        "18": {
+        "19": {
             "varname": "journald_query_timeout",
             "caption": "Journald Query: Timeout",
             "description": "Network timeout in seconds.",
@@ -452,7 +471,7 @@
             },
             "uuid": "157f271f-7d0a-449b-87a3-422afaba2ce1"
         },
-        "19": {
+        "20": {
             "varname": "journald_query_unit",
             "caption": "Journald Query: Unit",
             "description": "Show messages for the specified systemd unit UNIT|PATTERN (passed to journalctl). Can be specified multiple times.",
@@ -463,7 +482,7 @@
             },
             "uuid": "8a6371ec-9b10-4bd3-b689-731b4dfeea67"
         },
-        "20": {
+        "21": {
             "varname": "journald_query_user_unit",
             "caption": "Journald Query: User Unit",
             "description": "Show messages for the specified user session unit (passed to journalctl). Can be specified multiple times.",
