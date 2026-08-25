@@ -2,10 +2,11 @@
 
 ## Overview
 
-Reports what the storage pools of a libvirt host actually hold: how much space their volumes have been promised, how much of it they occupy today, and how far the promises exceed the storage underneath. Handing out more than there is is what thin provisioning is for, and it is safe only for as long as the volumes stay unfilled, so this is the number that says how much room is left for that to happen. Alerts if the promises exceed the storage by more than the thresholds allow, which are unset by default because only the administrator knows how far their storage may be oversubscribed. Supports extended reporting via --lengthy. Runs without root or sudo.
+Reports what the storage pools of a libvirt host actually hold: how much space their volumes have been promised, how much of it they occupy today, and how far the promises exceed the storage underneath. Handing out more than there is is what thin provisioning is for, and it is safe only for as long as the volumes stay unfilled, so this is the number that says how much room is left for that to happen. Several pools commonly share one filesystem, and the promises they make are added up and judged once per filesystem rather than once per pool. Alerts if the promises exceed the storage by more than the thresholds allow, which are unset by default because only the administrator knows how far their storage may be oversubscribed. Supports extended reporting via --lengthy. Runs without root or sudo.
 
 **Important Notes:**
 
+* **The promises are judged per filesystem, not per pool.** libvirt fills a pool's sizes from the filesystem its path is on, so four pools in four directories of one filesystem all report the whole of it. Comparing each pool against "its" storage would measure every one of them against a store it shares with the others, and no two of the results could be added up. The pools that sit on one filesystem are recognised by the figures they report and are reported as one store, exactly as `kvm-storage-pool` does it, with their promises added up and judged once. The second table counts the volumes per pool, which is where that number does belong.
 * **This check and `kvm-storage-pool` answer two different questions, and both are worth having.** `kvm-storage-pool` reports the storage a pool sits on and alerts when it fills up, which is the failure that stops the machines. This one reports what the pool has promised its volumes, which is how you see that failure coming: a pool may promise several times its storage without anything being wrong today, and only the rate at which the volumes fill decides whether it stays that way.
 * **The thresholds are unset by default, so out of the box this check reports and does not alert.** A subscription of 300% is reckless on one host and routine on another, and nothing the check can see tells the two apart. Set `--warning` and `--critical` once you have watched the figure for a while. The store actually running out is alerted on by `kvm-storage-pool`, which needs no thresholds from anybody.
 * **Only running pools are reported.** libvirt cannot list the contents of a pool it has not opened. A pool that is not running, including one that was supposed to start with the host, is reported by `kvm-storage-pool`.
@@ -50,7 +51,9 @@ their volumes have been promised, how much of it they occupy today, and how
 far the promises exceed the storage underneath. Handing out more than there is
 is what thin provisioning is for, and it is safe only for as long as the
 volumes stay unfilled, so this is the number that says how much room is left
-for that to happen. Alerts if the promises exceed the storage by more than the
+for that to happen. Several pools commonly share one filesystem, and the
+promises they make are added up and judged once per filesystem rather than
+once per pool. Alerts if the promises exceed the storage by more than the
 thresholds allow, which are unset by default because only the administrator
 knows how far their storage may be oversubscribed. Supports extended reporting
 via --lengthy. Runs without root or sudo.
@@ -114,18 +117,23 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-volume/
 Output:
 
 ```text
-3 pools, 49 volumes, 2.8TiB promised, 148.2GiB taken
+4 pools, 1230 volumes, 2.9TiB promised, 228.1GiB taken
 
-Pool        ! Volumes ! Promised ! Taken    ! Store   ! Sub%   ! State
-------------+---------+----------+----------+---------+--------+------
-default     ! 40      ! 2.8TiB   ! 148.1GiB ! 1.8TiB  ! 153.4% ! [OK]
-isos        ! 9       ! 30.3GiB  ! 30.3GiB  ! 1.8TiB  ! 1.6%   ! [OK]
-nvram       ! 6       ! 3.1MiB   ! 4.1MiB   ! 1.8TiB  ! 0.0%   ! [OK]
+Store ! Pools                           ! Size   ! Promised ! Taken    ! Sub%
+------+---------------------------------+--------+----------+----------+-------
+/     ! Downloads, default, isos, nvram ! 1.8TiB ! 2.9TiB   ! 228.1GiB ! 157.7%
+
+Pool      ! Volumes ! Promised ! Taken
+----------+---------+----------+---------
+Downloads ! 1175    ! 49.7GiB  ! 49.7GiB
+default   ! 40      ! 2.8TiB   ! 148.1GiB
+isos      ! 9       ! 30.3GiB  ! 30.3GiB
+nvram     ! 6       ! 3.1MiB   ! 4.1MiB
 ```
 
-The `default` pool has promised its volumes more than the filesystem under it holds. That is thin provisioning working as intended: only 148 GiB of the 2.8 TiB promised has actually been taken. It becomes a problem the day the guests fill their disks.
+All four pools sit on one filesystem, so they are one store, and the 2.9 TiB they have promised between them is measured against the 1.8 TiB that filesystem holds. That is thin provisioning working as intended: only 228 GiB of it has actually been taken. It becomes a problem the day the guests fill their disks.
 
-Alert once a pool promises more than the storage holds:
+Alert once a store has been promised more than it holds:
 
 ```bash
 ./kvm-volume --warning=100 --critical=200
@@ -134,16 +142,14 @@ Alert once a pool promises more than the storage holds:
 Output:
 
 ```text
-3 pools, 49 volumes, 2.8TiB promised, 148.2GiB taken. Promised more than the storage holds: default (153.4%) [WARNING]
+4 pools, 1230 volumes, 2.9TiB promised, 228.1GiB taken. Promised more than the storage holds: / (157.7%) [WARNING]
 
-Pool        ! Volumes ! Promised ! Taken    ! Store   ! Sub%   ! State
-------------+---------+----------+----------+---------+--------+-----------
-default     ! 40      ! 2.8TiB   ! 148.1GiB ! 1.8TiB  ! 153.4% ! [WARNING]
-isos        ! 9       ! 30.3GiB  ! 30.3GiB  ! 1.8TiB  ! 1.6%   ! [OK]
-nvram       ! 6       ! 3.1MiB   ! 4.1MiB   ! 1.8TiB  ! 0.0%   ! [OK]
+Store ! Pools                           ! Size   ! Promised ! Taken    ! Sub%
+------+---------------------------------+--------+----------+----------+------------------
+/     ! Downloads, default, isos, nvram ! 1.8TiB ! 2.9TiB   ! 228.1GiB ! 157.7% [WARNING]
 ```
 
-Find out what is filling a pool:
+Find out what is filling a store:
 
 ```bash
 ./kvm-volume --lengthy --match='^default$'
@@ -154,10 +160,13 @@ Output:
 ```text
 1 pool, 40 volumes, 2.8TiB promised, 148.1GiB taken
 
-Pool    ! Volumes ! Promised ! Taken    ! Store  ! Sub%   ! State
---------+---------+----------+----------+--------+--------+------
-default ! 40      ! 2.8TiB   ! 148.1GiB ! 1.8TiB ! 153.4% ! [OK]
+Store            ! Pools   ! Size   ! Promised ! Taken    ! Sub%
+-----------------+---------+--------+----------+----------+-------
+/var/lib/libvirt ! default ! 1.8TiB ! 2.8TiB   ! 148.1GiB ! 153.4%
 
+Pool    ! Volumes ! Promised ! Taken
+--------+---------+----------+---------
+default ! 40      ! 2.8TiB   ! 148.1GiB
 
 The 10 largest volumes, 30 more not listed:
 
@@ -168,12 +177,14 @@ default ! tpl_winsrv2025.qcow2 ! file ! 50.0GiB  ! 19.5GiB
 default ! fedora43.qcow2       ! file ! 20.0GiB  ! 7.5GiB
 ```
 
+The volume table is sorted by the space actually taken, which is the question "what is filling this up". The largest *promise* is a different volume: a 128 GiB image holding a gigabyte answers a question nobody asked.
+
 
 ## States
 
-* OK if every pool stays within the thresholds, which by default is every pool, because the thresholds are unset.
+* OK if every store stays within the thresholds, which by default is every store, because the thresholds are unset.
 * OK with "No running storage pools found." if the host has no pool running.
-* WARN if a pool has promised its volumes more than `--warning` percent of the storage underneath it.
+* WARN if the pools on one filesystem have promised their volumes more than `--warning` percent of what it holds.
 * CRIT if it reaches `--critical`.
 * UNKNOWN if libvirt cannot be reached, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
@@ -192,15 +203,15 @@ Both thresholds accept [Nagios ranges](../THRESHOLDS.md).
 | volumes | Number | Volumes in all checked pools. |
 | &lt;pool&gt;_allocated | Bytes | Space this pool's volumes occupy today. |
 | &lt;pool&gt;_promised | Bytes | Space this pool's volumes have been promised. |
-| &lt;pool&gt;_subscription | Percentage | What the pool has promised, in percent of the storage underneath it. Above 100 it has promised more than it has. This is the value the thresholds judge. Absent for a pool whose storage reports no size. |
+| &lt;store&gt;-subscription | Percentage | What the pools on one filesystem have promised between them, in percent of what it holds. Above 100 they have promised more than there is. This is the value the thresholds judge. Named after the store, not after a pool, so a dashboard cannot add one filesystem up several times. |
 | &lt;pool&gt;_volumes | Number | Volumes in this pool. |
 
 
 ## Troubleshooting
 
-### A pool is reported above 100%
+### A store is reported above 100%
 
-The pool has promised its volumes more space than the filesystem under it holds. Nothing is broken yet, and on a host that uses thin provisioning deliberately this is the point of it. What matters is the gap between promised and taken, and whether the storage can still cover it:
+The pools on that filesystem have promised their volumes more space than it holds. Nothing is broken yet, and on a host that uses thin provisioning deliberately this is the point of it. What matters is the gap between promised and taken, and whether the storage can still cover it:
 
 1. Compare the two columns. A pool at 300% whose volumes have taken a tenth of their size has years of room; one at 110% whose volumes are nearly full has none.
 2. Watch how fast the taken figure grows, in the Grafana dashboard that ships with this check.

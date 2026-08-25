@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import os
 import re
 import sys
 
@@ -23,16 +24,18 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082503'
 
 DESCRIPTION = """Reports what the storage pools of a libvirt host actually hold: how much space
 their volumes have been promised, how much of it they occupy today, and how far the
 promises exceed the storage underneath. Handing out more than there is is what thin
 provisioning is for, and it is safe only for as long as the volumes stay unfilled, so
-this is the number that says how much room is left for that to happen. Alerts if the
-promises exceed the storage by more than the thresholds allow, which are unset by
-default because only the administrator knows how far their storage may be
-oversubscribed. Supports extended reporting via --lengthy. Runs without root or sudo."""
+this is the number that says how much room is left for that to happen. Several pools
+commonly share one filesystem, and the promises they make are added up and judged once
+per filesystem rather than once per pool. Alerts if the promises exceed the storage by
+more than the thresholds allow, which are unset by default because only the
+administrator knows how far their storage may be oversubscribed. Supports extended
+reporting via --lengthy. Runs without root or sudo."""
 
 DEFAULT_CRIT = None
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -45,6 +48,28 @@ DEFAULT_WARN = None
 # workstation, and a table of all of them answers nothing that the ten largest do not.
 # Whatever is left out is counted in the caption rather than silently dropped.
 LENGTHY_VOLUMES = 10
+
+# The volume types that hold storage. libvirt's own enumeration is `virStorageVolType`
+# in include/libvirt/libvirt-storage.h, and all six of it are accounted for:
+#
+# - `file`, `block`, `network` (RBD and the like) and `ploop` hold data and are
+#   counted.
+# - `dir` and `netdir` are directories, not storage. A pool over a general-purpose
+#   directory lists every subdirectory in it as a volume of capacity zero, which
+#   inflates the count with entries that can never fill anything up: 16 of the 1191
+#   "volumes" of a pool pointing at a Downloads folder were subdirectories. They are
+#   left out, and the directory's contents are not the pool's either, because libvirt
+#   does not descend into it.
+VOLUME_TYPES = ('block', 'file', 'network', 'ploop')
+
+# How far the free space two pools report may drift apart and still be the same store.
+# Same reasoning and same figure as `kvm-storage-pool`, which does the grouping for
+# the storage side: the pools are asked one after another, so a filesystem being
+# written to has moved by the time the next one is asked.
+STORE_DRIFT = 0.01
+
+POOL_TARGET_REGEX = re.compile(r'<target>(.*?)</target>', re.DOTALL)
+POOL_PATH_REGEX = re.compile(r'<path>(.*?)</path>', re.DOTALL)
 
 
 def parse_args():
@@ -171,6 +196,22 @@ def parse_args():
     return args
 
 
+def get_pool_path(xml):
+    """Return where a pool points, or an empty string when its definition says nothing.
+
+    Same reader as `kvm-storage-pool`: libvirt writes the element inside `<target>`,
+    and that is the only place a pool's XML carries a `<path>` at all, because a
+    source names its device or directory in an attribute instead. A pool that is not
+    backed by a path, an iSCSI or RBD pool for instance, has none and gets no made-up
+    one.
+    """
+    target = POOL_TARGET_REGEX.search(xml or '')
+    if not target:
+        return ''
+    path = POOL_PATH_REGEX.search(target.group(1))
+    return path.group(1).strip() if path else ''
+
+
 def get_pool_volumes(uri, timeout):
     """Collect the volumes of every pool the connection knows, with the sizes of the
     storage each pool sits on.
@@ -195,11 +236,17 @@ def get_pool_volumes(uri, timeout):
         success, volumes = lib.kvm.get_volumes(name, uri=uri, timeout=timeout)
         if not success:
             return False, volumes
+        # Where the pool points, which is only in its definition and is what names
+        # the store below. A pool type without a path, RBD for one, has none.
+        success, xml = lib.kvm.get_pool_xml(name, uri=uri, timeout=timeout)
+        if not success:
+            return False, xml
         pools[name] = {
             'available': info.get('available', 0),
             'capacity': info.get('capacity', 0),
+            'path': get_pool_path(xml),
             'state': info.get('state', ''),
-            'volumes': volumes,
+            'volumes': [volume for volume in volumes if volume['type'] in VOLUME_TYPES],
         }
     return True, pools
 
@@ -238,10 +285,17 @@ def main():
             pools[name] = {
                 'available': info.get('available', 0),
                 'capacity': info.get('capacity', 0),
-                'state': info.get('state', ''),
-                'volumes': lib.kvm.parse_volumes(
-                    lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-{name}-vols')
+                'path': get_pool_path(
+                    lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-{name}-xml')
                 ),
+                'state': info.get('state', ''),
+                'volumes': [
+                    volume
+                    for volume in lib.kvm.parse_volumes(
+                        lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-{name}-vols')
+                    )
+                    if volume['type'] in VOLUME_TYPES
+                ],
             }
 
     if not pools:
@@ -252,9 +306,13 @@ def main():
     # init some vars
     allocated_total = 0
     msg = ''
+    # What each pool reports about its storage, so the pools sitting on one and the
+    # same filesystem can be found afterwards. libvirt never says what a pool sits on.
+    measurements = []
     oversubscribed = []
     oversubscribed_state_worst = STATE_OK
     perfdata = ''
+    store_data = []
     promised_total = 0
     state = STATE_OK
     table_data = []
@@ -286,39 +344,27 @@ def main():
         allocated_total += allocated
         volumes_total += len(volumes)
 
-        # Against the storage the pool sits on, not against the other volumes. A pool
-        # with no capacity to compare against is reported without a ratio rather than
-        # divided by zero.
-        subscription = (
-            round(promised / pool['capacity'] * 100, 1) if pool['capacity'] else None
-        )
-        item_state = (
-            STATE_OK
-            if subscription is None
-            else lib.base.get_state(
-                subscription, args.WARN, args.CRIT, _operator='range'
-            )
-        )
-        state = lib.base.get_worst(state, item_state)
-        if item_state != STATE_OK:
-            oversubscribed.append(f'{name} ({subscription}%)')
-            oversubscribed_state_worst = lib.base.get_worst(
-                oversubscribed_state_worst, item_state
+        # What a pool has promised is compared against its storage further down, not
+        # here: several pools commonly sit on one filesystem and each of them reports
+        # the whole of it, so a ratio per pool would measure each against a store it
+        # shares with the others and no two of them could be added up.
+        if pool['capacity']:
+            measurements.append(
+                {
+                    'allocated': allocated,
+                    'available': pool['available'],
+                    'capacity': pool['capacity'],
+                    'name': name,
+                    'path': pool['path'],
+                    'promised': promised,
+                }
             )
 
         table_data.append(
             {
-                '_state': item_state,
                 'allocated': lib.human.bytes2human(allocated),
-                'available': lib.human.bytes2human(pool['available']),
                 'name': name,
                 'promised': lib.human.bytes2human(promised),
-                'store': lib.human.bytes2human(pool['capacity']),
-                # The verdict of the whole row, kept in its own column at the end of
-                # the line: IcingaWeb replaces the marker with an icon and would break
-                # the table alignment anywhere else.
-                'state': lib.base.state2str(item_state, empty_ok=False),
-                'subscription': '-' if subscription is None else f'{subscription}%',
                 'volumes': len(volumes),
             }
         )
@@ -353,15 +399,6 @@ def main():
             uom='B',
             _min=0,
         )
-        if subscription is not None:
-            perfdata += lib.base.get_perfdata(
-                f'{perfdata_name}_subscription',
-                subscription,
-                uom='%',
-                warn=args.WARN,
-                crit=args.CRIT,
-                _min=0,
-            )
 
     # nothing left to report on
     if not table_data:
@@ -370,6 +407,60 @@ def main():
             f'by `--match` or `--ignore`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
+        )
+
+    # One store per filesystem, with the promises of every pool on it added up. This
+    # is what the thresholds judge, and the only place that addition is sound: the
+    # volumes of two pools are distinct files and do add up, the storage they sit on
+    # does not. The store is named after the deepest path holding every pool on it,
+    # the way `kvm-storage-pool` names it, so the two checks label one filesystem
+    # alike.
+    for members in lib.kvm.group_by_store(measurements, drift=STORE_DRIFT):
+        promised = sum(item['promised'] for item in members)
+        allocated = sum(item['allocated'] for item in members)
+        capacity = members[0]['capacity']
+        names = sorted(item['name'] for item in members)
+        paths = sorted(item['path'] for item in members)
+        store = (
+            os.path.commonpath(paths)
+            if all(path.startswith('/') for path in paths)
+            else ', '.join(names)
+        )
+        subscription = round(promised / capacity * 100, 1)
+        usage_state = lib.base.get_state(
+            subscription, args.WARN, args.CRIT, _operator='range'
+        )
+        state = lib.base.get_worst(state, usage_state)
+        if usage_state != STATE_OK:
+            oversubscribed.append(f'{store} ({subscription}%)')
+            oversubscribed_state_worst = lib.base.get_worst(
+                oversubscribed_state_worst, usage_state
+            )
+        store_data.append(
+            {
+                '_state': usage_state,
+                'allocated': lib.human.bytes2human(allocated),
+                'pools': ', '.join(names),
+                'promised': lib.human.bytes2human(promised),
+                'size': lib.human.bytes2human(capacity),
+                'store': store,
+                # The verdict of the store shares the last cell with its figure:
+                # IcingaWeb replaces the marker with an icon and would break the
+                # table alignment anywhere else.
+                'subscription': (
+                    f'{subscription}%{lib.base.state2str(usage_state, prefix=" ")}'
+                ),
+            }
+        )
+        # Named after the store itself, the way `kvm-storage-pool` names the same
+        # filesystem (`/-usage`), so the two checks graph one store under one name.
+        perfdata += lib.base.get_perfdata(
+            f'{store}-subscription',
+            subscription,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
         )
 
     # build the message
@@ -405,27 +496,41 @@ def main():
     )
 
     # build table output
-    # --brief only reshapes the table. Every pool above has already emitted its
-    # performance data and has already driven the overall state, so hiding a row here
-    # changes nothing but what a reader has to scroll past.
-    display_data = (
-        [row for row in table_data if row['_state'] != STATE_OK]
+    # Two tables, because they answer two questions. The first is about storage: how
+    # far the promises on it reach, and which pools made them. The second is about the
+    # pools themselves, which is where the volumes are counted.
+    #
+    # --brief only reshapes them. Every pool above has already emitted its performance
+    # data and has already driven the overall state, so hiding a row here changes
+    # nothing but what a reader has to scroll past.
+    display_stores = (
+        [row for row in store_data if row['_state'] != STATE_OK]
         if args.BRIEF
-        else table_data
+        else store_data
     )
-    if display_data:
-        msg += '\n\n' + lib.base.get_table(
-            display_data,
-            [
-                'name',
-                'volumes',
-                'promised',
-                'allocated',
-                'store',
-                'subscription',
-                'state',
-            ],
-            header=['Pool', 'Volumes', 'Promised', 'Taken', 'Store', 'Sub%', 'State'],
+    if display_stores:
+        # Stripped, because `get_table()` ends in a newline of its own and the next
+        # block opens with a blank line: left as it comes, every table is followed by
+        # two.
+        msg += (
+            '\n\n'
+            + lib.base.get_table(
+                display_stores,
+                ['store', 'pools', 'size', 'promised', 'allocated', 'subscription'],
+                header=['Store', 'Pools', 'Size', 'Promised', 'Taken', 'Sub%'],
+            ).rstrip()
+        )
+    # No verdict per pool: how far the promises reach is a property of the storage
+    # under them and is judged once, above. `--brief` leaves this table out, because
+    # a pool row carries nothing that could be within or outside a threshold.
+    if table_data and not args.BRIEF:
+        msg += (
+            '\n\n'
+            + lib.base.get_table(
+                table_data,
+                ['name', 'volumes', 'promised', 'allocated'],
+                header=['Pool', 'Volumes', 'Promised', 'Taken'],
+            ).rstrip()
         )
 
     # The largest volumes, which is what answers "what is eating this pool". All of
@@ -437,10 +542,13 @@ def main():
         caption = f'The {min(len(volume_data), LENGTHY_VOLUMES)} largest volumes'
         if hidden > 0:
             caption += f', {hidden} more not listed'
-        msg += f'\n\n{caption}:\n\n' + lib.base.get_table(
-            volume_data[:LENGTHY_VOLUMES],
-            ['pool', 'name', 'type', 'promised', 'allocated'],
-            header=['Pool', 'Volume', 'Type', 'Promised', 'Taken'],
+        msg += (
+            f'\n\n{caption}:\n\n'
+            + lib.base.get_table(
+                volume_data[:LENGTHY_VOLUMES],
+                ['pool', 'name', 'type', 'promised', 'allocated'],
+                header=['Pool', 'Volume', 'Type', 'Promised', 'Taken'],
+            ).rstrip()
         )
 
     # over and out

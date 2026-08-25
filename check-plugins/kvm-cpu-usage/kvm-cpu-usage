@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082505'
+__version__ = '2026082506'
 
 DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
 much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
@@ -740,10 +740,15 @@ def main():
         else table_data
     )
     if display_data:
-        msg += '\n\n' + lib.base.get_table(
-            display_data,
-            ['name', 'vcpus', 'cpu', 'steal', 'state'],
-            header=['VM Name', 'vCPUs', 'CPU', 'Steal', 'State'],
+        # Stripped, because `get_table()` ends in a newline of its own and the table
+        # below opens with a blank line.
+        msg += (
+            '\n\n'
+            + lib.base.get_table(
+                display_data,
+                ['name', 'vcpus', 'cpu', 'steal', 'state'],
+                header=['VM Name', 'vCPUs', 'CPU', 'Steal', 'State'],
+            ).rstrip()
         )
 
     # Every virtual CPU on its own line, which is what tells a machine that is busy

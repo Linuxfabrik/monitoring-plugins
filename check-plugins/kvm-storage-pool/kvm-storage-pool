@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082504'
+__version__ = '2026082505'
 
 DESCRIPTION = """Checks the storage pools a libvirt host keeps its virtual machines on. Reports the
 storage behind them and the pools themselves in two tables: one per store, with how full
@@ -67,7 +67,8 @@ OK_STATES = ('building', 'inactive', 'running')
 # The pools are asked one after another, so a filesystem being written to has moved by
 # the time the next one is asked; 0.18% of capacity was measured between two pools of
 # one filesystem on an idle workstation. A percent leaves room for a busy host and is
-# still far below what two genuinely separate filesystems would differ by.
+# still far below what two genuinely separate filesystems would differ by. The
+# grouping itself is `lib.kvm.group_by_store()`, which `kvm-volume` needs as well.
 STORE_DRIFT = 0.01
 
 # Where a pool points, out of its definition. libvirt writes the element on a line of
@@ -210,47 +211,6 @@ def get_pool_path(xml):
         return ''
     path = POOL_PATH_REGEX.search(target.group(1))
     return path.group(1).strip() if path else ''
-
-
-def group_by_store(measurements):
-    """Group the pools that are looking at one and the same store.
-
-    Takes the per-pool figures and returns a list of groups, each a list of the
-    measurements that belong to one store.
-
-    libvirt never says what a pool sits on. For a directory-backed pool it fills the
-    three sizes from the filesystem the pool's path is on, so pools sharing a
-    filesystem report it identically and that is what gives them away. Comparing the
-    three for equality does not work, though: the pools are asked one after another,
-    and a filesystem that is being written to moves in between. Measured on an idle
-    workstation, two pools of the same filesystem a second apart reported 589.3 GiB and
-    586.1 GiB free, 0.18% of its capacity, which was enough to split them into two
-    stores and to rename the metrics of both.
-
-    So the capacity decides, which does not move unless somebody resizes the
-    filesystem, and the free space only has to agree within `STORE_DRIFT`. Two
-    filesystems that really are separate and happen to have been made exactly the same
-    size are told apart by that second test, unless they are also equally full to
-    within a percent, at which point nothing in what libvirt reports could separate
-    them any more.
-    """
-    groups = []
-    for item in sorted(
-        measurements, key=lambda entry: (entry['capacity'], entry['available'])
-    ):
-        for group in groups:
-            other = group[0]
-            if item['capacity'] != other['capacity']:
-                continue
-            if (
-                abs(item['available'] - other['available'])
-                <= other['capacity'] * STORE_DRIFT
-            ):
-                group.append(item)
-                break
-        else:
-            groups.append([item])
-    return groups
 
 
 def get_severity(pool_state):
@@ -419,7 +379,7 @@ def main():
 
     # still analysing: the pools are grouped into the stores they sit on, and the
     # figures of each store are worked out before the message can name them
-    stores = group_by_store(measurements)
+    stores = lib.kvm.group_by_store(measurements, drift=STORE_DRIFT)
 
     # One set of numbers per store, named after the store rather than after the pools
     # on it. Pools sharing storage report the same figures to the byte, so a metric per

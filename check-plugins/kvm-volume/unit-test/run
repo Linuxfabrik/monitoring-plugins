@@ -31,7 +31,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                spaces, which libvirt allows and which tears a whitespace split of
 #                the `vol-list` table into the wrong columns
 #   nvram        six volumes so small that the space they take exceeds the space they
-#                were promised, because a filesystem allocates in blocks
+#                were promised, because a filesystem allocates in blocks. It shares
+#                its filesystem with `default`, which is why the two are reported as
+#                one store and `lftest-pool` on /tmp as another
 #
 # `no-pools` and `empty-pool` cannot be produced read-only on a host that has pools,
 # so they are written by hand in the captured layout: an answer with no pool in it at
@@ -64,18 +66,20 @@ TESTS = [
         'assert-in': ['name with spaces.qcow2'],
     },
     {
-        'id': 'warn-pool-promises-more-than-it-has',
+        # Named after the store, not after a pool: `default` and `nvram` sit on one
+        # filesystem and the promise that matters is the one they make together.
+        'id': 'warn-store-promises-more-than-it-holds',
         'test': 'stdout/three-pools,,0',
         'params': '--warning=100 --critical=200',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Promised more than the storage holds: default (153.4%)'],
+        'assert-in': ['Promised more than the storage holds: /var/lib/libvirt (153.4%)'],
     },
     {
-        'id': 'crit-pool-promises-far-more-than-it-has',
+        'id': 'crit-store-promises-far-more-than-it-holds',
         'test': 'stdout/three-pools,,0',
         'params': '--warning=50 --critical=100',
         'assert-retc': STATE_CRIT,
-        'assert-regex': r'default\s+!.*!\s+153\.4%\s+!\s+\[CRITICAL\]',
+        'assert-regex': r'/var/lib/libvirt\s+!.*!\s+153\.4% \[CRITICAL\]',
     },
     {
         # A pool that stays inside the range does not turn up in the sentence, even
@@ -104,13 +108,14 @@ TESTS = [
     },
     {
         # --no-perfdata so the assertion is about the table alone; the next case is
-        # the one that pins the perfdata.
-        'id': 'warn-brief-keeps-only-the-pool-that-alerts',
+        # the one that pins the perfdata. --brief drops the store that is inside the
+        # threshold and the pool table with it.
+        'id': 'warn-brief-keeps-only-the-store-that-alerts',
         'test': 'stdout/three-pools,,0',
         'params': '--warning=100 --brief --no-perfdata',
         'assert-retc': STATE_WARN,
-        'assert-in': ['default'],
-        'assert-not-in': ['nvram'],
+        'assert-in': ['/var/lib/libvirt'],
+        'assert-not-in': ['/tmp/lfpool', 'Volumes'],
     },
     {
         # --brief hides rows, never metrics: the pool it left out still reports
@@ -119,7 +124,7 @@ TESTS = [
         'test': 'stdout/three-pools,,0',
         'params': '--warning=100 --brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['nvram_volumes', 'nvram_subscription', "'volumes'=49"],
+        'assert-in': ['nvram_volumes', '/tmp/lfpool-subscription', "'volumes'=49"],
     },
     {
         'id': 'ok-brief-on-a-quiet-host-prints-one-line',
