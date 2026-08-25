@@ -235,6 +235,36 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['contains one or more errors'],
     },
+    {
+        # A vhost-user interface is the one kind for which libvirt reports part of
+        # the counters and leaves the rest out. Read as zero, the missing ones would
+        # say the interface loses nothing, and a threshold would confirm that for
+        # ever. The columns say `-` instead, and the message says why.
+        'id': 'ok-absent-loss-counters-are-not-reported-as-zero',
+        'test': 'stdout/vhost-user-interface,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Losing frames is not reported for: nfv01/nic0'],
+    },
+    {
+        # The threshold that used to be satisfied by the invented zero now has
+        # nothing to judge on that interface, and still judges the one next to it.
+        'id': 'warn-threshold-skips-the-interface-without-counters',
+        'test': 'stdout/vhost-user-interface,,0',
+        'params': '--warning-drops=0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['nfv01/nic1 (3.0/s dropped)'],
+        'assert-not-in': ['nic0 (0.0/s dropped)'],
+    },
+    {
+        # No perfdata for a counter that was never measured either, so a dashboard
+        # draws no flat zero line for it.
+        'id': 'ok-no-perfdata-for-an-absent-counter',
+        'test': 'stdout/vhost-user-interface,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['nfv01_nic0_drops_per_second'],
+    },
 ]
 
 

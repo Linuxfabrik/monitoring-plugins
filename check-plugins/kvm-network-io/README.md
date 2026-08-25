@@ -25,6 +25,7 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 
 * **Inbound and outbound are from the machine's point of view.** Inbound is what the guest received. The host's own view of the same interface is the exact opposite, because what the machine sends is what the host receives, so a figure read from `ip -s link show vnet4` on the host will not match and comparing the two directly leads nowhere.
 * **An interface is identified by its position in the machine, not by its host-side device.** `nic0` is the machine's first interface and stays that whatever happens; the `vnetN` device next to it is handed out by libvirt from a counter when the machine starts and is not kept, which is also why libvirt itself leaves it out of the machine's stored configuration. The same interface of the same machine, unchanged and with the same MAC address, was measured as `vnet1` before a restart and as `vnet4` after it. The device is shown (`--lengthy`) rather than used as the name.
+* **A loss counter the host does not keep is reported as `-`, not as zero.** On every ordinary configuration libvirt reports all of them. A vhost-user interface is the exception: there the figures come from Open vSwitch, which names only the counters it keeps, and the rest never arrive. Zero is what a healthy interface reports, so filling them in would claim the interface loses nothing and let `--warning-drops` and `--warning-errors` confirm that on every run. Those thresholds skip such an interface, and the first line names it.
 * An interface that has just appeared, and every interface on the first runs, is reported as "Waiting for more data." until `--count` measurements have accumulated. The interfaces that have been there all along keep being reported meanwhile.
 * Only running machines are looked at. A machine that is shut off has no interface on the host at all.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
@@ -230,6 +231,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * WARN if an interface sustains `--warning` percent or more of the most traffic it has ever carried (default: 80). This part never goes critical.
 * WARN if an interface drops more frames per second than `--warning-drops` allows, or reports more bad ones than `--warning-errors` allows (both default: unset).
 * CRIT if it reaches `--critical-drops` or `--critical-errors` (both default: unset).
+* OK for the loss thresholds on an interface whose loss counters the host does not keep. There is nothing to judge, so nothing is judged; the traffic thresholds still apply to it.
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no interface to check (default: `ok`).
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -243,8 +245,8 @@ All four loss thresholds accept [Nagios ranges](../THRESHOLDS.md).
 |----|----|----|
 | rx_bytes_per_second | Bytes | Received across all checked interfaces, averaged over `--count` measurements. |
 | tx_bytes_per_second | Bytes | Sent across all checked interfaces, averaged over `--count` measurements. |
-| &lt;machine&gt;_nic&lt;n&gt;_drops_per_second | Number | Frames the interface dropped, incoming and outgoing together. On a machine attached through a bridge or a virtual network this is the loss counter that carries anything. |
-| &lt;machine&gt;_nic&lt;n&gt;_errors_per_second | Number | Frames the interface reported as bad, incoming and outgoing together. Stays at zero for a machine attached through a bridge or a virtual network. |
+| &lt;machine&gt;_nic&lt;n&gt;_drops_per_second | Number | Frames the interface dropped, incoming and outgoing together. On a machine attached through a bridge or a virtual network this is the loss counter that carries anything. Absent for an interface whose loss counters the host does not keep. |
+| &lt;machine&gt;_nic&lt;n&gt;_errors_per_second | Number | Frames the interface reported as bad, incoming and outgoing together. Stays at zero for a machine attached through a bridge or a virtual network. Absent for an interface whose loss counters the host does not keep. |
 | &lt;machine&gt;_nic&lt;n&gt;_rx_bytes_per_second | Bytes | Received by the machine, averaged over `--count` measurements. |
 | &lt;machine&gt;_nic&lt;n&gt;_rx_bytes_per_second1 | Bytes | The same, over the last measurement interval alone. |
 | &lt;machine&gt;_nic&lt;n&gt;_rx_packets_per_second | Number | Packets received by the machine, averaged over `--count` measurements. |

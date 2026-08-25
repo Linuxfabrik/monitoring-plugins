@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082502'
 
 DESCRIPTION = """Reports what a libvirt host's virtual machines send and receive over each of their
 network interfaces, together with the frames those interfaces lost. Warns when an
@@ -59,6 +59,10 @@ DB = 'linuxfabrik-monitoring-plugins-kvm-network-io-{}.db'
 # to be quiet on the first run would then warn about every packet it carries afterwards.
 # The same figure the disk check uses, so the two calibrate alike.
 MIN_BANDWIDTH = 10 * 1024 * 1024  # bytes per second
+
+# What `get_interfaces()` records about an interface rather than about its traffic.
+# Neither belongs in the history table, whose columns are counters and nothing else.
+NON_COUNTER_KEYS = ('device', 'measured')
 
 
 def parse_args():
@@ -229,7 +233,8 @@ def parse_args():
 def get_interfaces(domstats):
     """Pick the per-interface counters out of the statistics of every machine.
 
-    Returns `{'<machine>/nic<index>': {counter: value, 'device': str}}`.
+    Returns `{'<machine>/nic<index>': {counter: value, 'device': str,
+    'measured': frozenset}}`.
 
     An interface is keyed by its position in the machine rather than by the name
     libvirt reports for it. That name is the host-side tap device (`vnet4`), which
@@ -245,6 +250,16 @@ def get_interfaces(domstats):
     interface libvirt could not read is left out: it contributes a `net.count` but no
     counters, and a row of zeroes would claim it carried no traffic rather than that
     nothing is known about it.
+
+    Which loss counters an interface carries is reported next to them, in `measured`.
+    On every ordinary configuration all eight counters arrive, because libvirt fills
+    them from one `/proc/net/dev` row (`virNetDevTapInterfaceStats()`), which always
+    has all of them. A vhost-user interface is the exception: libvirt asks Open
+    vSwitch instead, starts every field at -1 and fills only the ones the switch
+    names (`virNetDevOpenvswitchInterfaceParseStats()`), and a field left at -1 is
+    then dropped from the report (`QEMU_ADD_NET_PARAM` in `qemu_driver.c`). Read as
+    zero, an absent counter would say the interface loses nothing, which is the one
+    answer nobody can tell apart from a healthy interface.
 
     Receive and transmit are from the machine's point of view, as libvirt reports
     them: `rx` is what the guest received. libvirt swaps the counters of the host-side
@@ -262,6 +277,12 @@ def get_interfaces(domstats):
                 continue
             interfaces[f'{machine}/nic{index}'] = {
                 'device': stats.get(f'{prefix}name', ''),
+                'measured': frozenset(
+                    counter
+                    for counter in ('drop', 'errs')
+                    for direction in ('rx', 'tx')
+                    if f'{prefix}{direction}.{counter}' in stats
+                ),
                 'rx_bytes': stats.get(f'{prefix}rx.bytes', 0),
                 'rx_drop': stats.get(f'{prefix}rx.drop', 0),
                 'rx_errs': stats.get(f'{prefix}rx.errs', 0),
@@ -367,7 +388,11 @@ def main():
         lib.base.coe(lib.db_sqlite.create_index(conn, 'name'))
         now = lib.time.now(as_type='float')
         for name, counters in interfaces.items():
-            row = {key: value for key, value in counters.items() if key != 'device'}
+            row = {
+                key: value
+                for key, value in counters.items()
+                if key not in NON_COUNTER_KEYS
+            }
             lib.base.coe(
                 lib.db_sqlite.insert(conn, {'name': name, 'timestamp': now, **row})
             )
@@ -407,7 +432,7 @@ def main():
         for name, counters in interfaces.items():
             rates[name] = {}
             for counter, value in counters.items():
-                if counter == 'device':
+                if counter in NON_COUNTER_KEYS:
                     continue
                 rates[name][f'{counter}1'] = value
                 rates[name][f'{counter}n'] = value
@@ -423,6 +448,7 @@ def main():
     state = STATE_OK
     table_data = []
     tx_total = 0
+    unreported = []
     waiting = []
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
@@ -472,8 +498,16 @@ def main():
         # straight to a host interface, or through macvtap, is accounted for by that
         # interface's own driver, and there the error counter carries the usual
         # meaning. Checked against Linux 7.1.
-        errors = load['rx_errsn'] + load['tx_errsn']
-        drops = load['rx_dropn'] + load['tx_dropn']
+        #
+        # A counter libvirt did not report at all is left unreported rather than read
+        # as zero. Zero is what a healthy interface reports, so an invented one says
+        # "this interface loses nothing" about an interface nobody measured, and a
+        # threshold set on it would confirm that on every run.
+        measured = interfaces[name]['measured']
+        errors = load['rx_errsn'] + load['tx_errsn'] if 'errs' in measured else None
+        drops = load['rx_dropn'] + load['tx_dropn'] if 'drop' in measured else None
+        if errors is None or drops is None:
+            unreported.append(name)
 
         if args.TEST is None:
             max_bandwidth = get_max_bandwidth(name, throughput1, db_filename)
@@ -492,11 +526,19 @@ def main():
             max_bandwidth * args.WARN / 100,
             None,
         )
-        drops_state = lib.base.get_state(
-            round(drops, 1), args.WARN_DROPS, args.CRIT_DROPS, _operator='range'
+        drops_state = (
+            STATE_OK
+            if drops is None
+            else lib.base.get_state(
+                round(drops, 1), args.WARN_DROPS, args.CRIT_DROPS, _operator='range'
+            )
         )
-        errors_state = lib.base.get_state(
-            round(errors, 1), args.WARN_ERRORS, args.CRIT_ERRORS, _operator='range'
+        errors_state = (
+            STATE_OK
+            if errors is None
+            else lib.base.get_state(
+                round(errors, 1), args.WARN_ERRORS, args.CRIT_ERRORS, _operator='range'
+            )
         )
         item_state = lib.base.get_worst(busy_state, drops_state, errors_state)
         state = lib.base.get_worst(state, item_state)
@@ -518,8 +560,8 @@ def main():
         table_data.append(
             {
                 'device': interfaces[name]['device'] or '-',
-                'drops': f'{drops:.1f}/s',
-                'errors': f'{errors:.1f}/s',
+                'drops': '-' if drops is None else f'{drops:.1f}/s',
+                'errors': '-' if errors is None else f'{errors:.1f}/s',
                 'max': f'{lib.human.bytes2human(max_bandwidth)}/s',
                 'name': machine,
                 'nic': nic,
@@ -585,22 +627,24 @@ def main():
             uom=None,
             _min=0,
         )
-        perfdata += lib.base.get_perfdata(
-            f'{perfdata_name}_errors_per_second',
-            round(errors, 1),
-            uom=None,
-            warn=args.WARN_ERRORS,
-            crit=args.CRIT_ERRORS,
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{perfdata_name}_drops_per_second',
-            round(drops, 1),
-            uom=None,
-            warn=args.WARN_DROPS,
-            crit=args.CRIT_DROPS,
-            _min=0,
-        )
+        if errors is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{perfdata_name}_errors_per_second',
+                round(errors, 1),
+                uom=None,
+                warn=args.WARN_ERRORS,
+                crit=args.CRIT_ERRORS,
+                _min=0,
+            )
+        if drops is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{perfdata_name}_drops_per_second',
+                round(drops, 1),
+                uom=None,
+                warn=args.WARN_DROPS,
+                crit=args.CRIT_DROPS,
+                _min=0,
+            )
 
     # nothing left to report on
     if not table_data and not waiting:
@@ -635,6 +679,11 @@ def main():
             msg += (
                 f'. Working hard: {", ".join(busy_interfaces)}'
                 f'{lib.base.state2str(busy_state_worst, prefix=" ")}'
+            )
+        if unreported:
+            msg += (
+                f'. Losing frames is not reported for: {", ".join(unreported)} '
+                f'(the host does not count it for this kind of interface)'
             )
         if waiting:
             msg += f'. Waiting for more data: {", ".join(waiting)}'
