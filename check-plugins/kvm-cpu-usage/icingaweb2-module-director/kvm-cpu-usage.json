@@ -21,6 +21,9 @@
                     "value": "$kvm_cpu_usage_ignore$",
                     "repeat_key": true
                 },
+                "--lengthy": {
+                    "set_if": "$kvm_cpu_usage_lengthy$"
+                },
                 "--match": {
                     "value": "$kvm_cpu_usage_match$",
                     "repeat_key": true
@@ -111,6 +114,11 @@
                     "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -154,7 +162,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports how much CPU each virtual machine of a libvirt host consumes, and how much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host makes a machine wait for CPU for too large a share of its time. Also reports how many virtual CPUs the running machines were promised against the cores the host really has. Runs without root or sudo.",
+            "notes": "Reports how much CPU each virtual machine of a libvirt host consumes, and how much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host makes a machine wait for CPU for too large a share of its time. Also reports how many virtual CPUs the running machines were promised against the cores the host really has. Supports extended reporting via --lengthy. Runs without root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-cpu-usage/",
             "object_name": "tpl-service-kvm-cpu-usage",
             "object_type": "template",
@@ -171,6 +179,7 @@
                 "kvm_cpu_usage_critical": "90",
                 "kvm_cpu_usage_critical_steal": "25",
                 "kvm_cpu_usage_ignore": [],
+                "kvm_cpu_usage_lengthy": false,
                 "kvm_cpu_usage_match": [],
                 "kvm_cpu_usage_no_match_severity": "ok",
                 "kvm_cpu_usage_no_perfdata": false,
@@ -281,6 +290,15 @@
             "uuid": "2512e6e0-df40-4b27-afa8-2c344b053d88"
         },
         "7": {
+            "varname": "kvm_cpu_usage_lengthy",
+            "caption": "KVM CPU Usage: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "aa1b631c-2c00-48f7-8970-8b14160213a7"
+        },
+        "8": {
             "varname": "kvm_cpu_usage_match",
             "caption": "KVM CPU Usage: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -291,7 +309,7 @@
             },
             "uuid": "1e9d5905-542d-4831-82f4-cf0f6ddb0471"
         },
-        "8": {
+        "9": {
             "varname": "kvm_cpu_usage_no_match_severity",
             "caption": "KVM CPU Usage: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -304,7 +322,7 @@
             },
             "uuid": "19090f4f-5c27-436e-ad72-5bfc22e807bd"
         },
-        "9": {
+        "10": {
             "varname": "kvm_cpu_usage_no_perfdata",
             "caption": "KVM CPU Usage: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -313,7 +331,7 @@
             "settings": {},
             "uuid": "8b7e307b-9c56-4235-b9f0-1d4956c5886a"
         },
-        "10": {
+        "11": {
             "varname": "kvm_cpu_usage_timeout",
             "caption": "KVM CPU Usage: Timeout",
             "description": "Network timeout in seconds.",
@@ -324,7 +342,7 @@
             },
             "uuid": "a152af22-2b0e-456a-af7c-8bb843cc8143"
         },
-        "11": {
+        "12": {
             "varname": "kvm_cpu_usage_url",
             "caption": "KVM CPU Usage: URL",
             "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent. Only QEMU/KVM connections report the data this check needs.",
@@ -335,7 +353,7 @@
             },
             "uuid": "9e4a194e-4ec6-44c1-9add-6f636a5be630"
         },
-        "12": {
+        "13": {
             "varname": "kvm_cpu_usage_warning",
             "caption": "KVM CPU Usage: Warning",
             "description": "WARN threshold for the CPU usage of a machine, in percent of the virtual CPUs assigned to it. Supports Nagios ranges.",
@@ -346,7 +364,7 @@
             },
             "uuid": "03589936-8bda-4123-9271-09cbf0cce212"
         },
-        "13": {
+        "14": {
             "varname": "kvm_cpu_usage_warning_steal",
             "caption": "KVM CPU Usage: Warning Steal",
             "description": "WARN threshold for the share of its time a machine spends waiting for CPU the host is using elsewhere, in percent. Supports Nagios ranges.",

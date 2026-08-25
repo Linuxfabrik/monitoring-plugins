@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reports how much CPU each virtual machine of a libvirt host consumes, and how much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host makes a machine wait for CPU for too large a share of its time. Also reports how many virtual CPUs the running machines were promised against the cores the host really has. Runs without root or sudo.
+Reports how much CPU each virtual machine of a libvirt host consumes, and how much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host makes a machine wait for CPU for too large a share of its time. Also reports how many virtual CPUs the running machines were promised against the cores the host really has. Supports extended reporting via --lengthy. Runs without root or sudo.
 
 **What the Steal column means:**
 
@@ -18,6 +18,7 @@ This is the number the guest operating system calls "steal time" and shows as `%
 * **A machine that was restarted is named there again.** Its counters start over, so they are lower than the ones recorded before the restart, and no rate can be computed across that. Reporting the difference anyway would put the machine at a negative usage and alert on it. It comes back on its own once the measurements from before the restart have left the `--count` window.
 * Only running machines are looked at. A machine that is shut off still reports a CPU time, but libvirt reports the same value for every shut-off machine and it keeps growing between runs, so a rate computed from it would be invented.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
+* **`--lengthy` adds a line per virtual CPU.** A machine's figure is the average over the virtual CPUs it was given, and a single-threaded job that saturates one of four comes out at 25%. The breakdown is the only place that shows it. It carries no performance data of its own, because a metric per virtual CPU would multiply the perfdata line by the vCPU count of the whole host.
 * **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
@@ -50,7 +51,7 @@ This is the number the guest operating system calls "steal time" and shows as `%
 ```text
 usage: kvm-cpu-usage [-h] [-V] [--always-ok] [--brief] [--count COUNT]
                      [-c CRIT] [--critical-steal CRIT_STEAL] [--ignore IGNORE]
-                     [--match MATCH]
+                     [--lengthy] [--match MATCH]
                      [--no-match-severity {ok,warn,crit,unknown}]
                      [--no-perfdata] [--timeout TIMEOUT] [--url URL] [-w WARN]
                      [--warning-steal WARN_STEAL]
@@ -60,7 +61,8 @@ much CPU its guests ask for but do not get because the host is busy elsewhere.
 Alerts if a machine uses more of its assigned virtual CPUs than the thresholds
 allow, and if the host makes a machine wait for CPU for too large a share of
 its time. Also reports how many virtual CPUs the running machines were
-promised against the cores the host really has. Runs without root or sudo.
+promised against the cores the host really has. Supports extended reporting
+via --lengthy. Runs without root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -85,6 +87,7 @@ options:
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
+  --lengthy             Extended reporting.
   --match MATCH         Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
                         matching. Can be specified multiple times. If both

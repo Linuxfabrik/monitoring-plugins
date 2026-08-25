@@ -218,6 +218,43 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['VM Name'],
     },
+    {
+        # The machine averages 39.8% while two of its four virtual CPUs sit near 80%.
+        # That is a single-threaded job inside the guest, and the averaged figure
+        # cannot show it: the table per virtual CPU is what does.
+        'id': 'ok-lengthy-shows-each-virtual-cpu',
+        'test': 'stdout/sparse-vcpu-numbering,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'vcpu0\s+!\s+80\.0%',
+    },
+    {
+        # libvirt numbers them sparsely after a hotplug, so a machine can report
+        # vcpu0 and vcpu3 and nothing in between.
+        'id': 'ok-lengthy-keeps-sparse-numbering',
+        'test': 'stdout/sparse-vcpu-numbering,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['vcpu3'],
+        'assert-not-in': ['vcpu1'],
+    },
+    {
+        'id': 'ok-without-lengthy-no-virtual-cpu-table',
+        'test': 'stdout/sparse-vcpu-numbering,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['vcpu0'],
+    },
+    {
+        # The breakdown is a display detail: it adds no metric of its own, because a
+        # metric per virtual CPU would multiply the perfdata by the vCPU count of the
+        # whole host.
+        'id': 'ok-lengthy-adds-no-perfdata',
+        'test': 'stdout/sparse-vcpu-numbering,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['nextcloud01_vcpu0'],
+    },
 ]
 
 

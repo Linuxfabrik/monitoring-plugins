@@ -24,14 +24,14 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503'
+__version__ = '2026082504'
 
 DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
 much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
 machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host
 makes a machine wait for CPU for too large a share of its time. Also reports how many
 virtual CPUs the running machines were promised against the cores the host really has.
-Runs without root or sudo."""
+Supports extended reporting via --lengthy. Runs without root or sudo."""
 
 DEFAULT_COUNT = (
     5  # measurements; if the check runs once per minute, this is a 5 minute average
@@ -50,6 +50,16 @@ DEFAULT_WARN_STEAL = '10'
 # mixing their counters into one history would produce a rate out of two unrelated
 # measurements.
 DB = 'linuxfabrik-monitoring-plugins-kvm-cpu-usage-{}.db'
+
+# Where the per-virtual-CPU history is kept, next to the per-machine one in the
+# same file. Two kinds of sensor, two schemas, two tables.
+VCPU_TABLE = 'vcpu'
+VCPU_DEFINITION = """
+    name        TEXT NOT NULL,
+    vcpu_time   INT NOT NULL,
+    delay       INT NOT NULL,
+    timestamp   REAL NOT NULL
+"""
 
 VCPU_DELAY_REGEX = re.compile(r'^vcpu\.(\d+)\.delay$')
 VCPU_TIME_REGEX = re.compile(r'^vcpu\.(\d+)\.time$')
@@ -131,6 +141,14 @@ def parse_args():
         dest='IGNORE',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -252,6 +270,38 @@ def get_counters(stats):
     return stats.get('cpu.time', 0), vcpu_time, delay, vcpu_count
 
 
+def get_vcpu_counters(stats):
+    """Pick the counters of each virtual CPU out of one machine's statistics.
+
+    Returns `{index: {'delay': int, 'vcpu_time': int}}`, both nanosecond counters.
+
+    Kept apart from the sums `get_counters()` returns, because they answer different
+    questions. The sum says how busy the machine is; the individual figures say
+    whether the work is spread over the virtual CPUs it was given or is sitting on
+    one of them, which is what a single-threaded job inside the guest looks like and
+    what the sum hides completely: four virtual CPUs of which one is saturated
+    average out at 25%.
+
+    libvirt numbers them sparsely after a hotplug, so they are collected by their key
+    rather than by counting up to `vcpu.current`.
+    """
+    counters = {}
+    for key, value in stats.items():
+        match = VCPU_TIME_REGEX.match(key)
+        if match:
+            counters.setdefault(int(match.group(1)), {})['vcpu_time'] = value
+            continue
+        match = VCPU_DELAY_REGEX.match(key)
+        if match:
+            counters.setdefault(int(match.group(1)), {})['delay'] = value
+    # A virtual CPU that reported only one of the two is padded, so the history table
+    # it feeds keeps a stable set of columns.
+    return {
+        index: {'delay': item.get('delay', 0), 'vcpu_time': item.get('vcpu_time', 0)}
+        for index, item in counters.items()
+    }
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -341,6 +391,38 @@ def main():
         lib.base.coe(
             lib.db_sqlite.cut_per_sensor(conn, sensorcol='name', _max=args.COUNT)
         )
+
+        # The virtual CPUs of every machine, one sensor each, in a table of their
+        # own. Sharing the table above would mean padding every row with the columns
+        # the other kind of sensor needs, and a padded counter reads as a real zero.
+        lib.base.coe(
+            lib.db_sqlite.create_table(
+                conn,
+                VCPU_DEFINITION,
+                table=VCPU_TABLE,
+                drop_table_first=False,
+            )
+        )
+        lib.base.coe(lib.db_sqlite.create_index(conn, 'name', table=VCPU_TABLE))
+        for name, stats in domstats.items():
+            for index, counters in get_vcpu_counters(stats).items():
+                lib.base.coe(
+                    lib.db_sqlite.insert(
+                        conn,
+                        {
+                            'delay': counters['delay'],
+                            'name': f'{name}/vcpu{index}',
+                            'timestamp': now,
+                            'vcpu_time': counters['vcpu_time'],
+                        },
+                        table=VCPU_TABLE,
+                    )
+                )
+        lib.base.coe(
+            lib.db_sqlite.cut_per_sensor(
+                conn, sensorcol='name', _max=args.COUNT, table=VCPU_TABLE
+            )
+        )
         lib.base.coe(lib.db_sqlite.commit(conn))
         loads = lib.base.coe(
             lib.db_sqlite.compute_load(
@@ -350,13 +432,24 @@ def main():
                 count=args.COUNT,
             )
         )
+        vcpu_loads = lib.base.coe(
+            lib.db_sqlite.compute_load(
+                conn,
+                sensorcol='name',
+                datacols=['vcpu_time', 'delay'],
+                count=args.COUNT,
+                table=VCPU_TABLE,
+            )
+        )
         lib.db_sqlite.close(conn)
         rates = {item['name']: item for item in (loads or [])}
+        vcpu_rates = {item['name']: item for item in (vcpu_loads or [])}
     else:
         # In test mode there is no history to average over, so the fixture values
         # are taken as the per-second rates themselves, for both spans. A fixture
         # saying `cpu.time=900000000` on one virtual CPU is 90%.
         rates = {}
+        vcpu_rates = {}
         for name, stats in domstats.items():
             cpu_time, vcpu_time, delay, _ = get_counters(stats)
             rates[name] = {
@@ -367,6 +460,13 @@ def main():
                 'vcpu_time1': vcpu_time,
                 'vcpu_timen': vcpu_time,
             }
+            for index, counters in get_vcpu_counters(stats).items():
+                vcpu_rates[f'{name}/vcpu{index}'] = {
+                    'delay1': counters['delay'],
+                    'delayn': counters['delay'],
+                    'vcpu_time1': counters['vcpu_time'],
+                    'vcpu_timen': counters['vcpu_time'],
+                }
 
     # init some vars
     cores_used = 0.0
@@ -378,6 +478,7 @@ def main():
     vcpus_assigned = 0
     steal_state_worst = STATE_OK
     table_data = []
+    vcpu_data = []
     waiting = []
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
@@ -468,6 +569,26 @@ def main():
                 'vcpus': vcpu_count,
             }
         )
+
+        # One row per virtual CPU, for `--lengthy`. No performance data of its own:
+        # the machine's figures above already carry the trend, and a metric per
+        # virtual CPU would multiply the line by the vCPU count of the whole host.
+        for index in sorted(get_vcpu_counters(domstats[name])):
+            vcpu_load = vcpu_rates.get(f'{name}/vcpu{index}')
+            if vcpu_load is None:
+                continue
+            vcpu_percent = round(
+                vcpu_load['vcpu_timen'] / NANOSECONDS_PER_SECOND * 100, 1
+            )
+            vcpu_steal = round(vcpu_load['delayn'] / NANOSECONDS_PER_SECOND * 100, 1)
+            vcpu_data.append(
+                {
+                    'cpu': f'{vcpu_percent}%',
+                    'name': name,
+                    'steal': f'{vcpu_steal}%',
+                    'vcpu': f'vcpu{index}',
+                }
+            )
 
         perfdata_name = re.sub(r'\W+', '_', name)
         perfdata += lib.base.get_perfdata(
@@ -585,6 +706,17 @@ def main():
             display_data,
             ['name', 'vcpus', 'cpu', 'steal', 'state'],
             header=['VM Name', 'vCPUs', 'CPU', 'Steal', 'State'],
+        )
+
+    # Every virtual CPU on its own line, which is what tells a machine that is busy
+    # from one that has a single thread pinning one of its virtual CPUs while the
+    # rest idle. The averaged figure above cannot show the difference: four virtual
+    # CPUs of which one is saturated come out at 25%.
+    if args.LENGTHY and vcpu_data:
+        msg += '\n\n' + lib.base.get_table(
+            vcpu_data,
+            ['name', 'vcpu', 'cpu', 'steal'],
+            header=['VM Name', 'vCPU', 'CPU', 'Steal'],
         )
 
     # over and out
