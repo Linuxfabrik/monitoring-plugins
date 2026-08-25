@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Reports how much a libvirt host's virtual machines read and write, and how long
 their storage takes to answer. Warns when a disk sustains a large share of the most
@@ -430,11 +430,16 @@ def main():
             waiting.append(name)
             continue
 
+        # Rounded to whole bytes per second. `compute_load()` divides a counter by
+        # a wall-clock span and so answers in full floating point, and a rate of
+        # 2342.6465026982796 B/s carries fifteen digits of noise into every graph
+        # and every stored data point. The message rounds them away anyway; the
+        # performance data has to say the same number as the message.
         load = rates[name]
-        read1 = load['rd_bytes1']
-        write1 = load['wr_bytes1']
-        read = load['rd_bytesn']
-        write = load['wr_bytesn']
+        read1 = round(load['rd_bytes1'])
+        write1 = round(load['wr_bytes1'])
+        read = round(load['rd_bytesn'])
+        write = round(load['wr_bytesn'])
         throughput1 = read1 + write1
         throughput = read + write
         read_total += read

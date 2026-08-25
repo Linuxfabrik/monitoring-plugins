@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Reports what a libvirt host's virtual machines send and receive over each of their
 network interfaces, together with the frames those interfaces lost. Warns when an
@@ -445,11 +445,16 @@ def main():
             waiting.append(name)
             continue
 
+        # Rounded to whole bytes per second. `compute_load()` divides a counter by
+        # a wall-clock span and so answers in full floating point, and a rate of
+        # 1717.924765439563 B/s carries thirteen digits of noise into every graph
+        # and every stored data point. The message rounds them away anyway; the
+        # performance data has to say the same number as the message.
         load = rates[name]
-        rx1 = load['rx_bytes1']
-        tx1 = load['tx_bytes1']
-        rx = load['rx_bytesn']
-        tx = load['tx_bytesn']
+        rx1 = round(load['rx_bytes1'])
+        tx1 = round(load['tx_bytes1'])
+        rx = round(load['rx_bytesn'])
+        tx = round(load['tx_bytesn'])
         throughput1 = rx1 + tx1
         throughput = rx + tx
         rx_total += rx
