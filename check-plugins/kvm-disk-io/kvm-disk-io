@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026082503'
 
 DESCRIPTION = """Reports how much a libvirt host's virtual machines read and write, and how long
 their storage takes to answer. Warns when a disk sustains a large share of the most
@@ -76,6 +76,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -490,6 +498,7 @@ def main():
         machine, _, disk = name.partition('/')
         table_data.append(
             {
+                '_state': item_state,
                 'await': f'{await_ms}ms',
                 'disk': disk,
                 'max': f'{lib.human.bytes2human(max_bandwidth)}/s',
@@ -627,7 +636,16 @@ def main():
     )
 
     # build table output
-    if table_data:
+
+    # --brief only reshapes the table. Every item above has already emitted its
+    # performance data and has already driven the overall state, so hiding a row
+    # here changes nothing but what a reader has to scroll past.
+    display_data = (
+        [row for row in table_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else table_data
+    )
+    if display_data:
         cols = ['name', 'disk', 'read', 'write', 'await', 'state']
         header = [
             'VM Name',
@@ -662,7 +680,7 @@ def main():
                 'Await',
                 'State',
             ]
-        msg += '\n\n' + lib.base.get_table(table_data, cols, header=header)
+        msg += '\n\n' + lib.base.get_table(display_data, cols, header=header)
 
     # over and out
     lib.base.oao(

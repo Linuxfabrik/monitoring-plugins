@@ -190,6 +190,24 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['contains one or more errors'],
     },
+    {
+        # --brief keeps the rows that alert and drops the rest. The state and the
+        # perfdata are the same either way; only the table is shorter.
+        'id': 'crit-brief-keeps-only-the-rows-that-alert',
+        'test': 'stdout/crashed-failed-and-io-error,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['lftest-ioerror', 'vm_shut_off'],
+        'assert-not-in': ['winsrv2025'],
+    },
+    {
+        # Nothing to show means the summary alone, not a table with only a header.
+        'id': 'ok-brief-on-a-quiet-host-prints-one-line',
+        'test': 'stdout/eleven-domains-one-running,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['VM Name'],
+    },
 ]
 
 

@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503'
+__version__ = '2026082504'
 
 DESCRIPTION = """Reports what a libvirt host's virtual machines send and receive over each of their
 network interfaces, together with the frames those interfaces lost. Warns when an
@@ -85,6 +85,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -560,6 +568,7 @@ def main():
         machine, _, nic = name.partition('/')
         table_data.append(
             {
+                '_state': item_state,
                 'device': interfaces[name]['device'] or '-',
                 'drops': '-' if drops is None else f'{drops:.1f}/s',
                 'errors': '-' if errors is None else f'{errors:.1f}/s',
@@ -702,7 +711,16 @@ def main():
     )
 
     # build table output
-    if table_data:
+
+    # --brief only reshapes the table. Every item above has already emitted its
+    # performance data and has already driven the overall state, so hiding a row
+    # here changes nothing but what a reader has to scroll past.
+    display_data = (
+        [row for row in table_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else table_data
+    )
+    if display_data:
         cols = ['name', 'nic', 'rx', 'tx', 'drops', 'errors', 'state']
         header = [
             'VM Name',
@@ -742,7 +760,7 @@ def main():
                 'Bad',
                 'State',
             ]
-        msg += '\n\n' + lib.base.get_table(table_data, cols, header=header)
+        msg += '\n\n' + lib.base.get_table(display_data, cols, header=header)
 
     # over and out
     lib.base.oao(

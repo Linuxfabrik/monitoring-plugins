@@ -29,6 +29,7 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 * An interface that has just appeared, and every interface on the first runs, is reported as "Waiting for more data." until `--count` measurements have accumulated. The interfaces that have been there all along keep being reported meanwhile.
 * Only running machines are looked at. A machine that is shut off has no interface on the host at all.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
+* **`--brief` shortens the table on a busy host.** A host with a hundred machines of two interfaces each produces two hundred rows, and `--brief` keeps only the interfaces in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
@@ -58,7 +59,7 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 ## Help
 
 ```text
-usage: kvm-network-io [-h] [-V] [--always-ok] [--count COUNT]
+usage: kvm-network-io [-h] [-V] [--always-ok] [--brief] [--count COUNT]
                       [--critical-drops CRIT_DROPS]
                       [--critical-errors CRIT_ERRORS] [--ignore IGNORE]
                       [--lengthy] [--match MATCH]
@@ -80,6 +81,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   --count COUNT         Number of measurements the reported values are
                         averaged over. An interface has to stay above a
                         threshold for the whole span to alert, so a single
@@ -235,6 +241,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * OK for the loss thresholds on an interface whose loss counters the host does not keep. There is nothing to judge, so nothing is judged; the traffic thresholds still apply to it.
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no interface to check (default: `ok`).
+* `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 All four loss thresholds accept [Nagios ranges](../THRESHOLDS.md).

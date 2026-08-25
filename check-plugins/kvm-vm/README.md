@@ -15,6 +15,7 @@ Lists the virtual machines of a libvirt host and checks the state of each one, t
 * **A crash is usually not the guest panicking.** Only a guest with a panic device reports a panic to the host at all, and `on_crash` then defaults to `destroy`, so even that ends as `shut off (crashed)`. What libvirt records this way in practice is the hypervisor process disappearing without having announced a shutdown: the out-of-memory killer on an overcommitted host, a segfault, or anything else that takes the process down.
 * The check can run somewhere other than the hypervisor. Point `--url` at `qemu+ssh://user@host/system` to reach a host that runs no local monitoring agent. `virsh` then has to be present where the check runs, and the account it runs as needs an SSH key on the hypervisor.
 * A state that a future libvirt release adds to its enumeration is reported by its number (`state 8`) and treated as a warning, rather than being counted as if everything were fine.
+* **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
@@ -39,9 +40,9 @@ Lists the virtual machines of a libvirt host and checks the state of each one, t
 ## Help
 
 ```text
-usage: kvm-vm [-h] [-V] [--always-ok] [--ignore IGNORE] [--match MATCH]
-              [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
-              [--timeout TIMEOUT] [--url URL]
+usage: kvm-vm [-h] [-V] [--always-ok] [--brief] [--ignore IGNORE]
+              [--match MATCH] [--no-match-severity {ok,warn,crit,unknown}]
+              [--no-perfdata] [--timeout TIMEOUT] [--url URL]
 
 Lists the virtual machines of a libvirt host and checks the state of each one,
 together with the reason libvirt gives for it. Alerts if a machine is paused,
@@ -54,6 +55,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -140,6 +146,7 @@ Ignoring the machines whose name starts with `tpl_`:
 * CRIT if a machine is frozen rather than merely paused: `paused (I/O error)`, `(watchdog)`, `(crashed)`, `(post-copy failed)` or `(api error)`. Frozen is as bad as gone for whatever depends on the machine, and none of the five resolves itself.
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no machine to check (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection, for example after a filter typo or a renamed machine. It does not apply to a host that has no machines at all, which stays OK.
+* `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 The states are libvirt's own:

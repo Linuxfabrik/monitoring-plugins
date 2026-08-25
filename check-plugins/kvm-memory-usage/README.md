@@ -19,6 +19,7 @@ A virtual machine has three different memory sizes at the same time, and confusi
 * Only running machines are looked at. A machine that is shut off occupies no memory on the host, and the memory it will be given once it starts is a plan rather than a measurement.
 * Machines add up to more memory than the host has on many perfectly healthy hosts. That is what the commitment figure is for: it is a fact, not an alert, and the check does not turn it into one. The host's own memory pressure is what `check_memory_usage` reports.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
+* **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
@@ -46,8 +47,8 @@ A virtual machine has three different memory sizes at the same time, and confusi
 ## Help
 
 ```text
-usage: kvm-memory-usage [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                        [--match MATCH]
+usage: kvm-memory-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                        [--ignore IGNORE] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
                         [--no-perfdata] [--timeout TIMEOUT] [--url URL]
                         [-w WARN]
@@ -63,6 +64,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   -c, --critical CRIT   CRIT threshold for the memory a guest operating system
                         needs, in percent of the memory the guest sees.
                         Supports Nagios ranges. Default: 90
@@ -166,6 +172,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * CRIT if it reaches `--critical` (default: 90).
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no machine to check (default: `ok`).
+* `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 The thresholds accept [Nagios ranges](../THRESHOLDS.md), so `--warning=@0:5` alerts on a machine that is suspiciously *empty* rather than full, which is how a guest that failed to come up all the way looks.

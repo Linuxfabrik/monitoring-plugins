@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026082402'
 
 DESCRIPTION = """Reports how much memory each virtual machine of a libvirt host has been given, how
 much of it the guest operating system actually needs, and how much of the host's memory
@@ -72,6 +72,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -316,6 +324,7 @@ def main():
 
         table_data.append(
             {
+                '_state': item_state,
                 'assigned': lib.human.bytes2human(assigned),
                 'guest_used': lib.human.bytes2human(guest_used) if guest_total else '-',
                 'guest_percent': f'{guest_percent}%' if guest_total else '-',
@@ -426,12 +435,29 @@ def main():
     )
 
     # build table output
-    msg += '\n\n' + lib.base.get_table(
-        table_data,
-        ['name', 'assigned', 'guest_used', 'guest_percent', 'resident', 'state'],
-        header=['VM Name', 'Assigned', 'Guest Used', 'Guest %', 'Host Used', 'State'],
-        hide_empty=True,
+
+    # --brief only reshapes the table. Every item above has already emitted its
+    # performance data and has already driven the overall state, so hiding a row
+    # here changes nothing but what a reader has to scroll past.
+    display_data = (
+        [row for row in table_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else table_data
     )
+    if display_data:
+        msg += '\n\n' + lib.base.get_table(
+            display_data,
+            ['name', 'assigned', 'guest_used', 'guest_percent', 'resident', 'state'],
+            header=[
+                'VM Name',
+                'Assigned',
+                'Guest Used',
+                'Guest %',
+                'Host Used',
+                'State',
+            ],
+            hide_empty=True,
+        )
 
     # over and out
     lib.base.oao(

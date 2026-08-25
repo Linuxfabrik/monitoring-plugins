@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503'
+__version__ = '2026082504'
 
 DESCRIPTION = """Checks the storage pools a libvirt host keeps its virtual machines on. Reports the
 storage behind them and the pools themselves in two tables: one per store, with how full
@@ -98,6 +98,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -385,6 +393,7 @@ def main():
 
         table_data.append(
             {
+                '_state': item_state,
                 'autostart': 'yes' if autostart else 'no',
                 'name': name,
                 'path': info.get('path') or '-',
@@ -450,6 +459,7 @@ def main():
             )
         store_data.append(
             {
+                '_state': usage_state,
                 'available': lib.human.bytes2human(available),
                 'pools': ', '.join(names),
                 'size': lib.human.bytes2human(capacity),
@@ -532,11 +542,27 @@ def main():
     # Two tables, because they answer two questions. The first is about storage: how
     # full it is, and which pools are on it. The second is about the pools themselves.
     # A pool that is not running has no sizes and so appears only in the second.
-    if store_data:
+    #
+    # --brief only reshapes them. Every store and every pool above has already emitted
+    # its performance data and has already driven the overall state, so hiding a row
+    # here changes nothing but what a reader has to scroll past. It applies to both
+    # tables, and a table it empties is left out rather than printed as a header with
+    # nothing under it.
+    display_stores = (
+        [row for row in store_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else store_data
+    )
+    display_pools = (
+        [row for row in table_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else table_data
+    )
+    if display_stores:
         msg += (
             '\n\n'
             + lib.base.get_table(
-                store_data,
+                display_stores,
                 ['store', 'pools', 'size', 'used', 'available', 'usage'],
                 header=['Store', 'Pools', 'Size', 'Used', 'Avail', 'Use%'],
                 sort_by_key='raw_usage',
@@ -544,12 +570,13 @@ def main():
             ).rstrip()
         )
 
-    cols = ['name', 'path', 'autostart', 'state']
-    header = ['Pool', 'Path', 'Autostart', 'State']
-    if args.LENGTHY:
-        cols = ['name', 'path', 'autostart', 'persistent', 'state']
-        header = ['Pool', 'Path', 'Autostart', 'Persistent', 'State']
-    msg += '\n\n' + lib.base.get_table(table_data, cols, header=header)
+    if display_pools:
+        cols = ['name', 'path', 'autostart', 'state']
+        header = ['Pool', 'Path', 'Autostart', 'State']
+        if args.LENGTHY:
+            cols = ['name', 'path', 'autostart', 'persistent', 'state']
+            header = ['Pool', 'Path', 'Autostart', 'Persistent', 'State']
+        msg += '\n\n' + lib.base.get_table(display_pools, cols, header=header)
 
     # over and out
     lib.base.oao(

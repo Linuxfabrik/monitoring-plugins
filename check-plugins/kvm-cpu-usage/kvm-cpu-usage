@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026082503'
 
 DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
 much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
@@ -81,6 +81,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -444,6 +452,7 @@ def main():
 
         table_data.append(
             {
+                '_state': item_state,
                 'cpu': f'{cpu_percent}%',
                 'name': name,
                 'steal': f'{steal_percent}%',
@@ -557,9 +566,18 @@ def main():
         )
 
     # build table output
-    if table_data:
+
+    # --brief only reshapes the table. Every item above has already emitted its
+    # performance data and has already driven the overall state, so hiding a row
+    # here changes nothing but what a reader has to scroll past.
+    display_data = (
+        [row for row in table_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else table_data
+    )
+    if display_data:
         msg += '\n\n' + lib.base.get_table(
-            table_data,
+            display_data,
             ['name', 'vcpus', 'cpu', 'steal', 'state'],
             header=['VM Name', 'vCPUs', 'CPU', 'Steal', 'State'],
         )

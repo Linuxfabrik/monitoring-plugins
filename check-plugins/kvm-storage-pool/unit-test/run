@@ -288,6 +288,23 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-regex': r'Inaccessible: san \[CRITICAL\]\.',
     },
+    {
+        # --brief applies to both tables. The store under the degraded pool is only
+        # a fifth full, so the store table goes and the pool table stays.
+        'id': 'warn-brief-drops-the-healthy-store-table',
+        'test': 'stdout/degraded-pool,,0',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Pool', 'degraded'],
+        'assert-not-in': ['Store'],
+    },
+    {
+        'id': 'ok-brief-on-a-quiet-host-prints-one-line',
+        'test': 'stdout/all-running,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Store', 'Autostart'],
+    },
 ]
 
 

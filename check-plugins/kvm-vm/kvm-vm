@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026082503'
 
 DESCRIPTION = """Lists the virtual machines of a libvirt host and checks the state of each
 one, together with the reason libvirt gives for it. Alerts if a machine is paused, idle
@@ -106,6 +106,14 @@ def parse_args():
         '--always-ok',
         help=lib.args.help('--always-ok'),
         dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
         action='store_true',
         default=False,
     )
@@ -294,6 +302,7 @@ def main():
 
         table_data.append(
             {
+                '_state': item_state,
                 'autostart': 'yes' if name in autostart else 'no',
                 'name': name,
                 'persistent': 'yes' if name in persistent else 'no',
@@ -371,11 +380,21 @@ def main():
     )
 
     # build table output
-    msg += '\n\n' + lib.base.get_table(
-        table_data,
-        ['name', 'autostart', 'persistent', 'state'],
-        header=['VM Name', 'Autostart', 'Persistent', 'State'],
+
+    # --brief only reshapes the table. Every item above has already emitted its
+    # performance data and has already driven the overall state, so hiding a row
+    # here changes nothing but what a reader has to scroll past.
+    display_data = (
+        [row for row in table_data if row['_state'] != STATE_OK]
+        if args.BRIEF
+        else table_data
     )
+    if display_data:
+        msg += '\n\n' + lib.base.get_table(
+            display_data,
+            ['name', 'autostart', 'persistent', 'state'],
+            header=['VM Name', 'Autostart', 'Persistent', 'State'],
+        )
 
     # over and out
     lib.base.oao(

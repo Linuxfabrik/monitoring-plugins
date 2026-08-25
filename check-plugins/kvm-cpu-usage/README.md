@@ -18,6 +18,7 @@ This is the number the guest operating system calls "steal time" and shows as `%
 * **A machine that was restarted also goes back to "Waiting for more data."** Its counters start over, so they are lower than the ones recorded before the restart, and no rate can be computed across that. Reporting the difference anyway would put the machine at a negative usage and alert on it. It comes back on its own once the measurements from before the restart have left the `--count` window.
 * Only running machines are looked at. A machine that is shut off still reports a CPU time, but libvirt reports the same value for every shut-off machine and it keeps growing between runs, so a rate computed from it would be invented.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
+* **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
@@ -47,8 +48,8 @@ This is the number the guest operating system calls "steal time" and shows as `%
 ## Help
 
 ```text
-usage: kvm-cpu-usage [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
-                     [--critical-steal CRIT_STEAL] [--ignore IGNORE]
+usage: kvm-cpu-usage [-h] [-V] [--always-ok] [--brief] [--count COUNT]
+                     [-c CRIT] [--critical-steal CRIT_STEAL] [--ignore IGNORE]
                      [--match MATCH]
                      [--no-match-severity {ok,warn,crit,unknown}]
                      [--no-perfdata] [--timeout TIMEOUT] [--url URL] [-w WARN]
@@ -65,6 +66,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   --count COUNT         Number of measurements the reported values are
                         averaged over. A machine has to stay above a threshold
                         for the whole span to alert, so a single busy minute
@@ -180,6 +186,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * CRIT if a machine reaches `--critical` (default: 90) or `--critical-steal` (default: 25).
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no machine to check (default: `ok`).
+* `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 The steal defaults come from a measurement rather than from a rule of thumb. A guest saturating its virtual CPU on an uncontended host core waits well under 1% of its time; sharing that core with one other process takes it to 50%, and with three to 75%. A machine losing a tenth of its CPU to the host is worth a look, and losing a quarter is worth acting on.

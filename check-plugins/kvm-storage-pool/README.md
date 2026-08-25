@@ -35,6 +35,7 @@ Anything libvirt adds to that list later is reported by name and treated as wort
 * **The performance data is per store, not per pool**, and named after the store. A dashboard can then not add one filesystem up as if it were four.
 * A pool that is not running reports no sizes at all, so it is listed without a percentage rather than with a zero it never sent. So is a pool whose type has no path, an RBD pool for instance.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group.
+* **`--brief` shortens the table on a busy host.** A host that gives every machine a pool of its own produces one row per machine, and `--brief` keeps only the pools in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
@@ -62,8 +63,8 @@ Anything libvirt adds to that list later is reported by name and treated as wort
 ## Help
 
 ```text
-usage: kvm-storage-pool [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
-                        [--lengthy] [--match MATCH]
+usage: kvm-storage-pool [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                        [--ignore IGNORE] [--lengthy] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
                         [--no-perfdata] [--timeout TIMEOUT] [--url URL]
                         [-w WARN]
@@ -81,6 +82,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   -c, --critical CRIT   CRIT threshold for the share of a pool that is taken,
                         in percent. Supports Nagios ranges. Default: 90
   --ignore IGNORE       Any item matching this Python regex will be ignored.
@@ -231,6 +237,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * CRIT if a pool is `inaccessible`, or reaches `--critical` (default: 90).
 * UNKNOWN if libvirt cannot be reached, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no pool to check (default: `ok`).
+* `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 Both thresholds accept [Nagios ranges](../THRESHOLDS.md), so `--warning=@0:1` alerts on a pool that is suspiciously *empty*, which is what a pool pointing at the wrong place looks like.

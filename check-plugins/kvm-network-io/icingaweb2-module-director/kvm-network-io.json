@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$kvm_network_io_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$kvm_network_io_brief$"
+                },
                 "--count": {
                     "value": "$kvm_network_io_count$"
                 },
@@ -119,6 +122,11 @@
                     "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -174,6 +182,7 @@
             "vars": {
                 "criticality": "B",
                 "kvm_network_io_always_ok": false,
+                "kvm_network_io_brief": false,
                 "kvm_network_io_count": 5,
                 "kvm_network_io_ignore": [],
                 "kvm_network_io_lengthy": true,
@@ -233,6 +242,15 @@
             "uuid": "9d76a568-3f38-4907-8f03-b74962077a63"
         },
         "2": {
+            "varname": "kvm_network_io_brief",
+            "caption": "KVM Network I/O: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f8710527-ba86-443f-9c23-25d7ddae1563"
+        },
+        "3": {
             "varname": "kvm_network_io_count",
             "caption": "KVM Network I/O: Count",
             "description": "Number of measurements the reported values are averaged over. An interface has to stay above a threshold for the whole span to alert, so a single busy minute does not.",
@@ -243,7 +261,7 @@
             },
             "uuid": "4496240a-c288-42fb-b47a-a5c14e375396"
         },
-        "3": {
+        "4": {
             "varname": "kvm_network_io_critical_drops",
             "caption": "KVM Network I/O: Critical Drops",
             "description": "CRIT threshold for the number of frames per second an interface drops, incoming and outgoing together. This is the counter that moves on a machine attached through a bridge or a virtual network. Supports Nagios ranges. Default: unset, dropped frames are reported but do not alert",
@@ -254,7 +272,7 @@
             },
             "uuid": "4a7aa17b-18fa-47cb-848c-fdc3be478fab"
         },
-        "4": {
+        "5": {
             "varname": "kvm_network_io_critical_errors",
             "caption": "KVM Network I/O: Critical Errors",
             "description": "CRIT threshold for the number of frames per second an interface reports as bad, incoming and outgoing together. This counter stays at zero for a machine attached through a bridge or a virtual network, where the host does not fill it. Supports Nagios ranges. Default: unset, bad frames are reported but do not alert",
@@ -265,7 +283,7 @@
             },
             "uuid": "c8b658f3-1369-4db9-8f7b-34d217936341"
         },
-        "5": {
+        "6": {
             "varname": "kvm_network_io_ignore",
             "caption": "KVM Network I/O: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
@@ -276,7 +294,7 @@
             },
             "uuid": "a266cfc7-86d2-459a-9692-deb76e48033d"
         },
-        "6": {
+        "7": {
             "varname": "kvm_network_io_lengthy",
             "caption": "KVM Network I/O: Lengthy?",
             "description": "Extended reporting.",
@@ -285,7 +303,7 @@
             "settings": {},
             "uuid": "eea4b347-b11d-4d07-97fd-83eead7803c7"
         },
-        "7": {
+        "8": {
             "varname": "kvm_network_io_match",
             "caption": "KVM Network I/O: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -296,7 +314,7 @@
             },
             "uuid": "d7790346-2246-4bc2-b263-251cfc93237b"
         },
-        "8": {
+        "9": {
             "varname": "kvm_network_io_no_match_severity",
             "caption": "KVM Network I/O: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -309,7 +327,7 @@
             },
             "uuid": "95b47bfd-c010-4737-b88d-746854d3c780"
         },
-        "9": {
+        "10": {
             "varname": "kvm_network_io_no_perfdata",
             "caption": "KVM Network I/O: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -318,7 +336,7 @@
             "settings": {},
             "uuid": "638f2144-040a-4e33-996b-3e4b3366c4ad"
         },
-        "10": {
+        "11": {
             "varname": "kvm_network_io_timeout",
             "caption": "KVM Network I/O: Timeout",
             "description": "Network timeout in seconds.",
@@ -329,7 +347,7 @@
             },
             "uuid": "52f8e0da-0800-456d-9226-72d106eee771"
         },
-        "11": {
+        "12": {
             "varname": "kvm_network_io_url",
             "caption": "KVM Network I/O: URL",
             "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent. Only QEMU/KVM connections report the data this check needs.",
@@ -340,7 +358,7 @@
             },
             "uuid": "a701522d-75f7-40c6-91a7-73929fa27ba7"
         },
-        "12": {
+        "13": {
             "varname": "kvm_network_io_warning",
             "caption": "KVM Network I/O: Warning",
             "description": "WARN threshold for the traffic on an interface, in percent of the most it has ever been seen to carry. This part never goes critical: an interface working hard is worth a look, not a call at night.",
@@ -351,7 +369,7 @@
             },
             "uuid": "cbf6be1a-58ad-4074-9579-5e7dc5e5800e"
         },
-        "13": {
+        "14": {
             "varname": "kvm_network_io_warning_drops",
             "caption": "KVM Network I/O: Warning Drops",
             "description": "WARN threshold for the number of frames per second an interface drops, incoming and outgoing together. This is the counter that moves on a machine attached through a bridge or a virtual network. Supports Nagios ranges. Default: unset, dropped frames are reported but do not alert",
@@ -362,7 +380,7 @@
             },
             "uuid": "dbdc89af-2603-4849-a698-694e6028acfe"
         },
-        "14": {
+        "15": {
             "varname": "kvm_network_io_warning_errors",
             "caption": "KVM Network I/O: Warning Errors",
             "description": "WARN threshold for the number of frames per second an interface reports as bad, incoming and outgoing together. This counter stays at zero for a machine attached through a bridge or a virtual network, where the host does not fill it. Supports Nagios ranges. Default: unset, bad frames are reported but do not alert",

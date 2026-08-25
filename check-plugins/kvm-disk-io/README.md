@@ -17,6 +17,7 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 * **A drive with nothing in it is not reported.** libvirt lists an empty CD-ROM drive among a machine's block devices, counters and all, and virtually every machine has one. Reporting them would put a row that can never move anything next to every machine on the host. The same drive with an image in it is reported like any other disk, and so is a disk on network storage such as Ceph or iSCSI.
 * Only running machines are looked at. A machine that is shut off does no I/O and its counters stand still, so a rate computed from them would be a row of zeroes.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
+* **`--brief` shortens the table on a busy host.** A host with a hundred machines of three disks each produces three hundred rows, and `--brief` keeps only the disks in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
@@ -45,9 +46,10 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 ## Help
 
 ```text
-usage: kvm-disk-io [-h] [-V] [--always-ok] [--await-critical AWAIT_CRIT]
-                   [--await-warning AWAIT_WARN] [--count COUNT]
-                   [--ignore IGNORE] [--lengthy] [--match MATCH]
+usage: kvm-disk-io [-h] [-V] [--always-ok] [--brief]
+                   [--await-critical AWAIT_CRIT] [--await-warning AWAIT_WARN]
+                   [--count COUNT] [--ignore IGNORE] [--lengthy]
+                   [--match MATCH]
                    [--no-match-severity {ok,warn,crit,unknown}]
                    [--no-perfdata] [--timeout TIMEOUT] [--url URL] [-w WARN]
 
@@ -62,6 +64,11 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
   --await-critical AWAIT_CRIT
                         CRIT threshold for the average time a read or write
                         takes to complete, in milliseconds. Meant for a disk
@@ -206,6 +213,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * CRIT if it reaches `--await-critical` (default: unset).
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no disk to check (default: `ok`).
+* `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 Both latency thresholds accept [Nagios ranges](../THRESHOLDS.md).

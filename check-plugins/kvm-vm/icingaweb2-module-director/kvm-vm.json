@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$kvm_vm_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$kvm_vm_brief$"
+                },
                 "--ignore": {
                     "value": "$kvm_vm_ignore$",
                     "repeat_key": true
@@ -63,6 +66,11 @@
                     "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -118,6 +126,7 @@
             "vars": {
                 "criticality": "A",
                 "kvm_vm_always_ok": false,
+                "kvm_vm_brief": false,
                 "kvm_vm_ignore": [],
                 "kvm_vm_match": [],
                 "kvm_vm_no_match_severity": "ok",
@@ -174,6 +183,15 @@
             "uuid": "7437e68e-888c-434c-b205-98052040ec9f"
         },
         "2": {
+            "varname": "kvm_vm_brief",
+            "caption": "KVM VM: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "de4aa33e-433f-4a62-a6bb-7403f9b8012b"
+        },
+        "3": {
             "varname": "kvm_vm_ignore",
             "caption": "KVM VM: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
@@ -184,7 +202,7 @@
             },
             "uuid": "74754461-cc1c-4d0d-bae8-3785a464ba35"
         },
-        "3": {
+        "4": {
             "varname": "kvm_vm_match",
             "caption": "KVM VM: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -195,7 +213,7 @@
             },
             "uuid": "66040377-04c0-48f7-a8ee-392ab3251872"
         },
-        "4": {
+        "5": {
             "varname": "kvm_vm_no_match_severity",
             "caption": "KVM VM: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -208,7 +226,7 @@
             },
             "uuid": "9949b47a-e4de-47e5-92bb-cf2992793fad"
         },
-        "5": {
+        "6": {
             "varname": "kvm_vm_no_perfdata",
             "caption": "KVM VM: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -217,7 +235,7 @@
             "settings": {},
             "uuid": "297647f0-e538-4a74-a2b2-b676dd63cb9a"
         },
-        "6": {
+        "7": {
             "varname": "kvm_vm_timeout",
             "caption": "KVM VM: Timeout",
             "description": "Network timeout in seconds.",
@@ -228,7 +246,7 @@
             },
             "uuid": "01827789-b024-48cf-8005-805d0313686c"
         },
-        "7": {
+        "8": {
             "varname": "kvm_vm_url",
             "caption": "KVM VM: URL",
             "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent. Only QEMU/KVM connections report the data this check needs.",
