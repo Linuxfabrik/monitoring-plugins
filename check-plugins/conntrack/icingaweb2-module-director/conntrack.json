@@ -1,0 +1,203 @@
+{
+    "Command": {
+        "cmd-check-conntrack": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$conntrack_always_ok$"
+                },
+                "--critical": {
+                    "value": "$conntrack_critical$"
+                },
+                "--critical-drops": {
+                    "value": "$conntrack_critical_drops$"
+                },
+                "--lengthy": {
+                    "set_if": "$conntrack_lengthy$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$conntrack_no_perfdata$"
+                },
+                "--warning": {
+                    "value": "$conntrack_warning$"
+                },
+                "--warning-drops": {
+                    "value": "$conntrack_warning_drops$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/conntrack",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-conntrack",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "1f5b24ae-ab53-4fb6-ae86-25ea4bd61e5b"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-conntrack": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-conntrack",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "conntrack.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks how full the netfilter connection tracking table is, and how often the kernel had to give up on a connection. Every host running a firewall, NAT or a container engine tracks its connections in a fixed-size table; once that table is full the kernel throws established connections out to make room, and after that it drops packets, which shows up as random connection timeouts nobody can explain from the application side. The check reports the table usage together with the kernel's own error counters as per-second rates measured between two runs, so the values reflect the current situation and not a total accumulated since boot. A host that does not track connections at all is reported as OK, because there is no table that could fill up. Supports extended reporting via --lengthy. Alerts when the table usage leaves the warning or critical range, and when the kernel evicts entries, refuses to insert them or drops packets.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/conntrack/",
+            "object_name": "tpl-service-conntrack",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "conntrack_always_ok": false,
+                "conntrack_critical": "90",
+                "conntrack_lengthy": false,
+                "conntrack_no_perfdata": false,
+                "conntrack_warning": "80",
+                "conntrack_warning_drops": "0"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "99b3e2e5-38c4-40e3-a4e8-67aae7837f2c"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "conntrack_always_ok",
+            "caption": "Conntrack: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "853e1c5a-5664-4564-8cba-fd8768db4649"
+        },
+        "2": {
+            "varname": "conntrack_critical",
+            "caption": "Conntrack: Critical",
+            "description": "CRIT threshold for the connection tracking table usage in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "09c09209-432b-4d60-8fab-0c5aad7728d0"
+        },
+        "3": {
+            "varname": "conntrack_critical_drops",
+            "caption": "Conntrack: Critical Drops",
+            "description": "CRIT threshold for the per-second rate of each counter that means a connection was given up on: evicted entries, failed inserts and dropped packets. Every counter is compared on its own. Supports Nagios ranges. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1c3bb4b5-6f24-40fc-be49-849171d680bf"
+        },
+        "4": {
+            "varname": "conntrack_lengthy",
+            "caption": "Conntrack: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3d0c86ce-21e9-41e7-a269-cceb63ff94ea"
+        },
+        "5": {
+            "varname": "conntrack_no_perfdata",
+            "caption": "Conntrack: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6691af9f-ebbc-4a27-ad94-dfd1319fe610"
+        },
+        "6": {
+            "varname": "conntrack_warning",
+            "caption": "Conntrack: Warning",
+            "description": "WARN threshold for the connection tracking table usage in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8951868c-6722-441a-aeeb-5a3edbc2a858"
+        },
+        "7": {
+            "varname": "conntrack_warning_drops",
+            "caption": "Conntrack: Warning Drops",
+            "description": "WARN threshold for the per-second rate of each counter that means a connection was given up on: evicted entries, failed inserts and dropped packets. Every counter is compared on its own. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "097abcb5-4c2f-49df-b91c-d85f7b58d51d"
+        }
+    }
+}

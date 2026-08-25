@@ -1,0 +1,523 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082501'
+
+DESCRIPTION = """Checks how full the netfilter connection tracking table is, and how often
+the kernel had to give up on a connection. Every host running a firewall, NAT or a
+container engine tracks its connections in a fixed-size table; once that table is full
+the kernel throws established connections out to make room, and after that it drops
+packets, which shows up as random connection timeouts nobody can explain from the
+application side.
+The check reports the table usage together with the kernel's own error counters as
+per-second rates measured between two runs, so the values reflect the current situation
+and not a total accumulated since boot.
+A host that does not track connections at all is reported as OK, because there is no
+table that could fill up.
+Supports extended reporting via --lengthy.
+Alerts when the table usage leaves the warning or critical range, and when the kernel
+evicts entries, refuses to insert them or drops packets."""
+
+# The connection tracking table, its limit and the size of the hash table it lives in.
+# The kernel registers these under net/netfilter for every network namespace, so a
+# containerized workload reports its own count against the host-wide limit.
+COUNT_FILE = '/proc/sys/net/netfilter/nf_conntrack_count'
+MAX_FILE = '/proc/sys/net/netfilter/nf_conntrack_max'
+BUCKETS_FILE = '/proc/sys/net/netfilter/nf_conntrack_buckets'
+STAT_FILE = '/proc/net/stat/nf_conntrack'
+
+# /proc/net/stat/nf_conntrack prints one line of hexadecimal values per CPU, below a
+# header line naming the columns. The kernel has renamed and retired columns over the
+# years while keeping their number at 17, so the header is the only reliable key:
+# reading by position is what makes a reader publish a value under the name of a counter
+# that no longer exists there. Verified against net/netfilter/nf_conntrack_standalone.c
+# from v4.18 up to v7.1, and measured on kernel 7.1 (Fedora 44) and kernel 4.18
+# (Rocky 8).
+#
+# The upstream releases named below say when a column changed upstream, not what a given
+# host prints: Rocky 8 ships a 4.18 kernel whose header reads "clashres ... delete_list",
+# so it already carries the v5.10 column set but not the v5.15 one. That is exactly why
+# every decision here is made from the header line and never from a kernel version.
+#
+#   entries        size of the whole table, printed identically on every CPU line. It is
+#                  the only column that must not be summed, which is why the table size
+#                  is read from nf_conntrack_count instead.
+#   clashres       clashes the kernel resolved, upstream since v5.10. Kernels without
+#                  that change print a hardcoded 0 and call the column "searched".
+#   found          a candidate NAT tuple was already in use. Only ever reached from the
+#                  NAT engine, so it stays at 0 on a host that does not NAT, and counts
+#                  source port collisions where it does.
+#   new            hardcoded 0 since v4.9.
+#   invalid        packets that could not be associated with a connection. Conntrack
+#                  still accepts them, the firewall ruleset decides their fate. Every
+#                  hook a packet passes counts separately, so loopback traffic counts
+#                  twice.
+#   ignore         packets that already carried a connection. Real on kernels without
+#                  the v5.10 change, a hardcoded 0 with it.
+#   delete         hardcoded 0 since v4.9.
+#   chainlength    inserts refused because the hash chain had grown too long, upstream
+#                  since v5.15. The packet is dropped. Kernels without that change print
+#                  a hardcoded 0 and call the column "delete_list".
+#   insert         entries injected through the netlink interface, so only what
+#                  `conntrack -I` and conntrackd add. Measured on kernel 7.1: 262144
+#                  tracked connections leave it at 0, a single `conntrack -I` raises it
+#                  to 1. Deliberately not reported, because a rate of zero next to a
+#                  busy table reads like an answer and is not one.
+#   insert_failed  the entry could not be inserted and the packet was dropped. A kernel
+#                  without the v5.10 change also counted clashes it went on to resolve,
+#                  so the counter is reported everywhere but only alerts where the
+#                  header proves it means a real failure.
+#   drop           packets dropped by connection tracking.
+#   early_drop     entries thrown out to make room for a new one, so the table was at
+#                  its limit at that moment. This is the counter that catches a burst a
+#                  usage sample between two check runs never sees.
+#   icmp_error     ICMP and ICMPv6 error packets that could not be associated.
+#   expect_new     the expectation table of the helper protocols (FTP, SIP, TFTP). A
+#   expect_create  table of its own with its own limit (nf_conntrack_expect_max) and not
+#   expect_delete  part of the table this check is about, so not reported.
+#   search_restart lookups restarted because the hash table was resized underneath them.
+
+# Columns that carry a real value on every kernel this check supports.
+RATE_COLUMNS = [
+    'drop',
+    'early_drop',
+    'found',
+    'icmp_error',
+    'insert_failed',
+    'invalid',
+    'search_restart',
+]
+
+# Columns that carry a real value only on some kernels. The value is the column that has
+# to be present in the header for it to be real, which keeps the decision independent of
+# the kernel version and of whatever a distribution backported.
+CONDITIONAL_RATE_COLUMNS = {
+    # upstream since v5.15, without it the column is "delete_list" and hardcoded 0
+    'chainlength': 'chainlength',
+    # upstream since v5.10, without it the column is "searched" and hardcoded 0
+    'clashres': 'clashres',
+    # v5.10 stopped counting this, in the same release that renamed "searched" to
+    # "clashres", so a header still saying "searched" is what proves the value is real
+    'ignore': 'searched',
+}
+
+# Rates that mean the kernel could not do its job. Each one is compared against
+# --warning-drops / --critical-drops on its own instead of being summed, because the
+# same packet raises several of them: an unresolvable clash counts as "drop" and as
+# "insert_failed". A sum would report it twice and hide which counter actually moved.
+ALERT_COLUMNS = ['chainlength', 'drop', 'early_drop', 'insert_failed']
+
+# What each counter means, in the words an administrator needs to act on it.
+COLUMN_DESCRIPTION = {
+    'chainlength': 'inserts refused, hash chain too long',
+    'clashres': 'clashes resolved',
+    'drop': 'packets dropped',
+    'early_drop': 'entries evicted, table at its limit',
+    'found': 'NAT tuples already in use',
+    'icmp_error': 'ICMP errors without a connection',
+    'ignore': 'packets already tracked',
+    'insert_failed': 'inserts failed, packet dropped',
+    'invalid': 'packets not tracked',
+    'search_restart': 'lookups restarted, table resized',
+}
+
+DEFAULT_CRIT = '90'
+DEFAULT_CRIT_DROPS = None
+DEFAULT_WARN = '80'
+DEFAULT_WARN_DROPS = '0'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the connection tracking table usage in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-drops',
+        help='CRIT threshold for the per-second rate of each counter that means a '
+        'connection was given up on: evicted entries, failed inserts and dropped '
+        'packets. Every counter is compared on its own. '
+        'Supports Nagios ranges. '
+        'Default: no critical threshold',
+        dest='CRIT_DROPS',
+        default=DEFAULT_CRIT_DROPS,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the connection tracking table usage in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-drops',
+        help='WARN threshold for the per-second rate of each counter that means a '
+        'connection was given up on: evicted entries, failed inserts and dropped '
+        'packets. Every counter is compared on its own. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s (warns on any such event)',
+        dest='WARN_DROPS',
+        default=DEFAULT_WARN_DROPS,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def rooted(root, path):
+    """Return `path` below the configuration root, for both absolute and relative
+    paths.
+    """
+    return os.path.join(root, path.lstrip('/'))
+
+
+def read_number(root, path):
+    """Return the single integer a /proc/sys file holds, or None if the file is not
+    there or does not hold a number.
+
+    Files below /proc report a size of 0, so their presence has to be probed with
+    `allow_empty=True`.
+    """
+    full_path = rooted(root, path)
+    if not lib.disk.file_exists(full_path, allow_empty=True):
+        return None
+    success, content = lib.disk.read_file(full_path)
+    if not success:
+        return None
+    try:
+        return int(content.strip())
+    except ValueError:
+        return None
+
+
+def parse_stat(raw):
+    """Sum the per-CPU lines of /proc/net/stat/nf_conntrack into one counter per column.
+
+    Returns a dict mapping the column names the running kernel prints to their totals.
+    The "entries" column is left out on purpose: it holds the size of the whole table
+    and is printed identically on every CPU line, so summing it would multiply the
+    table size by the number of CPUs.
+    """
+    lines = raw.splitlines()
+    if not lines:
+        return {}
+    header = lines[0].split()
+    if not header or header[0] != 'entries':
+        # not the file we know how to read
+        return {}
+    counters = {column: 0 for column in header if column != 'entries'}
+    for line in lines[1:]:
+        fields = line.split()
+        if len(fields) != len(header):
+            continue
+        for column, field in zip(header, fields):
+            if column not in counters:
+                # "entries", or a column an earlier line already disqualified
+                continue
+            try:
+                counters[column] += int(field, 16)
+            except ValueError:
+                # a column that is not a hexadecimal number is not one we can use
+                del counters[column]
+    return counters
+
+
+def get_columns(counters):
+    """Return the counter columns worth reporting on the running kernel, sorted.
+
+    A column the kernel fills with a hardcoded zero is left out rather than reported as
+    a rate of zero: a zero that was never measured looks exactly like a measurement, and
+    nobody questions a number that is simply there.
+    """
+    columns = [column for column in RATE_COLUMNS if column in counters]
+    for column, required in CONDITIONAL_RATE_COLUMNS.items():
+        if column in counters and required in counters:
+            columns.append(column)
+    return sorted(columns)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    root = args.CONFIG_ROOT
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'Connection tracking is a Linux kernel subsystem. '
+            'This check belongs on a Linux host.'
+        )
+    count = read_number(root, COUNT_FILE)
+    ct_max = read_number(root, MAX_FILE)
+    buckets = read_number(root, BUCKETS_FILE)
+    if count is None or ct_max is None:
+        # No connection tracking means no table that could fill up. Firewalls, NAT and
+        # container engines pull the module in, a host doing none of that never loads it
+        # and has nothing to report here.
+        lib.base.oao(
+            'Connection tracking is not active on this host.',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
+        )
+    if ct_max <= 0:
+        lib.base.cu(
+            f'The connection tracking limit reads {ct_max}, which cannot be right. '
+            f'Check {MAX_FILE}.'
+        )
+    stat_path = rooted(root, STAT_FILE)
+    raw_stat = ''
+    if lib.disk.file_exists(stat_path, allow_empty=True):
+        success, raw_stat = lib.disk.read_file(stat_path)
+        if not success:
+            raw_stat = ''
+    counters = parse_stat(raw_stat)
+
+    # init some vars
+    perfdata = ''
+    table_data = []
+    hints = []
+    alerting = []
+    percent = round(count / ct_max * 100, 1)
+    columns = get_columns(counters)
+
+    # A kernel without the v5.10 change raised insert_failed for clashes it went on to
+    # resolve, so there it is a normal event on a busy multi-CPU host and must not
+    # alert. v5.10 narrowed the counter to real failures and renamed the "searched"
+    # column to "clashres" in the same release, so the header tells the two apart. Red
+    # Hat backported both into the 4.18 kernel of RHEL 8, where the check consequently
+    # does alert on it: measured on Rocky 8.
+    alert_columns = [
+        column
+        for column in ALERT_COLUMNS
+        if not (column == 'insert_failed' and 'searched' in counters)
+    ]
+
+    # Turn the cumulative kernel counters into per-second rates, using the previous run
+    # as the baseline. The table usage needs no baseline, so it is reported from the
+    # very first run on and the check can alert on a filling table right away.
+    rates = None
+    if columns:
+        rates = lib.db_sqlite.per_second_deltas(
+            'linuxfabrik-monitoring-plugins-conntrack.db',
+            'conntrack',
+            {column: counters[column] for column in columns},
+        )
+
+    # analyze data
+    usage_state = lib.base.get_state(percent, args.WARN, args.CRIT, _operator='range')
+    state = usage_state
+    for column in columns:
+        if rates is None:
+            # no baseline yet, so there is no rate to look at
+            break
+        rate = rates[column]
+        if column in alert_columns:
+            column_state = lib.base.get_state(
+                rate, args.WARN_DROPS, args.CRIT_DROPS, _operator='range'
+            )
+        else:
+            column_state = STATE_OK
+        state = lib.base.get_worst(state, column_state)
+        if column_state != STATE_OK:
+            alerting.append({'column': column, 'rate': rate, 'state': column_state})
+        perfdata += lib.base.get_perfdata(
+            f'{column}_per_second',
+            round(rate, 4),
+            uom=None,
+            warn=args.WARN_DROPS if column in alert_columns else None,
+            crit=args.CRIT_DROPS if column in alert_columns else None,
+            _min=0,
+        )
+        meaning = COLUMN_DESCRIPTION[column]
+        if column == 'insert_failed' and column not in alert_columns:
+            # say so where the counter does not mean what its name promises
+            meaning = 'inserts failed, resolved clashes included'
+        table_data.append(
+            {
+                'counter': column,
+                'meaning': meaning,
+                'rate': f'{round(rate, 4)}'
+                f'{lib.base.state2str(column_state, prefix=" ")}',
+            }
+        )
+
+    # build the message
+    msg = (
+        f'{percent}% conntrack table used'
+        f' ({lib.human.number2human(count)}/{lib.human.number2human(ct_max)})'
+        f'{lib.base.state2str(usage_state, prefix=" ")}'
+    )
+    for item in alerting:
+        msg += (
+            f', {item["column"]} {round(item["rate"], 4)}/s'
+            f'{lib.base.state2str(item["state"], prefix=" ")}'
+        )
+    perfdata += lib.base.get_perfdata(
+        'entries',
+        count,
+        uom=None,
+        _min=0,
+        _max=ct_max,
+    )
+    perfdata += lib.base.get_perfdata(
+        'entries_percent',
+        percent,
+        uom='%',
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
+    )
+
+    # Each counter says something different about why the kernel gave up, so each gets
+    # the knob that actually helps. Only early_drop proves the table was full: the
+    # kernel raises it while evicting entries to make room, and it is the one thing
+    # that happens before any packet is dropped.
+    alerting_columns = {item['column'] for item in alerting}
+    if 'early_drop' in alerting_columns:
+        hints.append(
+            'The table was at its limit and entries were thrown out to make room. '
+            'Raise net.netfilter.nf_conntrack_max, and raise '
+            'net.netfilter.nf_conntrack_buckets along with it, or shorten the '
+            'timeouts under net.netfilter.nf_conntrack_*_timeout_*.'
+        )
+    elif alerting_columns & {'drop', 'insert_failed'}:
+        hints.append(
+            'Connection tracking gave up on connections although the table was not '
+            'full. That is either a clash between two packets of the same new '
+            'connection that the kernel could not resolve, or a hash chain too long '
+            'to insert into. Run the check with --lengthy to see the average chain '
+            'length, and raise net.netfilter.nf_conntrack_buckets if it is well '
+            'above two.'
+        )
+    if 'chainlength' in alerting_columns:
+        hints.append(
+            'The hash table is too small for the number of tracked connections. Raise '
+            'net.netfilter.nf_conntrack_buckets.'
+        )
+    if not columns:
+        hints.append(
+            f'The kernel error counters are unavailable, because {STAT_FILE} is '
+            'missing or does not have the format this check knows. Only the table '
+            'usage above is being watched.'
+        )
+    elif rates is None:
+        # first run after a reboot or after the cache was wiped, so the counters have
+        # nothing to be compared against yet
+        hints.append('Waiting for more data on the connection tracking counters.')
+    for hint in hints:
+        msg += f'\n{hint}'
+
+    # build table output
+    if args.LENGTHY:
+        if buckets:
+            # The kernel hashes every connection twice, once per direction, so a table
+            # holding as many entries as it has buckets averages a chain of two. That
+            # is what the kernel sizes for by default, and it is the number that grows
+            # when nf_conntrack_max is raised without raising nf_conntrack_buckets.
+            chain = 2 * count / buckets
+            msg += (
+                f'\nHash table: {lib.human.number2human(buckets)} buckets, '
+                f'average chain length {chain:.2f}.'
+            )
+        if table_data:
+            msg += '\n\n' + lib.base.get_table(
+                table_data,
+                ['counter', 'meaning', 'rate'],
+                header=['Counter', 'Meaning', 'Per Second'],
+            )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

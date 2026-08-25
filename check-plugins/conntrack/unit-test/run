@@ -1,0 +1,346 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import os
+import sys
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.db_sqlite
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# conntrack reads files and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's /proc, selected with the hidden `--config-root`
+# hook. Each tree holds the three files below net/netfilter and the per-CPU statistics.
+#
+# The kernel counters are reported as per-second rates against the previous run, held in
+# a local SQLite cache, so a rate needs a scenario of two consecutive calls:
+#
+#   call 1 -> the table usage, plus "Waiting for more data."
+#   call 2 -> the table usage and the rates
+#
+# There is no timestamp in the kernel files, so the rate comes from the wall clock
+# between the two calls and the second step has to sleep for the elapsed time to be
+# non-zero. The cache is removed before every scenario so the sequences stay apart.
+#
+# Where the fixtures come from:
+#
+#   idle           this workstation, Fedora 44 / kernel 7.1, conntrack loaded and the
+#                  table almost empty
+#   table-full-*   a container network namespace whose table was driven to its limit
+#                  with 387072 UDP flows, captured before and after. This is the state
+#                  the check exists for: 100 % usage and the kernel evicting entries
+#   kernel-5.9-*   the column layout before the upstream v5.10 change, whose header
+#                  line is copied verbatim from the kernel's own seq_puts() in
+#                  net/netfilter/nf_conntrack_standalone.c. There "ignore" still counts
+#                  while "searched" and "delete_list" are hardcoded zeros, and
+#                  insert_failed also counts clashes the kernel went on to resolve
+#   kernel-5.10-*  the same for the layout between the upstream v5.10 and v5.15 changes,
+#                  where "clashres" replaced "searched", "ignore" became a hardcoded
+#                  zero and insert_failed narrowed to real failures. Its header line is
+#                  byte-identical to the one a Rocky 8 host prints, so this layout is
+#                  confirmed against real hardware and not only against the source
+#   no-conntrack   a Linux host that never loaded the module
+#
+# The names say which upstream layout a fixture carries, not which distribution prints
+# it. Measured on Rocky 8: its 4.18 kernel already prints the kernel-5.10 layout,
+# because Red Hat backported that change, so a check going by the kernel version would
+# get RHEL 8 wrong. Nothing here reads a kernel version.
+#
+# A note on the numbers below: a rate is asserted as a substring of the perfdata rather
+# than with a round figure in the message, because the elapsed wall clock decides the
+# last digits.
+
+
+def _cache_db():
+    # Resolve via the lib so the reset below removes the exact file the check uses.
+    ok, db_path = lib.db_sqlite.get_db_path(
+        filename='linuxfabrik-monitoring-plugins-conntrack.db',
+    )
+    return db_path if ok else None
+
+
+CACHE_DB = _cache_db()
+
+
+SCENARIOS = [
+    {
+        'id': 'ok-connection-tracking-not-active',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/no-conntrack',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Connection tracking is not active on this host.'],
+                'assert-not-in': ['conntrack table used'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-first-run-reports-usage-and-waits-for-the-counters',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/idle',
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    '% conntrack table used',
+                    'Waiting for more data on the connection tracking counters.',
+                    "'entries_percent'=",
+                ],
+                # no baseline yet, so there is nothing to derive a rate from
+                'assert-not-in': ['_per_second'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-second-run-adds-the-counter-rates',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/idle',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/idle --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    "'drop_per_second'=",
+                    "'early_drop_per_second'=",
+                    "'invalid_per_second'=",
+                    'Hash table:',
+                    'average chain length',
+                ],
+                'assert-not-in': [
+                    'Waiting for more data',
+                    # a continuous counter would end up as ";c;" in the perfdata
+                    ';c;',
+                ],
+            },
+        ],
+    },
+    {
+        # The state the check exists for. The table sits at its limit, and the kernel
+        # throws entries out to make room for the next connection.
+        'id': 'crit-table-at-its-limit-while-entries-are-evicted',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-2 --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-regex': r'100\.0% conntrack table used '
+                r'\(262\.1K/262\.1K\) \[CRITICAL\], early_drop [0-9.]+/s \[WARNING\]',
+                'assert-in': [
+                    'The table was at its limit and entries were thrown out',
+                    'net.netfilter.nf_conntrack_max',
+                    'average chain length 2.00',
+                ],
+            },
+        ],
+    },
+    {
+        'id': 'ok-a-full-table-stays-ok-with-always-ok',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-2 --always-ok',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': ['[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-perfdata-only',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-1 --no-perfdata',
+                'assert-retc': STATE_OK,
+                'assert-not-in': ["'entries'="],
+                'assert-in': ['conntrack table used'],
+            },
+        ],
+    },
+    {
+        'id': 'warn-usage-above-the-warning-threshold',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-2 --warning=50 '
+                '--critical=200',
+                'assert-retc': STATE_WARN,
+                'assert-in': ['100.0% conntrack table used', '[WARNING]'],
+            },
+        ],
+    },
+    {
+        # Everything the table can hold is in use, but the operator only wants to be
+        # woken once the kernel is actually dropping something.
+        'id': 'ok-usage-thresholds-turned-off-with-a-range',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-2 --warning=~: '
+                '--critical=~:',
+                'assert-retc': STATE_OK,
+                'assert-in': ['100.0% conntrack table used'],
+                'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        # v5.10 and newer: insert_failed means a real failure, so it alerts, and
+        # "clashres" carries a value while "ignore" no longer does.
+        'id': 'warn-drops-without-the-table-being-full',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/kernel-5.10-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/kernel-5.10-2 --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_WARN,
+                'assert-in': [
+                    'drop ',
+                    'insert_failed ',
+                    'Connection tracking gave up on connections although the table '
+                    'was not full.',
+                    "'clashres_per_second'=",
+                ],
+                # hardcoded zeros on this kernel, so they are not reported at all
+                'assert-not-in': [
+                    "'ignore_per_second'=",
+                    "'chainlength_per_second'=",
+                    'The table was at its limit',
+                ],
+            },
+        ],
+    },
+    {
+        'id': 'crit-drops-above-the-critical-drops-threshold',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/kernel-5.10-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                # Well below the rate the fixture produces even if the two calls end
+                # up seconds apart, so the testcase does not depend on the wall clock.
+                'params': '--config-root=config/kernel-5.10-2 --critical-drops=0.5',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-in': ['[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        # Up to v5.9 insert_failed also counted clashes the kernel resolved, so a busy
+        # multi-CPU host raises it as a matter of course and it must not alert there.
+        # "ignore" is still a real counter on that kernel and is reported.
+        'id': 'ok-old-kernel-does-not-alert-on-insert-failed',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/kernel-5.9-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/kernel-5.9-2 --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                # The empty warn and crit slots are the point: the counter is reported
+                # but carries no threshold, so it cannot alert. Matched as a shape,
+                # because the elapsed wall clock decides the rate itself.
+                'assert-regex': r"'insert_failed_per_second'=[0-9.]+;;;0",
+                'assert-in': [
+                    "'ignore_per_second'=",
+                    'inserts failed, resolved clashes included',
+                ],
+                'assert-not-in': [
+                    "'clashres_per_second'=",
+                    "'chainlength_per_second'=",
+                    '[WARNING]',
+                ],
+            },
+        ],
+    },
+    {
+        # The counters are gone, but the table usage is still worth watching, so the
+        # check reports what it has instead of giving up on everything.
+        'id': 'ok-usage-is-reported-without-readable-counters',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/unreadable-stat',
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    '1.5% conntrack table used',
+                    'The kernel error counters are unavailable',
+                ],
+                'assert-not-in': ['_per_second'],
+            },
+        ],
+    },
+    {
+        'id': 'unknown-limit-of-zero',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/max-zero',
+                'assert-retc': STATE_UNKNOWN,
+                'assert-in': ['which cannot be right'],
+            },
+        ],
+    },
+]
+
+
+def _run_scenario(test, scenario):
+    """Replay a scenario's steps against a freshly reset cache."""
+    if CACHE_DB and os.path.exists(CACHE_DB):
+        os.remove(CACHE_DB)
+    for step in scenario['steps']:
+        if step.get('sleep'):
+            time.sleep(step['sleep'])
+        lib.lftest.run(test, test.check, step)
+
+
+class TestCheck(unittest.TestCase):
+    check = '../conntrack'
+
+
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()
