@@ -15,12 +15,13 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.shell
 import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the state of a specific systemd unit (service, socket, device, mount, timer,
 scope, etc.) via systemctl. Verifies the active state, sub-state, load state, and
@@ -181,6 +182,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--unit',
         help='Systemd unit name to check (service, timer, mount, etc.). '
         'Required. '
@@ -243,7 +251,7 @@ def main():
 
     # init some vars
     options = []
-    if args.MACHINE:
+    if args.MACHINE and args.TEST is None:
         stdout, _, _ = lib.base.coe(lib.shell.shell_exec(['systemctl', '--version']))
 
         # Systemd reports the version number in the second word/field:
@@ -275,12 +283,24 @@ def main():
         args.UNIT,
     ]
 
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
-    if stderr or retc != 0:
-        lib.base.oao(
-            f'Bash command `{" ".join(command)}` failed.\nStdout: {stdout}\nStderr: {stderr}',
-            STATE_UNKNOWN,
-        )
+    if args.TEST is None:
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(command))
+        if stderr or retc != 0:
+            lib.base.oao(
+                f'Bash command `{" ".join(command)}` failed.\n'
+                f'Stdout: {stdout}\nStderr: {stderr}',
+                STATE_UNKNOWN,
+            )
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+
+    # systemctl prints the properties in its own order, not in the order they
+    # were asked for, and with `-p` it prints every one of them even where the
+    # unit has no value for it (a .device or a .scope has no UnitFileState, and
+    # the line still arrives as "UnitFileState="). Both hold on systemd 239
+    # (Rocky 8), 252 (Rocky 9) and 258 (Fedora 43), which is what makes reading
+    # the four lines by position safe.
     result = stdout.split('\n')
 
     loadstate = result[0].replace('LoadState=', '')

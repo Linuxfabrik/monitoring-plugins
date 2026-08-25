@@ -1,0 +1,137 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# All fixtures are `systemctl show -p LoadState,ActiveState,SubState,
+# UnitFileState <unit>` output captured on Rocky 9 (systemd 252). The same
+# four lines, in the same order, come back on Rocky 8 (systemd 239) and
+# Fedora 43 (systemd 258), including the empty UnitFileState line that a
+# .scope or a .device has.
+
+TESTS = [
+    # Without --activestate and --substate only the load state is checked,
+    # which is why the README asks for both to be set.
+    {
+        'id': 'ok-running-service-with-defaults',
+        'test': 'stdout/loaded-active-running-enabled,,0',
+        'params': '--unit=lftest.service',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lftest.service is loaded, active, running'],
+    },
+    {
+        'id': 'ok-running-service-matches-expected-states',
+        'test': 'stdout/loaded-active-running-enabled,,0',
+        'params': '--unit=lftest.service --activestate=active --substate=running',
+        'assert-retc': STATE_OK,
+    },
+    # A failed unit only alerts once the expected states are named.
+    {
+        'id': 'warn-failed-service',
+        'test': 'stdout/loaded-failed-disabled,,0',
+        'params': '--unit=lftest.service --activestate=active --substate=running',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['ActiveState is "failed"', 'SubState is "failed"'],
+    },
+    # --severity lifts the very same finding to CRIT.
+    {
+        'id': 'crit-failed-service-with-severity',
+        'test': 'stdout/loaded-failed-disabled,,0',
+        'params': '--unit=lftest.service --activestate=active --severity=crit',
+        'assert-retc': STATE_CRIT,
+    },
+    # A missing unit file gets its own hint instead of a state mismatch.
+    {
+        'id': 'warn-unit-not-found',
+        'test': 'stdout/not-found,,0',
+        'params': '--unit=lftest.service',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Unit lftest.service not found', 'systemctl cat lftest.service'],
+    },
+    {
+        'id': 'warn-unit-masked',
+        'test': 'stdout/masked,,0',
+        'params': '--unit=lftest.service',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['LoadState is "masked"'],
+    },
+    # A socket rests in "listening", a timer in "waiting"; neither is "running",
+    # so the sub-state has to be named per unit type.
+    {
+        'id': 'ok-socket-listening',
+        'test': 'stdout/socket-listening,,0',
+        'params': '--unit=lftest.socket --activestate=active --substate=listening',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lftest.socket is loaded, active, listening'],
+    },
+    {
+        'id': 'ok-timer-waiting',
+        'test': 'stdout/timer-waiting,,0',
+        'params': '--unit=lftest.timer --activestate=active --substate=waiting',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-timer-substate-of-a-service-does-not-fit',
+        'test': 'stdout/timer-waiting,,0',
+        'params': '--unit=lftest.timer --substate=running',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['SubState is "waiting"'],
+    },
+    # A unit that systemd creates itself has no unit file, and the property
+    # still arrives as an empty line. --unitfilestate=empty is how that is
+    # asserted.
+    {
+        'id': 'ok-scope-without-unitfilestate',
+        'test': 'stdout/scope-without-unitfilestate,,0',
+        'params': '--unit=init.scope --activestate=active --unitfilestate=empty',
+        'assert-retc': STATE_OK,
+        'assert-in': ['UnitFileState is ""'],
+    },
+    {
+        'id': 'warn-scope-expected-to-be-enabled',
+        'test': 'stdout/scope-without-unitfilestate,,0',
+        'params': '--unit=init.scope --unitfilestate=enabled',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-mount-inactive-static',
+        'test': 'stdout/mount-inactive-static,,0',
+        'params': (
+            '--unit=sys-kernel-config.mount --activestate=inactive '
+            '--substate=dead --unitfilestate=static'
+        ),
+        'assert-retc': STATE_OK,
+    },
+    # Several expected values may be given; matching any one of them is enough.
+    {
+        'id': 'ok-two-accepted-substates',
+        'test': 'stdout/timer-waiting,,0',
+        'params': '--unit=lftest.timer --substate=waiting --substate=running',
+        'assert-retc': STATE_OK,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../systemd-unit'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
