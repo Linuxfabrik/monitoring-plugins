@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082402'
+__version__ = '2026082403'
 
 DESCRIPTION = """Reports how much memory each virtual machine of a libvirt host has been given, how
 much of it the guest operating system actually needs, and how much of the host's memory
@@ -33,10 +33,12 @@ of the host's memory is promised to the running machines, which is the number th
 whether the host can still honour all of those promises. Runs without root or sudo."""
 
 DEFAULT_CRIT = '90'
+DEFAULT_CRIT_COMMITMENT = None
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
 DEFAULT_URL = lib.kvm.DEFAULT_URI
 DEFAULT_WARN = '80'
+DEFAULT_WARN_COMMITMENT = None
 
 BYTES_PER_KIB = 1024
 
@@ -93,6 +95,17 @@ def parse_args():
         'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-commitment',
+        help='CRIT threshold for the memory promised to the running machines, in percent of the memory the host has. '
+        'Above 100 the host has promised more memory than it has, and it can only honour that for as long as the guests leave theirs untouched. '
+        'Supports Nagios ranges. '
+        'Default: unset, the figure is reported but does not alert. '
+        'Example: `120`',
+        dest='CRIT_COMMITMENT',
+        default=DEFAULT_CRIT_COMMITMENT,
     )
 
     parser.add_argument(
@@ -162,6 +175,17 @@ def parse_args():
         'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-commitment',
+        help='WARN threshold for the memory promised to the running machines, in percent of the memory the host has. '
+        'Above 100 the host has promised more memory than it has, and it can only honour that for as long as the guests leave theirs untouched. '
+        'Supports Nagios ranges. '
+        'Default: unset, the figure is reported but does not alert. '
+        'Example: `120`',
+        dest='WARN_COMMITMENT',
+        default=DEFAULT_WARN_COMMITMENT,
     )
 
     args, _ = parser.parse_known_args()
@@ -384,12 +408,26 @@ def main():
         f'{lib.human.bytes2human(assigned_total)} assigned'
     )
     if host_memory:
+        # What the machines were promised against what the host has. Promising more
+        # than there is works for as long as the guests leave theirs untouched, which
+        # is why the thresholds on it are unset by default. The host actually running
+        # out of memory is what `check_memory_usage` reports, and is not repeated
+        # here.
         commitment = round(assigned_total / host_memory * 100, 1)
-        msg += f" ({commitment}% of the host's {lib.human.bytes2human(host_memory)})"
+        commitment_state = lib.base.get_state(
+            commitment, args.WARN_COMMITMENT, args.CRIT_COMMITMENT, _operator='range'
+        )
+        state = lib.base.get_worst(state, commitment_state)
+        msg += (
+            f" ({commitment}% of the host's {lib.human.bytes2human(host_memory)}"
+            f'{lib.base.state2str(commitment_state, prefix=" ")})'
+        )
         perfdata += lib.base.get_perfdata(
             'memory_commitment',
             commitment,
             uom='%',
+            warn=args.WARN_COMMITMENT,
+            crit=args.CRIT_COMMITMENT,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(

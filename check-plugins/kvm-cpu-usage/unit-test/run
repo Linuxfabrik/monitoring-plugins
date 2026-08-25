@@ -255,6 +255,22 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['nextcloud01_vcpu0'],
     },
+    {
+        # The commitment is the number no other check on the host can see: how many
+        # virtual CPUs were handed out against the cores there are.
+        'id': 'warn-commitment-above-the-bound',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--warning-commitment=20',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r"of the host's \d+ cores \[WARNING\]",
+    },
+    {
+        'id': 'ok-commitment-unset-by-default',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['cores [WARNING]'],
+    },
 ]
 
 

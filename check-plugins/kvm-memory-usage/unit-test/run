@@ -197,6 +197,22 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-not-in': ['VM Name'],
     },
+    {
+        # A host that has promised more memory than it has. It works while the guests
+        # leave theirs untouched, so the bound is the administrator's to set.
+        'id': 'warn-commitment-above-the-bound',
+        'test': 'stdout/overcommitted-host,,0',
+        'params': '--warning-commitment=100',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r"of the host's [\d.]+\w+ \[WARNING\]",
+    },
+    {
+        'id': 'ok-commitment-unset-by-default',
+        'test': 'stdout/overcommitted-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['156.6%'],
+    },
 ]
 
 

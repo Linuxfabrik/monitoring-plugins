@@ -50,10 +50,12 @@ This is the number the guest operating system calls "steal time" and shows as `%
 
 ```text
 usage: kvm-cpu-usage [-h] [-V] [--always-ok] [--brief] [--count COUNT]
-                     [-c CRIT] [--critical-steal CRIT_STEAL] [--ignore IGNORE]
+                     [-c CRIT] [--critical-commitment CRIT_COMMITMENT]
+                     [--critical-steal CRIT_STEAL] [--ignore IGNORE]
                      [--lengthy] [--match MATCH]
                      [--no-match-severity {ok,warn,crit,unknown}]
                      [--no-perfdata] [--timeout TIMEOUT] [--url URL] [-w WARN]
+                     [--warning-commitment WARN_COMMITMENT]
                      [--warning-steal WARN_STEAL]
 
 Reports how much CPU each virtual machine of a libvirt host consumes, and how
@@ -80,6 +82,15 @@ options:
   -c, --critical CRIT   CRIT threshold for the CPU usage of a machine, in
                         percent of the virtual CPUs assigned to it. Supports
                         Nagios ranges. Default: 90
+  --critical-commitment CRIT_COMMITMENT
+                        CRIT threshold for the virtual CPUs handed out to the
+                        running machines, in percent of the cores the host
+                        has. Above 100 the host has promised more virtual CPUs
+                        than it has cores, which is normal while the machines
+                        stay idle and is the number to look at once the steal
+                        column starts moving. Supports Nagios ranges. Default:
+                        unset, the figure is reported but does not alert.
+                        Example: `400`
   --critical-steal CRIT_STEAL
                         CRIT threshold for the share of its time a machine
                         spends waiting for CPU the host is using elsewhere, in
@@ -113,6 +124,15 @@ options:
   -w, --warning WARN    WARN threshold for the CPU usage of a machine, in
                         percent of the virtual CPUs assigned to it. Supports
                         Nagios ranges. Default: 80
+  --warning-commitment WARN_COMMITMENT
+                        WARN threshold for the virtual CPUs handed out to the
+                        running machines, in percent of the cores the host
+                        has. Above 100 the host has promised more virtual CPUs
+                        than it has cores, which is normal while the machines
+                        stay idle and is the number to look at once the steal
+                        column starts moving. Supports Nagios ranges. Default:
+                        unset, the figure is reported but does not alert.
+                        Example: `400`
   --warning-steal WARN_STEAL
                         WARN threshold for the share of its time a machine
                         spends waiting for CPU the host is using elsewhere, in
@@ -190,6 +210,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no machine to check (default: `ok`).
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
+* WARN or CRIT if the virtual CPUs handed out reach `--warning-commitment` or `--critical-commitment` percent of the host's cores (both default: unset). Handing out more than there are is normal on an idle host, so the bound is yours to pick; the host actually running out of CPU is what `check_cpu_usage` reports.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 The steal defaults come from a measurement rather than from a rule of thumb. A guest saturating its virtual CPU on an uncontended host core waits well under 1% of its time; sharing that core with one other process takes it to 50%, and with three to 75%. A machine losing a tenth of its CPU to the host is worth a look, and losing a quarter is worth acting on.

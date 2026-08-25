@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082504'
+__version__ = '2026082505'
 
 DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
 much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
@@ -37,11 +37,13 @@ DEFAULT_COUNT = (
     5  # measurements; if the check runs once per minute, this is a 5 minute average
 )
 DEFAULT_CRIT = '90'
+DEFAULT_CRIT_COMMITMENT = None
 DEFAULT_CRIT_STEAL = '25'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
 DEFAULT_URL = lib.kvm.DEFAULT_URI
 DEFAULT_WARN = '80'
+DEFAULT_WARN_COMMITMENT = None
 DEFAULT_WARN_STEAL = '10'
 
 # Where the previous measurements are kept, so cumulative nanosecond counters can be
@@ -123,6 +125,17 @@ def parse_args():
         'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-commitment',
+        help='CRIT threshold for the virtual CPUs handed out to the running machines, in percent of the cores the host has. '
+        'Above 100 the host has promised more virtual CPUs than it has cores, which is normal while the machines stay idle and is the number to look at once the steal column starts moving. '
+        'Supports Nagios ranges. '
+        'Default: unset, the figure is reported but does not alert. '
+        'Example: `400`',
+        dest='CRIT_COMMITMENT',
+        default=DEFAULT_CRIT_COMMITMENT,
     )
 
     parser.add_argument(
@@ -210,6 +223,17 @@ def parse_args():
         'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-commitment',
+        help='WARN threshold for the virtual CPUs handed out to the running machines, in percent of the cores the host has. '
+        'Above 100 the host has promised more virtual CPUs than it has cores, which is normal while the machines stay idle and is the number to look at once the steal column starts moving. '
+        'Supports Nagios ranges. '
+        'Default: unset, the figure is reported but does not alert. '
+        'Example: `400`',
+        dest='WARN_COMMITMENT',
+        default=DEFAULT_WARN_COMMITMENT,
     )
 
     parser.add_argument(
@@ -653,10 +677,22 @@ def main():
         msg += f'{checked} VM{"s" if checked != 1 else ""}, {vcpus_assigned} vCPUs'
         if host_cores:
             # What the machines were promised against what the host has. Handing out
-            # more virtual CPUs than there are cores is normal and not an alert of its
-            # own; it is the number to look at when the steal column starts moving.
+            # more virtual CPUs than there are cores is normal, which is why the
+            # thresholds on it are unset by default; it is the number to look at when
+            # the steal column starts moving. The host actually running out of CPU is
+            # what `check_cpu_usage` reports, and is not repeated here.
             commitment = round(vcpus_assigned / host_cores * 100, 1)
-            msg += f" ({commitment}% of the host's {host_cores} cores)"
+            commitment_state = lib.base.get_state(
+                commitment,
+                args.WARN_COMMITMENT,
+                args.CRIT_COMMITMENT,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, commitment_state)
+            msg += (
+                f" ({commitment}% of the host's {host_cores} cores"
+                f'{lib.base.state2str(commitment_state, prefix=" ")})'
+            )
         msg += f', {cores_used:.2f} cores used, averaged over {args.COUNT} measurements'
         if steal_offenders:
             msg += (
@@ -688,6 +724,8 @@ def main():
             'vcpu_commitment',
             round(vcpus_assigned / host_cores * 100, 1),
             uom='%',
+            warn=args.WARN_COMMITMENT,
+            crit=args.CRIT_COMMITMENT,
             _min=0,
         )
 

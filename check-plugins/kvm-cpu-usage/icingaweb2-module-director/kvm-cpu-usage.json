@@ -14,6 +14,9 @@
                 "--critical": {
                     "value": "$kvm_cpu_usage_critical$"
                 },
+                "--critical-commitment": {
+                    "value": "$kvm_cpu_usage_critical_commitment$"
+                },
                 "--critical-steal": {
                     "value": "$kvm_cpu_usage_critical_steal$"
                 },
@@ -42,6 +45,9 @@
                 },
                 "--warning": {
                     "value": "$kvm_cpu_usage_warning$"
+                },
+                "--warning-commitment": {
+                    "value": "$kvm_cpu_usage_warning_commitment$"
                 },
                 "--warning-steal": {
                     "value": "$kvm_cpu_usage_warning_steal$"
@@ -117,6 +123,16 @@
                 },
                 {
                     "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -268,6 +284,17 @@
             "uuid": "03107c16-d73d-4d59-be0f-4538b75d3763"
         },
         "5": {
+            "varname": "kvm_cpu_usage_critical_commitment",
+            "caption": "KVM CPU Usage: Critical Commitment",
+            "description": "CRIT threshold for the virtual CPUs handed out to the running machines, in percent of the cores the host has. Above 100 the host has promised more virtual CPUs than it has cores, which is normal while the machines stay idle and is the number to look at once the steal column starts moving. Supports Nagios ranges. Default: unset, the figure is reported but does not alert. Example: `400`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6773a5d0-c4e3-4d8a-8ed5-25065c9501d0"
+        },
+        "6": {
             "varname": "kvm_cpu_usage_critical_steal",
             "caption": "KVM CPU Usage: Critical Steal",
             "description": "CRIT threshold for the share of its time a machine spends waiting for CPU the host is using elsewhere, in percent. Supports Nagios ranges.",
@@ -278,7 +305,7 @@
             },
             "uuid": "59c47807-d58d-40a1-a2e5-8c19365d2cac"
         },
-        "6": {
+        "7": {
             "varname": "kvm_cpu_usage_ignore",
             "caption": "KVM CPU Usage: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
@@ -289,7 +316,7 @@
             },
             "uuid": "2512e6e0-df40-4b27-afa8-2c344b053d88"
         },
-        "7": {
+        "8": {
             "varname": "kvm_cpu_usage_lengthy",
             "caption": "KVM CPU Usage: Lengthy?",
             "description": "Extended reporting.",
@@ -298,7 +325,7 @@
             "settings": {},
             "uuid": "aa1b631c-2c00-48f7-8970-8b14160213a7"
         },
-        "8": {
+        "9": {
             "varname": "kvm_cpu_usage_match",
             "caption": "KVM CPU Usage: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -309,7 +336,7 @@
             },
             "uuid": "1e9d5905-542d-4831-82f4-cf0f6ddb0471"
         },
-        "9": {
+        "10": {
             "varname": "kvm_cpu_usage_no_match_severity",
             "caption": "KVM CPU Usage: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -322,7 +349,7 @@
             },
             "uuid": "19090f4f-5c27-436e-ad72-5bfc22e807bd"
         },
-        "10": {
+        "11": {
             "varname": "kvm_cpu_usage_no_perfdata",
             "caption": "KVM CPU Usage: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -331,7 +358,7 @@
             "settings": {},
             "uuid": "8b7e307b-9c56-4235-b9f0-1d4956c5886a"
         },
-        "11": {
+        "12": {
             "varname": "kvm_cpu_usage_timeout",
             "caption": "KVM CPU Usage: Timeout",
             "description": "Network timeout in seconds.",
@@ -342,7 +369,7 @@
             },
             "uuid": "a152af22-2b0e-456a-af7c-8bb843cc8143"
         },
-        "12": {
+        "13": {
             "varname": "kvm_cpu_usage_url",
             "caption": "KVM CPU Usage: URL",
             "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent. Only QEMU/KVM connections report the data this check needs.",
@@ -353,7 +380,7 @@
             },
             "uuid": "9e4a194e-4ec6-44c1-9add-6f636a5be630"
         },
-        "13": {
+        "14": {
             "varname": "kvm_cpu_usage_warning",
             "caption": "KVM CPU Usage: Warning",
             "description": "WARN threshold for the CPU usage of a machine, in percent of the virtual CPUs assigned to it. Supports Nagios ranges.",
@@ -364,7 +391,18 @@
             },
             "uuid": "03589936-8bda-4123-9271-09cbf0cce212"
         },
-        "14": {
+        "15": {
+            "varname": "kvm_cpu_usage_warning_commitment",
+            "caption": "KVM CPU Usage: Warning Commitment",
+            "description": "WARN threshold for the virtual CPUs handed out to the running machines, in percent of the cores the host has. Above 100 the host has promised more virtual CPUs than it has cores, which is normal while the machines stay idle and is the number to look at once the steal column starts moving. Supports Nagios ranges. Default: unset, the figure is reported but does not alert. Example: `400`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "894fa68b-85d2-47e0-be3b-2f288bcbb1af"
+        },
+        "16": {
             "varname": "kvm_cpu_usage_warning_steal",
             "caption": "KVM CPU Usage: Warning Steal",
             "description": "WARN threshold for the share of its time a machine spends waiting for CPU the host is using elsewhere, in percent. Supports Nagios ranges.",

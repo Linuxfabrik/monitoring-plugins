@@ -48,10 +48,11 @@ A virtual machine has three different memory sizes at the same time, and confusi
 
 ```text
 usage: kvm-memory-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                        [--critical-commitment CRIT_COMMITMENT]
                         [--ignore IGNORE] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
                         [--no-perfdata] [--timeout TIMEOUT] [--url URL]
-                        [-w WARN]
+                        [-w WARN] [--warning-commitment WARN_COMMITMENT]
 
 Reports how much memory each virtual machine of a libvirt host has been given,
 how much of it the guest operating system actually needs, and how much of the
@@ -72,6 +73,14 @@ options:
   -c, --critical CRIT   CRIT threshold for the memory a guest operating system
                         needs, in percent of the memory the guest sees.
                         Supports Nagios ranges. Default: 90
+  --critical-commitment CRIT_COMMITMENT
+                        CRIT threshold for the memory promised to the running
+                        machines, in percent of the memory the host has. Above
+                        100 the host has promised more memory than it has, and
+                        it can only honour that for as long as the guests
+                        leave theirs untouched. Supports Nagios ranges.
+                        Default: unset, the figure is reported but does not
+                        alert. Example: `120`
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -100,6 +109,14 @@ options:
   -w, --warning WARN    WARN threshold for the memory a guest operating system
                         needs, in percent of the memory the guest sees.
                         Supports Nagios ranges. Default: 80
+  --warning-commitment WARN_COMMITMENT
+                        WARN threshold for the memory promised to the running
+                        machines, in percent of the memory the host has. Above
+                        100 the host has promised more memory than it has, and
+                        it can only honour that for as long as the guests
+                        leave theirs untouched. Supports Nagios ranges.
+                        Default: unset, the figure is reported but does not
+                        alert. Example: `120`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-memory-usage/
@@ -173,6 +190,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no machine to check (default: `ok`).
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
+* WARN or CRIT if the memory promised to the machines reaches `--warning-commitment` or `--critical-commitment` percent of the host's memory (both default: unset). Promising more than there is works while the guests leave theirs untouched, so the bound is yours to pick; the host actually running out of memory is what `check_memory_usage` reports.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 The thresholds accept [Nagios ranges](../THRESHOLDS.md), so `--warning=@0:5` alerts on a machine that is suspiciously *empty* rather than full, which is how a guest that failed to come up all the way looks.
