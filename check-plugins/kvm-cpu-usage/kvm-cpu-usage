@@ -416,8 +416,13 @@ def main():
         # not running (kernel/sched/stats.h:sched_info_arrive). KVM builds the
         # steal counter it hands to the guest from that very field
         # (arch/x86/kvm/x86.c:record_steal_time). Checked against Linux 7.1 and
-        # libvirt 12.0.0; arch/x86/kvm/Kconfig selects SCHED_INFO, so the counter
-        # cannot be missing on a host that runs KVM in the first place.
+        # libvirt 12.0.0. The counter needs CONFIG_SCHED_INFO, which the KVM
+        # Kconfig of x86, arm64, riscv and loongarch selects, so it is there on
+        # every architecture a Linuxfabrik host is likely to run. s390 and powerpc
+        # do not select it, and libvirt then reports the delay as 0 rather than
+        # leaving it out (qemuGetSchedstatDelay() returns without writing to an
+        # already zeroed buffer when the schedstat file is absent), so on those two
+        # the steal column reads 0.0% instead of saying that nobody measured it.
         # Two different questions, two different counters. `cpu.time` is what the
         # machine costs the host, emulation included, and is reported as cores.
         # The saturation of the machine itself is measured against its own virtual

@@ -432,6 +432,12 @@ def main():
     # comes out as that pool's own path. It is worked out from the paths as text and
     # never from the filesystem, so it stays right for a hypervisor checked over ssh.
     # A pool type without a path, RBD for one, falls back to the pool names.
+    #
+    # It follows that the name moves when the set of pools on the store does. Stop the
+    # two pools under `/home` and the store that was `/` is reported as `/var`, and the
+    # metrics are renamed with it. That is the price of libvirt never saying what a
+    # pool sits on; it is in the README so nobody builds a dashboard on the assumption
+    # that the name is fixed.
     store_data = []
     for members in stores:
         # The fullest member's figures stand for the store: they are the same numbers

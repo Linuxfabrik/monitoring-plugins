@@ -13,7 +13,7 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 
 * **Read the two together.** A disk moving little while taking a long time per request is the worse of the two pictures, and on throughput alone it looks like the quietest disk on the host.
 * Latency is reported rather than judged until `--await-warning` or `--await-critical` are set. Graph it for a few days first, then set the thresholds above what the host does when nothing is wrong.
-* A disk that has just appeared, and every disk on the first runs, is reported as "Waiting for more data." until `--count` measurements have accumulated. The disks that have been there all along keep being reported meanwhile.
+* A disk that has just appeared, and every disk on the first runs, is named after "Waiting for more data:" until `--count` measurements have accumulated. The disks that have been there all along keep being reported meanwhile.
 * **A drive with nothing in it is not reported.** libvirt lists an empty CD-ROM drive among a machine's block devices, counters and all, and virtually every machine has one. Reporting them would put a row that can never move anything next to every machine on the host. The same drive with an image in it is reported like any other disk, and so is a disk on network storage such as Ceph or iSCSI.
 * Only running machines are looked at. A machine that is shut off does no I/O and its counters stand still, so a rate computed from them would be a row of zeroes.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
@@ -206,7 +206,7 @@ Checking a hypervisor that runs no local monitoring agent:
 ## States
 
 * OK if every disk stays below the thresholds.
-* OK with "Waiting for more data." for a disk that has no previous measurement yet, which is the case on the first run and after a machine was started.
+* OK, with the disk named after "Waiting for more data:", for a disk that has no previous measurement yet, which is the case on the first run and after a machine was started.
 * OK with "No running virtual machines with disks found." if no machine on the host is running, or none of them has a disk.
 * WARN if a disk sustains `--warning` percent or more of the most throughput it has ever delivered (default: 80). This part never goes critical.
 * WARN if a read or write takes `--await-warning` milliseconds or more on average (default: unset).
@@ -216,7 +216,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
-Both latency thresholds accept [Nagios ranges](../THRESHOLDS.md).
+Both latency thresholds accept [Nagios ranges](../THRESHOLDS.md). `--warning` does not, on purpose: it is not a bound on the throughput but a share of a figure the check measures for itself, and a range expression such as `@10:20` or `~:50` would mean nothing multiplied by an observed maximum.
 
 
 ## Perfdata / Metrics
@@ -240,7 +240,7 @@ Both latency thresholds accept [Nagios ranges](../THRESHOLDS.md).
 
 ## Troubleshooting
 
-### `Waiting for more data.`
+### `Waiting for more data: <disks>`
 
 Expected on the first run and whenever a machine has just been started. The check needs two measurements to turn libvirt's cumulative counters into a rate. Wait for the next check interval.
 
@@ -248,7 +248,7 @@ Expected on the first run and whenever a machine has just been started. The chec
 
 The maximum it is compared against is the most that disk has been seen to deliver, and it grows as the disk is asked for more. A disk that has never had a busy moment is therefore compared against the 10 MiB/s floor, and the first real backup run pushes it over the threshold. That is the check working as intended; the warning goes away as soon as the new maximum is recorded, and it says what the disk is really capable of.
 
-To start over for one machine, stop the check and delete its state file. The maximum is remembered per disk in `$TEMP/linuxfabrik-monitoring-plugins-kvm-disk-io-<connection>.db`.
+To start over, stop the check and delete its state file, which holds the maximum of every disk. It is not directly in the temporary directory: the databases live in a per-user subdirectory of it that only that user may enter, so the full path is `$TEMP/linuxfabrik-monitoring-plugins-uid<UID>/linuxfabrik-monitoring-plugins-kvm-disk-io-<connection>.db`, with the numeric user id of the account the check runs as.
 
 ### A disk sits at a high latency
 

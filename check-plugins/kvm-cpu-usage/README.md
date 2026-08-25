@@ -14,8 +14,8 @@ This is the number the guest operating system calls "steal time" and shows as `%
 
 * **Read the CPU and the Steal column together.** A machine starved of host CPU shows a *lower* CPU usage than a healthy one, because it is not being allowed to run. On a host with a free CPU, a guest saturating its single virtual CPU was measured at 98.4% CPU and 0.2% steal; with three other processes competing for the same host core, the same guest dropped to 24.8% CPU and rose to 74.8% steal. On the CPU column alone, the starved machine looks like the quieter one.
 * **The commitment figure is context, not an alert.** Handing out more virtual CPUs than the host has cores is normal and works as long as the machines stay idle. It is the number to look at once the steal column starts moving, which is why it sits on the same line: a host at 300% commitment and 0% steal is fine, and the same host at 300% and 30% steal has run out of room.
-* On the first runs, and after a machine was started, the check reports "Waiting for more data." for that machine until `--count` measurements have accumulated. The machines that have been running all along keep being reported meanwhile.
-* **A machine that was restarted also goes back to "Waiting for more data."** Its counters start over, so they are lower than the ones recorded before the restart, and no rate can be computed across that. Reporting the difference anyway would put the machine at a negative usage and alert on it. It comes back on its own once the measurements from before the restart have left the `--count` window.
+* On the first runs, and after a machine was started, the check names that machine after "Waiting for more data:" until `--count` measurements have accumulated. The machines that have been running all along keep being reported meanwhile.
+* **A machine that was restarted is named there again.** Its counters start over, so they are lower than the ones recorded before the restart, and no rate can be computed across that. Reporting the difference anyway would put the machine at a negative usage and alert on it. It comes back on its own once the measurements from before the restart have left the `--count` window.
 * Only running machines are looked at. A machine that is shut off still reports a CPU time, but libvirt reports the same value for every shut-off machine and it keeps growing between runs, so a rate computed from it would be invented.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
 * **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
@@ -179,7 +179,7 @@ Checking a hypervisor that runs no local monitoring agent:
 ## States
 
 * OK if every machine stays below both thresholds.
-* OK with "Waiting for more data." for a machine that has no previous measurement yet, which is the case on the first run and after a machine was started.
+* OK, with the machine named after "Waiting for more data:", for a machine that has no previous measurement yet, which is the case on the first run and after a machine was started.
 * OK with "No running virtual machines found." if no machine on the host is running.
 * WARN if a machine uses `--warning` percent or more of its assigned virtual CPUs (default: 80).
 * WARN if a machine spends `--warning-steal` percent or more of its time waiting for CPU the host is giving to somebody else (default: 10).
@@ -211,7 +211,7 @@ Both thresholds accept [Nagios ranges](../THRESHOLDS.md), so `--warning=@0:5` al
 
 ## Troubleshooting
 
-### `Waiting for more data.`
+### `Waiting for more data: <machines>`
 
 Expected on the first run and whenever a machine has just been started. The check needs two measurements to turn libvirt's cumulative counters into a rate. Wait for the next check interval.
 

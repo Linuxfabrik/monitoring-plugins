@@ -26,7 +26,7 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 * **Inbound and outbound are from the machine's point of view.** Inbound is what the guest received. The host's own view of the same interface is the exact opposite, because what the machine sends is what the host receives, so a figure read from `ip -s link show vnet4` on the host will not match and comparing the two directly leads nowhere.
 * **An interface is identified by its position in the machine, not by its host-side device.** `nic0` is the machine's first interface and stays that whatever happens; the `vnetN` device next to it is handed out by libvirt from a counter when the machine starts and is not kept, which is also why libvirt itself leaves it out of the machine's stored configuration. The same interface of the same machine, unchanged and with the same MAC address, was measured as `vnet1` before a restart and as `vnet4` after it. The device is shown (`--lengthy`) rather than used as the name.
 * **A loss counter the host does not keep is reported as `-`, not as zero.** On every ordinary configuration libvirt reports all of them. A vhost-user interface is the exception: there the figures come from Open vSwitch, which names only the counters it keeps, and the rest never arrive. Zero is what a healthy interface reports, so filling them in would claim the interface loses nothing and let `--warning-drops` and `--warning-errors` confirm that on every run. Those thresholds skip such an interface, and the first line names it.
-* An interface that has just appeared, and every interface on the first runs, is reported as "Waiting for more data." until `--count` measurements have accumulated. The interfaces that have been there all along keep being reported meanwhile.
+* An interface that has just appeared, and every interface on the first runs, is named after "Waiting for more data:" until `--count` measurements have accumulated. The interfaces that have been there all along keep being reported meanwhile.
 * Only running machines are looked at. A machine that is shut off has no interface on the host at all.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
 * **`--brief` shortens the table on a busy host.** A host with a hundred machines of two interfaces each produces two hundred rows, and `--brief` keeps only the interfaces in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
@@ -233,7 +233,7 @@ Checking a hypervisor that runs no local monitoring agent:
 ## States
 
 * OK if every interface stays below the thresholds.
-* OK with "Waiting for more data." for an interface that has no previous measurement yet, which is the case on the first run and after a machine was started.
+* OK, with the interface named after "Waiting for more data:", for an interface that has no previous measurement yet, which is the case on the first run and after a machine was started.
 * OK with "No running virtual machines with network interfaces found." if no machine on the host is running, or none of them has an interface.
 * WARN if an interface sustains `--warning` percent or more of the most traffic it has ever carried (default: 80). This part never goes critical.
 * WARN if an interface drops more frames per second than `--warning-drops` allows, or reports more bad ones than `--warning-errors` allows (both default: unset).
@@ -244,7 +244,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.
 * `--always-ok` suppresses all alerts and always returns OK.
 
-All four loss thresholds accept [Nagios ranges](../THRESHOLDS.md).
+All four loss thresholds accept [Nagios ranges](../THRESHOLDS.md). `--warning` does not, on purpose: it is not a bound on the traffic but a share of a figure the check measures for itself, and a range expression such as `@10:20` or `~:50` would mean nothing multiplied by an observed maximum.
 
 
 ## Perfdata / Metrics
@@ -267,7 +267,7 @@ All four loss thresholds accept [Nagios ranges](../THRESHOLDS.md).
 
 ## Troubleshooting
 
-### `Waiting for more data.`
+### `Waiting for more data: <interfaces>`
 
 Expected on the first run and whenever a machine has just been started. The check needs two measurements to turn libvirt's cumulative counters into a rate. Wait for the next check interval.
 
@@ -283,7 +283,7 @@ Expected on a machine attached to a virtual network or a bridge, and not a state
 
 The maximum it is compared against is the most that interface has been seen to carry, and it grows as it is asked for more. An interface that has never had a busy moment is therefore compared against the 10 MiB/s floor, and the first large file transfer pushes it over the threshold. That is the check working as intended; the warning goes away as soon as the new maximum is recorded, and it says what the interface is really capable of.
 
-To start over, stop the check and delete its state file. The maximum is remembered per interface in `$TEMP/linuxfabrik-monitoring-plugins-kvm-network-io-<connection>.db`.
+To start over, stop the check and delete its state file, which holds the maximum of every interface. It is not directly in the temporary directory: the databases live in a per-user subdirectory of it that only that user may enter, so the full path is `$TEMP/linuxfabrik-monitoring-plugins-uid<UID>/linuxfabrik-monitoring-plugins-kvm-network-io-<connection>.db`, with the numeric user id of the account the check runs as.
 
 ### An interface is losing frames
 
