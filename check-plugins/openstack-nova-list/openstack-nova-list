@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082505'
+__version__ = '2026082506'
 
 DESCRIPTION = """Lists the OpenStack Nova compute instances (virtual servers) of a project and
 reports the status of every one of them. Alerts when an instance sits in a status that needs
@@ -643,8 +643,10 @@ def main():
             table_data,
             keys,
             header=headers,
-            sort_by_key='status',
-            sort_order_reverse=True,
+            # By name: that is how an administrator looks a instance up, and it puts the
+            # ones belonging together next to each other. What needs attention is named in
+            # the summary line above anyway.
+            sort_by_key='name',
             # A column nothing filled in is noise. The compute host is the
             # usual one: Nova withholds it from a project without admin rights.
             hide_empty=True,
