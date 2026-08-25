@@ -1,0 +1,269 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: kvm-storage-pool
+spec:
+  schemaVersion: 42
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: kvm-storage-pool
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*kvm-storage-pool.*/
+      current:
+        text: cmd-check-kvm-storage-pool
+        value: cmd-check-kvm-storage-pool
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  # How full each store is, which is the figure the thresholds judge. One line per
+  # store rather than per pool, named after the store: pools sharing storage report
+  # it identically, and a line each would draw the same thing several times.
+  - title: kvm-storage-pool - Pool Usage
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        max: 100
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: usage
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /-usage$/
+
+  # The same stores in bytes. Deliberately not summed anywhere: a host commonly keeps
+  # several pools on one filesystem, and the check already reports that filesystem
+  # once, so a total across lines would still be the right number only by accident.
+  - title: kvm-storage-pool - Pool Sizes
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: bytes
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: sizes
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /(-allocation$|-available$|-capacity$)/
+
+  # How many pools are in each of the states libvirt knows, plus how many
+  # were set to start with the host and did not. Every state is emitted
+  # even when no pool is in it, so a line never disappears from the
+  # graph just because the situation improved.
+  - title: kvm-storage-pool - Pools per State
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: states
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /^pool_/

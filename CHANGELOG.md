@@ -26,6 +26,7 @@ Monitoring Plugins:
 * kvm-disk-io: reports what each virtual machine of a libvirt host reads and writes, and how long its storage takes to answer ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-memory-usage: reports the memory each virtual machine of a libvirt host has, needs and occupies, and how much of the host is promised to them ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-network-io: reports what each virtual machine of a libvirt host sends and receives per network interface, and the frames it loses ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* kvm-storage-pool: reports the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
 

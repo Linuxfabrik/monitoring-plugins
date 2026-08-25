@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The check asks the host two questions per pool, so every case needs one fixture naming
+# the pools, one per pool holding what `virsh pool-info --bytes` answered for it, and one
+# per pool holding its definition, all named after the first with the pool appended. The
+# layout is the one captured from a live host running libvirt 12.0.0.
+#
+# Two things the fixtures pin, both taken from libvirt rather than assumed:
+#
+# - Only `inactive` means the pool was not started. libvirt spells the rest out in its
+#   own enumeration: `degraded` is "Running degraded", `inaccessible` is "Running, but
+#   not accessible". Reading either as "did not start" would report a pool that is up,
+#   and busy losing its storage, as one nobody switched on.
+# - Sizes are printed for `running` and `degraded` only (`cmdPoolInfo` in virsh), so an
+#   inactive or inaccessible pool arrives without any, and is listed without a
+#   percentage rather than with a made-up zero.
+# - The sizes describe the storage a pool sits on, not what the pool holds. For a
+#   directory-backed pool libvirt fills them from a `statvfs()` of the pool's path, so
+#   several pools on one filesystem report it identically. `shared-store` is that case:
+#   two directories, one filesystem, two rows and a line saying why they agree.
+#   `shared-path` is the stronger one: two pool names for the same directory, folded
+#   into one row and one set of performance data.
+# - A pool has a path only if its type has one. `inaccessible-pool` is an RBD pool,
+#   which has none at all (libvirt's own example in `formatstorage.rst` has no
+#   `<target>`), and is never folded together with anything.
+TESTS = [
+    {
+        'id': 'ok-all-running',
+        'test': 'stdout/all-running,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok (warn=80 crit=90).', 'default', 'isos'],
+    },
+    {
+        # Where a pool points is what makes two rows of the same figures tell
+        # different stories, so it is in the table by default.
+        'id': 'ok-path-is-reported',
+        'test': 'stdout/all-running,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/lib/libvirt/images', '/srv/isos'],
+    },
+    {
+        'id': 'ok-no-pools',
+        'test': 'stdout/no-pools,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No storage pools found.'],
+    },
+    # Same fixture, three threshold combinations.
+    {
+        'id': 'crit-pool-filling-up',
+        'test': 'stdout/filling-up,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors (warn=80 crit=90).', 'Filling up: default (93.0%)'],
+    },
+    {
+        'id': 'warn-pool-filling-up',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings (warn=90 crit=95).'],
+    },
+    {
+        'id': 'ok-usage-below-warning',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=95 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['93.0%'],
+    },
+    {
+        # "Running degraded": the pool lost part of the storage behind it and is
+        # serving from the rest. It is running, so it is not one that failed to
+        # start, and it still reports its sizes.
+        'id': 'warn-degraded-pool',
+        'test': 'stdout/degraded-pool,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Degraded: data', '21.5%'],
+        'assert-not-in': ['Set to start with the host'],
+    },
+    {
+        # "Running, but not accessible": the pool is up and the storage behind it
+        # cannot be reached, which is the worse of the two. It is an RBD pool, which
+        # has no path at all, so every size cell is a placeholder and the state
+        # marker still sits in the last column.
+        'id': 'crit-inaccessible-pool',
+        'test': 'stdout/inaccessible-pool,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Inaccessible: san', 'inaccessible [CRITICAL]'],
+        'assert-not-in': ['Set to start with the host'],
+    },
+    {
+        # A pool that is not started reports no sizes at all, and is listed without a
+        # percentage rather than with a zero it never sent.
+        'id': 'warn-inactive-pool-with-autostart',
+        'test': 'stdout/inactive-autostart,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Set to start with the host but not running: backup'],
+        'assert-not-in': ['0.0%'],
+    },
+    {
+        # The same state without autostart is a pool nobody asked to start, which is
+        # a normal thing to have.
+        'id': 'ok-inactive-pool-without-autostart',
+        'test': 'stdout/inactive-no-autostart,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok (warn=80 crit=90).', 'inactive'],
+        'assert-not-in': ['Set to start with the host'],
+    },
+    {
+        # A state outside libvirt's enumeration is reported by name and treated as
+        # worth a look, rather than passed over in silence.
+        'id': 'warn-unknown-pool-state',
+        'test': 'stdout/unknown-state,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Liquefying: weird'],
+    },
+    {
+        # Two pools in two directories of one filesystem. The store table carries the
+        # figures once and names both pools on it, so the second table can be about
+        # the pools without repeating a size four times over.
+        'id': 'ok-pools-on-one-store-share-a-row',
+        'test': 'stdout/shared-store,,0',
+        'params': '--warning=95 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/srv/vm ! images, isos'],
+    },
+    {
+        # And they are alerted on once as a group. One filesystem filling up is one
+        # problem, however many pools are looking at it.
+        'id': 'crit-one-alert-per-store',
+        'test': 'stdout/shared-store,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Filling up: images, isos (93.0%)'],
+    },
+    {
+        # Two names for one and the same directory share the store row, their names
+        # joined. They stay two rows in the pool table, because they are two pools.
+        'id': 'crit-pools-on-one-path-share-a-store-row',
+        'test': 'stdout/shared-path,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['/srv/vm ! images, isos'],
+    },
+    {
+        # And one set of performance data for the storage they share, named after it
+        # the way `check_disk_usage` names a filesystem, so a dashboard cannot add one
+        # directory up as if it were two.
+        'id': 'crit-one-metric-set-per-store',
+        'test': 'stdout/shared-path,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'/srv/vm-usage'=93.0%"],
+        'assert-not-in': ["'images-usage'", "'isos-usage'"],
+    },
+    {
+        # The same holds for pools that merely sit on one filesystem: the store is
+        # named by the deepest path holding all of them, and reported once.
+        'id': 'crit-store-name-covers-every-pool-on-it',
+        'test': 'stdout/shared-store,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'/srv/vm-usage'=93.0%"],
+        'assert-not-in': ["'/srv/vm/images-usage'"],
+    },
+    {
+        # A pool type without a path cannot be named after one, so it falls back to
+        # the pool's own name. RBD is such a type.
+        'id': 'ok-pathless-pool-is-named-after-itself',
+        'test': 'stdout/rbd-pool,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'ceph-usage'=20.0%"],
+    },
+    {
+        # The pool table carries the path, autostart and the verdict; --lengthy adds
+        # persistence.
+        'id': 'ok-lengthy-adds-columns',
+        'test': 'stdout/all-running,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Persistent'],
+    },
+    {
+        'id': 'ok-not-lengthy-hides-columns',
+        'test': 'stdout/all-running,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Autostart'],
+        'assert-not-in': ['Persistent'],
+    },
+    {
+        # Two tables, and a pool that reports no sizes is in the second one only:
+        # there is no store to put it on.
+        'id': 'warn-pool-without-sizes-has-no-store-row',
+        'test': 'stdout/inactive-autostart,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['inactive [WARNING]'],
+        'assert-not-in': ['Store'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/filling-up,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        # --no-perfdata drops the perfdata section but keeps the message and the exit
+        # code: the CRIT state is still reported.
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/filling-up,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'ok-match-keeps-pool',
+        'test': 'stdout/all-running,,0',
+        'params': '--match=isos',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/srv/isos'],
+        'assert-not-in': ['/var/lib/libvirt/images'],
+    },
+    {
+        # --ignore wins over --match, so the pool is dropped even though it matches
+        # both.
+        'id': 'ok-ignore-drops-pool',
+        'test': 'stdout/all-running,,0',
+        'params': '--match=isos --ignore=isos',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/all-running,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/all-running,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-storage-pool'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
