@@ -270,6 +270,24 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['contains one or more errors'],
     },
+    {
+        # Each sentence of the first line carries its own verdict. On a host where a
+        # store is filling up and a pool has become unreachable, the line opens with
+        # the CRITICAL of the pool, and without a marker per sentence nothing says
+        # which of the two it belongs to.
+        'id': 'warn-filling-up-sentence-carries-its-verdict',
+        'test': 'stdout/filling-up,,0',
+        'params': '--warning=50 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'Filling up: .*\[WARNING\]\.',
+    },
+    {
+        'id': 'crit-pool-state-sentence-carries-its-verdict',
+        'test': 'stdout/inaccessible-pool,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Inaccessible: san \[CRITICAL\]\.',
+    },
 ]
 
 

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the storage pools a libvirt host keeps its virtual machines on. Reports the
 storage behind them and the pools themselves in two tables: one per store, with how full
@@ -499,17 +499,31 @@ def main():
         msg += 'Everything is ok'
     msg += f' (warn={args.WARN} crit={args.CRIT}).'
 
+    # Every sentence carries its own verdict. The line opens with the worst of them,
+    # which on a host where a store is filling up and a pool has become unreachable
+    # is the pool, and without a marker per sentence nothing says which of the two
+    # the CRITICAL belongs to.
     if filling_up:
-        msg += f' Filling up: {"; ".join(sorted(filling_up))}.'
+        msg += (
+            f' Filling up: {"; ".join(sorted(filling_up))}'
+            f'{lib.base.state2str(filling_up_state_worst, prefix=" ")}.'
+        )
     for pool_state in sorted(counts):
-        if get_severity(pool_state) == STATE_OK:
+        severity = get_severity(pool_state)
+        if severity == STATE_OK:
             continue
         involved = sorted(
             row['name'] for row in table_data if row['pool_state'] == pool_state
         )
-        msg += f' {pool_state.capitalize()}: {", ".join(involved)}.'
+        msg += (
+            f' {pool_state.capitalize()}: {", ".join(involved)}'
+            f'{lib.base.state2str(severity, prefix=" ")}.'
+        )
     if not_active:
-        msg += f' Set to start with the host but not running: {", ".join(not_active)}.'
+        msg += (
+            f' Set to start with the host but not running: {", ".join(not_active)}'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
     # build table output
     # Two tables, because they answer two questions. The first is about storage: how
     # full it is, and which pools are on it. The second is about the pools themselves.
