@@ -1,0 +1,208 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# A fixture is a set of files: one naming the running pools, and two per pool, holding
+# what `pool-info --bytes` and `vol-list --details` answered for it.
+#
+# `three-pools` was captured from a live host running libvirt 12.0.0 and carries the
+# three shapes that matter next to each other:
+#
+#   default      40 volumes promising 2.8 TiB on a 1.8 TiB filesystem, so 153.4%
+#                oversubscribed while only 148 GiB of it is taken. This is the normal
+#                state of a workstation that keeps thin images, and the number the
+#                rest of the family cannot see.
+#   lftest-pool  a thin volume, a preallocated one and one whose name contains
+#                spaces, which libvirt allows and which tears a whitespace split of
+#                the `vol-list` table into the wrong columns
+#   nvram        six volumes so small that the space they take exceeds the space they
+#                were promised, because a filesystem allocates in blocks
+#
+# `no-pools` and `empty-pool` cannot be produced read-only on a host that has pools,
+# so they are written by hand in the captured layout: an answer with no pool in it at
+# all, and a running pool whose `vol-list` is a bare header.
+TESTS = [
+    {
+        'id': 'ok-three-pools-without-thresholds',
+        'test': 'stdout/three-pools,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 pools, 49 volumes', '153.4%'],
+    },
+    {
+        # The sizes come out of a table that rounds to two decimals with a unit,
+        # because `vol-list` takes no `--bytes`. 40 volumes of the captured pool add
+        # up to 2.8 TiB against a 1.8 TiB store.
+        'id': 'ok-rounded-sizes-are-converted-back',
+        'test': 'stdout/three-pools,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2.8TiB promised', '148.2GiB taken'],
+    },
+    {
+        # A volume name containing spaces survives, which a whitespace split of the
+        # table would not: it would put "with" in the path column.
+        'id': 'ok-volume-name-with-spaces',
+        'test': 'stdout/three-pools,,0',
+        'params': '--lengthy --match=lftest-pool',
+        'assert-retc': STATE_OK,
+        'assert-in': ['name with spaces.qcow2'],
+    },
+    {
+        'id': 'warn-pool-promises-more-than-it-has',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=100 --critical=200',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Promised more than the storage holds: default (153.4%)'],
+    },
+    {
+        'id': 'crit-pool-promises-far-more-than-it-has',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=50 --critical=100',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'default\s+!.*!\s+153\.4%\s+!\s+\[CRITICAL\]',
+    },
+    {
+        # A pool that stays inside the range does not turn up in the sentence, even
+        # though it is close to the line.
+        'id': 'ok-pool-just-inside-the-range',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=200',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Promised more than the storage holds'],
+    },
+    {
+        # The largest volumes only, and the caption counts what it left out rather
+        # than dropping it silently.
+        'id': 'ok-lengthy-caps-the-volume-table',
+        'test': 'stdout/three-pools,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['The 10 largest volumes, 39 more not listed'],
+    },
+    {
+        'id': 'ok-without-lengthy-no-volume-table',
+        'test': 'stdout/three-pools,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['largest volumes'],
+    },
+    {
+        # --no-perfdata so the assertion is about the table alone; the next case is
+        # the one that pins the perfdata.
+        'id': 'warn-brief-keeps-only-the-pool-that-alerts',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=100 --brief --no-perfdata',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['default'],
+        'assert-not-in': ['nvram'],
+    },
+    {
+        # --brief hides rows, never metrics: the pool it left out still reports
+        # everything, and still counts towards the totals.
+        'id': 'warn-brief-leaves-the-perfdata-complete',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=100 --brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['nvram_volumes', 'nvram_subscription', "'volumes'=49"],
+    },
+    {
+        'id': 'ok-brief-on-a-quiet-host-prints-one-line',
+        'test': 'stdout/three-pools,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Pool'],
+    },
+    {
+        'id': 'ok-no-pools-at-all',
+        'test': 'stdout/no-pools,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No running storage pools found.'],
+    },
+    {
+        # A running pool with nothing in it is reported with its store, not dropped.
+        'id': 'ok-running-pool-without-volumes',
+        'test': 'stdout/empty-pool,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 pool, 0 volumes'],
+    },
+    {
+        'id': 'ok-match-keeps-one-pool',
+        'test': 'stdout/three-pools,,0',
+        'params': '--match=^nvram$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['default'],
+    },
+    {
+        # --ignore wins over --match, so the pool is dropped even though it matches
+        # both.
+        'id': 'ok-ignore-drops-pool',
+        'test': 'stdout/three-pools,,0',
+        'params': '--match=nvram --ignore=nvram',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['nvram'],
+    },
+    {
+        'id': 'ok-everything-filtered-out',
+        'test': 'stdout/three-pools,,0',
+        'params': '--ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', '3 running storage pools are filtered out'],
+    },
+    {
+        'id': 'warn-everything-filtered-out',
+        'test': 'stdout/three-pools,,0',
+        'params': '--ignore=. --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=50 --critical=100 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['153.4%'],
+    },
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/three-pools,,0',
+        'params': '--warning=50 --critical=100 --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/three-pools,,0',
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../kvm-volume'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

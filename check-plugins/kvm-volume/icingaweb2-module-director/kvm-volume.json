@@ -1,0 +1,317 @@
+{
+    "Command": {
+        "cmd-check-kvm-volume": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$kvm_volume_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$kvm_volume_brief$"
+                },
+                "--critical": {
+                    "value": "$kvm_volume_critical$"
+                },
+                "--ignore": {
+                    "value": "$kvm_volume_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$kvm_volume_lengthy$"
+                },
+                "--match": {
+                    "value": "$kvm_volume_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$kvm_volume_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$kvm_volume_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$kvm_volume_timeout$"
+                },
+                "--url": {
+                    "value": "$kvm_volume_url$"
+                },
+                "--warning": {
+                    "value": "$kvm_volume_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/kvm-volume",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-kvm-volume",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "9e4c1add-d0e8-46aa-b390-c2d023984820"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-kvm-volume": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-kvm-volume",
+            "check_interval": 3600,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "kvm-volume.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports what the storage pools of a libvirt host actually hold: how much space their volumes have been promised, how much of it they occupy today, and how far the promises exceed the storage underneath. Handing out more than there is is what thin provisioning is for, and it is safe only for as long as the volumes stay unfilled, so this is the number that says how much room is left for that to happen. Alerts if the promises exceed the storage by more than the thresholds allow, which are unset by default because only the administrator knows how far their storage may be oversubscribed. Supports extended reporting via --lengthy. Runs without root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-volume/",
+            "object_name": "tpl-service-kvm-volume",
+            "object_type": "template",
+            "retry_interval": 300,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "B",
+                "kvm_volume_always_ok": false,
+                "kvm_volume_brief": false,
+                "kvm_volume_ignore": [],
+                "kvm_volume_lengthy": false,
+                "kvm_volume_match": [],
+                "kvm_volume_no_match_severity": "ok",
+                "kvm_volume_no_perfdata": false,
+                "kvm_volume_timeout": 8,
+                "kvm_volume_url": "qemu:///system"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "4e7df99b-67fe-496f-9409-131379b9e4f8"
+        }
+    },
+    "DataList": {
+        "kvm_volume_no_match_severity_list": {
+            "list_name": "kvm_volume_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "185e16dc-7c54-47da-845b-e0add7dc86be"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "kvm_volume_always_ok",
+            "caption": "KVM Volume: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "7e919fc2-b103-47c4-b6a7-e4e28e1c119e"
+        },
+        "2": {
+            "varname": "kvm_volume_brief",
+            "caption": "KVM Volume: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1699ca57-7c47-4d91-a29f-f2d4575f98fc"
+        },
+        "3": {
+            "varname": "kvm_volume_critical",
+            "caption": "KVM Volume: Critical",
+            "description": "CRIT threshold for the space a pool has promised its volumes, in percent of the storage underneath it. Above 100 the pool has promised more than it has. Supports Nagios ranges. Default: unset, the figure is reported but does not alert",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a4831d5b-27f3-4b7d-ae3e-1a58cad4f56e"
+        },
+        "4": {
+            "varname": "kvm_volume_ignore",
+            "caption": "KVM Volume: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "35a5f7da-fced-4b34-8a71-913c2d737a37"
+        },
+        "5": {
+            "varname": "kvm_volume_lengthy",
+            "caption": "KVM Volume: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "103cb619-c9be-4bc0-a570-19b207ae2703"
+        },
+        "6": {
+            "varname": "kvm_volume_match",
+            "caption": "KVM Volume: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a6b8d1fd-51fe-424a-b9a3-68de2745cf8e"
+        },
+        "7": {
+            "varname": "kvm_volume_no_match_severity",
+            "caption": "KVM Volume: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "kvm_volume_no_match_severity_list"
+            },
+            "uuid": "7c087695-f1da-4b85-8c61-93e0e57ef64d"
+        },
+        "8": {
+            "varname": "kvm_volume_no_perfdata",
+            "caption": "KVM Volume: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "e986fd8d-96ba-4708-9113-dc03d41ecefe"
+        },
+        "9": {
+            "varname": "kvm_volume_timeout",
+            "caption": "KVM Volume: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5b547bc7-0174-4524-8c99-fbebb1c47f94"
+        },
+        "10": {
+            "varname": "kvm_volume_url",
+            "caption": "KVM Volume: URL",
+            "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "9d8957a2-a385-4f12-9153-3f1a08bfad24"
+        },
+        "11": {
+            "varname": "kvm_volume_warning",
+            "caption": "KVM Volume: Warning",
+            "description": "WARN threshold for the space a pool has promised its volumes, in percent of the storage underneath it. Above 100 the pool has promised more than it has. Supports Nagios ranges. Default: unset, the figure is reported but does not alert",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f32bf906-ed06-4eee-aa2d-5f3470dccc16"
+        }
+    }
+}
