@@ -12,6 +12,7 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 **Important Notes:**
 
 * **Read the two together.** A disk moving little while taking a long time per request is the worse of the two pictures, and on throughput alone it looks like the quietest disk on the host.
+* **Flush latency is reported and never judged.** It is what a guest waits on every fsync, so it is the figure that decides whether a database inside it feels slow, and it is legitimately an order of magnitude slower than a read: 0.2 ms of read latency next to 4.6 ms of flush latency is a healthy disk. Folding it into the value the latency thresholds judge would move the bound for reasons that have nothing to do with the disk being unwell, which is why `iostat` leaves flushes out of await too. Graph it and judge it there.
 * Latency is reported rather than judged until `--warning-await` or `--critical-await` are set.
 * Throughput can be judged twice over, and whichever bound is tighter is the one that fires. `--warning` compares a disk with the most it has been seen to deliver, which needs nothing configured and adapts to the backing store. `--warning-throughput` and `--critical-throughput` are absolute rates, for a store whose limit is known. Graph it for a few days first, then set the thresholds above what the host does when nothing is wrong.
 * A disk that has just appeared, and every disk on the first runs, is named after "Waiting for more data:" until `--count` measurements have accumulated. The disks that have been there all along keep being reported meanwhile.
@@ -252,6 +253,8 @@ Both latency thresholds accept [Nagios ranges](../THRESHOLDS.md). `--warning` do
 | read_bytes_per_second | Bytes | Read across all checked disks, averaged over `--count` measurements. |
 | write_bytes_per_second | Bytes | Written across all checked disks, averaged over `--count` measurements. |
 | &lt;machine&gt;_&lt;disk&gt;_await | Milliseconds | Average time a read or write took to complete. This is the value the latency thresholds judge. |
+| &lt;machine&gt;_&lt;disk&gt;_flush_await | Milliseconds | Average time a flush took to complete. What a guest waits on every fsync. No threshold applies to it. |
+| &lt;machine&gt;_&lt;disk&gt;_flush_iops | Number | Flushes completed per second, averaged over `--count` measurements. |
 | &lt;machine&gt;_&lt;disk&gt;_read_await | Milliseconds | The same for reads alone. |
 | &lt;machine&gt;_&lt;disk&gt;_read_bytes_per_second | Bytes | Read, averaged over `--count` measurements. |
 | &lt;machine&gt;_&lt;disk&gt;_read_bytes_per_second1 | Bytes | The same, over the last measurement interval alone. |

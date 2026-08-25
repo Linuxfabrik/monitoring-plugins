@@ -33,6 +33,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # answered with a bare `block.1.name=vdb`. The same fixture carries a machine with an
 # empty CD-ROM drive, so one capture holds both shapes next to a disk that is real.
 #
+# `flushing-disk` was captured from a live host and is the one that carries the flush
+# counters: 159 flushes over 728802413 ns is 4.6 ms each, which is what a guest waits
+# on every fsync and what decides whether a database inside it feels slow. It is
+# reported and never folded into the figure the thresholds judge, because a flush is
+# legitimately an order of magnitude slower than a read.
+#
 # The `slow-disk` fixture is the one that pins the unit of the latency figure. libvirt
 # counts the time an I/O took in nanoseconds, unlike the kernel's own block layer
 # statistics, which are milliseconds. Its 6120000000 over ten requests is 612 ms, and
@@ -284,6 +290,25 @@ TESTS = [
         'params': '--warning-throughput=1M --critical-throughput=100M',
         'assert-retc': STATE_WARN,
         'assert-in': ["_throughput'=50331648B;1048576;104857600"],
+    },
+    {
+        # 728802413 ns over 159 flushes is 4.6 ms each. Read as milliseconds the
+        # counter would come out at 0.0 ms, the same mistake the read and write
+        # latency figures guard against.
+        'id': 'ok-flush-latency-is-reported',
+        'test': 'stdout/flushing-disk,,0',
+        'params': '--lengthy --warning=200',
+        'assert-retc': STATE_OK,
+        'assert-in': ['4.6ms', "_flush_await'=4.6ms"],
+    },
+    {
+        # Flushes stay out of the figure the latency thresholds judge, which is reads
+        # and writes only, as iostat counts await too. 4.6 ms of flush must not trip a
+        # 2 ms bound.
+        'id': 'ok-flush-latency-does-not-drive-the-await-threshold',
+        'test': 'stdout/flushing-disk,,0',
+        'params': '--warning-await=2 --warning=200',
+        'assert-retc': STATE_OK,
     },
 ]
 

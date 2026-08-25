@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082504'
+__version__ = '2026082505'
 
 DESCRIPTION = """Reports how much a libvirt host's virtual machines read and write, and how long
 their storage takes to answer. Warns when a disk sustains a large share of the most
@@ -276,6 +276,8 @@ def get_disks(domstats):
                 continue
             name = stats.get(f'{prefix}name', index)
             disks[f'{machine}/{name}'] = {
+                'fl_reqs': stats.get(f'{prefix}fl.reqs', 0),
+                'fl_times': stats.get(f'{prefix}fl.times', 0),
                 'rd_bytes': stats.get(f'{prefix}rd.bytes', 0),
                 'rd_reqs': stats.get(f'{prefix}rd.reqs', 0),
                 'rd_times': stats.get(f'{prefix}rd.times', 0),
@@ -397,6 +399,8 @@ def main():
         # out that much too high.
         definition = """
             name        TEXT NOT NULL,
+            fl_reqs     INT NOT NULL,
+            fl_times    INT NOT NULL,
             rd_bytes    INT NOT NULL,
             rd_reqs     INT NOT NULL,
             rd_times    INT NOT NULL,
@@ -426,6 +430,8 @@ def main():
                 conn,
                 sensorcol='name',
                 datacols=[
+                    'fl_reqs',
+                    'fl_times',
                     'rd_bytes',
                     'rd_reqs',
                     'rd_times',
@@ -529,6 +535,13 @@ def main():
         )
         read_await_ms = get_await(load['rd_timesn'], load['rd_reqsn'])
         write_await_ms = get_await(load['wr_timesn'], load['wr_reqsn'])
+        # How long a flush takes, which is what a guest feels on every fsync and what
+        # decides whether a database inside it is slow. Deliberately not part of the
+        # figure the thresholds judge: `iostat` counts only reads and writes in await
+        # too, and a flush is legitimately an order of magnitude slower than a read,
+        # so folding it in would move the bound for reasons that have nothing to do
+        # with the disk being unwell. Reported, and left for a graph to judge.
+        flush_await_ms = get_await(load['fl_timesn'], load['fl_reqsn'])
         # Latency is the part that may go critical, because this is where a disk that
         # has stopped answering shows up. Both thresholds are unset by default, and
         # `get_state()` then reports OK, so latency is graphed and not judged.
@@ -554,6 +567,7 @@ def main():
                 '_state': item_state,
                 'await': f'{await_ms}ms',
                 'disk': disk,
+                'flush': f'{flush_await_ms}ms',
                 'max': f'{lib.human.bytes2human(max_bandwidth)}/s',
                 'name': machine,
                 'read': f'{lib.human.bytes2human(read)}/s',
@@ -645,6 +659,18 @@ def main():
             uom='ms',
             _min=0,
         )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_flush_await',
+            flush_await_ms,
+            uom='ms',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            f'{perfdata_name}_flush_iops',
+            round(load['fl_reqsn'], 1),
+            uom=None,
+            _min=0,
+        )
 
     # nothing left to report on
     if not table_data and not waiting:
@@ -726,6 +752,7 @@ def main():
                 'throughput',
                 'max',
                 'await',
+                'flush',
                 'state',
             ]
             header = [
@@ -738,6 +765,7 @@ def main():
                 f'Total/s ({args.COUNT}x)',
                 'Max/s',
                 'Await',
+                'Flush',
                 'State',
             ]
         msg += '\n\n' + lib.base.get_table(display_data, cols, header=header)
