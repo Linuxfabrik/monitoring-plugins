@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-healthy-across-three-services',
+        'test': 'stdout/healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '29 quotas checked',
+            'the fullest is network_port at 13.0%',
+            '11 of them have no limit',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # Nova answers with quotas whose usage nobody counts: the nova-network leftovers, the
+        # per-request limits, and the two it counts per user. None of them may be reported.
+        'id': 'ok-nova-quotas-without-usage-are-left-out',
+        'test': 'stdout/healthy,,0',
+        'params': '--service=compute',
+        'assert-retc': STATE_OK,
+        'assert-in': ['4 quotas checked', 'cores', 'instances', 'ram', 'server_groups'],
+        'assert-not-in': [
+            'floating_ips',
+            'injected_files',
+            'key_pairs',
+            'metadata_items',
+            'security_groups',
+            'server_group_members',
+        ],
+    },
+    {
+        # Cinder caps a single volume with this one, so it has no usage either.
+        'id': 'ok-per-volume-gigabytes-is-left-out',
+        'test': 'stdout/healthy,,0',
+        'params': '--service=volume',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['per_volume_gigabytes'],
+    },
+    {
+        'id': 'crit-port-quota-nearly-full',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'network_port at 95.0%\s+\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-without-the-port-quota',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network --ignore=^network_port$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['network_security_group_rule at 85.0%'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        # A reservation is on its way to becoming a port and counts against the limit:
+        # 188 in use plus 2 reserved is what fills 190 of 200.
+        'id': 'ok-a-reservation-counts-as-used',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network --match=^network_port$ --warning=96 --critical=97',
+        'assert-retc': STATE_OK,
+        'assert-in': ['190', '95.0%'],
+    },
+    {
+        'id': 'ok-unlimited-quotas-are-counted-not-listed',
+        'test': 'stdout/unlimited,,0',
+        'params': '--service=volume',
+        'assert-retc': STATE_OK,
+        'assert-in': ['6 quotas checked', '6 of them have no limit'],
+        'assert-not-in': ['Resource'],
+    },
+    {
+        # A quota of zero forbids the resource. That is a decision somebody made, not a
+        # capacity that filled up, so it must not alert.
+        'id': 'ok-a-quota-of-zero-forbids-instead-of-alerting',
+        'test': 'stdout/floating-ips-forbidden,,0',
+        'params': '--service=network',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 of them are set to zero'],
+        'assert-not-in': ['floatingip', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-a-service-that-cannot-be-read',
+        'test': 'stdout/api-error,,0',
+        'params': '--service=compute',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Cannot read the quotas of Compute'],
+    },
+    {
+        'id': 'ok-brief-hides-the-healthy-rows',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network --brief --warning=99 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['7 quotas checked'],
+        'assert-not-in': ['Resource'],
+    },
+    {
+        # `--brief` reshapes the table only, so the metrics are dropped here to tell the two
+        # apart: every quota is still measured and still reported as perfdata.
+        'id': 'crit-brief-keeps-the-full-row',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network --brief --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['port'],
+        'assert-not-in': ['floatingip'],
+    },
+    {
+        'id': 'ok-lengthy-adds-what-is-left-and-what-is-reserved',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network --lengthy --warning=99 --critical=99',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Reserved', 'Free'],
+    },
+    {
+        # Nothing is reserved anywhere, so the column drops out of the table by itself.
+        'id': 'ok-lengthy-drops-the-empty-reserved-column',
+        'test': 'stdout/healthy,,0',
+        'params': '--service=compute --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Free'],
+        'assert-not-in': ['Reserved'],
+    },
+    {
+        # Nova counts RAM in MiB, Cinder counts storage in GiB. Both have to reach the
+        # administrator as bytes.
+        'id': 'crit-ram-is-reported-in-bytes',
+        'test': 'stdout/healthy,,0',
+        'params': '--service=compute --match=^compute_ram$ --warning=1 --critical=2',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['78.0GiB', '2.0TiB'],
+    },
+    {
+        'id': 'ok-match-narrows-the-listing',
+        'test': 'stdout/healthy,,0',
+        'params': '--match=^volume_',
+        'assert-retc': STATE_OK,
+        'assert-in': ['15 quotas checked'],
+        'assert-not-in': ['Compute', 'Network'],
+    },
+    {
+        'id': 'ok-ignore-drops-a-service',
+        'test': 'stdout/healthy,,0',
+        'params': '--ignore=^volume_',
+        'assert-retc': STATE_OK,
+        'assert-in': ['14 quotas checked'],
+        'assert-not-in': ['Volume'],
+    },
+    {
+        'id': 'ok-no-quota-matches-the-filter',
+        'test': 'stdout/healthy,,0',
+        'params': '--match=^nothing-matches-this$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'crit-no-quota-matches-the-filter',
+        'test': 'stdout/healthy,,0',
+        'params': '--match=^nothing-matches-this$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'warn-nagios-range-as-a-threshold',
+        'test': 'stdout/healthy,,0',
+        'params': '--service=network --warning=~:1 --critical=~:50',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'network_port at 13.0%\s+\[WARNING\]',
+    },
+    {
+        'id': 'ok-perfdata-reports-the-share-in-use',
+        'test': 'stdout/healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'network_port'=13.0%;80;90;0;100",
+            "'compute_ram'=3.8%;80;90;0;100",
+        ],
+        # A quota without a limit has no share to report.
+        'assert-not-in': ["'volume_volumes_ssd'"],
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/healthy,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'network_port'="],
+    },
+    {
+        'id': 'ok-always-ok-suppresses-the-alert',
+        'test': 'stdout/nearly-full,,0',
+        'params': '--service=network --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-invalid-match-regex',
+        'test': 'stdout/healthy,,0',
+        'params': '--match=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../openstack-quota'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

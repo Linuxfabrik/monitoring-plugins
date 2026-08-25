@@ -1,0 +1,576 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.openstack
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082501'
+
+DESCRIPTION = """Reports how full the quotas of an OpenStack project are, for compute, block
+storage and network alike. Alerts when the share of a quota that is in use reaches the
+thresholds, so a project running out of instances, volumes or ports is noticed before the next
+deployment fails, and when one of the APIs cannot be reached in time. A quota the cloud reports
+as unlimited has nothing to run out of and is counted rather than listed. Supports extended
+reporting via --lengthy."""
+
+# Where the quotas of a project live, one entry per `--service`.
+#
+# `resources` names the quota resources to report on, and `None` means every resource the API
+# hands out. Nova is the one that needs a list: it still answers with the quotas of the
+# nova-network era (`fixed_ips`, `floating_ips`, `security_groups`, `security_group_rules`) whose
+# usage it stopped counting, with per-request limits that are no quota at all (`metadata_items`,
+# `injected_files`, `injected_file_content_bytes`, `injected_file_path_bytes`), and with two
+# resources it counts per user and always answers zero for (`key_pairs`,
+# `server_group_members`). Reporting any of them would say "0 of 100 in use" about something
+# nobody is counting. What Neutron reports on is authoritative for the network resources.
+# Verified against nova/quota.py (`AbsoluteResource`, `_get_usages()`) on nova 9aa9a54e04.
+#
+# `ignored` names what a `None` list has to leave out anyway: Cinder answers with
+# `per_volume_gigabytes`, which caps a single volume instead of the project, and therefore has no
+# usage either. Verified against cinder/quota.py (`VolumeTypeQuotaEngine.resources`) on cinder
+# cd3f3e6.
+SERVICES = {
+    'compute': {
+        'envelope': 'quota_set',
+        'ignored': (),
+        'label': 'Compute',
+        'path': '/os-quota-sets/{project_id}/detail',
+        'resources': ('cores', 'instances', 'ram', 'server_groups'),
+        'service_type': 'compute',
+        'used_key': 'in_use',
+    },
+    'network': {
+        'envelope': 'quota',
+        'ignored': (),
+        'label': 'Network',
+        'path': '/v2.0/quotas/{project_id}/details.json',
+        'resources': None,
+        'service_type': 'network',
+        'used_key': 'used',
+    },
+    'volume': {
+        'envelope': 'quota_set',
+        'ignored': ('per_volume_gigabytes',),
+        'label': 'Volume',
+        'path': '/os-quota-sets/{project_id}?usage=True',
+        'resources': None,
+        'service_type': 'volumev3',
+        'used_key': 'in_use',
+    },
+}
+
+# A limit of this value means the resource is not capped at all. Nova, Cinder and Neutron all
+# spell it the same way.
+UNLIMITED = -1
+
+DEFAULT_BRIEF = False
+DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
+DEFAULT_CRIT = '90'
+DEFAULT_INSECURE = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '80'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the share of a quota that is in use, in percent. '
+        'Only applies to a quota that has a limit. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex')
+        + ' Matched against the quota name, which is the resource prefixed with its '
+        'service, for example `compute_cores` or `network_port`.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match')
+        + ' Matched against the quota name, which is the resource prefixed with its '
+        'service, for example `compute_cores` or `network_port`.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--rc-file',
+        help='Path to a rc file containing OpenStack connection parameters like '
+        'OS_USERNAME (instead of specifying them on the command line). '
+        'Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`. '
+        'Default: %(default)s',
+        dest='RC_FILE',
+        default=DEFAULT_RC_FILE,
+    )
+
+    parser.add_argument(
+        '--service',
+        help='OpenStack service to report the quotas of. '
+        'Can be specified multiple times. '
+        'A service that does not answer is reported as a warning, so name the ones '
+        'this cloud actually runs. '
+        'Example: `--service=compute --service=network`. '
+        'If not specified, all of them are checked.',
+        dest='SERVICE',
+        action='append',
+        choices=sorted(SERVICES),
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout')
+        + ' Applies to the whole run, not to a single request. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the share of a quota that is in use, in percent. '
+        'Only applies to a quota that has a limit. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_factor(service, resource):
+    """Return what a quota counts in, as a factor to bytes.
+
+    Nova counts RAM in MiB and Cinder counts storage in GiB, per volume type as well.
+    Everything else counts objects, and that is what the factor 0 says here.
+    """
+    if service == 'compute' and resource == 'ram':
+        return 1024**2
+    if service == 'volume' and 'gigabytes' in resource:
+        return 1024**3
+    return 0
+
+
+def get_quotas(service, document):
+    """Turn the answer of one service into a list of quota items.
+
+    Returns (True, list) or (False, errormessage) for an answer that does not carry the
+    envelope its API is documented to answer with.
+    """
+    spec = SERVICES[service]
+    quotas = document.get(spec['envelope'])
+    if not isinstance(quotas, dict):
+        return (
+            False,
+            f'the answer carries no "{spec["envelope"]}" section',
+        )
+    items = []
+    for resource, quota in sorted(quotas.items()):
+        # The project id sits among the quotas under the key `id`, as a plain string.
+        if not isinstance(quota, dict):
+            continue
+        if spec['resources'] is not None and resource not in spec['resources']:
+            continue
+        if resource in spec['ignored']:
+            continue
+        items.append(
+            {
+                'limit': int(quota.get('limit', UNLIMITED)),
+                'name': f'{service}_{resource}',
+                'reserved': int(quota.get('reserved', 0)),
+                'resource': resource,
+                'service': service,
+                # A reservation is on its way to becoming a real object and counts against
+                # the limit until it expires, so it belongs to what is in use.
+                'used': int(quota.get(spec['used_key'], 0))
+                + int(quota.get('reserved', 0)),
+            }
+        )
+    return (True, items)
+
+
+def get_data(args, env):
+    """Fetch the quotas of every requested service.
+
+    Returns (True, (quotas, problems)) where `problems` names every service that could not be
+    read, or (False, errormessage) when the cloud could not be reached at all.
+    """
+    services = args.SERVICE if args.SERVICE else sorted(SERVICES)
+    success, conn = lib.openstack.connect(
+        env,
+        [SERVICES[service]['service_type'] for service in services],
+        timeout=args.TIMEOUT,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        cache_expire=args.CACHE_EXPIRE,
+        cache_name='openstack-quota',
+    )
+    if not success:
+        return (False, conn)
+
+    quotas = []
+    problems = []
+    for service in services:
+        spec = SERVICES[service]
+        success, result = lib.openstack.fetch_json(
+            conn,
+            spec['service_type'],
+            spec['path'].format(project_id=conn['project_id']),
+        )
+        if success:
+            success, result = get_quotas(service, result)
+        if not success:
+            problems.append(f'{spec["label"]} ({result})')
+            continue
+        quotas += result
+    return (True, (quotas, problems))
+
+
+def get_test_data(args):
+    """Read the answer of every service from a fixture, one per service."""
+    quotas = []
+    problems = []
+    for service in args.SERVICE if args.SERVICE else sorted(SERVICES):
+        document = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-{service}')
+        success, result = get_quotas(service, document)
+        if not success:
+            problems.append(f'{SERVICES[service]["label"]} ({result})')
+            continue
+        quotas += result
+    return (quotas, problems)
+
+
+def get_usage(quota):
+    """Return the share of a quota that is in use, in percent, or None when it has none.
+
+    A quota with no limit has nothing to run out of, and one whose limit is zero forbids the
+    resource outright, which is a decision somebody made and not a capacity that fills up.
+    Neither can be rated against a threshold.
+    """
+    if quota['limit'] <= 0:
+        return None
+    return round(float(quota['used']) / float(quota['limit']) * 100, 1)
+
+
+def get_amount(quota, value):
+    """Return a number of the quota in the unit an administrator reads it in.
+
+    Object counts stay exact: a quota is about how many of something are left, and "1.0K of
+    1.0K" does not say whether that is none or a dozen.
+    """
+    factor = get_factor(quota['service'], quota['resource'])
+    if factor:
+        return lib.human.bytes2human(value * factor)
+    return str(value)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    # args.SERVICE is not set here, None means "every service"
+
+    # fetch data
+    if args.TEST is None:
+        env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
+        success, result = get_data(args, env)
+        if not success:
+            # The cloud did not answer in time or refused us. That is a statement about the
+            # cloud, so warn instead of going unknown.
+            lib.base.oao(result, STATE_WARN, always_ok=args.ALWAYS_OK)
+        quotas, problems = result
+    else:
+        # do not call the endpoint, put in test data
+        quotas, problems = get_test_data(args)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    checked = 0
+    forbidden = 0
+    unlimited = 0
+    alerting = []
+    fullest_name = ''
+    fullest_usage = -1.0
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    for quota in quotas:
+        name = quota['name']
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        checked += 1
+        usage = get_usage(quota)
+        if usage is None:
+            # Nothing to run out of, so there is nothing to report on either. Counted, so the
+            # summary can say why these are not in the table.
+            if quota['limit'] == 0:
+                forbidden += 1
+            else:
+                unlimited += 1
+            continue
+
+        quota_state = lib.base.get_state(usage, args.WARN, args.CRIT, _operator='range')
+        state = lib.base.get_worst(state, quota_state)
+        if quota_state != STATE_OK:
+            alerting.append((quota_state, usage, name))
+        if usage > fullest_usage:
+            fullest_name, fullest_usage = name, usage
+
+        perfdata += lib.base.get_perfdata(
+            # A label an RRD backend can store, and one Grafana can match on.
+            re.sub(r'\W+', '_', name),
+            usage,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+
+        # `--brief` is a display filter only: the lines above already fed the state and the
+        # perfdata.
+        if args.BRIEF and quota_state == STATE_OK:
+            continue
+        table_data.append(
+            {
+                'limit': get_amount(quota, quota['limit']),
+                'free': get_amount(quota, max(0, quota['limit'] - quota['used'])),
+                'reserved': (
+                    get_amount(quota, quota['reserved']) if quota['reserved'] else ''
+                ),
+                'resource': quota['resource'],
+                'service': SERVICES[quota['service']]['label'],
+                'used': get_amount(quota, quota['used']),
+                # Only the last column may carry a state marker, because IcingaWeb replaces
+                # it with an icon and breaks the table everywhere else.
+                'usage': f'{usage}%{lib.base.state2str(quota_state, prefix=" ")}',
+            }
+        )
+
+    # every quota was filtered out, so there is nothing to report on
+    if (compiled_match or compiled_ignore) and not checked:
+        lib.base.oao(
+            f'{len(quotas)} {lib.txt.pluralize("quota", len(quotas))} in this project, '
+            f'all filtered out by `--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    # Worst first, so the problem is inside the first 80 characters an alerting channel shows,
+    # and fullest first within one state.
+    for quota_state, usage, name in sorted(
+        alerting, key=lambda item: (-item[0], -item[1])
+    ):
+        msg += f'{name} at {usage}%{lib.base.state2str(quota_state, prefix=" ")}, '
+    msg += f'{checked} {lib.txt.pluralize("quota", checked)} checked'
+    if not alerting and fullest_name:
+        msg += f', the fullest is {fullest_name} at {fullest_usage}%'
+    msg += '.'
+    # Say that these exist, so their absence from the table does not read as a gap.
+    if unlimited:
+        msg += f' {unlimited} of them {"has" if unlimited == 1 else "have"} no limit.'
+    if forbidden:
+        msg += (
+            f' {forbidden} of them {"is" if forbidden == 1 else "are"} set to zero, '
+            f'which forbids the resource.'
+        )
+    if problems:
+        # Say which service is missing from the picture, instead of presenting the rest as the
+        # whole of it.
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f' Cannot read the quotas of {", ".join(problems)}'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
+        )
+
+    # build table output
+    if table_data:
+        # Fullest first: the quota an administrator has to act on is the one at the top.
+        table_data = sorted(
+            table_data,
+            key=lambda item: float(item['usage'].split('%')[0]),
+            reverse=True,
+        )
+        if args.LENGTHY:
+            keys = ['service', 'resource', 'used', 'reserved', 'free', 'limit', 'usage']
+            header = [
+                'Service',
+                'Resource',
+                'Used',
+                'Reserved',
+                'Free',
+                'Limit',
+                'Usage',
+            ]
+        else:
+            keys = ['service', 'resource', 'used', 'limit', 'usage']
+            header = ['Service', 'Resource', 'Used', 'Limit', 'Usage']
+        # A column nothing filled in is noise. `Reserved` is the usual one: a cloud that is
+        # not handing out anything right now reports no reservation at all.
+        msg += '\n\n' + lib.base.get_table(
+            table_data, keys, header=header, hide_empty=True
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
