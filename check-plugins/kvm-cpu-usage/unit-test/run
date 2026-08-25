@@ -44,6 +44,27 @@ TESTS = [
         'assert-in': ['2 VMs', 'mailstore01', 'nextcloud01'],
     },
     {
+        # The virtual CPUs the running machines were promised, against the cores the
+        # host really has. Two machines of two each on eight cores is half the host
+        # handed out. More than 100% is normal and not alerted on; it is the number to
+        # look at once the steal column starts moving.
+        'id': 'ok-vcpu-commitment',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ["4 vCPUs (50.0% of the host's 8 cores)", "'vcpu_commitment'=50.0%"],
+    },
+    {
+        # A host that does not say how many cores it has still gets everything else,
+        # rather than a share worked out against nothing.
+        'id': 'ok-no-commitment-without-a-core-count',
+        'test': 'stdout/no-host-cores,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['4 vCPUs,'],
+        'assert-not-in': ['vcpu_commitment', 'of the host'],
+    },
+    {
         'id': 'ok-no-running-machines',
         'test': 'stdout/no-running-domains,,0',
         'params': '',

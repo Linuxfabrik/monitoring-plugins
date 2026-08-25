@@ -207,6 +207,80 @@ spec:
         operator: '=~'
         value: /_cpu_steal$/
 
+
+  # What the machines were promised against what the host has. Its own panel and its
+  # own axis: this is a percentage that legitimately goes past 100, while the panel
+  # below counts cores and stays under the host's core count.
+  - title: kvm-cpu-usage - Virtual CPUs Handed Out
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 16
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: linear
+          lineWidth: 1
+          showPoints: never
+          spanNulls: false
+        decimals: 1
+        min: 0
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: commitment
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      - params:
+        - metric
+        type: tag
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /^vcpu_commitment$/
+
   # Host cores kept busy, per machine and in total. Absolute figures on a
   # different scale from the percentages above, so they get their own panel.
   # This is the number that includes the emulator and I/O threads, which is
@@ -217,7 +291,7 @@ spec:
       h: 8
       w: 24
       x: 0
-      y: 16
+      y: 24
     fieldConfig:
       defaults:
         color:
@@ -279,4 +353,4 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /(^cpu_cores_used$|_cpu_cores$)/
+        value: /(^cpu_cores_total$|^cpu_cores_used$|_cpu_cores$)/

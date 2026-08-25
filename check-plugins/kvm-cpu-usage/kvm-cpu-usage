@@ -24,12 +24,14 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
 much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
 machine uses more of its assigned virtual CPUs than the thresholds allow, and if the host
-makes a machine wait for CPU for too large a share of its time. Runs without root or sudo."""
+makes a machine wait for CPU for too large a share of its time. Also reports how many
+virtual CPUs the running machines were promised against the cores the host really has.
+Runs without root or sudo."""
 
 DEFAULT_COUNT = (
     5  # measurements; if the check runs once per minute, this is a 5 minute average
@@ -53,6 +55,11 @@ VCPU_DELAY_REGEX = re.compile(r'^vcpu\.(\d+)\.delay$')
 VCPU_TIME_REGEX = re.compile(r'^vcpu\.(\d+)\.time$')
 
 NANOSECONDS_PER_SECOND = 10**9
+
+# The host's core count, out of `virsh nodeinfo`. libvirt prints it as a `Key: value`
+# block, and this is the only line of it worth having: a machine's virtual CPUs mean
+# nothing without the number of real ones they are promised out of.
+NODEINFO_CPUS_REGEX = re.compile(r'^CPU\(s\)\s*:\s*([0-9]+)\s*$', re.MULTILINE)
 
 
 def parse_args():
@@ -193,6 +200,16 @@ def parse_args():
     return args
 
 
+def get_host_cores(stdout):
+    """Pick the host's core count out of `virsh nodeinfo` output.
+
+    Returns 0 when the line is missing, which leaves the share of the host's cores the
+    machines were promised unreported rather than divided by zero.
+    """
+    match = NODEINFO_CPUS_REGEX.search(stdout)
+    return int(match.group(1)) if match else 0
+
+
 def get_counters(stats):
     """Pick the cumulative counters and the virtual CPU count out of one machine's
     statistics.
@@ -256,11 +273,17 @@ def main():
             )
         )
     else:
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        domstats = lib.kvm.parse_domstats(stdout)
+        domstats = lib.kvm.parse_domstats(lib.lftest.test_text(args.TEST))
 
     if not domstats:
         lib.base.oao('No running virtual machines found.', STATE_OK)
+
+    if args.TEST is None:
+        nodeinfo = lib.base.coe(
+            lib.kvm.virsh(['nodeinfo'], uri=args.URL, timeout=args.TIMEOUT)
+        )
+    else:
+        nodeinfo = lib.lftest.test_text(args.TEST, f'{args.TEST[0]}-nodeinfo')
 
     # Record this measurement and read back the rates. `compute_load()` returns a
     # rate over the last two samples and one over the whole `--count` span; the
@@ -339,10 +362,12 @@ def main():
 
     # init some vars
     cores_used = 0.0
+    host_cores = get_host_cores(nodeinfo)
     msg = ''
     perfdata = ''
     state = STATE_OK
     steal_offenders = []
+    vcpus_assigned = 0
     steal_state_worst = STATE_OK
     table_data = []
     waiting = []
@@ -368,6 +393,7 @@ def main():
             continue
 
         _, _, _, vcpu_count = get_counters(domstats[name])
+        vcpus_assigned += vcpu_count
         load = rates[name]
 
         # A rate of nanoseconds of CPU per second of wall clock is the number of
@@ -490,10 +516,14 @@ def main():
         # yet. Naming that plainly beats a summary of zeroes.
         msg += f'Waiting for more data: {", ".join(waiting)}'
     else:
-        msg += (
-            f'{checked} VM{"s" if checked != 1 else ""}, {cores_used:.2f} cores used, '
-            f'averaged over {args.COUNT} measurements'
-        )
+        msg += f'{checked} VM{"s" if checked != 1 else ""}, {vcpus_assigned} vCPUs'
+        if host_cores:
+            # What the machines were promised against what the host has. Handing out
+            # more virtual CPUs than there are cores is normal and not an alert of its
+            # own; it is the number to look at when the steal column starts moving.
+            commitment = round(vcpus_assigned / host_cores * 100, 1)
+            msg += f" ({commitment}% of the host's {host_cores} cores)"
+        msg += f', {cores_used:.2f} cores used, averaged over {args.COUNT} measurements'
         if steal_offenders:
             msg += (
                 f'. Waiting for host CPU: {", ".join(steal_offenders)}'
@@ -507,6 +537,25 @@ def main():
         uom=None,
         _min=0,
     )
+    perfdata += lib.base.get_perfdata(
+        'vcpus_assigned',
+        vcpus_assigned,
+        uom=None,
+        _min=0,
+    )
+    if host_cores:
+        perfdata += lib.base.get_perfdata(
+            'cpu_cores_total',
+            host_cores,
+            uom=None,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'vcpu_commitment',
+            round(vcpus_assigned / host_cores * 100, 1),
+            uom='%',
+            _min=0,
+        )
 
     # build table output
     if table_data:
