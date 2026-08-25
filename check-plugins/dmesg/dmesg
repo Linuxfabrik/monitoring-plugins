@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082502'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
@@ -49,60 +49,91 @@ DEFAULT_TIMEOUT = 5
 # Ignore false positives, hardware-specific noise, and bugs without operational impact.
 # Patterns are Python regular expressions matched against each dmesg line; keep them
 # alphabetical and include the rationale so we can later re-evaluate whether an entry
-# still applies.
+# still applies. Only messages the kernel emits at emerg/alert/crit/err level can ever
+# reach this filter, so verify the log level in the kernel source before adding an
+# entry. Levels below err never show up here and an entry for them is dead weight.
+# The level differs per distribution, so check the oldest one we build for, not the
+# current upstream kernel. The entries below were verified against RHEL 8 (4.18.0-553),
+# RHEL 9 (5.14.0-687), Debian 11 (5.10), SLES 15 (5.14), Ubuntu 22.04 (5.15),
+# Debian 12 (6.1), Ubuntu 24.04 (6.8), Debian 13 / Rocky 10 / SLES 16 (6.12) and 7.1.
 DEFAULT_IGNORE = [
-    # SCSI sd: cache mode page absent (Virtio/USB/SD-card disks); falls back to write-through
+    # ACPI method aborted because it references an object the firmware never declared.
+    # ACPICA treats namespace lookup failures as firmware bugs; aborts caused by other
+    # AML errors keep being reported.
+    r' ACPI BIOS Error \(bug\): Could not resolve symbol \[.*\], AE_NOT_FOUND',
+    r' ACPI BIOS Error \(bug\): Failure creating named object \[.*\], AE_ALREADY_EXISTS',
+    r' ACPI Error: Aborting method .* due to previous error \(AE_NOT_FOUND\)',
+    # RTC wake alarm cannot be armed; only wake-from-RTC is affected, timekeeping is not
+    ' ACPI Error: Could not enable RealTimeClock event',
+    # SCSI sd: cache mode page absent (Virtio/USB/SD-card disks); falls back to
+    # write-through. `Assuming drive cache` is err level on Debian 11, SLES 15 and
+    # Ubuntu 22.04 only; RHEL and Linux 5.16 and later log it as a warning
     ' Asking for cache data failed',
     ' Assuming drive cache: write through',
-    # Broadcom WLAN firmware-load info on Raspberry Pi 3B+ (BCM4345/6); informational, not an error
+    # Broadcom WLAN firmware-load info on Raspberry Pi 3B+ (BCM4345/6). The Raspberry Pi
+    # kernel is built with CONFIG_BRCMDBG=y, which promotes these info lines to err level
     ' brcmfmac: brcmf_c_preinit_dcmds: Firmware: BCM4345/6',
     ' brcmfmac: brcmf_fw_alloc_request: using brcm/brcmfmac43455-sdio'
     ' for chip BCM4345/6',
-    # CIFS reconnect noise on RHEL 8 / Linux 5.4 and older; demoted to KERN_DEBUG upstream in 2020
-    ' CIFS VFS: Free previous auth_key.response = ',
-    # Legacy cpufreq init failing to read CPU frequency; older kernels and virt. guests
-    r' cpufreq: __cpufreq_add_dev: ->get\(\) failed',
-    # Shim/MOK config table not exposed as EFI runtime memory; cosmetic, no Secure Boot impact.
+    # KVM guest sets branch-trace/last-branch bits the host emulates as a no-op;
+    # typically Windows guests on KVM/oVirt
+    r' BTF\|LBR in IA32_DEBUGCTLMSR ',
+    # KVM guest perfctr writes blocked, https://access.redhat.com/solutions/2188061
+    ' disabled perfctr wrmsr',
+    # EDAC probes an Intel memory controller the board or hypervisor does not expose.
+    # Without a controller there is nothing to report ECC errors from. Intel EDAC drivers
+    # skip virtual machines since Linux 5.14, older kernels log this in every guest
+    ' EDAC i10nm: No memory controllers found',
+    r' EDAC (i7core|pnd2|sbridge): Failed to register device with error ',
+    # Shim/MOK config table not exposed as EFI runtime memory; cosmetic, no Secure Boot
+    # impact. RHEL 8 only, later kernels reworded the check and log it as a warning.
     # Documented for Rocky Linux 8.5, https://rockylinux.org/news/rocky-linux-8-5-ga-release/
     ' EFI MOKvar config table is not in EFI runtime memory',
     # ACPI Error Record Serialization Table not provided by firmware; common on most boards/VMs
     r' ERST: Failed to get Error Log Address Range\.',
+    # AMD: firmware already claimed the local APIC vector the kernel wants for IBS or for
+    # the MCE threshold interrupt. Those two features stay off, nothing else is affected
+    r' \[Firmware Bug\]: cpu \d+, failed to setup threshold interrupt',
+    r' \[Firmware Bug\]: cpu \d+, IBS interrupt offset \d+ not available',
+    r' \[Firmware Bug\]: cpu \d+, invalid IBS interrupt offset',
+    r' \[Firmware Bug\]: cpu \d+, try to use APIC[0-9A-F]+ \(LVT offset \d+\)',
+    # BIOS keeps the hardware performance counters for itself; only perf-based tooling
+    # is affected, common on servers that expose power or thermal monitoring to the BMC
+    r' \[Firmware Bug\]: the BIOS has corrupted hw-PMU resources',
+    # TSC deadline timer disabled by a CPU erratum; kernel falls back to the APIC timer
+    r' \[Firmware Bug\]: TSC_DEADLINE disabled due to Errata',
     # DRM vsync flip timeout on i915 / virt. GPUs, https://access.redhat.com/solutions/4490391
     ' flip_done timed out',
-    # No PS/2 keyboard controller; normal on systems without legacy PS/2 ports
-    ' i8042: No controller found',
-    # ACPI power_meter: software cap above firmware-declared safe range; kernel honors it but warns
-    ' Ignoring unsafe software power cap!',
+    # Emulated floppy or empty optical drive in a VM answers every read with an error.
+    # Scoped to fd*/sr* so real block device errors keep being reported
+    r' (I/O error, dev|Buffer I/O error on dev(ice)?) (fd|sr)\d',
     # IMA/EVM cannot load kernel-shipped X.509 cert (-126 ENOKEY); MOK keyring not yet populated,
     # https://access.redhat.com/solutions/7049158
     r' integrity: Problem loading X\.509 certificate -126',
-    # CIFS DFS referral lookup failure (-5 EIO); cosmetic on shares without DFS,
-    # https://access.redhat.com/solutions/3496971
-    ' ioctl error in smb2_get_dfs_refer rc=-5',
-    # KVM guest writes MSR_IA32_DEBUGCTLMSR (host emulates as no-op); typically Windows guests
-    # on KVM/oVirt
-    ' kvm_set_msr_common: MSR_IA32_DEBUGCTLMSR ',
-    # SCSI sd: same probe path as "Asking for cache data failed"; falls back to write-through
+    # BMC interface advertised via DMI/SMBIOS is not usable; ipmi_si moves on to the next
+    # interface source. Common on boards whose firmware announces a BMC that is not fitted
+    r' ipmi_si .*: (Could not set up I/O space|Interface detection failed)',
+    # SCSI sd: same probe path as "Asking for cache data failed", same level history
     ' No Caching mode page found',
     # SHPC PCI hot-plug slot already owned by acpiphp/pciehp on virt. PCI bridges (-16 EBUSY);
-    # hot-plug keeps working via the other driver. Common on OpenStack/KVM/VMware guests
+    # hot-plug keeps working via the other driver. Common on OpenStack/KVM/VMware guests.
+    # Anchored on shpchp so that pciehp slot failures on real hardware keep being reported
     ' pci_hp_register failed with error -16',
-    ' Slot initialization failed',
-    # SMBus controller absent or BIOS-disabled (i2c-piix4 / i2c-i801); no impact on monitoring,
-    # https://access.redhat.com/solutions/2115401
-    ' SMBus base address uninitialized - upgrade BIOS or use ',
+    r' shpchp .*: Slot initialization failed',
+    # SMBus controller absent or BIOS-disabled (i2c-piix4 / i2c-i801 / i2c-ismt); no impact
+    # on monitoring, https://access.redhat.com/solutions/2115401
+    ' SMBus base address uninitialized, upgrade BIOS',
     ' SMBus Host Controller not enabled!',
-    # Fast TSC calibration unavailable; kernel falls back to PIT/HPET-based calibration
-    ' tsc: Fast TSC calibration failed',
     # KVM guest reads unhandled MSR, https://access.redhat.com/solutions/59299
     ' unhandled rdmsr: ',
     # KVM guest writes unhandled MSR, https://bugzilla.redhat.com/show_bug.cgi?id=874627
     ' unhandled wrmsr: ',
-    # KVM guest perfctr writes blocked, https://access.redhat.com/solutions/2188061
-    ' vcpu0 disabled perfctr wrmsr',
     # RHEL flags driver as deprecated/unmaintained for the next major release; informational only
     ' Warning: Deprecated Driver is detected',
     ' Warning: Unmaintained driver is detected',
+    # SGX turned off in firmware; the kernel just clears the CPU feature. RHEL 8 words this
+    # as "SGX disabled by BIOS."
+    ' x86/cpu: SGX disabled (or unsupported )?by BIOS',
 ]
 
 

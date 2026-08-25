@@ -57,6 +57,21 @@ TESTS = [
         'assert-regex': r'Everything is ok\.',
     },
     {
+        'id': 'ok-benign-messages-v5-firmware-bugs',
+        'test': 'stdout/benign-ignored-messages-v5,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        # The default ignore list is scoped so that real block device and
+        # hardware errors keep being reported. Every line in this fixture is a
+        # near miss of a bundled pattern.
+        'id': 'crit-real-errors-are-not-filtered',
+        'test': 'stdout/errors-real-block-and-hardware,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'4 errors in Kernel Ring Buffer\.',
+    },
+    {
         'id': 'crit-tmpfs-bad-mount-option',
         'test': 'stdout/error-tmpfs-mount-option,,0',
         'assert-retc': STATE_CRIT,

@@ -47,6 +47,7 @@ Monitoring Plugins:
 * cert: reaches a TLS endpoint through an HTTP proxy, so the certificate an external client sees can be checked from inside ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * countdown: reports its dates as a table, thresholds accept Nagios ranges, and days left are reported as performance data
 * deb-updates, rpm-updates: `--grace-updates` and `--grace-security` hold an alert back until an update has been pending for a while, so a host stays quiet about updates it has had no chance to install yet. Both are off in the plugin; the Director service template sets a week plus a day for ordinary updates and nothing for security ones
+* dmesg: fewer false alarms on physical servers and in virtual machines
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 * file-age, file-count, file-growth, file-size: the summary line names the range a file broke in plain words (`2 not in (0s..2D) [WARNING]`) instead of repeating the threshold syntax
 * kvm-vm: reports a machine set to start with the host but not running, and no longer needs root, so it is gone from the sudoers allowlist
