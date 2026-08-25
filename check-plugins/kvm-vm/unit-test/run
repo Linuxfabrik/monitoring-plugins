@@ -17,9 +17,17 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# The fixtures hold `virsh domstats --state` output. Three of them were captured
+# The fixtures hold `virsh domstats --state` output. Four of them were captured
 # from a live host running libvirt 12.0.0:
 #
+#   crashed-failed-and-io-error         three machines that did not end the way
+#                                       anybody asked, among ten that did. The
+#                                       crash was produced by killing a running
+#                                       machine's hypervisor process, the failed
+#                                       start by pointing a machine at an image
+#                                       that is not there, and the I/O error by
+#                                       giving a machine a disk on a device-mapper
+#                                       `error` target with `error_policy='stop'`
 #   eleven-domains-one-running          a hypervisor with one machine up
 #   no-domains                          a host libvirt knows no machine on
 #   paused-domain-and-name-with-spaces  a suspended machine, and a machine whose
@@ -28,9 +36,13 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # The remaining two carry a state that cannot be produced on demand. Their layout
 # is the captured one, only the reported state differs:
 #
-#   crashed-domain  state 6, the one state the check reports CRITICAL
+#   crashed-domain  state 6, which needs a guest that reports its own panic and an
+#                   `on_crash` other than the default
 #   unknown-state   state 8, one past libvirt's current enumeration, standing in
 #                   for a state a later libvirt release adds
+#
+# The two hand-made fixtures also carry no `state.reason`, which no libvirt reports,
+# and so cover the case of a reason the check cannot read.
 TESTS = [
     {
         'id': 'ok-all-machines-in-expected-state',
@@ -79,6 +91,40 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_CRIT,
         'assert-regex': r'crashed\s+\[CRITICAL\]',
+    },
+    {
+        # The machine is `shut off` like the ten that were switched off properly,
+        # and only the reason separates them. Before the reason was read, this
+        # fixture came back OK.
+        'id': 'warn-machine-whose-process-was-killed',
+        'test': 'stdout/crashed-failed-and-io-error,,0',
+        'params': '--ignore=lftest-ioerror',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'rocky9\s+.*shut off \(crashed\) \[WARNING\]',
+    },
+    {
+        'id': 'warn-machine-that-never-started',
+        'test': 'stdout/crashed-failed-and-io-error,,0',
+        'params': '--ignore=lftest-ioerror',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['lftest-broken (shut off, failed)'],
+    },
+    {
+        # Frozen on a disk it cannot reach. The state alone reads `paused`, which
+        # a machine somebody suspended reads as too.
+        'id': 'crit-machine-frozen-on-an-io-error',
+        'test': 'stdout/crashed-failed-and-io-error,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['lftest-ioerror (paused, I/O error)'],
+    },
+    {
+        # A machine somebody suspended is in the same state, and stays a WARN.
+        'id': 'warn-suspended-machine-is-not-an-incident',
+        'test': 'stdout/paused-domain-and-name-with-spaces,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['Did not end the way somebody asked'],
     },
     {
         # A state libvirt adds later is named by its number and reported, rather

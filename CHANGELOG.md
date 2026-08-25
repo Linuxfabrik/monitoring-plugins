@@ -82,6 +82,7 @@ Monitoring Plugins:
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing when Keycloak withholds the server info
 * about-me: recognises a KVM host again. It only ever asked about `libvirtd`, which current installations do not run, so no hypervisor with the modular daemons was tagged
+* kvm-vm: a machine that crashed, was killed off the host or never started is reported instead of counted as switched off
 * kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
 

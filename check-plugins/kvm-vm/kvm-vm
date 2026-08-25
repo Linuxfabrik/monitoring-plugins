@@ -21,12 +21,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082402'
+__version__ = '2026082502'
 
 DESCRIPTION = """Lists the virtual machines of a libvirt host and checks the state of each
-one. Alerts if a machine has crashed, is paused, idle or suspended by guest power
-management, and if a machine that is configured to start together with the host is not
-running. Runs without root or sudo."""
+one, together with the reason libvirt gives for it. Alerts if a machine is paused, idle
+or suspended by guest power management, if a machine that is configured to start
+together with the host is not running, and if a machine did not end the way somebody
+asked it to: frozen on a storage error, killed off the host, or never started at all.
+Runs without root or sudo."""
 
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
@@ -38,6 +40,51 @@ DEFAULT_URL = lib.kvm.DEFAULT_URI
 # passing it over in silence.
 CRIT_STATES = ('crashed',)
 OK_STATES = ('in shutdown', 'running', 'shut off')
+
+# The states above say where a machine ended up, and for `shut off` that is the same
+# answer for a machine somebody switched off and for one that died. How it got there
+# is in the reason libvirt records next to the state, and these are the reasons that
+# say it ended badly. Judged by state and reason together, so a machine whose state
+# reads normal is still reported when the reason does not.
+#
+# `crashed` is the reason that matters most, and it is not the guest panicking. Only
+# a guest with a panic device reports a panic at all, and `on_crash` then defaults to
+# `destroy`, so even that ends here rather than in the `crashed` state. What libvirt
+# really records this way is the hypervisor process disappearing without having
+# announced a shutdown first: "Monitor connection closed without SHUTDOWN event;
+# assuming the domain crashed" (`processMonitorEOFEvent()` in qemu_driver.c). That is
+# the out-of-memory killer, a segfault, or anything else that takes the process off
+# the host. Verified against libvirt 12.0.0 by killing a running machine's process:
+# the machine came back as `shut off` with reason `crashed`, and a plain state check
+# reported it OK next to the machines that had been switched off properly.
+#
+# Every reason libvirt knows is accounted for. The ones absent from this mapping are
+# routine and keep the verdict their state already carries: a machine is `shut off`
+# after `shutdown`, `destroyed`, `migrated`, `saved` or `from snapshot`, and `unknown`
+# is what libvirt answers for every machine it has no history for, which is all of
+# them after the daemon restarts. `paused` stays WARN for `user`, `migrating`,
+# `saving`, `dumping`, `from snapshot`, `shutting down`, `creating snapshot`,
+# `starting up` and `post-copy`, all of which are somebody at work rather than a
+# fault.
+BAD_REASONS = {
+    # A machine that is running again but whose migration broke on the way. It
+    # serves, and the pair of hosts it is spread over is not in a state to leave.
+    ('running', 'post-copy failed'): STATE_WARN,
+    # Frozen, and only these five are a fault rather than an operation in progress.
+    # Frozen is as bad as gone for whoever depends on the machine, and none of the
+    # five resolves itself.
+    ('paused', 'I/O error'): STATE_CRIT,
+    ('paused', 'watchdog'): STATE_CRIT,
+    ('paused', 'crashed'): STATE_CRIT,
+    ('paused', 'post-copy failed'): STATE_CRIT,
+    ('paused', 'api error'): STATE_CRIT,
+    # Gone, and not because anybody asked. WARN rather than CRIT: the machine is
+    # already down, so nothing is saved by waking somebody at three in the morning
+    # who cannot do more at that hour than in the morning.
+    ('shut off', 'crashed'): STATE_WARN,
+    ('shut off', 'failed'): STATE_WARN,
+    ('shut off', 'daemon'): STATE_WARN,
+}
 
 
 def parse_args():
@@ -125,13 +172,16 @@ def parse_args():
     return args
 
 
-def get_severity(domain_state):
-    """Return the state to report for one of libvirt's domain states."""
+def get_severity(domain_state, reason=None):
+    """Return the state to report for one of libvirt's domain states.
+
+    The reason is optional, because a caller summarising a state across several
+    machines has no single one to pass.
+    """
+    state = STATE_OK if domain_state in OK_STATES else STATE_WARN
     if domain_state in CRIT_STATES:
-        return STATE_CRIT
-    if domain_state in OK_STATES:
-        return STATE_OK
-    return STATE_WARN
+        state = STATE_CRIT
+    return lib.base.get_worst(state, BAD_REASONS.get((domain_state, reason), STATE_OK))
 
 
 def main():
@@ -188,6 +238,8 @@ def main():
 
     # init some vars
     counts = {}
+    ended_badly = []
+    ended_badly_state_worst = STATE_OK
     msg = ''
     not_running = []
     perfdata = ''
@@ -208,13 +260,28 @@ def main():
             continue
 
         # A state libvirt does not name is reported by its number instead of being
-        # dropped, so a value added to the enumeration later still shows up.
+        # dropped, so a value added to the enumeration later still shows up. The same
+        # goes for the reason, which libvirt numbers within its state.
         state_id = domstats[name].get('state.state')
+        reason_id = domstats[name].get('state.reason')
         domain_state = lib.kvm.DOMAIN_STATES.get(state_id, f'state {state_id}')
+        reason = lib.kvm.DOMAIN_STATE_REASONS.get(state_id, {}).get(reason_id)
+        if reason is None and reason_id is not None:
+            reason = f'reason {reason_id}'
         counts[domain_state] = counts.get(domain_state, 0) + 1
 
-        item_state = get_severity(domain_state)
+        item_state = get_severity(domain_state, reason)
         state = lib.base.get_worst(state, item_state)
+
+        # A machine whose state reads normal and whose reason does not. This is the
+        # one thing a state count cannot show, and the reason it is checked at all:
+        # a machine whose process was killed off the host sits in `shut off` next to
+        # the ones somebody switched off.
+        if (domain_state, reason) in BAD_REASONS:
+            ended_badly.append(f'{name} ({domain_state}, {reason})')
+            ended_badly_state_worst = lib.base.get_worst(
+                ended_badly_state_worst, BAD_REASONS[(domain_state, reason)]
+            )
 
         # A machine set to start with the host and yet not running is the one case
         # a plain state count cannot show: "shut off" is a perfectly normal state
@@ -230,7 +297,7 @@ def main():
                 'autostart': 'yes' if name in autostart else 'no',
                 'name': name,
                 'persistent': 'yes' if name in persistent else 'no',
-                'state': f'{domain_state} '
+                'state': f'{domain_state}{f" ({reason})" if reason else ""} '
                 f'{lib.base.state2str(item_state, empty_ok=False)}',
             }
         )
@@ -255,6 +322,11 @@ def main():
         for item in sorted(counts)
     )
     msg += f'{total} VM{"s" if total != 1 else ""}: {summary}'
+    if ended_badly:
+        msg += (
+            f'. Did not end the way somebody asked: {", ".join(ended_badly)}'
+            f'{lib.base.state2str(ended_badly_state_worst, prefix=" ")}'
+        )
     if not_running:
         msg += (
             f'. Set to start with the host but not running: {", ".join(not_running)}'
@@ -283,6 +355,16 @@ def main():
     perfdata += lib.base.get_perfdata(
         'vm_autostart_down',
         len(not_running),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    # The states above count where the machines are, this counts how many of them got
+    # there badly. A machine whose process was killed is `shut off` like any other, so
+    # the state counters alone never move for it.
+    perfdata += lib.base.get_perfdata(
+        'vm_ended_badly',
+        len(ended_badly),
         uom=None,
         warn='0',
         _min=0,
