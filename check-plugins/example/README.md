@@ -11,7 +11,7 @@ Skeleton plugin demonstrating all standard patterns and library functions: argpa
 
 **Data Collection:**
 
-* Executes a shell command (`cat /etc/os-release` as a placeholder) to collect data
+* Fetches the data from the endpoint given by `--url`, handing every transport option the plugin offers (`--insecure`, `--no-proxy`, `--proxy`, `--timeout`) to the library. A parameter that is declared but never forwarded looks like it works and silently does not, which is the mistake this skeleton is meant to keep you from making
 * Items can be filtered by `--name` (exact match), limited with `--match` and excluded with `--ignore` (case-sensitive Python regular expressions; use `(?i)` for case-insensitive matching). An item hit by `--ignore` is dropped even if it also matches `--match`
 * Uses SQLite state persistence between runs to calculate deltas (e.g. bytes per second)
 

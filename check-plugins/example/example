@@ -19,9 +19,9 @@ import lib.base
 import lib.db_sqlite
 import lib.human
 import lib.lftest
-import lib.shell
 import lib.time
 import lib.txt
+import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 try:
@@ -240,18 +240,25 @@ def parse_args():
     return args
 
 
-def get_data(cmd, timeout):
+def get_data(args):
     """Example helper function demonstrating the (success, result) error
     handling pattern. Returns (True, result) on success, or
     (False, errormessage) on failure.
+
+    Every transport parameter the plugin offers is handed to the library, which
+    is what makes them do anything: a parameter that is declared but never
+    forwarded looks like it works and silently does not.
     """
-    success, result = lib.shell.shell_exec(cmd, timeout=timeout)
+    success, result = lib.url.fetch(
+        args.URL,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        timeout=args.TIMEOUT,
+    )
     if not success:
         return (False, result)
-    stdout, stderr, retc = result
-    if stderr:
-        return (False, stderr)
-    return (True, stdout)
+    return (True, result)
 
 
 def main():
@@ -274,11 +281,9 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        # cmd is a list of arguments (argv); shell_exec never invokes a shell
-        cmd = ['cat', '/sys/class/hwmon/hwmon0/humidity1_input']
-        stdout = lib.base.coe(get_data(cmd, timeout=args.TIMEOUT))
+        stdout = lib.base.coe(get_data(args))
     else:
-        # do not call the command, put in test data
+        # do not call the endpoint, put in test data
         stdout, _, _ = lib.lftest.test(args.TEST)
 
     # init some vars
@@ -300,9 +305,9 @@ def main():
 
     # Parse the items to evaluate from the fetched data. Real plugins parse
     # their own data formats (JSON, regex, SNMP walks, etc.) and end up with a
-    # list of items. This skeleton reads a humidity sensor from the Linux
-    # `hwmon` interface and picks the first integer from stdout, so unit tests
-    # can drive the state machine via fixtures.
+    # list of items. This skeleton reads a humidity sensor from the endpoint and
+    # picks the first integer out of the response, so unit tests can drive the
+    # state machine via fixtures.
     humidity = re.search(r'(\d+)', stdout)
     title = 'humidity1'
     items = [(title, humidity.group(1) if humidity else '0')]
