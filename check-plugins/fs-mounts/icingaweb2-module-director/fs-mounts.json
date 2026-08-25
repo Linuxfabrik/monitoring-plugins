@@ -1,0 +1,260 @@
+{
+    "Command": {
+        "cmd-check-fs-mounts": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$fs_mounts_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$fs_mounts_brief$"
+                },
+                "--ignore": {
+                    "value": "$fs_mounts_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$fs_mounts_lengthy$"
+                },
+                "--match": {
+                    "value": "$fs_mounts_match$",
+                    "repeat_key": true
+                },
+                "--mount": {
+                    "value": "$fs_mounts_mount$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$fs_mounts_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$fs_mounts_no_perfdata$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/fs-mounts",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-fs-mounts",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "c0b66af2-6361-458c-bdf0-4f7494475113"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-fs-mounts": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-fs-mounts",
+            "check_interval": 900,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "fs-mounts.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks that every filesystem listed in /etc/fstab is really mounted. A filesystem that never came up is invisible to disk usage, inode and read-only checks, because those only look at what is mounted, and it does not show up as a failed systemd unit either, because a mount that is not there is inactive and not failed. Applications keep writing into the empty mount point on the underlying filesystem instead, usually filling up the root filesystem, until someone notices that the data is in the wrong place. Swap areas and entries marked \"noauto\" are skipped, the latter unless they also carry \"x-systemd.automount\", because those are expected to be present as an automount. Mount points that are not managed through /etc/fstab, for example one that a systemd mount unit or an automounter map provides, can be named with --mount. Supports extended reporting via --lengthy. Alerts when an expected filesystem is not mounted.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-mounts/",
+            "object_name": "tpl-service-fs-mounts",
+            "object_type": "template",
+            "retry_interval": 180,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "fs_mounts_always_ok": false,
+                "fs_mounts_brief": false,
+                "fs_mounts_ignore": [],
+                "fs_mounts_lengthy": true,
+                "fs_mounts_match": [],
+                "fs_mounts_mount": [],
+                "fs_mounts_no_match_severity": "ok",
+                "fs_mounts_no_perfdata": false
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "34791b5e-d1af-4200-a90c-b31f9fea45f6"
+        }
+    },
+    "DataList": {
+        "fs_mounts_no_match_severity_list": {
+            "list_name": "fs_mounts_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ca77fd4d-f43a-48a9-b45f-89b6a9355554"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "fs_mounts_always_ok",
+            "caption": "FS Mounts: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b6fe1d6f-2983-4b91-9291-cf5d196dab82"
+        },
+        "2": {
+            "varname": "fs_mounts_brief",
+            "caption": "FS Mounts: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a34bd5d8-16f4-4870-ac81-b4cb3f24c876"
+        },
+        "3": {
+            "varname": "fs_mounts_ignore",
+            "caption": "FS Mounts: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "24028951-8897-44b0-b2df-07facbe97a5c"
+        },
+        "4": {
+            "varname": "fs_mounts_lengthy",
+            "caption": "FS Mounts: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ad2e7e50-60b2-4e23-beee-61e3ea0ce693"
+        },
+        "5": {
+            "varname": "fs_mounts_match",
+            "caption": "FS Mounts: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "95a89345-376f-42a6-a9a0-2994978fa8af"
+        },
+        "6": {
+            "varname": "fs_mounts_mount",
+            "caption": "FS Mounts: Mount",
+            "description": "Mount point that has to be mounted although /etc/fstab does not list it, for example one that a systemd mount unit or an automounter map provides. Absolute path. Can be specified multiple times. Example: `--mount=/srv/data`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "31e202a8-1d62-4039-89fd-96ce5ad6f174"
+        },
+        "7": {
+            "varname": "fs_mounts_no_match_severity",
+            "caption": "FS Mounts: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "fs_mounts_no_match_severity_list"
+            },
+            "uuid": "6e7ef09b-ba1b-4ae8-b0db-310832ed08a5"
+        },
+        "8": {
+            "varname": "fs_mounts_no_perfdata",
+            "caption": "FS Mounts: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "017405ad-b35e-4559-8bb1-414db3f0be34"
+        }
+    }
+}

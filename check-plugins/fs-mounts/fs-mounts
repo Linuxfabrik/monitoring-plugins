@@ -1,0 +1,411 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082501'
+
+DESCRIPTION = """Checks that every filesystem listed in /etc/fstab is really mounted.
+A filesystem that never came up is invisible to disk usage, inode and read-only checks,
+because those only look at what is mounted, and it does not show up as a failed systemd
+unit either, because a mount that is not there is inactive and not failed. Applications
+keep writing into the empty mount point on the underlying filesystem instead, usually
+filling up the root filesystem, until someone notices that the data is in the wrong
+place.
+Swap areas and entries marked "noauto" are skipped, the latter unless they also carry
+"x-systemd.automount", because those are expected to be present as an automount.
+Mount points that are not managed through /etc/fstab, for example one that a systemd
+mount unit or an automounter map provides, can be named with --mount.
+Supports extended reporting via --lengthy.
+Alerts when an expected filesystem is not mounted."""
+
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+
+FSTAB = '/etc/fstab'
+MOUNTINFO = '/proc/self/mountinfo'
+
+# The kernel renders a mount point in /proc/self/mountinfo through mangle_path()
+# with the escape set " \t\n\\", turning each of those characters into a backslash
+# followed by its three-digit octal code (fs/seq_file.c, fs/proc_namespace.c).
+# fstab(5) uses the same notation. Verified on Rocky 9 with util-linux 2.37.4 and
+# systemd 252: a mount point holding a space, a tab or a backslash reads "\040",
+# "\011" and "\134" on either side.
+OCTAL_ESCAPE_REGEX = re.compile(r'\\([0-7]{3})')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--mount',
+        help='Mount point that has to be mounted although /etc/fstab does not list it, '
+        'for example one that a systemd mount unit or an automounter map provides. '
+        'Absolute path. '
+        'Can be specified multiple times. '
+        'Example: `--mount=/srv/data`',
+        dest='MOUNT',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def rooted(root, path):
+    """Return `path` below the configuration root, for both absolute and relative
+    paths.
+    """
+    return os.path.join(root, path.lstrip('/'))
+
+
+def unescape(field):
+    """Turn the octal escape sequences of an fstab or mountinfo field back into the
+    characters they stand for, so that a mount point containing a space is compared and
+    printed the way the administrator wrote it.
+    """
+    return OCTAL_ESCAPE_REGEX.sub(lambda match: chr(int(match.group(1), 8)), field)
+
+
+def normalize(mount_point):
+    """Strip the trailing slash an administrator may have written in fstab. The kernel
+    reports "/mnt/data" no matter whether fstab says "/mnt/data" or "/mnt/data/", so
+    without this a trailing slash alone would look like a missing filesystem. "/" itself
+    has nothing to strip.
+    """
+    if len(mount_point) > 1:
+        return mount_point.rstrip('/')
+    return mount_point
+
+
+def resolve(root, mount_point):
+    """Return the mount point with its symlinks resolved, the way the kernel reports it.
+
+    `mount` resolves its target before mounting, so an administrator may write a path
+    that leads through a symlink while the kernel reports the directory it points to.
+    Verified against util-linux 2.37.4 on Rocky 9: bind-mounting onto a symlink puts the
+    symlink's target into mountinfo, never the symlink itself.
+
+    Only called for a mount point without a literal match, so a healthy host never
+    resolves a path that may sit on an unresponsive network filesystem. A path that
+    leaves the configuration root is returned unchanged, because below a fixture tree it
+    would otherwise be resolved against the real filesystem.
+    """
+    resolved = os.path.realpath(rooted(root, mount_point))
+    if root in ('', '/'):
+        return normalize(resolved)
+    prefix = os.path.realpath(root)
+    if resolved == prefix:
+        return '/'
+    if resolved.startswith(prefix + os.sep):
+        return normalize(resolved[len(prefix) :])
+    return normalize(mount_point)
+
+
+def get_expected(fstab, extra_mounts):
+    """Return the filesystems that have to be mounted, as a list of dicts: first the
+    ones /etc/fstab lists, in the order it lists them, then the ones --mount names.
+    """
+    expected = []
+    seen = set()
+
+    def add(mount_point, spec, fstype):
+        if mount_point in seen:
+            # a mount point named twice is mounted once, and the later entry wins
+            return
+        seen.add(mount_point)
+        expected.append({'fstype': fstype, 'mount_point': mount_point, 'spec': spec})
+
+    for line in fstab.splitlines():
+        line = line.strip()
+        if not line or line.startswith('#'):
+            continue
+        fields = line.split()
+        if len(fields) < 3:
+            # anything shorter than device, mount point and type is not a mount
+            continue
+        spec = unescape(fields[0])
+        mount_point = normalize(unescape(fields[1]))
+        fstype = fields[2]
+        # the fourth field is optional in practice, an entry without it uses "defaults"
+        options = fields[3].split(',') if len(fields) > 3 else ['defaults']
+        if fstype == 'swap':
+            # a swap area has no mount point, its second field is a placeholder
+            continue
+        if not mount_point.startswith('/'):
+            # "none" and similar placeholders, nothing that can be in mountinfo
+            continue
+        if 'noauto' in options and 'x-systemd.automount' not in options:
+            # not mounted at boot on purpose. An entry that also asks for an automount
+            # stays in: systemd pulls the automount unit into local-fs.target even with
+            # "noauto", so its mount point has to be there. Verified against systemd 252
+            # on Rocky 9.
+            continue
+        add(mount_point, spec, fstype)
+
+    for mount_point in extra_mounts:
+        # a mount point --mount names has no device and no type to report
+        add(normalize(mount_point), '', '')
+
+    return expected
+
+
+def get_mounted(mountinfo):
+    """Return the set of currently mounted mount points, taken from the fifth field of
+    each /proc/self/mountinfo line.
+    """
+    mounted = set()
+    for line in mountinfo.splitlines():
+        fields = line.split()
+        if len(fields) < 5:
+            continue
+        mounted.add(normalize(unescape(fields[4])))
+    return mounted
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.MOUNT is None:
+        args.MOUNT = []
+
+    # fetch data
+    root = args.CONFIG_ROOT
+    mountinfo_path = rooted(root, MOUNTINFO)
+    if not lib.disk.file_exists(mountinfo_path, allow_empty=True):
+        lib.base.cu(
+            f'This host does not provide {MOUNTINFO}. '
+            'This check belongs on a Linux host.'
+        )
+    mountinfo = lib.base.coe(lib.disk.read_file(mountinfo_path))
+    fstab_path = rooted(root, FSTAB)
+    has_fstab = lib.disk.file_exists(fstab_path, allow_empty=True)
+    fstab = lib.base.coe(lib.disk.read_file(fstab_path)) if has_fstab else ''
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    not_mounted = []
+    compiled_match = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    expected = get_expected(fstab, args.MOUNT)
+    mounted = get_mounted(mountinfo)
+
+    # analyze data
+    for item in expected:
+        mount_point = item['mount_point']
+
+        # Filter mount points. --match (include) is applied first, then --ignore
+        # (exclude), so a mount point hit by --ignore is dropped even if it also
+        # matches --match. Both use case-sensitive Python regex.
+        if compiled_match and not any(p.search(mount_point) for p in compiled_match):
+            continue
+        if any(p.search(mount_point) for p in compiled_ignore):
+            continue
+
+        local_state = STATE_OK
+        if mount_point not in mounted and resolve(root, mount_point) not in mounted:
+            local_state = STATE_WARN
+            state = lib.base.get_worst(local_state, state)
+            not_mounted.append(
+                f'{item["spec"]} on {mount_point}' if item['spec'] else mount_point
+            )
+        status = 'mounted' if local_state == STATE_OK else 'not mounted'
+        table_data.append(
+            {
+                '_state': local_state,
+                'device': item['spec'] or '-',
+                'fstype': item['fstype'] or '-',
+                'mountpoint': mount_point,
+                'state': f'{status}{lib.base.state2str(local_state, prefix=" ")}',
+            }
+        )
+
+    # Filter table rows for --brief display: hide the mounted filesystems and keep only
+    # the ones in a WARN state. Perfdata and alerting stay untouched above this point,
+    # --brief only reshapes the human-readable output.
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['_state'] != STATE_OK]
+    else:
+        display_rows = table_data
+
+    # build the message
+    source = f'{FSTAB} and --mount' if args.MOUNT else FSTAB
+    if not expected:
+        # Nothing to compare against is not the same as an unchecked host, so the line
+        # says why rather than leaving the impression of a check that never ran.
+        if has_fstab:
+            msg = f'Everything is ok. Nothing in {FSTAB} has to be mounted.'
+        else:
+            msg = f'Everything is ok. This host has no {FSTAB}.'
+    elif not table_data:
+        count = len(expected)
+        msg = (
+            f'{count} {lib.txt.pluralize("filesystem", count)} in {source}, '
+            f'filtered out by --match or --ignore.'
+        )
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
+    elif not_mounted:
+        count = len(not_mounted)
+        msg = (
+            f'{count} {lib.txt.pluralize("filesystem", count)} from {source} '
+            f'{lib.txt.pluralize("", count, "is,are")} not mounted: '
+        )
+        if count == 1:
+            # show the mount point on the first line when there is only one hit
+            msg += not_mounted[0]
+        else:
+            for item in not_mounted:
+                msg += f'\n* {item}'
+    else:
+        count = len(table_data)
+        msg = (
+            f'Everything is ok. {count} '
+            f'{lib.txt.pluralize("filesystem", count)} from {source} '
+            f'{lib.txt.pluralize("", count, "is,are")} mounted.'
+        )
+    perfdata += lib.base.get_perfdata(
+        'fs_mounts_expected',
+        len(table_data),
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'fs_mounts_not_mounted',
+        len(not_mounted),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+
+    # build table output
+    if args.LENGTHY and display_rows:
+        msg += '\n\n' + lib.base.get_table(
+            display_rows,
+            ['mountpoint', 'device', 'fstype', 'state'],
+            header=['Mountpoint', 'Device', 'Type', 'State'],
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

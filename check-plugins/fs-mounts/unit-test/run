@@ -1,0 +1,238 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# fs-mounts reads files and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's filesystem, selected with the hidden
+# `--config-root` hook. Each tree holds an `etc/fstab` and a `proc/self/mountinfo`.
+
+TESTS = [
+    {
+        'id': 'ok-every-fstab-entry-is-mounted',
+        'test': '',
+        'params': '--config-root=config/all-mounted-debian',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 2 filesystems from /etc/fstab '
+        r'are mounted\.',
+    },
+    {
+        'id': 'ok-boot-and-root-of-an-anaconda-install',
+        'test': '',
+        'params': '--config-root=config/all-mounted-rocky9',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+    },
+    {
+        # a mount point holding a space and one holding a tab, written "\040" and
+        # "\011" on both sides
+        'id': 'ok-escaped-mount-points-are-recognised',
+        'test': '',
+        'params': '--config-root=config/escaped-mountpoints',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 3 filesystems',
+    },
+    {
+        # "noauto" without "x-systemd.automount" is not expected to be mounted
+        'id': 'ok-noauto-entries-are-skipped',
+        'test': '',
+        'params': '--config-root=config/noauto-omd',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 2 filesystems',
+    },
+    {
+        # `mount` resolves the target before mounting, so the kernel reports the
+        # directory the symlink points to
+        'id': 'ok-mount-point-behind-a-symlink',
+        'test': '',
+        'params': '--config-root=config/symlinked-mountpoint',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 2 filesystems',
+    },
+    {
+        # a swap area has no mount point and is never expected in mountinfo
+        'id': 'ok-swap-areas-are-skipped',
+        'test': '',
+        'params': '--config-root=config/swap-only',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Nothing in /etc/fstab has to be mounted\.',
+    },
+    {
+        'id': 'ok-fstab-holds-only-comments',
+        'test': '',
+        'params': '--config-root=config/nothing-to-check',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Nothing in /etc/fstab has to be mounted\.',
+    },
+    {
+        'id': 'ok-host-without-an-fstab',
+        'test': '',
+        'params': '--config-root=config/no-fstab',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'This host has no /etc/fstab\.',
+    },
+    {
+        'id': 'ok-lengthy-lists-every-expected-filesystem',
+        'test': '',
+        'params': '--config-root=config/all-mounted-debian --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'/boot\s+!\s+/dev/sda3\s+!\s+ext2\s+!\s+mounted',
+    },
+    {
+        # --brief hides the rows within the thresholds, leaving the summary alone
+        'id': 'ok-brief-hides-the-mounted-rows',
+        'test': '',
+        'params': '--config-root=config/all-mounted-debian --lengthy --brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Mountpoint'],
+    },
+    {
+        'id': 'ok-ignore-drops-the-missing-filesystems',
+        'test': '',
+        'params': '--config-root=config/root-only --ignore=^/boot$ --ignore=^/home$',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 1 filesystem from /etc/fstab '
+        r'is mounted\.',
+    },
+    {
+        'id': 'ok-always-ok-suppresses-the-alert',
+        'test': '',
+        'params': '--config-root=config/root-only --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'2 filesystems from /etc/fstab are not mounted',
+    },
+    {
+        # every mount point filtered away: the line says what the host carries
+        'id': 'ok-everything-filtered-out',
+        'test': '',
+        'params': '--config-root=config/root-only --ignore=.',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'3 filesystems in /etc/fstab, '
+        r'filtered out by --match or --ignore\.',
+    },
+    {
+        # a mount point no fstab entry provides is only checked when --mount names it
+        'id': 'ok-mount-adds-a-filesystem-outside-fstab',
+        'test': '',
+        'params': '--config-root=config/unit-managed --mount=/srv/unit-provided',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 2 filesystems from '
+        r'/etc/fstab and --mount are mounted\.',
+    },
+    {
+        'id': 'warn-mount-names-a-filesystem-that-is-absent',
+        'test': '',
+        'params': '--config-root=config/unit-managed --mount=/srv/absent',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'1 filesystem from /etc/fstab and --mount is not mounted: '
+        r'/srv/absent',
+    },
+    {
+        'id': 'warn-a-network-share-did-not-come-up',
+        'test': '',
+        'params': '--config-root=config/nfs-not-mounted',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'1 filesystem from /etc/fstab is not mounted: '
+        r'192\.168\.1\.1:/srv/backup on /mnt/nfs/backup',
+    },
+    {
+        # a device that is not there, and one that is not there but marked "nofail"
+        'id': 'warn-nofail-is-reported-like-any-other-entry',
+        'test': '',
+        'params': '--config-root=config/not-mounted-two',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/mnt/missing', '/mnt/nofail'],
+    },
+    {
+        # "noauto,x-systemd.automount" has to be present as an autofs mount
+        'id': 'warn-an-automount-counts-as-mounted',
+        'test': '',
+        'params': '--config-root=config/not-mounted-two',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['/mnt/autofs'],
+    },
+    {
+        # a trailing slash in fstab is not a missing filesystem
+        'id': 'warn-a-trailing-slash-still-matches',
+        'test': '',
+        'params': '--config-root=config/not-mounted-two',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['/mnt/trailing'],
+    },
+    {
+        'id': 'warn-only-the-root-filesystem-came-up',
+        'test': '',
+        'params': '--config-root=config/root-only',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'\* /dev/nvme0n1p1 on /boot',
+    },
+    {
+        'id': 'warn-match-narrows-down-to-one-mount-point',
+        'test': '',
+        'params': '--config-root=config/root-only --match=^/home$',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'1 filesystem from /etc/fstab is not mounted: '
+        r'/dev/nvme0n1p3 on /home',
+    },
+    {
+        'id': 'warn-lengthy-marks-the-missing-row',
+        'test': '',
+        'params': '--config-root=config/root-only --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'/home\s+!\s+/dev/nvme0n1p3\s+!\s+ext4\s+!\s+'
+        r'not mounted \[WARNING\]',
+    },
+    {
+        'id': 'warn-brief-keeps-only-the-missing-rows',
+        'test': '',
+        'params': '--config-root=config/root-only --lengthy --brief',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['/dev/nvme0n1p2'],
+    },
+    {
+        'id': 'crit-no-match-severity-raises-the-filtered-out-case',
+        'test': '',
+        'params': '--config-root=config/root-only --ignore=. --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'filtered out by --match or --ignore\.',
+    },
+    {
+        'id': 'unknown-invalid-ignore-regex',
+        'test': '',
+        'params': '--config-root=config/root-only --ignore=[',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-regex': r'--ignore',
+    },
+    {
+        'id': 'unknown-host-without-proc-mountinfo',
+        'test': '',
+        'params': '--config-root=config',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-regex': r'does not provide /proc/self/mountinfo',
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../fs-mounts'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
