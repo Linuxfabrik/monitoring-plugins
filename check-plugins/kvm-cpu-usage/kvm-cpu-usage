@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082502'
 
 DESCRIPTION = """Reports how much CPU each virtual machine of a libvirt host consumes, and how
 much CPU its guests ask for but do not get because the host is busy elsewhere. Alerts if a
@@ -498,9 +498,8 @@ def main():
             _max=100,
         )
 
-    # nothing left to report on
-    if not domstats:
-        lib.base.oao('No running virtual machines found.', STATE_OK)
+    # nothing left to report on. A host with no running machine has already left
+    # through the same answer up in "fetch data", before a state file was touched.
     if not table_data and not waiting:
         lib.base.oao(
             f'Nothing checked. {len(domstats)} running virtual machines are '

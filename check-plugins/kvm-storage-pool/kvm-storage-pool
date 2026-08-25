@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026082503'
 
 DESCRIPTION = """Checks the storage pools a libvirt host keeps its virtual machines on. Reports the
 storage behind them and the pools themselves in two tables: one per store, with how full
@@ -63,11 +63,6 @@ DEFAULT_WARN = '80'
 CRIT_STATES = ('inaccessible',)
 OK_STATES = ('building', 'inactive', 'running')
 
-# Where a pool points, out of its definition. libvirt writes the element on a line of
-# its own inside `<target>`, and `<target>` is the only place a pool's XML carries a
-# `<path>` element at all: a source names its device or directory in an attribute
-# instead. The search is scoped to the target anyway, so a pool type that changes that
-# later cannot quietly hand over the wrong path. Verified against libvirt 12.0.0.
 # How far the free space two pools report may drift apart and still be the same store.
 # The pools are asked one after another, so a filesystem being written to has moved by
 # the time the next one is asked; 0.18% of capacity was measured between two pools of
@@ -75,6 +70,11 @@ OK_STATES = ('building', 'inactive', 'running')
 # still far below what two genuinely separate filesystems would differ by.
 STORE_DRIFT = 0.01
 
+# Where a pool points, out of its definition. libvirt writes the element on a line of
+# its own inside `<target>`, and `<target>` is the only place a pool's XML carries a
+# `<path>` element at all: a source names its device or directory in an attribute
+# instead. The search is scoped to the target anyway, so a pool type that changes that
+# later cannot quietly hand over the wrong path. Verified against libvirt 12.0.0.
 POOL_TARGET_REGEX = re.compile(r'<target>(.*?)</target>', re.DOTALL)
 POOL_PATH_REGEX = re.compile(r'<path>(.*?)</path>', re.DOTALL)
 
@@ -394,7 +394,8 @@ def main():
                 # alignment anywhere else. The verdict is about the pool itself; how
                 # full the storage under it is has a table and a verdict of its own.
                 'pool_state': pool_state,
-                'state': f'{pool_state}{lib.base.state2str(item_state, prefix=" ")}',
+                'state': f'{pool_state} '
+                f'{lib.base.state2str(item_state, empty_ok=False)}',
             }
         )
 
@@ -407,6 +408,8 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
+    # still analysing: the pools are grouped into the stores they sit on, and the
+    # figures of each store are worked out before the message can name them
     stores = group_by_store(measurements)
 
     # One set of numbers per store, named after the store rather than after the pools
@@ -524,6 +527,7 @@ def main():
             f' Set to start with the host but not running: {", ".join(not_active)}'
             f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
         )
+
     # build table output
     # Two tables, because they answer two questions. The first is about storage: how
     # full it is, and which pools are on it. The second is about the pools themselves.
