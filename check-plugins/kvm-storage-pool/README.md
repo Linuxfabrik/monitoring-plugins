@@ -2,7 +2,7 @@
 
 ## Overview
 
-Checks the storage pools a libvirt host keeps its virtual machines on. Reports the storage behind them and the pools themselves in two tables: one per store, with how full it is and which pools sit on it, and one per pool. Alerts if a store is filling up, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that is configured to start together with the host is not active. Runs without root or sudo.
+Checks the storage pools a libvirt host keeps its virtual machines on. Reports the storage behind them and the pools themselves in two tables: one per store, with how full it is and which pools sit on it, and one per pool. Alerts if a store is filling up, if a pool lost part of what it serves from, if it cannot be reached at all, and if a pool that is configured to start together with the host is not active. Several pools commonly share one filesystem, which is reported and alerted on once rather than once per pool. Supports extended reporting via --lengthy. Runs without root or sudo.
 
 **Why two tables:**
 
@@ -74,8 +74,8 @@ with how full it is and which pools sit on it, and one per pool. Alerts if a
 store is filling up, if a pool lost part of what it serves from, if it cannot
 be reached at all, and if a pool that is configured to start together with the
 host is not active. Several pools commonly share one filesystem, which is
-reported and alerted on once rather than once per pool. Runs without root or
-sudo.
+reported and alerted on once rather than once per pool. Supports extended
+reporting via --lengthy. Runs without root or sudo.
 
 options:
   -h, --help            show this help message and exit

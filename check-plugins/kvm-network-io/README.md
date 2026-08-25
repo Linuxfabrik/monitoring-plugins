@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reports what a libvirt host's virtual machines send and receive over each of their network interfaces, together with the frames those interfaces lost. Warns when an interface sustains a large share of the most traffic it has ever carried, which is a saturation signal rather than an emergency. Optional thresholds alert on lost frames; which of the two loss counters carries anything depends on how the interface is attached to the host, and both are reported. Runs without root or sudo.
+Reports what a libvirt host's virtual machines send and receive over each of their network interfaces, together with the frames those interfaces lost. Warns when an interface sustains a large share of the most traffic it has ever carried, which is a saturation signal rather than an emergency. Optional thresholds alert on lost frames; which of the two loss counters carries anything depends on how the interface is attached to the host, and both are reported. Supports extended reporting via --lengthy. Runs without root or sudo.
 
 **What the verdicts mean:**
 
@@ -73,7 +73,8 @@ Warns when an interface sustains a large share of the most traffic it has ever
 carried, which is a saturation signal rather than an emergency. Optional
 thresholds alert on lost frames; which of the two loss counters carries
 anything depends on how the interface is attached to the host, and both are
-reported. Runs without root or sudo.
+reported. Supports extended reporting via --lengthy. Runs without root or
+sudo.
 
 options:
   -h, --help            show this help message and exit

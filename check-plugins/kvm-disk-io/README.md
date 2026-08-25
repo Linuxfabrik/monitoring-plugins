@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reports how much a libvirt host's virtual machines read and write, and how long their storage takes to answer. Warns when a disk sustains a large share of the most throughput it has ever delivered, which is a saturation signal rather than an emergency, and alerts on sustained latency, which is where a hung disk shows up. Runs without root or sudo.
+Reports how much a libvirt host's virtual machines read and write, and how long their storage takes to answer. Warns when a disk sustains a large share of the most throughput it has ever delivered, which is a saturation signal rather than an emergency, and alerts on sustained latency, which is where a hung disk shows up. Supports extended reporting via --lengthy. Runs without root or sudo.
 
 **What the two verdicts mean:**
 
@@ -55,7 +55,8 @@ Reports how much a libvirt host's virtual machines read and write, and how
 long their storage takes to answer. Warns when a disk sustains a large share
 of the most throughput it has ever delivered, which is a saturation signal
 rather than an emergency, and alerts on sustained latency, which is where a
-hung disk shows up. Runs without root or sudo.
+hung disk shows up. Supports extended reporting via --lengthy. Runs without
+root or sudo.
 
 options:
   -h, --help            show this help message and exit
