@@ -81,6 +81,38 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-regex': r'eth0.*9\.0.*\[CRITICAL\]',
     },
+    # A container host: veth pairs and the bridge sit next to the real NIC, and
+    # the interface name is longer than the "%6s" the kernel formats it with, so
+    # the name column is not padded. Names cannot carry a colon themselves
+    # (dev_valid_name() rejects it), which is what makes splitting the line at
+    # the first colon safe.
+    {
+        'id': 'ok-container-host-many-interfaces',
+        'test': 'stdout/container-host-veth-docker0,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'vethf345468', 'docker0', 'eth0'],
+    },
+    # The usual way to keep container noise out of the graphs.
+    {
+        'id': 'ok-ignore-excludes-container-interfaces',
+        'test': 'stdout/container-host-veth-docker0,,0',
+        'params': '--ignore=^veth --ignore=^docker',
+        'assert-retc': STATE_OK,
+        'assert-in': ['eth0'],
+        'assert-not-in': ['vethf345468', 'docker0'],
+    },
+    # A line that carries fewer counters than the kernel layout defines is
+    # dropped instead of shifting every column by one; the healthy interfaces
+    # in the same table are still reported.
+    {
+        'id': 'warn-truncated-line-is-skipped',
+        'test': 'stdout/truncated-interface-line,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['lo', 'eth1'],
+        'assert-not-in': ['eth0'],
+    },
     # #1308: a filter that matches no interface yields "Nothing checked.";
     # --no-match-severity controls the resulting state (default OK).
     {

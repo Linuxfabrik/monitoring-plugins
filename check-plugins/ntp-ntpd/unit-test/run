@@ -58,6 +58,28 @@ TESTS = [
             '*185.232.69.65 ( 79.133.44.146    2 u  232  256  377    0.398   -0.182   0.170',
         ],
     },
+    # A pool client with twenty peers. Two shapes that only show up on a busy
+    # host: the synchronised peer is an IPv6 address that ntpq truncated to the
+    # width of the remote column, and the ".POOL." rows are placeholders at
+    # stratum 16 with reach 0 that must not be mistaken for peers.
+    {
+        'id': 'ok-twenty-peers-ipv6-and-pool',
+        'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'NTP offset is -0.409ms, Stratum is 2',
+            "'offset'=-0.409ms",
+        ],
+    },
+    # Same fixture: stratum 2 is at the default --stratum of 6, so raising the
+    # bar to 2 turns the very same reading into a warning.
+    {
+        'id': 'warn-twenty-peers-stratum-too-high',
+        'test': 'stdout/twenty-peers-ipv6-and-pool,,0',
+        'params': '--stratum=2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Stratum is 2 (is >= 2'],
+    },
 ]
 
 

@@ -48,6 +48,23 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Stratum is 2'],
     },
+    # A host disciplined by a PTP hardware clock: stratum 1, a Reference that
+    # is a clock name instead of a hex refid, root delay and dispersion in
+    # microseconds rather than milliseconds, and no LinkNTPServers line.
+    {
+        'id': 'ok-stratum-1-phc-reference',
+        'test': 'stdout/stratum-1-phc-reference,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Stratum is 1', "'stratum'=1;6;;0;16"],
+    },
+    # Same fixture, --stratum lowered to 1, so stratum 1 is now at the bar.
+    {
+        'id': 'warn-stratum-1-at-threshold',
+        'test': 'stdout/stratum-1-phc-reference,,0',
+        'params': '--stratum=1',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Stratum is 1 (is >= 1'],
+    },
 ]
 
 

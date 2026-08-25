@@ -91,6 +91,20 @@ SCENARIOS = [
             },
         ],
     },
+    # An older kernel emits fewer lines: no rmapbt, refcntbt, rmapbt_mem,
+    # rcbagbt or defer_relog, and qm carries 8 values instead of 9. All four
+    # lines this check reads (dir, ig, rw, vnodes) are already there, so the
+    # parse must not depend on the lines that came later.
+    {
+        'id': 'ok-parses-kernel-without-rmapbt',
+        'steps': [
+            {
+                'test': 'stdout/kernel-without-rmapbt,,0',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data.', "'active_inodes'=92601"],
+            },
+        ],
+    },
 ]
 
 

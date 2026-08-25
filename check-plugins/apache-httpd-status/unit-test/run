@@ -460,6 +460,35 @@ RATE_SCENARIOS = [
         ],
     },
     {
+        # An httpd restart between two runs sets the counters back to zero. Both
+        # samples are real captures of the same host, taken before and after a
+        # restart, which the differing RestartTime shows. The rates have to
+        # disappear for one run rather than come out negative or enormous.
+        'id': 'rhel9-httpd-2.4.62-event-restarted-counters',
+        'steps': [
+            {
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-2,,0',
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-not-in': ['req/s'],
+            },
+            {
+                'test': f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-3,,0',
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-in': ['req/s', 'apache_requests_per_second'],
+            },
+            {
+                'test': (
+                    f'{FIXTURE_ROOT}/rhel9-httpd-2.4.62-event-ext-on-graceful-1,,0'
+                ),
+                'params': f'--url={URL}',
+                'assert-retc': STATE_OK,
+                'assert-not-in': ['req/s', 'apache_requests_per_second'],
+            },
+        ],
+    },
+    {
         # ExtendedStatus is off, so httpd reports no counters and no rate can follow,
         # not even after several runs.
         'id': 'rhel9-httpd-2.4.62-event-ext-off',
