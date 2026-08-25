@@ -11,6 +11,9 @@
                 "--cache-expire": {
                     "value": "$openstack_cinder_list_cache_expire$"
                 },
+                "--grace-available": {
+                    "value": "$openstack_cinder_list_grace_available$"
+                },
                 "--ignore": {
                     "value": "$openstack_cinder_list_ignore$",
                     "repeat_key": true
@@ -156,6 +159,11 @@
                     "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -213,6 +221,7 @@
                 "openstack_cinder_list_always_ok": false,
                 "openstack_cinder_list_brief": false,
                 "openstack_cinder_list_cache_expire": 50,
+                "openstack_cinder_list_grace_available": "1W",
                 "openstack_cinder_list_ignore": [],
                 "openstack_cinder_list_ignore_type": [],
                 "openstack_cinder_list_ignore_zone": [],
@@ -342,6 +351,17 @@
             "uuid": "8d25b427-803a-4352-9d81-85f5f8b13c8c"
         },
         "4": {
+            "varname": "openstack_cinder_list_grace_available",
+            "caption": "Openstack Cinder List: Grace Available",
+            "description": "How long a volume is tolerated in the `available` status before it counts towards the state. A volume is available for a moment after it was created and after it was detached; one that has been available for weeks is a forgotten volume that keeps costing money. Measured from the last status change the API reports. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period. Only applies while `available` is rated as something other than ok.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4db7697d-dc4c-4a6a-91b0-4e7005941e68"
+        },
+        "5": {
             "varname": "openstack_cinder_list_ignore",
             "caption": "Openstack Cinder List: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Matched against the volume name.",
@@ -352,7 +372,7 @@
             },
             "uuid": "912a911e-d18e-4a01-99dc-0d8a05ec655c"
         },
-        "5": {
+        "6": {
             "varname": "openstack_cinder_list_ignore_type",
             "caption": "Openstack Cinder List: Ignore Type",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Matched against the volume type, for example `ssd`.",
@@ -363,7 +383,7 @@
             },
             "uuid": "51405f5f-b571-4472-9520-81c0e1ad7078"
         },
-        "6": {
+        "7": {
             "varname": "openstack_cinder_list_ignore_zone",
             "caption": "Openstack Cinder List: Ignore Zone",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Matched against the availability zone of the volume.",
@@ -374,7 +394,7 @@
             },
             "uuid": "42699e0d-fe10-44f7-b1bd-7c6f795b2e69"
         },
-        "7": {
+        "8": {
             "varname": "openstack_cinder_list_insecure",
             "caption": "Openstack Cinder List: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -383,7 +403,7 @@
             "settings": {},
             "uuid": "23bc92ef-a932-4a16-aa9c-9bb9cc12a1ab"
         },
-        "8": {
+        "9": {
             "varname": "openstack_cinder_list_lengthy",
             "caption": "Openstack Cinder List: Lengthy?",
             "description": "Extended reporting.",
@@ -392,7 +412,7 @@
             "settings": {},
             "uuid": "45c39fd7-6269-4387-81d6-61b0e5b7818b"
         },
-        "9": {
+        "10": {
             "varname": "openstack_cinder_list_match",
             "caption": "Openstack Cinder List: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). Matched against the volume name.",
@@ -403,7 +423,7 @@
             },
             "uuid": "e6faf1df-74d3-4cc4-bccd-0ae09fc9addc"
         },
-        "10": {
+        "11": {
             "varname": "openstack_cinder_list_match_type",
             "caption": "Openstack Cinder List: Match Type",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). Matched against the volume type, for example `ssd`.",
@@ -414,7 +434,7 @@
             },
             "uuid": "ba141007-9bc7-46da-a10c-a0944fd353c8"
         },
-        "11": {
+        "12": {
             "varname": "openstack_cinder_list_match_zone",
             "caption": "Openstack Cinder List: Match Zone",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). Matched against the availability zone of the volume.",
@@ -425,7 +445,7 @@
             },
             "uuid": "ab2cce1c-d4eb-4810-91fd-5e92086a8376"
         },
-        "12": {
+        "13": {
             "varname": "openstack_cinder_list_no_match_severity",
             "caption": "Openstack Cinder List: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -438,7 +458,7 @@
             },
             "uuid": "22e098cb-54a1-4aee-99c5-b25697fe335e"
         },
-        "13": {
+        "14": {
             "varname": "openstack_cinder_list_no_perfdata",
             "caption": "Openstack Cinder List: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -447,7 +467,7 @@
             "settings": {},
             "uuid": "d0444b2a-89ea-4ff5-9dee-1ad34366d8ec"
         },
-        "14": {
+        "15": {
             "varname": "openstack_cinder_list_no_proxy",
             "caption": "Openstack Cinder List: No Proxy?",
             "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -456,7 +476,7 @@
             "settings": {},
             "uuid": "f19ba4c3-36a2-4180-b265-815fd18f8da6"
         },
-        "15": {
+        "16": {
             "varname": "openstack_cinder_list_proxy",
             "caption": "Openstack Cinder List: Proxy",
             "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -467,7 +487,7 @@
             },
             "uuid": "95287b07-4e08-463a-acdc-bda230d17700"
         },
-        "16": {
+        "17": {
             "varname": "openstack_cinder_list_rc_file",
             "caption": "Openstack Cinder List: Rc File",
             "description": "Path to a rc file containing OpenStack connection parameters like OS_USERNAME (instead of specifying them on the command line). Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`.",
@@ -478,7 +498,7 @@
             },
             "uuid": "88901604-45ab-449f-8422-b02857060c1a"
         },
-        "17": {
+        "18": {
             "varname": "openstack_cinder_list_severity",
             "caption": "Openstack Cinder List: Severity",
             "description": "State to report for volumes in a given status, as `STATUS,STATE`. STATUS is a Cinder volume status such as `available`, case-insensitive. STATE is one of `ok`, `warn`, `crit` or `unknown`. Overrides the built-in state for that status only, every other status keeps its default. Can be specified multiple times. Example: `--severity=available,warn --severity=maintenance,crit`",
@@ -489,7 +509,7 @@
             },
             "uuid": "f529f7e9-6288-4435-82a1-71353531825e"
         },
-        "18": {
+        "19": {
             "varname": "openstack_cinder_list_timeout",
             "caption": "Openstack Cinder List: Timeout",
             "description": "Network timeout in seconds. Applies to the whole run, not to a single request.",

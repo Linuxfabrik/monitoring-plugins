@@ -29,7 +29,7 @@ TESTS = [
     {
         'id': 'crit-volume-in-error',
         'test': 'stdout/mixed-statuses,,0',
-        'params': '',
+        'params': '--severity=available,ok',
         'assert-retc': STATE_CRIT,
         'assert-regex': r'error.*\[CRITICAL\]',
         'assert-in': ['1 error', '1 maintenance', '1 awaiting-transfer'],
@@ -44,21 +44,38 @@ TESTS = [
         'assert-not-in': ['[CRITICAL]'],
     },
     {
-        # A volume nobody attached and one that is being created are ordinary, not a problem.
-        'id': 'ok-available-and-creating-are-not-a-problem',
+        # A volume attached to nothing occupies storage and serves nobody.
+        'id': 'warn-an-unattached-volume-costs-money',
         'test': 'stdout/mixed-statuses,,0',
-        'params': '--match=^(spare01|new01)$',
-        'assert-retc': STATE_OK,
-        'assert-in': ['1 available', '1 creating'],
-    },
-    {
-        # On a cloud where every volume is supposed to be attached, `available` is the
-        # symptom of a forgotten volume that keeps costing money.
-        'id': 'warn-available-raised-by-severity',
-        'test': 'stdout/mixed-statuses,,0',
-        'params': '--match=^spare01$ --severity=available,warn',
+        'params': '--match=^spare01$',
         'assert-retc': STATE_WARN,
         'assert-regex': r'available.*\[WARNING\]',
+    },
+    {
+        # ... but only once it stays that way: right after it was created or detached, a
+        # volume is available for a moment. The grace period is set far beyond any age this
+        # fixture can reach, so the case does not start failing as the calendar moves on.
+        'id': 'ok-a-volume-detached-a-moment-ago-is-within-the-grace',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^spare01$ --grace-available=9999W',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # On a cloud that keeps a pool of volumes ready, unattached is the normal state.
+        'id': 'ok-available-lowered-by-severity',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^spare01$ --severity=available,ok',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # A volume being created is a step towards a healthy one, not a problem.
+        'id': 'ok-creating-is-not-a-problem',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^new01$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 creating'],
     },
     {
         'id': 'ok-maintenance-lowered-by-severity',
@@ -87,10 +104,12 @@ TESTS = [
     {
         'id': 'crit-brief-keeps-the-broken-row',
         'test': 'stdout/mixed-statuses,,0',
+        # `available` is a warning of its own now, so the volume that is genuinely fine
+        # here is the one being created.
         'params': '--brief --no-perfdata',
         'assert-retc': STATE_CRIT,
         'assert-in': ['broken01--data', 'stuck01--data'],
-        'assert-not-in': ['spare01'],
+        'assert-not-in': ['new01'],
     },
     {
         # What a volume is made of belongs to the default table: the type says which class
@@ -146,7 +165,7 @@ TESTS = [
         # why, which reads like an empty project.
         'id': 'unknown-match-type-when-no-volume-has-one',
         'test': 'stdout/unnamed-volume-without-a-type,,0',
-        'params': '--match-type=^ssd$',
+        'params': '--match-type=^ssd$ --grace-available=9999W',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['volume type'],
     },
@@ -154,7 +173,9 @@ TESTS = [
         # A volume needs no name, and an unnamed one is only ever addressed by its id.
         'id': 'ok-an-unnamed-volume-is-listed-by-its-id',
         'test': 'stdout/unnamed-volume-without-a-type,,0',
-        'params': '',
+        # This one is available, which the grace period keeps out of the way of what the
+        # case is about.
+        'params': '--grace-available=9999W',
         'assert-retc': STATE_OK,
         'assert-in': ['77777777-7777-4777-8777-777777777777'],
     },

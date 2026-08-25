@@ -11,7 +11,7 @@ Lists the OpenStack Cinder block storage volumes of a project and reports the st
 * A cloud whose certificate a private CA signed is covered by `OS_CACERT` in the rc file, naming either a PEM file or a directory of hashed certificates. That bundle replaces the trust store of the host for this check, the same way `curl --cacert` does, so a public CA no longer verifies while it is set.
 * The check reuses the Keystone token of the previous run. A run that has a valid token makes a single API request, a run that has to authenticate first makes one more. `--cache-expire` bounds the reuse, and a token is never reused past its own lifetime. A password that changed therefore takes until the cached token expires to show up as a failed authentication.
 * The check reports the volumes of the project the rc file scopes to, not of the whole cloud. Point it at one service per project.
-* A volume that nobody attached sits in `available`, which is an ordinary state and not an alert by default. On a cloud where every volume belongs to an instance, `--severity=available,warn` turns a forgotten volume into something visible: it keeps costing money for as long as it exists.
+* A volume that nobody attached sits in `available`. It occupies storage and serves nothing, so it is reported as a warning. A volume is also available for a moment right after it was created and right after it was detached, which is what `--grace-available` covers: it holds the warning back until the volume has been available for that long, measured from the last status change the API reports. On a cloud that keeps a pool of volumes ready, `--severity=available,ok` turns the whole thing off.
 * The migration status of a volume and the storage host it lives on are reported by Cinder only to a project with administrative rights, so neither appears in the output of an ordinary project account and neither can be filtered on.
 * A volume is listed as attached to `<server id>:<device>`. That server id is the same one [openstack-nova-list](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-list/) reports with `--lengthy`, which is where the name behind it can be looked up.
 
@@ -43,8 +43,9 @@ Lists the OpenStack Cinder block storage volumes of a project and reports the st
 
 ```text
 usage: openstack-cinder-list [-h] [-V] [--always-ok] [--brief]
-                             [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                             [--ignore-type IGNORE_TYPE]
+                             [--cache-expire CACHE_EXPIRE]
+                             [--grace-available GRACE_AVAILABLE]
+                             [--ignore IGNORE] [--ignore-type IGNORE_TYPE]
                              [--ignore-zone IGNORE_ZONE] [--insecure]
                              [--lengthy] [--match MATCH]
                              [--match-type MATCH_TYPE]
@@ -73,6 +74,16 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 50
+  --grace-available GRACE_AVAILABLE
+                        How long a volume is tolerated in the `available`
+                        status before it counts towards the state. A volume is
+                        available for a moment after it was created and after
+                        it was detached; one that has been available for weeks
+                        is a forgotten volume that keeps costing money.
+                        Measured from the last status change the API reports.
+                        A duration such as `12h`, `8D` or `2W`; `0D` disables
+                        the grace period. Only applies while `available` is
+                        rated as something other than ok. Default: 0D
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -197,24 +208,25 @@ web01--boot   ! 94dff704-5554-4a1d-b5eb-8dd1d0ea8099 ! ssd  ! zone-a ! 20.0GiB !
 proxy01--boot ! e4d3c2b1-a098-4765-8432-1f0e9d8c7b6a ! ssd  ! zone-b ! 20.0GiB ! true     ! d1c2b3a4-5566-4778-9900-aabbccddeeff:/dev/vda ! 2026-05-08 06:47:20 (3M 2W ago) ! 2026-05-08 06:47:56 (3M 2W ago) ! in-use
 ```
 
-Report a volume nobody attached, and show only what needs attention:
+Show only what needs attention, and let a volume be unattached for a week before it counts:
 
 ```bash
-./openstack-cinder-list --rc-file=/var/spool/icinga2/.openstack.cnf --severity=available,warn --brief
+./openstack-cinder-list --rc-file=/var/spool/icinga2/.openstack.cnf --grace-available=1W --brief
 ```
 
 Output:
 
 ```text
-5 volumes checked: 1 error, 1 available, 1 awaiting-transfer, 1 maintenance, 1 creating. 190.0GiB in total. Last status change 2026-08-25 06:00:31 UTC (16h 11m ago).
+5 volumes checked: 1 error, 1 available, 1 awaiting-transfer, 1 maintenance, 1 creating. 190.0GiB in total. Last status change 2026-08-25 06:00:31 UTC (16h 17m ago).
 
-Name           ! Type ! Size    ! Bootable ! Updated (UTC)                     ! Status
----------------+------+---------+----------+-----------------------------------+----------------------------
-stuck01--data  ! hdd  ! 30.0GiB ! false    ! 2026-08-03 07:31:52 (3W 1D ago)   ! maintenance [WARNING]
-broken01--data ! hdd  ! 50.0GiB ! false    ! 2026-08-02 04:00:11 (3W 2D ago)   ! error [CRITICAL]
-handover01     ! ssd  ! 10.0GiB ! false    ! 2026-06-11 15:50:02 (2M 2W ago)   ! awaiting-transfer [WARNING]
-spare01        ! ssd  ! 80.0GiB ! false    ! 2026-08-25 06:00:31 (16h 11m ago) ! available [WARNING]
+Name           ! Type ! Size    ! Bootable ! Updated (UTC)                   ! Status
+---------------+------+---------+----------+---------------------------------+----------------------------
+broken01--data ! hdd  ! 50.0GiB ! false    ! 2026-08-02 04:00:11 (3W 2D ago) ! error [CRITICAL]
+handover01     ! ssd  ! 10.0GiB ! false    ! 2026-06-11 15:50:02 (2M 2W ago) ! awaiting-transfer [WARNING]
+stuck01--data  ! hdd  ! 30.0GiB ! false    ! 2026-08-03 07:31:52 (3W 1D ago) ! maintenance [WARNING]
 ```
+
+`spare01` was detached this morning and stays out of the way for the week `--grace-available` allows.
 
 
 ## States
@@ -223,11 +235,13 @@ The state per volume status is what `--severity` overrides. The defaults are:
 
 | State | Volume status |
 |----|----|
-| OK | `attaching`, `available`, `backing-up`, `creating`, `deleting`, `detaching`, `downloading`, `extending`, `in-use`, `managing`, `reserved`, `restoring-backup`, `retyping`, `uploading` |
-| WARN | `awaiting-transfer`, `maintenance` |
+| OK | `attaching`, `backing-up`, `creating`, `deleting`, `detaching`, `downloading`, `extending`, `in-use`, `managing`, `reserved`, `restoring-backup`, `retyping`, `uploading` |
+| WARN | `available` (after `--grace-available`), `awaiting-transfer`, `maintenance` |
 | CRIT | `error`, `error_backing-up`, `error_deleting`, `error_extending`, `error_managing`, `error_restoring` |
 
-The six `error*` states are the ones that stay until somebody acts on them. `maintenance` is a volume the cloud has taken out of service, usually after a migration that did not finish, and `awaiting-transfer` is an offer to another project that nobody accepted. Everything else is either a healthy volume or a step on the way to one: unlike an instance, a volume passes through its transitional states in seconds to minutes, so alerting on them would fire on ordinary work rather than on a problem.
+The six `error*` states are the ones that stay until somebody acts on them. `maintenance` is a volume the cloud has taken out of service, usually after a migration that did not finish, and `awaiting-transfer` is an offer to another project that nobody accepted. `available` is a volume attached to nothing, which costs money for as long as it exists.
+
+Everything else is either a healthy volume or a step on the way to one: unlike an instance, a volume passes through its transitional states in seconds to minutes, so alerting on them would fire on ordinary work rather than on a problem.
 
 * UNKNOWN if a volume reports a status this check does not rate. A later Cinder release may add one, and guessing its severity would be worse than saying so. Rate it with `--severity=<status>,<state>`.
 * UNKNOWN if the rc file cannot be read, if a `--match` / `--ignore` pattern is not a valid regular expression, or if a `--match-type` / `--match-zone` filter is given while the API reports that field for no volume at all.

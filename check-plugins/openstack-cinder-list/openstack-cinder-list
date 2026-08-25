@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026082504'
 
 DESCRIPTION = """Lists the OpenStack Cinder block storage volumes of a project and reports the
 status of every one of them. Alerts when a volume sits in a status that needs attention, for
@@ -45,13 +45,19 @@ API_HEADER = {'OpenStack-API-Version': 'volume 3.0'}
 #
 # The six `error*` states are the ones that stay until somebody acts on them, and `maintenance`
 # is the volume the cloud has taken out of service, usually after a migration that did not
-# finish. `awaiting-transfer` is an offer to another project that nobody accepted. Everything
-# else is either a healthy volume or a step on the way to one: unlike an instance, a volume
-# passes through its transitional states in seconds to minutes, and alerting on them would fire
-# on ordinary work rather than on a problem.
+# finish. `awaiting-transfer` is an offer to another project that nobody accepted.
+#
+# `available` is a volume attached to nothing: it occupies storage and costs money without
+# serving anything, which is worth reporting. A volume is also available for a moment after it
+# was created and after it was detached, so `--grace-available` decides how long that is
+# ordinary before it counts as forgotten.
+#
+# Everything else is either a healthy volume or a step on the way to one: unlike an instance, a
+# volume passes through its transitional states in seconds to minutes, and alerting on them
+# would fire on ordinary work rather than on a problem.
 DEFAULT_SEVERITY = {
     'attaching': 'ok',
-    'available': 'ok',
+    'available': 'warn',
     'awaiting-transfer': 'warn',
     'backing-up': 'ok',
     'creating': 'ok',
@@ -86,6 +92,7 @@ FILTER_FIELDS = {
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
+DEFAULT_GRACE_AVAILABLE = '0D'
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -130,6 +137,21 @@ def parse_args():
         dest='CACHE_EXPIRE',
         type=int,
         default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--grace-available',
+        help='How long a volume is tolerated in the `available` status before it counts '
+        'towards the state. A volume is available for a moment after it was created and '
+        'after it was detached; one that has been available for weeks is a forgotten '
+        'volume that keeps costing money. Measured from the last status change the API '
+        'reports. '
+        'A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period. '
+        'Only applies while `available` is rated as something other than ok. '
+        'Default: %(default)s',
+        dest='GRACE_AVAILABLE',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_AVAILABLE,
     )
 
     parser.add_argument(
@@ -409,6 +431,18 @@ def get_attached_to(volume):
     return ', '.join(item for item in attachments if item)
 
 
+def get_age(volume):
+    """Return how long ago a volume last changed its status, in seconds.
+
+    The Block Storage API dates every status change in `updated_at`, and leaves it empty for
+    a volume that has not changed since it was created.
+    """
+    stamp = get_timestamp(volume, 'updated_at') or get_timestamp(volume, 'created_at')
+    if not stamp:
+        return None
+    return lib.time.timestrdiff(lib.time.now(as_type='iso'), stamp)
+
+
 def get_timestamp(volume, key):
     """Return an API timestamp as `YYYY-MM-DD hh:mm:ss`, or an empty string.
 
@@ -505,6 +539,13 @@ def main():
         total_size += int(volume.get('size') or 0)
 
         volume_state = lib.base.str2state(severity_map[status])
+        if status == 'available' and volume_state != STATE_OK:
+            # A volume that was just created or just detached is available for a moment, and
+            # only one that stays available is forgotten. An age the API does not date is
+            # reported rather than excused.
+            age = get_age(volume)
+            if age is not None and age < args.GRACE_AVAILABLE:
+                volume_state = STATE_OK
         state = lib.base.get_worst(state, volume_state)
 
         updated = get_timestamp(volume, 'updated_at')
@@ -623,8 +664,10 @@ def main():
             table_data,
             keys,
             header=headers,
-            sort_by_key='status',
-            sort_order_reverse=True,
+            # By name: that is how an administrator looks a volume up, and it puts the
+            # ones belonging together next to each other. What needs attention is named in
+            # the summary line above anyway.
+            sort_by_key='name',
             # A column nothing filled in is noise. `Attached to` is the usual one: a project
             # whose volumes are all unattached fills none of it.
             hide_empty=True,
