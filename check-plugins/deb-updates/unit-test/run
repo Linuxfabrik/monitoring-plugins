@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # deb-updates makes two shell calls, but only `apt list --upgradable`
 # drives the analysis. In test mode the `apt-get update` cache refresh
@@ -27,8 +27,7 @@ from lib.globals import STATE_OK, STATE_WARN
 # `apt list --upgradable` at a single point in time, so the
 # assertions only check the parser's behaviour (does the plugin cope
 # with this distro's codename, repo pocket, and version format) - they
-# do NOT validate that a specific package is or is not listed. Every
-# captured fixture had at least one pending upgrade.
+# do NOT validate that a specific package is or is not listed.
 TESTS = [
     # Debian
     {
@@ -97,15 +96,70 @@ TESTS = [
         'params': '--warning 99999',
         'assert-retc': STATE_OK,
     },
-    # Security-only filter: --only-critical must cope with fixtures
-    # that have no security entries and with fixtures that mix
-    # ,-security suffixes.
+    # Security filter: --only-critical must cope with a fixture whose
+    # packages are offered by the main and the security suite at once
+    # ("gzip/noble-updates,noble-security").
     {
         'id': 'only-critical-ubuntu2204',
         'test': 'stdout/ubuntu2204,,0',
         'params': '--only-critical',
         'assert-retc': STATE_WARN,
         'assert-in': ['critical'],
+    },
+    # A package that only the security archive offers is printed with a single
+    # suite ("aom-tools/stable-security"), which is what a fresh CVE fix looks
+    # like before the next point release folds it into the main suite. The
+    # fixture holds 15 of those next to 2 ordinary updates.
+    {
+        'id': 'warn-security-only-suite',
+        'test': 'stdout/security-only-suite,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['17 updates available, 15 of them critical'],
+    },
+    {
+        'id': 'warn-security-only-suite-only-critical',
+        'test': 'stdout/security-only-suite,,0',
+        'params': '--only-critical',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['15 critical updates available'],
+        'assert-not-in': ['No updates available'],
+    },
+    {
+        'id': 'crit-security-updates-over-critical',
+        'test': 'stdout/security-only-suite,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['15 of them critical'],
+    },
+    {
+        'id': 'warn-security-updates-below-critical',
+        'test': 'stdout/security-only-suite,,0',
+        'params': '--critical 99999',
+        'assert-retc': STATE_WARN,
+    },
+    # An ordinary update must not be counted as critical, no matter how many
+    # dashes its package name carries.
+    {
+        'id': 'warn-critical-pattern-without-match',
+        'test': 'stdout/security-only-suite,,0',
+        'params': '--critical-pattern=nothing-matches-this --critical 1',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['of them critical'],
+    },
+    {
+        'id': 'unknown-invalid-critical-pattern',
+        'test': 'stdout/security-only-suite,,0',
+        'params': '--critical-pattern=(unbalanced',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    # An empty upgradable list stays OK and still reports both metrics.
+    {
+        'id': 'ok-no-updates',
+        'test': 'stdout/no-updates,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No updates available', "'critical_updates'=0"],
     },
 ]
 

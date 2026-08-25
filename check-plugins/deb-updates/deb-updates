@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import re
 import sys
 
 import lib.args
@@ -23,13 +22,22 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
-DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible systems.
-Reports the number of pending updates and upgrades, and alerts when updates are
-available. This check only lists updates and never actually installs anything.
-Requires root or sudo."""
+DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible
+systems. Reports the number of pending updates and how many of them come from a security
+repository. Alerts when the number of pending updates reaches the warning threshold, and
+when the number of security updates reaches the critical threshold. This check only lists
+updates and never actually installs anything. Requires root or sudo."""
 
+DEFAULT_CRIT = None  # number of security updates, off by default
+# `apt list --upgradable` prints "<package>/<suite>[,<suite>...] <version> <arch> [...]".
+# Anchoring on the suite field catches a package that is offered by the security archive
+# alone ("aom-tools/stable-security"), which is what a fresh CVE fix looks like before the
+# next point release folds it into the main suite, as well as one offered by both
+# ("gzip/noble-updates,noble-security"). Verified against apt 2.6 on Debian 12/13 and apt
+# 2.7 on Ubuntu 24.04.
+DEFAULT_CRITICAL_PATTERN = r'^\S+/\S*-security'
 DEFAULT_QUERY = '1'
 DEFAULT_TIMEOUT = 60
 DEFAULT_WARN = 1  # number of updatable packages
@@ -59,9 +67,48 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='Minimum number of pending security updates to trigger a CRITICAL. '
+        'Counts the updates matching `--critical-pattern`, within the scope of '
+        '`--query`. '
+        'Unset by default, so security updates raise a WARNING like any other '
+        'update until a threshold is given. '
+        'Example: `--critical=1` '
+        'Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-pattern',
+        help='Marks an update as security-critical. '
+        'Matched against the whole line as printed by `apt list --upgradable`, so it '
+        'can key on the package name, the suite, or the version. '
+        'Uses Python regular expressions. '
+        'Case-sensitive. '
+        'Example: `--critical-pattern=\'^\\S+/\\S*(-security|-lts)\'` '
+        'Default: %(default)s',
+        dest='CRITICAL_PATTERN',
+        default=DEFAULT_CRITICAL_PATTERN,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-update',
+        help='Skip the package cache refresh and evaluate the cache as it is. '
+        'Without this, the check runs `apt-get update` first, which needs sudo and '
+        'reaches the package repositories on every run. '
+        'Use it on hosts where a timer already keeps the cache fresh.',
+        dest='NO_UPDATE',
         action='store_true',
         default=False,
     )
@@ -104,7 +151,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Minimum number of pending packages to trigger a WARNING. '
+        help='Minimum number of pending updates to trigger a WARNING. '
         'Default: %(default)s',
         dest='WARN',
         type=int,
@@ -124,68 +171,75 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-
     # fetch data
     if args.TEST is None:
-        # try to update the package cache first
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['sudo', 'apt-get', 'update', '--quiet', '2'], timeout=args.TIMEOUT
-            ),
-        )
-        if retc or stderr:
-            # Not printing stderr as it is quite verbose
-            msg += '`apt-get update` returned with an error. '
-            lib.base.cu(msg)
-
+        if not args.NO_UPDATE:
+            # try to update the package cache first
+            _, stderr, retc = lib.base.coe(
+                lib.shell.shell_exec(
+                    ['sudo', 'apt-get', 'update', '--quiet', '2'], timeout=args.TIMEOUT
+                ),
+            )
+            if retc or stderr:
+                # Not printing stderr as it is quite verbose
+                lib.base.cu(
+                    '`apt-get update` returned with an error. '
+                    'Check the sudo permissions, or use --no-update to evaluate the '
+                    'package cache without refreshing it.'
+                )
         stdout, _, retc = lib.base.coe(
             lib.shell.shell_exec(['apt', 'list', '--upgradable'], timeout=args.TIMEOUT),
         )
-        if retc:
-            # Not printing stderr as it is quite verbose
-            msg += '`apt list --upgradable` returned with an error. '
-            lib.base.cu(msg)
     else:
         # skip the apt-get update refresh in test mode and read the
         # `apt list --upgradable` output from a fixture file
         stdout, _, retc = lib.lftest.test(args.TEST)
-        if retc:
-            msg += '`apt list --upgradable` returned with an error. '
-            lib.base.cu(msg)
+    if retc:
+        # Not printing stderr as it is quite verbose
+        lib.base.cu('`apt list --upgradable` returned with an error.')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    critical_pattern = lib.base.coe(
+        lib.txt.compile_regex(args.CRITICAL_PATTERN, '--critical-pattern')
+    )
 
     # strip first line "Listing... Done." (if any)
     first, _, rest = stdout.partition('\n')
     stdout = rest if first.lower().startswith('listing...') else stdout
 
-    # create the db table (just one simple column, cause *apt does not have a stable CLI interface*)
+    # Create the db table. Apart from the security flag this is just one column,
+    # cause *apt does not have a stable CLI interface*. The database is private to
+    # this process: it holds nothing worth keeping between runs, and a file under a
+    # fixed name is shared with every concurrent run of this check, which then count
+    # each other's rows.
     definition = """
-        package TEXT DEFAULT NULL
+        package  TEXT DEFAULT NULL,
+        critical INT  DEFAULT 0
     """
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-deb-updates.db',
-        )
-    )
+    conn = lib.base.coe(lib.db_sqlite.connect(in_memory=True))
     lib.base.coe(
         lib.db_sqlite.create_table(
             conn,
             definition,
             table='deb_updates',
-            drop_table_first=True,  # we don't need historical data
         )
     )
 
     # analyze data
-    pattern = re.compile(r',\w*-security')
     for item in stdout.strip().splitlines():
-        if args.ONLY_CRITICAL:
-            if not bool(pattern.search(item)):  # if it is not critical
-                continue
-        lib.base.coe(lib.db_sqlite.insert(conn, {'package': item}, table='deb_updates'))
+        lib.base.coe(
+            lib.db_sqlite.insert(
+                conn,
+                {
+                    'package': item,
+                    'critical': 1 if critical_pattern.search(item) else 0,
+                },
+                table='deb_updates',
+            )
+        )
 
     # store table_data in local sqlite database
     lib.base.coe(lib.db_sqlite.commit(conn))
@@ -201,24 +255,44 @@ def main():
     result = lib.base.coe(lib.db_sqlite.select(conn, sql))
     lib.db_sqlite.close(conn)
 
+    # `--only-critical` narrows down what is reported, while the security count
+    # itself stays available either way, so both numbers can be trended at once
+    critical_count = sum(1 for row in result if row['critical'])
+    if args.ONLY_CRITICAL:
+        result = [row for row in result if row['critical']]
+
     # get state
-    state = lib.base.get_state(len(result), args.WARN, None)
+    state = lib.base.get_worst(
+        lib.base.get_state(len(result), args.WARN, None),
+        lib.base.get_state(critical_count, None, args.CRIT),
+    )
 
     # build the message
+    query_hint = f' (query: {args.QUERY})' if args.QUERY != DEFAULT_QUERY else ''
     if len(result) == 0:
-        msg += f'No updates available{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}.'
+        msg += f'No updates available{query_hint}.'
     else:
         msg += f'{len(result)} {"critical " if args.ONLY_CRITICAL else ""}'
         msg += f'{lib.txt.pluralize("update", len(result))} available'
-        msg += f'{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}'
+        if critical_count and not args.ONLY_CRITICAL:
+            msg += f', {critical_count} of them critical'
+        msg += query_hint
         msg += '.'
         msg += lib.base.state2str(state, prefix=' ')
-        msg += '\n'
+        msg += '\n* '
         msg += '\n* '.join([row['package'] for row in result])
     perfdata += lib.base.get_perfdata(
         'updates',
         len(result),
+        uom=None,
         warn=args.WARN,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'critical_updates',
+        critical_count,
+        uom=None,
+        crit=args.CRIT,
         _min=0,
     )
 

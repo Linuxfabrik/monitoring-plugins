@@ -23,13 +23,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
-security). Alerts when updates are available. This check only lists updates and never
-actually installs anything."""
+security). Alerts when the number of pending updates reaches the warning threshold, and
+when the number of security updates reaches the critical threshold. This check only lists
+updates and never actually installs anything."""
 
+DEFAULT_CRIT = None  # number of security updates, off by default
 DEFAULT_QUERY = '1'
 DEFAULT_TIMEOUT = 120
 DEFAULT_WARN = 1  # number of updatable packages
@@ -56,6 +58,21 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='Minimum number of pending security updates to trigger a CRITICAL. '
+        'Counts the updates carrying a security advisory, within the scope of '
+        '`--query`. '
+        'Unset by default, so security updates raise a WARNING like any other '
+        'update until a threshold is given. '
+        'Example: `--critical=1` '
+        'Default: %(default)s',
+        dest='CRIT',
+        type=int,
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -104,7 +121,7 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='Minimum number of available updates to return WARNING. '
+        help='Minimum number of pending updates to trigger a WARNING. '
         'Default: %(default)s',
         dest='WARN',
         type=int,
@@ -513,24 +530,17 @@ def store_updateinfo(conn, yum_info):
             )
 
 
-def get_advisory_type(args, update_data, info_data):
+def get_advisory_type(update_data, info_data):
     """
-    Annotate Updates with Advisory Types and Filter by Criticality
+    Annotate Updates with Advisory Types
 
     This function iterates over a list of update entries (`update_data`) and a list of
     advisory info entries (`info_data`), matching them by package name. For each update,
     it aggregates advisory “type” codes (taking the first character of each matching
     advisory’s type and uppercasing it) into a concatenated string under the key `'type'`.
-    If `args.ONLY_CRITICAL` is True, only updates whose aggregated type string contains
-    `'S'` (for security) are retained. Matched advisory entries are removed from `info_data`
-    as they are consumed.
+    Matched advisory entries are removed from `info_data` as they are consumed.
 
     ### Parameters
-    - **args** (`object`):
-      An object (e.g., namespace) that must include:
-      - `args.ONLY_CRITICAL` (`bool`):
-        If True, only include updates that have at least one security advisory (i.e., `'S'` in
-        the `'type'` string).
     - **update_data** (`list[dict]`):
       A list of dictionaries, each representing an available update. Each dictionary must contain
       at least:
@@ -547,11 +557,10 @@ def get_advisory_type(args, update_data, info_data):
 
     ### Returns
     - **list[dict]**:
-      A filtered list of update dictionaries (from `update_data`). Each dictionary has an added key:
+      The list of update dictionaries (from `update_data`). Each dictionary has an added key:
       - `'type'` (`str`): Concatenated uppercase characters, one per matching advisory.
         For example, if two advisories matched—one `"security"` and one `"bugfix"`—then
         `'type' == "SB"`.
-      Only updates that pass the `ONLY_CRITICAL` filter (if enabled) are included.
 
     ### Behavior
     1. Initialize an empty list `table_data`.
@@ -562,9 +571,7 @@ def get_advisory_type(args, update_data, info_data):
          - Otherwise, remove the matching advisory dict from `info_data` (via `pop(iidx)`),
            take the first character of `info['type']`, uppercase it, and append it to
            `update['type']`.
-       - If `args.ONLY_CRITICAL` is True and `'S'` (the code for security) is not in
-        `update['type']`, skip adding this update to `table_data`.
-       - Otherwise, append the annotated `update` dict to `table_data`.
+       - Append the annotated `update` dict to `table_data`.
     3. Return `table_data`.
 
     ### Notes
@@ -586,8 +593,6 @@ def get_advisory_type(args, update_data, info_data):
                 break
             info_data.pop(iidx)
             update['type'] += info['type'][0].upper()
-        if args.ONLY_CRITICAL and 'S' not in update['type']:
-            continue
         table_data.append(update)
 
     return table_data
@@ -619,11 +624,17 @@ def main():
     # join the list of installed packages and their updates
     packages = join_packages_updates(yum_installed, yum_upgrades)
 
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-rpm-updates.db',
-        )
-    )
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+
+    # The database is private to this process: it holds nothing worth keeping
+    # between runs, and a file under a fixed name is shared with every concurrent
+    # run of this check, which then count each other's rows.
+    conn = lib.base.coe(lib.db_sqlite.connect(in_memory=True))
 
     # create the db table for the installed packages including their updates
     sql = """
@@ -639,7 +650,6 @@ def main():
             conn,
             sql,
             table='list',
-            drop_table_first=True,  # we don't need historical data
         )
     )
 
@@ -671,7 +681,6 @@ def main():
             conn,
             sql,
             table='updateinfo',
-            drop_table_first=True,  # we don't need historical data
         )
     )
     # "package" can't be a PRIMARY KEY (it will not be UNIQUE), but an index will speed things up
@@ -682,8 +691,6 @@ def main():
 
     # store data in local sqlite database
     lib.base.coe(lib.db_sqlite.commit(conn))
-
-    # analyze data
 
     # fetch desired objects only, and set sqlite3 to be case insensitive when string comparing
     # QUERY is by design an admin-provided SQL WHERE clause (documented feature)
@@ -710,16 +717,20 @@ def main():
 
     lib.db_sqlite.close(conn)
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-
     # for each package get the update types up to the newest available version (first letter)
-    table_data = get_advisory_type(args, update_data, info_data)
+    table_data = get_advisory_type(update_data, info_data)
+
+    # `--only-critical` narrows down what is reported, while the security count
+    # itself stays available either way, so both numbers can be trended at once
+    critical_count = sum(1 for row in table_data if 'S' in row['type'])
+    if args.ONLY_CRITICAL:
+        table_data = [row for row in table_data if 'S' in row['type']]
 
     # get state
-    state = lib.base.get_state(len(table_data), args.WARN, None)
+    state = lib.base.get_worst(
+        lib.base.get_state(len(table_data), args.WARN, None),
+        lib.base.get_state(critical_count, None, args.CRIT),
+    )
 
     # build the message
     if len(table_data) == 0:
@@ -727,6 +738,8 @@ def main():
     else:
         msg += f'{len(table_data)} {"critical " if args.ONLY_CRITICAL else ""}'
         msg += f'{lib.txt.pluralize("update", len(table_data))} available'
+        if critical_count and not args.ONLY_CRITICAL:
+            msg += f', {critical_count} of them critical'
         msg += f'{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}'
         msg += '.'
         msg += lib.base.state2str(state, prefix=' ')
@@ -739,7 +752,15 @@ def main():
     perfdata += lib.base.get_perfdata(
         'updates',
         len(table_data),
+        uom=None,
         warn=args.WARN,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'critical_updates',
+        critical_count,
+        uom=None,
+        crit=args.CRIT,
         _min=0,
     )
 

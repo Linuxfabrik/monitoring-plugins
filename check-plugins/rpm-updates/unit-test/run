@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 # The rpm-updates plugin makes three separate yum/dnf calls
 # (`list --upgrades`, `list --installed`, `updateinfo list --available`).
@@ -109,6 +109,39 @@ TESTS = [
         'test': 'stdout/rhel8,,0',
         'params': '--warning 99999',
         'assert-retc': STATE_OK,
+    },
+    # --critical counts the updates carrying a security advisory. The Fedora 42
+    # capture holds two of them, the UBI 8 capture none.
+    {
+        'id': 'crit-security-updates-over-critical',
+        'test': 'stdout/fedora42,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['2 of them critical'],
+    },
+    {
+        'id': 'warn-security-updates-below-critical',
+        'test': 'stdout/fedora42,,0',
+        'params': '--critical 3',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 of them critical'],
+    },
+    {
+        'id': 'warn-no-security-updates-stays-below-critical',
+        'test': 'stdout/rhel8,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'critical_updates'=0"],
+        'assert-not-in': ['of them critical'],
+    },
+    # --only-critical narrows the report down, but the security count itself
+    # stays the same, so both numbers keep matching.
+    {
+        'id': 'crit-only-critical-fedora42',
+        'test': 'stdout/fedora42,,0',
+        'params': '--only-critical --critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['2 critical updates available', "'critical_updates'=2"],
     },
 ]
 

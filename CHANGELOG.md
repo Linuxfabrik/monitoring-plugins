@@ -82,6 +82,8 @@ Monitoring Plugins:
 
 * apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`; they connected directly no matter what was set
 * countdown: a malformed `--input` names the date it cannot read instead of printing a traceback
+* deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs of the same check at the same time no longer report each other's rows
+* deb-updates: `--only-critical` no longer stays OK on a fresh security update that only the security repository offers
 * disk-usage: the warning and critical lines in the graphs stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
