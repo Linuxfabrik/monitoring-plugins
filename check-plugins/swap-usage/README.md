@@ -5,10 +5,14 @@
 
 Monitors swap space usage as a percentage of total swap. On Linux, optionally lists the top processes consuming the most swap to help identify the source of high usage.
 
+**Important Notes:**
+
+* How full swap is says little about whether the host suffers from it. A host can sit at 80 percent swap usage for weeks without anyone noticing, while another one thrashes at 20 percent. The traffic to and from swap is what hurts, and the `memory-paging` check reports it as a rate.
+
 **Data Collection:**
 
 * Uses `psutil.swap_memory()` to retrieve swap statistics (total, used, free, percent)
-* On Linux, also reports cumulative swap-in and swap-out bytes, and scans `/proc` for the top `--top` processes consuming the most swap
+* On Linux, scans `/proc` for the top `--top` processes consuming the most swap
 * The top-processes feature is not available on Windows
 
 
@@ -69,7 +73,6 @@ Output:
 
 ```text
 77.7% - total: 2.0GiB, used: 1.6GiB, free: 456.1MiB
-swapped in: 997.6MiB, swapped out: 2.6GiB (both cumulative)
 
 Top 3 processes that use the most swap space:
 1. php-fpm: 1.6GiB
@@ -92,8 +95,6 @@ Top 3 processes that use the most swap space:
 | Name | Type | Description |
 |----|----|----|
 | free | Bytes | Free swap memory |
-| sin | Bytes | Number of bytes the system has swapped in from disk (cumulative, Linux only) |
-| sout | Bytes | Number of bytes the system has swapped out to disk (cumulative, Linux only) |
 | total | Bytes | Total swap memory |
 | usage_percent | Percentage | Swap usage calculated as (total - available) / total \* 100 |
 | used | Bytes | Used swap memory |

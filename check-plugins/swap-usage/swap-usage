@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors swap space usage as a percentage of total swap. Optionally lists the top
 processes consuming the most swap to help identify the source of high usage. Alerts
@@ -229,27 +229,9 @@ def main():
         _max=swap.total,
     )
 
+    # How much a host pages is a rate and not a total, so it belongs to the
+    # `memory-paging` check, which reports it as bytes per second.
     msg_body = ''
-    if not lib.base.WINDOWS:
-        msg_body = (
-            f'swapped in: '
-            f'{lib.human.bytes2human(getattr(swap, "sin", 0))}'
-            f', swapped out: '
-            f'{lib.human.bytes2human(getattr(swap, "sout", 0))}'
-            f' (both cumulative)'
-        )
-        perfdata += lib.base.get_perfdata(
-            'sin',
-            getattr(swap, 'sin', 0),
-            uom='B',
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            'sout',
-            getattr(swap, 'sout', 0),
-            uom='B',
-            _min=0,
-        )
 
     # On Linux only, get the top processes causing swap usage
     # (skip under --test to keep the test deterministic and avoid
@@ -274,7 +256,7 @@ def main():
 
     # over and out
     lib.base.oao(
-        msg_header + '\n' + msg_body,
+        msg_header + msg_body,
         state,
         perfdata,
         always_ok=args.ALWAYS_OK,

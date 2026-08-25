@@ -77,6 +77,10 @@ Grafana:
 
 ### Removed
 
+Monitoring Plugins:
+
+* swap-usage: the cumulative `sin` and `sout` metrics are gone, memory-paging reports the paging traffic as a rate
+
 Build, CI/CD:
 
 * Drop packages for Ubuntu 20.04
