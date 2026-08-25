@@ -154,6 +154,25 @@ TESTS = [
     # an `Authorization: Basic ...` are precisely what it masks, and a
     # migration pointer arriving as `https://user:******@host` with its
     # last sentence cut off helps nobody.
+    # A current haproxy: the CSV grew from 63 to 214 columns, but the first 62
+    # keep their order, which is what makes reading them by position work. The
+    # capture also carries the two free-text fields the older captures never
+    # had: `last_chk` fills with the health check's error message once a check
+    # fails, `tracked` names the tracked server. Neither may reach the perfdata.
+    {
+        'id': 'warn-haproxy-3-4-failed-check-and-tracking',
+        'test': 'stdout/haproxy-3.4-failed-check-and-tracking,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'be_web web02: DOWN',
+            'be_tracking ! track01',
+        ],
+        'assert-not-in': [
+            'ECONNREFUSED',
+            'be_web/web01',
+            "_lastsess'=-1",
+        ],
+    },
     {
         'id': 'unknown-legacy-username',
         'test': 'stdout/all-backends-up,,0',

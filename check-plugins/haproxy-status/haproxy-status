@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026082501'
 
 DESCRIPTION = """Monitors HAProxy performance and health via the stats endpoint. Reports
 frontend and backend session usage, request rates, response times, error rates, and server
@@ -282,7 +282,11 @@ def main():
     for line in result[1:]:
         values = [x.strip() for x in line.strip().split(',')]
 
-        # ugly, but necessary - the csv is huge
+        # ugly, but necessary - the csv is huge. Reading by position rather than
+        # by header name holds because haproxy only ever appends to this CSV:
+        # it grew from 63 columns to 214 between the oldest capture in
+        # unit-test/stdout and haproxy 3.4.2, and every column up to `ttime`
+        # kept its place.
         try:
             ha_pxname = values[0]
             ha_svname = values[1]
@@ -315,7 +319,7 @@ def main():
             _ha_sid = values[28]
             _ha_throttle = values[29]
             ha_lbtot = values[30]
-            ha_tracked = values[31]
+            _ha_tracked = values[31]
             _ha_type = values[32]
             ha_rate = values[33]
             ha_rate_lim = values[34]
@@ -340,7 +344,7 @@ def main():
             ha_comp_byp = values[53]
             ha_comp_rsp = values[54]
             ha_lastsess = values[55]
-            ha_last_chk = values[56]
+            _ha_last_chk = values[56]
             _ha_last_agt = values[57]
             ha_qtime = values[58]
             ha_ctime = values[59]
@@ -424,6 +428,13 @@ def main():
 
         key = f'{ha_pxname}_{ha_svname}'
 
+        # Only measurements belong here. haproxy also reports free text in the
+        # same CSV row: `last_chk` carries the health check's error message
+        # ("ECONNREFUSED returned by OS (Connection refused)") as soon as a
+        # check fails, and `tracked` names the tracked server ("be_master/m01")
+        # wherever `track` is configured. Both would land in the perfdata as a
+        # value full of spaces and slashes and take the rest of the string down
+        # with them. Verified against haproxy 3.4.2.
         perf_items = [
             ('act', ha_act, None),
             ('bck', ha_bck, None),
@@ -450,7 +461,6 @@ def main():
             ('hrsp_4xx', ha_hrsp_4xx, 'c'),
             ('hrsp_5xx', ha_hrsp_5xx, 'c'),
             ('hrsp_other', ha_hrsp_other, 'c'),
-            ('last_chk', ha_last_chk, 's'),
             ('lastchg', ha_lastchg, 's'),
             ('lastsess', ha_lastsess, 's'),
             ('lbtot', ha_lbtot, 'c'),
@@ -466,7 +476,6 @@ def main():
             ('slim', ha_slim, None),
             ('srv_abrt', ha_srv_abrt, 'c'),
             ('stot', ha_stot, 'c'),
-            ('tracked', ha_tracked, None),
             ('ttime', ha_ttime, 'ms'),
             ('weight', ha_weight, None),
             ('wredis', ha_wredis, 'c'),
@@ -474,6 +483,10 @@ def main():
         ]
 
         for fieldname, value, unit in perf_items:
+            if fieldname == 'lastsess' and value == '-1':
+                # haproxy's "no session yet", not a measurement of minus one
+                # second, and below the minimum this metric declares
+                continue
             if value:
                 perfdata_parts.append(
                     lib.base.get_perfdata(
