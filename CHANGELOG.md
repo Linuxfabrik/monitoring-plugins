@@ -97,6 +97,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* the Active Directory Domain Service Set names two services the way the rest of the set does, `Service - ADWS` becomes `Service - Active Directory Web Services` and `Service - DFSR` becomes `Service - DFS Replication`. Both are renamed on the next deployment and start their history over
 * the Huawei Dorado Service Set runs all of its checks again, six of its services shared one name and only one of them was deployed
 
 Build, CI/CD:
