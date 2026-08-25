@@ -12,7 +12,8 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 **Important Notes:**
 
 * **Read the two together.** A disk moving little while taking a long time per request is the worse of the two pictures, and on throughput alone it looks like the quietest disk on the host.
-* Latency is reported rather than judged until `--await-warning` or `--await-critical` are set. Graph it for a few days first, then set the thresholds above what the host does when nothing is wrong.
+* Latency is reported rather than judged until `--warning-await` or `--critical-await` are set.
+* Throughput can be judged twice over, and whichever bound is tighter is the one that fires. `--warning` compares a disk with the most it has been seen to deliver, which needs nothing configured and adapts to the backing store. `--warning-throughput` and `--critical-throughput` are absolute rates, for a store whose limit is known. Graph it for a few days first, then set the thresholds above what the host does when nothing is wrong.
 * A disk that has just appeared, and every disk on the first runs, is named after "Waiting for more data:" until `--count` measurements have accumulated. The disks that have been there all along keep being reported meanwhile.
 * **A drive with nothing in it is not reported.** libvirt lists an empty CD-ROM drive among a machine's block devices, counters and all, and virtually every machine has one. Reporting them would put a row that can never move anything next to every machine on the host. The same drive with an image in it is reported like any other disk, and so is a disk on network storage such as Ceph or iSCSI.
 * Only running machines are looked at. A machine that is shut off does no I/O and its counters stand still, so a rate computed from them would be a row of zeroes.
@@ -46,12 +47,14 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 ## Help
 
 ```text
-usage: kvm-disk-io [-h] [-V] [--always-ok] [--brief]
-                   [--await-critical AWAIT_CRIT] [--await-warning AWAIT_WARN]
-                   [--count COUNT] [--ignore IGNORE] [--lengthy]
-                   [--match MATCH]
+usage: kvm-disk-io [-h] [-V] [--always-ok] [--brief] [--count COUNT]
+                   [--critical-await AWAIT_CRIT]
+                   [--critical-throughput CRIT_THROUGHPUT] [--ignore IGNORE]
+                   [--lengthy] [--match MATCH]
                    [--no-match-severity {ok,warn,crit,unknown}]
                    [--no-perfdata] [--timeout TIMEOUT] [--url URL] [-w WARN]
+                   [--warning-await AWAIT_WARN]
+                   [--warning-throughput WARN_THROUGHPUT]
 
 Reports how much a libvirt host's virtual machines read and write, and how
 long their storage takes to answer. Warns when a disk sustains a large share
@@ -69,20 +72,26 @@ options:
                         alerting are unaffected: every item still emits
                         performance data and still drives the overall check
                         state, so this is safe to leave on.
-  --await-critical AWAIT_CRIT
-                        CRIT threshold for the average time a read or write
-                        takes to complete, in milliseconds. Meant for a disk
-                        that is effectively hung. Supports Nagios ranges.
-                        Default: unset, latency is reported but does not alert
-  --await-warning AWAIT_WARN
-                        WARN threshold for the average time a read or write
-                        takes to complete, in milliseconds. Supports Nagios
-                        ranges. Default: unset, latency is reported but does
-                        not alert
   --count COUNT         Number of measurements the reported values are
                         averaged over. A disk has to stay above a threshold
                         for the whole span to alert, so a single busy minute
                         does not. Default: 5
+  --critical-await AWAIT_CRIT
+                        CRIT threshold for the average time a read or write
+                        takes to complete, in milliseconds. Meant for a disk
+                        that is effectively hung. Supports Nagios ranges.
+                        Default: unset, latency is reported but does not alert
+  --critical-throughput CRIT_THROUGHPUT
+                        CRIT threshold for the throughput of a disk, as an
+                        absolute rate per second, in human-readable format
+                        (base is always 1024; valid qualifiers are B, KiB,
+                        MiB, GiB etc., see UNITS.md; a value without a
+                        qualifier is a number of bytes). Use it where the
+                        backing store has a known limit; `--warning` judges
+                        the same value against what the disk has been seen to
+                        manage instead. Supports Nagios ranges. Default:
+                        unset, throughput is judged against the observed
+                        maximum only. Example: `500M` alerts above 500 MiB/s.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -114,6 +123,22 @@ options:
                         This part never goes critical: a disk working hard is
                         worth a look, not a call at night. Default: 80
                         (percent)
+  --warning-await AWAIT_WARN
+                        WARN threshold for the average time a read or write
+                        takes to complete, in milliseconds. Supports Nagios
+                        ranges. Default: unset, latency is reported but does
+                        not alert
+  --warning-throughput WARN_THROUGHPUT
+                        WARN threshold for the throughput of a disk, as an
+                        absolute rate per second, in human-readable format
+                        (base is always 1024; valid qualifiers are B, KiB,
+                        MiB, GiB etc., see UNITS.md; a value without a
+                        qualifier is a number of bytes). Use it where the
+                        backing store has a known limit; `--warning` judges
+                        the same value against what the disk has been seen to
+                        manage instead. Supports Nagios ranges. Default:
+                        unset, throughput is judged against the observed
+                        maximum only. Example: `400M` alerts above 400 MiB/s.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-disk-io/
@@ -167,7 +192,7 @@ nextcloud01 ! vda  ! 40.0MiB/s   ! 8.0MiB/s     ! 0.4ms ! [WARNING]
 A disk that has all but stopped answering. Note that the throughput *fell*, which is exactly why the latency is reported next to it:
 
 ```bash
-./kvm-disk-io --await-warning=100 --await-critical=500
+./kvm-disk-io --warning-await=100 --critical-await=500
 ```
 
 ```text
@@ -209,8 +234,9 @@ Checking a hypervisor that runs no local monitoring agent:
 * OK, with the disk named after "Waiting for more data:", for a disk that has no previous measurement yet, which is the case on the first run and after a machine was started.
 * OK with "No running virtual machines with disks found." if no machine on the host is running, or none of them has a disk.
 * WARN if a disk sustains `--warning` percent or more of the most throughput it has ever delivered (default: 80). This part never goes critical.
-* WARN if a read or write takes `--await-warning` milliseconds or more on average (default: unset).
-* CRIT if it reaches `--await-critical` (default: unset).
+* WARN if a disk moves more than `--warning-throughput` per second, CRIT at `--critical-throughput` (both default: unset). These are absolute rates and are judged next to the relative `--warning` above.
+* WARN if a read or write takes `--warning-await` milliseconds or more on average (default: unset).
+* CRIT if it reaches `--critical-await` (default: unset).
 * UNKNOWN if libvirt cannot be reached, if the connection is not a QEMU/KVM one, if `virsh` is missing, or on an invalid `--match` or `--ignore` pattern.
 * `--no-match-severity` sets the state reported when `--match` or `--ignore` leave no disk to check (default: `ok`).
 * `--brief` hides the rows that are within the thresholds. It changes nothing about the state or the performance data.

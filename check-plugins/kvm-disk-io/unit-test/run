@@ -99,14 +99,14 @@ TESTS = [
     {
         'id': 'warn-latency-above-warning',
         'test': 'stdout/slow-disk,,0',
-        'params': '--await-warning=500',
+        'params': '--warning-await=500',
         'assert-retc': STATE_WARN,
         'assert-in': ['Slow storage: nextcloud01/vda (612.0ms)'],
     },
     {
         'id': 'crit-latency-above-critical',
         'test': 'stdout/slow-disk,,0',
-        'params': '--await-warning=100 --await-critical=500',
+        'params': '--warning-await=100 --critical-await=500',
         'assert-retc': STATE_CRIT,
         'assert-regex': r'Slow\sstorage.*\[CRITICAL\]',
     },
@@ -244,7 +244,7 @@ TESTS = [
     {
         'id': 'crit-brief-keeps-only-the-rows-that-alert',
         'test': 'stdout/slow-disk,,0',
-        'params': '--await-warning=100 --await-critical=500 --brief',
+        'params': '--warning-await=100 --critical-await=500 --brief',
         'assert-retc': STATE_CRIT,
         'assert-in': ['VM Name'],
     },
@@ -254,6 +254,36 @@ TESTS = [
         'params': '--brief',
         'assert-retc': STATE_OK,
         'assert-not-in': ['VM Name'],
+    },
+    {
+        # An absolute bound next to the self-calibrating one. Whichever is tighter
+        # fires; here the observed maximum is met anyway, so the point is that the
+        # absolute bound raises the verdict to CRIT on its own.
+        'id': 'crit-absolute-throughput-bound',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--warning-throughput=1M --critical-throughput=10M',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'warn-absolute-throughput-bound-below-crit',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--warning-throughput=1M --critical-throughput=100M',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        # A quiet disk stays OK, so the bound is a bound and not a constant alert.
+        'id': 'ok-absolute-throughput-bound-not-reached',
+        'test': 'stdout/two-idle-guests,,0',
+        'params': '--warning-throughput=1M',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # The explicit bound is what the graph draws its line at.
+        'id': 'warn-absolute-bound-reaches-the-perfdata',
+        'test': 'stdout/busy-disk,,0',
+        'params': '--warning-throughput=1M --critical-throughput=100M',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["_throughput'=50331648B;1048576;104857600"],
     },
 ]
 

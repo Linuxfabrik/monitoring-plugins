@@ -26,6 +26,7 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 * **Inbound and outbound are from the machine's point of view.** Inbound is what the guest received. The host's own view of the same interface is the exact opposite, because what the machine sends is what the host receives, so a figure read from `ip -s link show vnet4` on the host will not match and comparing the two directly leads nowhere.
 * **An interface is identified by its position in the machine, not by its host-side device.** `nic0` is the machine's first interface and stays that whatever happens; the `vnetN` device next to it is handed out by libvirt from a counter when the machine starts and is not kept, which is also why libvirt itself leaves it out of the machine's stored configuration. The same interface of the same machine, unchanged and with the same MAC address, was measured as `vnet1` before a restart and as `vnet4` after it. The device is shown (`--lengthy`) rather than used as the name.
 * **A loss counter the host does not keep is reported as `-`, not as zero.** On every ordinary configuration libvirt reports all of them. A vhost-user interface is the exception: there the figures come from Open vSwitch, which names only the counters it keeps, and the rest never arrive. Zero is what a healthy interface reports, so filling them in would claim the interface loses nothing and let `--warning-drops` and `--warning-errors` confirm that on every run. Those thresholds skip such an interface, and the first line names it.
+* Traffic can be judged twice over, and whichever bound is tighter is the one that fires. `--warning` compares an interface with the most it has been seen to carry, which needs nothing configured and adapts to the host's network. `--warning-throughput` and `--critical-throughput` are absolute rates, for a link whose speed is known.
 * An interface that has just appeared, and every interface on the first runs, is named after "Waiting for more data:" until `--count` measurements have accumulated. The interfaces that have been there all along keep being reported meanwhile.
 * Only running machines are looked at. A machine that is shut off has no interface on the host at all.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
@@ -61,12 +62,14 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 ```text
 usage: kvm-network-io [-h] [-V] [--always-ok] [--brief] [--count COUNT]
                       [--critical-drops CRIT_DROPS]
-                      [--critical-errors CRIT_ERRORS] [--ignore IGNORE]
-                      [--lengthy] [--match MATCH]
+                      [--critical-errors CRIT_ERRORS]
+                      [--critical-throughput CRIT_THROUGHPUT]
+                      [--ignore IGNORE] [--lengthy] [--match MATCH]
                       [--no-match-severity {ok,warn,crit,unknown}]
                       [--no-perfdata] [--timeout TIMEOUT] [--url URL]
                       [-w WARN] [--warning-drops WARN_DROPS]
                       [--warning-errors WARN_ERRORS]
+                      [--warning-throughput WARN_THROUGHPUT]
 
 Reports what a libvirt host's virtual machines send and receive over each of
 their network interfaces, together with the frames those interfaces lost.
@@ -105,6 +108,17 @@ options:
                         the host does not fill it. Supports Nagios ranges.
                         Default: unset, bad frames are reported but do not
                         alert
+  --critical-throughput CRIT_THROUGHPUT
+                        CRIT threshold for the traffic on an interface, as an
+                        absolute rate per second, in human-readable format
+                        (base is always 1024; valid qualifiers are B, KiB,
+                        MiB, GiB etc., see UNITS.md; a value without a
+                        qualifier is a number of bytes). Use it where the link
+                        speed is known; `--warning` judges the same value
+                        against what the interface has been seen to carry
+                        instead. Supports Nagios ranges. Default: unset,
+                        traffic is judged against the observed maximum only.
+                        Example: `900M` alerts above 900 MiB/s.
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
@@ -151,6 +165,17 @@ options:
                         the host does not fill it. Supports Nagios ranges.
                         Default: unset, bad frames are reported but do not
                         alert
+  --warning-throughput WARN_THROUGHPUT
+                        WARN threshold for the traffic on an interface, as an
+                        absolute rate per second, in human-readable format
+                        (base is always 1024; valid qualifiers are B, KiB,
+                        MiB, GiB etc., see UNITS.md; a value without a
+                        qualifier is a number of bytes). Use it where the link
+                        speed is known; `--warning` judges the same value
+                        against what the interface has been seen to carry
+                        instead. Supports Nagios ranges. Default: unset,
+                        traffic is judged against the observed maximum only.
+                        Example: `800M` alerts above 800 MiB/s.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/kvm-network-io/
@@ -236,6 +261,7 @@ Checking a hypervisor that runs no local monitoring agent:
 * OK, with the interface named after "Waiting for more data:", for an interface that has no previous measurement yet, which is the case on the first run and after a machine was started.
 * OK with "No running virtual machines with network interfaces found." if no machine on the host is running, or none of them has an interface.
 * WARN if an interface sustains `--warning` percent or more of the most traffic it has ever carried (default: 80). This part never goes critical.
+* WARN if an interface carries more than `--warning-throughput` per second, CRIT at `--critical-throughput` (both default: unset). These are absolute rates and are judged next to the relative `--warning` above.
 * WARN if an interface drops more frames per second than `--warning-drops` allows, or reports more bad ones than `--warning-errors` allows (both default: unset).
 * CRIT if it reaches `--critical-drops` or `--critical-errors` (both default: unset).
 * OK for the loss thresholds on an interface whose loss counters the host does not keep. There is nothing to judge, so nothing is judged; the traffic thresholds still apply to it.

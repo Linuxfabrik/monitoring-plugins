@@ -17,6 +17,9 @@
                 "--critical-errors": {
                     "value": "$kvm_network_io_critical_errors$"
                 },
+                "--critical-throughput": {
+                    "value": "$kvm_network_io_critical_throughput$"
+                },
                 "--ignore": {
                     "value": "$kvm_network_io_ignore$",
                     "repeat_key": true
@@ -48,6 +51,9 @@
                 },
                 "--warning-errors": {
                     "value": "$kvm_network_io_warning_errors$"
+                },
+                "--warning-throughput": {
+                    "value": "$kvm_network_io_warning_throughput$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/kvm-network-io",
@@ -125,6 +131,16 @@
                 },
                 {
                     "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -284,6 +300,17 @@
             "uuid": "c8b658f3-1369-4db9-8f7b-34d217936341"
         },
         "6": {
+            "varname": "kvm_network_io_critical_throughput",
+            "caption": "KVM Network I/O: Critical Throughput",
+            "description": "CRIT threshold for the traffic on an interface, as an absolute rate per second, in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Use it where the link speed is known; `--warning` judges the same value against what the interface has been seen to carry instead. Supports Nagios ranges. Default: unset, traffic is judged against the observed maximum only. Example: `900M` alerts above 900 MiB/s.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d885a8f0-3848-47bb-ab07-a5842a9fb5f4"
+        },
+        "7": {
             "varname": "kvm_network_io_ignore",
             "caption": "KVM Network I/O: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
@@ -294,7 +321,7 @@
             },
             "uuid": "a266cfc7-86d2-459a-9692-deb76e48033d"
         },
-        "7": {
+        "8": {
             "varname": "kvm_network_io_lengthy",
             "caption": "KVM Network I/O: Lengthy?",
             "description": "Extended reporting.",
@@ -303,7 +330,7 @@
             "settings": {},
             "uuid": "eea4b347-b11d-4d07-97fd-83eead7803c7"
         },
-        "8": {
+        "9": {
             "varname": "kvm_network_io_match",
             "caption": "KVM Network I/O: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -314,7 +341,7 @@
             },
             "uuid": "d7790346-2246-4bc2-b263-251cfc93237b"
         },
-        "9": {
+        "10": {
             "varname": "kvm_network_io_no_match_severity",
             "caption": "KVM Network I/O: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -327,7 +354,7 @@
             },
             "uuid": "95b47bfd-c010-4737-b88d-746854d3c780"
         },
-        "10": {
+        "11": {
             "varname": "kvm_network_io_no_perfdata",
             "caption": "KVM Network I/O: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -336,7 +363,7 @@
             "settings": {},
             "uuid": "638f2144-040a-4e33-996b-3e4b3366c4ad"
         },
-        "11": {
+        "12": {
             "varname": "kvm_network_io_timeout",
             "caption": "KVM Network I/O: Timeout",
             "description": "Network timeout in seconds.",
@@ -347,7 +374,7 @@
             },
             "uuid": "52f8e0da-0800-456d-9226-72d106eee771"
         },
-        "12": {
+        "13": {
             "varname": "kvm_network_io_url",
             "caption": "KVM Network I/O: URL",
             "description": "libvirt connection URI, passed to `virsh --connect`. Use `qemu+ssh://user@host/system` to check a host that runs no local monitoring agent. Only QEMU/KVM connections report the data this check needs.",
@@ -358,7 +385,7 @@
             },
             "uuid": "a701522d-75f7-40c6-91a7-73929fa27ba7"
         },
-        "13": {
+        "14": {
             "varname": "kvm_network_io_warning",
             "caption": "KVM Network I/O: Warning",
             "description": "WARN threshold for the traffic on an interface, in percent of the most it has ever been seen to carry. This part never goes critical: an interface working hard is worth a look, not a call at night.",
@@ -369,7 +396,7 @@
             },
             "uuid": "cbf6be1a-58ad-4074-9579-5e7dc5e5800e"
         },
-        "14": {
+        "15": {
             "varname": "kvm_network_io_warning_drops",
             "caption": "KVM Network I/O: Warning Drops",
             "description": "WARN threshold for the number of frames per second an interface drops, incoming and outgoing together. This is the counter that moves on a machine attached through a bridge or a virtual network. Supports Nagios ranges. Default: unset, dropped frames are reported but do not alert",
@@ -380,7 +407,7 @@
             },
             "uuid": "dbdc89af-2603-4849-a698-694e6028acfe"
         },
-        "15": {
+        "16": {
             "varname": "kvm_network_io_warning_errors",
             "caption": "KVM Network I/O: Warning Errors",
             "description": "WARN threshold for the number of frames per second an interface reports as bad, incoming and outgoing together. This counter stays at zero for a machine attached through a bridge or a virtual network, where the host does not fill it. Supports Nagios ranges. Default: unset, bad frames are reported but do not alert",
@@ -390,6 +417,17 @@
                 "visibility": "visible"
             },
             "uuid": "539d5e7c-8842-4eb4-88ab-cc23aae30973"
+        },
+        "17": {
+            "varname": "kvm_network_io_warning_throughput",
+            "caption": "KVM Network I/O: Warning Throughput",
+            "description": "WARN threshold for the traffic on an interface, as an absolute rate per second, in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Use it where the link speed is known; `--warning` judges the same value against what the interface has been seen to carry instead. Supports Nagios ranges. Default: unset, traffic is judged against the observed maximum only. Example: `800M` alerts above 800 MiB/s.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b1248204-b73d-40a0-be51-31e44f3322b6"
         }
     }
 }

@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082504'
+__version__ = '2026082505'
 
 DESCRIPTION = """Reports what a libvirt host's virtual machines send and receive over each of their
 network interfaces, together with the frames those interfaces lost. Warns when an
@@ -41,12 +41,14 @@ DEFAULT_COUNT = (
 )
 DEFAULT_CRIT_DROPS = None
 DEFAULT_CRIT_ERRORS = None
+DEFAULT_CRIT_THROUGHPUT = None
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = lib.kvm.DEFAULT_TIMEOUT
 DEFAULT_URL = lib.kvm.DEFAULT_URI
 DEFAULT_WARN = 80  # % of the traffic the interface has been seen to carry
 DEFAULT_WARN_DROPS = None
 DEFAULT_WARN_ERRORS = None
+DEFAULT_WARN_THROUGHPUT = None
 
 # Where the previous measurements and the observed maximum traffic are kept, so the
 # cumulative counters can be reported as the rates a dashboard can aggregate (see
@@ -130,6 +132,21 @@ def parse_args():
         'Default: unset, bad frames are reported but do not alert',
         dest='CRIT_ERRORS',
         default=DEFAULT_CRIT_ERRORS,
+    )
+
+    parser.add_argument(
+        '--critical-throughput',
+        help='CRIT threshold for the traffic on an interface, as an absolute rate '
+        'per second, in human-readable format (base is always 1024; valid '
+        'qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; '
+        'a value without a qualifier is a number of bytes). '
+        'Use it where the link speed is known; `--warning` judges the same value '
+        'against what the interface has been seen to carry instead. '
+        'Supports Nagios ranges. '
+        'Default: unset, traffic is judged against the observed maximum only. '
+        'Example: `900M` alerts above 900 MiB/s.',
+        dest='CRIT_THROUGHPUT',
+        default=DEFAULT_CRIT_THROUGHPUT,
     )
 
     parser.add_argument(
@@ -233,6 +250,21 @@ def parse_args():
         'Default: unset, bad frames are reported but do not alert',
         dest='WARN_ERRORS',
         default=DEFAULT_WARN_ERRORS,
+    )
+
+    parser.add_argument(
+        '--warning-throughput',
+        help='WARN threshold for the traffic on an interface, as an absolute rate '
+        'per second, in human-readable format (base is always 1024; valid '
+        'qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; '
+        'a value without a qualifier is a number of bytes). '
+        'Use it where the link speed is known; `--warning` judges the same value '
+        'against what the interface has been seen to carry instead. '
+        'Supports Nagios ranges. '
+        'Default: unset, traffic is judged against the observed maximum only. '
+        'Example: `800M` alerts above 800 MiB/s.',
+        dest='WARN_THROUGHPUT',
+        default=DEFAULT_WARN_THROUGHPUT,
     )
 
     args, _ = parser.parse_known_args()
@@ -342,6 +374,20 @@ def main():
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
+
+    # The absolute traffic bounds are written the way an administrator says them
+    # (`800M`) and compared in bytes per second, so they are converted once here
+    # rather than on every interface.
+    crit_throughput = (
+        lib.human.humanrange2bytes(args.CRIT_THROUGHPUT)
+        if args.CRIT_THROUGHPUT
+        else None
+    )
+    warn_throughput = (
+        lib.human.humanrange2bytes(args.WARN_THROUGHPUT)
+        if args.WARN_THROUGHPUT
+        else None
+    )
 
     # fetch data
     if args.TEST is None:
@@ -535,6 +581,13 @@ def main():
             max_bandwidth * args.WARN / 100,
             None,
         )
+        # The same value against a bound the administrator set, for a link whose
+        # speed is known. Independent of the relative one above: whichever is the
+        # tighter of the two is the one that fires.
+        absolute_state = lib.base.get_state(
+            throughput, warn_throughput, crit_throughput, _operator='range'
+        )
+        busy_state = lib.base.get_worst(busy_state, absolute_state)
         drops_state = (
             STATE_OK
             if drops is None
@@ -612,11 +665,18 @@ def main():
             uom='B',
             _min=0,
         )
+        # An explicit bound is what the graph should draw its line at; the
+        # self-calibrated one stands in when there is none.
         perfdata += lib.base.get_perfdata(
             f'{perfdata_name}_throughput',
             throughput,
             uom='B',
-            warn=int(max_bandwidth * args.WARN / 100),
+            warn=(
+                warn_throughput
+                if warn_throughput is not None
+                else int(max_bandwidth * args.WARN / 100)
+            ),
+            crit=crit_throughput,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(

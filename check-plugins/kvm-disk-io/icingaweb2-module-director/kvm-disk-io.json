@@ -8,14 +8,14 @@
                 "--brief": {
                     "set_if": "$kvm_disk_io_brief$"
                 },
-                "--await-critical": {
-                    "value": "$kvm_disk_io_await_critical$"
-                },
-                "--await-warning": {
-                    "value": "$kvm_disk_io_await_warning$"
-                },
                 "--count": {
                     "value": "$kvm_disk_io_count$"
+                },
+                "--critical-await": {
+                    "value": "$kvm_disk_io_critical_await$"
+                },
+                "--critical-throughput": {
+                    "value": "$kvm_disk_io_critical_throughput$"
                 },
                 "--ignore": {
                     "value": "$kvm_disk_io_ignore$",
@@ -42,6 +42,12 @@
                 },
                 "--warning": {
                     "value": "$kvm_disk_io_warning$"
+                },
+                "--warning-await": {
+                    "value": "$kvm_disk_io_warning_await$"
+                },
+                "--warning-throughput": {
+                    "value": "$kvm_disk_io_warning_throughput$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/kvm-disk-io",
@@ -109,6 +115,16 @@
                 },
                 {
                     "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -235,28 +251,6 @@
             "uuid": "bc942f0c-6362-4dd0-b016-c8fd23584ea5"
         },
         "3": {
-            "varname": "kvm_disk_io_await_critical",
-            "caption": "KVM Disk I/O: Await Critical",
-            "description": "CRIT threshold for the average time a read or write takes to complete, in milliseconds. Meant for a disk that is effectively hung. Supports Nagios ranges. Default: unset, latency is reported but does not alert",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "59c2729a-7fff-4e75-9da8-8d14378ec246"
-        },
-        "4": {
-            "varname": "kvm_disk_io_await_warning",
-            "caption": "KVM Disk I/O: Await Warning",
-            "description": "WARN threshold for the average time a read or write takes to complete, in milliseconds. Supports Nagios ranges. Default: unset, latency is reported but does not alert",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "7ad85a7c-09a0-42a2-b2fa-7df763cefb49"
-        },
-        "5": {
             "varname": "kvm_disk_io_count",
             "caption": "KVM Disk I/O: Count",
             "description": "Number of measurements the reported values are averaged over. A disk has to stay above a threshold for the whole span to alert, so a single busy minute does not.",
@@ -266,6 +260,28 @@
                 "visibility": "visible"
             },
             "uuid": "c71982ae-a316-4e7c-ae97-cc6452305bfd"
+        },
+        "4": {
+            "varname": "kvm_disk_io_critical_await",
+            "caption": "KVM Disk I/O: Critical Await",
+            "description": "CRIT threshold for the average time a read or write takes to complete, in milliseconds. Meant for a disk that is effectively hung. Supports Nagios ranges. Default: unset, latency is reported but does not alert",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "58f5f8f8-ee42-427a-8cef-a76d68f6fd55"
+        },
+        "5": {
+            "varname": "kvm_disk_io_critical_throughput",
+            "caption": "KVM Disk I/O: Critical Throughput",
+            "description": "CRIT threshold for the throughput of a disk, as an absolute rate per second, in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Use it where the backing store has a known limit; `--warning` judges the same value against what the disk has been seen to manage instead. Supports Nagios ranges. Default: unset, throughput is judged against the observed maximum only. Example: `500M` alerts above 500 MiB/s.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "38b121e3-b35d-4944-b9f9-75c686c490d4"
         },
         "6": {
             "varname": "kvm_disk_io_ignore",
@@ -352,6 +368,28 @@
                 "visibility": "visible"
             },
             "uuid": "b4de0770-c417-4e3b-8970-f40cef8c2381"
+        },
+        "14": {
+            "varname": "kvm_disk_io_warning_await",
+            "caption": "KVM Disk I/O: Warning Await",
+            "description": "WARN threshold for the average time a read or write takes to complete, in milliseconds. Supports Nagios ranges. Default: unset, latency is reported but does not alert",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2f52b439-cc93-499f-9070-ac2014ad0592"
+        },
+        "15": {
+            "varname": "kvm_disk_io_warning_throughput",
+            "caption": "KVM Disk I/O: Warning Throughput",
+            "description": "WARN threshold for the throughput of a disk, as an absolute rate per second, in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). Use it where the backing store has a known limit; `--warning` judges the same value against what the disk has been seen to manage instead. Supports Nagios ranges. Default: unset, throughput is judged against the observed maximum only. Example: `400M` alerts above 400 MiB/s.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0eb02115-a10b-4364-bca2-ef9a9a59b2b1"
         }
     }
 }
