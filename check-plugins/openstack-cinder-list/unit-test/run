@@ -1,0 +1,229 @@
+#!/usr/bin/env python3
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-all-in-use',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 volumes checked', '3 in-use', '140.0GiB in total'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-no-volumes',
+        'test': 'stdout/no-volumes,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 volumes checked'],
+        # An empty project must not invent a status change timestamp or a size.
+        'assert-not-in': ['Last status change', 'in total'],
+    },
+    {
+        'id': 'crit-volume-in-error',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'error.*\[CRITICAL\]',
+        'assert-in': ['1 error', '1 maintenance', '1 awaiting-transfer'],
+    },
+    {
+        # A volume the cloud took out of service, and one offered to another project that
+        # nobody accepted: both need attention, neither is worth waking somebody up for.
+        'id': 'warn-without-the-broken-volume',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--ignore=^broken01--data$',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        # A volume nobody attached and one that is being created are ordinary, not a problem.
+        'id': 'ok-available-and-creating-are-not-a-problem',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^(spare01|new01)$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 available', '1 creating'],
+    },
+    {
+        # On a cloud where every volume is supposed to be attached, `available` is the
+        # symptom of a forgotten volume that keeps costing money.
+        'id': 'warn-available-raised-by-severity',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^spare01$ --severity=available,warn',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-maintenance-lowered-by-severity',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^stuck01--data$ --severity=maintenance,ok',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # A status a later Cinder release adds must be reported, not crash the check, and
+        # must not be silently rated OK.
+        'id': 'unknown-status-cinder-gained-later',
+        'test': 'stdout/unrated-status,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['1 rekeying'],
+    },
+    {
+        'id': 'ok-brief-hides-the-healthy-rows',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 in-use'],
+        'assert-not-in': ['web01--boot'],
+    },
+    {
+        'id': 'crit-brief-keeps-the-broken-row',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--brief --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['broken01--data', 'stuck01--data'],
+        'assert-not-in': ['spare01'],
+    },
+    {
+        'id': 'ok-lengthy-adds-the-attachment-and-the-type',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Attached to',
+            'a5b52fe9-0bd2-4983-bf9b-fa8ef04c3226:/dev/vda',
+            'Bootable',
+            'Created (UTC)',
+            'ssd',
+            'zone-b',
+        ],
+    },
+    {
+        # The Block Storage API lists an attachment only once it reached the `attached`
+        # state, so a project whose volumes hang unattached fills none of that column and it
+        # drops out of the table by itself.
+        'id': 'crit-lengthy-drops-the-empty-attachment-column',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['Attached to'],
+    },
+    {
+        'id': 'ok-match-type-narrows-the-listing',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--match-type=^hdd$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 volume checked', 'db01--data'],
+        'assert-not-in': ['web01--boot'],
+    },
+    {
+        'id': 'ok-ignore-zone-drops-a-zone',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--ignore-zone=^zone-a$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 volume checked', 'proxy01--boot'],
+    },
+    {
+        # Filtering on a field the API left empty would drop every volume without saying
+        # why, which reads like an empty project.
+        'id': 'unknown-match-type-when-no-volume-has-one',
+        'test': 'stdout/unnamed-volume-without-a-type,,0',
+        'params': '--match-type=^ssd$',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['volume type'],
+    },
+    {
+        # A volume needs no name, and an unnamed one is only ever addressed by its id.
+        'id': 'ok-an-unnamed-volume-is-listed-by-its-id',
+        'test': 'stdout/unnamed-volume-without-a-type,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['77777777-7777-4777-8777-777777777777'],
+    },
+    {
+        'id': 'ok-no-volume-matches-the-filter',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--match=^nothing-matches-this$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'crit-no-volume-matches-the-filter',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--match=^nothing-matches-this$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'ok-perfdata-covers-every-status-and-the-size',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'total'=3",
+            "'in-use'=3",
+            "'error'=0",
+            "'available'=0",
+            # 140 GiB, because a size means nothing without its unit.
+            "'size'=150323855360B",
+        ],
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'total'=3"],
+    },
+    {
+        'id': 'ok-always-ok-suppresses-the-alert',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-severity-names-an-unknown-status',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--severity=detached,warn',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['unknown volume status'],
+    },
+    {
+        'id': 'unknown-severity-names-an-unknown-state',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--severity=available,disaster',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['unknown state'],
+    },
+    {
+        'id': 'unknown-invalid-match-regex',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--match=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-invalid-match-type-regex',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '--match-type=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../openstack-cinder-list'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
