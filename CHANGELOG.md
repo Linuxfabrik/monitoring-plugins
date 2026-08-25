@@ -54,6 +54,8 @@ Monitoring Plugins:
 * lynis: alerts when no host was audited and says why, and counts answering hosts apart from probed addresses
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`, and keep working
 * nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
+* openstack-nova-list: a password reset or a rescue image no longer alerts as CRITICAL
+* openstack-swift-stat: also alerts on a container's object quota and on the account quota
 
 Icinga Director:
 
@@ -96,6 +98,7 @@ Monitoring Plugins:
 * about-me: recognises a KVM host again. It only ever asked about `libvirtd`, which current installations do not run, so no hypervisor with the modular daemons was tagged
 * kvm-vm: a machine that crashed, was killed off the host or never started is reported instead of counted as switched off
 * kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
+* openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
 * redfish-*: the checks recover on their own after a management controller drops its sessions, instead of failing until their cached credentials expire. They also log in far less often, no longer leave a session behind on every login, and retry a login that fails once instead of falling back to slower authentication ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 

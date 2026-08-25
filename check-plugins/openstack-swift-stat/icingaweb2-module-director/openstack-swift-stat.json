@@ -5,14 +5,43 @@
                 "--always-ok": {
                     "set_if": "$openstack_swift_stat_always_ok$"
                 },
+                "--brief": {
+                    "set_if": "$openstack_swift_stat_brief$"
+                },
                 "--critical": {
                     "value": "$openstack_swift_stat_critical$"
+                },
+                "--critical-count": {
+                    "value": "$openstack_swift_stat_critical_count$"
+                },
+                "--ignore": {
+                    "value": "$openstack_swift_stat_ignore$",
+                    "repeat_key": true
+                },
+                "--insecure": {
+                    "set_if": "$openstack_swift_stat_insecure$"
+                },
+                "--lengthy": {
+                    "set_if": "$openstack_swift_stat_lengthy$"
+                },
+                "--match": {
+                    "value": "$openstack_swift_stat_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$openstack_swift_stat_no_match_severity$"
                 },
                 "--no-perfdata": {
                     "set_if": "$openstack_swift_stat_no_perfdata$"
                 },
                 "--rc-file": {
                     "value": "$openstack_swift_stat_rc_file$"
+                },
+                "--timeout": {
+                    "value": "$openstack_swift_stat_timeout$"
+                },
+                "--warning-count": {
+                    "value": "$openstack_swift_stat_warning_count$"
                 },
                 "--warning": {
                     "value": "$openstack_swift_stat_warning$"
@@ -43,6 +72,51 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +162,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when storage usage exceeds the configured thresholds.",
+            "notes": "Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when the free space left in a container with a quota falls to or below the thresholds, or when the Swift API cannot be reached in time. Containers without a quota are listed but cannot be alerted on. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-swift-stat/",
             "object_name": "tpl-service-openstack-swift-stat",
             "object_type": "template",
@@ -100,9 +174,18 @@
             "vars": {
                 "criticality": "C",
                 "openstack_swift_stat_always_ok": false,
+                "openstack_swift_stat_brief": false,
                 "openstack_swift_stat_critical": 10,
+                "openstack_swift_stat_critical_count": 1000,
+                "openstack_swift_stat_ignore": [],
+                "openstack_swift_stat_insecure": false,
+                "openstack_swift_stat_lengthy": false,
+                "openstack_swift_stat_match": [],
+                "openstack_swift_stat_no_match_severity": "ok",
                 "openstack_swift_stat_no_perfdata": false,
                 "openstack_swift_stat_rc_file": "/var/spool/icinga2/.openstack.cnf",
+                "openstack_swift_stat_timeout": 50,
+                "openstack_swift_stat_warning_count": 10000,
                 "openstack_swift_stat_warning": 50
             },
             "volatile": null,
@@ -155,6 +238,39 @@
             "uuid": "4a2577d9-5758-43e1-9187-2d9140f7a8b7"
         }
     },
+    "DataList": {
+        "openstack_swift_stat_no_match_severity_list": {
+            "list_name": "openstack_swift_stat_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "f5dfea86-c970-4915-a138-4baf09eeec15"
+        }
+    },
     "Datafield": {
         "1": {
             "varname": "openstack_swift_stat_always_ok",
@@ -166,9 +282,18 @@
             "uuid": "4ecf6873-9c6b-470c-bb83-da31e79735ce"
         },
         "2": {
+            "varname": "openstack_swift_stat_brief",
+            "caption": "Openstack Swift Stat: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "828c8fa9-84bf-44a0-ab2b-4f988d3486cc"
+        },
+        "3": {
             "varname": "openstack_swift_stat_critical",
             "caption": "Openstack Swift Stat: Critical",
-            "description": "CRIT threshold for remaining free space, in GiB.",
+            "description": "CRIT threshold for remaining free space, in GiB. Only applies to containers that have a quota set.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -176,7 +301,71 @@
             },
             "uuid": "fdcfa197-d988-4c83-856b-99368bdee9f3"
         },
-        "3": {
+        "4": {
+            "varname": "openstack_swift_stat_critical_count",
+            "caption": "Openstack Swift Stat: Critical Count",
+            "description": "CRIT threshold for the remaining number of objects a container may still take. Only applies to containers that have an object count quota set.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f8476b3e-2ae8-4b60-bd36-2975db8055ae"
+        },
+        "5": {
+            "varname": "openstack_swift_stat_ignore",
+            "caption": "Openstack Swift Stat: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Matched against the container name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "85657700-1c01-4b5f-aacc-f4c5f849ed99"
+        },
+        "6": {
+            "varname": "openstack_swift_stat_insecure",
+            "caption": "Openstack Swift Stat: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "802ba637-ca96-4d39-90c8-9723344bc869"
+        },
+        "7": {
+            "varname": "openstack_swift_stat_lengthy",
+            "caption": "Openstack Swift Stat: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "e334df9b-c7a0-42ed-9ef2-de032ed72f96"
+        },
+        "8": {
+            "varname": "openstack_swift_stat_match",
+            "caption": "Openstack Swift Stat: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). Matched against the container name.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0077550a-f7ed-4b34-8325-92720485a3e6"
+        },
+        "9": {
+            "varname": "openstack_swift_stat_no_match_severity",
+            "caption": "Openstack Swift Stat: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "openstack_swift_stat_no_match_severity_list"
+            },
+            "uuid": "f675bd33-caf0-4633-acd4-d28c9b4a9501"
+        },
+        "10": {
             "varname": "openstack_swift_stat_no_perfdata",
             "caption": "Openstack Swift Stat: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -185,10 +374,10 @@
             "settings": {},
             "uuid": "30311b0c-b005-4943-aa48-1ecccef0ee98"
         },
-        "4": {
+        "11": {
             "varname": "openstack_swift_stat_rc_file",
             "caption": "Openstack Swift Stat: Rc File",
-            "description": "Path to a rc file containing OpenStack connection parameters like OS_USERNAME (instead of specifying them on the command line). Example: `/var/spool/icinga2/.openstack.cnf`.",
+            "description": "Path to a rc file containing OpenStack connection parameters like OS_USERNAME (instead of specifying them on the command line). Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -196,10 +385,32 @@
             },
             "uuid": "82bbe4ec-0447-443f-96d7-eb7c0b2d9325"
         },
-        "5": {
+        "12": {
+            "varname": "openstack_swift_stat_timeout",
+            "caption": "Openstack Swift Stat: Timeout",
+            "description": "Network timeout in seconds. Applies to the whole run, not to a single request.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5381aead-532b-4161-9af8-8e1025060b92"
+        },
+        "13": {
+            "varname": "openstack_swift_stat_warning_count",
+            "caption": "Openstack Swift Stat: Warning Count",
+            "description": "WARN threshold for the remaining number of objects a container may still take. Only applies to containers that have an object count quota set.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2c14817c-0468-4608-b710-c2a5f39ad447"
+        },
+        "14": {
             "varname": "openstack_swift_stat_warning",
             "caption": "Openstack Swift Stat: Warning",
-            "description": "WARN threshold for remaining free space, in GiB.",
+            "description": "WARN threshold for remaining free space, in GiB. Only applies to containers that have a quota set.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

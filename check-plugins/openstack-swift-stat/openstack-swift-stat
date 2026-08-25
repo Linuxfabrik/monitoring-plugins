@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import logging
 import sys
 import warnings
 
@@ -22,7 +23,7 @@ import lib.human
 import lib.lftest
 import lib.time
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The OpenStack client libraries pull in `requests`, which prints a
 # RequestsDependencyWarning when the urllib3 or chardet it finds is not the
@@ -31,23 +32,55 @@ from lib.globals import STATE_OK, STATE_UNKNOWN
 # server reads as the result.
 warnings.filterwarnings('ignore')
 
+# Those libraries also log to stderr through loggers of their own, for instance
+# when identity version discovery on the auth URL does not answer. A plugin
+# reports through its stdout line and its exit code, so that noise is turned off
+# rather than left to confuse whoever runs the check by hand.
+logging.getLogger('keystoneauth').setLevel(logging.CRITICAL)
+logging.getLogger('swiftclient').setLevel(logging.CRITICAL)
+
 try:
-    from swiftclient.service import SwiftService
+    from swiftclient.service import SwiftError, SwiftService
 except ImportError:
     print('Python module "python-swiftclient" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082503'
 
 DESCRIPTION = """Checks OpenStack Swift object storage account statistics, including total container
-count, object count, and bytes used. Alerts when storage usage exceeds the configured
-thresholds."""
+count, object count, and bytes used. Alerts when the free space left in a container with a quota
+falls to or below the thresholds, or when the Swift API cannot be reached in time. Containers
+without a quota are listed but cannot be alerted on. Supports extended reporting via --lengthy."""
 
+# swiftclient applies `timeout` to every single HTTP request, and this check
+# makes one to authenticate, one to list the account, one for the account
+# headers and one more per container. The budget is sliced per request for the
+# account phase, and a deadline stops the per-container phase: what the
+# deadline cuts off is reported as cut off instead of being passed off as a
+# complete picture. Verified against python-swiftclient on Fedora 44.
+ACCOUNT_REQUESTS = 3
+
+# No single request is worth waiting longer than this, however large the total
+# budget is. Without the cap, a generous --timeout could be spent entirely on
+# the authentication and leave nothing for the containers the check is here to
+# read.
+MAX_REQUEST_TIMEOUT = 10
+
+DEFAULT_BRIEF = False
 DEFAULT_CRIT = 10  # GiB free space left
+DEFAULT_CRIT_COUNT = 1000  # objects a container may still take
+DEFAULT_INSECURE = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
+# One request per container makes this check slower than most, which is why
+# its shipped check command allows 60 seconds. The default leaves the plugin
+# room to give up and report on its own before the monitoring server kills it.
+DEFAULT_TIMEOUT = 50
 DEFAULT_WARN = 50  # GiB free space left
+DEFAULT_WARN_COUNT = 10000  # objects a container may still take
 
 
 def parse_args():
@@ -74,12 +107,73 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for remaining free space, in GiB. Default: <= %(default)s',
+        help='CRIT threshold for remaining free space, in GiB. '
+        'Only applies to containers that have a quota set. '
+        'Default: <= %(default)s',
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-count',
+        help='CRIT threshold for the remaining number of objects a container '
+        'may still take. '
+        'Only applies to containers that have an object count quota set. '
+        'Default: <= %(default)s',
+        dest='CRIT_COUNT',
+        type=int,
+        default=DEFAULT_CRIT_COUNT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex') + ' Matched against the container name.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match') + ' Matched against the container name.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -92,9 +186,9 @@ def parse_args():
 
     parser.add_argument(
         '--rc-file',
-        help='Path to a rc file containing OpenStack connection parameters like OS_USERNAME '
-        '(instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.openstack.cnf`. '
+        help='Path to a rc file containing OpenStack connection parameters like '
+        'OS_USERNAME (instead of specifying them on the command line). '
+        'Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`. '
         'Default: %(default)s',
         dest='RC_FILE',
         default=DEFAULT_RC_FILE,
@@ -108,9 +202,32 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout')
+        + ' Applies to the whole run, not to a single request. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-count',
+        help='WARN threshold for the remaining number of objects a container '
+        'may still take. '
+        'Only applies to containers that have an object count quota set. '
+        'Default: <= %(default)s',
+        dest='WARN_COUNT',
+        type=int,
+        default=DEFAULT_WARN_COUNT,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for remaining free space, in GiB. Default: <= %(default)s',
+        help='WARN threshold for remaining free space, in GiB. '
+        'Only applies to containers that have a quota set. '
+        'Default: <= %(default)s',
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
@@ -118,6 +235,135 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_options(args, env):
+    """Build the swiftclient service options from the rc file.
+
+    A domain is addressed either by id or by name, never by both, because
+    keystoneauth silently prefers the id and drops the name. A hardcoded id
+    default would therefore override the domain the rc file names.
+    """
+    options = {
+        'auth_version': env.get('ST_AUTH_VERSION', 3),  # Should be '3'
+        'insecure': args.INSECURE,
+        'object_dd_threads': 20,
+        'os_auth_url': env.get('OS_AUTH_URL', None),
+        'os_cacert': env.get('OS_CACERT', None),
+        'os_identity_api_version': env.get('OS_IDENTITY_API_VERSION', None),
+        'os_interface': env.get('OS_INTERFACE', 'public'),
+        'os_password': env.get('OS_PASSWORD', None),
+        'os_project_id': env.get('OS_PROJECT_ID', None),
+        'os_project_name': env.get('OS_PROJECT_NAME', None),
+        'os_region_name': env.get('OS_REGION_NAME', None),
+        'os_username': env.get('OS_USERNAME', None),
+        # A single attempt: the default of five retries with an exponential
+        # backoff sleeps for over half a minute on its own, which no check
+        # interval survives.
+        'retries': 1,
+        'timeout': max(1, min(args.TIMEOUT / ACCOUNT_REQUESTS, MAX_REQUEST_TIMEOUT)),
+    }
+    if env.get('OS_PROJECT_DOMAIN_ID'):
+        options['os_project_domain_id'] = env['OS_PROJECT_DOMAIN_ID']
+    elif env.get('OS_PROJECT_DOMAIN_NAME'):
+        options['os_project_domain_name'] = env['OS_PROJECT_DOMAIN_NAME']
+    else:
+        # Every deployment carries the default domain under this id.
+        options['os_project_domain_id'] = 'default'
+    if env.get('OS_USER_DOMAIN_ID'):
+        options['os_user_domain_id'] = env['OS_USER_DOMAIN_ID']
+    elif env.get('OS_USER_DOMAIN_NAME'):
+        options['os_user_domain_name'] = env['OS_USER_DOMAIN_NAME']
+    else:
+        options['os_user_domain_id'] = 'default'
+    return options
+
+
+def get_free_state(args, quota, used):
+    """Rate the headroom left against the thresholds.
+
+    Returns (state, free) for a quota that is set, or (STATE_OK, None) for one
+    that is not: without a quota there is no headroom to run out of.
+    """
+    if not quota:
+        return (STATE_OK, None)
+    free = max(0, quota - used)
+    state = lib.base.get_state(
+        quota - used,
+        args.WARN * 1024 * 1024 * 1024,
+        args.CRIT * 1024 * 1024 * 1024,
+        'le',
+    )
+    return (state, free)
+
+
+def get_count_state(args, quota, used):
+    """Rate the object headroom left against the count thresholds.
+
+    Returns (state, free), or (STATE_OK, None) for a container without an
+    object count quota.
+    """
+    if not quota:
+        return (STATE_OK, None)
+    free = max(0, quota - used)
+    state = lib.base.get_state(quota - used, args.WARN_COUNT, args.CRIT_COUNT, 'le')
+    return (state, free)
+
+
+def get_data(args, env):
+    """Fetch the account headers and the headers of every container.
+
+    Returns (True, (stat_account, containers, truncated)) where `truncated`
+    says whether the run ran out of time before every container was read, or
+    (False, errormessage).
+    """
+    deadline = lib.time.now() + args.TIMEOUT
+    containers = {}
+    truncated = False
+    try:
+        with SwiftService(options=get_options(args, env)) as swift:
+            # general statistics
+            stat_account = swift.stat()
+            if isinstance(stat_account.get('error'), Exception):
+                return (False, str(stat_account['error']))
+            if 'headers' not in stat_account:
+                return (False, 'The Swift API returned no account headers.')
+            # get stat for each container
+            for list_account_part in swift.list():
+                if isinstance(list_account_part.get('error'), Exception):
+                    return (False, str(list_account_part['error']))
+                for lap in list_account_part.get('listing', []):
+                    if lib.time.now() >= deadline:
+                        truncated = True
+                        break
+                    stat_container = swift.stat(container=lap['name'])
+                    if stat_container['success']:
+                        containers[lap['name']] = stat_container['headers']
+                if truncated:
+                    break
+    except SwiftError as err:
+        # Raised for an account that does not exist, among others, and it
+        # carries the reason the API gave.
+        return (False, str(err))
+    except Exception as err:
+        return (False, f'Cannot reach the Swift API: {err}')
+    return (True, (stat_account, containers, truncated))
+
+
+def get_test_data(args):
+    """Read the account headers and the container headers from fixtures."""
+    stat_account = json.loads(lib.lftest.test([f'{args.TEST[0]}-stat_account'])[0])
+    containers = {}
+    list_account_part = json.loads(
+        lib.lftest.test([f'{args.TEST[0]}-list_account_part'])[0]
+    )
+    for lap in list_account_part['listing']:
+        stat_container = json.loads(
+            lib.lftest.test([f'{args.TEST[0]}-stat_container-{lap["name"]}'])[0]
+        )
+        if stat_container['success']:
+            containers[lap['name']] = stat_container['headers']
+    return (stat_account, containers, False)
 
 
 def main():
@@ -129,62 +375,46 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
     # fetch data
     # https://github.com/openstack/python-swiftclient/tree/master/examples
     if args.TEST is None:
-        # set a bunch of possible OpenStack credentials
         env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
-        _opts = {
-            'auth_version': env.get('ST_AUTH_VERSION', 3),  # Should be '3'
-            'object_dd_threads': 20,
-            'os_auth_url': env.get('OS_AUTH_URL', None),
-            'os_identity_api_version': env.get('OS_IDENTITY_API_VERSION', None),
-            'os_interface': env.get('OS_INTERFACE', 'public'),
-            'os_password': env.get('OS_PASSWORD', None),
-            'os_project_domain_id': env.get('OS_PROJECT_DOMAIN_ID', None),
-            'os_project_domain_name': env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
-            'os_project_id': env.get('OS_PROJECT_ID', None),
-            'os_project_name': env.get('OS_PROJECT_NAME', None),
-            'os_region_name': env.get('OS_REGION_NAME', None),
-            'os_user_domain_name': env.get('OS_USER_DOMAIN_NAME', 'default'),
-            'os_username': env.get('OS_USERNAME', None),
-        }
-        with SwiftService(options=_opts) as swift:
-            # general statistics
-            stat_account = swift.stat()
-            if 'error' in stat_account and isinstance(stat_account['error'], Exception):
-                lib.base.cu(str(stat_account['error']))
-            # get stat for each container
-            containers = {}
-            for list_account_part in swift.list():
-                for lap in list_account_part['listing']:
-                    stat_container = swift.stat(container=lap['name'])
-                    if stat_container['success']:
-                        containers[lap['name']] = stat_container['headers']
+        success, result = get_data(args, env)
+        if not success:
+            # The store did not answer in time or refused us. That is a
+            # statement about the store, so warn instead of going unknown.
+            lib.base.oao(result, STATE_WARN, always_ok=args.ALWAYS_OK)
+        stat_account, containers, truncated = result
     else:
         # do not call the command, put in test data
-        # general statistics
-        stat_account = json.loads(lib.lftest.test([f'{args.TEST[0]}-stat_account'])[0])
-        # get stat for each container
-        containers = {}
-        list_account_part = json.loads(
-            lib.lftest.test([f'{args.TEST[0]}-list_account_part'])[0]
-        )
-        for lap in list_account_part['listing']:
-            stat_container = json.loads(
-                lib.lftest.test([f'{args.TEST[0]}-stat_container-{lap["name"]}'])[0]
-            )
-            if stat_container['success']:
-                containers[lap['name']] = stat_container['headers']
+        stat_account, containers, truncated = get_test_data(args)
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
     table_data = []
+    checked = 0
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
 
     # analyze data
     for name, container in containers.items():
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+        checked += 1
         item = {
             'name': name,
             'accept-ranges': container.get('accept-ranges', None),
@@ -210,27 +440,37 @@ def main():
             'used': lib.human.bytes2human(
                 int(container.get('x-container-bytes-used', 0))
             ),
-            'quota': lib.human.bytes2human(
-                int(container.get('x-container-meta-quota-bytes', 0))
+            # An empty cell says "no quota". A rendered 0.0B would read like a
+            # quota of zero, and it would keep the column in the table even
+            # when not a single container carries one.
+            'quota': (
+                lib.human.bytes2human(
+                    int(container.get('x-container-meta-quota-bytes', 0))
+                )
+                if int(container.get('x-container-meta-quota-bytes', 0))
+                else ''
             ),
         }
+        # Swift enforces two quotas per container, bytes and object count, and a
+        # container can sit against either one. See the container_quotas
+        # middleware; both are ordinary metadata and reach the client.
+        object_count = int(container.get('x-container-object-count', 0))
+        count_quota = int(container.get('x-container-meta-quota-count', 0))
+        byte_state, free_bytes = get_free_state(
+            args,
+            item['x-container-meta-quota-bytes'],
+            item['x-container-bytes-used'],
+        )
+        count_state, free_items = get_count_state(args, count_quota, object_count)
+        container_state = lib.base.get_worst(byte_state, count_state)
+        state = lib.base.get_worst(state, container_state)
+
+        item['items-quota'] = lib.human.number2human(count_quota) if count_quota else ''
+        if count_quota:
+            percent = round(float(object_count) / float(count_quota) * 100, 1)
+            item['x-container-object-count'] += f' ({percent}%)'
+        item['free-items'] = lib.human.number2human(free_items) if count_quota else ''
         if item['x-container-meta-quota-bytes']:
-            # quota is set
-            container_state = lib.base.get_state(
-                item['x-container-meta-quota-bytes'] - item['x-container-bytes-used'],
-                args.WARN * 1024 * 1024 * 1024,
-                args.CRIT * 1024 * 1024 * 1024,
-                'le',
-            )
-            state = lib.base.get_worst(state, container_state)
-            free_bytes = max(
-                0,
-                item['x-container-meta-quota-bytes'] - item['x-container-bytes-used'],
-            )
-            item['free'] = (
-                f'{lib.human.bytes2human(free_bytes)}'
-                f'{lib.base.state2str(container_state, prefix=" ")}'
-            )
             percent = round(
                 float(item['x-container-bytes-used'])
                 / float(item['x-container-meta-quota-bytes'])
@@ -238,13 +478,23 @@ def main():
                 1,
             )
             item['used'] += f' ({percent}%)'
+            item['free'] = lib.human.bytes2human(free_bytes)
         else:
             item['free'] = ''
-        table_data.append(item)
+        # Only the last column may carry a state marker, because IcingaWeb
+        # replaces it with an icon and breaks the table everywhere else. So the
+        # marker states the verdict for the whole row, whichever quota caused
+        # it, and the percentages in the columns before it say which one.
+        item['verdict'] = (
+            f'{lib.base.state2str(container_state, prefix="").strip()}'
+            if container_state != STATE_OK
+            else ''
+        )
 
         perfdata += lib.base.get_perfdata(
             f'{name}_items',
             container.get('x-container-object-count', 0),
+            uom=None,
             _min=0,
         )
         perfdata += lib.base.get_perfdata(
@@ -254,51 +504,129 @@ def main():
             _min=0,
         )
 
+        # `--brief` is a display filter only: the row above already fed the
+        # state and the perfdata.
+        if args.BRIEF and container_state == STATE_OK:
+            continue
+        table_data.append(item)
+
+    # every container was filtered out, so there is nothing to report on
+    if (compiled_match or compiled_ignore) and not checked:
+        lib.base.oao(
+            f'{len(containers)} {lib.txt.pluralize("container", len(containers))} in '
+            f'this account, all filtered out by `--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
     # build the message
     msg += 'Account: '
-    if 'x-account-container-count' in stat_account['headers'] and int(
-        stat_account['headers']['x-account-container-count']
+    headers = stat_account.get('headers', {})
+    if 'x-account-container-count' in headers and int(
+        headers['x-account-container-count']
     ):
-        cnt = stat_account['headers']['x-account-container-count']
+        cnt = headers['x-account-container-count']
         msg += f'{cnt} {lib.txt.pluralize("container", int(cnt))}, '
-    if 'x-account-object-count' in stat_account['headers'] and int(
-        stat_account['headers']['x-account-object-count']
-    ):
-        obj_cnt = stat_account['headers']['x-account-object-count']
+    if 'x-account-object-count' in headers and int(headers['x-account-object-count']):
+        obj_cnt = headers['x-account-object-count']
         msg += (
             f'{lib.human.number2human(obj_cnt)}'
             f' {lib.txt.pluralize("object", int(obj_cnt))}, '
         )
-    if 'x-account-bytes-used' in stat_account['headers'] and int(
-        stat_account['headers']['x-account-bytes-used']
-    ):
-        bytes_used = int(stat_account['headers']['x-account-bytes-used'])
+    if 'x-account-bytes-used' in headers and int(headers['x-account-bytes-used']):
+        bytes_used = int(headers['x-account-bytes-used'])
         msg += f'{lib.human.bytes2human(bytes_used)} used, '
-    if 'x-account-meta-quota-bytes' in stat_account['headers'] and int(
-        stat_account['headers']['x-account-meta-quota-bytes']
-    ):
-        quota = int(stat_account['headers']['x-account-meta-quota-bytes'])
-        msg += f'{lib.human.bytes2human(quota)} quota, '
+    # The account carries a quota of its own, and it can run out while every
+    # single container is still well inside its own. Swift enforces it in the
+    # account_quotas middleware, so it is a real limit and not just a number to
+    # print. Only the `meta` form reaches a client: a reseller may set the same
+    # quota as `sysmeta`, which takes precedence server-side but is stripped
+    # from every response by the gatekeeper middleware, and an account object
+    # count quota is `sysmeta` only. Those cannot be reported on from here.
+    account_quota = int(headers.get('x-account-meta-quota-bytes') or 0)
+    account_used = int(headers.get('x-account-bytes-used') or 0)
+    account_state, account_free = get_free_state(args, account_quota, account_used)
+    if account_quota:
+        state = lib.base.get_worst(state, account_state)
+        percent = round(float(account_used) / float(account_quota) * 100, 1)
+        msg += (
+            f'{lib.human.bytes2human(account_quota)} quota'
+            f' ({percent}% used,'
+            f' {lib.human.bytes2human(account_free)} free'
+            f'{lib.base.state2str(account_state, prefix=" ")}), '
+        )
     if msg.endswith(', '):
         msg = msg[:-2]
 
+    if truncated:
+        # Say it, instead of presenting a partial listing as the whole picture.
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f'. Only {checked} of them read within {args.TIMEOUT}s'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")},'
+            f' raise `--timeout` or narrow the check down with `--match`'
+        )
+
+    # build table output
     if table_data:
-        keys = [
-            'name',
-            'x-container-object-count',
-            'quota',
-            'used',
-            'free',
-        ]
-        headers = [
-            'Container',
-            'Items',
-            'Quota',
-            'Used',
-            'Free',
-        ]
-        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
-    else:
+        if args.LENGTHY:
+            # `free` carries the state marker, so it stays the last column:
+            # IcingaWeb replaces `[WARNING]` with an icon and breaks every
+            # table where the state is not at the end of the row.
+            keys = [
+                'name',
+                'x-storage-policy',
+                'last-modified',
+                'x-container-object-count',
+                'items-quota',
+                'free-items',
+                'quota',
+                'used',
+                'free',
+                'verdict',
+            ]
+            header = [
+                'Container',
+                'Policy',
+                'Last Modified',
+                'Items',
+                'Items Quota',
+                'Free Items',
+                'Quota',
+                'Used',
+                'Free',
+                'State',
+            ]
+        else:
+            keys = [
+                'name',
+                'x-container-object-count',
+                'items-quota',
+                'free-items',
+                'quota',
+                'used',
+                'free',
+                'verdict',
+            ]
+            header = [
+                'Container',
+                'Items',
+                'Items Quota',
+                'Free Items',
+                'Quota',
+                'Used',
+                'Free',
+                'State',
+            ]
+        # A column nothing filled in is noise. `Free` is the usual one: it
+        # stays empty for every container that carries no quota.
+        msg += '\n\n' + lib.base.get_table(
+            table_data, keys, header=header, hide_empty=True
+        )
+    elif not checked and not truncated:
+        # Only when there really was nothing to look at. `--brief` hiding every
+        # row means the containers were checked and are fine, so the summary
+        # above already says everything there is to say.
         msg += '. Nothing checked.'
 
     # over and out

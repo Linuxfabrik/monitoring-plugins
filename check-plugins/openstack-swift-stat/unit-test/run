@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # openstack-swift-stat calls `swift list` once for the account, `swift
 # stat` once for the account header, and `swift stat <container>` once
@@ -28,14 +28,130 @@ TESTS = [
         'test': 'stdout/four-containers-one-over-threshold,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota',
-            'Container ! Items  ! Quota    ! Used           ! Free             ',
-            '----------+--------+----------+----------------+------------------',
-            '01        ! 2.4M   ! 0.0B     ! 2.2TiB         !                  ',
-            '02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]',
-            '03        ! 107.7K ! 0.0B     ! 111.8GiB       !                  ',
-            '04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB',
+            # The account quota is watched, not merely printed.
+            'Account: 4 containers, 2.8M objects, 5.4TiB used, '
+            '90.9TiB quota (5.9% used, 85.6TiB free)',
+            '02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB  ! [WARNING]',
+            '04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB !',
         ],
+        # A container without a byte quota shows an empty cell, not `0.0B`,
+        # which would read like a quota of zero.
+        'assert-not-in': ['! 0.0B'],
+    },
+    {
+        'id': 'ok-only-a-container-well-below-the-threshold',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--match=^04$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['04', '202.9GiB'],
+        # The tight container 02 must not make it into the table.
+        'assert-not-in': ['[WARNING]', '3.1TiB'],
+    },
+    {
+        'id': 'ok-the-tight-container-ignored',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--ignore=^02$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'crit-threshold-raised-above-the-free-space',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--warning=100 --critical=20',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'17\.2GiB\s+!\s+\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-brief-hides-the-healthy-containers',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['02'],
+        # Containers 01, 03 and 04 are within their quota, or have none.
+        'assert-not-in': ['111.8GiB', '202.9GiB'],
+    },
+    {
+        # `--brief` hiding every row means the containers were checked and are
+        # fine. Claiming nothing was checked would be wrong.
+        'id': 'ok-brief-hiding-everything-is-not-nothing-checked',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--brief --ignore=^02$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['4 containers'],
+        'assert-not-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'warn-brief-keeps-the-perfdata-complete',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--brief',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'01_used'=", "'03_used'=", "'04_used'="],
+    },
+    {
+        'id': 'warn-lengthy-adds-the-storage-policy',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Policy', 'Policy-0', 'Last Modified'],
+    },
+    {
+        # Swift enforces an object count quota next to the byte quota, and a
+        # container can run out of either one.
+        'id': 'crit-container-out-of-object-headroom',
+        'test': 'stdout/container-near-object-quota,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['crowded', '99.0K (99.0%)', 'Items Quota', 'Free Items'],
+        'assert-regex': r'crowded.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-object-headroom-above-the-count-thresholds',
+        'test': 'stdout/container-near-object-quota,,0',
+        'params': '--warning-count=500 --critical-count=100',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # No container here carries a byte quota, so those columns go away.
+        'id': 'crit-byte-quota-columns-absent-without-a-byte-quota',
+        'test': 'stdout/container-near-object-quota,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['Free  ', '! Quota'],
+    },
+    {
+        # The account can run out while every container is still fine.
+        'id': 'crit-account-quota-nearly-exhausted',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--warning=200000 --critical=100000 --ignore=^02$',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'Account:.*free \[CRITICAL\]',
+    },
+    {
+        'id': 'ok-every-container-filtered-out',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--match=^nothing-matches-this$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'crit-every-container-filtered-out',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--match=^nothing-matches-this$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'ok-always-ok-suppresses-the-alert',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-invalid-ignore-regex',
+        'test': 'stdout/four-containers-one-over-threshold,,0',
+        'params': '--ignore=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
     },
 ]
 

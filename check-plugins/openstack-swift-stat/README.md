@@ -3,19 +3,24 @@
 
 ## Overview
 
-Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when storage usage exceeds the configured thresholds.
+Checks OpenStack Swift object storage account statistics, including total container count, object count, and bytes used. Alerts when the space or the object headroom left in a container with a quota falls to or below the thresholds, when the account itself is running out of its own quota, or when the Swift API cannot be reached in time. Containers without a quota are listed but cannot be alerted on. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 
-* You have to provide a path to an rc file to authenticate. The rc file should contain standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME`, etc.
+* You have to provide a path to an rc file to authenticate. The rc file should contain the standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME` and `OS_PROJECT_DOMAIN_NAME`. A domain is taken from the id variable if the rc file sets one, otherwise from the name variable, and falls back to the `default` domain if it sets neither.
+* The check reads the headers of every container in the account, one request each, so its runtime grows with the number of containers. `--timeout` bounds the whole run: containers it did not get to are reported as not read rather than left out silently. On an account with many containers, either narrow the check down with `--match` and run one service per group of containers, or raise `--timeout` together with the timeout of the check command.
+* Swift enforces two quotas per container, one on bytes and one on the number of objects, and a container can run out of either. `--warning` and `--critical` are the free space left in GiB, `--warning-count` and `--critical-count` the number of objects the container may still take. A lower number is worse in both cases. They only apply where the matching quota is actually set; a container without one is listed with an empty cell and cannot raise an alert on it.
+* The account carries a quota of its own and is checked against `--warning` and `--critical` as well, because it can run out while every single container is still well inside its own.
+* Only the quotas Swift exposes to a client can be reported on. A reseller may set the account byte quota as system metadata, which takes precedence on the server but is stripped from every response, and the account object count quota and the per-storage-policy quotas exist only as system metadata. None of those are visible to this check, or to any other client.
 * Requires the `python-swiftclient` and `python-keystoneclient` Python modules.
-* Might take more than 10 seconds to execute depending on the number of containers.
 
 **Data Collection:**
 
-* Authenticates to the OpenStack Swift API using credentials from an rc file
+* Authenticates to the OpenStack Swift API using the credentials from an rc file
 * Reports account-level statistics: container count, object count, total bytes used, and account quota
-* Reports per-container statistics: item count, quota, usage, and remaining free space
+* Reports per-container statistics: item count, both quotas, usage, and the remaining free space and object headroom
+* `--match` and `--ignore` filter by container name, `--brief` hides the containers that are within the thresholds and `--lengthy` adds the storage policy and the last modification date
+* A column that no container filled in is left out of the table, so an account whose containers carry no quota does not show an empty Free column
 
 
 ## Fact Sheet
@@ -28,35 +33,81 @@ Checks OpenStack Swift object storage account statistics, including total contai
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Requirements                          | An rc file with OpenStack credentials, readable by the user running the check |
 | 3rd Party Python modules              | `python-swiftclient`, `python-keystoneclient` |
 
 
 ## Help
 
 ```text
-usage: openstack-swift-stat [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
-                            [--rc-file RC_FILE] [-w WARN]
+usage: openstack-swift-stat [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+                            [--critical-count CRIT_COUNT] [--ignore IGNORE]
+                            [--insecure] [--lengthy] [--match MATCH]
+                            [--no-match-severity {ok,warn,crit,unknown}]
+                            [--no-perfdata] [--rc-file RC_FILE]
+                            [--timeout TIMEOUT] [--warning-count WARN_COUNT]
+                            [-w WARN]
 
 Checks OpenStack Swift object storage account statistics, including total
-container count, object count, and bytes used. Alerts when storage usage
-exceeds the configured thresholds.
+container count, object count, and bytes used. Alerts when the free space left
+in a container with a quota falls to or below the thresholds, or when the
+Swift API cannot be reached in time. Containers without a quota are listed but
+cannot be alerted on. Supports extended reporting via --lengthy.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for remaining free space, in GiB.
-                       Default: <= 10
-  --no-perfdata        Suppress the performance data section from the output.
-                       The status message and the exit code are unaffected, so
-                       alerting keeps working while trending data is dropped.
-  --rc-file RC_FILE    Path to a rc file containing OpenStack connection
-                       parameters like OS_USERNAME (instead of specifying them
-                       on the command line). Example:
-                       `/var/spool/icinga2/.openstack.cnf`. Default:
-                       /var/spool/icinga2/.openstack.cnf
-  -w, --warning WARN   WARN threshold for remaining free space, in GiB.
-                       Default: <= 50
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on.
+  -c, --critical CRIT   CRIT threshold for remaining free space, in GiB. Only
+                        applies to containers that have a quota set. Default:
+                        <= 10
+  --critical-count CRIT_COUNT
+                        CRIT threshold for the remaining number of objects a
+                        container may still take. Only applies to containers
+                        that have an object count quota set. Default: <= 1000
+  --ignore IGNORE       Any item matching this Python regex will be ignored.
+                        Can be specified multiple times. Example:
+                        `(?i)linuxfabrik` for a case-insensitive match.
+                        Matched against the container name.
+  --insecure            This option explicitly allows insecure SSL
+                        connections.
+  --lengthy             Extended reporting.
+  --match MATCH         Filter by this Python regular expression. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Examples:
+                        `(?i)example` to match "example" regardless of case.
+                        `^(?!.*example).*$` to match any string except
+                        "example" (negative lookahead). Matched against the
+                        container name.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  --rc-file RC_FILE     Path to a rc file containing OpenStack connection
+                        parameters like OS_USERNAME (instead of specifying
+                        them on the command line). Example: `--rc-
+                        file=/var/spool/icinga2/.openstack.cnf`. Default:
+                        /var/spool/icinga2/.openstack.cnf
+  --timeout TIMEOUT     Network timeout in seconds. Applies to the whole run,
+                        not to a single request. Default: 50 (seconds)
+  --warning-count WARN_COUNT
+                        WARN threshold for the remaining number of objects a
+                        container may still take. Only applies to containers
+                        that have an object count quota set. Default: <= 10000
+  -w, --warning WARN    WARN threshold for remaining free space, in GiB. Only
+                        applies to containers that have a quota set. Default:
+                        <= 50
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-swift-stat/
@@ -66,7 +117,37 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-swift-s
 ## Usage Examples
 
 ```bash
-./openstack-swift-stat --rc-file /var/spool/icinga2/rc/.openstack-myproject.rc
+./openstack-swift-stat --rc-file=/var/spool/icinga2/rc/.openstack-myproject.rc
+```
+
+Output:
+
+```text
+Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota (5.9% used, 85.6TiB free)
+
+Container ! Items  ! Quota    ! Used           ! Free     ! State
+----------+--------+----------+----------------+----------+----------
+01        ! 2.4M   !          ! 2.2TiB         !          !
+02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB  ! [WARNING]
+03        ! 107.7K !          ! 111.8GiB       !          !
+04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB !
+```
+
+A container with an object count quota instead of a byte quota. The byte columns are gone because no container here carries a byte quota, and the State column appears only while something is wrong:
+
+```text
+Account: 2 containers, 99.7K objects, 1.9GiB used, 931.3GiB quota (0.2% used, 929.5GiB free)
+
+Container ! Items         ! Items Quota ! Free Items ! Used     ! State
+----------+---------------+-------------+------------+----------+-----------
+roomy     ! 700.0 (0.1%)  ! 1.0M        ! 999.3K     ! 953.7MiB !
+crowded   ! 99.0K (99.0%) ! 100.0K      ! 1.0K       ! 953.7MiB ! [CRITICAL]
+```
+
+Only the containers that are running out of space, with every column:
+
+```bash
+./openstack-swift-stat --rc-file=/var/spool/icinga2/rc/.openstack-myproject.rc --lengthy --brief
 ```
 
 Output:
@@ -74,24 +155,37 @@ Output:
 ```text
 Account: 4 containers, 2.8M objects, 5.4TiB used, 90.9TiB quota
 
-Container ! Items  ! Quota    ! Used           ! Free
-----------+--------+----------+----------------+-------------------
-01        ! 2.4M   ! 0.0B     ! 2.2TiB         !
-02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]
-03        ! 107.7K ! 0.0B     ! 111.8GiB       !
-04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB
+Container ! Policy   ! Last Modified                 ! Items  ! Quota  ! Used           ! Free
+----------+----------+-------------------------------+--------+--------+----------------+------------------
+02        ! Policy-0 ! Tue, 05 Jul 2022 13:18:43 GMT ! 324.4K ! 3.1TiB ! 3.1TiB (99.5%) ! 17.2GiB [WARNING]
+```
+
+Check only the backup containers of the account, and alert earlier:
+
+```bash
+./openstack-swift-stat --rc-file=/var/spool/icinga2/rc/.openstack-myproject.rc --match=^backup- --warning=200 --critical=100
 ```
 
 
 ## States
 
-* OK if all containers have sufficient free space (or no quota is set).
-* WARN if a container's remaining free space is <= `--warning` (default: 50 GiB).
-* CRIT if a container's remaining free space is <= `--critical` (default: 10 GiB).
+The overall state is the worst state of all containers that survived `--match` and `--ignore`.
+
+* OK if every container and the account have more headroom left than the thresholds, or carry no quota at all.
+* WARN if the free space left in a container or in the account is <= `--warning` (default: 50 GiB), or if the number of objects a container may still take is <= `--warning-count` (default: 10000).
+* CRIT if the free space left in a container or in the account is <= `--critical` (default: 10 GiB), or if the number of objects a container may still take is <= `--critical-count` (default: 1000).
+* The state marker sits in its own last column and states the verdict for the whole row, whichever of the two quotas caused it. The percentages in the columns before it say which one. The column is left out entirely while every row is fine.
+* WARN if the Swift API cannot be reached within `--timeout`, refuses the credentials, or answers with an error. A store that does not answer says nothing about the containers in it, so this does not silently pass as OK.
+* WARN if `--timeout` runs out before every container was read. The message names how many were read, and the containers that were not read cannot raise an alert of their own.
+* UNKNOWN if `--match` or `--ignore` is not a valid regular expression.
+* `--no-match-severity` decides the state when `--match` or `--ignore` leaves nothing to check. Default: OK.
+* "Nothing checked." means the account really holds no containers to look at. `--brief` hiding every row is not that: the containers were checked and are within their thresholds, so only the account summary is printed.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
+
+Every container emits its metrics, including the ones `--brief` hides from the table.
 
 | Name | Type | Description |
 |----|----|----|
@@ -100,6 +194,28 @@ Container ! Items  ! Quota    ! Used           ! Free
 
 
 ## Troubleshooting
+
+### The check is killed by its own timeout
+
+`<Timeout exceeded.><Terminated by signal 15 (Terminated).><Terminated with exit code 128 (0x80).>`
+
+The monitoring server stopped the check before it had an answer, so this is the server's timeout and not the plugin's. The check reads the headers of every container one by one, so an account that grew past a handful of containers is the usual reason. Narrow it down with `--match` and split it into one service per group of containers, or raise `--timeout` and the timeout of the check command together: the plugin only gives up on its own while the command timeout is the larger of the two.
+
+### `Only N of them read within Ns`
+
+`--timeout` ran out before every container was read. The containers that were not read are not covered by this run, so the state only describes the ones that were. Split the account across several services with `--match`, or raise `--timeout` and the timeout of the check command together.
+
+### `Cannot reach the Swift API: ...`
+
+The endpoint did not answer within `--timeout`. Verify `OS_AUTH_URL` in the rc file, and that the monitoring host reaches the endpoint and its port. If the endpoint presents a certificate the host does not trust, either add the CA to the system trust store, point `OS_CACERT` in the rc file at it, or use `--insecure`.
+
+### A container is listed with an empty Free or Free Items column
+
+The container carries no quota of that kind, so there is nothing to measure its usage against and the matching thresholds cannot apply to it. Set one with `swift post --meta quota-bytes:<bytes> <container>` or `swift post --meta quota-count:<objects> <container>` if it should be alerted on. When no container in the account carries a given quota, the whole column is left out.
+
+### `Auth versions 2.0 and 3 require python-keystoneclient`
+
+The check authenticates against Keystone v3, and `python-swiftclient` hands that part of the work to `python-keystoneclient`, which it does not pull in on its own. Install it alongside: `pip install python-swiftclient python-keystoneclient`.
 
 ### `Python module "python-swiftclient" is not installed.`
 

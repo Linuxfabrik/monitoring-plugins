@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-all-active',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 instances checked', '3 ACTIVE'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-no-instances',
+        'test': 'stdout/no-instances,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 instances checked'],
+        # An empty project must not invent a status change timestamp.
+        'assert-not-in': ['Last status change'],
+    },
+    {
+        'id': 'crit-instance-in-error',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'ERROR.*\[CRITICAL\]',
+        'assert-in': ['1 ERROR', '1 SHUTOFF'],
+    },
+    {
+        # SHUTOFF is OK by default, and PASSWORD and RESCUE must not be CRIT.
+        'id': 'warn-without-the-error-instance',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--ignore=^db01$',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'ok-password-and-rescue-are-not-critical',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^(pwchange01|web01)$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 ACTIVE', '1 PASSWORD'],
+    },
+    {
+        'id': 'warn-rescue-is-a-warning',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^broken01$',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'RESCUE.*\[WARNING\]',
+    },
+    {
+        'id': 'warn-shutoff-raised-by-severity',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^batch01$ --severity=SHUTOFF,warn',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'SHUTOFF.*\[WARNING\]',
+    },
+    {
+        'id': 'ok-build-lowered-by-severity',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^new01$ --severity=BUILD,ok',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'crit-error-lowered-and-shutoff-raised',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match=^(db01|batch01)$ --severity=ERROR,warn '
+        '--severity=SHUTOFF,crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'SHUTOFF.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-no-instance-matches-the-filter',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--match=^nothing-matches-this$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        'id': 'crit-no-instance-matches-the-filter',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--match=^nothing-matches-this$ --no-match-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['filtered out by'],
+    },
+    {
+        # A status a later Nova release adds must be reported, not crash the
+        # check, and must not be silently rated OK.
+        'id': 'unknown-status-nova-gained-later',
+        'test': 'stdout/unrated-status,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['1 HIBERNATED'],
+    },
+    {
+        'id': 'ok-brief-hides-the-healthy-rows',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 ACTIVE'],
+        'assert-not-in': ['web01'],
+    },
+    {
+        'id': 'crit-brief-keeps-the-broken-row',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['db01'],
+        'assert-not-in': ['web01'],
+    },
+    {
+        'id': 'ok-lengthy-adds-addresses-and-creation-date',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['192.0.2.11', 'Created (UTC)', 'Addresses', 'Zone'],
+        # Nothing is happening to these instances, so the Task column carries
+        # nothing and drops out. The compute host is admin-only and absent.
+        'assert-not-in': ['Task', 'Host'],
+    },
+    {
+        # A running task is the only thing the status does not already say.
+        'id': 'crit-lengthy-shows-the-running-task',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Task', 'updating_password', 'spawning'],
+    },
+    {
+        'id': 'ok-match-zone-narrows-the-listing',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--match-zone=^zone-b$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 instance checked', 'db01'],
+        'assert-not-in': ['web01'],
+    },
+    {
+        'id': 'ok-ignore-zone-drops-a-zone',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--ignore-zone=^zone-a$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 instance checked'],
+    },
+    {
+        'id': 'crit-match-vm-state-keeps-the-broken-instance',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--match-vm-state=^error$',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 ERROR'],
+    },
+    {
+        # Nova withholds the compute host from a project without admin rights.
+        # Filtering on it would drop every instance without saying why.
+        'id': 'unknown-match-host-without-admin-rights',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--match-host=^compute-0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['compute host', 'administrative rights'],
+    },
+    {
+        'id': 'unknown-invalid-match-zone-regex',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--match-zone=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'ok-perfdata-covers-every-status',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'total'=3", "'ACTIVE'=3", "'ERROR'=0", "'SHUTOFF'=0"],
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'total'=3"],
+    },
+    {
+        'id': 'ok-always-ok-suppresses-the-alert',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'unknown-severity-names-an-unknown-status',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--severity=SHUTDOWN,warn',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['unknown Nova status'],
+    },
+    {
+        'id': 'unknown-severity-names-an-unknown-state',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--severity=SHUTOFF,disaster',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['unknown state'],
+    },
+    {
+        'id': 'unknown-invalid-match-regex',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--match=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../openstack-nova-list'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

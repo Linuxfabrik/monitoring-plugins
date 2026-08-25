@@ -11,16 +11,22 @@
 """See the check's README for more details."""
 
 import argparse
+import hashlib
+import json
+import logging
 import sys
+import time
 import warnings
 
 import lib.args
 import lib.base
+import lib.cache
 import lib.disk
 import lib.human
+import lib.lftest
 import lib.time
 import lib.txt
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The OpenStack client libraries pull in `requests`, which prints a
 # RequestsDependencyWarning when the urllib3 or chardet it finds is not the
@@ -29,7 +35,18 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # server reads as the result.
 warnings.filterwarnings('ignore')
 
+# Those libraries also log to stderr through loggers of their own, for instance
+# when identity version discovery on the auth URL does not answer. A plugin
+# reports through its stdout line and its exit code, so that noise is turned off
+# rather than left to confuse whoever runs the check by hand.
+logging.getLogger('keystoneauth').setLevel(logging.CRITICAL)
+logging.getLogger('novaclient').setLevel(logging.CRITICAL)
+
 try:
+    from keystoneauth1 import exceptions as ksa_exceptions
+    from keystoneauth1 import identity as ksa_identity
+    from keystoneauth1 import session as ksa_session
+    from keystoneauth1 import token_endpoint
     from novaclient import client
 except ImportError:
     print('Python module "python-novaclient" is not installed.')
@@ -37,14 +54,111 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082503'
 
-DESCRIPTION = """Lists all OpenStack Nova compute instances (virtual servers) and checks their status.
-Alerts when any instance is in an error state or has been shelved. Reports instance
-name, status, power state, and creation date."""
+DESCRIPTION = """Lists the OpenStack Nova compute instances (virtual servers) of a project and
+reports the status of every one of them. Alerts when an instance sits in a status that needs
+attention, for example ERROR, or when the Nova API cannot be reached in time. The state reported
+per Nova status is configurable, so a cloud on which powered-off instances are a problem can say
+so. Supports extended reporting via --lengthy."""
 
+# The Compute API version to negotiate. 2.1 is the baseline every Nova release
+# since Kilo speaks. Instances whose cell is unreachable are silently left out
+# of the listing below microversion 2.69, so a listing is only ever as complete
+# as the cells that answered.
+API_VERSION = '2.1'
+
+# The state to report per Nova server status. Every status the Compute API can
+# report is listed, so a status never falls through to a guessed default.
+# Verified against nova/api/openstack/common.py:_STATE_MAP (19 values) plus the
+# `UNKNOWN` fallback of status_from_state().
+DEFAULT_SEVERITY = {
+    'ACTIVE': 'ok',
+    'BUILD': 'warn',
+    'DELETED': 'crit',
+    'ERROR': 'crit',
+    'HARD_REBOOT': 'warn',
+    'MIGRATING': 'ok',
+    # `PASSWORD` is a Nova server status name, not a secret. Nova only accepts
+    # a password reset on an ACTIVE instance, so the instance is healthy and an
+    # authorized user is changing its root password right now.
+    'PASSWORD': 'ok',  # nosec B105
+    'PAUSED': 'warn',
+    'REBOOT': 'ok',
+    'REBUILD': 'warn',
+    # Rescue is a deliberate administrative action, but the instance runs a
+    # rescue image instead of its workload, which is worth noticing.
+    'RESCUE': 'warn',
+    'RESIZE': 'warn',
+    'REVERT_RESIZE': 'warn',
+    'SHELVED': 'ok',
+    'SHELVED_OFFLOADED': 'ok',
+    'SHUTOFF': 'ok',
+    'SOFT_DELETED': 'warn',
+    'SUSPENDED': 'ok',
+    'UNKNOWN': 'crit',
+    'VERIFY_RESIZE': 'warn',
+}
+
+# The instance fields `--match-*` and `--ignore-*` can filter on, mapped to the
+# key the Compute API puts them under, plus the wording used when the field is
+# missing from the response. Availability zone and VM state are handed to every
+# user; the compute host sits behind the policy
+# `os_compute_api:os-extended-server-attributes`, which defaults to admin, so a
+# project-scoped account gets no such key at all. Verified against
+# nova/api/openstack/compute/views/servers.py and
+# nova/policies/extended_server_attributes.py.
+FILTER_FIELDS = {
+    'host': (
+        'OS-EXT-SRV-ATTR:host',
+        'compute host',
+        ' Nova reports it only to a project with administrative rights.',
+    ),
+    'vm-state': ('OS-EXT-STS:vm_state', 'VM state', ''),
+    'zone': ('OS-EXT-AZ:availability_zone', 'availability zone', ''),
+}
+
+# What Nova is doing to an instance right now, empty whenever nothing is going
+# on. That is also the only case in which the VM state would repeat the server
+# status: with no task running the status determines the VM state exactly,
+# because _STATE_MAP maps each of the twelve VM states to a distinct default
+# status. So this is the field that says something the status does not, and it
+# drops out of the table by itself on a quiet cloud.
+TASK_STATE_KEY = 'OS-EXT-STS:task_state'
+
+DEFAULT_BRIEF = False
+DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
+DEFAULT_INSECURE = False
+DEFAULT_LENGTHY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
-DEFAULT_SEVERITY = 'crit'
+DEFAULT_TIMEOUT = 8
+
+
+class DeadlineSession(ksa_session.Session):
+    """A keystoneauth session that spends a budget instead of a per-request timeout.
+
+    keystoneauth applies its `timeout` to every single HTTP request, so a run
+    that makes three of them can take three times what `--timeout` promises. A
+    fixed share per request does not work either, because the requests are not
+    equally expensive: identity version discovery answers immediately while
+    issuing a token takes seconds on a busy Keystone. Handing every request
+    whatever is left of the budget keeps the whole run inside `--timeout` and
+    still lets a single slow request use most of it.
+    """
+
+    def __init__(self, *args, deadline, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.deadline = deadline
+
+    def request(self, *args, **kwargs):
+        remaining = self.deadline - time.monotonic()
+        if remaining <= 0:
+            raise ksa_exceptions.ConnectTimeout(
+                'the time budget of this check is spent'
+            )
+        kwargs['timeout'] = remaining
+        return super().request(*args, **kwargs)
 
 
 def parse_args():
@@ -71,6 +185,118 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex') + ' Matched against the instance name.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore-host',
+        help=lib.args.help('--ignore-regex')
+        + ' Matched against the compute host the instance runs on.',
+        dest='IGNORE_HOST',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore-vm-state',
+        help=lib.args.help('--ignore-regex')
+        + ' Matched against the VM state, which is the lower-case stable state '
+        'the server status is derived from, for example `active` or `stopped`.',
+        dest='IGNORE_VM_STATE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore-zone',
+        help=lib.args.help('--ignore-regex')
+        + ' Matched against the availability zone of the instance.',
+        dest='IGNORE_ZONE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match') + ' Matched against the instance name.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match-host',
+        help=lib.args.help('--match')
+        + ' Matched against the compute host the instance runs on.',
+        dest='MATCH_HOST',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match-vm-state',
+        help=lib.args.help('--match')
+        + ' Matched against the VM state, which is the lower-case stable state '
+        'the server status is derived from, for example `active` or `stopped`.',
+        dest='MATCH_VM_STATE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match-zone',
+        help=lib.args.help('--match')
+        + ' Matched against the availability zone of the instance.',
+        dest='MATCH_ZONE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -80,122 +306,324 @@ def parse_args():
 
     parser.add_argument(
         '--rc-file',
-        help='Path to a rc file containing OpenStack connection parameters like OS_USERNAME '
-        '(instead of specifying them on the command line). '
-        'Example: `/var/spool/icinga2/.openstack.cnf`. '
+        help='Path to a rc file containing OpenStack connection parameters like '
+        'OS_USERNAME (instead of specifying them on the command line). '
+        'Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`. '
         'Default: %(default)s',
         dest='RC_FILE',
         default=DEFAULT_RC_FILE,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='State to report for instances in a given Nova status, as '
+        '`STATUS,STATE`. '
+        'STATUS is a Nova server status such as `SHUTOFF`, case-insensitive. '
+        'STATE is one of `ok`, `warn`, `crit` or `unknown`. '
+        'Overrides the built-in state for that status only, every other status '
+        'keeps its default. '
+        'Can be specified multiple times. '
+        'Example: `--severity=SHUTOFF,warn --severity=BUILD,ok`',
+        dest='SEVERITY',
+        action='append',
+        type=lib.args.csv,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout')
+        + ' Applies to the whole run, not to a single request. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     args, _ = parser.parse_known_args()
     return args
 
 
-def get_state(vm_state):
-    """Return OK, WARN or CRIT depending on the status of the VM in OpenStack.
+def get_severity_map(severity_args):
+    """Merge the `--severity` overrides into the built-in state map.
 
-    From nova API guide:
-
-    -  ``ACTIVE``: The server is active.
-
-    -  ``BUILD``: The server has not yet finished the original build process.
-
-    -  ``DELETED``: The server is deleted.
-
-    -  ``ERROR``: The server is in error.
-
-    -  ``HARD_REBOOT``: The server is hard rebooting. This is equivalent to
-       pulling the power plug on a physical server, plugging it back in, and
-       rebooting it.
-
-    -  ``MIGRATING``: The server is migrating. This is caused by a
-       live migration (moving a server that is active) action.
-
-    -  ``PASSWORD``: The password is being reset on the server.
-
-    -  ``PAUSED``: The server is paused.
-
-    -  ``REBOOT``: The server is in a soft reboot state. A reboot command
-       was passed to the operating system.
-
-    -  ``REBUILD``: The server is currently being rebuilt from an image.
-
-    -  ``RESCUE``: The server is in rescue mode.
-
-    -  ``RESIZE``: Server is performing the differential copy of data that
-       changed during its initial copy. Server is down for this stage.
-
-    -  ``REVERT_RESIZE``: The resize or migration of a server failed for
-       some reason. The destination server is being cleaned up and the
-       original source server is restarting.
-
-    -  ``SHELVED``: The server is in shelved state. Depends on the shelve offload
-       time, the server will be automatically shelved off loaded.
-
-    -  ``SHELVED_OFFLOADED``: The shelved server is offloaded (removed from the
-       compute host) and it needs unshelved action to be used again.
-
-    -  ``SHUTOFF``: The server was powered down by the user, either through the
-       OpenStack Compute API or from within the server. For example, the user
-       issued a :command:`shutdown -h` command from within the server.
-       If the OpenStack Compute manager detects that the VM was powered down,
-       it transitions the server to the SHUTOFF status.
-
-    -  ``SOFT_DELETED``: The server is marked as deleted but will remain in the
-       cloud for some configurable amount of time. While soft-deleted, an
-       authorized user can restore the server back to normal state. When the time
-       expires, the server will be deleted permanently.
-
-    -  ``SUSPENDED``: The server is suspended, either by request or
-       necessity. See the
-       :nova-doc:`feature support matrix <user/support-matrix.html#operation_suspend>`
-       for supported compute drivers. When you suspend a server, its state is stored
-       on disk, all memory is written to disk, and the server is stopped.
-       Suspending a server is similar to placing a device in hibernation and its
-       occupied resource will not be freed but rather kept for when the server is
-       resumed. If an instance is infrequently used and the occupied resource needs
-       to be freed to create other servers, it should be shelved.
-
-    -  ``UNKNOWN``: The state of the server is unknown. It could be because a part
-       of the infrastructure is temporarily down (see :doc:`down_cells`
-       for more information). Contact your cloud provider.
-
-    -  ``VERIFY_RESIZE``: System is awaiting confirmation that the server is
-       operational after a move or resize.
+    Returns (True, dict) with the effective status to state mapping, or
+    (False, errormessage) if an override names a status or a state that does
+    not exist.
     """
-    if vm_state in [
-        'ACTIVE',
-        'MIGRATING',
-        'REBOOT',
-        'SHELVED',
-        'SHELVED_OFFLOADED',
-        'SHUTOFF',
-        'SUSPENDED',
-    ]:
-        return STATE_OK
+    severity_map = dict(DEFAULT_SEVERITY)
+    for override in severity_args:
+        if len(override) != 2:
+            return (
+                False,
+                f'Cannot read `--severity={",".join(override)}`. Expected '
+                f'`STATUS,STATE`, for example `--severity=SHUTOFF,warn`.',
+            )
+        status, state = override[0].strip().upper(), override[1].strip().lower()
+        if status not in severity_map:
+            known = ', '.join(sorted(severity_map))
+            return (
+                False,
+                f'`--severity` names the unknown Nova status "{status}". '
+                f'Known statuses are: {known}.',
+            )
+        if lib.base.str2state(state, ignore_error=False) is None:
+            return (
+                False,
+                f'`--severity` names the unknown state "{override[1].strip()}" for '
+                f'status {status}. Use one of ok, warn, crit or unknown.',
+            )
+        severity_map[status] = state
+    return (True, severity_map)
 
-    if vm_state in [
-        'BUILD',
-        'HARD_REBOOT',
-        'PAUSED',
-        'REBUILD',
-        'RESIZE',
-        'REVERT_RESIZE',
-        'SOFT_DELETED',
-        'VERIFY_RESIZE',
-    ]:
-        return STATE_WARN
 
-    # if vm_state in [
-    #     'DELETED',
-    #     'ERROR',
-    #     'PASSWORD',
-    #     'RESCUE',
-    #     'UNKNOWN',
-    # ]:
-    # and any other
-    return STATE_CRIT
+def get_auth_kwargs(env):
+    """Build the Keystone credentials from the rc file.
+
+    A domain is addressed either by id or by name, never by both: keystoneauth
+    silently prefers the id and drops the name, so a hardcoded id default would
+    override the domain an administrator put in the rc file.
+    """
+    kwargs = {
+        'auth_url': env.get('OS_AUTH_URL', None),
+        'password': env.get('OS_PASSWORD', None),
+        'project_id': env.get('OS_PROJECT_ID', None),
+        'project_name': env.get('OS_PROJECT_NAME', None),
+        'username': env.get('OS_USERNAME', None),
+    }
+    if env.get('OS_PROJECT_DOMAIN_ID'):
+        kwargs['project_domain_id'] = env['OS_PROJECT_DOMAIN_ID']
+    elif env.get('OS_PROJECT_DOMAIN_NAME'):
+        kwargs['project_domain_name'] = env['OS_PROJECT_DOMAIN_NAME']
+    else:
+        # Every deployment carries the default domain under this id.
+        kwargs['project_domain_id'] = 'default'
+    if env.get('OS_USER_DOMAIN_ID'):
+        kwargs['user_domain_id'] = env['OS_USER_DOMAIN_ID']
+    elif env.get('OS_USER_DOMAIN_NAME'):
+        kwargs['user_domain_name'] = env['OS_USER_DOMAIN_NAME']
+    else:
+        kwargs['user_domain_id'] = 'default'
+    return kwargs
+
+
+def get_verify(args, env):
+    """Return what the session should verify the TLS certificate against.
+
+    A CA bundle named by the rc file wins over `--insecure`, because naming one
+    is the more specific instruction of the two.
+    """
+    if env.get('OS_CACERT'):
+        return env['OS_CACERT']
+    return not args.INSECURE
+
+
+def get_endpoint_type(env):
+    """Return the catalog interface to use, in the spelling novaclient wants."""
+    interface = env.get('OS_INTERFACE') or env.get('OS_ENDPOINT_TYPE') or 'public'
+    interface = interface.strip().lower().replace('url', '')
+    if interface not in ('public', 'internal', 'admin'):
+        interface = 'public'
+    return f'{interface}URL'
+
+
+def get_cache_key(env):
+    """Return a cache key that is unique per cloud, project and user.
+
+    Two services on the same host share one cache database, so the key has to
+    tell their tokens apart. The password is not part of it.
+    """
+    identity = '|'.join(
+        [
+            env.get('OS_AUTH_URL', ''),
+            env.get('OS_USERNAME', ''),
+            env.get('OS_PROJECT_NAME', ''),
+            env.get('OS_PROJECT_ID', ''),
+            env.get('OS_REGION_NAME', ''),
+        ]
+    )
+    digest = hashlib.sha256(lib.txt.to_bytes(identity)).hexdigest()[:32]
+    return f'openstack-nova-list-{digest}'
+
+
+def get_servers_cached(args, env, token, endpoint, deadline):
+    """List the servers with a token from a previous run.
+
+    Makes a single HTTP request and therefore gets the full timeout budget.
+    Returns (True, list) on success, or (False, errormessage).
+    """
+    auth = token_endpoint.Token(endpoint=endpoint, token=token)
+    session = DeadlineSession(
+        auth=auth,
+        verify=get_verify(args, env),
+        deadline=deadline,
+    )
+    nova = client.Client(API_VERSION, session=session)
+    # limit=-1 makes novaclient follow the pagination markers. Without it the
+    # client stops after the first page and Nova caps a page at its
+    # `[api] max_limit`, which defaults to 1000 instances.
+    return (True, [server.to_dict() for server in nova.servers.list(limit=-1)])
+
+
+def get_servers(args, env, deadline):
+    """Authenticate against Keystone and list the servers.
+
+    Returns (True, (list, token, endpoint, expiry)) so the caller can cache the
+    token, or (False, errormessage).
+    """
+    session = DeadlineSession(
+        auth=ksa_identity.Password(**get_auth_kwargs(env)),
+        verify=get_verify(args, env),
+        deadline=deadline,
+    )
+    nova = client.Client(
+        API_VERSION,
+        session=session,
+        endpoint_type=get_endpoint_type(env),
+        region_name=env.get('OS_REGION_NAME', None),
+    )
+    token = session.get_token()
+    endpoint = session.get_endpoint(
+        service_type='compute',
+        interface=get_endpoint_type(env).replace('URL', ''),
+        region_name=env.get('OS_REGION_NAME', None),
+    )
+    expiry = None
+    try:
+        expiry = session.auth.get_access(session).expires
+    except Exception:
+        # An older Keystone may not report an expiry. --cache-expire then
+        # bounds the reuse on its own.
+        expiry = None
+    servers = [server.to_dict() for server in nova.servers.list(limit=-1)]
+    return (True, (servers, token, endpoint, expiry))
+
+
+def get_data(args, env):
+    """Fetch the server listing, reusing a cached token where possible.
+
+    Returns (True, list) or (False, errormessage). A timeout or a refused
+    connection is reported as a warning rather than as a plugin failure,
+    because it says something about the cloud and not about the check.
+    """
+    # One budget for the whole run, whether it is spent on a single request or
+    # on the three a cold run needs.
+    deadline = time.monotonic() + args.TIMEOUT
+    cache_key = get_cache_key(env)
+    cached = lib.cache.get(cache_key, as_dict=False)
+    if cached:
+        try:
+            session_data = json.loads(cached)
+            return get_servers_cached(
+                args,
+                env,
+                session_data['token'],
+                session_data['endpoint'],
+                deadline,
+            )
+        except (ksa_exceptions.Unauthorized, client.exceptions.Unauthorized):
+            # The token was revoked or expired early. Fall through and
+            # authenticate again.
+            pass
+        except (ValueError, KeyError):
+            # A cache entry we cannot read is a cache entry we re-create.
+            pass
+        except ksa_exceptions.ConnectionError as err:
+            return (False, f'Cannot reach the Nova API: {err}')
+        except ksa_exceptions.ClientException as err:
+            return (False, f'The Nova API refused the request: {err}')
+
+    try:
+        servers, token, endpoint, expiry = lib.base.coe(
+            get_servers(args, env, deadline)
+        )
+    except ksa_exceptions.ConnectionError as err:
+        return (False, f'Cannot reach the OpenStack API: {err}')
+    except ksa_exceptions.Unauthorized:
+        return (False, 'Failed to authenticate.')
+    except ksa_exceptions.ClientException as err:
+        return (False, f'The OpenStack API refused the request: {err}')
+
+    expire = lib.time.now() + args.CACHE_EXPIRE * 60
+    if expiry is not None:
+        # Never hand out a token past its own lifetime. A minute of headroom
+        # keeps a token that expires mid-run out of the cache.
+        expire = min(expire, int(expiry.timestamp()) - 60)
+    if expire > lib.time.now():
+        lib.cache.set(
+            cache_key,
+            json.dumps({'token': token, 'endpoint': endpoint}),
+            expire=expire,
+        )
+    return (True, servers)
+
+
+def get_filters(args):
+    """Compile the `--match-*` / `--ignore-*` patterns of every filter field.
+
+    Returns (True, dict) mapping the field to its (match, ignore) pattern
+    lists, or (False, errormessage) for a pattern that does not compile.
+    """
+    filters = {}
+    for field in FILTER_FIELDS:
+        dest = field.replace('-', '_').upper()
+        compiled = []
+        for kind in ('match', 'ignore'):
+            patterns = getattr(args, f'{kind.upper()}_{dest}')
+            results = lib.txt.compile_regex(patterns, f'--{kind}-{field}')
+            for success, result in results:
+                if not success:
+                    return (False, result)
+            compiled.append([result for _, result in results])
+        filters[field] = tuple(compiled)
+    return (True, filters)
+
+
+def is_filtered_out(server, filters):
+    """Return True if a `--match-*` or `--ignore-*` pattern drops this instance.
+
+    `--match-*` includes and is applied first, `--ignore-*` excludes and wins,
+    the same precedence the name filters use.
+    """
+    for field, (match, ignore) in filters.items():
+        value = server.get(FILTER_FIELDS[field][0]) or ''
+        if match and not any(item.search(value) for item in match):
+            return True
+        if any(item.search(value) for item in ignore):
+            return True
+    return False
+
+
+def get_addresses(server):
+    """Return the IP addresses of a server as a comma-separated string.
+
+    The Compute API nests them per network, and it reports no addresses at all
+    while an instance is still building.
+    """
+    addresses = server.get('addresses') or {}
+    ips = [
+        address.get('addr')
+        for network in addresses.values()
+        for address in network
+        if address.get('addr')
+    ]
+    return ', '.join(ips)
+
+
+def get_timestamp(server, key):
+    """Return an API timestamp as `YYYY-MM-DD hh:mm:ss`, or an empty string.
+
+    An instance whose cell did not answer is reported without these fields.
+    """
+    value = server.get(key) or ''
+    return value.replace('T', ' ').replace('Z', '')
 
 
 def main():
@@ -207,136 +635,191 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.SEVERITY is None:
+        args.SEVERITY = []
+    for field in FILTER_FIELDS:
+        dest = field.replace('-', '_').upper()
+        for kind in ('MATCH', 'IGNORE'):
+            if getattr(args, f'{kind}_{dest}') is None:
+                setattr(args, f'{kind}_{dest}', [])
+
+    severity_map = lib.base.coe(get_severity_map(args.SEVERITY))
+
     # fetch data
-    env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
-    try:
-        # https://github.com/openstack/python-novaclient
-        # https://docs.openstack.org/python-novaclient/latest/reference/api/novaclient.v2.client.html
-        # set a bunch of possible OpenStack credentials
-        nova = client.Client(
-            '2.1',
-            auth_url=env.get('OS_AUTH_URL', None),
-            password=env.get('OS_PASSWORD', None),
-            project_domain_id=env.get('OS_PROJECT_DOMAIN_ID', 'default'),
-            project_domain_name=env.get('OS_PROJECT_DOMAIN_NAME', 'default'),
-            project_id=env.get('OS_PROJECT_ID', None),
-            project_name=env.get('OS_PROJECT_NAME', None),
-            region_name=env.get('OS_REGION_NAME', None),
-            user_domain_name=env.get('OS_USER_DOMAIN_NAME', 'default'),
-            username=env.get('OS_USERNAME', None),
-        )
-    except Exception:
-        lib.base.cu('An error occurred while connecting to Nova')
-    try:
-        # https://docs.openstack.org/python-novaclient/latest/reference/api/novaclient.v2.servers.html#novaclient.v2.servers.ServerManager.list
-        servers = nova.servers.list()
-    except Exception:
-        lib.base.cu('An error occurred while getting the server list from Nova')
+    if args.TEST is None:
+        env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
+        success, result = get_data(args, env)
+        if not success:
+            # The cloud did not answer in time or refused us. That is a
+            # statement about the cloud, so warn instead of going unknown.
+            lib.base.oao(result, STATE_WARN, always_ok=args.ALWAYS_OK)
+        servers = result
+    else:
+        # do not call the endpoint, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        servers = json.loads(stdout).get('servers', [])
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
     table_data = []
-    vm_state_count = {
-        'ACTIVE': 0,
-        'BUILD': 0,
-        'DELETED': 0,
-        'ERROR': 0,
-        'HARD_REBOOT': 0,
-        'MIGRATING': 0,
-        # 'PASSWORD' is an OpenStack VM state name, not a secret
-        'PASSWORD': 0,  # nosec B105
-        'PAUSED': 0,
-        'REBOOT': 0,
-        'REBUILD': 0,
-        'RESCUE': 0,
-        'RESIZE': 0,
-        'REVERT_RESIZE': 0,
-        'SHELVED': 0,
-        'SHELVED_OFFLOADED': 0,
-        'SHUTOFF': 0,
-        'SOFT_DELETED': 0,
-        'SUSPENDED': 0,
-        'UNKNOWN': 0,
-        'VERIFY_RESIZE': 0,
-    }
-    max_last_update = '2016-01-01 00:00:00'
+    status_count = dict.fromkeys(severity_map, 0)
+    last_update = ''
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    filters = lib.base.coe(get_filters(args))
+
+    # A filter on a field the Compute API withholds would drop every instance
+    # without saying why, which reads like an empty project. Name the gap
+    # instead, before anything is filtered.
+    for field, (match, ignore) in sorted(filters.items()):
+        key, label, hint = FILTER_FIELDS[field]
+        if (match or ignore) and servers and not any(s.get(key) for s in servers):
+            lib.base.cu(
+                f'The Compute API did not report the {label} of any instance, so '
+                f'`--match-{field}` and `--ignore-{field}` have nothing to filter '
+                f'on.{hint}'
+            )
 
     # analyze data
     for server in servers:
-        try:
-            item = {
-                'addresses': ', '.join(server.addresses),
-                'created': server.created.replace('T', ' ').replace('Z', ''),
-                'id': server.id,
-                'name': server.name,
-                'status': server.status,
-                'updated': server.updated.replace('T', ' ').replace('Z', ''),
-            }
-        except Exception:
-            lib.base.cu('Error occured while fetching server attributes.')
-        item['created'] = (
-            f'{item["created"]}'
-            f' ({lib.human.seconds2human(lib.time.timestrdiff(lib.time.now(as_type="iso"), item["created"]))} ago)'
-        )
-        max_last_update = max(max_last_update, item['updated'])
-        item['updated'] = (
-            f'{item["updated"]}'
-            f' ({lib.human.seconds2human(lib.time.timestrdiff(lib.time.now(as_type="iso"), item["updated"]))} ago)'
-        )
-        vm_state = get_state(server.status)
-        vm_state_count[server.status] += 1
-        state = lib.base.get_worst(state, vm_state)
-        item['status'] += lib.base.state2str(vm_state, prefix=' ')
+        name = server.get('name') or server.get('id', '')
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+        if is_filtered_out(server, filters):
+            continue
+
+        status = server.get('status', 'UNKNOWN')
+        # A status Nova gained after this plugin was written must not crash the
+        # check. Report it, and say that it is unrated.
+        if status not in status_count:
+            status_count[status] = 0
+            severity_map[status] = 'unknown'
+        status_count[status] += 1
+
+        server_state = lib.base.str2state(severity_map[status])
+        state = lib.base.get_worst(state, server_state)
+
+        updated = get_timestamp(server, 'updated')
+        last_update = max(last_update, updated)
+        item = {
+            'addresses': get_addresses(server),
+            'host': server.get(FILTER_FIELDS['host'][0]) or '',
+            'id': server.get('id', ''),
+            'name': name,
+            'status': f'{status}{lib.base.state2str(server_state, prefix=" ")}',
+            'task': server.get(TASK_STATE_KEY) or '',
+            'zone': server.get(FILTER_FIELDS['zone'][0]) or '',
+        }
+        for key in ('created', 'updated'):
+            stamp = get_timestamp(server, key)
+            item[key] = stamp
+            if stamp:
+                ago = lib.human.seconds2human(
+                    lib.time.timestrdiff(lib.time.now(as_type='iso'), stamp),
+                )
+                item[key] = f'{stamp} ({ago} ago)'
+        if args.BRIEF and server_state == STATE_OK:
+            continue
         table_data.append(item)
 
-    perfdata += lib.base.get_perfdata(
-        'total',
-        len(servers),
-        _min=0,
-    )
-    for vm_state, cnt in vm_state_count.items():
-        perfdata += lib.base.get_perfdata(
-            vm_state,
-            cnt,
-            _min=0,
-            _max=len(servers),
-        )
+    # every instance was filtered out, so there is nothing to report on
+    if compiled_match or compiled_ignore:
+        if not sum(status_count.values()):
+            lib.base.oao(
+                f'{len(servers)} {lib.txt.pluralize("instance", len(servers))} in this '
+                f'project, all filtered out by `--match` or `--ignore`.',
+                lib.base.str2state(args.NO_MATCH_SEVERITY),
+                always_ok=args.ALWAYS_OK,
+            )
 
     # build the message
-    server_count = len(servers)
-    msg = (
-        f'{server_count}'
-        f' {lib.txt.pluralize("server", server_count)} checked.'
-        f' {vm_state_count["ACTIVE"]} active,'
-        f' {vm_state_count["MIGRATING"]} migrating,'
-        f' {vm_state_count["VERIFY_RESIZE"]} demand verify resize,'
-        f' {vm_state_count["ERROR"]} in error. '
-    )
-    ago = lib.human.seconds2human(
-        lib.time.timestrdiff(lib.time.now(as_type='iso'), max_last_update),
-    )
-    msg += f'Last status change {max_last_update} UTC ({ago} ago).'
+    checked = sum(status_count.values())
+    msg = f'{checked} {lib.txt.pluralize("instance", checked)} checked'
+    # Worst status first, so the problem is inside the first 80 characters an
+    # alerting channel shows, and alphabetical within one state.
+    reported = [
+        f'{cnt} {status}'
+        for status, cnt in sorted(
+            status_count.items(),
+            key=lambda item: (
+                -lib.base.str2state(severity_map[item[0]]),
+                item[0],
+            ),
+        )
+        if cnt
+    ]
+    if reported:
+        msg += f': {", ".join(reported)}'
+    msg += '.'
+    if last_update:
+        ago = lib.human.seconds2human(
+            lib.time.timestrdiff(lib.time.now(as_type='iso'), last_update),
+        )
+        msg += f' Last status change {last_update} UTC ({ago} ago).'
+
+    perfdata += lib.base.get_perfdata('total', checked, uom=None, _min=0)
+    for status, cnt in sorted(status_count.items()):
+        perfdata += lib.base.get_perfdata(
+            status,
+            cnt,
+            uom=None,
+            _min=0,
+            _max=checked,
+        )
+
+    # build table output
     if table_data:
-        keys = [
-            'name',
-            'id',
-            'updated',
-            'status',
-        ]
-        headers = [
-            'Name',
-            'ID',
-            'Updated (UTC)',
-            'Status',
-        ]
+        if args.LENGTHY:
+            # `status` carries the state marker, so it stays the last column:
+            # IcingaWeb replaces `[WARNING]` with an icon and breaks every
+            # table where the state is not at the end of the row.
+            keys = [
+                'name',
+                'id',
+                'host',
+                'zone',
+                'addresses',
+                'created',
+                'updated',
+                'task',
+                'status',
+            ]
+            headers = [
+                'Name',
+                'ID',
+                'Host',
+                'Zone',
+                'Addresses',
+                'Created (UTC)',
+                'Updated (UTC)',
+                'Task',
+                'Status',
+            ]
+        else:
+            keys = ['name', 'updated', 'status']
+            headers = ['Name', 'Updated (UTC)', 'Status']
         msg += '\n\n' + lib.base.get_table(
             table_data,
             keys,
             header=headers,
             sort_by_key='status',
             sort_order_reverse=True,
+            # A column nothing filled in is noise. The compute host is the
+            # usual one: Nova withholds it from a project without admin rights.
+            hide_empty=True,
         )
 
     # over and out
