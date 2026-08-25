@@ -55,6 +55,12 @@
                 "--no-perfdata": {
                     "set_if": "$openstack_nova_list_no_perfdata$"
                 },
+                "--no-proxy": {
+                    "set_if": "$openstack_nova_list_no_proxy$"
+                },
+                "--proxy": {
+                    "value": "$openstack_nova_list_proxy$"
+                },
                 "--rc-file": {
                     "value": "$openstack_nova_list_rc_file$"
                 },
@@ -158,6 +164,16 @@
                     "datafield_id": 18,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -227,6 +243,7 @@
                 "openstack_nova_list_match_zone": [],
                 "openstack_nova_list_no_match_severity": "ok",
                 "openstack_nova_list_no_perfdata": false,
+                "openstack_nova_list_no_proxy": false,
                 "openstack_nova_list_rc_file": "/var/spool/icinga2/.openstack.cnf",
                 "openstack_nova_list_severity": [],
                 "openstack_nova_list_timeout": 8
@@ -473,6 +490,26 @@
             "uuid": "da136279-3f68-41eb-a5aa-f5cc0bb39416"
         },
         "16": {
+            "varname": "openstack_nova_list_no_proxy",
+            "caption": "Openstack Nova List: No Proxy?",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5c79ecb6-e711-4a23-b8d4-f8e63184e36a"
+        },
+        "17": {
+            "varname": "openstack_nova_list_proxy",
+            "caption": "Openstack Nova List: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ec0c1f13-e543-4e7a-a096-e6d42236ad2b"
+        },
+        "18": {
             "varname": "openstack_nova_list_rc_file",
             "caption": "Openstack Nova List: Rc File",
             "description": "Path to a rc file containing OpenStack connection parameters like OS_USERNAME (instead of specifying them on the command line). Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`.",
@@ -483,7 +520,7 @@
             },
             "uuid": "3f888410-5f40-4878-8e55-0855238ac7cc"
         },
-        "17": {
+        "19": {
             "varname": "openstack_nova_list_severity",
             "caption": "Openstack Nova List: Severity",
             "description": "State to report for instances in a given Nova status, as `STATUS,STATE`. STATUS is a Nova server status such as `SHUTOFF`, case-insensitive. STATE is one of `ok`, `warn`, `crit` or `unknown`. Overrides the built-in state for that status only, every other status keeps its default. Can be specified multiple times. Example: `--severity=SHUTOFF,warn --severity=BUILD,ok`",
@@ -494,7 +531,7 @@
             },
             "uuid": "bf8ebf27-b82c-4218-84ae-a6c3f1c05c28"
         },
-        "18": {
+        "20": {
             "varname": "openstack_nova_list_timeout",
             "caption": "Openstack Nova List: Timeout",
             "description": "Network timeout in seconds. Applies to the whole run, not to a single request.",

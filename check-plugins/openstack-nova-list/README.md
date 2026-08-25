@@ -8,15 +8,15 @@ Lists the OpenStack Nova compute instances (virtual servers) of a project and re
 **Important Notes:**
 
 * You have to provide a path to an rc file to authenticate. The rc file should contain the standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME` and `OS_PROJECT_DOMAIN_NAME`. A domain is taken from the id variable if the rc file sets one, otherwise from the name variable, and falls back to the `default` domain if it sets neither.
-* The check reuses the Keystone token of the previous run. A run that has a valid token makes a single API request, a run that has to authenticate first makes three. `--cache-expire` bounds the reuse, and a token is never reused past its own lifetime. The token is stored in the plugin cache database, which lives in a directory only the user running the check can read.
+* A cloud whose certificate a private CA signed is covered by `OS_CACERT` in the rc file, naming either a PEM file or a directory of hashed certificates. That bundle replaces the trust store of the host for this check, the same way `curl --cacert` does, so a public CA no longer verifies while it is set.
+* The check reuses the Keystone token of the previous run. A run that has a valid token makes a single API request, a run that has to authenticate first makes one more. `--cache-expire` bounds the reuse, and a token is never reused past its own lifetime. A password that changed therefore takes until the cached token expires to show up as a failed authentication. The token is stored in the plugin cache database, which lives in a directory only the user running the check can read.
 * The check reports the instances of the project the rc file scopes to, not of the whole cloud. Point it at one service per project.
 * Instances whose Nova cell does not answer are left out of the listing by the Compute API itself, and the check cannot tell them apart from instances that do not exist. A cell outage therefore shows up as a shrinking instance count, not as an alert. Trend the `total` metric to catch it.
 * The compute host an instance runs on is reported by Nova only to a project with administrative rights, because it sits behind the `os_compute_api:os-extended-server-attributes` policy, which defaults to admin. With an ordinary project account the Host column stays out of the table, and `--match-host` and `--ignore-host` report UNKNOWN instead of quietly matching nothing.
-* Requires the `python-novaclient` Python module.
 
 **Data Collection:**
 
-* Authenticates against Keystone with the credentials from the rc file, and reuses the resulting token on the following runs
+* Authenticates against the Keystone Identity v3 API with the credentials from the rc file, and reuses the resulting token on the following runs
 * Lists every instance of the project, following the pagination of the Compute API so that clouds with more than a thousand instances are covered too
 * Maps every Nova server status to a state, counts the instances per status, and reports the most recent status change across all of them
 * `--match` and `--ignore` filter by instance name, `--match-zone`, `--match-vm-state` and `--match-host` (each with an `--ignore-` counterpart) by availability zone, VM state and compute host
@@ -35,7 +35,6 @@ Lists the OpenStack Nova compute instances (virtual servers) of a project and re
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | An rc file with OpenStack credentials, readable by the user running the check |
-| 3rd Party Python modules              | `python-novaclient` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
@@ -52,8 +51,9 @@ usage: openstack-nova-list [-h] [-V] [--always-ok] [--brief]
                            [--match-vm-state MATCH_VM_STATE]
                            [--match-zone MATCH_ZONE]
                            [--no-match-severity {ok,warn,crit,unknown}]
-                           [--no-perfdata] [--rc-file RC_FILE]
-                           [--severity SEVERITY] [--timeout TIMEOUT]
+                           [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                           [--rc-file RC_FILE] [--severity SEVERITY]
+                           [--timeout TIMEOUT]
 
 Lists the OpenStack Nova compute instances (virtual servers) of a project and
 reports the status of every one of them. Alerts when an instance sits in a
@@ -150,6 +150,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --rc-file RC_FILE     Path to a rc file containing OpenStack connection
                         parameters like OS_USERNAME (instead of specifying
                         them on the command line). Example: `--rc-
@@ -318,7 +330,7 @@ The Keystone or Compute endpoint did not answer within `--timeout`. Verify `OS_A
 
 ### `Failed to authenticate.`
 
-Keystone rejected the credentials. Verify `OS_USERNAME`, `OS_PASSWORD` and the project in the rc file by sourcing it and running `openstack server list` by hand.
+Keystone rejected the credentials. Verify `OS_USERNAME`, `OS_PASSWORD` and the project in the rc file by sourcing it and running `openstack server list` by hand. A password that was changed recently takes until the cached token expires to surface here, because the check reuses the token of the previous run; `--cache-expire=0` skips the cache for a single run.
 
 An rc file that sets `OS_PROJECT_DOMAIN_NAME` or `OS_USER_DOMAIN_NAME` for a domain other than the default is worth a second look: a domain is addressed either by its id or by its name, and if the rc file sets both, the id wins and the name is dropped.
 
@@ -326,9 +338,11 @@ An rc file that sets `OS_PROJECT_DOMAIN_NAME` or `OS_USER_DOMAIN_NAME` for a dom
 
 A later Nova release added a server status that this check does not rate yet, and the check reports UNKNOWN rather than guessing. Rate it with `--severity=<STATUS>,<state>` and open an issue so the default follows.
 
-### `Python module "python-novaclient" is not installed.`
+### The certificate cannot be verified
 
-Install `python-novaclient`: `pip install python-novaclient`.
+`TLS certificate verification failed for https://...: self-signed certificate in certificate chain`
+
+The cloud presents a certificate that no authority the host trusts has signed. Point `OS_CACERT` in the rc file at the CA bundle of the cloud, put that CA into the trust store of the host (`/etc/pki/ca-trust/source/anchors/` plus `update-ca-trust` on RHEL family, `/usr/local/share/ca-certificates/` plus `update-ca-certificates` on Debian family), or accept an unverified connection with `--insecure`. A bundle named in `OS_CACERT` that cannot be read is reported as such rather than silently falling back to the trust store.
 
 
 ## Credits, License

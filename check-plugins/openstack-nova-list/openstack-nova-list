@@ -11,50 +11,22 @@
 """See the check's README for more details."""
 
 import argparse
-import hashlib
 import json
-import logging
 import sys
-import time
-import warnings
+import urllib.parse
 
 import lib.args
 import lib.base
-import lib.cache
 import lib.disk
 import lib.human
 import lib.lftest
+import lib.openstack
 import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# The OpenStack client libraries pull in `requests`, which prints a
-# RequestsDependencyWarning when the urllib3 or chardet it finds is not the
-# combination it was built against. Printed before anything else, that warning
-# becomes the first line of the check output, which is the line a monitoring
-# server reads as the result.
-warnings.filterwarnings('ignore')
-
-# Those libraries also log to stderr through loggers of their own, for instance
-# when identity version discovery on the auth URL does not answer. A plugin
-# reports through its stdout line and its exit code, so that noise is turned off
-# rather than left to confuse whoever runs the check by hand.
-logging.getLogger('keystoneauth').setLevel(logging.CRITICAL)
-logging.getLogger('novaclient').setLevel(logging.CRITICAL)
-
-try:
-    from keystoneauth1 import exceptions as ksa_exceptions
-    from keystoneauth1 import identity as ksa_identity
-    from keystoneauth1 import session as ksa_session
-    from keystoneauth1 import token_endpoint
-    from novaclient import client
-except ImportError:
-    print('Python module "python-novaclient" is not installed.')
-    sys.exit(STATE_UNKNOWN)
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503'
+__version__ = '2026082505'
 
 DESCRIPTION = """Lists the OpenStack Nova compute instances (virtual servers) of a project and
 reports the status of every one of them. Alerts when an instance sits in a status that needs
@@ -62,11 +34,11 @@ attention, for example ERROR, or when the Nova API cannot be reached in time. Th
 per Nova status is configurable, so a cloud on which powered-off instances are a problem can say
 so. Supports extended reporting via --lengthy."""
 
-# The Compute API version to negotiate. 2.1 is the baseline every Nova release
+# The Compute API microversion to ask for. 2.1 is the baseline every Nova release
 # since Kilo speaks. Instances whose cell is unreachable are silently left out
 # of the listing below microversion 2.69, so a listing is only ever as complete
 # as the cells that answered.
-API_VERSION = '2.1'
+API_HEADER = {'OpenStack-API-Version': 'compute 2.1'}
 
 # The state to report per Nova server status. Every status the Compute API can
 # report is listed, so a status never falls through to a guessed default.
@@ -133,32 +105,6 @@ DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
 DEFAULT_TIMEOUT = 8
-
-
-class DeadlineSession(ksa_session.Session):
-    """A keystoneauth session that spends a budget instead of a per-request timeout.
-
-    keystoneauth applies its `timeout` to every single HTTP request, so a run
-    that makes three of them can take three times what `--timeout` promises. A
-    fixed share per request does not work either, because the requests are not
-    equally expensive: identity version discovery answers immediately while
-    issuing a token takes seconds on a busy Keystone. Handing every request
-    whatever is left of the budget keeps the whole run inside `--timeout` and
-    still lets a single slow request use most of it.
-    """
-
-    def __init__(self, *args, deadline, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.deadline = deadline
-
-    def request(self, *args, **kwargs):
-        remaining = self.deadline - time.monotonic()
-        if remaining <= 0:
-            raise ksa_exceptions.ConnectTimeout(
-                'the time budget of this check is spent'
-            )
-        kwargs['timeout'] = remaining
-        return super().request(*args, **kwargs)
 
 
 def parse_args():
@@ -305,6 +251,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--rc-file',
         help='Path to a rc file containing OpenStack connection parameters like '
         'OS_USERNAME (instead of specifying them on the command line). '
@@ -384,128 +345,6 @@ def get_severity_map(severity_args):
     return (True, severity_map)
 
 
-def get_auth_kwargs(env):
-    """Build the Keystone credentials from the rc file.
-
-    A domain is addressed either by id or by name, never by both: keystoneauth
-    silently prefers the id and drops the name, so a hardcoded id default would
-    override the domain an administrator put in the rc file.
-    """
-    kwargs = {
-        'auth_url': env.get('OS_AUTH_URL', None),
-        'password': env.get('OS_PASSWORD', None),
-        'project_id': env.get('OS_PROJECT_ID', None),
-        'project_name': env.get('OS_PROJECT_NAME', None),
-        'username': env.get('OS_USERNAME', None),
-    }
-    if env.get('OS_PROJECT_DOMAIN_ID'):
-        kwargs['project_domain_id'] = env['OS_PROJECT_DOMAIN_ID']
-    elif env.get('OS_PROJECT_DOMAIN_NAME'):
-        kwargs['project_domain_name'] = env['OS_PROJECT_DOMAIN_NAME']
-    else:
-        # Every deployment carries the default domain under this id.
-        kwargs['project_domain_id'] = 'default'
-    if env.get('OS_USER_DOMAIN_ID'):
-        kwargs['user_domain_id'] = env['OS_USER_DOMAIN_ID']
-    elif env.get('OS_USER_DOMAIN_NAME'):
-        kwargs['user_domain_name'] = env['OS_USER_DOMAIN_NAME']
-    else:
-        kwargs['user_domain_id'] = 'default'
-    return kwargs
-
-
-def get_verify(args, env):
-    """Return what the session should verify the TLS certificate against.
-
-    A CA bundle named by the rc file wins over `--insecure`, because naming one
-    is the more specific instruction of the two.
-    """
-    if env.get('OS_CACERT'):
-        return env['OS_CACERT']
-    return not args.INSECURE
-
-
-def get_endpoint_type(env):
-    """Return the catalog interface to use, in the spelling novaclient wants."""
-    interface = env.get('OS_INTERFACE') or env.get('OS_ENDPOINT_TYPE') or 'public'
-    interface = interface.strip().lower().replace('url', '')
-    if interface not in ('public', 'internal', 'admin'):
-        interface = 'public'
-    return f'{interface}URL'
-
-
-def get_cache_key(env):
-    """Return a cache key that is unique per cloud, project and user.
-
-    Two services on the same host share one cache database, so the key has to
-    tell their tokens apart. The password is not part of it.
-    """
-    identity = '|'.join(
-        [
-            env.get('OS_AUTH_URL', ''),
-            env.get('OS_USERNAME', ''),
-            env.get('OS_PROJECT_NAME', ''),
-            env.get('OS_PROJECT_ID', ''),
-            env.get('OS_REGION_NAME', ''),
-        ]
-    )
-    digest = hashlib.sha256(lib.txt.to_bytes(identity)).hexdigest()[:32]
-    return f'openstack-nova-list-{digest}'
-
-
-def get_servers_cached(args, env, token, endpoint, deadline):
-    """List the servers with a token from a previous run.
-
-    Makes a single HTTP request and therefore gets the full timeout budget.
-    Returns (True, list) on success, or (False, errormessage).
-    """
-    auth = token_endpoint.Token(endpoint=endpoint, token=token)
-    session = DeadlineSession(
-        auth=auth,
-        verify=get_verify(args, env),
-        deadline=deadline,
-    )
-    nova = client.Client(API_VERSION, session=session)
-    # limit=-1 makes novaclient follow the pagination markers. Without it the
-    # client stops after the first page and Nova caps a page at its
-    # `[api] max_limit`, which defaults to 1000 instances.
-    return (True, [server.to_dict() for server in nova.servers.list(limit=-1)])
-
-
-def get_servers(args, env, deadline):
-    """Authenticate against Keystone and list the servers.
-
-    Returns (True, (list, token, endpoint, expiry)) so the caller can cache the
-    token, or (False, errormessage).
-    """
-    session = DeadlineSession(
-        auth=ksa_identity.Password(**get_auth_kwargs(env)),
-        verify=get_verify(args, env),
-        deadline=deadline,
-    )
-    nova = client.Client(
-        API_VERSION,
-        session=session,
-        endpoint_type=get_endpoint_type(env),
-        region_name=env.get('OS_REGION_NAME', None),
-    )
-    token = session.get_token()
-    endpoint = session.get_endpoint(
-        service_type='compute',
-        interface=get_endpoint_type(env).replace('URL', ''),
-        region_name=env.get('OS_REGION_NAME', None),
-    )
-    expiry = None
-    try:
-        expiry = session.auth.get_access(session).expires
-    except Exception:
-        # An older Keystone may not report an expiry. --cache-expire then
-        # bounds the reuse on its own.
-        expiry = None
-    servers = [server.to_dict() for server in nova.servers.list(limit=-1)]
-    return (True, (servers, token, endpoint, expiry))
-
-
 def get_data(args, env):
     """Fetch the server listing, reusing a cached token where possible.
 
@@ -513,55 +352,44 @@ def get_data(args, env):
     connection is reported as a warning rather than as a plugin failure,
     because it says something about the cloud and not about the check.
     """
-    # One budget for the whole run, whether it is spent on a single request or
-    # on the three a cold run needs.
-    deadline = time.monotonic() + args.TIMEOUT
-    cache_key = get_cache_key(env)
-    cached = lib.cache.get(cache_key, as_dict=False)
-    if cached:
-        try:
-            session_data = json.loads(cached)
-            return get_servers_cached(
-                args,
-                env,
-                session_data['token'],
-                session_data['endpoint'],
-                deadline,
-            )
-        except (ksa_exceptions.Unauthorized, client.exceptions.Unauthorized):
-            # The token was revoked or expired early. Fall through and
-            # authenticate again.
-            pass
-        except (ValueError, KeyError):
-            # A cache entry we cannot read is a cache entry we re-create.
-            pass
-        except ksa_exceptions.ConnectionError as err:
-            return (False, f'Cannot reach the Nova API: {err}')
-        except ksa_exceptions.ClientException as err:
-            return (False, f'The Nova API refused the request: {err}')
-
-    try:
-        servers, token, endpoint, expiry = lib.base.coe(
-            get_servers(args, env, deadline)
+    success, conn = lib.openstack.connect(
+        env,
+        ['compute'],
+        timeout=args.TIMEOUT,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        cache_expire=args.CACHE_EXPIRE,
+        cache_name='openstack-nova-list',
+    )
+    if not success:
+        return (False, conn)
+    if 'compute' not in conn['endpoints']:
+        return (
+            False,
+            'The service catalog of this cloud holds no compute endpoint, so it '
+            'runs no Nova this account may talk to.',
         )
-    except ksa_exceptions.ConnectionError as err:
-        return (False, f'Cannot reach the OpenStack API: {err}')
-    except ksa_exceptions.Unauthorized:
-        return (False, 'Failed to authenticate.')
-    except ksa_exceptions.ClientException as err:
-        return (False, f'The OpenStack API refused the request: {err}')
 
-    expire = lib.time.now() + args.CACHE_EXPIRE * 60
-    if expiry is not None:
-        # Never hand out a token past its own lifetime. A minute of headroom
-        # keeps a token that expires mid-run out of the cache.
-        expire = min(expire, int(expiry.timestamp()) - 60)
-    if expire > lib.time.now():
-        lib.cache.set(
-            cache_key,
-            json.dumps({'token': token, 'endpoint': endpoint}),
-            expire=expire,
+    servers = []
+    path = '/servers/detail'
+    while path:
+        success, result = lib.openstack.fetch_json(
+            conn, 'compute', path, header=API_HEADER
         )
+        if not success:
+            return (False, f'Cannot list the instances: {result}.')
+        servers += result.get('servers') or []
+        # Nova caps a page at its `[api] max_limit`, which defaults to 1000 instances, and
+        # says so by handing out a link to the next one. Only the marker of that link is
+        # used, not its URL: a URL from a response would send the token of this account
+        # wherever that response says.
+        path = ''
+        if any(link.get('rel') == 'next' for link in result.get('servers_links') or []):
+            marker = (servers[-1].get('id') or '') if servers else ''
+            if not marker:
+                break
+            path = f'/servers/detail?marker={urllib.parse.quote(marker, safe="")}'
     return (True, servers)
 
 
