@@ -8,6 +8,9 @@
                 "--brief": {
                     "set_if": "$openstack_swift_stat_brief$"
                 },
+                "--cache-expire": {
+                    "value": "$openstack_swift_stat_cache_expire$"
+                },
                 "--critical": {
                     "value": "$openstack_swift_stat_critical$"
                 },
@@ -33,6 +36,12 @@
                 },
                 "--no-perfdata": {
                     "set_if": "$openstack_swift_stat_no_perfdata$"
+                },
+                "--no-proxy": {
+                    "set_if": "$openstack_swift_stat_no_proxy$"
+                },
+                "--proxy": {
+                    "value": "$openstack_swift_stat_proxy$"
                 },
                 "--rc-file": {
                     "value": "$openstack_swift_stat_rc_file$"
@@ -119,6 +128,21 @@
                     "datafield_id": 14,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -175,6 +199,7 @@
                 "criticality": "C",
                 "openstack_swift_stat_always_ok": false,
                 "openstack_swift_stat_brief": false,
+                "openstack_swift_stat_cache_expire": 50,
                 "openstack_swift_stat_critical": 10,
                 "openstack_swift_stat_critical_count": 1000,
                 "openstack_swift_stat_ignore": [],
@@ -183,6 +208,7 @@
                 "openstack_swift_stat_match": [],
                 "openstack_swift_stat_no_match_severity": "ok",
                 "openstack_swift_stat_no_perfdata": false,
+                "openstack_swift_stat_no_proxy": false,
                 "openstack_swift_stat_rc_file": "/var/spool/icinga2/.openstack.cnf",
                 "openstack_swift_stat_timeout": 50,
                 "openstack_swift_stat_warning_count": 10000,
@@ -291,6 +317,17 @@
             "uuid": "828c8fa9-84bf-44a0-ab2b-4f988d3486cc"
         },
         "3": {
+            "varname": "openstack_swift_stat_cache_expire",
+            "caption": "Openstack Swift Stat: Cache Expire",
+            "description": "The amount of time after which the credential/data cache expires, in minutes.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d0bdb7da-917c-4da8-8fb1-8c6106e501a5"
+        },
+        "4": {
             "varname": "openstack_swift_stat_critical",
             "caption": "Openstack Swift Stat: Critical",
             "description": "CRIT threshold for remaining free space, in GiB. Only applies to containers that have a quota set.",
@@ -301,7 +338,7 @@
             },
             "uuid": "fdcfa197-d988-4c83-856b-99368bdee9f3"
         },
-        "4": {
+        "5": {
             "varname": "openstack_swift_stat_critical_count",
             "caption": "Openstack Swift Stat: Critical Count",
             "description": "CRIT threshold for the remaining number of objects a container may still take. Only applies to containers that have an object count quota set.",
@@ -312,7 +349,7 @@
             },
             "uuid": "f8476b3e-2ae8-4b60-bd36-2975db8055ae"
         },
-        "5": {
+        "6": {
             "varname": "openstack_swift_stat_ignore",
             "caption": "Openstack Swift Stat: Ignore",
             "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. Matched against the container name.",
@@ -323,7 +360,7 @@
             },
             "uuid": "85657700-1c01-4b5f-aacc-f4c5f849ed99"
         },
-        "6": {
+        "7": {
             "varname": "openstack_swift_stat_insecure",
             "caption": "Openstack Swift Stat: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -332,7 +369,7 @@
             "settings": {},
             "uuid": "802ba637-ca96-4d39-90c8-9723344bc869"
         },
-        "7": {
+        "8": {
             "varname": "openstack_swift_stat_lengthy",
             "caption": "Openstack Swift Stat: Lengthy?",
             "description": "Extended reporting.",
@@ -341,7 +378,7 @@
             "settings": {},
             "uuid": "e334df9b-c7a0-42ed-9ef2-de032ed72f96"
         },
-        "8": {
+        "9": {
             "varname": "openstack_swift_stat_match",
             "caption": "Openstack Swift Stat: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). Matched against the container name.",
@@ -352,7 +389,7 @@
             },
             "uuid": "0077550a-f7ed-4b34-8325-92720485a3e6"
         },
-        "9": {
+        "10": {
             "varname": "openstack_swift_stat_no_match_severity",
             "caption": "Openstack Swift Stat: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -365,7 +402,7 @@
             },
             "uuid": "f675bd33-caf0-4633-acd4-d28c9b4a9501"
         },
-        "10": {
+        "11": {
             "varname": "openstack_swift_stat_no_perfdata",
             "caption": "Openstack Swift Stat: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -374,7 +411,27 @@
             "settings": {},
             "uuid": "30311b0c-b005-4943-aa48-1ecccef0ee98"
         },
-        "11": {
+        "12": {
+            "varname": "openstack_swift_stat_no_proxy",
+            "caption": "Openstack Swift Stat: No Proxy?",
+            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fe9aa6de-6489-4de4-b4f7-f3e4f963a803"
+        },
+        "13": {
+            "varname": "openstack_swift_stat_proxy",
+            "caption": "Openstack Swift Stat: Proxy",
+            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cbee3f68-3384-47eb-bff7-207ad8577587"
+        },
+        "14": {
             "varname": "openstack_swift_stat_rc_file",
             "caption": "Openstack Swift Stat: Rc File",
             "description": "Path to a rc file containing OpenStack connection parameters like OS_USERNAME (instead of specifying them on the command line). Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`.",
@@ -385,7 +442,7 @@
             },
             "uuid": "82bbe4ec-0447-443f-96d7-eb7c0b2d9325"
         },
-        "12": {
+        "15": {
             "varname": "openstack_swift_stat_timeout",
             "caption": "Openstack Swift Stat: Timeout",
             "description": "Network timeout in seconds. Applies to the whole run, not to a single request.",
@@ -396,7 +453,7 @@
             },
             "uuid": "5381aead-532b-4161-9af8-8e1025060b92"
         },
-        "13": {
+        "16": {
             "varname": "openstack_swift_stat_warning_count",
             "caption": "Openstack Swift Stat: Warning Count",
             "description": "WARN threshold for the remaining number of objects a container may still take. Only applies to containers that have an object count quota set.",
@@ -407,7 +464,7 @@
             },
             "uuid": "2c14817c-0468-4608-b710-c2a5f39ad447"
         },
-        "14": {
+        "17": {
             "varname": "openstack_swift_stat_warning",
             "caption": "Openstack Swift Stat: Warning",
             "description": "WARN threshold for remaining free space, in GiB. Only applies to containers that have a quota set.",

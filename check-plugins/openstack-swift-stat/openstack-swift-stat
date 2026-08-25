@@ -11,64 +11,33 @@
 """See the check's README for more details."""
 
 import argparse
-import json
-import logging
 import sys
-import warnings
+import urllib.parse
 
 import lib.args
 import lib.base
 import lib.disk
 import lib.human
 import lib.lftest
+import lib.openstack
 import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# The OpenStack client libraries pull in `requests`, which prints a
-# RequestsDependencyWarning when the urllib3 or chardet it finds is not the
-# combination it was built against. Printed before anything else, that warning
-# becomes the first line of the check output, which is the line a monitoring
-# server reads as the result.
-warnings.filterwarnings('ignore')
-
-# Those libraries also log to stderr through loggers of their own, for instance
-# when identity version discovery on the auth URL does not answer. A plugin
-# reports through its stdout line and its exit code, so that noise is turned off
-# rather than left to confuse whoever runs the check by hand.
-logging.getLogger('keystoneauth').setLevel(logging.CRITICAL)
-logging.getLogger('swiftclient').setLevel(logging.CRITICAL)
-
-try:
-    from swiftclient.service import SwiftError, SwiftService
-except ImportError:
-    print('Python module "python-swiftclient" is not installed.')
-    sys.exit(STATE_UNKNOWN)
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503'
+__version__ = '2026082504'
 
 DESCRIPTION = """Checks OpenStack Swift object storage account statistics, including total container
 count, object count, and bytes used. Alerts when the free space left in a container with a quota
 falls to or below the thresholds, or when the Swift API cannot be reached in time. Containers
 without a quota are listed but cannot be alerted on. Supports extended reporting via --lengthy."""
 
-# swiftclient applies `timeout` to every single HTTP request, and this check
-# makes one to authenticate, one to list the account, one for the account
-# headers and one more per container. The budget is sliced per request for the
-# account phase, and a deadline stops the per-container phase: what the
-# deadline cuts off is reported as cut off instead of being passed off as a
-# complete picture. Verified against python-swiftclient on Fedora 44.
-ACCOUNT_REQUESTS = 3
-
-# No single request is worth waiting longer than this, however large the total
-# budget is. Without the cap, a generous --timeout could be spent entirely on
-# the authentication and leave nothing for the containers the check is here to
-# read.
-MAX_REQUEST_TIMEOUT = 10
+# What an account answers with: its own numbers in the response headers and its containers in
+# the body, so one request covers both.
+ACCOUNT_PATH = '/?format=json'
 
 DEFAULT_BRIEF = False
+DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
 DEFAULT_CRIT = 10  # GiB free space left
 DEFAULT_CRIT_COUNT = 1000  # objects a container may still take
 DEFAULT_INSECURE = False
@@ -112,6 +81,14 @@ def parse_args():
         dest='BRIEF',
         action='store_true',
         default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
     )
 
     parser.add_argument(
@@ -185,6 +162,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
         '--rc-file',
         help='Path to a rc file containing OpenStack connection parameters like '
         'OS_USERNAME (instead of specifying them on the command line). '
@@ -237,48 +229,6 @@ def parse_args():
     return args
 
 
-def get_options(args, env):
-    """Build the swiftclient service options from the rc file.
-
-    A domain is addressed either by id or by name, never by both, because
-    keystoneauth silently prefers the id and drops the name. A hardcoded id
-    default would therefore override the domain the rc file names.
-    """
-    options = {
-        'auth_version': env.get('ST_AUTH_VERSION', 3),  # Should be '3'
-        'insecure': args.INSECURE,
-        'object_dd_threads': 20,
-        'os_auth_url': env.get('OS_AUTH_URL', None),
-        'os_cacert': env.get('OS_CACERT', None),
-        'os_identity_api_version': env.get('OS_IDENTITY_API_VERSION', None),
-        'os_interface': env.get('OS_INTERFACE', 'public'),
-        'os_password': env.get('OS_PASSWORD', None),
-        'os_project_id': env.get('OS_PROJECT_ID', None),
-        'os_project_name': env.get('OS_PROJECT_NAME', None),
-        'os_region_name': env.get('OS_REGION_NAME', None),
-        'os_username': env.get('OS_USERNAME', None),
-        # A single attempt: the default of five retries with an exponential
-        # backoff sleeps for over half a minute on its own, which no check
-        # interval survives.
-        'retries': 1,
-        'timeout': max(1, min(args.TIMEOUT / ACCOUNT_REQUESTS, MAX_REQUEST_TIMEOUT)),
-    }
-    if env.get('OS_PROJECT_DOMAIN_ID'):
-        options['os_project_domain_id'] = env['OS_PROJECT_DOMAIN_ID']
-    elif env.get('OS_PROJECT_DOMAIN_NAME'):
-        options['os_project_domain_name'] = env['OS_PROJECT_DOMAIN_NAME']
-    else:
-        # Every deployment carries the default domain under this id.
-        options['os_project_domain_id'] = 'default'
-    if env.get('OS_USER_DOMAIN_ID'):
-        options['os_user_domain_id'] = env['OS_USER_DOMAIN_ID']
-    elif env.get('OS_USER_DOMAIN_NAME'):
-        options['os_user_domain_name'] = env['OS_USER_DOMAIN_NAME']
-    else:
-        options['os_user_domain_id'] = 'default'
-    return options
-
-
 def get_free_state(args, quota, used):
     """Rate the headroom left against the thresholds.
 
@@ -311,59 +261,77 @@ def get_count_state(args, quota, used):
 
 
 def get_data(args, env):
-    """Fetch the account headers and the headers of every container.
+    """Fetch the account, its container listing and the headers of every container.
 
-    Returns (True, (stat_account, containers, truncated)) where `truncated`
-    says whether the run ran out of time before every container was read, or
-    (False, errormessage).
+    Returns (True, (account, containers, truncated, unreadable)) where `truncated` says
+    whether the run ran out of time before every container was read and `unreadable` names
+    the containers the store refused, or (False, errormessage).
     """
+    success, conn = lib.openstack.connect(
+        env,
+        ['object-store'],
+        timeout=args.TIMEOUT,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        cache_expire=args.CACHE_EXPIRE,
+        cache_name='openstack-swift-stat',
+    )
+    if not success:
+        return (False, conn)
+    if 'object-store' not in conn['endpoints']:
+        return (
+            False,
+            'The service catalog of this cloud holds no object-store endpoint, so it '
+            'runs no Swift this account may talk to.',
+        )
+
+    success, result = lib.openstack.fetch_json(
+        conn, 'object-store', ACCOUNT_PATH, extended=True
+    )
+    if not success:
+        return (False, f'Cannot read the account: {result}.')
+    account = result['response_header']
+
+    # A deadline of its own for the per-container phase, so what it cuts off is reported as
+    # cut off instead of being passed off as a complete picture. The connection carries the
+    # hard limit on top of it and stops the run once the budget is spent either way.
     deadline = lib.time.now() + args.TIMEOUT
     containers = {}
     truncated = False
-    try:
-        with SwiftService(options=get_options(args, env)) as swift:
-            # general statistics
-            stat_account = swift.stat()
-            if isinstance(stat_account.get('error'), Exception):
-                return (False, str(stat_account['error']))
-            if 'headers' not in stat_account:
-                return (False, 'The Swift API returned no account headers.')
-            # get stat for each container
-            for list_account_part in swift.list():
-                if isinstance(list_account_part.get('error'), Exception):
-                    return (False, str(list_account_part['error']))
-                for lap in list_account_part.get('listing', []):
-                    if lib.time.now() >= deadline:
-                        truncated = True
-                        break
-                    stat_container = swift.stat(container=lap['name'])
-                    if stat_container['success']:
-                        containers[lap['name']] = stat_container['headers']
-                if truncated:
-                    break
-    except SwiftError as err:
-        # Raised for an account that does not exist, among others, and it
-        # carries the reason the API gave.
-        return (False, str(err))
-    except Exception as err:
-        return (False, f'Cannot reach the Swift API: {err}')
-    return (True, (stat_account, containers, truncated))
+    unreadable = []
+    for entry in result['response_json'] or []:
+        name = entry.get('name')
+        if not name:
+            continue
+        if lib.time.now() >= deadline:
+            truncated = True
+            break
+        # A container name may carry anything a URL gives a meaning to, so it is encoded
+        # rather than pasted into the path.
+        success, container = lib.openstack.fetch(
+            conn,
+            'object-store',
+            '/' + urllib.parse.quote(name, safe=''),
+            method='HEAD',
+        )
+        if not success:
+            unreadable.append(name)
+            continue
+        containers[name] = container['response_header']
+    return (True, (account, containers, truncated, unreadable))
 
 
 def get_test_data(args):
-    """Read the account headers and the container headers from fixtures."""
-    stat_account = json.loads(lib.lftest.test([f'{args.TEST[0]}-stat_account'])[0])
+    """Read the account and the containers from fixtures, one file per request."""
+    document = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-account')
     containers = {}
-    list_account_part = json.loads(
-        lib.lftest.test([f'{args.TEST[0]}-list_account_part'])[0]
-    )
-    for lap in list_account_part['listing']:
-        stat_container = json.loads(
-            lib.lftest.test([f'{args.TEST[0]}-stat_container-{lap["name"]}'])[0]
+    for entry in document.get('listing', []):
+        container = lib.lftest.test_json(
+            args.TEST, f'{args.TEST[0]}-container-{entry["name"]}'
         )
-        if stat_container['success']:
-            containers[lap['name']] = stat_container['headers']
-    return (stat_account, containers, False)
+        containers[entry['name']] = container.get('headers', {})
+    return (document.get('headers', {}), containers, False, [])
 
 
 def main():
@@ -382,7 +350,6 @@ def main():
         args.MATCH = []
 
     # fetch data
-    # https://github.com/openstack/python-swiftclient/tree/master/examples
     if args.TEST is None:
         env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
         success, result = get_data(args, env)
@@ -390,10 +357,10 @@ def main():
             # The store did not answer in time or refused us. That is a
             # statement about the store, so warn instead of going unknown.
             lib.base.oao(result, STATE_WARN, always_ok=args.ALWAYS_OK)
-        stat_account, containers, truncated = result
+        account, containers, truncated, unreadable = result
     else:
-        # do not call the command, put in test data
-        stat_account, containers, truncated = get_test_data(args)
+        # do not call the endpoint, put in test data
+        account, containers, truncated, unreadable = get_test_data(args)
 
     # init some vars
     msg = ''
@@ -512,8 +479,9 @@ def main():
 
     # every container was filtered out, so there is nothing to report on
     if (compiled_match or compiled_ignore) and not checked:
+        total = int(account.get('x-account-container-count') or len(containers))
         lib.base.oao(
-            f'{len(containers)} {lib.txt.pluralize("container", len(containers))} in '
+            f'{total} {lib.txt.pluralize("container", total)} in '
             f'this account, all filtered out by `--match` or `--ignore`.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
@@ -521,7 +489,7 @@ def main():
 
     # build the message
     msg += 'Account: '
-    headers = stat_account.get('headers', {})
+    headers = account
     if 'x-account-container-count' in headers and int(
         headers['x-account-container-count']
     ):
@@ -558,6 +526,15 @@ def main():
     if msg.endswith(', '):
         msg = msg[:-2]
 
+    if unreadable:
+        # A container the store refused is a container nobody is watching. Say so instead of
+        # leaving a gap in the table.
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f'. {len(unreadable)} '
+            f'{lib.txt.pluralize("container", len(unreadable))} could not be read'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
     if truncated:
         # Say it, instead of presenting a partial listing as the whole picture.
         state = lib.base.get_worst(state, STATE_WARN)

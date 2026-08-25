@@ -7,12 +7,12 @@ Checks OpenStack Swift object storage account statistics, including total contai
 
 **Important Notes:**
 
+* The check reuses the Keystone token of the previous run. A run that has a valid token makes one request for the account plus one per container, a run that has to authenticate first makes one more. `--cache-expire` bounds the reuse, and a token is never reused past its own lifetime.
 * You have to provide a path to an rc file to authenticate. The rc file should contain the standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_PROJECT_NAME` and `OS_PROJECT_DOMAIN_NAME`. A domain is taken from the id variable if the rc file sets one, otherwise from the name variable, and falls back to the `default` domain if it sets neither.
 * The check reads the headers of every container in the account, one request each, so its runtime grows with the number of containers. `--timeout` bounds the whole run: containers it did not get to are reported as not read rather than left out silently. On an account with many containers, either narrow the check down with `--match` and run one service per group of containers, or raise `--timeout` together with the timeout of the check command.
 * Swift enforces two quotas per container, one on bytes and one on the number of objects, and a container can run out of either. `--warning` and `--critical` are the free space left in GiB, `--warning-count` and `--critical-count` the number of objects the container may still take. A lower number is worse in both cases. They only apply where the matching quota is actually set; a container without one is listed with an empty cell and cannot raise an alert on it.
 * The account carries a quota of its own and is checked against `--warning` and `--critical` as well, because it can run out while every single container is still well inside its own.
 * Only the quotas Swift exposes to a client can be reported on. A reseller may set the account byte quota as system metadata, which takes precedence on the server but is stripped from every response, and the account object count quota and the per-storage-policy quotas exist only as system metadata. None of those are visible to this check, or to any other client.
-* Requires the `python-swiftclient` and `python-keystoneclient` Python modules.
 
 **Data Collection:**
 
@@ -34,19 +34,19 @@ Checks OpenStack Swift object storage account statistics, including total contai
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | An rc file with OpenStack credentials, readable by the user running the check |
-| 3rd Party Python modules              | `python-swiftclient`, `python-keystoneclient` |
 
 
 ## Help
 
 ```text
-usage: openstack-swift-stat [-h] [-V] [--always-ok] [--brief] [-c CRIT]
+usage: openstack-swift-stat [-h] [-V] [--always-ok] [--brief]
+                            [--cache-expire CACHE_EXPIRE] [-c CRIT]
                             [--critical-count CRIT_COUNT] [--ignore IGNORE]
                             [--insecure] [--lengthy] [--match MATCH]
                             [--no-match-severity {ok,warn,crit,unknown}]
-                            [--no-perfdata] [--rc-file RC_FILE]
-                            [--timeout TIMEOUT] [--warning-count WARN_COUNT]
-                            [-w WARN]
+                            [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                            [--rc-file RC_FILE] [--timeout TIMEOUT]
+                            [--warning-count WARN_COUNT] [-w WARN]
 
 Checks OpenStack Swift object storage account statistics, including total
 container count, object count, and bytes used. Alerts when the free space left
@@ -63,6 +63,9 @@ options:
                         alerting are unaffected: every item still emits
                         performance data and still drives the overall check
                         state, so this is safe to leave on.
+  --cache-expire CACHE_EXPIRE
+                        The amount of time after which the credential/data
+                        cache expires, in minutes. Default: 50
   -c, --critical CRIT   CRIT threshold for remaining free space, in GiB. Only
                         applies to containers that have a quota set. Default:
                         <= 10
@@ -94,6 +97,18 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --no-proxy            Do not use a proxy, not even one the environment
+                        names. Overrides `--proxy`.
+  --proxy PROXY         Proxy to reach the target through. The scheme defaults
+                        to `http` when omitted. Overrides the proxy the
+                        environment names (`http_proxy`, `https_proxy`,
+                        `all_proxy`) together with the exceptions it lists in
+                        `no_proxy`, and is itself overridden by `--no-proxy`.
+                        Without either parameter the environment applies.
+                        Credentials belong into the environment variable
+                        rather than here, because a command-line argument is
+                        visible to every user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --rc-file RC_FILE     Path to a rc file containing OpenStack connection
                         parameters like OS_USERNAME (instead of specifying
                         them on the command line). Example: `--rc-
@@ -205,21 +220,21 @@ The monitoring server stopped the check before it had an answer, so this is the 
 
 `--timeout` ran out before every container was read. The containers that were not read are not covered by this run, so the state only describes the ones that were. Split the account across several services with `--match`, or raise `--timeout` and the timeout of the check command together.
 
-### `Cannot reach the Swift API: ...`
+### `Cannot read the account: ...`
 
-The endpoint did not answer within `--timeout`. Verify `OS_AUTH_URL` in the rc file, and that the monitoring host reaches the endpoint and its port. If the endpoint presents a certificate the host does not trust, either add the CA to the system trust store, point `OS_CACERT` in the rc file at it, or use `--insecure`.
+The endpoint did not answer within `--timeout`, or it refused the request. Verify `OS_AUTH_URL` in the rc file, and that the monitoring host reaches the endpoint and its port. If the endpoint presents a certificate the host does not trust, either point `OS_CACERT` in the rc file at its CA, add that CA to the system trust store, or use `--insecure`.
 
 ### A container is listed with an empty Free or Free Items column
 
 The container carries no quota of that kind, so there is nothing to measure its usage against and the matching thresholds cannot apply to it. Set one with `swift post --meta quota-bytes:<bytes> <container>` or `swift post --meta quota-count:<objects> <container>` if it should be alerted on. When no container in the account carries a given quota, the whole column is left out.
 
-### `Auth versions 2.0 and 3 require python-keystoneclient`
+### `Failed to authenticate.`
 
-The check authenticates against Keystone v3, and `python-swiftclient` hands that part of the work to `python-keystoneclient`, which it does not pull in on its own. Install it alongside: `pip install python-swiftclient python-keystoneclient`.
+The credentials in the rc file were refused. Verify them with `openstack token issue` using the same file. A password that was changed recently takes until the cached token expires to surface here, because the check reuses the token of the previous run; `--cache-expire=0` skips the cache for a single run.
 
-### `Python module "python-swiftclient" is not installed.`
+### `N containers could not be read`
 
-Install `python-swiftclient`: `pip install python-swiftclient python-keystoneclient`.
+The store refused the request for those containers while answering for the others, which an ACL on a single container can cause. `swift stat <container>` with the same credentials shows what it says.
 
 
 ## Credits, License

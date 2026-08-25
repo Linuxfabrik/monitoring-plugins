@@ -63,7 +63,7 @@ Monitoring Plugins:
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`, and keep working
 * nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: a password reset or a rescue image no longer alerts as CRITICAL
-* openstack-swift-stat: also alerts on a container's object quota and on the account quota
+* openstack-swift-stat: alerts on the object quota of a container and on the account quota, reuses the token of the previous run, and no longer drops a container the store refused
 
 Icinga Director:
 
