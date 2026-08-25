@@ -27,6 +27,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # drives: the first machine's `sda` is an empty CD-ROM drive and is left out, the
 # second one has an installation image in it and is reported.
 #
+# `vhost-user-disk` is the captured counterpart of that rule for the other kind of
+# disk libvirt names without reporting counters for it. The machine was given a
+# `qemu-storage-daemon` vhost-user-blk export next to an ordinary image, and libvirt
+# answered with a bare `block.1.name=vdb`. The same fixture carries a machine with an
+# empty CD-ROM drive, so one capture holds both shapes next to a disk that is real.
+#
 # The `slow-disk` fixture is the one that pins the unit of the latency figure. libvirt
 # counts the time an I/O took in nanoseconds, unlike the kernel's own block layer
 # statistics, which are milliseconds. Its 6120000000 over ten requests is 612 ms, and
@@ -215,6 +221,25 @@ TESTS = [
         'params': '--match=(',
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['contains one or more errors'],
+    },
+    {
+        # A vhost-user disk is named and then skipped by libvirt, which reports no
+        # counters for it. Kept, it would sit next to its machine as a disk that
+        # never moves a byte.
+        'id': 'ok-vhost-user-disk-is-left-out',
+        'test': 'stdout/vhost-user-disk,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['vdb'],
+    },
+    {
+        # The ordinary disk of the same machine is reported, so the rule above drops
+        # the disk without counters and not the machine.
+        'id': 'ok-vhost-user-machine-keeps-its-real-disk',
+        'test': 'stdout/vhost-user-disk,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['lftest-vhostuser', 'vda'],
     },
 ]
 

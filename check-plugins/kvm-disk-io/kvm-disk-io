@@ -220,6 +220,13 @@ def get_disks(domstats):
     drive as the example). `block.<index>.path` looks like the same test and is not:
     libvirt only reports a path for local storage, so a disk on Ceph or iSCSI has
     none and would be dropped by it. Verified against libvirt 12.0.0.
+
+    The same test covers the other kind of disk libvirt reports without counters, a
+    vhost-user one, which it names and then skips ("vhost-user disk doesn't support
+    getting block stats", `qemuDomainGetStatsBlockExportDisk()`). Measured against
+    libvirt 12.0.0 on a machine given a `qemu-storage-daemon` vhost-user-blk export:
+    the disk arrived as a bare `block.1.name=vdb` with no identifier and no counters,
+    so it is left out rather than reported as a disk that moves nothing.
     """
     disks = {}
     for machine, stats in domstats.items():
