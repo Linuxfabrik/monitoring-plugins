@@ -1,0 +1,363 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import os
+import sys
+import time
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.db_sqlite
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# memory-paging reads files and runs no command, so its fixtures are directory trees
+# under `config/` that stand in for the host's /proc, selected with the hidden
+# `--config-root` hook. Each tree holds /proc/vmstat and /proc/swaps.
+#
+# The kernel counters are cumulative since boot and are reported as per-second rates
+# against the previous run, held in a local SQLite cache, so a rate needs a scenario of
+# two consecutive calls:
+#
+#   call 1 -> "Waiting for more data on the paging counters."
+#   call 2 -> the rates
+#
+# There is no timestamp in /proc/vmstat, so the rate comes from the wall clock between
+# the two calls, and the second step has to sleep for the elapsed time to be non-zero.
+# The cache is removed before every scenario so the sequences stay apart.
+#
+# What the fixtures hold:
+#
+#   disk-swap-*   a host whose swap is a disk partition, the LVM layout the RHEL family
+#                 installs by default. Both samples carry the same counters, so nothing
+#                 was paged between the two calls
+#   major-faults-* a host faulting pages in off its disks while swap traffic stays low
+#   no-counters   a kernel built without CONFIG_VM_EVENT_COUNTERS. Derived from the
+#                 kernel 7.1 capture by cutting every event counter, which is what
+#                 mm/vmstat.c leaves out there: the event names are compiled into
+#                 vmstat_text behind that option and the file ends after the node
+#                 statistics, with the deprecated nr_unstable line the kernel always
+#                 appends
+#   no-swap       a host with no swap at all, so the two swap rates can only be zero
+#   no-vmstat     /proc is not mounted, so there are no paging statistics to read
+#   old-kernel    the /proc/vmstat and /proc/swaps of the node_exporter fixture tree,
+#                 a capture from a kernel old enough to still print nr_alloc_batch,
+#                 retired upstream in v4.9. Proves the check does not depend on any of
+#                 the counters that came later
+#   swap-out-*    captured on this workstation (Fedora 44, kernel 7.1, zram swap) from a
+#                 scope with MemoryHigh=150M allocating 1.5 GiB: the kernel parks the
+#                 pages in swap and hardly reads any of them back, which is the state
+#                 the "worth watching" hint describes
+#   thrash-*      a host paging in and out at the same time, the state this check exists
+#                 for
+#   zram-*        swap on zram, where paging costs CPU rather than disk I/O. Both
+#                 samples carry the same counters
+#
+# A note on the numbers below: a rate is asserted as a state or as a substring of the
+# perfdata rather than with a round figure, because the elapsed wall clock decides the
+# value. The thresholds are picked so that the expected state holds whether the two
+# calls end up one or several seconds apart.
+
+
+def _cache_db():
+    # Resolve via the lib so the reset below removes the exact file the check uses.
+    ok, db_path = lib.db_sqlite.get_db_path(
+        filename='linuxfabrik-monitoring-plugins-memory-paging.db',
+    )
+    return db_path if ok else None
+
+
+CACHE_DB = _cache_db()
+
+
+SCENARIOS = [
+    {
+        'id': 'unknown-without-proc-mounted',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/no-vmstat',
+                'assert-retc': STATE_UNKNOWN,
+                'assert-in': ['/proc is not mounted'],
+            },
+        ],
+    },
+    {
+        'id': 'unknown-kernel-without-the-event-counters',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/no-counters',
+                'assert-retc': STATE_UNKNOWN,
+                'assert-in': [
+                    'pgmajfault, pswpin, pswpout',
+                    'CONFIG_VM_EVENT_COUNTERS',
+                ],
+            },
+        ],
+    },
+    {
+        'id': 'ok-first-run-waits-for-a-baseline',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/zram-1',
+                'assert-retc': STATE_OK,
+                'assert-in': ['Waiting for more data on the paging counters.'],
+                # no baseline yet, so there is nothing to derive a rate from
+                'assert-not-in': ['_per_second'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-an-idle-host-pages-nothing',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/zram-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/zram-2 --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    'swap in 0.0B/s, swap out 0.0B/s, 0.0 major faults/s',
+                    'Swap lives on zram',
+                    'Swap: /dev/zram0 (partition, priority 100)',
+                    'pages read back from swap',
+                    "'swap_in_bytes_per_second'=0B",
+                ],
+                'assert-not-in': [
+                    'Waiting for more data',
+                    # a continuous counter would end up as ";c;" in the perfdata
+                    ';c;',
+                ],
+            },
+        ],
+    },
+    {
+        'id': 'ok-swap-on-a-disk-is-not-called-out',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/disk-swap-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/disk-swap-2 --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    'Swap: /dev/mapper/rl-swap (partition, priority -2)',
+                ],
+                'assert-not-in': ['zram', 'No swap is configured'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-a-host-without-swap-says-where-the-zero-comes-from',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/no-swap-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/no-swap-2 --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    'No swap is configured, so the two swap rates can only ever be '
+                    'zero here.',
+                    'Only the major fault rate says anything on this host.',
+                ],
+                # nothing to list, so the device line stays away and the table remains
+                'assert-not-in': ['Swap: '],
+            },
+        ],
+    },
+    {
+        # The state the check exists for. Pages go out and come back at the same time,
+        # so the host spends its time moving memory instead of working.
+        'id': 'crit-the-host-is-thrashing',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-regex': r'swap in [0-9.]+[KMG]iB/s \[CRITICAL\]',
+                'assert-in': [
+                    'its working set no longer fits into memory',
+                    'VmSwap',
+                ],
+            },
+        ],
+    },
+    {
+        # A host that is expected to page, a build machine or a batch node, wants the
+        # traffic graphed and nobody woken. `~:` is the Nagios range for "any value is
+        # fine".
+        'id': 'ok-thresholds-turned-off-with-a-range',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --warning=~: --critical=~:',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': ['swap in '],
+                'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        'id': 'ok-always-ok-masks-the-crit',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --always-ok',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': ['[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        'id': 'crit-no-perfdata-drops-the-perfdata-only',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/thrash-2 --no-perfdata',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-in': ['[CRITICAL]'],
+                'assert-not-in': ["'swap_in_bytes_per_second'="],
+            },
+        ],
+    },
+    {
+        # Pages go out and next to none come back, so the kernel is parking memory
+        # nobody has asked for in a while rather than fighting for it.
+        'id': 'crit-pages-are-parked-in-swap',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/swap-out-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/swap-out-2 --warning=100M '
+                '--critical=200M',
+                'sleep': 1.1,
+                'assert-retc': STATE_CRIT,
+                'assert-regex': r'swap out [0-9.]+[KMG]iB/s \[CRITICAL\]',
+                'assert-in': [
+                    'The host is writing pages out to swap without reading any back',
+                ],
+                'assert-not-in': ['its working set no longer fits into memory'],
+            },
+        ],
+    },
+    {
+        # Nothing is wrong with swap, and processes still wait for the disk on every
+        # fault, so the pages come from mapped files rather than from swap.
+        'id': 'warn-major-faults-without-swap-traffic',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/major-faults-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/major-faults-2 --warning=100M '
+                '--critical=200M --warning-major-faults=1',
+                'sleep': 1.1,
+                'assert-retc': STATE_WARN,
+                'assert-regex': r'major faults/s \[WARNING\]',
+                'assert-in': [
+                    'it is the page cache that is too small for what the host reads',
+                ],
+                'assert-not-in': ['[CRITICAL]'],
+            },
+        ],
+    },
+    {
+        # The counters this check needs have been in /proc/vmstat forever, so a kernel
+        # from before any of the newer ones is read just like a current one.
+        'id': 'ok-an-old-kernel-is-read-like-a-current-one',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/old-kernel',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/old-kernel --lengthy',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': [
+                    'swap in 0.0B/s',
+                    'Swap: /dev/zram0 (partition, priority 100)',
+                    "'major_faults_per_second'=",
+                ],
+                'assert-not-in': ['Waiting for more data'],
+            },
+        ],
+    },
+]
+
+
+def _run_scenario(test, scenario):
+    """Replay a scenario's steps against a freshly reset cache."""
+    if CACHE_DB and os.path.exists(CACHE_DB):
+        os.remove(CACHE_DB)
+    for step in scenario['steps']:
+        if step.get('sleep'):
+            time.sleep(step['sleep'])
+        lib.lftest.run(test, test.check, step)
+
+
+class TestCheck(unittest.TestCase):
+    check = '../memory-paging'
+
+
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda s: s['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()

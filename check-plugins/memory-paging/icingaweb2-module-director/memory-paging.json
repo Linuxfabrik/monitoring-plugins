@@ -1,0 +1,202 @@
+{
+    "Command": {
+        "cmd-check-memory-paging": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$memory_paging_always_ok$"
+                },
+                "--critical": {
+                    "value": "$memory_paging_critical$"
+                },
+                "--critical-major-faults": {
+                    "value": "$memory_paging_critical_major_faults$"
+                },
+                "--lengthy": {
+                    "set_if": "$memory_paging_lengthy$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$memory_paging_no_perfdata$"
+                },
+                "--warning": {
+                    "value": "$memory_paging_warning$"
+                },
+                "--warning-major-faults": {
+                    "value": "$memory_paging_warning_major_faults$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/memory-paging",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-memory-paging",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "6742fc51-520b-4467-9a6a-d160079c9d01"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-memory-paging": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-memory-paging",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "memory-paging.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports how much a host pages, as per-second rates measured between two runs: the traffic it moves to and from swap, and how often a process had to wait for the disk before it could go on. How full swap is says little on its own, because a host can sit at 40 percent swap usage for weeks without anyone noticing, and another one can thrash itself to a standstill while its usage barely moves. What hurts is the traffic, and that is what this check alerts on. Swap read back in is the number that matters: pages come back because something asked for them again, which means the working set no longer fits into memory. Pages written out alone can be the kernel parking what nobody has touched in hours, which is what swap is there for. Supports extended reporting via --lengthy. Alerts when the rate read back in or the rate written out leaves the warning or critical range, each judged on its own.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-paging/",
+            "object_name": "tpl-service-memory-paging",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "memory_paging_always_ok": false,
+                "memory_paging_critical": "10M",
+                "memory_paging_lengthy": false,
+                "memory_paging_no_perfdata": false,
+                "memory_paging_warning": "1M"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "eadf5489-a02d-4076-8ae2-a6efce918ab1"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "memory_paging_always_ok",
+            "caption": "Memory Paging: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "febb5e35-4b3a-4c1f-85ed-e30d6e4547c3"
+        },
+        "2": {
+            "varname": "memory_paging_critical",
+            "caption": "Memory Paging: Critical",
+            "description": "CRIT threshold for the swap traffic, as a rate per second in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). The rate read back in and the rate written out are compared against it each on its own. Supports Nagios ranges. Example: `10M` alerts above 10 MiB/s.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8db60473-1564-4568-808b-5acc86f58005"
+        },
+        "3": {
+            "varname": "memory_paging_critical_major_faults",
+            "caption": "Memory Paging: Critical Major Faults",
+            "description": "CRIT threshold for the number of page faults per second that had to wait for I/O. Supports Nagios ranges. Default: unset, the rate is reported but does not alert",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a1e22ce3-cece-4773-ae69-73b0ceec1d93"
+        },
+        "4": {
+            "varname": "memory_paging_lengthy",
+            "caption": "Memory Paging: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1162d2d0-ec90-4977-89d7-5b9593efb949"
+        },
+        "5": {
+            "varname": "memory_paging_no_perfdata",
+            "caption": "Memory Paging: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ff4b23d2-70ee-464e-b614-f6fb410ead02"
+        },
+        "6": {
+            "varname": "memory_paging_warning",
+            "caption": "Memory Paging: Warning",
+            "description": "WARN threshold for the swap traffic, as a rate per second in human-readable format (base is always 1024; valid qualifiers are B, KiB, MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of bytes). The rate read back in and the rate written out are compared against it each on its own. Supports Nagios ranges. Example: `10M` alerts above 10 MiB/s.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "070935a1-3c26-4c73-aa8d-3201e3029c76"
+        },
+        "7": {
+            "varname": "memory_paging_warning_major_faults",
+            "caption": "Memory Paging: Warning Major Faults",
+            "description": "WARN threshold for the number of page faults per second that had to wait for I/O. Supports Nagios ranges. Default: unset, the rate is reported but does not alert",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c783d63a-e135-4620-870e-72b2d6117429"
+        }
+    }
+}

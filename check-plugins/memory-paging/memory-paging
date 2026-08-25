@@ -1,0 +1,443 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082501'
+
+DESCRIPTION = """Reports how much a host pages, as per-second rates measured between two runs: the
+traffic it moves to and from swap, and how often a process had to wait for the disk
+before it could go on.
+How full swap is says little on its own, because a host can sit at 40 percent swap usage
+for weeks without anyone noticing, and another one can thrash itself to a standstill
+while its usage barely moves. What hurts is the traffic, and that is what this check
+alerts on.
+Swap read back in is the number that matters: pages come back because something asked
+for them again, which means the working set no longer fits into memory. Pages written
+out alone can be the kernel parking what nobody has touched in hours, which is what swap
+is there for.
+Supports extended reporting via --lengthy.
+Alerts when the rate read back in or the rate written out leaves the warning or critical
+range, each judged on its own."""
+
+# One "name value" line per kernel counter. The file is world-readable, and the counters
+# below are cumulative since boot, which is why this check reports them as rates.
+VMSTAT_FILE = '/proc/vmstat'
+
+# The swap devices in use, with their type and priority. Read for context only: whether
+# a swap rate hurts depends on what swap is made of, and a host without any swap can
+# never produce one.
+SWAPS_FILE = '/proc/swaps'
+
+# /proc/vmstat carries well over a hundred counters, of which a handful describe paging.
+# The three reported here are the ones an administrator can act on; the rest are listed
+# so that the next reader can see they were considered and why they are absent. Verified
+# against the counting sites in the kernel source from v4.18 up to v7.1, and measured on
+# kernel 7.1 (Fedora 44).
+#
+#   pswpin      pages read back from swap. mm/page_io.c counts one per page, so the
+#               value is a number of pages and not of bytes, and the page size turns it
+#               into the rate reported here. The readahead path (mm/swap_state.c) reads
+#               neighbouring pages along with the one that faulted and counts those the
+#               same way, so the rate covers what the kernel expects to be asked for
+#               next as well as what was asked for.
+#   pswpout     pages written out to swap, counted the same way in mm/page_io.c.
+#   pgmajfault  page faults the kernel could not satisfy from memory, so the faulting
+#               process had to wait for I/O. Raised from the swap path (mm/memory.c),
+#               from the page cache (mm/filemap.c), from tmpfs (mm/shmem.c) and from DAX
+#               (fs/dax.c), so a host reading mapped files off its disks raises it
+#               without swapping a single page. Reported because it is the closest the
+#               kernel comes to "processes are waiting for the disk", and carrying no
+#               default threshold for exactly the same reason.
+#   pgfault     every page fault, the minor ones included. Measured on an idle
+#               workstation at around 6000 per second and on a busy one at 50000, so the
+#               counter says nothing about health and is left out.
+#   pgpgin      what the block layer read and wrote, in kibibytes despite the name:
+#   pgpgout     block/blk-core.c counts sectors and mm/vmstat.c halves them. That is all
+#               block I/O of the host rather than its paging, so it belongs to a disk
+#               check and is left out here.
+#   pgscan_*    what page reclaim scanned, took back and refilled. Reclaim internals
+#   pgsteal_*   whose numbers only mean something next to the size of the machine, and
+#   pgrefill    the kernel already summarizes that pressure in /proc/pressure.
+#   oom_kill    processes the OOM killer terminated, the ones killed for a cgroup limit
+#               included, because mm/oom_kill.c raises the counter on the common path.
+#               Left out because the kernel logs every one of them at error level, where
+#               the dmesg check picks it up, and a second alert for the same event helps
+#               nobody.
+COUNTERS = ['pgmajfault', 'pswpin', 'pswpout']
+
+# What each counter means, in the words an administrator needs to act on it.
+COUNTER_DESCRIPTION = {
+    'pgmajfault': 'faults that had to wait for I/O',
+    'pswpin': 'pages read back from swap',
+    'pswpout': 'pages written out to swap',
+}
+
+DEFAULT_CRIT = '10M'
+DEFAULT_CRIT_MAJOR_FAULTS = None
+DEFAULT_WARN = '1M'
+DEFAULT_WARN_MAJOR_FAULTS = None
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the swap traffic, as a rate per second in '
+        'human-readable format (base is always 1024; valid qualifiers are B, KiB, '
+        'MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of '
+        'bytes). '
+        'The rate read back in and the rate written out are compared against it '
+        'each on its own. '
+        'Supports Nagios ranges. '
+        'Example: `10M` alerts above 10 MiB/s. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-major-faults',
+        help='CRIT threshold for the number of page faults per second that had to '
+        'wait for I/O. '
+        'Supports Nagios ranges. '
+        'Default: unset, the rate is reported but does not alert',
+        dest='CRIT_MAJOR_FAULTS',
+        default=DEFAULT_CRIT_MAJOR_FAULTS,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the swap traffic, as a rate per second in '
+        'human-readable format (base is always 1024; valid qualifiers are B, KiB, '
+        'MiB, GiB etc., see UNITS.md; a value without a qualifier is a number of '
+        'bytes). '
+        'The rate read back in and the rate written out are compared against it '
+        'each on its own. '
+        'Supports Nagios ranges. '
+        'Example: `10M` alerts above 10 MiB/s. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-major-faults',
+        help='WARN threshold for the number of page faults per second that had to '
+        'wait for I/O. '
+        'Supports Nagios ranges. '
+        'Default: unset, the rate is reported but does not alert',
+        dest='WARN_MAJOR_FAULTS',
+        default=DEFAULT_WARN_MAJOR_FAULTS,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def rooted(root, path):
+    """Return `path` below the configuration root, for both absolute and relative
+    paths.
+    """
+    return os.path.join(root, path.lstrip('/'))
+
+
+def read_vmstat(root):
+    """Return the counters of /proc/vmstat as a name to value mapping.
+
+    Files below /proc report a size of 0, so their presence has to be probed with
+    `allow_empty=True`.
+    """
+    path = rooted(root, VMSTAT_FILE)
+    if not lib.disk.file_exists(path, allow_empty=True):
+        return {}
+    success, content = lib.disk.read_file(path)
+    if not success:
+        return {}
+    counters = {}
+    for line in content.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            continue
+        try:
+            counters[fields[0]] = int(fields[1])
+        except ValueError:
+            # a counter that is not a number is not one this check can use
+            continue
+    return counters
+
+
+def read_swaps(root):
+    """Return the swap devices of /proc/swaps as (filename, type, priority) tuples.
+
+    The first line is the header the kernel prints, and a host without any swap has
+    that line and nothing else. A device whose name carries a space is printed with
+    the space escaped, so the name stays a single field.
+    """
+    path = rooted(root, SWAPS_FILE)
+    if not lib.disk.file_exists(path, allow_empty=True):
+        return []
+    success, content = lib.disk.read_file(path)
+    if not success:
+        return []
+    devices = []
+    for line in content.splitlines()[1:]:
+        fields = line.split()
+        if len(fields) != 5:
+            continue
+        devices.append((fields[0], fields[1], fields[4]))
+    return devices
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'Paging statistics are published by the Linux kernel. '
+            'This check belongs on a Linux host.'
+        )
+    root = args.CONFIG_ROOT
+    counters = read_vmstat(root)
+    if not counters:
+        lib.base.cu(
+            f'{VMSTAT_FILE} is missing or cannot be read, so there are no paging '
+            'statistics to work with. On a Linux host that means /proc is not mounted.'
+        )
+    missing = [counter for counter in COUNTERS if counter not in counters]
+    if missing:
+        lib.base.cu(
+            f'The kernel does not report {", ".join(missing)} in {VMSTAT_FILE}, so '
+            'there is nothing to measure here. A kernel built without '
+            'CONFIG_VM_EVENT_COUNTERS keeps no paging statistics.'
+        )
+    swap_devices = read_swaps(root)
+
+    # init some vars
+    perfdata = ''
+    table_data = []
+    hints = []
+    # A page is the unit the kernel counts swap traffic in, so the size of a page is
+    # what turns those counters into the bytes per second an administrator budgets in.
+    page_size = os.sysconf('SC_PAGE_SIZE')
+    # The swap thresholds are written the way an administrator says them (`10M`) and
+    # compared in bytes per second, so they are converted once here.
+    warn = lib.human.humanrange2bytes(args.WARN) if args.WARN else None
+    crit = lib.human.humanrange2bytes(args.CRIT) if args.CRIT else None
+
+    # Turn the cumulative kernel counters into per-second rates, using the previous run
+    # as the baseline.
+    rates = lib.db_sqlite.per_second_deltas(
+        'linuxfabrik-monitoring-plugins-memory-paging.db',
+        'memory-paging',
+        {counter: counters[counter] for counter in COUNTERS},
+    )
+
+    # analyze data
+    if rates is None:
+        # first run after a reboot or after the cache was wiped, so the counters have
+        # nothing to be compared against yet
+        lib.base.oao(
+            'Waiting for more data on the paging counters.',
+            STATE_OK,
+            always_ok=args.ALWAYS_OK,
+        )
+    swap_in = rates['pswpin'] * page_size
+    swap_out = rates['pswpout'] * page_size
+    major_faults = rates['pgmajfault']
+    swap_in_state = lib.base.get_state(swap_in, warn, crit, _operator='range')
+    swap_out_state = lib.base.get_state(swap_out, warn, crit, _operator='range')
+    major_faults_state = lib.base.get_state(
+        major_faults,
+        args.WARN_MAJOR_FAULTS,
+        args.CRIT_MAJOR_FAULTS,
+        _operator='range',
+    )
+    state = lib.base.get_worst(
+        lib.base.get_worst(swap_in_state, swap_out_state),
+        major_faults_state,
+    )
+    counter_states = {
+        'pgmajfault': major_faults_state,
+        'pswpin': swap_in_state,
+        'pswpout': swap_out_state,
+    }
+    for counter in COUNTERS:
+        table_data.append(
+            {
+                'counter': counter,
+                'meaning': COUNTER_DESCRIPTION[counter],
+                'rate': f'{round(rates[counter], 4)}'
+                f'{lib.base.state2str(counter_states[counter], prefix=" ")}',
+            }
+        )
+
+    # build the message
+    msg = (
+        f'swap in {lib.human.bytes2human(swap_in)}/s'
+        f'{lib.base.state2str(swap_in_state, prefix=" ")}'
+        f', swap out {lib.human.bytes2human(swap_out)}/s'
+        f'{lib.base.state2str(swap_out_state, prefix=" ")}'
+        f', {lib.human.number2human(major_faults)} major faults/s'
+        f'{lib.base.state2str(major_faults_state, prefix=" ")}'
+    )
+    perfdata += lib.base.get_perfdata(
+        'major_faults_per_second',
+        round(major_faults, 4),
+        uom=None,
+        warn=args.WARN_MAJOR_FAULTS,
+        crit=args.CRIT_MAJOR_FAULTS,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'swap_in_bytes_per_second',
+        round(swap_in),
+        uom='B',
+        warn=warn,
+        crit=crit,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'swap_out_bytes_per_second',
+        round(swap_out),
+        uom='B',
+        warn=warn,
+        crit=crit,
+        _min=0,
+    )
+
+    # A rate of zero that could never have been anything else looks exactly like a
+    # measurement, so say where the number comes from instead of letting it stand.
+    if not swap_devices:
+        hints.append(
+            'No swap is configured, so the two swap rates can only ever be zero here. '
+            'Only the major fault rate says anything on this host.'
+        )
+    elif all(device.startswith('/dev/zram') for device, _, _ in swap_devices):
+        hints.append(
+            'Swap lives on zram, which is compressed memory, so paging costs CPU and '
+            'memory on this host rather than disk I/O.'
+        )
+    if swap_in_state != STATE_OK:
+        hints.append(
+            'The host is reading pages back from swap, so its working set no longer '
+            'fits into memory. Add memory, move a workload off the host, or find the '
+            'process that grew: every process reports its own swap usage as VmSwap in '
+            'the status file the kernel keeps for it below /proc.'
+        )
+    elif swap_out_state != STATE_OK:
+        hints.append(
+            'The host is writing pages out to swap without reading any back, which is '
+            'the kernel parking memory nobody has asked for in a while. Worth '
+            'watching, and worth acting on once the rate read back in follows.'
+        )
+    if major_faults_state != STATE_OK and STATE_OK == swap_in_state == swap_out_state:
+        # Only the swap path and the file-backed paths raise this counter, so swap
+        # rates within their thresholds leave mapped files as the source.
+        hints.append(
+            'A process waited for the disk on every one of these faults, while the '
+            'swap rates stayed within their thresholds. The pages come from mapped '
+            'files rather than from swap, so it is the page cache that is too small '
+            'for what the host reads.'
+        )
+    for hint in hints:
+        msg += f'\n{hint}'
+
+    # build table output
+    if args.LENGTHY:
+        if swap_devices:
+            msg += '\nSwap: ' + ', '.join(
+                f'{device} ({kind}, priority {priority})'
+                for device, kind, priority in swap_devices
+            )
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['counter', 'meaning', 'rate'],
+            header=['Counter', 'Meaning', 'Per Second'],
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
