@@ -148,13 +148,19 @@ Mountpoint ! Device         ! Type ! State
 /home      ! /dev/nvme0n1p3 ! ext4 ! not mounted [WARNING]
 ```
 
-Also require a mount point that a systemd mount unit provides, so that `/etc/fstab` never mentions it:
+Also check a mount point that no `/etc/fstab` entry provides. A filesystem that a systemd mount unit or an automounter map mounts is not written down in `/etc/fstab`, so the check learns about it only when `--mount` names it:
 
 ```bash
 ./fs-mounts --mount=/srv/data
 ```
 
 Output:
+
+```text
+Everything is ok. 5 filesystems from /etc/fstab and --mount are mounted.
+```
+
+Output (when that mount point is not there):
 
 ```text
 1 filesystem from /etc/fstab and --mount is not mounted: /srv/data
