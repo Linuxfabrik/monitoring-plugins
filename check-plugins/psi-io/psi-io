@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import sys
+
+import lib.args
+import lib.base
+import lib.psi
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082501'
+
+DESCRIPTION = """Reports how much of its time a host loses waiting for storage, taken from the
+pressure stall information of the Linux kernel. A pressure of 10 percent means that for a
+tenth of the time work could not go on because the storage was contended.
+The check alerts on the share of time in which every task that had work to do was stalled
+at once, averaged over the last minute. That is the state in which the machine spends its
+cycles waiting instead of working, and it answers what throughput and utilization cannot:
+a disk can be busy all day without anybody waiting for it.
+A host whose kernel keeps no pressure statistics is reported as OK, because there is
+nothing to measure; raise --severity-no-psi to flag it where the statistics are expected.
+Alerts when the pressure leaves the warning or critical range."""
+
+# The resource this check reports on. The kernel keeps one file per resource below
+# /proc/pressure and the library reads it.
+RESOURCE = 'io'
+
+# The line the check alerts on. "full" is the share of time in which every non-idle task
+# was stalled at once, which the kernel documentation calls thrashing: nothing gets done
+# while the CPUs are busy. "some" moves as soon as a single task waits, which happens on
+# a healthy host as a matter of course.
+ALERT_KIND = 'full'
+
+# The averaging window the check alerts on. The kernel offers ten, sixty and three
+# hundred seconds; all three are reported, and the middle one is the one that matches a
+# check running every minute. Ten seconds is too short to survive a check interval, five
+# minutes smears a burst until it no longer stands out.
+ALERT_WINDOW = 'avg60'
+
+# The lines this check reports. Both carry a real value for storage.
+REPORTED_KINDS = ('some', 'full')
+
+# What each line means, in the words an administrator needs to act on it.
+KIND_DESCRIPTION = {
+    'full': 'every task with work to do stalled',
+    'some': 'at least one task stalled',
+}
+
+WINDOWS = ('avg10', 'avg60', 'avg300')
+
+DEFAULT_CRIT = '60'
+DEFAULT_SEVERITY_NO_PSI = 'ok'
+DEFAULT_WARN = '40'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the storage pressure, in percent of wall clock time, '
+        'measured over the last minute. '
+        'Supports Nagios ranges. '
+        'Example: `60` alerts where 60 percent of the time is lost. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity-no-psi',
+        help='Severity for alerting if the kernel keeps no pressure statistics. '
+        'Default: %(default)s',
+        dest='SEVERITY_NO_PSI',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_SEVERITY_NO_PSI,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the storage pressure, in percent of wall clock time, '
+        'measured over the last minute. '
+        'Supports Nagios ranges. '
+        'Example: `40` alerts where 40 percent of the time is lost. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'Pressure stall information is published by the Linux kernel. '
+            'This check belongs on a Linux host.'
+        )
+    pressure = lib.base.coe(lib.psi.read(RESOURCE, root=args.CONFIG_ROOT))
+    if pressure is None:
+        # The kernel exports nothing at all where pressure accounting is switched off,
+        # which is the state the whole Red Hat family boots into.
+        lib.base.oao(
+            'This kernel keeps no pressure statistics, so there is nothing to measure. '
+            'Add `psi=1` to the kernel command line and reboot to switch them on.',
+            lib.base.str2state(args.SEVERITY_NO_PSI),
+            always_ok=args.ALWAYS_OK,
+        )
+    if ALERT_KIND not in pressure:
+        lib.base.cu(
+            f'The kernel reports no "{ALERT_KIND}" pressure for {RESOURCE}, so there '
+            'is nothing to alert on. That line has been part of the interface since it '
+            'was introduced, so this kernel changed it.'
+        )
+
+    # init some vars
+    perfdata = ''
+    table_data = []
+
+    # analyze data
+    value = pressure[ALERT_KIND][ALERT_WINDOW]
+    state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
+
+    # build the message
+    # The kernel's own words, "some" and "full", stay in the output so that what an
+    # administrator reads matches what the interface and its documentation call it. The
+    # line below spells both of them out, because nobody should have to look that up.
+    msg = ''
+    for kind in REPORTED_KINDS:
+        if kind not in pressure:
+            continue
+        msg += ', ' if msg else f'{RESOURCE} pressure, last minute: '
+        msg += f'{kind} {pressure[kind][ALERT_WINDOW]}%'
+        if kind == ALERT_KIND:
+            msg += lib.base.state2str(state, prefix=' ')
+        for window in WINDOWS:
+            # only the one value the check judges carries the thresholds, so a graph
+            # does not draw a warning line across the windows nobody alerts on
+            alerting = kind == ALERT_KIND and window == ALERT_WINDOW
+            perfdata += lib.base.get_perfdata(
+                f'{kind}_{window}',
+                pressure[kind][window],
+                uom='%',
+                warn=args.WARN if alerting else None,
+                crit=args.CRIT if alerting else None,
+                _min=0,
+                _max=100,
+            )
+    msg += '\n' + ', '.join(
+        f'{kind} = {KIND_DESCRIPTION[kind]}'
+        for kind in REPORTED_KINDS
+        if kind in pressure
+    )
+    if state != STATE_OK:
+        msg += (
+            '\nWork is stalling on storage. `disk-io` reports which device is busy '
+            'and how long it takes to answer, `memory-paging` whether the traffic is '
+            'the host paging rather than the workload reading and writing.'
+        )
+
+    # build table output
+    kinds = [kind for kind in REPORTED_KINDS if kind in pressure]
+    for window in WINDOWS:
+        row = {'window': window}
+        for kind in kinds:
+            row[kind] = f'{pressure[kind][window]}%'
+            if kind == ALERT_KIND and window == ALERT_WINDOW:
+                row[kind] += lib.base.state2str(state, prefix=' ')
+        table_data.append(row)
+    msg += '\n\n' + lib.base.get_table(
+        table_data,
+        ['window', *kinds],
+        header=['Window', *[kind.capitalize() for kind in kinds]],
+    )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

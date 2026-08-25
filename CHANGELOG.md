@@ -36,6 +36,9 @@ Monitoring Plugins:
 * memory-paging: alerts when a host pages to and from swap, which swap usage on its own never shows
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
+* psi-cpu: alerts when work waits for a CPU, which CPU utilization and the load average do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* psi-io: alerts when work waits for storage, which throughput and device utilization do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* psi-memory: alerts when work waits for memory, which memory and swap usage do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * redfish-*: `--verbose` records every request to the management controller, with timings, into a log file, so a check that runs into its timeout can be diagnosed ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 
 Icinga Director:

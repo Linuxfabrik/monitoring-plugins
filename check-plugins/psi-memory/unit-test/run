@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# psi-memory reads a file and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's /proc, selected with the hidden `--config-root`
+# hook. Each tree holds the one file the check reads.
+#
+# Where the fixtures come from, all captured on this workstation (Fedora 44, kernel 7.1)
+# unless noted:
+#
+#   idle      an unloaded host
+#   thrash    a scope limited with MemoryHigh=150M walking a 900 MiB buffer for a minute
+#             and a half, so the kernel evicts and faults the same pages back in
+#             continuously. Both lines read 20.23 % over the last minute, which is the
+#             state the check exists for
+#   no-psi    a host whose kernel keeps no pressure statistics: /proc is there,
+#             /proc/pressure is not. That is what the whole Red Hat family boots into,
+#             because it ships CONFIG_PSI_DEFAULT_DISABLED=y
+#   malformed derived from the idle capture by replacing one average with a word. No
+#             kernel prints this; the fixture exists to prove that a value the check
+#             cannot read is reported instead of silently becoming a zero
+#
+# The same fixture drives several testcases with different thresholds, which is what the
+# thresholds are for: the state belongs to the testcase id, not to the fixture name.
+TESTS = [
+    {
+        'id': 'ok-an-idle-host',
+        'test': '',
+        'params': '--config-root=config/idle',
+        'assert-retc': STATE_OK,
+        'assert-in': ['memory pressure, last minute: ', "'full_avg60'="],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # The state the check exists for: the host spends a fifth of its time with
+        # every task that had work to do waiting for memory.
+        'id': 'crit-a-host-that-thrashes',
+        'test': '',
+        'params': '--config-root=config/thrash',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'memory pressure, last minute: some 20.23%, full 20.23% [CRITICAL]',
+            'Work is stalling on memory.',
+            'memory-paging',
+        ],
+    },
+    {
+        'id': 'warn-below-the-critical-threshold',
+        'test': '',
+        'params': '--config-root=config/thrash --warning=5 --critical=50',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING]'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        # A host that is expected to page, a batch node for example, wants the pressure
+        # graphed and nobody woken. `~:` is the Nagios range for "any value is fine".
+        'id': 'ok-thresholds-turned-off-with-a-range',
+        'test': '',
+        'params': '--config-root=config/thrash --warning=~: --critical=~:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['memory pressure, last minute: some 20.23%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'Work is stalling'],
+    },
+    {
+        'id': 'ok-always-ok-masks-the-crit',
+        'test': '',
+        'params': '--config-root=config/thrash --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-no-perfdata-drops-the-perfdata-only',
+        'test': '',
+        'params': '--config-root=config/thrash --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+        'assert-not-in': ["'full_avg60'="],
+    },
+    {
+        'id': 'ok-every-window-is-reported',
+        'test': '',
+        'params': '--config-root=config/thrash --warning=~: --critical=~:',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'some = at least one task stalled',
+            'full = every task with work to do stalled',
+            'avg10',
+            'avg300',
+        ],
+    },
+    {
+        # The Red Hat default. Nothing to measure, and the check says how to change
+        # that instead of going quiet or alerting.
+        'id': 'ok-a-kernel-without-pressure-statistics',
+        'test': '',
+        'params': '--config-root=config/no-psi',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'This kernel keeps no pressure statistics',
+            '`psi=1`',
+        ],
+        'assert-not-in': ['memory pressure'],
+    },
+    {
+        'id': 'warn-a-kernel-without-pressure-statistics-can-alert',
+        'test': '',
+        'params': '--config-root=config/no-psi --severity-no-psi=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['This kernel keeps no pressure statistics'],
+    },
+    {
+        'id': 'unknown-a-value-that-is-no-number',
+        'test': '',
+        'params': '--config-root=config/malformed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['which is no average'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../psi-memory'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

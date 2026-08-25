@@ -1,0 +1,201 @@
+{
+    "Command": {
+        "cmd-check-psi-io": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$psi_io_always_ok$"
+                },
+                "--critical": {
+                    "value": "$psi_io_critical$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$psi_io_no_perfdata$"
+                },
+                "--severity-no-psi": {
+                    "value": "$psi_io_severity_no_psi$"
+                },
+                "--warning": {
+                    "value": "$psi_io_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/psi-io",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-psi-io",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "9ef61544-12a7-418c-b7ba-6dd2c54b397e"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-psi-io": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-psi-io",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "psi-io.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports how much of its time a host loses waiting for storage, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the storage was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what throughput and utilization cannot: a disk can be busy all day without anybody waiting for it. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-io/",
+            "object_name": "tpl-service-psi-io",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "psi_io_always_ok": false,
+                "psi_io_critical": "60",
+                "psi_io_no_perfdata": false,
+                "psi_io_severity_no_psi": "ok",
+                "psi_io_warning": "40"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "4c902495-b95a-4b38-b7fa-de364dba4d94"
+        }
+    },
+    "DataList": {
+        "psi_io_severity_no_psi_list": {
+            "list_name": "psi_io_severity_no_psi_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "4b83e8d3-c6fc-4220-ac37-2842db167e93"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "psi_io_always_ok",
+            "caption": "Psi I/O: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "77eac798-428b-4d21-88b8-99993036014d"
+        },
+        "2": {
+            "varname": "psi_io_critical",
+            "caption": "Psi I/O: Critical",
+            "description": "CRIT threshold for the storage pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `60` alerts where 60 percent of the time is lost.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "762f972f-b5e8-45ba-88a0-2ac85d31c1a7"
+        },
+        "3": {
+            "varname": "psi_io_no_perfdata",
+            "caption": "Psi I/O: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "a4ae1203-d80c-447e-80e4-1fde27668ac1"
+        },
+        "4": {
+            "varname": "psi_io_severity_no_psi",
+            "caption": "Psi I/O: Severity No Psi",
+            "description": "Severity for alerting if the kernel keeps no pressure statistics.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "psi_io_severity_no_psi_list"
+            },
+            "uuid": "37decba3-fa7c-4cc0-b815-6c05e821780f"
+        },
+        "5": {
+            "varname": "psi_io_warning",
+            "caption": "Psi I/O: Warning",
+            "description": "WARN threshold for the storage pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `40` alerts where 40 percent of the time is lost.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5d9cfe96-a69c-4d2f-9277-088d301cddff"
+        }
+    }
+}

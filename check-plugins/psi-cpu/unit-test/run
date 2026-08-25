@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# psi-cpu reads a file and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's /proc, selected with the hidden `--config-root`
+# hook. Each tree holds the one file the check reads.
+#
+# Where the fixtures come from, all captured on this workstation (Fedora 44, kernel 7.1,
+# eight CPUs) unless noted:
+#
+#   idle      an unloaded host
+#   loaded    thirty-two busy loops for eighty seconds, so four times as much runnable
+#             work as the host has CPUs. 47.23 % over the last minute
+#   some-only derived from the loaded capture by cutting the "full" line. A kernel from
+#             before the upstream v5.13 change prints the CPU file that way, and RHEL 8
+#             carries a backport of an earlier state, so the shape has to be read
+#             without complaint. The check ignores that line either way, because the
+#             kernel fills it with a hardcoded zero at the system level
+#   no-psi    a host whose kernel keeps no pressure statistics: /proc is there,
+#             /proc/pressure is not. That is what the whole Red Hat family boots into,
+#             because it ships CONFIG_PSI_DEFAULT_DISABLED=y
+#   malformed derived from the idle capture by replacing one average with a word. No
+#             kernel prints this; the fixture exists to prove that a value the check
+#             cannot read is reported instead of silently becoming a zero
+#
+# The same fixture drives several testcases with different thresholds, which is what the
+# thresholds are for: the state belongs to the testcase id, not to the fixture name.
+TESTS = [
+    {
+        'id': 'ok-an-idle-host',
+        'test': '',
+        'params': '--config-root=config/idle',
+        'assert-retc': STATE_OK,
+        'assert-in': ['cpu pressure, last minute: ', "'some_avg60'="],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # Four times oversubscribed and still within the default threshold: half the
+        # time somebody queues, which is what a machine used to capacity looks like.
+        'id': 'ok-the-default-tolerates-a-busy-host',
+        'test': '',
+        'params': '--config-root=config/loaded',
+        'assert-retc': STATE_OK,
+        'assert-in': ['cpu pressure, last minute: some 47.23%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-above-the-warning-threshold',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=40 --critical=90',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING]'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-work-is-queueing-for-a-cpu',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=10 --critical=30',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'cpu pressure, last minute: some 47.23% [CRITICAL]',
+            'Work is waiting for a CPU.',
+        ],
+    },
+    {
+        # The kernel prints a "full" line for the CPU and fills it with a hardcoded
+        # zero at the system level, so nothing of it reaches the output or the graph.
+        'id': 'ok-the-undefined-full-line-is-not-reported',
+        'test': '',
+        'params': '--config-root=config/loaded',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['full'],
+    },
+    {
+        'id': 'ok-a-kernel-without-the-system-level-full-line',
+        'test': '',
+        'params': '--config-root=config/some-only',
+        'assert-retc': STATE_OK,
+        'assert-in': ['cpu pressure, last minute: some 47.23%', 'avg300'],
+        'assert-not-in': ['full'],
+    },
+    {
+        # A machine that is supposed to run its CPUs full, a build host for example,
+        # wants the pressure graphed and nobody woken. `~:` is the Nagios range for
+        # "any value is fine".
+        'id': 'ok-thresholds-turned-off-with-a-range',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=~: --critical=~:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['cpu pressure, last minute: some 47.23%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'Work is waiting'],
+    },
+    {
+        'id': 'ok-always-ok-masks-the-crit',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=10 --critical=30 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-no-perfdata-drops-the-perfdata-only',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=10 --critical=30 --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+        'assert-not-in': ["'some_avg60'="],
+    },
+    {
+        'id': 'ok-every-window-is-reported',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=~: --critical=~:',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'some = at least one task waited for a CPU',
+            'avg10',
+            'avg300',
+        ],
+    },
+    {
+        # The Red Hat default. Nothing to measure, and the check says how to change
+        # that instead of going quiet or alerting.
+        'id': 'ok-a-kernel-without-pressure-statistics',
+        'test': '',
+        'params': '--config-root=config/no-psi',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'This kernel keeps no pressure statistics',
+            '`psi=1`',
+        ],
+        'assert-not-in': ['cpu pressure'],
+    },
+    {
+        'id': 'warn-a-kernel-without-pressure-statistics-can-alert',
+        'test': '',
+        'params': '--config-root=config/no-psi --severity-no-psi=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['This kernel keeps no pressure statistics'],
+    },
+    {
+        'id': 'unknown-a-value-that-is-no-number',
+        'test': '',
+        'params': '--config-root=config/malformed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['which is no average'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../psi-cpu'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

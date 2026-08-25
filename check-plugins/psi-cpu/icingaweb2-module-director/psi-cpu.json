@@ -1,0 +1,201 @@
+{
+    "Command": {
+        "cmd-check-psi-cpu": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$psi_cpu_always_ok$"
+                },
+                "--critical": {
+                    "value": "$psi_cpu_critical$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$psi_cpu_no_perfdata$"
+                },
+                "--severity-no-psi": {
+                    "value": "$psi_cpu_severity_no_psi$"
+                },
+                "--warning": {
+                    "value": "$psi_cpu_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/psi-cpu",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-psi-cpu",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "f68546a0-6b40-4484-9817-60fe17789b39"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-psi-cpu": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-psi-cpu",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "psi-cpu.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports how much of its time a host loses waiting for a CPU, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the CPUs were contended. The check alerts on the share of time in which at least one task was ready to run and had to wait for a CPU, averaged over the last minute. It answers what CPU utilization cannot: a host can be busy to the last percent and serve everything on time, and it can be busy to the same percent while everything queues up behind it. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-cpu/",
+            "object_name": "tpl-service-psi-cpu",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "psi_cpu_always_ok": false,
+                "psi_cpu_critical": "80",
+                "psi_cpu_no_perfdata": false,
+                "psi_cpu_severity_no_psi": "ok",
+                "psi_cpu_warning": "50"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "fd6eed43-2285-41ac-8d65-4acc405f9f7b"
+        }
+    },
+    "DataList": {
+        "psi_cpu_severity_no_psi_list": {
+            "list_name": "psi_cpu_severity_no_psi_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "195e8601-576e-453f-9d04-848f0a01b446"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "psi_cpu_always_ok",
+            "caption": "Psi CPU: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "92f46782-bf9f-4613-a209-57606de3abd5"
+        },
+        "2": {
+            "varname": "psi_cpu_critical",
+            "caption": "Psi CPU: Critical",
+            "description": "CRIT threshold for the CPU pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `80` alerts where work waits for a CPU 80 percent of the time.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6ad3f1b8-b348-4821-ac96-eb320404b2f1"
+        },
+        "3": {
+            "varname": "psi_cpu_no_perfdata",
+            "caption": "Psi CPU: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "cf142433-5534-4090-b516-c3881300e3dc"
+        },
+        "4": {
+            "varname": "psi_cpu_severity_no_psi",
+            "caption": "Psi CPU: Severity No Psi",
+            "description": "Severity for alerting if the kernel keeps no pressure statistics.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "psi_cpu_severity_no_psi_list"
+            },
+            "uuid": "ea36d39d-8ea2-4730-ad5d-94550b69a4c3"
+        },
+        "5": {
+            "varname": "psi_cpu_warning",
+            "caption": "Psi CPU: Warning",
+            "description": "WARN threshold for the CPU pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `50` alerts where work waits for a CPU 50 percent of the time.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fe14dcbc-0b07-41d0-b8e0-f49728e7ba60"
+        }
+    }
+}
