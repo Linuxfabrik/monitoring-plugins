@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import base64
 import concurrent.futures
 import errno
 import ipaddress
@@ -54,7 +55,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026080601'
+__version__ = '2026082501'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -70,17 +71,20 @@ any "TLS from start" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMT
 AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right host and port
 (`https://mail.example.com:993/` inspects the IMAPS cert). STARTTLS protocols that upgrade an
 existing plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are not
-supported. Hostname verification only applies to --source url; chain/trust verification
-applies to --source url and --source scan and its failures use --severity (warn or crit),
-while a valid self-signed certificate is tolerated. Expired certificates are unconditionally
-reported as CRIT. With --source file and --source scan the worst state across all inspected
-certificates
-drives the plugin state; targets that do not answer within --timeout are skipped. A scan probes
-its targets in parallel, with the parallelism deliberately bounded so that scanning a subnet
-does not starve the other checks running on the same host (see --max-workers). The default
-source is `scan`, so without any parameter the plugin scans the default interface's subnet on a
-set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management
-interfaces); see --ports for the full default list."""
+supported. With --source url the endpoint can be reached through an HTTP proxy, which is what
+it takes to inspect the certificate an external client sees when the same name resolves to an
+internal endpoint locally; the proxy comes from the environment or from --proxy, and
+--no-proxy forces a direct connection. Hostname verification only applies to --source url;
+chain/trust verification applies to --source url and --source scan and its failures use
+--severity (warn or crit), while a valid self-signed certificate is tolerated. Expired
+certificates are unconditionally reported as CRIT. With --source file and --source scan the
+worst state across all inspected certificates drives the plugin state; targets that do not
+answer within --timeout are skipped. A scan probes its targets in parallel, with the
+parallelism deliberately bounded so that scanning a subnet does not starve the other checks
+running on the same host (see --max-workers). The default source is `scan`, so without any
+parameter the plugin scans the default interface's subnet on a set of common data-center TLS
+ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces); see --ports for the
+full default list."""
 
 DEFAULT_CRIT = '5:'
 DEFAULT_LENGTHY = False
@@ -132,6 +136,9 @@ FD_RESERVE = 64
 # leaves the load near 3, in exchange for a longer run (roughly 170 seconds for a /24,
 # well inside the check timeout the Icinga Director sets for this check).
 MAX_WORKERS_CAP = 200
+# How much of a proxy's answer to a CONNECT request we are willing to read. A response
+# header is a few hundred bytes, so anything past this is a proxy that never stops talking.
+MAX_CONNECT_RESPONSE_BYTES = 65536
 
 VALID_SEVERITIES = ('crit', 'warn')
 VALID_SOURCES = ('file', 'scan', 'url')
@@ -298,6 +305,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '--ports',
         help='TCP port to probe on every scanned target. A range is written `start-end`. '
         'Only applies to --source=scan. '
@@ -307,6 +322,13 @@ def parse_args():
         'Example: `--ports=443 --ports=993 --ports=8000-8100`',
         dest='PORTS',
         action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy') + ' Only applies to --source=url.',
+        dest='PROXY',
         default=None,
     )
 
@@ -386,6 +408,155 @@ def parse_args():
     return args
 
 
+def redact_proxy(proxy):
+    """Return the proxy URL without its userinfo, safe to put into the plugin output. A
+    proxy URL carrying credentials must never reach the message, the perfdata or an error.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(proxy)
+        if not parsed.username and not parsed.password:
+            return proxy
+        netloc = parsed.hostname or ''
+        if ':' in netloc:  # an IPv6 literal needs its brackets back
+            netloc = f'[{netloc}]'
+        if parsed.port:
+            netloc = f'{netloc}:{parsed.port}'
+    except ValueError:
+        return '(unreadable proxy URL)'
+    return urllib.parse.urlunsplit(
+        (parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment),
+    )
+
+
+def resolve_proxy(args):
+    """Return (success, proxy URL or None) for the endpoint given by --url.
+
+    An explicit --proxy wins over the environment, so that a check configured to inspect an
+    externally reachable certificate keeps working no matter what the host running it has
+    in its own environment. --no-proxy wins over both and forces a direct connection.
+    """
+    if args.NO_PROXY:
+        return True, None
+    if args.PROXY:
+        proxy = args.PROXY
+        if '://' not in proxy:
+            # a bare `proxy.example.com:3128` means a plain HTTP proxy
+            proxy = f'http://{proxy}'
+        return True, proxy
+    return lib.net.get_proxy(args.URL)
+
+
+def read_connect_response(sock):
+    """Read the proxy's answer to a CONNECT request, one byte at a time so that not a
+    single byte of the tunnel that follows the header is swallowed. Raises OSError on a
+    proxy that closes early or never terminates its header.
+    """
+    data = b''
+    while not data.endswith(b'\r\n\r\n'):
+        chunk = sock.recv(1)
+        if not chunk:
+            raise OSError('the proxy closed the connection while answering')
+        data += chunk
+        if len(data) > MAX_CONNECT_RESPONSE_BYTES:
+            raise OSError('the proxy answered with an endless header')
+    return data
+
+
+def authority(host, port):
+    """Render host and port as the authority form that a CONNECT request target and a Host
+    header want, bracketing an IPv6 literal.
+    """
+    if ':' in host and not host.startswith('['):
+        return f'[{host}]:{port}'
+    return f'{host}:{port}'
+
+
+def open_proxy_tunnel(proxy, host, port, timeout):
+    """Connect to an HTTP proxy and have it tunnel to host:port via CONNECT.
+
+    Returns (True, socket) with a byte stream to the target that is ready to be wrapped in
+    TLS, or (False, errormessage). Unlike the classic check_http, the proxy's answer is
+    actually evaluated, so a refused tunnel is reported as such instead of surfacing later
+    as an unexplained TLS error.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(proxy)
+        proxy_host = parsed.hostname
+        proxy_port = parsed.port or 80
+    except ValueError as e:
+        return False, f'Cannot read the proxy "{redact_proxy(proxy)}": {e}'
+    if parsed.scheme != 'http':
+        return False, (
+            f'Cannot use the proxy "{redact_proxy(proxy)}": only an HTTP proxy can tunnel '
+            f'a TLS connection via CONNECT, "{parsed.scheme}" cannot.'
+        )
+    if not proxy_host:
+        return False, f'Cannot read a hostname from the proxy "{redact_proxy(proxy)}"'
+
+    target = authority(host, port)
+    # the same User-Agent every HTTP request of these plugins carries, so the tunnel is
+    # recognisable in the proxy's access log, which is where a refused CONNECT is diagnosed
+    request = (
+        f'CONNECT {target} HTTP/1.1\r\n'
+        f'Host: {target}\r\n'
+        f'User-Agent: Linuxfabrik Monitoring Plugins\r\n'
+    )
+    if parsed.username:
+        credential = (
+            f'{urllib.parse.unquote(parsed.username)}:'
+            f'{urllib.parse.unquote(parsed.password or "")}'
+        )
+        token = lib.txt.to_text(base64.b64encode(lib.txt.to_bytes(credential)))
+        request += f'Proxy-Authorization: Basic {token}\r\n'
+    request += '\r\n'
+
+    try:
+        sock = socket.create_connection((proxy_host, proxy_port), timeout=timeout)
+    except (socket.timeout, OSError) as e:
+        return False, f'Cannot connect to the proxy {proxy_host}:{proxy_port}: {e}'
+
+    try:
+        sock.sendall(lib.txt.to_bytes(request))
+        response = read_connect_response(sock)
+    except (socket.timeout, OSError) as e:
+        sock.close()
+        return False, (
+            f'Proxy {proxy_host}:{proxy_port} did not answer the CONNECT to {target}: {e}'
+        )
+
+    status_line = lib.txt.to_text(
+        response.split(b'\r\n', 1)[0],
+        errors='strict_or_latin1',
+    ).strip()
+    fields = status_line.split(None, 2)
+    code = fields[1] if len(fields) > 1 else ''
+    if not code.startswith('2'):
+        sock.close()
+        hint = ''
+        if code == '407':
+            hint = (
+                ' Put the credentials into the proxy URL, for example'
+                ' `http://user:password@proxy.example.com:3128`.'
+            )
+        return False, (
+            f'Proxy {proxy_host}:{proxy_port} refused to tunnel to {target}:'
+            f' {status_line}.{hint}'
+        )
+    return True, sock
+
+
+def open_target_socket(host, port, proxy, timeout):
+    """Return (True, socket) with a byte stream to host:port, opened directly or tunnelled
+    through an HTTP proxy, or (False, errormessage).
+    """
+    if not proxy:
+        try:
+            return True, socket.create_connection((host, port), timeout=timeout)
+        except (socket.timeout, OSError) as e:
+            return False, f'Cannot connect to {host}:{port}: {e}'
+    return open_proxy_tunnel(proxy, host, port, timeout)
+
+
 def get_cert_from_url(args):
     """Open a TLS connection, capture the peer certificate chain in DER form, the negotiated
     TLS version and the wall-clock handshake time, and decide the chain/hostname verdict.
@@ -393,6 +564,10 @@ def get_cert_from_url(args):
     Returns (success, result). On success result is a dict with the keys consumed by main();
     `chain_ders` holds the leaf followed by every intermediate the server sent (Python 3.13+
     via ssl.get_unverified_chain(); on older Python only the leaf is available).
+
+    When a proxy applies, both connections are tunnelled through it. The SNI value stays
+    the one derived from --url or --sni-hostname, so the tunnel does not change which name
+    the endpoint is asked for or verified against.
     """
     parsed = urllib.parse.urlsplit(args.URL)
     host = parsed.hostname
@@ -401,22 +576,23 @@ def get_cert_from_url(args):
     port = parsed.port or 443
     server_hostname = args.SNI_HOSTNAME or host
 
+    ok, proxy = resolve_proxy(args)
+    if not ok:
+        return False, proxy
+    ok, contexts = build_tls_contexts(args, check_hostname=True)
+    if not ok:
+        return False, contexts
+    verify_ctx, insecure_ctx = contexts
+
     chain_ok = True
     chain_reason = ''
 
-    if not args.INSECURE:
+    if verify_ctx is not None:
+        ok, sock = open_target_socket(host, port, proxy, args.TIMEOUT)
+        if not ok:
+            return False, sock
         try:
-            # the given CA bundle(s) are trusted in addition to the system trust store
-            secure_ctx = ssl.create_default_context()
-            for ca_file in args.CA_FILE:
-                secure_ctx.load_verify_locations(cafile=ca_file)
-            secure_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-            if args.CLIENT_CERT:
-                secure_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
-            with (
-                socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
-                secure_ctx.wrap_socket(sock, server_hostname=server_hostname),
-            ):
+            with sock, verify_ctx.wrap_socket(sock, server_hostname=server_hostname):
                 pass
         except ssl.SSLCertVerificationError as e:
             chain_ok = False
@@ -427,17 +603,13 @@ def get_cert_from_url(args):
         except (socket.timeout, OSError) as e:
             return False, f'Cannot connect to {host}:{port}: {e}'
 
-    insecure_ctx = ssl.create_default_context()
-    insecure_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    insecure_ctx.check_hostname = False
-    insecure_ctx.verify_mode = ssl.CERT_NONE
-    if args.CLIENT_CERT:
-        insecure_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
-
+    ok, sock = open_target_socket(host, port, proxy, args.TIMEOUT)
+    if not ok:
+        return False, sock
     try:
         t0 = time.monotonic()
         with (
-            socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
+            sock,
             insecure_ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
         ):
             handshake_seconds = time.monotonic() - t0
@@ -454,10 +626,11 @@ def get_cert_from_url(args):
                         chain_ders = list(chain)
                 except (ssl.SSLError, ValueError, OSError):
                     pass
-    except (socket.timeout, OSError) as e:
-        return False, f'Cannot connect to {host}:{port}: {e}'
+    # ssl.SSLError derives from OSError, so it has to be caught first
     except ssl.SSLError as e:
         return False, f'TLS handshake failed for {host}:{port}: {e}'
+    except (socket.timeout, OSError) as e:
+        return False, f'Cannot connect to {host}:{port}: {e}'
 
     if not cert_der:
         return False, f'No server certificate received from {host}:{port}'
@@ -469,6 +642,7 @@ def get_cert_from_url(args):
         'handshake_seconds': handshake_seconds,
         'host': host,
         'port': port,
+        'proxy': redact_proxy(proxy) if proxy else None,
         'sni': server_hostname,
         'tls_version': tls_version,
     }
@@ -537,16 +711,25 @@ def discover_hosts(args):
 _SELF_SIGNED_VERIFY_CODES = (18, 19)
 
 
-def build_scan_contexts(args):
-    """Build the two TLS contexts a scan reuses for all of its targets, and return them as
-    (verify_ctx, insecure_ctx). `verify_ctx` is None with --insecure.
+def build_tls_contexts(args, check_hostname):
+    """Build the two TLS contexts a source works with, and return them as (verify_ctx,
+    insecure_ctx). `verify_ctx` is None with --insecure.
 
-    An SSLContext holds no per-connection state (the peer name goes to wrap_socket(), not
-    to the context), so every worker can share one. Building a context per target instead
-    would load the system trust store once per target: under OpenSSL 1.1 a context holding
-    the trust store costs roughly 840 kB, so the memory of a scan would grow with its
-    parallelism and could get the plugin killed on a small host. OpenSSL 3 is far cheaper
-    here, which hides the problem on newer distributions.
+    `check_hostname` says whether the verifying context also has to match the name: a
+    single endpoint given by --url is asked for a name and has to answer for it, while an
+    IP scan reaches addresses whose certificates legitimately carry a different name.
+
+    Both contexts are built once and then shared. An SSLContext holds no per-connection
+    state (the peer name goes to wrap_socket(), not to the context), so every worker of a
+    scan can share one. Building a context per target instead would load the system trust
+    store once per target: under OpenSSL 1.1 a context holding the trust store costs
+    roughly 840 kB, so the memory of a scan would grow with its parallelism and could get
+    the plugin killed on a small host. OpenSSL 3 is far cheaper here, which hides the
+    problem on newer distributions.
+
+    Building them before the first connection is opened also means that an unreadable
+    --ca-file or client certificate is reported as the configuration problem it is,
+    instead of being blamed on the endpoint.
     """
     try:
         insecure_ctx = ssl.create_default_context()
@@ -558,12 +741,12 @@ def build_scan_contexts(args):
 
         verify_ctx = None
         if not args.INSECURE:
+            # the given CA bundle(s) are trusted in addition to the system trust store
             verify_ctx = ssl.create_default_context()
             for ca_file in args.CA_FILE:
                 verify_ctx.load_verify_locations(cafile=ca_file)
             verify_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-            # an IP scan never matches the certificate names
-            verify_ctx.check_hostname = False
+            verify_ctx.check_hostname = check_hostname
             if args.CLIENT_CERT:
                 verify_ctx.load_cert_chain(args.CLIENT_CERT, keyfile=args.CLIENT_KEY)
     except (OSError, ssl.SSLError) as e:
@@ -731,6 +914,7 @@ def scan_targets(args, hosts, ports, verify_ctx, insecure_ctx):
             'handshake_seconds': None,
             'host': host,
             'label': f'{host}:{port}',
+            'proxy': None,
             'tls_version': info['tls_version'],
         }
 
@@ -853,6 +1037,7 @@ def get_certs_from_files(args):
                     'chain_verdict': None,
                     'handshake_seconds': None,
                     'label': match,
+                    'proxy': None,
                     'tls_version': None,
                 }
             )
@@ -895,6 +1080,7 @@ def collect_items(args):
                         'chain_verdict': chain_verdict,
                         'handshake_seconds': info['handshake_seconds'],
                         'label': info['host'],
+                        'proxy': info['proxy'],
                         'tls_version': info['tls_version'],
                     }
                 )
@@ -905,6 +1091,7 @@ def collect_items(args):
                         'chain_verdict': None,
                         'handshake_seconds': None,
                         'label': f'{info["host"]} (chain {index})',
+                        'proxy': None,
                         'tls_version': None,
                     }
                 )
@@ -1087,6 +1274,10 @@ def _build_lengthy_table(item, cert):
         rows.append({'k': 'TLS Version', 'v': item['tls_version']})
     if item['chain_verdict'] is not None:
         rows.append({'k': 'Chain', 'v': item['chain_verdict']})
+    # naming the detour is the point: a check meant to go through a proxy but running
+    # directly answers about a different endpoint, and says nothing about it otherwise
+    if item.get('proxy') is not None:
+        rows.append({'k': 'Proxy', 'v': item['proxy']})
     return lib.base.get_table(rows, ['k', 'v'], header=['Field', 'Value'])
 
 
@@ -1115,7 +1306,9 @@ def main():
         hosts = lib.base.coe(discover_hosts(args))
         # built once and shared by every worker; one context per target would load the
         # system trust store thousands of times over
-        verify_ctx, insecure_ctx = lib.base.coe(build_scan_contexts(args))
+        verify_ctx, insecure_ctx = lib.base.coe(
+            build_tls_contexts(args, check_hostname=False)
+        )
         lib.base.verbose(
             args.VERBOSE, f'{len(hosts)} host(s) x {len(ports)} port(s) to scan'
         )

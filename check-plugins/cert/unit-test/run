@@ -162,8 +162,12 @@ class TLSServer:
     """Thin one-shot TLS listener that completes the handshake and then closes."""
 
     def __init__(self, cert_pem, key_pem):
+        self.cert_pem = cert_pem
         self.cert_path = self._write_temp(cert_pem)
         self.key_path = self._write_temp(key_pem)
+        # every SNI value the listener was asked for, so a test can tell which name the
+        # client sent even when the connection took a detour
+        self.sni_names = []
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(('127.0.0.1', 0))
@@ -179,10 +183,16 @@ class TLSServer:
         tmp.close()
         return tmp.name
 
+    def _remember_sni(self, _sslsocket, server_name, _ctx):
+        """Record the SNI value of the handshake. Returning None accepts it."""
+        self.sni_names.append(server_name)
+        return None
+
     def _accept(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.minimum_version = ssl.TLSVersion.TLSv1_2
         ctx.load_cert_chain(self.cert_path, self.key_path)
+        ctx.sni_callback = self._remember_sni
         self.sock.settimeout(5)
         while True:
             try:
@@ -210,15 +220,125 @@ class TLSServer:
                 pass
 
 
-def run_plugin(*args, timeout=10, nofile=None):
+class ProxyServer:
+    """Minimal HTTP proxy that answers CONNECT and then relays bytes in both directions, so
+    the tunnel is exercised against a real listener rather than a mock.
+
+    `status_line` replaces the success answer, which is how a refusing proxy is put under
+    test. `require_auth` holds the base64 token the proxy insists on and makes it answer
+    407 without it. Every CONNECT header the proxy saw is kept in `requests`, so a test can
+    assert on the target and on the headers the plugin sent.
+    """
+
+    def __init__(self, status_line=None, require_auth=None):
+        self.status_line = status_line
+        self.require_auth = require_auth
+        self.requests = []
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(('127.0.0.1', 0))
+        self.sock.listen(5)
+        self.port = self.sock.getsockname()[1]
+        self.thread = threading.Thread(target=self._accept, daemon=True)
+        self.thread.start()
+
+    def _accept(self):
+        self.sock.settimeout(5)
+        while True:
+            try:
+                conn, _ = self.sock.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
+
+    def _handle(self, conn):
+        try:
+            conn.settimeout(5)
+            header = b''
+            while not header.endswith(b'\r\n\r\n'):
+                chunk = conn.recv(1)
+                if not chunk:
+                    conn.close()
+                    return
+                header += chunk
+            text = header.decode('latin-1')
+            self.requests.append(text)
+
+            if self.status_line is not None:
+                conn.sendall(f'HTTP/1.1 {self.status_line}\r\n\r\n'.encode())
+                conn.close()
+                return
+            if (
+                self.require_auth is not None
+                and f'Proxy-Authorization: Basic {self.require_auth}\r\n' not in text
+            ):
+                conn.sendall(b'HTTP/1.1 407 Proxy Authentication Required\r\n\r\n')
+                conn.close()
+                return
+
+            target = text.split('\r\n', 1)[0].split()[1]
+            host, _, port = target.rpartition(':')
+            upstream = socket.create_connection(
+                (host.strip('[]'), int(port)), timeout=5
+            )
+            conn.sendall(b'HTTP/1.1 200 Connection established\r\n\r\n')
+            self._relay(conn, upstream)
+        except (OSError, ValueError, IndexError):
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    @staticmethod
+    def _relay(client, upstream):
+        def pump(src, dst):
+            try:
+                while True:
+                    data = src.recv(4096)
+                    if not data:
+                        break
+                    dst.sendall(data)
+            except OSError:
+                pass
+            finally:
+                for sock in (src, dst):
+                    try:
+                        sock.close()
+                    except OSError:
+                        pass
+
+        thread = threading.Thread(target=pump, args=(client, upstream), daemon=True)
+        thread.start()
+        pump(upstream, client)
+
+    def close(self):
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+
+def run_plugin(*args, timeout=10, nofile=None, env=None):
     """Invoke the plugin with the given CLI args and return CompletedProcess. `nofile` sets
     RLIMIT_NOFILE to a (soft, hard) pair for the plugin process, which is how a scan's
     worker budget is put under test: a monitoring agent hands its plugins a soft limit far
-    below the hard limit.
+    below the hard limit. `env` adds environment variables, which is how the proxy the
+    environment names is put under test.
     """
 
     def _set_fd_limit():
         resource.setrlimit(resource.RLIMIT_NOFILE, nofile)
+
+    child_env = None
+    if env is not None:
+        # start from a copy without any inherited proxy setting, so the outcome does not
+        # depend on the environment the test suite happens to run in
+        child_env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.lower().endswith('_proxy')
+        }
+        child_env.update(env)
 
     return subprocess.run(
         [PLUGIN, *args],
@@ -226,6 +346,7 @@ def run_plugin(*args, timeout=10, nofile=None):
         text=True,
         timeout=timeout,
         preexec_fn=_set_fd_limit if nofile else None,
+        env=child_env,
     )
 
 
@@ -1168,7 +1289,7 @@ class TestWorkerBudget(unittest.TestCase):
             TIMEOUT=1,
             VERBOSE=False,
         )
-        ok, contexts = plugin.build_scan_contexts(args)
+        ok, contexts = plugin.build_tls_contexts(args, check_hostname=False)
         self.assertTrue(ok, contexts)
         verify_ctx, insecure_ctx = contexts
 
@@ -1191,26 +1312,28 @@ class TestWorkerBudget(unittest.TestCase):
         self.assertEqual(items, [])
         self.assertEqual(workers, 4)
 
-    def test_build_scan_contexts_skips_verification_with_insecure(self):
+    def test_build_tls_contexts_skips_verification_with_insecure(self):
         args = argparse.Namespace(
             CA_FILE=[],
             CLIENT_CERT=None,
             CLIENT_KEY=None,
             INSECURE=True,
         )
-        ok, (verify_ctx, insecure_ctx) = self.plugin.build_scan_contexts(args)
+        ok, (verify_ctx, insecure_ctx) = self.plugin.build_tls_contexts(
+            args, check_hostname=False
+        )
         self.assertTrue(ok)
         self.assertIsNone(verify_ctx)
         self.assertEqual(insecure_ctx.verify_mode, ssl.CERT_NONE)
 
-    def test_build_scan_contexts_reports_a_broken_ca_file(self):
+    def test_build_tls_contexts_reports_a_broken_ca_file(self):
         args = argparse.Namespace(
             CA_FILE=['/nonexistent/ca.pem'],
             CLIENT_CERT=None,
             CLIENT_KEY=None,
             INSECURE=False,
         )
-        ok, result = self.plugin.build_scan_contexts(args)
+        ok, result = self.plugin.build_tls_contexts(args, check_hostname=False)
         self.assertFalse(ok)
         self.assertIn('Cannot set up the TLS context', result)
 
@@ -1231,6 +1354,288 @@ class TestWorkerBudget(unittest.TestCase):
         )
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('1/1 host responded', result.stdout)
+
+
+class TestProxy(unittest.TestCase):
+    """--source=url reaching the endpoint through an HTTP proxy. This is what it takes to
+    inspect the certificate an external client sees while the same name resolves to an
+    internal endpoint on the host running the check.
+    """
+
+    def setUp(self):
+        self.plugin = load_plugin_module()
+
+    def _serve(self, common_name='proxied.example.com', days_valid=60):
+        cert_pem, key_pem = make_cert(common_name, days_valid=days_valid)
+        server = TLSServer(cert_pem, key_pem)
+        self.addCleanup(server.close)
+        time.sleep(0.05)  # give the accept thread a moment to bind
+        return server
+
+    def _proxy(self, **kwargs):
+        proxy = ProxyServer(**kwargs)
+        self.addCleanup(proxy.close)
+        time.sleep(0.05)
+        return proxy
+
+    def test_ok_through_a_proxy(self):
+        server = self._serve()
+        proxy = self._proxy()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{proxy.port}',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('proxied.example.com', result.stdout)
+        self.assertTrue(proxy.requests, 'the proxy never saw a CONNECT')
+        self.assertIn(f'CONNECT 127.0.0.1:{server.port} HTTP/1.1', proxy.requests[0])
+        self.assertIn(f'Host: 127.0.0.1:{server.port}', proxy.requests[0])
+        # the proxy's access log is where a refused tunnel gets diagnosed, so the request
+        # has to name who sent it
+        self.assertIn('User-Agent: Linuxfabrik Monitoring Plugins', proxy.requests[0])
+
+    def test_ok_proxy_from_the_environment(self):
+        server = self._serve()
+        proxy = self._proxy()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            '--insecure',
+            env={'https_proxy': f'http://127.0.0.1:{proxy.port}'},
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertTrue(proxy.requests, 'the proxy named by the environment was not used')
+
+    def test_ok_no_proxy_entry_exempts_the_target(self):
+        # the environment names a proxy that is not listening, so the check can only
+        # succeed if the no_proxy entry took the target out of its scope
+        server = self._serve()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            '--insecure',
+            env={
+                'https_proxy': f'http://127.0.0.1:{closed_port()}',
+                'no_proxy': '127.0.0.1',
+            },
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+
+    def test_ok_no_proxy_ignores_the_environment(self):
+        server = self._serve()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            '--insecure',
+            '--no-proxy',
+            env={'https_proxy': f'http://127.0.0.1:{closed_port()}'},
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+
+    def test_ok_proxy_parameter_beats_the_environment(self):
+        server = self._serve()
+        proxy = self._proxy()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=127.0.0.1:{proxy.port}',  # no scheme, defaults to http
+            '--insecure',
+            env={'https_proxy': f'http://127.0.0.1:{closed_port()}'},
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertTrue(proxy.requests, 'the proxy given by --proxy was not used')
+
+    def test_ok_sni_survives_the_tunnel(self):
+        # the tunnel must not change which name the endpoint is asked for, otherwise a
+        # load balancer behind the proxy answers with the wrong certificate
+        server = self._serve()
+        proxy = self._proxy()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{proxy.port}',
+            '--sni-hostname=proxied.example.com',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('proxied.example.com', server.sni_names)
+
+    def test_ok_chain_verifies_through_the_tunnel(self):
+        # without --insecure the plugin opens two connections, one to judge the chain and
+        # one to read the certificate. Both have to take the tunnel, and the name the
+        # chain is verified against stays the one from --sni-hostname.
+        server = self._serve(common_name='ca.example.com')
+        proxy = self._proxy()
+        # trust the served certificate itself, so the chain verifies against it
+        ca_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pem')
+        ca_file.write(server.cert_pem)
+        ca_file.close()
+        self.addCleanup(os.unlink, ca_file.name)
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{proxy.port}',
+            '--sni-hostname=ca.example.com',
+            f'--ca-file={ca_file.name}',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('chain verified', result.stdout)
+        self.assertEqual(
+            len(proxy.requests), 2, 'both connections have to go through the proxy'
+        )
+
+    def test_ok_lengthy_names_the_proxy(self):
+        # a check meant to run through a proxy but running directly reports on a different
+        # endpoint and is otherwise indistinguishable, so the detour has to be visible
+        server = self._serve()
+        proxy = self._proxy()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{proxy.port}',
+            '--insecure',
+            '--lengthy',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertRegex(result.stdout, rf'Proxy\s+!\s+http://127\.0\.0\.1:{proxy.port}')
+
+    def test_ok_lengthy_hides_the_proxy_password(self):
+        server = self._serve()
+        proxy = self._proxy(require_auth='bGludXhmYWJyaWs6bGludXhmYWJyaWs=')
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://linuxfabrik:linuxfabrik@127.0.0.1:{proxy.port}',
+            '--insecure',
+            '--lengthy',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('Proxy', result.stdout)
+        self.assertNotIn('linuxfabrik:linuxfabrik', result.stdout)
+
+    def test_ok_lengthy_without_a_proxy_has_no_proxy_row(self):
+        server = self._serve()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            '--insecure',
+            '--lengthy',
+            '--no-proxy',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertNotIn('Proxy', result.stdout)
+
+    def test_unknown_proxy_refuses_the_tunnel(self):
+        server = self._serve()
+        proxy = self._proxy(status_line='403 Forbidden')
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{proxy.port}',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('refused to tunnel', result.stdout)
+        self.assertIn('403 Forbidden', result.stdout)
+
+    def test_unknown_proxy_wants_credentials(self):
+        server = self._serve()
+        proxy = self._proxy(require_auth='bGludXhmYWJyaWs6bGludXhmYWJyaWs=')
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{proxy.port}',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('407', result.stdout)
+        self.assertIn('Put the credentials into the proxy URL', result.stdout)
+
+    def test_ok_proxy_credentials_from_the_proxy_url(self):
+        server = self._serve()
+        proxy = self._proxy(require_auth='bGludXhmYWJyaWs6bGludXhmYWJyaWs=')
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://linuxfabrik:linuxfabrik@127.0.0.1:{proxy.port}',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+
+    def test_unknown_proxy_password_never_reaches_the_output(self):
+        # a wrong credential has to fail without printing the credential
+        server = self._serve()
+        proxy = self._proxy(require_auth='bGludXhmYWJyaWs6bGludXhmYWJyaWs=')
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://linuxfabrik:wrongpassword@127.0.0.1:{proxy.port}',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertNotIn('wrongpassword', result.stdout + result.stderr)
+
+    def test_unknown_unsupported_proxy_scheme(self):
+        server = self._serve()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            '--proxy=socks5://127.0.0.1:1080',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('only an HTTP proxy', result.stdout)
+
+    def test_unknown_proxy_not_listening(self):
+        server = self._serve()
+        result = run_plugin(
+            '--source=url',
+            f'--url=https://127.0.0.1:{server.port}/',
+            f'--proxy=http://127.0.0.1:{closed_port()}',
+            '--insecure',
+        )
+        self.assertEqual(result.returncode, STATE_UNKNOWN, result.stdout)
+        self.assertIn('Cannot connect to the proxy', result.stdout)
+
+    def test_redact_proxy_drops_the_credentials(self):
+        redact = self.plugin.redact_proxy
+        self.assertEqual(
+            redact('http://linuxfabrik:linuxfabrik@proxy.example.com:3128'),
+            'http://proxy.example.com:3128',
+        )
+        self.assertEqual(
+            redact('http://proxy.example.com:3128'),
+            'http://proxy.example.com:3128',
+        )
+        self.assertEqual(
+            redact('http://linuxfabrik:linuxfabrik@[2001:db8::1]:3128'),
+            'http://[2001:db8::1]:3128',
+        )
+
+    def test_authority_brackets_an_ipv6_literal(self):
+        authority = self.plugin.authority
+        self.assertEqual(authority('www.example.com', 443), 'www.example.com:443')
+        self.assertEqual(authority('192.0.2.1', 8443), '192.0.2.1:8443')
+        self.assertEqual(authority('2001:db8::1', 443), '[2001:db8::1]:443')
+
+    def test_resolve_proxy_precedence(self):
+        resolve = self.plugin.resolve_proxy
+
+        args = argparse.Namespace(
+            NO_PROXY=True,
+            PROXY='http://proxy.example.com:3128',
+            URL='https://www.example.com/',
+        )
+        self.assertEqual(resolve(args), (True, None))
+
+        args = argparse.Namespace(
+            NO_PROXY=False,
+            PROXY='proxy.example.com:3128',
+            URL='https://www.example.com/',
+        )
+        self.assertEqual(resolve(args), (True, 'http://proxy.example.com:3128'))
 
 
 if __name__ == '__main__':

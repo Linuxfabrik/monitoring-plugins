@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Icinga Director:
 
+* the certificate check no longer ships a second, older service template under the same name. Delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the Director may keep rendering that one and the check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * the MySQL Database Metrics, Storage Engines and Table Indexes services swap their `Ignore Schemas` / `Ignore Tables` fields for `Match` / `Ignore`. Re-import the basket and move your patterns over, the old fields are no longer handed to the check
 * the KVM Host Service Set no longer carries the libvirtd unit check. Which libvirt daemon a host runs is not a property of it being a KVM host, so the check moved into a `libvirtd` and a `virtqemud` Service Set of its own. Tag your hypervisors with whichever of the two they run, otherwise they lose the check on the next deployment; `about-me --tags` names the right one
 
@@ -41,6 +42,7 @@ Icinga Director:
 Monitoring Plugins:
 
 * apache-httpd-status: worker usage counts every busy slot, so a graceful restart no longer reads as an idle server; rates replace per-interval totals and `ExtendedStatus Off` no longer blanks most metrics
+* cert: reaches a TLS endpoint through an HTTP proxy, so the certificate an external client sees can be checked from inside ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * countdown: reports its dates as a table, thresholds accept Nagios ranges, and days left are reported as performance data
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 * file-age, file-count, file-growth, file-size: the summary line names the range a file broke in plain words (`2 not in (0s..2D) [WARNING]`) instead of repeating the threshold syntax

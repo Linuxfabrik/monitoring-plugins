@@ -48,9 +48,15 @@
                 "--no-perfdata": {
                     "set_if": "$cert_no_perfdata$"
                 },
+                "--no-proxy": {
+                    "set_if": "$cert_no_proxy$"
+                },
                 "--ports": {
                     "value": "$cert_ports$",
                     "repeat_key": true
+                },
+                "--proxy": {
+                    "value": "$cert_proxy$"
                 },
                 "--severity": {
                     "value": "$cert_severity$"
@@ -186,6 +192,16 @@
                     "datafield_id": 22,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -229,7 +245,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Inspects X.509 certificates and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Sources via --source: `url` fetches the certificate from a single TLS endpoint and verifies the chain against the system trust store by default (override with --ca-file); `file` reads one or many certificate files via glob expansion (PEM or DER); `scan` discovers the hosts of a subnet (the subnet of the default interface, a chosen interface, an explicit network in CIDR notation, or an explicit host list), connects to each one on the ports given by --ports and inspects every certificate it gets. PEM bundles expand to one item per certificate, so a fullchain.pem produces a row for the leaf and a row for each intermediate. With --source url the plugin only runs the TLS handshake and reads the server certificate; no HTTP request is sent. That means it works for any \"TLS from start\" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right host and port (`https://mail.example.com:993/` inspects the IMAPS cert). STARTTLS protocols that upgrade an existing plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are not supported. Hostname verification only applies to --source url; chain/trust verification applies to --source url and --source scan and its failures use --severity (warn or crit), while a valid self-signed certificate is tolerated. Expired certificates are unconditionally reported as CRIT. With --source file and --source scan the worst state across all inspected certificates drives the plugin state; targets that do not answer within --timeout are skipped. A scan probes its targets in parallel, with the parallelism deliberately bounded so that scanning a subnet does not starve the other checks running on the same host (see --max-workers). The default source is `scan`, so without any parameter the plugin scans the default interface's subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces); see --ports for the full default list.",
+            "notes": "Inspects X.509 certificates and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Sources via --source: `url` fetches the certificate from a single TLS endpoint and verifies the chain against the system trust store by default (override with --ca-file); `file` reads one or many certificate files via glob expansion (PEM or DER); `scan` discovers the hosts of a subnet (the subnet of the default interface, a chosen interface, an explicit network in CIDR notation, or an explicit host list), connects to each one on the ports given by --ports and inspects every certificate it gets. PEM bundles expand to one item per certificate, so a fullchain.pem produces a row for the leaf and a row for each intermediate. With --source url the plugin only runs the TLS handshake and reads the server certificate; no HTTP request is sent. That means it works for any \"TLS from start\" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465), AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right host and port (`https://mail.example.com:993/` inspects the IMAPS cert). STARTTLS protocols that upgrade an existing plaintext connection (SMTP submission on 587, IMAP on 143, LDAP on 389) are not supported. With --source url the endpoint can be reached through an HTTP proxy, which is what it takes to inspect the certificate an external client sees when the same name resolves to an internal endpoint locally; the proxy comes from the environment or from --proxy, and --no-proxy forces a direct connection. Hostname verification only applies to --source url; chain/trust verification applies to --source url and --source scan and its failures use --severity (warn or crit), while a valid self-signed certificate is tolerated. Expired certificates are unconditionally reported as CRIT. With --source file and --source scan the worst state across all inspected certificates drives the plugin state; targets that do not answer within --timeout are skipped. A scan probes its targets in parallel, with the parallelism deliberately bounded so that scanning a subnet does not starve the other checks running on the same host (see --max-workers). The default source is `scan`, so without any parameter the plugin scans the default interface's subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces); see --ports for the full default list.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/",
             "object_name": "tpl-service-cert",
             "object_type": "template",
@@ -249,6 +265,7 @@
                 "cert_lengthy": true,
                 "cert_network": [],
                 "cert_no_perfdata": false,
+                "cert_no_proxy": false,
                 "cert_ports": [],
                 "cert_severity": "warn",
                 "cert_source": "scan",
@@ -259,6 +276,51 @@
             "volatile": null,
             "zone": null,
             "uuid": "83e19a20-c3ba-4656-8ade-c7677406a9cb"
+        },
+        "tpl-service-cert-no-agent": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-cert",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-cert"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-cert-no-agent",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": false,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "ed9802cd-54f2-4c55-8f7a-5c5ddb92c27f"
         }
     },
     "DataList": {
@@ -455,6 +517,15 @@
             "uuid": "dc8831c7-77d7-4cf3-9319-2104feba0c30"
         },
         "15": {
+            "varname": "cert_no_proxy",
+            "caption": "Cert: No Proxy?",
+            "description": "Do not use a proxy.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "0361af23-c4c0-41a8-ace0-07a0d8c2c929"
+        },
+        "16": {
             "varname": "cert_ports",
             "caption": "Cert: Ports",
             "description": "TCP port to probe on every scanned target. A range is written `start-end`. Only applies to --source=scan. Can be specified multiple times. If not specified, a set of common data-center TLS ports is probed (443, 465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006, 8200, 8443, 8883, 9090, 9443, 10000). Example: `--ports=443 --ports=993 --ports=8000-8100`",
@@ -465,7 +536,18 @@
             },
             "uuid": "e0648a84-95c0-4967-9444-7301dcd154a6"
         },
-        "16": {
+        "17": {
+            "varname": "cert_proxy",
+            "caption": "Cert: Proxy",
+            "description": "Proxy to reach the target through, overriding the proxy the environment names. The scheme defaults to `http` when omitted. Without this parameter the environment applies (`http_proxy`, `https_proxy`, `all_proxy` and the exceptions in `no_proxy`); `--no-proxy` ignores that too. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`. Only applies to --source=url.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fe0e1731-92cc-4faf-8d49-8239ff6ffeca"
+        },
+        "18": {
             "varname": "cert_severity",
             "caption": "Cert: Severity",
             "description": "Severity assigned to chain/trust verification failures (--source=url and --source=scan) and to hostname mismatches (--source=url only). A valid self-signed certificate is always tolerated. Defaults to %(default)s so that operators running internal CAs are not paged by trust issues that are expected in their environment. Set to `crit` to enforce strict trust.",
@@ -478,7 +560,7 @@
             },
             "uuid": "87d1027d-8b39-4dab-9539-b8ae3ef09d0b"
         },
-        "17": {
+        "19": {
             "varname": "cert_sni_hostname",
             "caption": "Cert: SNI Hostname",
             "description": "SNI hostname sent during the TLS handshake and used for hostname verification. Useful when --url points at an IP address or a load balancer that needs an explicit SNI. Default uses the hostname from --url.",
@@ -489,7 +571,7 @@
             },
             "uuid": "b5ca62eb-7883-4d08-87c8-d31190c9efad"
         },
-        "18": {
+        "20": {
             "varname": "cert_source",
             "caption": "Cert: Source",
             "description": "Where the certificates are fetched from. `url` fetches one from a TLS endpoint (requires --url). `file` reads one or many from local files (requires --filename, supports glob patterns). `scan` discovers the hosts of a subnet (via --host, --network, --interface or the default interface) and probes each one on --ports. `p12` and `jks` are reserved for future expansion.",
@@ -502,7 +584,7 @@
             },
             "uuid": "584dc1b2-48e8-40cb-82eb-6aa546b5d183"
         },
-        "19": {
+        "21": {
             "varname": "cert_timeout",
             "caption": "Cert: Timeout",
             "description": "Network timeout in seconds.",
@@ -513,7 +595,7 @@
             },
             "uuid": "2ae3b17a-3261-4167-a573-3034ff7c72c5"
         },
-        "20": {
+        "22": {
             "varname": "cert_url",
             "caption": "Cert: URL",
             "description": "URL of the TLS endpoint to inspect. Required when --source=url. Example: `https://www.example.com/`",
@@ -524,7 +606,7 @@
             },
             "uuid": "02140b96-19c6-4d46-8d9a-a50afb1278ea"
         },
-        "21": {
+        "23": {
             "varname": "cert_verbose",
             "caption": "Cert: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
@@ -533,7 +615,7 @@
             "settings": {},
             "uuid": "e67f3663-39f4-4c0e-b565-ab4a4d9959be"
         },
-        "22": {
+        "24": {
             "varname": "cert_warning",
             "caption": "Cert: Warning",
             "description": "WARN threshold for the time remaining until the certificate expires. Accepts a Nagios range in days (`14:`), a percentage of the total validity period (`25%`, WARN when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`; WARN when less time than that is left). Examples: `14:` `25%` `14d`.",

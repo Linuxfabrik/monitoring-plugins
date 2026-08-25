@@ -3,7 +3,7 @@
 
 ## Overview
 
-Inspects X.509 certificates and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Three sources via `--source`: `url` connects to a single TLS endpoint, runs a TLS handshake and captures the server certificate; `file` reads one or many local certificate files, with glob expansion for batch monitoring of cert directories; `scan` discovers the hosts of a subnet (the default interface's subnet, a chosen interface, an explicit network in CIDR notation, or an explicit host list) and probes each host on the ports given by `--ports`, inspecting every certificate it gets. With `--source=url` the plugin only runs the TLS handshake and reads the server certificate (no HTTP request is sent), so it works for any "TLS from start" service - HTTPS, IMAPS, LDAPS, SMTPS, AMQPS, MQTTS, custom TLS ports. STARTTLS-style upgrades on plaintext ports (SMTP 587, IMAP 143, LDAP 389) are not supported. The default source is `scan`, so without any parameter the plugin scans the default interface's subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces; see the `--ports` help for the full default list). `p12` and `jks` sources are reserved for future expansion without renaming the plugin or breaking existing service templates.
+Inspects X.509 certificates and alerts on days remaining until expiry, hostname mismatch and chain verification failures. Three sources via `--source`: `url` connects to a single TLS endpoint, runs a TLS handshake and captures the server certificate; `file` reads one or many local certificate files, with glob expansion for batch monitoring of cert directories; `scan` discovers the hosts of a subnet (the default interface's subnet, a chosen interface, an explicit network in CIDR notation, or an explicit host list) and probes each host on the ports given by `--ports`, inspecting every certificate it gets. With `--source=url` the plugin only runs the TLS handshake and reads the server certificate (no HTTP request is sent), so it works for any "TLS from start" service - HTTPS, IMAPS, LDAPS, SMTPS, AMQPS, MQTTS, custom TLS ports. STARTTLS-style upgrades on plaintext ports (SMTP 587, IMAP 143, LDAP 389) are not supported. With `--source=url` the endpoint can be reached through an HTTP proxy, which is what it takes to inspect the certificate an external client sees when the same name resolves to an internal endpoint locally; the proxy comes from the environment or from `--proxy`, and `--no-proxy` forces a direct connection. The default source is `scan`, so without any parameter the plugin scans the default interface's subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS, MQTTS and common management interfaces; see the `--ports` help for the full default list). `p12` and `jks` sources are reserved for future expansion without renaming the plugin or breaking existing service templates.
 
 **Important Notes:**
 
@@ -12,6 +12,8 @@ Inspects X.509 certificates and alerts on days remaining until expiry, hostname 
 * `--source=scan`: each reachable certificate is checked for expiry **and** for chain/trust (does it chain to a CA in the system trust store, or one added via `--ca-file`?). Hostname verification is not done, because a subnet scan reaches IP addresses whose certificates legitimately do not match. A valid self-signed certificate is tolerated (it is cryptographically as sound as a publicly trusted one); other trust failures (unknown CA, expired or broken chain) raise the state via `--severity` (default WARN, `crit` to enforce). `--insecure` turns trust verification off entirely for pure expiry monitoring. Counting follows the `lynis` check and is done per host, not per host/port: a `/24` reports `X/254 hosts responded`, not one count per host/port target. Hosts (or host/port combinations) that do not answer within `--timeout` are skipped silently, so a subnet without a single TLS endpoint returns OK. The worst state across all reachable certificates drives the plugin state. Scan a large subnet from a host that can actually reach it.
 * `--source=scan`: the parallelism is capped on purpose and rarely needs tuning, because a scan is expensive for the host it runs on, not for the hosts it probes. A `/24` on the default port list is more than 4000 connects, and on a normally populated subnet almost all of them go to addresses where nothing answers. That cost lands in the kernel (resolving a neighbour that does not exist, retransmitting, handling the ICMP replies), it is **system** time, and it grows with how many connects are in flight at once. Measured on a two-core host: at 2000 concurrent connects a `/24` burns about 64 seconds of system time and drives the load past 40, which is enough to make every other check on that host run into its own timeout. At the capped default the same scan costs about 22 seconds of system time, leaves the load near 2, and takes roughly 170 seconds, well within the 600-second command timeout of the shipped Icinga Director basket. Raising `--max-workers` shortens the run and pays for it out of the other checks on the same host. Lowering the plugin's scheduling priority is not a substitute: system time spent in the kernel on the plugin's behalf is not what `nice` hands out, and a scan's many threads outweigh a single normal-priority process regardless.
 * `--source=scan`: the headline closes with the number of parallel workers the run actually used, so a scan that was held back is recognisable without re-running it with `--verbose`. Each worker holds one socket while it probes, so `--max-workers` is clamped a second time, to what the file-descriptor limit of the plugin process allows; the plugin first raises its own soft limit as far as the hard limit permits, and reports the clamp under `--verbose`. Should descriptors run out anyway, the plugin exits UNKNOWN instead of counting the targets it never probed as hosts that did not answer.
+* `--source=url`: the endpoint can be reached through an HTTP proxy. That is what it takes to inspect the certificate an outside client sees when the same name resolves to an internal endpoint on the host running the check: without a proxy the check answers about the internal certificate and never mentions the external one. The proxy comes from `--proxy` or, when that is unset, from the environment (`http_proxy`, `https_proxy`, `all_proxy`, with the exceptions listed in `no_proxy`). `--proxy` wins over the environment, `--no-proxy` forces a direct connection and wins over both. The proxy has to speak `CONNECT`; `socks5://` and friends are rejected with a message rather than silently ignored. `--sni-hostname` and hostname verification keep referring to the endpoint, not to the proxy, so a tunnelled check verifies the same name an untunnelled one does. `--source=file` needs no network and `--source=scan` reaches addresses on a local network, so neither uses a proxy. With `--lengthy` the field table carries a `Proxy` row naming the proxy the run actually used, and no such row when the connection went direct, so a check that was meant to be tunnelled but was not is recognisable from its output.
+* Proxy credentials belong into the proxy URL (`http://user:password@proxy.example.com:3128`), and preferably into the environment variable rather than into `--proxy`, because a command-line argument is visible to every user on the host. The plugin never prints the credentials, not even in an error message about the proxy.
 * `--source=url`: the plugin inspects the full certificate chain the server sends, not just the leaf. The leaf carries the chain/hostname verdict; every intermediate is additionally checked for expiry, so a soon-to-expire intermediate raises the state and shows up as the soonest-expiring certificate in the output. Capturing the chain requires Python 3.13 or newer (`ssl.SSLSocket.get_unverified_chain()`); on older Python only the leaf is inspected. The chain is shown one block per certificate in `--lengthy`.
 * `--warning` and `--critical` accept three forms: a Nagios range in days (`14:`), a percentage of the certificate's total validity period (`25%`, alert when less than 25% of the lifetime is left), or a duration with a unit (`14d`, `12h`, `2W`, `1M`). The percentage form matches the convention of other X.509 scanners and adapts to short-lived (90-day) and long-lived certificates alike.
 * Expired certificates are unconditionally reported as CRIT, regardless of the `--warning` and `--critical` thresholds.
@@ -21,7 +23,7 @@ Inspects X.509 certificates and alerts on days remaining until expiry, hostname 
 
 **Data Collection:**
 
-* `--source=url`: opens a TCP connection to the host and port from `--url`, runs a TLS handshake and reads the certificate chain the server presents (leaf plus intermediates on Python 3.13+, leaf only on older Python). No HTTP request is sent. The chain is verified against the system trust store; `--ca-file` adds one or more CA bundles to the trusted set and can be given multiple times. `--sni-hostname` overrides the SNI value sent during the handshake; `--client-cert` and `--client-key` attach a client certificate for mutual TLS.
+* `--source=url`: opens a TCP connection to the host and port from `--url`, runs a TLS handshake and reads the certificate chain the server presents (leaf plus intermediates on Python 3.13+, leaf only on older Python). No HTTP request is sent. The chain is verified against the system trust store; `--ca-file` adds one or more CA bundles to the trusted set and can be given multiple times. `--sni-hostname` overrides the SNI value sent during the handshake; `--client-cert` and `--client-key` attach a client certificate for mutual TLS. When a proxy applies, the connection is opened to the proxy and tunnelled to the endpoint with an HTTP `CONNECT` request first; the proxy's answer is evaluated, so a refused tunnel is reported as such instead of surfacing later as an unexplained TLS error.
 * `--source=file`: reads each file matching `--filename` (PEM or DER, autodetected) and parses every certificate found. PEM bundles expand to one item per certificate. `--filename` supports glob (`*`, `?`, `[abc]`) and recursive glob (`**`). When the glob matches files that don't look like certificates (private keys, plain text), they are silently skipped so recursive scans of `/etc/ssl/**` are safe. **Always quote the glob pattern**, otherwise the shell expands it before the plugin sees it and only the first match reaches `--filename`.
 * `--source=scan`: enumerates the target hosts (`--host` overrides discovery, otherwise `--network` in CIDR notation, otherwise `--interface`, otherwise the default interface's subnet; `--exclude` drops individual addresses or names), then probes each host in parallel (`--max-workers`) on every port from `--ports` (each value a single port like `443` or a range like `8000-8100`). For each reachable port it runs a TLS handshake, verifies the chain against the system trust store plus any `--ca-file` (without hostname checking), and evaluates the certificate's expiry. `--client-cert` and `--client-key` attach a client certificate for mutual TLS. Auto-discovery via `--interface` or the default interface requires the `psutil` Python module.
 
@@ -46,10 +48,10 @@ usage: cert [-h] [-V] [--always-ok] [--ca-file CA_FILE]
             [--client-cert CLIENT_CERT] [--client-key CLIENT_KEY] [-c CRIT]
             [--exclude EXCLUDE] [--filename FILENAME] [-H HOST] [--insecure]
             [--interface INTERFACE] [--lengthy] [--max-workers MAX_WORKERS]
-            [--network NETWORK] [--no-perfdata] [--ports PORTS]
-            [--severity {crit,warn}] [--sni-hostname SNI_HOSTNAME]
-            [--source {file,scan,url}] [--timeout TIMEOUT] [--url URL]
-            [--verbose] [-w WARN]
+            [--network NETWORK] [--no-perfdata] [--no-proxy] [--ports PORTS]
+            [--proxy PROXY] [--severity {crit,warn}]
+            [--sni-hostname SNI_HOSTNAME] [--source {file,scan,url}]
+            [--timeout TIMEOUT] [--url URL] [--verbose] [-w WARN]
 
 Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url`
@@ -67,19 +69,23 @@ start" service, not only HTTPS: IMAPS (port 993), LDAPS (636), SMTPS (465),
 AMQPS (5671), MQTTS (8883), custom TLS ports - just point --url at the right
 host and port (`https://mail.example.com:993/` inspects the IMAPS cert).
 STARTTLS protocols that upgrade an existing plaintext connection (SMTP
-submission on 587, IMAP on 143, LDAP on 389) are not supported. Hostname
-verification only applies to --source url; chain/trust verification applies to
---source url and --source scan and its failures use --severity (warn or crit),
-while a valid self-signed certificate is tolerated. Expired certificates are
-unconditionally reported as CRIT. With --source file and --source scan the
-worst state across all inspected certificates drives the plugin state; targets
-that do not answer within --timeout are skipped. A scan probes its targets in
-parallel, with the parallelism deliberately bounded so that scanning a subnet
-does not starve the other checks running on the same host (see --max-workers).
-The default source is `scan`, so without any parameter the plugin scans the
-default interface's subnet on a set of common data-center TLS ports (HTTPS,
-mail, LDAPS, AMQPS, MQTTS and common management interfaces); see --ports for
-the full default list.
+submission on 587, IMAP on 143, LDAP on 389) are not supported. With --source
+url the endpoint can be reached through an HTTP proxy, which is what it takes
+to inspect the certificate an external client sees when the same name resolves
+to an internal endpoint locally; the proxy comes from the environment or from
+--proxy, and --no-proxy forces a direct connection. Hostname verification only
+applies to --source url; chain/trust verification applies to --source url and
+--source scan and its failures use --severity (warn or crit), while a valid
+self-signed certificate is tolerated. Expired certificates are unconditionally
+reported as CRIT. With --source file and --source scan the worst state across
+all inspected certificates drives the plugin state; targets that do not answer
+within --timeout are skipped. A scan probes its targets in parallel, with the
+parallelism deliberately bounded so that scanning a subnet does not starve the
+other checks running on the same host (see --max-workers). The default source
+is `scan`, so without any parameter the plugin scans the default interface's
+subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS,
+MQTTS and common management interfaces); see --ports for the full default
+list.
 
 options:
   -h, --help            show this help message and exit
@@ -154,6 +160,7 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --no-proxy            Do not use a proxy.
   --ports PORTS         TCP port to probe on every scanned target. A range is
                         written `start-end`. Only applies to --source=scan.
                         Can be specified multiple times. If not specified, a
@@ -161,6 +168,17 @@ options:
                         465, 636, 990, 993, 995, 3269, 5671, 5986, 6443, 8006,
                         8200, 8443, 8883, 9090, 9443, 10000). Example:
                         `--ports=443 --ports=993 --ports=8000-8100`
+  --proxy PROXY         Proxy to reach the target through, overriding the
+                        proxy the environment names. The scheme defaults to
+                        `http` when omitted. Without this parameter the
+                        environment applies (`http_proxy`, `https_proxy`,
+                        `all_proxy` and the exceptions in `no_proxy`); `--no-
+                        proxy` ignores that too. Credentials belong into the
+                        environment variable rather than here, because a
+                        command-line argument is visible to every user on the
+                        host. Example:
+                        `--proxy=http://proxy.example.com:3128`. Only applies
+                        to --source=url.
   --severity {crit,warn}
                         Severity assigned to chain/trust verification failures
                         (--source=url and --source=scan) and to hostname
@@ -254,6 +272,25 @@ Attach an mTLS (mutual TLS; client certificate authentication):
 
 ```bash
 ./cert --source=url --url=https://api.example.com/ --client-cert=/etc/icinga2/client.pem --client-key=/etc/icinga2/client.key
+```
+
+Inspect the certificate an outside client gets, from a host where the same name resolves internally. Without the proxy the check would report the internal certificate:
+
+```bash
+./cert --source=url --url=https://www.example.com/ --proxy=http://proxy.example.com:3128
+```
+
+Take the proxy from the environment instead, which keeps the credentials out of the process list:
+
+```bash
+export https_proxy=http://linuxfabrik:linuxfabrik@proxy.example.com:3128
+./cert --source=url --url=https://www.example.com/
+```
+
+Ignore a proxy the environment names and connect directly:
+
+```bash
+./cert --source=url --url=https://intranet.example.com/ --no-proxy
 ```
 
 Override the SNI hostname, for example when `--url` points at an IP:
@@ -371,7 +408,7 @@ Target            ! Subject CN    ! Status   ! State
 * OK if the certificate is within `--warning` and `--critical` thresholds, the chain verifies and the hostname matches. A `--source=scan` run where no host answers is also OK.
 * WARN if days remaining hits `--warning` (default `14:`), or chain/hostname verification fails and `--severity` is `warn` (default).
 * CRIT if days remaining hits `--critical` (default `5:`), the certificate is expired, or chain/hostname verification fails and `--severity` is `crit`.
-* UNKNOWN on connection errors, TLS handshake failures (`--source=url`), missing `--url`, missing `--filename`, no host left to scan, invalid `--ports`, missing `cryptography` (or `psutil` for scan auto-discovery) Python module, or invalid command-line arguments.
+* UNKNOWN on connection errors, TLS handshake failures (`--source=url`), a proxy that cannot be reached or refuses the tunnel, a proxy scheme other than `http`, missing `--url`, missing `--filename`, no host left to scan, invalid `--ports`, missing `cryptography` (or `psutil` for scan auto-discovery) Python module, or invalid command-line arguments.
 * `--always-ok` suppresses all alerts and always returns OK.
 * `--insecure` reports the chain as "verification skipped" and never raises a chain-related state.
 * With `--source=scan`, the chain/trust check runs (without hostname verification): a valid self-signed certificate is tolerated, other trust failures raise the state via `--severity`. Expiry is always evaluated, and the worst state across all reachable certificates wins.
@@ -385,7 +422,7 @@ Target            ! Subject CN    ! Status   ! State
 | certs_found | Number | `--source=scan` only: number of certificates collected across all reachable hosts and ports. |
 | hosts_responded | Number | `--source=scan` only: number of scanned hosts that returned at least one certificate. |
 | hosts_total | Number | `--source=scan` only: number of hosts scanned (subnet size, after `--exclude`). |
-| tls_handshake_time | Seconds | `--source=url` only: wall-clock time for the TCP connect plus TLS handshake. |
+| tls_handshake_time | Seconds | `--source=url` only: wall-clock time for the TCP connect plus TLS handshake. Through a proxy it also covers the `CONNECT` round trip, so the value is not comparable with an untunnelled one. |
 
 
 ## Troubleshooting
@@ -413,6 +450,28 @@ The server rejected the TLS handshake, usually a TLS version mismatch, an unsupp
 `chain unverified (...)`
 
 The chain did not verify against the system trust store. The text in parentheses is the OpenSSL verification message; common values are `self-signed certificate`, `unable to get local issuer certificate`, `certificate has expired`, and `Hostname mismatch, certificate is not valid for ...`. Pass `--ca-file` for internal CAs, `--sni-hostname` for hostname mismatches caused by SNI, or `--insecure` to bypass the check entirely.
+
+### Proxy cannot be reached
+
+`Cannot connect to the proxy host:port: ...`
+
+The TCP connection to the proxy itself never established. Check the host and port of `--proxy` or of the proxy variable in the environment, whether the proxy listens on that port, and the firewall rules between the host running the check and the proxy. Where a proxy is not wanted at all, `--no-proxy` takes the environment out of the picture.
+
+### Proxy refuses the tunnel
+
+`Proxy host:port refused to tunnel to target:443: HTTP/1.1 403 Forbidden.`
+
+The proxy answered the `CONNECT` request with something other than a success status. Most proxies restrict which ports they tunnel to, commonly to 443 only, so a certificate on 8443 or 993 needs the proxy's allow-list extended. A `403` can also mean the target itself is blocked by the proxy's policy. The status line in the message is the proxy's own wording, which is what its log will show as well.
+
+`Proxy host:port refused to tunnel to target:443: HTTP/1.1 407 Proxy Authentication Required.`
+
+The proxy wants credentials. Put them into the proxy URL as `http://user:password@proxy.example.com:3128`, preferably in the environment variable rather than in `--proxy`, so the password stays out of the process list. Only Basic authentication is supported; a proxy demanding NTLM or Kerberos needs a local forwarder that terminates it.
+
+### Proxy scheme is not supported
+
+`Cannot use the proxy "...": only an HTTP proxy can tunnel a TLS connection via CONNECT, "socks5" cannot.`
+
+Reading a certificate means running the TLS handshake against the endpoint through a tunnel, and `CONNECT` on an HTTP proxy is the only proxy protocol the plugin speaks. Point it at an HTTP proxy, or run a local forwarder that accepts `CONNECT` and speaks the other protocol upstream.
 
 ### Scan runs out of file descriptors
 
