@@ -93,17 +93,27 @@ TESTS = [
         'assert-not-in': ['spare01'],
     },
     {
-        'id': 'ok-lengthy-adds-the-attachment-and-the-type',
+        # What a volume is made of belongs to the default table: the type says which class
+        # of storage it sits on and `bootable` whether it carries a root filesystem.
+        'id': 'ok-the-default-table-names-the-type-and-whether-it-boots',
+        'test': 'stdout/three-volumes-in-use,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Type', 'Bootable', 'ssd', 'hdd'],
+        # Those stay behind `--lengthy`.
+        'assert-not-in': ['Attached to', 'Zone', 'Created (UTC)'],
+    },
+    {
+        'id': 'ok-lengthy-adds-the-attachment-the-zone-and-the-id',
         'test': 'stdout/three-volumes-in-use,,0',
         'params': '--lengthy',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Attached to',
             'a5b52fe9-0bd2-4983-bf9b-fa8ef04c3226:/dev/vda',
-            'Bootable',
             'Created (UTC)',
-            'ssd',
             'zone-b',
+            '94dff704-5554-4a1d-b5eb-8dd1d0ea8099',
         ],
     },
     {

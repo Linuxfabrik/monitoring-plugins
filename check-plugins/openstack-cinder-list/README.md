@@ -21,7 +21,7 @@ Lists the OpenStack Cinder block storage volumes of a project and reports the st
 * Lists every volume of the project, following the pagination of the Block Storage API so that projects with more than a thousand volumes are covered too
 * Maps every Cinder volume status to a state, counts the volumes per status, sums up their size and reports the most recent status change across all of them
 * `--match` and `--ignore` filter by volume name, `--match-type` and `--match-zone` (each with an `--ignore-` counterpart) by volume type and availability zone
-* `--brief` hides the volumes that are fine, `--lengthy` adds the id, the volume type, the availability zone, whether the volume is bootable, what it is attached to and the creation date
+* `--brief` hides the volumes that are fine, `--lengthy` adds the id, the availability zone, what it is attached to and the creation date
 * A column that no volume filled in is left out of the table, so a project whose volumes are all unattached does not carry an empty attachment column
 
 
@@ -171,13 +171,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-cinder-
 Output:
 
 ```text
-24 volumes checked: 2 available, 22 in-use. 1.3TiB in total. Last status change 2026-07-17 12:41:47 UTC (1M 1W ago).
+3 volumes checked: 3 in-use. 140.0GiB in total. Last status change 2026-07-13 14:28:28 UTC (1M 1W ago).
 
-Name                  ! Size     ! Updated (UTC)                   ! Status
-----------------------+----------+---------------------------------+----------
-web01--boot           ! 20.0GiB  ! 2026-06-02 08:59:55 (2M 3W ago) ! in-use
-db01--data            ! 100.0GiB ! 2026-07-13 14:28:28 (1M 1W ago) ! in-use
-spare01               ! 80.0GiB  ! 2026-07-17 12:41:47 (1M 1W ago) ! available
+Name          ! Type ! Size     ! Bootable ! Updated (UTC)                   ! Status
+--------------+------+----------+----------+---------------------------------+-------
+web01--boot   ! ssd  ! 20.0GiB  ! true     ! 2026-06-02 08:59:55 (2M 3W ago) ! in-use
+db01--data    ! hdd  ! 100.0GiB ! false    ! 2026-07-13 14:28:28 (1M 1W ago) ! in-use
+proxy01--boot ! ssd  ! 20.0GiB  ! true     ! 2026-05-08 06:47:56 (3M 2W ago) ! in-use
 ```
 
 Everything a volume carries, for the ones of a single type:
@@ -189,11 +189,12 @@ Everything a volume carries, for the ones of a single type:
 Output:
 
 ```text
-1 volume checked: 1 in-use. 20.0GiB in total. Last status change 2026-06-02 08:59:55 UTC (2M 3W ago).
+2 volumes checked: 2 in-use. 40.0GiB in total. Last status change 2026-06-02 08:59:55 UTC (2M 3W ago).
 
-Name        ! ID                                   ! Type ! Zone   ! Size    ! Bootable ! Attached to                                   ! Created (UTC)                   ! Updated (UTC)                   ! Status
-------------+--------------------------------------+------+--------+---------+----------+-----------------------------------------------+---------------------------------+---------------------------------+-------
-web01--boot ! 94dff704-5554-4a1d-b5eb-8dd1d0ea8099 ! ssd  ! zone-a ! 20.0GiB ! true     ! a5b52fe9-0bd2-4983-bf9b-fa8ef04c3226:/dev/vda ! 2026-06-02 08:59:22 (2M 3W ago) ! 2026-06-02 08:59:55 (2M 3W ago) ! in-use
+Name          ! ID                                   ! Type ! Zone   ! Size    ! Bootable ! Attached to                                   ! Created (UTC)                   ! Updated (UTC)                   ! Status
+--------------+--------------------------------------+------+--------+---------+----------+-----------------------------------------------+---------------------------------+---------------------------------+-------
+web01--boot   ! 94dff704-5554-4a1d-b5eb-8dd1d0ea8099 ! ssd  ! zone-a ! 20.0GiB ! true     ! a5b52fe9-0bd2-4983-bf9b-fa8ef04c3226:/dev/vda ! 2026-06-02 08:59:22 (2M 3W ago) ! 2026-06-02 08:59:55 (2M 3W ago) ! in-use
+proxy01--boot ! e4d3c2b1-a098-4765-8432-1f0e9d8c7b6a ! ssd  ! zone-b ! 20.0GiB ! true     ! d1c2b3a4-5566-4778-9900-aabbccddeeff:/dev/vda ! 2026-05-08 06:47:20 (3M 2W ago) ! 2026-05-08 06:47:56 (3M 2W ago) ! in-use
 ```
 
 Report a volume nobody attached, and show only what needs attention:
@@ -205,11 +206,14 @@ Report a volume nobody attached, and show only what needs attention:
 Output:
 
 ```text
-24 volumes checked: 2 available, 22 in-use. 1.3TiB in total. Last status change 2026-07-17 12:41:47 UTC (1M 1W ago).
+5 volumes checked: 1 error, 1 available, 1 awaiting-transfer, 1 maintenance, 1 creating. 190.0GiB in total. Last status change 2026-08-25 06:00:31 UTC (16h 11m ago).
 
-Name    ! Size    ! Updated (UTC)                   ! Status
---------+---------+---------------------------------+--------------------
-spare01 ! 80.0GiB ! 2026-07-17 12:41:47 (1M 1W ago) ! available [WARNING]
+Name           ! Type ! Size    ! Bootable ! Updated (UTC)                     ! Status
+---------------+------+---------+----------+-----------------------------------+----------------------------
+stuck01--data  ! hdd  ! 30.0GiB ! false    ! 2026-08-03 07:31:52 (3W 1D ago)   ! maintenance [WARNING]
+broken01--data ! hdd  ! 50.0GiB ! false    ! 2026-08-02 04:00:11 (3W 2D ago)   ! error [CRITICAL]
+handover01     ! ssd  ! 10.0GiB ! false    ! 2026-06-11 15:50:02 (2M 2W ago)   ! awaiting-transfer [WARNING]
+spare01        ! ssd  ! 80.0GiB ! false    ! 2026-08-25 06:00:31 (16h 11m ago) ! available [WARNING]
 ```
 
 
