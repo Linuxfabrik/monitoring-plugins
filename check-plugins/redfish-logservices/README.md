@@ -42,7 +42,7 @@ usage: redfish-logservices [-h] [-V] [--always-ok]
                            [--match MATCH] [--max-age MAX_AGE] [--no-insecure]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--retries RETRIES] [--timeout TIMEOUT] --url URL
-                           [--username USERNAME]
+                           [--username USERNAME] [--verbose]
 
 Checks the event log entries exposed under the LogServices of a
 Redfish-compatible server via the Redfish API and alerts based on the severity
@@ -101,6 +101,16 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+  --verbose             Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. For this check that also writes a trace of every
+                        Redfish request, with timings, to linuxfabrik-
+                        monitoring-plugins-redfish-trace.log below the
+                        temporary directory. Unlike this check's output, the
+                        trace survives a check that the monitoring server
+                        terminates for exceeding its timeout, which is what
+                        makes it useful against a slow management controller.
+                        Default: False
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-logservices/

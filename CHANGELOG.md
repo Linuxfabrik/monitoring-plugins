@@ -29,6 +29,7 @@ Monitoring Plugins:
 * kvm-storage-pool: reports the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
+* redfish-*: `--verbose` records every request to the management controller, with timings, into a log file, so a check that runs into its timeout can be diagnosed ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 
 Icinga Director:
 
@@ -85,6 +86,7 @@ Monitoring Plugins:
 * kvm-vm: a machine that crashed, was killed off the host or never started is reported instead of counted as switched off
 * kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
+* redfish-*: the checks recover on their own after a management controller drops its sessions, instead of failing until their cached credentials expire. They also log in far less often, no longer leave a session behind on every login, and retry a login that fails once instead of falling back to slower authentication ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 
 Icinga Director:
 

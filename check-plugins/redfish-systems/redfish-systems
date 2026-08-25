@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the overall system health reported by a Redfish-compatible server via the
 Redfish API. Reports every enabled system member with its identification (manufacturer, model,
@@ -39,6 +39,7 @@ DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
 DEFAULT_TIMEOUT = 8
+DEFAULT_VERBOSE = False
 
 
 def parse_args():
@@ -159,6 +160,17 @@ def parse_args():
         dest='USERNAME',
     )
 
+    parser.add_argument(
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + ' '
+        + lib.redfish.TRACE_HELP
+        + ' Default: %(default)s',
+        dest='VERBOSE',
+        action='store_true',
+        default=DEFAULT_VERBOSE,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -186,6 +198,16 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # --verbose: write a trace of every Redfish request to a file. A file rather than this
+    # check's output, because a check slow enough to need diagnosing is usually one the
+    # monitoring server terminates for exceeding its timeout, and a terminated check prints
+    # nothing at all.
+    if args.VERBOSE:
+        success, trace_path = lib.redfish.start_trace()
+        if not success:
+            lib.base.cu(trace_path)
+        lib.base.verbose(args.VERBOSE, f'Tracing Redfish requests to {trace_path}')
 
     # fetch data
     if args.TEST is None:

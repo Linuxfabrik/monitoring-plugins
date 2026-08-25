@@ -42,7 +42,7 @@ usage: redfish-systems [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                        [--insecure] [--inventory] [--no-insecure]
                        [--no-perfdata] [--no-proxy] [--password PASSWORD]
                        [--retries RETRIES] [--timeout TIMEOUT] --url URL
-                       [--username USERNAME]
+                       [--username USERNAME] [--verbose]
 
 Checks the overall system health reported by a Redfish-compatible server via
 the Redfish API. Reports every enabled system member with its identification
@@ -84,6 +84,16 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             Redfish API URL.
   --username USERNAME   Redfish API username.
+  --verbose             Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. For this check that also writes a trace of every
+                        Redfish request, with timings, to linuxfabrik-
+                        monitoring-plugins-redfish-trace.log below the
+                        temporary directory. Unlike this check's output, the
+                        trace survives a check that the monitoring server
+                        terminates for exceeding its timeout, which is what
+                        makes it useful against a slow management controller.
+                        Default: False
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-systems/
