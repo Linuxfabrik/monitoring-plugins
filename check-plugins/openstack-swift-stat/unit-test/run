@@ -29,8 +29,8 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             # The account quota is watched, not merely printed.
-            'Account: 4 containers, 2.8M objects, 5.4TiB used, '
-            '90.9TiB quota (5.9% used, 85.6TiB free)',
+            'Account: 4 containers, 2.8M objects, '
+            '5.4TiB of 90.9TiB used (5.9%), 85.6TiB free',
             '02        ! 324.4K ! 3.1TiB   ! 3.1TiB (99.5%) ! 17.2GiB  ! [WARNING]',
             '04        ! 2.0    ! 204.9GiB ! 2.0GiB (1.0%)  ! 202.9GiB !',
         ],
@@ -146,6 +146,28 @@ TESTS = [
         'test': 'stdout/four-containers-one-over-threshold,,0',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
+    },
+    {
+        # The headers of a container cost one request each, so a container the filters drop
+        # is never asked for. There is no fixture for `unwanted`: a run that stays green is
+        # the proof that the check did not go looking for it.
+        'id': 'ok-a-filtered-container-is-never-read',
+        'test': 'stdout/filtered-container-is-never-read,,0',
+        'params': '--ignore=^unwanted$',
+        'assert-retc': STATE_OK,
+        # This account carries no quota of its own, so what it holds stands on its own
+        # instead of being related to a limit that does not exist.
+        'assert-in': ['Account: 2 containers, 204.0 objects, 8.0GiB used', 'wanted'],
+        'assert-not-in': ['free'],
+    },
+    {
+        # ... and the same fixture set without the filter has to notice the gap, otherwise
+        # the test above would pass for the wrong reason.
+        'id': 'unknown-an-unfiltered-container-is-read',
+        'test': 'stdout/filtered-container-is-never-read,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['unwanted'],
     },
     {
         'id': 'unknown-invalid-ignore-regex',

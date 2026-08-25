@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082504'
+__version__ = '2026082505'
 
 DESCRIPTION = """Checks OpenStack Swift object storage account statistics, including total container
 count, object count, and bytes used. Alerts when the free space left in a container with a quota
@@ -260,8 +260,23 @@ def get_count_state(args, quota, used):
     return (state, free)
 
 
-def get_data(args, env):
+def is_wanted(name, match, ignore):
+    """Return whether a container passes the filters.
+
+    `--match` includes and is applied first, `--ignore` excludes and wins, so a container hit
+    by `--ignore` is dropped even if it also matches `--match`.
+    """
+    if match and not any(item.search(name) for item in match):
+        return False
+    return not any(item.search(name) for item in ignore)
+
+
+def get_data(args, env, match, ignore):
     """Fetch the account, its container listing and the headers of every container.
+
+    Only the containers the filters keep are read: their headers cost one request each, and
+    an account can hold hundreds of them. What is filtered out here would have been dropped
+    in the analysis anyway.
 
     Returns (True, (account, containers, truncated, unreadable)) where `truncated` says
     whether the run ran out of time before every container was read and `unreadable` names
@@ -302,7 +317,7 @@ def get_data(args, env):
     unreadable = []
     for entry in result['response_json'] or []:
         name = entry.get('name')
-        if not name:
+        if not name or not is_wanted(name, match, ignore):
             continue
         if lib.time.now() >= deadline:
             truncated = True
@@ -322,11 +337,17 @@ def get_data(args, env):
     return (True, (account, containers, truncated, unreadable))
 
 
-def get_test_data(args):
-    """Read the account and the containers from fixtures, one file per request."""
+def get_test_data(args, match, ignore):
+    """Read the account and the containers from fixtures, one file per request.
+
+    The filters apply here as well, so a fixture for a container that is filtered out is
+    never opened, exactly as the store is never asked for it.
+    """
     document = lib.lftest.test_json(args.TEST, f'{args.TEST[0]}-account')
     containers = {}
     for entry in document.get('listing', []):
+        if not is_wanted(entry['name'], match, ignore):
+            continue
         container = lib.lftest.test_json(
             args.TEST, f'{args.TEST[0]}-container-{entry["name"]}'
         )
@@ -350,9 +371,17 @@ def main():
         args.MATCH = []
 
     # fetch data
+    # The filters decide which containers are read at all, so they are compiled before
+    # anything is fetched rather than in the analysis below.
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
     if args.TEST is None:
         env = lib.base.coe(lib.disk.read_env(args.RC_FILE))
-        success, result = get_data(args, env)
+        success, result = get_data(args, env, compiled_match, compiled_ignore)
         if not success:
             # The store did not answer in time or refused us. That is a
             # statement about the store, so warn instead of going unknown.
@@ -360,7 +389,9 @@ def main():
         account, containers, truncated, unreadable = result
     else:
         # do not call the endpoint, put in test data
-        account, containers, truncated, unreadable = get_test_data(args)
+        account, containers, truncated, unreadable = get_test_data(
+            args, compiled_match, compiled_ignore
+        )
 
     # init some vars
     msg = ''
@@ -368,19 +399,9 @@ def main():
     perfdata = ''
     table_data = []
     checked = 0
-    compiled_match = [
-        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
-    ]
-    compiled_ignore = [
-        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
-    ]
 
     # analyze data
     for name, container in containers.items():
-        if compiled_match and not any(item.search(name) for item in compiled_match):
-            continue
-        if any(item.search(name) for item in compiled_ignore):
-            continue
         checked += 1
         item = {
             'name': name,
@@ -501,9 +522,6 @@ def main():
             f'{lib.human.number2human(obj_cnt)}'
             f' {lib.txt.pluralize("object", int(obj_cnt))}, '
         )
-    if 'x-account-bytes-used' in headers and int(headers['x-account-bytes-used']):
-        bytes_used = int(headers['x-account-bytes-used'])
-        msg += f'{lib.human.bytes2human(bytes_used)} used, '
     # The account carries a quota of its own, and it can run out while every
     # single container is still well inside its own. Swift enforces it in the
     # account_quotas middleware, so it is a real limit and not just a number to
@@ -515,14 +533,18 @@ def main():
     account_used = int(headers.get('x-account-bytes-used') or 0)
     account_state, account_free = get_free_state(args, account_quota, account_used)
     if account_quota:
+        # One statement about one thing: what is used, of how much, and what that leaves.
         state = lib.base.get_worst(state, account_state)
         percent = round(float(account_used) / float(account_quota) * 100, 1)
         msg += (
-            f'{lib.human.bytes2human(account_quota)} quota'
-            f' ({percent}% used,'
-            f' {lib.human.bytes2human(account_free)} free'
-            f'{lib.base.state2str(account_state, prefix=" ")}), '
+            f'{lib.human.bytes2human(account_used)} of '
+            f'{lib.human.bytes2human(account_quota)} used ({percent}%), '
+            f'{lib.human.bytes2human(account_free)} free'
+            f'{lib.base.state2str(account_state, prefix=" ")}, '
         )
+    elif account_used:
+        # Without a quota there is nothing to relate it to, so it stands on its own.
+        msg += f'{lib.human.bytes2human(account_used)} used, '
     if msg.endswith(', '):
         msg = msg[:-2]
 
