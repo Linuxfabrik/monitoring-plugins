@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501 / v7.0.0'
+__version__ = '2026082502 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -384,6 +384,17 @@ def get_lftags(distro):
     virtqemud_enabled = run_cmd(
         ['systemctl', 'is-enabled', 'virtqemud.service'], ignore_output=True
     ) or run_cmd(['systemctl', 'is-enabled', 'virtqemud.socket'], ignore_output=True)
+    # Fan readings are what separates real hardware from a guest, and a fan is
+    # listed even while it is not spinning, so the signal is its presence and not
+    # its speed. Fans beat temperatures here because a guest can be handed an ACPI
+    # thermal zone, while a fan hwmon needs a driver bound to real hardware.
+    # Verified on a Rocky 9.8 guest under KVM (kernel 5.14.0-687.41.1.el9_8):
+    # /sys/class/hwmon is empty, there is no thermal zone, nothing is reported at
+    # all. psutil raises where the sysfs tree is absent, which means no sensors.
+    try:
+        has_fan_sensors = bool(psutil.sensors_fans())
+    except Exception:
+        has_fan_sensors = False
     lftags = [
         # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
         #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
@@ -1122,6 +1133,20 @@ def get_lftags(distro):
             ],
         },
         {'sw': 'Scanrootkit', 'package': [], 'expr': [True]},
+        {
+            'sw': 'Sensors (lm_sensors)',
+            'package': ['lm-sensors', 'lm_sensors'],
+            'expr': [has_fan_sensors],
+        },
+        {
+            'sw': 'smartmontools',
+            'package': ['smartmontools'],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'smartd.service'], ignore_output=True
+                )
+            ],
+        },
         {
             'sw': 'snmpd',
             'package': [],
