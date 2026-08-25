@@ -26,7 +26,7 @@ import lib.time
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082501'
 
 DESCRIPTION = """Checks the health and status of Kubernetes pods by running "kubectl get pods" and
 parsing the results. Lists namespace, pod name, readiness, status, restart count, age,
@@ -170,17 +170,15 @@ def main():
         age INT DEFAULT NULL,
         ip TEXT DEFAULT NULL
     """
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-kubectl-get-pods.db',
-        )
-    )
+    # The database is private to this process: it holds nothing worth keeping
+    # between runs, and a file under a fixed name is shared with every concurrent
+    # run of this check, which then count each other's rows.
+    conn = lib.base.coe(lib.db_sqlite.connect(in_memory=True))
     lib.base.coe(
         lib.db_sqlite.create_table(
             conn,
             definition,
             table='kubectl_get_pods',
-            drop_table_first=True,  # we don't need historical data
         )
     )
 

@@ -28,7 +28,6 @@ Checks the health and status of Kubernetes pods by running `kubectl get pods` an
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-kubectl-get-pods.db` |
 
 
 ## Help

@@ -37,7 +37,6 @@ Detects fast-flapping Icinga services by counting state changes per service with
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | Requirements                          | Icinga DB, read access to `/icingaweb2/icingadb/history` |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-icinga-topflap-services.db` |
 
 
 ## Help

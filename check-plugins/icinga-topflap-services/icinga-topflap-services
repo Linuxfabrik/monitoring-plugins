@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082502'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
@@ -233,12 +233,11 @@ def main():
         service_display_name    TEXT NOT NULL,
         state_event_time        TEXT NOT NULL
     """
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-icinga-topflap-services.db'
-        ),
-    )
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=True))
+    # The database is private to this process: it holds nothing worth keeping
+    # between runs, and a file under a fixed name is shared with every concurrent
+    # run of this check, which then count each other's rows.
+    conn = lib.base.coe(lib.db_sqlite.connect(in_memory=True))
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'host_id, service_id'))
 
     now = lib.time.now()
