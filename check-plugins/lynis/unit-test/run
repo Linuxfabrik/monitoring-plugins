@@ -153,13 +153,6 @@ CONTAINERFILES = [
     'ubuntu-v2604',
 ]
 
-try:
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.image import DockerImage
-except ImportError:
-    DockerContainer = None
-    DockerImage = None
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'lynis'))
@@ -192,6 +185,9 @@ def _audit_in_container(containerfile):
     """Build one distro image, start its sshd and run the plugin auditing
     127.0.0.1 inside it. Returns a dict with the plugin exit code and output.
     """
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+
     image_tag = f'lfmp-lynis-{containerfile}'.lower()
     # clean_up=False keeps the built image so the next run reuses cached layers
     # instead of rebuilding from the base image (see cpu-usage for the rationale).
@@ -224,7 +220,7 @@ def setUpModule():
     per-distro assertion methods run. A failure in one container is captured and
     surfaced by that distro's own test, never aborting the others.
     """
-    if DockerImage is None:
+    if not lib.lftest.container_runtime_available():
         return
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(CONTAINERFILES)) as pool:
         futures = {pool.submit(_audit_in_container, cf): cf for cf in CONTAINERFILES}
@@ -238,8 +234,7 @@ def setUpModule():
 
 def _assert_audit(test, containerfile):
     """Assert that the audit inside `containerfile` produced a report."""
-    if DockerImage is None:
-        test.skipTest('Python module "testcontainers" is not installed.')
+    lib.lftest.require_container_runtime()
     result = _RESULTS.get(containerfile)
     if result is None:
         test.skipTest('container did not run')

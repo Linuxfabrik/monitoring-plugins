@@ -29,9 +29,16 @@ Unit tests come in two shapes:
   references testcontainers-python or one of the lib.lftest
   container helpers (see `CONTAINER_TEST_SIGNATURES` below).
 
+The classification is per plugin, and most plugins that have a
+container test have fast tests in the same file. `--no-container`
+therefore runs every plugin and sets `LFTEST_NO_CONTAINER`, which
+makes the container tests skip: leaving those plugins out instead
+would hide their fast tests from the tox matrix, which is the only
+place they ever run.
+
 Usage:
     tools/run-unit-tests                 # run everything
-    tools/run-unit-tests --no-container  # skip container tests
+    tools/run-unit-tests --no-container  # every plugin, container tests skipped
     tools/run-unit-tests --only-container  # run only container tests
     tools/run-unit-tests disk-smart      # run one plugin
     tools/run-unit-tests disk-smart xml  # run specific plugins
@@ -51,7 +58,13 @@ import tempfile
 import _common
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026060201'
+__version__ = '2026082501'
+
+
+# Read by the lib.lftest container helpers, which skip when it is set.
+# Kept in step with `lib.lftest.NO_CONTAINER_ENV`; the tools are
+# standalone scripts and do not import the library.
+NO_CONTAINER_ENV = 'LFTEST_NO_CONTAINER'
 
 
 # Signatures that identify a real container-driven unit test. These
@@ -135,7 +148,7 @@ def parse_args():
     group.add_argument(
         '--no-container',
         action='store_true',
-        help='Skip container-based unit tests.',
+        help='Run every plugin, skipping the container tests inside them.',
     )
     group.add_argument(
         '--only-container',
@@ -166,10 +179,7 @@ def discover_plugins(args):
             continue
         if not (plugin_dir / 'unit-test' / 'run').is_file():
             continue
-        container = is_container_test(plugin_dir)
-        if args.no_container and container:
-            continue
-        if args.only_container and not container:
+        if args.only_container and not is_container_test(plugin_dir):
             continue
         plugins.append(plugin_dir)
     return plugins
@@ -184,10 +194,14 @@ def main():
         print('No unit tests found.')
         return 0
 
-    # If any of the discovered tests will spin up a container, set
-    # the rootless-podman env vars so the user does not have to
-    # remember them. Already-set values are preserved.
-    if any(is_container_test(p) for p in plugins):
+    # A fast pass tells the container tests to skip themselves, so the
+    # fixture-based tests in the same file still run. Otherwise, if any
+    # of the discovered tests will spin up a container, set the
+    # rootless-podman env vars so the user does not have to remember
+    # them. Already-set values are preserved.
+    if args.no_container:
+        os.environ[NO_CONTAINER_ENV] = '1'
+    elif any(is_container_test(p) for p in plugins):
         ensure_podman_env()
 
     # Isolate all temp state (per-plugin SQLite caches, the csv-values staging

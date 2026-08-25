@@ -226,23 +226,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'ups-nut'))
 
 
-try:
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.image import DockerImage
-
-    HAVE_TESTCONTAINERS = True
-except ImportError:
-    HAVE_TESTCONTAINERS = False
-
-
 class TestContainer(unittest.TestCase):
     pass
 
 
 def _check_containerfile(test, containerfile):
     """Build the per-distro image, start it, point the plugin at the exposed upsd port."""
-    if not HAVE_TESTCONTAINERS:
-        test.skipTest('testcontainers is not installed')
+    lib.lftest.require_container_runtime()
+
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+
     print(f'\n=== Testing {containerfile} ===', flush=True)
     image_tag = f'lfmp-ups-nut-{containerfile}'.lower()
     # clean_up=False keeps the layer cache between runs so subsequent invocations finish in

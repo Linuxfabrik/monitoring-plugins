@@ -27,13 +27,6 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-try:
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.network import Network
-except ImportError:
-    DockerContainer = None
-    Network = None
-
 # Fast fixture tests for the four service scenarios from the internal
 # Docker docs (a-d). A single --test base path drives three data
 # sources: `docker service ls` (suffix `-services`), `docker service ps`
@@ -260,8 +253,10 @@ def _wait_for_max_on_one_node(test, node1, want, timeout=120):
 
 class TestLiveSwarm(unittest.TestCase):
     def test_two_node_swarm_scenarios(self):
-        if DockerContainer is None:
-            self.skipTest('testcontainers is not installed')
+        lib.lftest.require_container_runtime()
+
+        from testcontainers.core.container import DockerContainer
+        from testcontainers.core.network import Network
 
         # Stage lib/ plus both plugin scripts in one directory and bind-mount
         # that single directory into node1. Mounting individual files into a

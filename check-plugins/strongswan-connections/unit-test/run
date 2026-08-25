@@ -27,14 +27,6 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-try:
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.image import DockerImage
-except ImportError:
-    DockerContainer = None
-    DockerImage = None
-
-
 # Fast, fixture-driven tests. `--test` takes a single JSON file path
 # (single-file convention, one object per scenario with `list_conns`
 # and `list_sas` keys), and the plugin derives all the key lists
@@ -294,8 +286,10 @@ def _python_invocation(container):
 
 
 def _check_containerfile(test, containerfile):
-    if DockerContainer is None:
-        test.skipTest('testcontainers is not installed')
+    lib.lftest.require_container_runtime()
+
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
 
     print(f'\n=== Testing {containerfile} ===', flush=True)
     image_tag = f'lfmp-strongswan-connections-{containerfile}'.lower()

@@ -43,14 +43,6 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_OK
 
-try:
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.image import DockerImage
-except ImportError:
-    print('Python module "testcontainers" is not installed.')
-    sys.exit(STATE_OK)
-
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'cpu-usage'))
@@ -77,6 +69,11 @@ class TestCheck(unittest.TestCase):
 
 
 def _check_containerfile(test, containerfile):
+    lib.lftest.require_container_runtime()
+
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+
     print(f'\n=== Testing {containerfile} ===', flush=True)
     image_tag = f'lfmp-cpu-usage-{containerfile}'.lower()
     # clean_up=False keeps the built image on the host so the next

@@ -48,14 +48,6 @@ sys.path.insert(0, '..')
 import lib.lftest
 from lib.globals import STATE_OK, STATE_WARN
 
-try:
-    from testcontainers.core.container import DockerContainer
-    from testcontainers.core.image import DockerImage
-except ImportError:
-    print('Python module "testcontainers" is not installed.')
-    sys.exit(STATE_OK)
-
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'users'))
@@ -230,6 +222,11 @@ KNOWN_BROKEN = {
 
 
 def _check_containerfile(test, containerfile):
+    lib.lftest.require_container_runtime()
+
+    from testcontainers.core.container import DockerContainer
+    from testcontainers.core.image import DockerImage
+
     if containerfile in KNOWN_BROKEN:
         test.skipTest(KNOWN_BROKEN[containerfile])
     print(f'\n=== Testing {containerfile} ===', flush=True)
