@@ -26,6 +26,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 * Executes `yum list --upgrades`, `yum list --installed`, and `yum updateinfo list --available`
 * Stores all package and advisory information in a local SQLite database that lives only for the duration of the run, for SQL-based filtering via `--query`
 * Counts an update as security-critical when it carries a security advisory (`S` in the "Type" column). Optionally narrows the report down to those updates (`--only-critical`); the security count is reported either way
+* Records when an update for a package first showed up, so `--grace-updates` and `--grace-security` can hold the alert back until the host has had a patch window. An update inside its grace period is still listed and still counted in the performance data, it just does not drive the check state yet. The clock keys on the package name, so a newer candidate version does not restart it, and it starts over if the package drops off the list and comes back. A security update is governed by `--grace-security` alone, which by default is `0D`, so security never waits. Both are `0D` out of the box; the shipped Icinga Director service template sets `--grace-updates=8D` to cover a weekly patch window
 * Plugin execution may take more than 10 seconds due to yum operations (default timeout: 120 seconds)
 
 
@@ -39,12 +40,15 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-rpm-updates.db` |
 
 
 ## Help
 
 ```text
-usage: rpm-updates [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+usage: rpm-updates [-h] [-V] [--always-ok] [-c CRIT]
+                   [--grace-security GRACE_SECURITY]
+                   [--grace-updates GRACE_UPDATES] [--no-perfdata]
                    [--only-critical] [--query QUERY] [--timeout TIMEOUT]
                    [-w WARN]
 
@@ -56,28 +60,45 @@ the critical threshold. This check only lists updates and never actually
 installs anything.
 
 options:
-  -h, --help           show this help message and exit
-  -V, --version        show program's version number and exit
-  --always-ok          Always returns OK.
-  -c, --critical CRIT  Minimum number of pending security updates to trigger a
-                       CRITICAL. Counts the updates carrying a security
-                       advisory, within the scope of `--query`. Unset by
-                       default, so security updates raise a WARNING like any
-                       other update until a threshold is given. Example:
-                       `--critical=1` Default: None
-  --no-perfdata        Suppress the performance data section from the output.
-                       The status message and the exit code are unaffected, so
-                       alerting keeps working while trending data is dropped.
-  --only-critical      Only report security updates and upgrades.
-  --query QUERY        SQL WHERE clause to filter the list of available
-                       updates. Supports regular expressions via a REGEXP
-                       statement. See the README for a list of available
-                       columns. If specified, a list of matching updates is
-                       printed. Example: `--query='package like "bind9-%"'`.
-                       Default: 1
-  --timeout TIMEOUT    Network timeout in seconds. Default: 120 (seconds)
-  -w, --warning WARN   Minimum number of pending updates to trigger a WARNING.
-                       Default: 1
+  -h, --help            show this help message and exit
+  -V, --version         show program's version number and exit
+  --always-ok           Always returns OK.
+  -c, --critical CRIT   Minimum number of pending security updates to trigger
+                        a CRITICAL. Counts the updates carrying a security
+                        advisory, within the scope of `--query`. Unset by
+                        default, so security updates raise a WARNING like any
+                        other update until a threshold is given. Example:
+                        `--critical=1` Default: None
+  --grace-security GRACE_SECURITY
+                        How long a pending security update is tolerated before
+                        it counts towards the thresholds. Starts when the
+                        update is first seen, and starts over if the package
+                        drops off the list and comes back. A duration such as
+                        `12h`, `8D` or `2W`; `0D` disables the grace period.
+                        Default: 0D
+  --grace-updates GRACE_UPDATES
+                        How long a pending update is tolerated before it
+                        counts towards the thresholds. Set this to cover the
+                        interval between two patch windows, so a host stays
+                        quiet about updates it has had no chance to install
+                        yet. Starts when the update is first seen, and starts
+                        over if the package drops off the list and comes back.
+                        A duration such as `12h`, `8D` or `2W`; `0D` disables
+                        the grace period. Default: 0D
+  --no-perfdata         Suppress the performance data section from the output.
+                        The status message and the exit code are unaffected,
+                        so alerting keeps working while trending data is
+                        dropped.
+  --only-critical       Only report security updates and upgrades.
+  --query QUERY         SQL WHERE clause to filter the list of available
+                        updates. Supports regular expressions via a REGEXP
+                        statement. See the README for a list of available
+                        columns. If specified, a list of matching updates is
+                        printed. Example: `--query='package like "bind9-%"'`.
+                        Default: 1
+  --timeout TIMEOUT     Network timeout in seconds. Default: 120 (seconds)
+  -w, --warning WARN    Minimum number of pending updates to trigger a
+                        WARNING. Default: 1
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-updates/

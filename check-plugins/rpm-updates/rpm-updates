@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082502'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -32,6 +32,8 @@ when the number of security updates reaches the critical threshold. This check o
 updates and never actually installs anything."""
 
 DEFAULT_CRIT = None  # number of security updates, off by default
+DEFAULT_GRACE_SECURITY = '0D'
+DEFAULT_GRACE_UPDATES = '0D'
 DEFAULT_QUERY = '1'
 DEFAULT_TIMEOUT = 120
 DEFAULT_WARN = 1  # number of updatable packages
@@ -73,6 +75,22 @@ def parse_args():
         dest='CRIT',
         type=int,
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--grace-security',
+        help=lib.args.help('--grace-security') + ' Default: %(default)s',
+        dest='GRACE_SECURITY',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_SECURITY,
+    )
+
+    parser.add_argument(
+        '--grace-updates',
+        help=lib.args.help('--grace-updates') + ' Default: %(default)s',
+        dest='GRACE_UPDATES',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_UPDATES,
     )
 
     parser.add_argument(
@@ -624,6 +642,19 @@ def main():
     # join the list of installed packages and their updates
     packages = join_packages_updates(yum_installed, yum_upgrades)
 
+    # Remember since when an update is pending for each package, so the grace
+    # periods below can hold an alert back until the host has had a patch window.
+    # Ages are kept for every pending package, not for the subset `--query`
+    # selects, so two services with different queries do not forget each other's
+    # packages. Skipped under `--test`, which must not touch the host's state.
+    ages = None
+    if args.TEST is None:
+        ages = lib.db_sqlite.first_seen(
+            'linuxfabrik-monitoring-plugins-rpm-updates.db',
+            'rpm-updates',
+            [pkg['package'] for pkg in packages.values() if pkg['version_upgrade']],
+        )
+
     # init some vars
     msg = ''
     state = STATE_OK
@@ -726,10 +757,28 @@ def main():
     if args.ONLY_CRITICAL:
         table_data = [row for row in table_data if 'S' in row['type']]
 
+    # Only updates that outlived their grace period drive the state. An age we
+    # could not read counts as old enough, so a cache that went missing never
+    # silences the check. The reported and graphed numbers stay untouched: what
+    # is pending is pending, the grace period only postpones the alert.
+    def is_due(row):
+        # A security advisory is held back by `--grace-security`, everything else
+        # by `--grace-updates`. Both counts share this rule, so the default
+        # `--grace-security=0D` keeps security updates alerting right away even
+        # when `--critical` is unset and they are only counted as ordinary updates.
+        grace = args.GRACE_SECURITY if 'S' in row['type'] else args.GRACE_UPDATES
+        return ages is None or ages.get(row['package'], 0) >= grace
+
+    due_count = sum(1 for row in table_data if is_due(row))
+    due_critical_count = sum(
+        1 for row in table_data if 'S' in row['type'] and is_due(row)
+    )
+    within_grace = len(table_data) - due_count
+
     # get state
     state = lib.base.get_worst(
-        lib.base.get_state(len(table_data), args.WARN, None),
-        lib.base.get_state(critical_count, None, args.CRIT),
+        lib.base.get_state(due_count, args.WARN, None),
+        lib.base.get_state(due_critical_count, None, args.CRIT),
     )
 
     # build the message
@@ -742,6 +791,8 @@ def main():
             msg += f', {critical_count} of them critical'
         msg += f'{" (query: " + args.QUERY + ")" if args.QUERY != "1" else ""}'
         msg += '.'
+        if within_grace:
+            msg += f' {within_grace} of them within the grace period.'
         msg += lib.base.state2str(state, prefix=' ')
         msg += '\n\n'
         msg += lib.base.get_table(

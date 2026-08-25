@@ -11,6 +11,12 @@
                 "--critical-pattern": {
                     "value": "$deb_updates_critical_pattern$"
                 },
+                "--grace-security": {
+                    "value": "$deb_updates_grace_security$"
+                },
+                "--grace-updates": {
+                    "value": "$deb_updates_grace_updates$"
+                },
                 "--no-perfdata": {
                     "set_if": "$deb_updates_no_perfdata$"
                 },
@@ -77,6 +83,16 @@
                     "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -133,9 +149,11 @@
                 "criticality": "C",
                 "deb_updates_always_ok": false,
                 "deb_updates_critical_pattern": "^\\S+/\\S*-security",
+                "deb_updates_grace_security": "0D",
+                "deb_updates_grace_updates": "8D",
                 "deb_updates_no_perfdata": false,
                 "deb_updates_no_update": false,
-                "deb_updates_only_critical": true,
+                "deb_updates_only_critical": false,
                 "deb_updates_query": "1",
                 "deb_updates_timeout": 60,
                 "deb_updates_warning": 1
@@ -178,6 +196,28 @@
             "uuid": "b0009232-86e9-42f8-9c69-f7d6d6733ac0"
         },
         "4": {
+            "varname": "deb_updates_grace_security",
+            "caption": "Deb Updates: Grace Security",
+            "description": "How long a pending security update is tolerated before it counts towards the thresholds. Starts when the update is first seen, and starts over if the package drops off the list and comes back. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6888fe3e-4d18-4113-95c8-e1caea864285"
+        },
+        "5": {
+            "varname": "deb_updates_grace_updates",
+            "caption": "Deb Updates: Grace Updates",
+            "description": "How long a pending update is tolerated before it counts towards the thresholds. Set this to cover the interval between two patch windows, so a host stays quiet about updates it has had no chance to install yet. Starts when the update is first seen, and starts over if the package drops off the list and comes back. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cd329591-0c4e-4b48-b387-2050b8138abf"
+        },
+        "6": {
             "varname": "deb_updates_no_perfdata",
             "caption": "Deb Updates: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -186,7 +226,7 @@
             "settings": {},
             "uuid": "15f31f60-4d22-4fa0-9065-526e6734fb41"
         },
-        "5": {
+        "7": {
             "varname": "deb_updates_no_update",
             "caption": "Deb Updates: No Update?",
             "description": "Skip the package cache refresh and evaluate the cache as it is. Without this, the check runs `apt-get update` first, which needs sudo and reaches the package repositories on every run. Use it on hosts where a timer already keeps the cache fresh.",
@@ -195,7 +235,7 @@
             "settings": {},
             "uuid": "572e806b-e83e-4d5e-bb11-fa2f5cbeee8d"
         },
-        "6": {
+        "8": {
             "varname": "deb_updates_only_critical",
             "caption": "Deb Updates: Only Critical?",
             "description": "Only report security-critical updates and upgrades.",
@@ -204,7 +244,7 @@
             "settings": {},
             "uuid": "3caf808a-ca04-44e0-8e06-9a831bd25d7c"
         },
-        "7": {
+        "9": {
             "varname": "deb_updates_query",
             "caption": "Deb Updates: Query",
             "description": "SQL WHERE clause to narrow down results from the internal updates table. Supports regular expressions via a REGEXP statement. If specified, a list of matching updates is printed. Have a look at the README for a list of available columns. Example: `--query='package like \"bind9-%\"'`.",
@@ -215,7 +255,7 @@
             },
             "uuid": "aef23437-4881-44ad-afe9-987bd2008250"
         },
-        "8": {
+        "10": {
             "varname": "deb_updates_timeout",
             "caption": "Deb Updates: Timeout",
             "description": "Network timeout in seconds.",
@@ -226,7 +266,7 @@
             },
             "uuid": "52ed160e-79bf-4c30-b878-b37c913524e7"
         },
-        "9": {
+        "11": {
             "varname": "deb_updates_warning",
             "caption": "Deb Updates: Warning",
             "description": "Minimum number of pending updates to trigger a WARNING.",

@@ -15,6 +15,7 @@ Icinga Director:
 * the certificate check no longer ships a second, older service template under the same name. Delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the Director may keep rendering that one and the check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * the MySQL Database Metrics, Storage Engines and Table Indexes services swap their `Ignore Schemas` / `Ignore Tables` fields for `Match` / `Ignore`. Re-import the basket and move your patterns over, the old fields are no longer handed to the check
 * the KVM Host Service Set no longer carries the libvirtd unit check. Which libvirt daemon a host runs is not a property of it being a KVM host, so the check moved into a `libvirtd` and a `virtqemud` Service Set of its own. Tag your hypervisors with whichever of the two they run, otherwise they lose the check on the next deployment; `about-me --tags` names the right one
+* the Deb Updates and RPM Updates services report every pending update instead of security updates only, and they hold an ordinary update back for a week and a day before alerting on it. A security update still alerts right away. Expect hosts that have not been patched for over a week to go WARNING. Tick `Only Critical` on the service for the old report, or set `Grace Updates` to `0D` to alert on an ordinary update immediately
 
 ### Added
 
@@ -45,6 +46,7 @@ Monitoring Plugins:
 * apache-httpd-status: worker usage counts every busy slot, so a graceful restart no longer reads as an idle server; rates replace per-interval totals and `ExtendedStatus Off` no longer blanks most metrics
 * cert: reaches a TLS endpoint through an HTTP proxy, so the certificate an external client sees can be checked from inside ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * countdown: reports its dates as a table, thresholds accept Nagios ranges, and days left are reported as performance data
+* deb-updates, rpm-updates: `--grace-updates` and `--grace-security` hold an alert back until an update has been pending for a while, so a host stays quiet about updates it has had no chance to install yet. Both are off in the plugin; the Director service template sets a week plus a day for ordinary updates and nothing for security ones
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
 * file-age, file-count, file-growth, file-size: the summary line names the range a file broke in plain words (`2 not in (0s..2D) [WARNING]`) instead of repeating the threshold syntax
 * kvm-vm: reports a machine set to start with the host but not running, and no longer needs root, so it is gone from the sudoers allowlist

@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082502'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and how many of them come from a security
@@ -38,6 +38,8 @@ DEFAULT_CRIT = None  # number of security updates, off by default
 # ("gzip/noble-updates,noble-security"). Verified against apt 2.6 on Debian 12/13 and apt
 # 2.7 on Ubuntu 24.04.
 DEFAULT_CRITICAL_PATTERN = r'^\S+/\S*-security'
+DEFAULT_GRACE_SECURITY = '0D'
+DEFAULT_GRACE_UPDATES = '0D'
 DEFAULT_QUERY = '1'
 DEFAULT_TIMEOUT = 60
 DEFAULT_WARN = 1  # number of updatable packages
@@ -92,6 +94,22 @@ def parse_args():
         'Default: %(default)s',
         dest='CRITICAL_PATTERN',
         default=DEFAULT_CRITICAL_PATTERN,
+    )
+
+    parser.add_argument(
+        '--grace-security',
+        help=lib.args.help('--grace-security') + ' Default: %(default)s',
+        dest='GRACE_SECURITY',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_SECURITY,
+    )
+
+    parser.add_argument(
+        '--grace-updates',
+        help=lib.args.help('--grace-updates') + ' Default: %(default)s',
+        dest='GRACE_UPDATES',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_UPDATES,
     )
 
     parser.add_argument(
@@ -162,6 +180,17 @@ def parse_args():
     return args
 
 
+def package_name(line):
+    """Return the package name of an `apt list --upgradable` line, which prints
+    `<package>/<suite>[,<suite>...] <version> <arch> [...]`.
+
+    Ageing an update keys on the name alone. Keying on the version would restart
+    the clock on every rebuild in the repository, which on a fast-moving suite
+    means a package could stay inside its grace period forever.
+    """
+    return line.split('/', 1)[0]
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -209,6 +238,20 @@ def main():
     # strip first line "Listing... Done." (if any)
     first, _, rest = stdout.partition('\n')
     stdout = rest if first.lower().startswith('listing...') else stdout
+    upgradable = stdout.strip().splitlines()
+
+    # Remember since when an update is pending for each package, so the grace
+    # periods below can hold an alert back until the host has had a patch window.
+    # Ages are kept for every upgradable package, not for the subset `--query`
+    # selects, so two services with different queries do not forget each other's
+    # packages. Skipped under `--test`, which must not touch the host's state.
+    ages = None
+    if args.TEST is None:
+        ages = lib.db_sqlite.first_seen(
+            'linuxfabrik-monitoring-plugins-deb-updates.db',
+            'deb-updates',
+            [package_name(line) for line in upgradable],
+        )
 
     # Create the db table. Apart from the security flag this is just one column,
     # cause *apt does not have a stable CLI interface*. The database is private to
@@ -229,7 +272,7 @@ def main():
     )
 
     # analyze data
-    for item in stdout.strip().splitlines():
+    for item in upgradable:
         lib.base.coe(
             lib.db_sqlite.insert(
                 conn,
@@ -261,10 +304,26 @@ def main():
     if args.ONLY_CRITICAL:
         result = [row for row in result if row['critical']]
 
+    # Only updates that outlived their grace period drive the state. An age we
+    # could not read counts as old enough, so a cache that went missing never
+    # silences the check. The reported and graphed numbers stay untouched: what
+    # is pending is pending, the grace period only postpones the alert.
+    def is_due(row):
+        # A security update is held back by `--grace-security`, everything else
+        # by `--grace-updates`. Both counts share this rule, so the default
+        # `--grace-security=0D` keeps security updates alerting right away even
+        # when `--critical` is unset and they are only counted as ordinary updates.
+        grace = args.GRACE_SECURITY if row['critical'] else args.GRACE_UPDATES
+        return ages is None or ages.get(package_name(row['package']), 0) >= grace
+
+    due_count = sum(1 for row in result if is_due(row))
+    due_critical_count = sum(1 for row in result if row['critical'] and is_due(row))
+    within_grace = len(result) - due_count
+
     # get state
     state = lib.base.get_worst(
-        lib.base.get_state(len(result), args.WARN, None),
-        lib.base.get_state(critical_count, None, args.CRIT),
+        lib.base.get_state(due_count, args.WARN, None),
+        lib.base.get_state(due_critical_count, None, args.CRIT),
     )
 
     # build the message
@@ -278,6 +337,8 @@ def main():
             msg += f', {critical_count} of them critical'
         msg += query_hint
         msg += '.'
+        if within_grace:
+            msg += f' {within_grace} of them within the grace period.'
         msg += lib.base.state2str(state, prefix=' ')
         msg += '\n* '
         msg += '\n* '.join([row['package'] for row in result])

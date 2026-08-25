@@ -8,6 +8,12 @@
                 "--critical": {
                     "value": "$rpm_updates_critical$"
                 },
+                "--grace-security": {
+                    "value": "$rpm_updates_grace_security$"
+                },
+                "--grace-updates": {
+                    "value": "$rpm_updates_grace_updates$"
+                },
                 "--no-perfdata": {
                     "set_if": "$rpm_updates_no_perfdata$"
                 },
@@ -59,6 +65,16 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -116,8 +132,10 @@
             "vars": {
                 "criticality": "C",
                 "rpm_updates_always_ok": false,
+                "rpm_updates_grace_security": "0D",
+                "rpm_updates_grace_updates": "8D",
                 "rpm_updates_no_perfdata": false,
-                "rpm_updates_only_critical": true,
+                "rpm_updates_only_critical": false,
                 "rpm_updates_query": "1",
                 "rpm_updates_timeout": 120,
                 "rpm_updates_warning": 1
@@ -149,6 +167,28 @@
             "uuid": "3af1f847-68f3-41c8-aab6-8d599fdfb1ef"
         },
         "3": {
+            "varname": "rpm_updates_grace_security",
+            "caption": "RPM Updates: Grace Security",
+            "description": "How long a pending security update is tolerated before it counts towards the thresholds. Starts when the update is first seen, and starts over if the package drops off the list and comes back. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bc482990-82e6-442f-af8e-d4dbd333940b"
+        },
+        "4": {
+            "varname": "rpm_updates_grace_updates",
+            "caption": "RPM Updates: Grace Updates",
+            "description": "How long a pending update is tolerated before it counts towards the thresholds. Set this to cover the interval between two patch windows, so a host stays quiet about updates it has had no chance to install yet. Starts when the update is first seen, and starts over if the package drops off the list and comes back. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5c595621-2be0-4fba-9300-07a1d4fef5cc"
+        },
+        "5": {
             "varname": "rpm_updates_no_perfdata",
             "caption": "RPM Updates: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -157,7 +197,7 @@
             "settings": {},
             "uuid": "6b251aa8-b6a7-4b7c-8539-2c20d16cfd7b"
         },
-        "4": {
+        "6": {
             "varname": "rpm_updates_only_critical",
             "caption": "RPM Updates: Only Critical?",
             "description": "Only report security updates and upgrades.",
@@ -166,7 +206,7 @@
             "settings": {},
             "uuid": "70ad3640-3806-48d1-a788-db5e59a09fb2"
         },
-        "5": {
+        "7": {
             "varname": "rpm_updates_query",
             "caption": "RPM Updates: Query",
             "description": "SQL WHERE clause to filter the list of available updates. Supports regular expressions via a REGEXP statement. See the README for a list of available columns. If specified, a list of matching updates is printed. Example: `--query='package like \"bind9-%\"'`.",
@@ -177,7 +217,7 @@
             },
             "uuid": "56eaeee2-8988-47b3-9057-cf363f67da41"
         },
-        "6": {
+        "8": {
             "varname": "rpm_updates_timeout",
             "caption": "RPM Updates: Timeout",
             "description": "Network timeout in seconds.",
@@ -188,7 +228,7 @@
             },
             "uuid": "88935be0-efc5-411b-816c-a99de02da48d"
         },
-        "7": {
+        "9": {
             "varname": "rpm_updates_warning",
             "caption": "RPM Updates: Warning",
             "description": "Minimum number of pending updates to trigger a WARNING.",

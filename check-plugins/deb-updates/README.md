@@ -30,6 +30,7 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 * Stores the results in a local SQLite database for flexible querying via `--query`
 * Classifies an update as security-critical when it matches `--critical-pattern`, which by default keys on the suite an update is offered from. This covers a package offered by the security archive alone (`aom-tools/stable-security`), which is what a fresh CVE fix looks like before the next point release folds it into the main suite, as well as one offered by both (`gzip/noble-updates,noble-security`)
 * Optionally narrows the report down to those updates (`--only-critical`); the security count is reported either way
+* Records when an update for a package first showed up, so `--grace-updates` and `--grace-security` can hold the alert back until the host has had a patch window. An update inside its grace period is still listed and still counted in the performance data, it just does not drive the check state yet. The clock keys on the package name, so a newer candidate version does not restart it, and it starts over if the package drops off the list and comes back. A security update is governed by `--grace-security` alone, which by default is `0D`, so security never waits. Both are `0D` out of the box; the shipped Icinga Director service template sets `--grace-updates=8D` to cover a weekly patch window
 
 
 ## Fact Sheet
@@ -43,13 +44,16 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | User with sudo permissions, unless `--no-update` is used |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-deb-updates.db` |
 
 
 ## Help
 
 ```text
 usage: deb-updates [-h] [-V] [--always-ok] [-c CRIT]
-                   [--critical-pattern CRITICAL_PATTERN] [--no-perfdata]
+                   [--critical-pattern CRITICAL_PATTERN]
+                   [--grace-security GRACE_SECURITY]
+                   [--grace-updates GRACE_UPDATES] [--no-perfdata]
                    [--no-update] [--only-critical] [--query QUERY]
                    [--timeout TIMEOUT] [-w WARN]
 
@@ -78,6 +82,22 @@ options:
                         sensitive. Example: `--critical-
                         pattern='^\S+/\S*(-security|-lts)'` Default:
                         ^\S+/\S*-security
+  --grace-security GRACE_SECURITY
+                        How long a pending security update is tolerated before
+                        it counts towards the thresholds. Starts when the
+                        update is first seen, and starts over if the package
+                        drops off the list and comes back. A duration such as
+                        `12h`, `8D` or `2W`; `0D` disables the grace period.
+                        Default: 0D
+  --grace-updates GRACE_UPDATES
+                        How long a pending update is tolerated before it
+                        counts towards the thresholds. Set this to cover the
+                        interval between two patch windows, so a host stays
+                        quiet about updates it has had no chance to install
+                        yet. Starts when the update is first seen, and starts
+                        over if the package drops off the list and comes back.
+                        A duration such as `12h`, `8D` or `2W`; `0D` disables
+                        the grace period. Default: 0D
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
