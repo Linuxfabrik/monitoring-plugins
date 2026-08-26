@@ -111,7 +111,7 @@ Mountpoint ! Device         ! ITotal ! IUsed ! IFree ! Use%
 -----------+----------------+--------+-------+-------+-----
 /tmp       ! /dev/vda1      ! 6.6M   ! 211.2K ! 6.4M ! 3.2%
 /          ! /dev/vda1      ! 6.6M   ! 112.2K ! 6.5M ! 1.7%
-/boot      ! /dev/nvme0n1p2 ! 65.5K  ! 109.0  ! 65.4K ! 0.2%
+/boot      ! /dev/nvme0n1p2 ! 65.5K  ! 109    ! 65.4K ! 0.2%
 ```
 
 Ignore Kubernetes CSI volumes that are only readable by root:

@@ -86,7 +86,7 @@ Recommendations:
 When the rate is below the threshold, the plugin still emits the count and breakdown so admins see what was measured:
 
 ```text
-8.0 JOINs without indexes in 1W 6D of uptime (approx. 0.6/day; `Select_range_check` = 0, `Select_full_join` = 8).
+8 JOINs without indexes in 1W 6D of uptime (approx. 0.6/day; `Select_range_check` = 0, `Select_full_join` = 8).
 ```
 
 

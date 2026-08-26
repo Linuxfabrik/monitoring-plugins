@@ -113,7 +113,7 @@ Output:
 Valkey v8.0.3 (based on Redis v7.2.4), standalone mode on 127.0.0.1:6379, /etc/valkey/valkey.conf,
 up 52m 17s, unlimited memory usage enabled, 0.0% memory usage (959.1KiB/3.8GiB, 959.1KiB peak,
 14.5MiB RSS), maxmemory-policy=noeviction, 0.0 evicted keys, 0.0 expired keys, hit rate 0%
-(0.0 hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage
+(0 hits, 0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage
 is not set to "madvise" or "never"
 ```
 

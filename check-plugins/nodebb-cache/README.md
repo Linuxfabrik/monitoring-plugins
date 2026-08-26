@@ -89,7 +89,7 @@ Everything is ok.
 
 Cache       ! Enabled ! Usage  ! Size          ! Hits   ! Misses ! HitRatio
 ------------+---------+--------+---------------+--------+--------+----------
-postCache   ! True    ! 0.63%  ! 65.9K / 10.5M ! 1.9K   ! 169.0  ! 91.8%
+postCache   ! True    ! 0.63%  ! 65.9K / 10.5M ! 1.9K   ! 169    ! 91.8%
 groupCache  ! True    ! 32.07% ! 12.8K / 40.0K ! 951.2K ! 13.2K  ! 98.6%
 localCache  ! True    ! 2.71%  ! 1.1K / 40.0K  ! 380.9K ! 1.2K   ! 99.7%
 objectCache ! True    ! 5.97%  ! 2.4K / 40.0K  ! 3.2M   ! 147.5K ! 95.6%

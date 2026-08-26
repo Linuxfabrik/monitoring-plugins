@@ -106,7 +106,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/memory-paging/
 Output on an idle host whose swap lives on zram:
 
 ```text
-swap in 0.0B/s, swap out 0.0B/s, 0.0 major faults/s
+swap in 0.0B/s, swap out 0.0B/s, 0 major faults/s
 Swap lives on zram, which is compressed memory, so paging costs CPU and memory on this host rather than disk I/O.
 ```
 
@@ -126,7 +126,7 @@ Extended reporting adds the swap devices with their type and priority, and a tab
 Output:
 
 ```text
-swap in 4.5MiB/s, swap out 0.0B/s, 785.0 major faults/s [WARNING]
+swap in 4.5MiB/s, swap out 0.0B/s, 785 major faults/s [WARNING]
 A process waited for the disk on every one of these faults, while the swap rates stayed within their thresholds. The pages come from mapped files rather than from swap, so it is the page cache that is too small for what the host reads.
 Swap: /dev/zram0 (partition, priority 100), /var/tmp/lf-swaptest (file, priority 50)
 

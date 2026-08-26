@@ -84,13 +84,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-sorts/
 Output (OK):
 
 ```text
-Everything is ok. Sorts requiring a temporary merge-sort file: 0.5% (5.0 temp sorts / 1.0K sorts). Components: `Sort_scan` = 600.0, `Sort_range` = 400.0.
+Everything is ok. Sorts requiring a temporary merge-sort file: 0.5% (5 temp sorts / 1K sorts). Components: `Sort_scan` = 600.0, `Sort_range` = 400.0.
 ```
 
 Output (WARN):
 
 ```text
-Sorts requiring a temporary merge-sort file: 15.0% (15.0 temp sorts / 100.0 sorts) [WARNING]. Components: `Sort_scan` = 60.0, `Sort_range` = 40.0.
+Sorts requiring a temporary merge-sort file: 15.0% (15 temp sorts / 100 sorts) [WARNING]. Components: `Sort_scan` = 60.0, `Sort_range` = 40.0.
 
 Recommendations:
 * Raise `sort_buffer_size` > 256.0KiB and/or `read_rnd_buffer_size` > 256.0KiB so fewer sorts have to spill to a temporary merge-sort file

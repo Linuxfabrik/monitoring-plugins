@@ -96,7 +96,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/conntrack/
 Output:
 
 ```text
-0.1% conntrack table used (272.0/262.1K)
+0.1% conntrack table used (272/262.1K)
 ```
 
 Output on a host whose table is at its limit:
@@ -115,7 +115,7 @@ Extended reporting adds the hash table size, the average hash chain length and e
 Output:
 
 ```text
-0.1% conntrack table used (272.0/262.1K)
+0.1% conntrack table used (272/262.1K)
 Hash table: 262.1K buckets, average chain length 0.00.
 
 Counter        ! Meaning                              ! Per Second

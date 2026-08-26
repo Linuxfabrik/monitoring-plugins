@@ -98,7 +98,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-log-
 Output:
 
 ```text
-InnoDB log waits: 0.0% (0.0 waits / 867.6K writes).
+InnoDB log waits: 0.0% (0 waits / 867.6K writes).
 
 InnoDB Write Log efficiency: 95.6% (12.5M batched / 13.1M log write requests).
 ```
@@ -106,7 +106,7 @@ InnoDB Write Log efficiency: 95.6% (12.5M batched / 13.1M log write requests).
 When the buffer is undersized (only log waits trigger a WARNING; write log efficiency stays informational):
 
 ```text
-InnoDB log waits: 0.05% (450.0 waits / 867.6K writes) [WARNING].
+InnoDB log waits: 0.05% (450 waits / 867.6K writes) [WARNING].
 
 InnoDB Write Log efficiency: 82.3% (5.2M batched / 6.3M log write requests).
 

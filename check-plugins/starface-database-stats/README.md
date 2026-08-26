@@ -76,7 +76,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-database
 Output:
 
 ```text
-Connections: 26.7M opened, 26.7M closed, 19.0 active, 0.0 idle
+Connections: 26.7M opened, 26.7M closed, 19 active, 0 idle
 ```
 
 

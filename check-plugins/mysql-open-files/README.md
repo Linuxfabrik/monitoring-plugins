@@ -81,7 +81,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-open-files/
 Output (OK):
 
 ```text
-0.2% of `open_files_limit` used (80.0/32.8K).
+0.2% of `open_files_limit` used (80/32.8K).
 ```
 
 Output (WARN / CRIT):

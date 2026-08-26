@@ -111,8 +111,8 @@ Output:
 ```text
 Redis v5.0.3, standalone mode on 127.0.0.1:6379, /etc/redis.conf, up 4m 25s, 100.9% memory usage
 [WARNING] (9.6MiB/9.5MiB, 9.6MiB peak, 19.6MiB RSS), maxmemory-policy=noeviction, 3 DBs
-(db0 db3 db4) with 10 keys, 0.0 evicted keys, 0.0 expired keys, hit rate 100.0%
-(3.0M hits, 0.0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage is not
+(db0 db3 db4) with 10 keys, 0 evicted keys, 0 expired keys, hit rate 100.0%
+(3M hits, 0 misses), vm.overcommit_memory is not set to 1, kernel transparent_hugepage is not
 set to "madvise" or "never", net.core.somaxconn (128) is lower than net.ipv4.tcp_max_syn_backlog
 (256). Sam, I detected a few issues in this Redis instance memory implants:
 

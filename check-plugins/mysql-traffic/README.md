@@ -79,7 +79,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-traffic/
 Output:
 
 ```text
-Up 1W 3D (907.7K q [1.0 qps], 470.0 conn, TX: 560.2M, RX: 96.4M); Read/Write: 65.3%/34.7%
+Up 1W 3D (907.7K q [1 qps], 470 conn, TX: 560.2M, RX: 96.4M); Read/Write: 65.3%/34.7%
 ```
 
 

@@ -58,7 +58,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-xfs-stats/
 Output:
 
 ```text
-824.0 read/s, 25.0 write/s, inode cache hit 50.0%, 1.8K active inodes
+824 read/s, 25 write/s, inode cache hit 50.0%, 1.8K active inodes
 ```
 
 
