@@ -125,6 +125,7 @@ Monitoring Plugins:
 * kvm-vm: a machine that crashed, was killed off the host or never started is reported instead of counted as switched off
 * kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
 * openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
+* path-rw-test: no longer runs forever when a path sits on a network filesystem whose server stopped answering; such a path is reported like one that cannot be written to
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
 * redfish-\*: the checks recover on their own after a management controller drops its sessions, instead of failing until their cached credentials expire. They also log in far less often, no longer leave a session behind on every login, and retry a login that fails once instead of falling back to slower authentication ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 

@@ -11,6 +11,9 @@
                 },
                 "--severity": {
                     "value": "$path_rw_test_severity$"
+                },
+                "--timeout": {
+                    "value": "$path_rw_test_timeout$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/path-rw-test",
@@ -28,6 +31,11 @@
                 },
                 {
                     "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -70,16 +78,14 @@
                 },
                 "--severity": {
                     "value": "$path_rw_test_windows_severity$"
+                },
+                "--timeout": {
+                    "value": "$path_rw_test_windows_timeout$"
                 }
             },
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\path-rw-test.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 4,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 5,
                     "is_required": "n",
@@ -87,6 +93,16 @@
                 },
                 {
                     "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -149,7 +165,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Tests if a path is writable and readable by creating, writing, reading, and deleting a temporary file. Especially useful for mounted filesystems such as NFS or SMB where the mount may silently become read-only or unresponsive. The local temporary directory is always tested as a baseline. Alerts if the path is not writable or readable. Requires root or sudo.",
+            "notes": "Tests if a path is writable and readable by creating, writing, reading, and deleting a temporary file. Especially useful for mounted filesystems such as NFS or SMB where the mount may silently become read-only or unresponsive. The local temporary directory is always tested as a baseline. A path on a network filesystem whose server has stopped answering does not fail, it blocks, and it blocks in a way no timeout inside a process reaches. Each path is therefore tested in a process of its own, all of them at the same time and under one shared deadline, so the check stays within --timeout however many paths are unreachable, and a path that misses the deadline is reported like one that cannot be written to. Alerts if the path is not writable, not readable, or does not answer at all. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/path-rw-test/",
             "object_name": "tpl-service-path-rw-test",
             "object_type": "template",
@@ -164,7 +180,8 @@
                 "path_rw_test_path": [
                     "/tmp"
                 ],
-                "path_rw_test_severity": "warn"
+                "path_rw_test_severity": "warn",
+                "path_rw_test_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -244,7 +261,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Tests if a path is writable and readable by creating, writing, reading, and deleting a temporary file. Especially useful for mounted filesystems such as NFS or SMB where the mount may silently become read-only or unresponsive. The local temporary directory is always tested as a baseline. Alerts if the path is not writable or readable. Requires root or sudo.",
+            "notes": "Tests if a path is writable and readable by creating, writing, reading, and deleting a temporary file. Especially useful for mounted filesystems such as NFS or SMB where the mount may silently become read-only or unresponsive. The local temporary directory is always tested as a baseline. A path on a network filesystem whose server has stopped answering does not fail, it blocks, and it blocks in a way no timeout inside a process reaches. Each path is therefore tested in a process of its own, all of them at the same time and under one shared deadline, so the check stays within --timeout however many paths are unreachable, and a path that misses the deadline is reported like one that cannot be written to. Alerts if the path is not writable, not readable, or does not answer at all. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/path-rw-test/",
             "object_name": "tpl-service-path-rw-test-windows",
             "object_type": "template",
@@ -259,7 +276,8 @@
                 "path_rw_test_windows_path": [
                     "/tmp"
                 ],
-                "path_rw_test_windows_severity": "warn"
+                "path_rw_test_windows_severity": "warn",
+                "path_rw_test_windows_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -341,6 +359,17 @@
             "uuid": "24862773-1f7f-415c-bc26-b2d229055b3f"
         },
         "4": {
+            "varname": "path_rw_test_timeout",
+            "caption": "Path RW Test: Timeout",
+            "description": "How long a path gets to answer before it is reported as unreachable. Every path is tested at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per path.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "98444b83-0301-4d3e-ac33-adda3dd986bf"
+        },
+        "5": {
             "varname": "path_rw_test_windows_always_ok",
             "caption": "Path RW Test: Always OK?",
             "description": "Always returns OK.",
@@ -349,7 +378,7 @@
             "settings": {},
             "uuid": "9b87d0c0-7a1e-46bd-8427-52cde5789ac7"
         },
-        "5": {
+        "6": {
             "varname": "path_rw_test_windows_path",
             "caption": "Path RW Test: Path",
             "description": "Path to test for read/write access by creating and deleting a temporary file. Can be specified multiple times.",
@@ -360,7 +389,7 @@
             },
             "uuid": "79938d65-9f58-4ce3-88ef-48b8a3122f3e"
         },
-        "6": {
+        "7": {
             "varname": "path_rw_test_windows_severity",
             "caption": "Path RW Test: Severity",
             "description": "Severity for alerting.",
@@ -372,6 +401,17 @@
                 "datalist": "path_rw_test_windows_severity_list"
             },
             "uuid": "2f0f3ad0-32bd-4feb-8fd6-5628d4227486"
+        },
+        "8": {
+            "varname": "path_rw_test_windows_timeout",
+            "caption": "Path RW Test: Timeout",
+            "description": "How long a path gets to answer before it is reported as unreachable. Every path is tested at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per path.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "56bf3ed0-6c0b-4454-9438-d0af1bb65dfa"
         }
     }
 }
