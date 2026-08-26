@@ -348,6 +348,41 @@ TESTS = [
         'assert-in': ['89.4%', '[CRITICAL]'],
         'assert-not-in': ['9.3% [CRITICAL]'],
     },
+    # A filesystem whose server has gone away does not fail, it blocks, so the check
+    # gives it a deadline and reports the ones that miss it. The fixture names them,
+    # because producing one needs a real unreachable NFS server. It also carries a
+    # filesystem that is merely unreadable, which is a different finding and keeps the
+    # behaviour it always had: an `N/A` row that does not alert.
+    {
+        'id': 'warn-a-filesystem-that-does-not-answer',
+        'test': 'stdout/nfs-mount-not-answering,,0',
+        'params': '--fstype=ext4 --fstype=nfs4',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/mnt/data', 'did not answer in time [WARNING]'],
+    },
+    {
+        'id': 'ok-an-unreadable-filesystem-still-does-not-alert',
+        'test': 'stdout/nfs-mount-not-answering,,0',
+        'params': '--fstype=ext4 --fstype=nfs4 --unreachable-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'/mnt/csi\s+!\s+ext4\s+!\s+N/A\s+!\s+N/A\s+!\s+N/A\s+!\s+N/A',
+    },
+    {
+        'id': 'crit-a-filesystem-that-does-not-answer-can-be-graded-up',
+        'test': 'stdout/nfs-mount-not-answering,,0',
+        'params': '--fstype=ext4 --fstype=nfs4 --unreachable-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['did not answer in time [CRITICAL]'],
+    },
+    {
+        # the healthy filesystems are still reported, so one unreachable mount does not
+        # cost the check everything else it knows
+        'id': 'warn-the-other-filesystems-are-still-reported',
+        'test': 'stdout/nfs-mount-not-answering,,0',
+        'params': '--fstype=ext4 --fstype=nfs4',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'/-percent'=50.0%;90.0;95.0;0;100"],
+    },
 ]
 
 

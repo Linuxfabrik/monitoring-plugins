@@ -115,6 +115,7 @@ Monitoring Plugins:
 * cpu-usage: the CPU percentages of a host running virtual machines were wrong, guest time was counted twice
 * deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs of the same check at the same time no longer report each other's rows
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update that only the security repository offers
+* disk-usage: no longer runs forever when a network filesystem stops answering. It reports that filesystem as unreachable and the others as usual, and `--fstype` and `--list-fstypes` work again on such a host
 * disk-usage: the warning and critical lines in the graphs stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
