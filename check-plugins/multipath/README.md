@@ -22,9 +22,10 @@ Every path carries two states at once, and the check takes both. The *checker* s
 
 **Important Notes:**
 
+* **The commands in the output name this host's paths.** Where the check reports dead paths, the `multipathd reinstate path` it suggests carries their real device names, not an example, so it can be copied without checking it against the machine first.
 * **Needs no root and no `sudo`.** multipathd allows every local user to read its state and refuses only the commands that change something, so the check reads the same answer as `root` while it cannot touch a single path. There is no sudoers file to deploy for it. This is why the check asks the daemon instead of running `multipath -ll`, which does insist on being root.
 * **A path that disappears entirely is invisible by default.** multipathd drops a path device that is gone from the system out of the map, and the map then reports one path fewer and looks complete. Only an expectation catches that. In a fabric every LUN normally has the same number of paths, so one `--count=4` covers the whole host; `--map=mpathz=2` pins the odd one out. Without either, the check compares each map against itself and can only see a path that is present and dead.
-* **A map without any path is not the end of the story yet.** With `no_path_retry` configured, device-mapper holds the I/O that reaches such a map instead of failing it, and the check reports how much of that grace is left (`is holding its I/O for another 52 sec`). Once it runs out, every read and write fails and the file systems on top go read-only. A map already at that point is reported as failing its I/O.
+* **A map without any path is not the end of the story yet.** With `no_path_retry` configured, device-mapper holds the I/O that reaches such a map instead of failing it, and the check reports how much of that grace is left in its very first line (`holding its I/O for another 52 sec`), because that number decides how much time there is. Once it runs out, every read and write fails and the file systems on top go read-only. A map already at that point is reported as failing its I/O.
 * **A map whose last path is gone stops being listed at all.** multipathd flushes it rather than keeping it around with zero paths, so a host that suddenly reports no maps has either never had multipathed storage or just lost all of it. That is why the check reports WARN when it finds no map. Lower it with `--no-maps-severity=ok`, and pin the maps you expect with `--map` where the difference matters.
 * **The `paths` field in multipathd's own output is not the number of paths.** It counts the usable ones only. The check derives the total from the path groups itself, so `2/4` really means two of four.
 * **A ghost path is healthy, not degraded.** On an active/passive array half of the paths are standby by design and answer the checker without carrying I/O. Counting them as failures would put every such array permanently in WARN.
@@ -160,7 +161,7 @@ Output after one path died:
 ```text
 mpatha runs on 1 of 2 paths.
 mpatha: sda is faulty, device-mapper has taken it out of the map
-Find out what happened to the dead paths before assuming the storage is at fault: `multipath -ll` names the SCSI address behind each of them, and `journalctl --dmesg --grep=sd` shows what the transport said about the device. A path that is back but not in the map is reinstated with `multipathd reinstate path sda`; one that is really gone comes back with a rescan of its SCSI host.
+Find out what happened to the dead paths before assuming the storage is at fault: `multipath -ll` names the SCSI address behind each of them, and `journalctl --dmesg --grep=sd` shows what the transport said about them. A path that is back but not in the map is reinstated with `multipathd reinstate path sda`; one that is really gone comes back with a rescan of its SCSI host.
 
 Map    ! Usable/Expected ! State
 -------+-----------------+---------------------
@@ -171,8 +172,7 @@ mpathb ! 2/2             ! 2 usable
 Output after the last path of a LUN died, while device-mapper is still holding the I/O:
 
 ```text
-mpatha has no usable path left of 2.
-mpatha is holding its I/O for another 55 sec before it starts failing it.
+mpatha has no usable path left of 2, holding its I/O for another 55 sec.
 mpatha: sda is faulty, the device is offline, device-mapper has taken it out of the map
 mpatha: sdc is faulty, the device is offline, device-mapper has taken it out of the map
 

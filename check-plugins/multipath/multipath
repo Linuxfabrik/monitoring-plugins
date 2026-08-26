@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026082602'
 
 DESCRIPTION = """Checks the device-mapper multipath maps on this host: how many of the
 paths to each LUN are usable, which of them the path checker has declared dead, and
@@ -121,14 +121,22 @@ NO_MAPS_HELP = (
     '`grep dm_multipath /proc/modules` say which of the two it is.'
 )
 
-PATH_HELP = (
-    'Find out what happened to the dead paths before assuming the storage is at fault: '
-    '`multipath -ll` names the SCSI address behind each of them, and '
-    '`journalctl --dmesg --grep=sd` shows what the transport said about the device. '
-    'A path that is back but not in the map is reinstated with '
-    '`multipathd reinstate path sda`; one that is really gone comes back with a rescan '
-    'of its SCSI host.'
-)
+
+def path_help(devices):
+    """
+    Say what to do about the paths that are dead, naming them.
+
+    A command in the output is there to be copied, so it names the paths this run
+    actually found rather than an example device.
+    """
+    reinstate = ', '.join(f'`multipathd reinstate path {item}`' for item in devices)
+    return (
+        'Find out what happened to the dead paths before assuming the storage is at '
+        'fault: `multipath -ll` names the SCSI address behind each of them, and '
+        '`journalctl --dmesg --grep=sd` shows what the transport said about them. '
+        f'A path that is back but not in the map is reinstated with {reinstate}; one '
+        'that is really gone comes back with a rescan of its SCSI host.'
+    )
 
 
 def parse_args():
@@ -477,6 +485,7 @@ def main():
     paths_dead = 0
     paths_marginal = 0
     paths_usable = 0
+    dead_devices = []
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
@@ -534,8 +543,18 @@ def main():
             maps_degraded += 1
             problems = []
             if not report['usable']:
+                # what device-mapper is doing with the I/O that reaches a map without
+                # any path is the most time-critical thing this check ever reports, so
+                # it belongs in the same breath and not on a line further down
+                queueing = report['queueing']
+                if queueing == 'off':
+                    fate = ', and failing every I/O that reaches it'
+                elif queueing in ('-', ''):
+                    fate = ''
+                else:
+                    fate = f', holding its I/O for another {queueing}'
                 problems.append(
-                    f'{name} has no usable path left of {report["expected"]}'
+                    f'{name} has no usable path left of {report["expected"]}{fate}'
                 )
             elif len(report['usable']) < report['expected']:
                 problems.append(
@@ -553,6 +572,7 @@ def main():
             headline.extend(problems)
             for path in report['dead'] + report['marginal']:
                 msg_body += f'{name}: {describe_path(path)}\n'
+                dead_devices.append(path['device'])
 
         if report['suspended']:
             status = 'suspended'
@@ -594,23 +614,10 @@ def main():
                 f'{checked} multipath {lib.txt.pluralize("map", checked, ",s")}, '
                 f'{paths_usable} of {paths_expected} paths usable.'
             )
-        queueing = [
-            row
-            for row in table_data
-            if row['paths'].startswith('0/') and row['queueing']
-        ]
-        for row in queueing:
-            if row['queueing'] not in ('-', 'off'):
-                msg += (
-                    f'\n{row["map"]} is holding its I/O for another '
-                    f'{row["queueing"]} before it starts failing it.'
-                )
-            elif row['queueing'] == 'off':
-                msg += f'\n{row["map"]} is failing every I/O that reaches it.'
         if msg_body:
             msg += f'\n{msg_body.rstrip()}'
-        if paths_dead or maps_without_path:
-            msg += f'\n{PATH_HELP}'
+        if dead_devices:
+            msg += f'\n{path_help(dead_devices)}'
 
     perfdata += lib.base.get_perfdata('maps', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata(

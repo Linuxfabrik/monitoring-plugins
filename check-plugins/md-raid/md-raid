@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082602'
+__version__ = '2026082603'
 
 DESCRIPTION = """Reports the health of the Linux software RAID arrays (md) on this host: how
 many member devices each array is running on, which of them the kernel has thrown out,
@@ -45,6 +45,19 @@ MDSTAT = '/proc/mdstat'
 # machine-readable array state, and the array state on kernels that do not yet spell
 # "broken" into /proc/mdstat.
 SYSFS_BLOCK = '/sys/block'
+
+# Where an array carries a name, udev puts a symlink to it here, named after the
+# `MD_DEVNAME` that mdadm derives from its own map file. That is the name the array was
+# created under (`mdadm --create /dev/md/raid5`), and it is the only route to it that
+# does not need root: /run/mdadm is mode 0700 and `mdadm --detail` refuses a non-root
+# caller. It is reported next to the kernel device rather than instead of it, because
+# neither of the two is reliably stable: the kernel hands out `md127` from a pool at
+# assembly time, and the name gains a `<homehost>:` prefix as soon as mdadm stops
+# trusting the array as local, which is what happens on a host still called
+# localhost.localdomain. Measured on Rocky 9.8 / kernel 5.14.0-687.41.1.el9_8 / mdadm
+# 4.4, where the same array was `/dev/md/raid5` after creation and
+# `/dev/md/localhost.localdomain:raid5` after the next boot.
+DEV_MD_DIR = '/dev/md'
 
 # A device line names its members as `<device>[<index>]` followed by zero or more flags.
 # drivers/md/md.c:md_seq_show() prints exactly five of them, in this order, and a faulty
@@ -128,51 +141,20 @@ DEFAULT_NO_ARRAYS_SEVERITY = 'warn'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_SEVERITY = 'warn'
 
-# What to do about an array that lost a member. Named here so the same words reach the
-# plugin output and the README. The device names are examples on purpose: a placeholder
-# in angle brackets would reach a web interface as an escaped entity.
-REMEDIATION = (
-    'Find out which member the kernel threw out and why (`cat /proc/mdstat`, '
-    '`journalctl --dmesg --grep=md`, `smartctl --all /dev/sdb`), remove it from the '
-    'array, replace the hardware and add the new device back with '
-    '`mdadm /dev/md0 --add /dev/sdb1`. The array rebuilds on its own from there. '
-    'Until it is done, the array has no redundancy left to lose.'
-)
-
-BROKEN_HELP = (
-    'The kernel has stopped serving this array. Do not write to it and do not recreate '
-    'it: `mdadm --assemble --force` on the members that are still readable is the way '
-    'back, and it needs the members left untouched.'
-)
-
-INACTIVE_HELP = (
-    'The array was assembled but never started, which is what happens when not all of '
-    'its members turned up at boot. `mdadm --detail /dev/md0` names the ones that are '
-    'missing.'
-)
-
-REPLACED_HELP = (
-    'The array is back to its full width, so a spare has stepped in or the member was '
-    'replaced, and the device the kernel threw out is still attached. Take it out with '
-    '`mdadm /dev/md0 --remove /dev/sdb1` and put a new spare in, because the next '
-    'failure has nothing left to fall back on.'
-)
-
+# What an administrator is supposed to do next, built from the names this run actually
+# read. A command in the output is there to be copied, so it has to name this host's
+# array and this host's member: an example device would put `/dev/md0` in front of
+# somebody whose array is `md127`, and adding a disk to the wrong array is not a mistake
+# worth inviting. A placeholder in angle brackets is no way out either, because it
+# reaches a web interface as an escaped entity, so where a name is genuinely unknown, as
+# with the replacement disk, the text says so in words instead.
 MIRROR_MISMATCH_HELP = (
     'On a mirrored array this does not have to mean corruption. A page written while '
     'the check reads it, and above all a swap area, leave the copies different in a '
     'place nothing ever reads back, which is why md(4) says the count cannot be '
     'interpreted reliably here. Where the count keeps growing from one check to the '
-    'next, go looking for the disk behind it all the same '
-    '(`smartctl --all /dev/sdb`, `journalctl --dmesg --grep=md`).'
-)
-
-PARITY_MISMATCH_HELP = (
-    'On a parity array md(4) says this points at a hardware problem at some level, '
-    'because software alone does not produce it. Look for the disk behind it '
-    '(`smartctl --all /dev/sdb`, `journalctl --dmesg --grep=md`), then rewrite the '
-    'parity with `echo repair > /sys/block/md0/md/sync_action` and run another check '
-    'afterwards to confirm the count went to zero.'
+    'next, go looking for the disks behind it all the same, with `smartctl --all` on '
+    'each of them and `journalctl --dmesg --grep=md`.'
 )
 
 NO_MD_HELP = (
@@ -189,6 +171,118 @@ NO_ARRAYS_HELP = (
     'this host, or the members did not turn up at boot. `mdadm --examine --scan` reads '
     'the superblocks that are still on the disks.'
 )
+
+
+def readwrite_first(array, read_only):
+    """
+    Say to make an array writable again where adding a member would fail without it.
+
+    drivers/md/md.c:md_ioctl() refuses every superblock-changing ioctl, and adding a
+    member is one, with -EROFS while the array is not read-write. The one exception is an
+    array that is only *auto* read-only, which the kernel switches over by itself at that
+    point, so that state needs nothing said about it. Measured on Rocky 9.8: `mdadm --add`
+    on a read-only array answers "add new device failed [...]: Read-only file system",
+    while `mdadm --remove` on the same array goes through.
+    """
+    if read_only != 'read-only':
+        return ''
+    return (
+        f' {array} is read-only, and a member cannot be added to it in that state, so '
+        f'`mdadm --readwrite /dev/{array}` comes first.'
+    )
+
+
+def remediation(array, faulty, read_only=None, rebuilding=False):
+    """
+    Say what to do about an array that is running on fewer members than it was built for.
+
+    `faulty` is empty where a slot is simply unfilled, which is a different thing from a
+    member the kernel threw out and gets a different instruction. An array that is
+    already rebuilding needs neither: asking for another device there would only put a
+    spare in beside the replacement the kernel is busy building up.
+    """
+    if rebuilding:
+        text = f'{array} is already rebuilding onto a replacement, so let it finish. '
+        if faulty:
+            removals = ', '.join(
+                f'`mdadm /dev/{array} --remove /dev/{item}`' for item in faulty
+            )
+            text += (
+                f'The {lib.txt.pluralize("member", len(faulty), ",s")} the kernel threw '
+                f'out ({", ".join(faulty)}) can be taken out at any point with '
+                f'{removals}.'
+            )
+        else:
+            text += 'Adding another device now would only put a spare in beside it.'
+        return f'{text} Until the rebuild is done, the array has no redundancy left to lose.'
+    if faulty:
+        removals = ', '.join(
+            f'`mdadm /dev/{array} --remove /dev/{item}`' for item in faulty
+        )
+        text = (
+            f'{array} lost {", ".join(faulty)}. Look at what the kernel said about it '
+            f'(`journalctl --dmesg --grep=md`) and at the health of the disk carrying '
+            f'that member (`smartctl --all` on the disk it sits on) before writing it '
+            f'off. Then take it out with {removals}, replace the hardware, and add the '
+            f'new member with `mdadm /dev/{array} --add` followed by its device.'
+        )
+    else:
+        text = (
+            f'{array} is short of a member without the kernel having thrown one out, so '
+            f'one never turned up. `mdadm --detail /dev/{array}` names the slot that is '
+            f'empty, and `mdadm /dev/{array} --add` followed by a device fills it.'
+        )
+    return (
+        f'{text}{readwrite_first(array, read_only)} The array rebuilds on its own from '
+        f'there. Until it is done, it has no redundancy left to lose.'
+    )
+
+
+def broken_help(array):
+    """Say what to do about an array the kernel has stopped serving."""
+    return (
+        f'The kernel has stopped serving {array}. Do not write to it and do not '
+        f'recreate it: `mdadm --assemble --force /dev/{array}` on the members that are '
+        f'still readable is the way back, and it needs those members left untouched. '
+        f'`mdadm --examine` on each of them says which ones are still usable.'
+    )
+
+
+def inactive_help(array):
+    """Say what to do about an array that was assembled but never started."""
+    return (
+        f'{array} was assembled but never started, which is what happens when not all '
+        f'of its members turned up at boot. `mdadm --detail /dev/{array}` names the '
+        f'ones that are missing, and `mdadm --run /dev/{array}` starts it where they '
+        f'are merely late.'
+    )
+
+
+def replaced_help(array, faulty):
+    """Say what to do about a dead member still attached to an array that is whole again."""
+    removals = ', '.join(
+        f'`mdadm /dev/{array} --remove /dev/{item}`' for item in faulty
+    )
+    return (
+        f'{array} is back to its full width, so a spare has stepped in or the member '
+        f'was replaced, and the device the kernel threw out is still attached. Take it '
+        f'out with {removals} and put a new spare in, because the next failure has '
+        f'nothing left to fall back on.'
+    )
+
+
+def parity_mismatch_help(arrays):
+    """Say what to do about inconsistent sectors found on a parity array."""
+    repairs = ', '.join(
+        f'`echo repair > /sys/block/{item}/md/sync_action`' for item in arrays
+    )
+    return (
+        'On a parity array md(4) says this points at a hardware problem at some level, '
+        'because software alone does not produce it. Look for the disk behind it with '
+        '`smartctl --all` on each member and `journalctl --dmesg --grep=md`, then '
+        f'rewrite the parity with {repairs} and run another check afterwards to confirm '
+        'the count went back to zero.'
+    )
 
 
 def parse_args():
@@ -470,6 +564,34 @@ def read_sysfs(root, name):
     return attrs
 
 
+def get_names(root):
+    """
+    Map each kernel device to the name its array was created under.
+
+    Returns a dict, empty where the directory does not exist, which is the case on a host
+    whose arrays carry no name and inside a container or an initial ramdisk that never
+    ran udev. The link target is read without being followed, and only its last element
+    is used, so nothing outside the directory can be reached through it.
+    """
+    path = os.path.join(root, DEV_MD_DIR.lstrip('/'))
+    if not lib.disk.dir_exists(path):
+        return {}
+    try:
+        entries = sorted(os.listdir(path))
+    except OSError:
+        return {}
+    names = {}
+    for entry in entries:
+        try:
+            target = os.readlink(os.path.join(path, entry))
+        except OSError:
+            continue
+        device = os.path.basename(target)
+        if device.startswith('md'):
+            names[device] = entry
+    return names
+
+
 def get_arrays(root):
     """
     Read every software RAID array the kernel knows about.
@@ -485,8 +607,12 @@ def get_arrays(root):
     if not success:
         return (False, content)
     arrays = parse_mdstat(content)
+    names = get_names(root)
     for array in arrays:
         array['sysfs'] = read_sysfs(root, array['name'])
+        # the kernel device stays the identifier everywhere, because it is what
+        # /proc/mdstat, /sys and every mdadm command take; the name is reported beside it
+        array['label'] = names.get(array['name'], '-')
     return (True, (arrays, True))
 
 
@@ -515,8 +641,12 @@ def describe_progress(progress):
         return f'{action} {progress["state"].lower()}'
     text = f'{action} {progress["percent"]}%'
     if progress['finish']:
+        # the kernel prints its estimate in minutes with one decimal, so anything under
+        # six seconds rounds to zero, and "0s left" reads like a defect rather than like
+        # an estimate that ran out of resolution
         seconds = int(float(progress['finish']) * 60)
-        text += f', {lib.human.seconds2human(seconds)} left'
+        if seconds:
+            text += f', {lib.human.seconds2human(seconds)} left'
     if progress['speed']:
         text += f', {lib.human.bytes2human(int(progress["speed"]) * 1024)}/s'
     return text
@@ -617,6 +747,7 @@ def analyze(array, args):
         'degraded': degraded,
         'devices': devices,
         'faulty': faulty,
+        'label': array.get('label', '-'),
         'flagged': flagged or '-',
         'inactive': inactive,
         'level': level or 'unknown',
@@ -624,6 +755,12 @@ def analyze(array, args):
         'name': array['name'],
         'metadata': array['metadata'] or '-',
         'progress': describe_progress(progress),
+        'read_only': array['read_only'],
+        # a recovery is the kernel building a member up, which is what happens once a
+        # replacement was added. A resync or a check on a degraded array is not that,
+        # and telling somebody to add a device while one is being built up would only
+        # put a spare in beside it.
+        'rebuilding': bool(progress and progress.get('action') == 'recovery'),
         'spare': spare,
         'state': state,
         'status': status,
@@ -666,6 +803,7 @@ def main():
     inactive = []
     mismatched = []
     replaced = []
+    reports = []
     syncing = []
     faulty_devices = 0
     spare_devices = 0
@@ -678,16 +816,24 @@ def main():
 
     # analyze data
     for array in arrays:
-        # Filter arrays by their kernel name (`md0`, `md127`). --match (include) is
-        # applied first, then --ignore (exclude), so one hit by --ignore is dropped even
-        # if it also matches --match. Both use case-sensitive Python regex.
+        # Filter arrays by their kernel device (`md0`, `md127`) and by the name they
+        # were created under where they have one, so a filter written against either
+        # keeps working. --match (include) is applied first, then --ignore (exclude), so
+        # one hit by --ignore is dropped even if it also matches --match. Both use
+        # case-sensitive Python regex.
         name = array['name']
-        if compiled_match and not any(item.search(name) for item in compiled_match):
+        identifiers = [name]
+        if array.get('label', '-') != '-':
+            identifiers.append(array['label'])
+        if compiled_match and not any(
+            item.search(text) for item in compiled_match for text in identifiers
+        ):
             continue
-        if any(item.search(name) for item in compiled_ignore):
+        if any(item.search(text) for item in compiled_ignore for text in identifiers):
             continue
 
         report = analyze(array, args)
+        reports.append(report)
         state = lib.base.get_worst(state, report['state'])
         faulty_devices += len(report['faulty'])
         spare_devices += len(report['spare'])
@@ -708,6 +854,7 @@ def main():
                 'array': name,
                 'devices': report['devices'],
                 'flagged': report['flagged'],
+                'label': report['label'],
                 'level': report['level'],
                 'metadata': report['metadata'],
                 'mismatch': str(report['mismatch']),
@@ -742,28 +889,36 @@ def main():
         state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
     else:
         checked = len(table_data)
+        # Everything worth saying about one array goes into one clause, and a running
+        # resync, recovery, reshape or check leads it: whether the array is already
+        # healing decides what an administrator does next, and the first line is the
+        # only part of the output a service list and a notification show.
         headline = []
-        for item in broken:
-            headline.append(f'{item["name"]} is broken')
-        for item in inactive:
-            headline.append(f'{item["name"]} is inactive')
-        for item in degraded:
-            headline.append(
-                f'{item["name"]} is degraded and runs on {item["counted"]} devices'
-            )
-        for item in replaced:
-            count = len(item['faulty'])
-            headline.append(
-                f'{item["name"]} is complete again but still carries {count} failed '
-                f'{lib.txt.pluralize("member", count, ",s")}: '
-                f'{", ".join(item["faulty"])}'
-            )
-        for item in mismatched:
-            headline.append(
-                f'{item["name"]} carries {item["mismatch"]} inconsistent '
-                f'{lib.txt.pluralize("sector", item["mismatch"], ",s")} '
-                f'from the last consistency check'
-            )
+        for report in reports:
+            parts = []
+            if report['syncing']:
+                parts.append(report['progress'])
+            if report['broken']:
+                parts.append('broken')
+            elif report['inactive']:
+                parts.append('inactive')
+            elif report['degraded']:
+                parts.append(f'degraded, running on {report["counted"]} devices')
+            elif report['faulty']:
+                count = len(report['faulty'])
+                parts.append(
+                    f'complete again but still carrying {count} failed '
+                    f'{lib.txt.pluralize("member", count, ",s")} '
+                    f'({", ".join(report["faulty"])})'
+                )
+            if report['mismatch']:
+                parts.append(
+                    f'{report["mismatch"]} inconsistent '
+                    f'{lib.txt.pluralize("sector", report["mismatch"], ",s")} '
+                    f'from the last consistency check'
+                )
+            if parts:
+                headline.append(f'{report["name"]}: {", ".join(parts)}')
         if headline:
             msg = f'{". ".join(headline)}.'
         else:
@@ -772,22 +927,24 @@ def main():
                 f'{lib.txt.pluralize("array", checked, ",s")}, '
                 f'{lib.txt.pluralize("", checked, "intact,all of them intact")}.'
             )
-        if syncing:
-            msg += '\n' + ', '.join(
-                f'{item["name"]}: {item["progress"]}' for item in syncing
-            )
         if any(item['level'] in MIRROR_LEVELS for item in mismatched):
             msg += f'\n{MIRROR_MISMATCH_HELP}'
-        if any(item['level'] in PARITY_LEVELS for item in mismatched):
-            msg += f'\n{PARITY_MISMATCH_HELP}'
-        if broken:
-            msg += f'\n{BROKEN_HELP}'
-        if inactive:
-            msg += f'\n{INACTIVE_HELP}'
-        if degraded:
-            msg += f'\n{REMEDIATION}'
-        if replaced:
-            msg += f'\n{REPLACED_HELP}'
+        parity = [item for item in mismatched if item['level'] in PARITY_LEVELS]
+        if parity:
+            msg += '\n' + parity_mismatch_help([item['name'] for item in parity])
+        for item in broken:
+            msg += f'\n{broken_help(item["name"])}'
+        for item in inactive:
+            msg += f'\n{inactive_help(item["name"])}'
+        for item in degraded:
+            msg += '\n' + remediation(
+                item['name'],
+                item['faulty'],
+                item['read_only'],
+                item['rebuilding'],
+            )
+        for item in replaced:
+            msg += f'\n{replaced_help(item["name"], item["faulty"])}'
 
     perfdata += lib.base.get_perfdata('arrays', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata(
@@ -834,6 +991,7 @@ def main():
         if args.LENGTHY:
             keys = [
                 'array',
+                'label',
                 'level',
                 'devices',
                 'metadata',
@@ -844,6 +1002,7 @@ def main():
             ]
             headers = [
                 'Array',
+                'Name',
                 'Level',
                 'Devices',
                 'Metadata',

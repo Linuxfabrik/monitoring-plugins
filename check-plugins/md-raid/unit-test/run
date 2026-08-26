@@ -62,6 +62,16 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                                 written to. Both the kernel log and `array_state` say
 #                                 broken while every member still reads `in_sync`,
 #                                 because raid0 never marks a member faulty
+#   raid1-degraded-read-only      a degraded array put into read-only mode. Adding a
+#                                 member to it fails with EROFS, which the instruction
+#                                 has to take into account
+#   raid5-empty-slot-idle         a degraded array whose failed member was removed and
+#                                 that has nothing rebuilding, so the slot is simply
+#                                 unfilled. There is nothing to take out here, which is a
+#                                 different instruction from the one a faulty member gets
+#   named-and-unnamed             an array created as `/dev/md/raid5` next to one
+#                                 without a name. The kernel device is `md127` and the
+#                                 udev symlink carries the name
 #   raid5-healthy-with-spare      a spare sitting in an otherwise complete array
 #   raid5-spare-took-over         the same array after `mdadm --fail`, once the spare
 #                                 has finished rebuilding. The array is back to `[3/3]
@@ -79,9 +89,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #   no-md-support                 a kernel with no md support loaded at all, where
 #                                 /proc/mdstat does not exist. An empty directory never
 #                                 reaches git, so the tree carries a neighbouring file.
-#                                 This is not the same case as `no-arrays`: there the md
-#                                 code is in the kernel and the arrays are gone, here the
-#                                 host never had one
+#                                 This is not the same case as `no-arrays`: there the
+#                                 md code is in the kernel and the arrays are gone, here
+#                                 the host never had one
 #
 # One wording is neither captured nor fixtured: `resync=DELAYED`, which an array gets
 # while another array on the same physical disk syncs first. It reaches the check
@@ -109,7 +119,7 @@ TESTS = [
         'assert-retc': STATE_OK,
         # both levels publish no degraded counter, and the check must read that as
         # "not applicable" instead of as a missing member
-        'assert-regex': r'md0\s+!\s+raid0\s+!\s+2\s',
+        'assert-regex': r'md0\s+!\s+-\s+!\s+raid0\s+!\s+2\s',
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
@@ -164,7 +174,7 @@ TESTS = [
         'params': '--config-root=config/raid1-mismatch',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'md0 carries 512 inconsistent sectors from the last consistency check.',
+            'md0: 512 inconsistent sectors from the last consistency check.',
             "'md0_mismatch_cnt'=512",
             'does not have to mean corruption',
         ],
@@ -185,7 +195,7 @@ TESTS = [
         'assert-retc': STATE_WARN,
         # the array is complete again, so nothing but the member flag says a disk died
         'assert-in': [
-            'md1 is complete again but still carries 1 failed member: vdc.',
+            'md1: complete again but still carrying 1 failed member (vdc).',
             "'arrays_degraded'=0",
             "'devices_faulty'=1",
         ],
@@ -195,7 +205,38 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/raid5-spare-took-over --severity=ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['still carries 1 failed member'],
+        'assert-in': ['still carrying 1 failed member (vdc)'],
+    },
+    {
+        'id': 'ok-a-named-array-is-reported-with-its-name',
+        'test': '',
+        'params': '--config-root=config/named-and-unnamed --lengthy',
+        'assert-retc': STATE_OK,
+        # the kernel device stays the identifier, in the table and in the performance
+        # data, and the name the array was created under sits beside it
+        'assert-regex': r'md127\s+!\s+raid5\s+!\s+raid5\s',
+        'assert-in': ["'md127_mismatch_cnt'=0", 'md0   ! -'],
+    },
+    {
+        'id': 'ok-a-filter-matches-the-name-as-well-as-the-device',
+        'test': '',
+        'params': '--config-root=config/named-and-unnamed --match=^raid5$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 software RAID array, intact.', 'md127'],
+        'assert-not-in': ['md0 '],
+    },
+    {
+        'id': 'warn-degraded-array-with-an-empty-slot',
+        'test': '',
+        'params': '--config-root=config/raid5-empty-slot-idle',
+        'assert-retc': STATE_WARN,
+        # nothing was thrown out, a slot simply never got filled, so the instruction
+        # must not name a member to remove
+        'assert-in': [
+            'md0 is short of a member without the kernel having thrown one out',
+            '`mdadm --detail /dev/md0`',
+        ],
+        'assert-not-in': ['--remove'],
     },
     {
         'id': 'warn-degraded-array',
@@ -203,17 +244,43 @@ TESTS = [
         'params': '--config-root=config/raid10-degraded',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'md2 is degraded and runs on 3 of 4 devices.',
+            'md2: degraded, running on 3 of 4 devices.',
+            # the commands name this host's array and this host's member, never an
+            # example device somebody could copy onto the wrong array
+            'md2 lost vde.',
+            '`mdadm /dev/md2 --remove /dev/vde`',
             "'arrays_degraded'=1",
             "'devices_faulty'=1",
         ],
+        'assert-not-in': ['/dev/md0', '/dev/sdb'],
+    },
+    {
+        'id': 'warn-degraded-read-only-array-needs-readwrite-first',
+        'test': '',
+        'params': '--config-root=config/raid1-degraded-read-only',
+        'assert-retc': STATE_WARN,
+        # adding a member to a read-only array fails with EROFS, so the instruction has
+        # to say what comes before the --add
+        'assert-in': [
+            '`mdadm /dev/md0 --remove /dev/vda`',
+            '`mdadm --readwrite /dev/md0` comes first',
+        ],
+    },
+    {
+        'id': 'warn-degraded-array-does-not-mention-readwrite',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded',
+        'assert-retc': STATE_WARN,
+        # a read-write array needs no such step, and an auto-read-only one is switched
+        # over by the kernel itself
+        'assert-not-in': ['--readwrite'],
     },
     {
         'id': 'warn-degraded-array-while-recovering',
         'test': '',
         'params': '--config-root=config/raid1-recovery-onto-spare',
         'assert-retc': STATE_WARN,
-        'assert-in': ['md0 is degraded and runs on 1 of 2 devices.', 'md0: recovery '],
+        'assert-in': ['md0: recovery 1.5%', 'already rebuilding onto a replacement'],
     },
     {
         'id': 'crit-degraded-array-raised',
@@ -227,7 +294,7 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/raid10-degraded --severity=ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['md2 is degraded'],
+        'assert-in': ['md2: degraded, running on 3 of 4 devices.'],
     },
     {
         'id': 'crit-broken-mirror',
@@ -235,7 +302,7 @@ TESTS = [
         'params': '--config-root=config/raid1-broken',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'md0 is broken.',
+            'md0: broken.',
             'mdadm --assemble --force',
             "'arrays_broken'=1",
         ],
@@ -246,14 +313,14 @@ TESTS = [
         'params': '--config-root=config/raid0-broken --lengthy',
         'assert-retc': STATE_CRIT,
         # raid0 never marks a member faulty, so the array-level word is the only signal
-        'assert-in': ['md0 is broken.', "'devices_faulty'=0"],
+        'assert-in': ['md0: broken.', "'devices_faulty'=0"],
     },
     {
         'id': 'crit-inactive-array',
         'test': '',
         'params': '--config-root=config/raid1-inactive',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['md0 is inactive.', "'arrays_inactive'=1", 'mdadm --detail'],
+        'assert-in': ['md0: inactive.', "'arrays_inactive'=1", 'mdadm --detail'],
         'assert-not-in': ["'arrays_broken'=1"],
     },
     {
@@ -323,7 +390,7 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/raid1-broken --always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['md0 is broken.'],
+        'assert-in': ['md0: broken.'],
     },
     {
         'id': 'ok-no-perfdata',

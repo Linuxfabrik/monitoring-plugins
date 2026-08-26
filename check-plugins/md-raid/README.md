@@ -24,6 +24,8 @@ Below that, a redundant array reports how many members it wants and how many are
 * **RAID 0 and linear arrays report almost nothing, and that is not a gap in the check.** They have no redundancy, so the kernel gives them no device counters, no `degraded` attribute and no consistency check. A member that fails while it is still plugged in is invisible: the array keeps reporting `active` and the I/O errors go to whoever was reading. Only a member that is really gone from the system flips the array to `broken`, and even that happens on the first I/O that touches it, not at the moment the disk disappears. Measured on kernel 7.1 by removing the member's PCI device: the array stayed `active` with every member still `in_sync` until something wrote to it. Where the data on a RAID 0 matters, the disks below it need `disk-smart` as well.
 * **A consistency check is not run by itself.** The `mismatch_cnt` this check reports is whatever the last `check` or `repair` run left behind, and it stays at that value until the next one runs. Both the Red Hat and the Debian family ship a timer or cron job for it (`mdcheck_start.timer` / `mdcheck_continue.timer`, or `/etc/cron.d/mdadm`); on a host where none of them is enabled, the number reported here is meaningless because nothing ever produced it.
 * **A mismatch on a mirror is not the same finding as a mismatch on a parity array.** md(4) is explicit about it: on RAID 5 and RAID 6 "any mismatches should indicate a hardware problem at some level - software issues should never cause such a mismatch", while on RAID 1 and RAID 10 a page written while the check reads it, and above all a swap area, leave the copies different in a place nothing ever reads back, so "the mismatch_cnt value can not be interpreted very reliably". That is why `--mismatch-severity` defaults to `warn` and `--mirror-mismatch-severity` to `ok`. Both numbers are always reported and always in the performance data, so a mirror whose count keeps growing from check to check is still visible on the graph.
+* **The commands in the output name this host's array and this host's member.** Where the check reports a problem, the `mdadm` lines it suggests carry the real names it just read, so they can be copied without being checked against the machine first. The one thing it cannot know is the device of the replacement disk, and the text asks for it in words rather than inventing a path.
+* **Neither the kernel device nor the array name is a stable identifier, so both are reported.** The kernel hands out `md127` from a pool when the array is assembled, which can differ between boots on a host with several arrays, and the name an array was created under gains a `<homehost>:` prefix as soon as mdadm stops treating the array as local. Measured on a host still called `localhost.localdomain`, where the same array was `/dev/md/raid5` after creation and `/dev/md/localhost.localdomain:raid5` after the next boot. The kernel device is what every `mdadm` command and every path below `/sys` takes, so it is the identifier the check reports and labels its performance data with; `--lengthy` shows the name beside it, and `--match` and `--ignore` accept either.
 * **A spare that stepped in does not close the case.** Once the rebuild is done the array reports its full width again and the kernel's `degraded` counter is back to zero, while the member it threw out is still attached and still flagged. Nothing is degraded and a disk has died all the same, which is why the check keeps reporting such an array until the failed device is removed. The array also has no spare left, so the next failure has nothing to fall back on.
 * **A rebuild does not raise the state by itself.** An array that is recovering onto a spare is degraded, and the degradation is what alerts; the progress is reported next to it. An array that is merely resyncing after an unclean shutdown, being checked, or being reshaped, is not a problem and stays OK.
 * **The count of inconsistent sectors is not the count of bad sectors.** md works in units much larger than a sector, so a single error inside a 64 KiB unit adds 128 to the counter.
@@ -145,19 +147,20 @@ md1   ! raid5 ! 4/4 [UUUU] ! active
 Output while an array rebuilds onto a spare after a disk was replaced:
 
 ```text
-md0 is degraded and runs on 1 of 2 devices.
-md0: recovery 1.5%, 1m left, 2.0MiB/s
-Find out which member the kernel threw out and why (`cat /proc/mdstat`, `journalctl --dmesg --grep=md`, `smartctl --all /dev/sdb`), remove it from the array, replace the hardware and add the new device back with `mdadm /dev/md0 --add /dev/sdb1`. The array rebuilds on its own from there. Until it is done, the array has no redundancy left to lose.
+md0: recovery 1.5%, 1m left, 2.0MiB/s, degraded, running on 1 of 2 devices.
+md0 is already rebuilding onto a replacement, so let it finish. The member the kernel threw out (vda) can be taken out at any point with `mdadm /dev/md0 --remove /dev/vda`. Until the rebuild is done, the array has no redundancy left to lose.
 
 Array ! Level ! Devices  ! State
 ------+-------+----------+-------------------
 md0   ! raid1 ! 1/2 [_U] ! degraded [WARNING]
 ```
 
+A running resync, recovery, reshape or check always leads that first line, because whether an array is already healing decides what happens next, and the first line is the only part of the output a service list and a notification show.
+
 Output after a spare finished rebuilding, where the array is complete again and the dead disk is still in it:
 
 ```text
-md1 is complete again but still carries 1 failed member: vdc.
+md1: complete again but still carrying 1 failed member (vdc).
 The array is back to its full width, so a spare has stepped in or the member was replaced, and the device the kernel threw out is still attached. Take it out with `mdadm /dev/md0 --remove /dev/sdb1` and put a new spare in, because the next failure has nothing left to fall back on.
 
 Array ! Level ! Devices   ! State
@@ -168,7 +171,7 @@ md1   ! raid5 ! 3/3 [UUU] ! failed member attached [WARNING]
 Output on an array the kernel has given up on:
 
 ```text
-md0 is broken.
+md0: broken.
 The kernel has stopped serving this array. Do not write to it and do not recreate it: `mdadm --assemble --force` on the members that are still readable is the way back, and it needs the members left untouched.
 
 Array ! Level ! Devices  ! State
@@ -276,6 +279,14 @@ The kernel threw a member out, or a member never turned up. The array still serv
     ```bash
     mdadm /dev/md0 --add /dev/sdb1
     ```
+
+    On an array that is read-only, this fails with `add new device failed [...]: Read-only file system`, because the kernel refuses every superblock-changing operation there. Make it writable first:
+
+    ```bash
+    mdadm --readwrite /dev/md0
+    ```
+
+    An array that is only *auto* read-only needs nothing of the sort, the kernel switches it over by itself at that point. The check names the state in its output and adds the step where it applies.
 
 5. On a boot disk, put the boot loader on the new member as well. A mirror only boots from the disk that carries one:
 
