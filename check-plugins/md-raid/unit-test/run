@@ -78,7 +78,10 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #
 #   no-md-support                 a kernel with no md support loaded at all, where
 #                                 /proc/mdstat does not exist. An empty directory never
-#                                 reaches git, so the tree carries a neighbouring file
+#                                 reaches git, so the tree carries a neighbouring file.
+#                                 This is not the same case as `no-arrays`: there the md
+#                                 code is in the kernel and the arrays are gone, here the
+#                                 host never had one
 #
 # One wording is neither captured nor fixtured: `resync=DELAYED`, which an array gets
 # while another array on the same physical disk syncs first. It reaches the check
@@ -272,7 +275,10 @@ TESTS = [
         'test': '',
         'params': '--config-root=config/no-md-support',
         'assert-retc': STATE_WARN,
-        'assert-in': ['No software RAID array on this host'],
+        # a kernel that never assembled an array carries no /proc/mdstat at all, which
+        # is a different statement from a host whose arrays are gone
+        'assert-in': ['This kernel has no software RAID support loaded'],
+        'assert-not-in': ['Either every array was dismantled'],
     },
     {
         'id': 'ok-match-picks-one-array',

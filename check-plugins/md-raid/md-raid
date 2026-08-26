@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026082602'
 
 DESCRIPTION = """Reports the health of the Linux software RAID arrays (md) on this host: how
 many member devices each array is running on, which of them the kernel has thrown out,
@@ -173,6 +173,15 @@ PARITY_MISMATCH_HELP = (
     '(`smartctl --all /dev/sdb`, `journalctl --dmesg --grep=md`), then rewrite the '
     'parity with `echo repair > /sys/block/md0/md/sync_action` and run another check '
     'afterwards to confirm the count went to zero.'
+)
+
+NO_MD_HELP = (
+    'The `md` code reaches the kernel with the first array that is assembled, so a host '
+    'that never had one does not carry /proc/mdstat at all. Where this host is supposed '
+    'to run an array, `mdadm --examine --scan` reads the superblocks that are still on '
+    'the disks; where it is not, this check does not belong on it. The `mdadm` package '
+    'on its own says nothing either way, because the initial ramdisk pulls it in on '
+    'hosts that never assemble an array.'
 )
 
 NO_ARRAYS_HELP = (
@@ -465,19 +474,20 @@ def get_arrays(root):
     """
     Read every software RAID array the kernel knows about.
 
-    Returns (True, list). The list is empty where the host runs no array, which is also
-    what a kernel without md support looks like from the outside.
+    Returns (True, (arrays, has_md)). `has_md` is False where the kernel has no md
+    support loaded at all, which is a different thing from a host whose arrays are gone:
+    the file only exists once the md code is in the kernel.
     """
     path = os.path.join(root, MDSTAT.lstrip('/'))
     if not lib.disk.file_exists(path, allow_empty=True):
-        return (True, [])
+        return (True, ([], False))
     success, content = lib.disk.read_file(path)
     if not success:
         return (False, content)
     arrays = parse_mdstat(content)
     for array in arrays:
         array['sysfs'] = read_sysfs(root, array['name'])
-    return (True, arrays)
+    return (True, (arrays, True))
 
 
 def to_int(value):
@@ -644,7 +654,7 @@ def main():
             'Software RAID arrays of this kind are a Linux kernel feature. '
             'This check belongs on a Linux host.'
         )
-    arrays = lib.base.coe(get_arrays(args.CONFIG_ROOT))
+    arrays, has_md = lib.base.coe(get_arrays(args.CONFIG_ROOT))
 
     # init some vars
     msg = ''
@@ -711,10 +721,16 @@ def main():
 
     # build the message
     if not arrays:
-        msg = (
-            'No software RAID array on this host, so nothing could be checked.\n'
-            f'{NO_ARRAYS_HELP}'
-        )
+        if has_md:
+            msg = (
+                'No software RAID array on this host, so nothing could be checked.\n'
+                f'{NO_ARRAYS_HELP}'
+            )
+        else:
+            msg = (
+                'This kernel has no software RAID support loaded, so there is no array '
+                f'on this host.\n{NO_MD_HELP}'
+            )
         state = lib.base.get_worst(state, lib.base.str2state(args.NO_ARRAYS_SEVERITY))
     elif not table_data:
         count = len(arrays)

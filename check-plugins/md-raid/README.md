@@ -221,7 +221,7 @@ Leave a single array out, for example one that is deliberately kept degraded:
 * OK with the count reported if the last consistency check on a mirror (RAID 1, RAID 10) found inconsistent sectors. `--mirror-mismatch-severity` raises it.
 * CRIT if the kernel reports an array as `broken`, which is its own word for an array that can no longer serve its data.
 * CRIT if an array is `inactive`, which means it was assembled but never started.
-* WARN if the host runs no software RAID array at all, including on a kernel that has no md support loaded. `--no-arrays-severity` changes it.
+* WARN if the host runs no software RAID array at all, and WARN with a different explanation on a kernel that has no md support loaded, which are two different statements. `--no-arrays-severity` changes both.
 * OK if `--match` and `--ignore` leave nothing to check. `--no-match-severity` raises that.
 * UNKNOWN if `--match` or `--ignore` is not a valid Python regular expression.
 * UNKNOWN if the check does not run on Linux.
@@ -361,7 +361,7 @@ mdadm --assemble --force --run /dev/md0 /dev/sda1
 
 ### `No software RAID array on this host`
 
-The check found no array, either because `/proc/mdstat` lists none or because the kernel has no md support loaded at all. Both look the same from the outside.
+`/proc/mdstat` is there, so the kernel has the md code, and it lists no array. Either the arrays were dismantled, or their members did not turn up at boot.
 
 ```bash
 cat /proc/mdstat
@@ -371,6 +371,25 @@ mdadm --examine --scan
 Where the second command prints array definitions and the first does not, the superblocks are still on the disks and only the assembly failed; put what it prints into `/etc/mdadm.conf` (Red Hat family) or `/etc/mdadm/mdadm.conf` (Debian family), rebuild the initial ramdisk and reboot.
 
 Where both come up empty, this host has no software RAID and the check does not belong on it. Until it is taken off, silence it:
+
+```bash
+./md-raid --no-arrays-severity=ok
+```
+
+### `This kernel has no software RAID support loaded`
+
+There is no `/proc/mdstat` at all. The `md` code reaches the kernel with the first array that is assembled, so a host that never had one does not carry the file, and this message means the check landed on a host that has never run software RAID.
+
+An installed `mdadm` package says nothing either way: on the Red Hat family it sits in `@baseos` and the initial ramdisk pulls it in, so it is present on hosts that will never assemble an array. That is why the check is rolled out by the presence of an array rather than by the package.
+
+Where this host is supposed to run an array, the superblocks on the disks say what it was:
+
+```bash
+mdadm --examine --scan
+mdadm --assemble --scan
+```
+
+Where it is not, take the check off the host, and silence it until then:
 
 ```bash
 ./md-raid --no-arrays-severity=ok
