@@ -60,6 +60,7 @@ Monitoring Plugins:
 * apache-httpd-status: worker usage counts every busy slot, so a graceful restart no longer reads as an idle server; rates replace per-interval totals and `ExtendedStatus Off` no longer blanks most metrics
 * cert: reaches a TLS endpoint through an HTTP proxy, so the certificate an external client sees can be checked from inside ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * countdown: reports its dates as a table, thresholds accept Nagios ranges, and days left are reported as performance data
+* cpu-usage: alerts when an oversubscribed hypervisor takes CPU time away from a virtual machine, at 10% steal by default
 * deb-updates, rpm-updates: `--grace-updates` and `--grace-security` hold an alert back until an update has been pending for a while, so a host stays quiet about updates it has had no chance to install yet. Both are off in the plugin; the Director service template sets a week plus a day for ordinary updates and nothing for security ones
 * dmesg: fewer false alarms on physical servers and in virtual machines
 * file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
@@ -70,6 +71,7 @@ Monitoring Plugins:
 * nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: a password reset or a rescue image no longer alerts as CRITICAL
 * openstack-swift-stat: alerts on the object quota of a container and on the account quota, reuses the token of the previous run, reads only the containers the filters keep, and no longer drops one the store refused
+* procs: reports how many processes the system creates per second, which a headcount of running processes never shows (Linux only)
 
 Icinga Director:
 
@@ -83,7 +85,9 @@ Icinga Director:
 Grafana:
 
 * apache-httpd-status: re-import the dashboard, the metric names changed
+* cpu-usage: re-import the dashboard, it has panels for steal time and for the per-core utilization
 * kvm-vm: import the dashboard, the check ships one now
+* procs: re-import the dashboard, it has a panel for the fork rate
 
 ### Removed
 
@@ -106,6 +110,7 @@ Monitoring Plugins:
 
 * apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`; they connected directly no matter what was set
 * countdown: a malformed `--input` names the date it cannot read instead of printing a traceback
+* cpu-usage: the CPU percentages of a host running virtual machines were wrong, guest time was counted twice
 * deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs of the same check at the same time no longer report each other's rows
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update that only the security repository offers
 * disk-usage: the warning and critical lines in the graphs stay on the chart for filesystems smaller than an absolute `FREE` threshold
@@ -118,7 +123,7 @@ Monitoring Plugins:
 * kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
 * openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
-* redfish-*: the checks recover on their own after a management controller drops its sessions, instead of failing until their cached credentials expire. They also log in far less often, no longer leave a session behind on every login, and retry a login that fails once instead of falling back to slower authentication ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* redfish-\*: the checks recover on their own after a management controller drops its sessions, instead of failing until their cached credentials expire. They also log in far less often, no longer leave a session behind on every login, and retry a login that fails once instead of falling back to slower authentication ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 
 Icinga Director:
 
