@@ -1,0 +1,259 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every fixture below is the verbatim answer of `multipathd show maps json` from a qemu
+# guest on kernel 7.1 running multipath-tools 0.13.1, with the storage faked by
+# `scsi_debug num_tgts=1 max_luns=2 add_host=2 vpd_use_hostno=0`: two LUNs reachable over
+# two SCSI hosts, which multipathd assembles into two maps of two paths each. The guest
+# ran a real systemd-udevd, because multipathd enumerates block devices through libudev
+# with `udev_enumerate_add_match_is_initialized()` and sees nothing at all without one.
+#
+#   two-maps-healthy       both maps complete, `mpatha` and `mpathb` over four paths
+#   one-path-failed        one path taken out at the device-mapper level. The checker
+#                          catches up within the same round trip, so `dm_st` and `chk_st`
+#                          agree on `failed` / `faulty`
+#   map-without-any-path   both paths of `mpatha` set to `offline` in sysfs. The map is
+#                          still there with zero usable paths and `queueing` counting the
+#                          seconds down until it starts failing the I/O it is holding
+#   map-suspended          the same, plus `dmsetup suspend` on the second map, which
+#                          reports `dm_st: suspend` while all of its paths are healthy
+#   one-path-removed       one path device deleted from the system. multipathd drops it
+#                          from the map, so the map reports one path and looks complete.
+#                          This is the case only `--count` or `--map=name=count` can
+#                          catch
+#   no-maps                every path of every map deleted. multipathd flushes a map whose
+#                          last path is gone, so the answer is an empty map list rather
+#                          than a map with zero paths
+#
+# The error paths are fixtures of their own: `stderr/daemon-not-running` carries what the
+# client prints when multipathd is not listening, captured with the daemon stopped, and
+# `stdout/empty` stands for an answer that arrived empty.
+#
+# One branch has no test here: a host without the `multipathd` command at all. `--test`
+# stands in for the command's output and therefore never reaches the call that fails, and
+# a test that let the call happen would pass or fail depending on whether the machine
+# running the suite has the multipath tools installed. It was exercised by hand instead,
+# on a workstation without them and on a Rocky 8 host.
+TESTS = [
+    {
+        'id': 'ok-two-maps-complete',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 multipath maps, 4 of 4 paths usable.',
+            "'paths_usable'=4",
+            "'paths_dead'=0",
+        ],
+    },
+    {
+        'id': 'ok-lengthy-adds-the-wwid-and-the-device',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['WWID', 'Device', '333333330000007d0', 'dm-0'],
+    },
+    {
+        'id': 'ok-default-output-hides-the-extra-columns',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['WWID', 'Queueing'],
+    },
+    {
+        'id': 'warn-one-path-of-a-map-is-dead',
+        'test': 'stdout/one-path-failed,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'mpatha runs on 1 of 2 paths.',
+            'mpatha: sda is faulty',
+            "'paths_dead'=1",
+            "'maps_degraded'=1",
+        ],
+    },
+    {
+        'id': 'ok-one-dead-path-tolerated',
+        'test': 'stdout/one-path-failed,,0',
+        'params': '--warning=50: --critical=25:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 multipath maps, 3 of 4 paths usable.'],
+    },
+    {
+        'id': 'crit-one-dead-path-raised',
+        'test': 'stdout/one-path-failed,,0',
+        'params': '--critical=100:',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'1 usable\s+\[CRITICAL\]',
+    },
+    {
+        'id': 'crit-map-without-any-usable-path',
+        'test': 'stdout/map-without-any-path,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'mpatha has no usable path left of 2.',
+            'is holding its I/O for another 55 sec',
+            "'maps_without_path'=1",
+        ],
+    },
+    {
+        'id': 'crit-suspended-map',
+        'test': 'stdout/map-suspended,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        # every path of the map is healthy, so only the map state can raise this
+        'assert-in': ['mpathb is suspended and blocks every I/O.', 'suspended'],
+    },
+    {
+        'id': 'ok-a-vanished-path-is-invisible-without-an-expectation',
+        'test': 'stdout/one-path-removed,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 of 1 paths usable'],
+    },
+    {
+        'id': 'warn-a-vanished-path-is-caught-against-a-pinned-count',
+        'test': 'stdout/one-path-removed,,0',
+        'params': '--map=333333330000007d0=2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['runs on 1 of 2 paths.', "'paths_expected'=2"],
+    },
+    {
+        'id': 'warn-a-vanished-path-is-caught-against-the-host-wide-count',
+        'test': 'stdout/one-path-removed,,0',
+        'params': '--count=2',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['runs on 1 of 2 paths.', "'paths_expected'=2"],
+    },
+    {
+        'id': 'warn-the-host-wide-count-covers-every-map',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--count=4',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['mpatha runs on 2 of 4 paths', 'mpathb runs on 2 of 4 paths'],
+    },
+    {
+        'id': 'ok-a-pinned-map-overrides-the-host-wide-count',
+        'test': 'stdout/two-maps-healthy,,0',
+        # --map names mpatha and pins it at its real width, so the host-wide --count
+        # neither applies to it nor drags in the map nobody named
+        'params': '--count=4 --map=mpatha=2',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 multipath map, 2 of 2 paths usable.'],
+        'assert-not-in': ['mpathb'],
+    },
+    {
+        'id': 'crit-pinned-map-does-not-exist',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--map=mpathz',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['mpathz is not among the maps multipathd holds.'],
+    },
+    {
+        'id': 'unknown-malformed-map-count',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--map=mpatha=two',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --map count'],
+    },
+    {
+        'id': 'ok-ignore-drops-the-degraded-map',
+        'test': 'stdout/one-path-failed,,0',
+        'params': '--ignore=^mpatha$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['mpatha'],
+    },
+    {
+        'id': 'ok-everything-filtered-out',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--ignore=^mpath',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by --map or --ignore'],
+    },
+    {
+        'id': 'warn-everything-filtered-out-raised',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--ignore=^mpath --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['filtered out by --map or --ignore'],
+    },
+    {
+        'id': 'warn-no-map-at-all',
+        'test': 'stdout/no-maps,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['multipathd holds no map', "'maps'=0"],
+    },
+    {
+        'id': 'ok-no-map-at-all-lowered',
+        'test': 'stdout/no-maps,,0',
+        'params': '--no-maps-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['multipathd holds no map'],
+    },
+    {
+        'id': 'warn-daemon-not-listening',
+        'test': 'stdout/empty,stderr/daemon-not-running,1',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'multipathd is not answering on its control socket.',
+            'systemctl enable --now multipathd.service',
+        ],
+    },
+    {
+        'id': 'unknown-empty-answer',
+        'test': 'stdout/empty,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['multipathd answered nothing at all'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--ignore=[',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'ok-always-ok-suppresses-a-map-without-paths',
+        'test': 'stdout/map-without-any-path,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['mpatha has no usable path left of 2.'],
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/two-maps-healthy,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'maps'="],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../multipath'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

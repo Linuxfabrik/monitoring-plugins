@@ -1,0 +1,677 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import json
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082601'
+
+DESCRIPTION = """Checks the device-mapper multipath maps on this host: how many of the
+paths to each LUN are usable, which of them the path checker has declared dead, and
+whether a map has run out of paths altogether and is queueing the I/O that reaches it.
+The number of usable paths is compared against an expected count as a percentage, so a
+LUN that lost one of its paths warns long before the last one goes and the storage
+disappears. Every map is graded against the number of paths it currently holds, which
+cannot catch a path that disappeared from the map entirely; --count states how many paths
+a LUN on this host is supposed to have and closes that gap, and --map pins a single map
+that has a different number.
+Alerts when a map is running on fewer usable paths than expected, and when it has none
+left.
+Supports extended reporting via --lengthy."""
+
+# multipathd answers this on its control socket. Read commands are allowed for any local
+# user (multipathd/uxlsnr.c only refuses a non-root client a verb other than `list`, and
+# `show` is an alias of `list`), and the binary's own root check sits behind the branch
+# that handles client mode, so this needs no sudo. Verified on multipath-tools 0.13.1:
+# the same call returns the full map list as an unprivileged user, while
+# `multipathd reconfigure` answers "permission deny: need to be root".
+MULTIPATHD_COMMAND = ['multipathd', 'show', 'maps', 'json']
+
+# The answer carries its own schema version, and it has read `"major_version": 0,
+# "minor_version": 1` since the JSON output was added in 0.6.2 (2016). Every field this
+# check reads exists in that first version, `marginal_st` arrived in 0.8.x and `lun_hex`
+# in 0.9.4, and nothing was renamed or dropped up to 0.15.0. Checked over the whole
+# release range, so the parser covers every distribution we ship to and then some. The
+# non-root permission model is as old as 0.7.0.
+
+# What the path checker last saw, from libmultipath/print.c:snprint_chk_state(). The
+# complete list, with what each of them means for this check:
+#
+#   ready         the path answered, I/O can go over it                    usable
+#   ghost         a passive path of an active/passive array. It answers    usable
+#                 the checker but no I/O until the array activates it
+#   i/o pending   a check is in flight and has not answered yet            usable
+#   faulty        the checker got an error, the path is dead               not usable
+#   shaky         emc_clariion only: not available for normal operation    not usable
+#   i/o timeout   the check itself timed out                               not usable
+#   delayed       the path came back and is being held out of the map      not usable
+#                 until it has stayed up for a configured number of checks
+#   disconnected  the target dropped the LUN. Documented as ephemeral and  not usable
+#                 immediately turned into a dead path, so it should never
+#                 be seen here
+#   undef         everything the printer does not have a word for, which   not usable
+#                 covers the `wild`, `unchecked` and `removed` states of
+#                 the checker
+#
+# `ready`, `ghost` and `i/o pending` are the same three states that upstream itself
+# accepts as "this map still has paths" in libmultipath/structs.c, so the split follows
+# multipathd's own judgement rather than one of ours.
+CHECKER_USABLE = ('ghost', 'i/o pending', 'ready')
+
+# What device-mapper currently does with the path, from snprint_dm_path_state():
+# `active` carries I/O, `failed` does not, `undef` is a path it has no state for.
+# multipathd keeps this and the checker state in step, so the two normally agree.
+DM_PATH_ACTIVE = 'active'
+
+# The map itself, from snprint_dm_map_state(). A suspended map blocks every I/O that
+# reaches it, whatever its paths report.
+DM_MAP_SUSPENDED = 'suspend'
+
+# A path multipathd considers unreliable, from snprint_path_marginal(). It is kept out
+# of the normal path groups while it flaps, so the map runs on less than it looks like.
+MARGINAL = 'marginal'
+
+DEFAULT_COUNT = None
+DEFAULT_CRIT = '50:'
+DEFAULT_LENGTHY = False
+DEFAULT_MARGINAL_SEVERITY = 'warn'
+DEFAULT_NO_MAPS_SEVERITY = 'warn'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '100:'
+
+# Named here so the same words reach the plugin output and the README.
+NO_DAEMON_HELP = (
+    'multipathd is what watches the paths and fails I/O over to a surviving one, so '
+    'while it is down the paths are neither monitored nor managed. Start it with '
+    '`systemctl enable --now multipathd.service` and look at '
+    '`journalctl --unit=multipathd` for why it stopped.'
+)
+
+NO_BINARY_HELP = (
+    'Install the multipath tools (`dnf install device-mapper-multipath` on the Red Hat '
+    'family, `apt install multipath-tools` on the Debian family), or stop running this '
+    'check on this host.'
+)
+
+NO_MAPS_HELP = (
+    'multipathd is running and holds no map at all. Either this host has no '
+    'multipathed storage, in which case this check does not belong here, or every '
+    'path to it is '
+    'gone: a map whose last path disappears is flushed, so the LUN does not turn up as '
+    'a map with zero paths but stops being listed. `multipath -ll`, `lsscsi` and '
+    '`grep dm_multipath /proc/modules` say which of the two it is.'
+)
+
+PATH_HELP = (
+    'Find out what happened to the dead paths before assuming the storage is at fault: '
+    '`multipath -ll` names the SCSI address behind each of them, and '
+    '`journalctl --dmesg --grep=sd` shows what the transport said about the device. '
+    'A path that is back but not in the map is reinstated with '
+    '`multipathd reinstate path sda`; one that is really gone comes back with a rescan '
+    'of its SCSI host.'
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--count',
+        help='Expected number of paths per multipath map. '
+        'A LUN in a fabric normally has the same number of paths as every other one, so '
+        'one value covers the whole host and catches a path that disappeared from a map '
+        'entirely, which comparing a map against itself cannot. '
+        '`--map` pins a single map that has a different number. '
+        'Example: `--count=4` on a host with two HBAs and two controllers. '
+        'Default: %(default)s, which grades every map against the paths it currently '
+        'holds.',
+        dest='COUNT',
+        type=int,
+        default=DEFAULT_COUNT,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the percentage of the expected paths that are usable, '
+        'compared as a Nagios range. '
+        'Supports Nagios ranges. '
+        'Example: `--critical=1:` alerts only once a map has no usable path left. '
+        'Default: %(default)s (critical when half of the paths or more are gone).',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--map',
+        help='Check this multipath map and, optionally, the number of paths it is '
+        'expected to have, written as `name=count`. '
+        'The name is the alias where the host uses one, and the WWID otherwise. '
+        'Without `=count` the map is graded against `--count`, and against its own '
+        'number of paths where that is not given either. '
+        'Can be specified multiple times; if given at least once, only the named maps '
+        'are checked. '
+        'Example: `--map=mpatha=4` alerts when the `mpatha` map does not have its four '
+        'paths, even after one of them disappeared from the map entirely. '
+        'Example: `--map=mpathb` checks `mpathb` against the paths it currently has. '
+        'Default: %(default)s',
+        dest='MAP',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--marginal-severity',
+        help='State to report for a path multipathd has declared marginal, which means '
+        'it went up and down often enough that the daemon keeps it out of the normal '
+        'path groups. '
+        'Default: %(default)s',
+        dest='MARGINAL_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_MARGINAL_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-maps-severity',
+        help='State to report when multipathd holds no map at all. '
+        'A map whose last path disappears is flushed rather than kept with zero paths, '
+        'so this is not necessarily a host without multipathed storage. '
+        'Default: %(default)s',
+        dest='NO_MAPS_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MAPS_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the percentage of the expected paths that are usable, '
+        'compared as a Nagios range. '
+        'Supports Nagios ranges. '
+        'Example: `--warning=60:` tolerates losing up to 40%% of the paths before '
+        'warning. '
+        'Default: %(default)s (warn as soon as one expected path is not usable).',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_map_specs(specs):
+    """Turn the --map values into an ordered {name: expected_paths} map. `count` is an
+    int when the spec is `name=count`, or None when only `name` is given, meaning fall
+    back to the number of paths the map currently holds. Exits UNKNOWN on a malformed
+    count so a typo does not silently disable the expectation.
+    """
+    expected = {}
+    for spec in specs:
+        if '=' in spec:
+            name, _, count = spec.partition('=')
+            try:
+                expected[name.strip()] = int(count)
+            except ValueError:
+                lib.base.cu(f'Invalid --map count in "{spec}", expected name=count.')
+        else:
+            expected[spec.strip()] = None
+    return expected
+
+
+def get_maps(args):
+    """
+    Ask multipathd for its maps.
+
+    Returns the parsed `maps` list. Ends the check itself where there is no answer to
+    report on, because a host that carries this check is a host whose storage is
+    supposed to be multipathed.
+    """
+    if args.TEST is None:
+        success, result = lib.shell.shell_exec(
+            MULTIPATHD_COMMAND,
+            timeout=args.TIMEOUT,
+        )
+        if not success:
+            # the library reports a missing executable the same way as any other
+            # failure to start the command, and that is the case worth naming
+            if 'No such file or directory' in result:
+                lib.base.oao(
+                    'The multipathd command is not installed on this host.\n'
+                    f'{NO_BINARY_HELP}',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
+            lib.base.cu(result)
+        stdout, stderr, retc = result
+    else:
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+
+    if retc != 0 or not stdout.strip():
+        text = ' '.join(f'{stderr}\n{stdout}'.split()).strip()
+        if 'failed to connect' in text.lower():
+            lib.base.oao(
+                f'multipathd is not answering on its control socket.\n{NO_DAEMON_HELP}',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        if not text:
+            lib.base.cu(
+                'multipathd answered nothing at all, so the state of the paths is '
+                'unknown. Ask it by hand with `multipathd show maps json`.'
+            )
+        lib.base.cu(f'multipathd did not answer: {text}')
+
+    try:
+        data = json.loads(stdout)
+    except (json.JSONDecodeError, ValueError):
+        lib.base.cu('Unable to parse the multipathd output.')
+    return data.get('maps') or []
+
+
+def analyze_paths(mpath):
+    """
+    Sort the paths of one map into usable, dead and marginal.
+
+    Returns (paths, usable, dead, marginal). `paths` carries one dict per path for the
+    table, in the order multipathd lists them.
+    """
+    paths = []
+    usable = []
+    dead = []
+    marginal = []
+    for group in mpath.get('path_groups') or []:
+        for path in group.get('paths') or []:
+            dev = path.get('dev') or '?'
+            checker_state = (path.get('chk_st') or 'undef').lower()
+            dm_state = (path.get('dm_st') or 'undef').lower()
+            is_marginal = (path.get('marginal_st') or '').lower() == MARGINAL
+            # A path counts only where both agree: the checker got an answer over it
+            # and device-mapper is actually sending I/O down it.
+            is_usable = checker_state in CHECKER_USABLE and dm_state == DM_PATH_ACTIVE
+            entry = {
+                'checker_state': checker_state,
+                'device': dev,
+                'device_state': (path.get('dev_st') or 'undef').lower(),
+                'dm_state': dm_state,
+                'group': group.get('group'),
+                'group_state': (group.get('dm_st') or 'undef').lower(),
+                'marginal': is_marginal,
+                'usable': is_usable,
+            }
+            paths.append(entry)
+            if is_usable:
+                usable.append(entry)
+            else:
+                dead.append(entry)
+            if is_marginal:
+                marginal.append(entry)
+    return (paths, usable, dead, marginal)
+
+
+def describe_path(path):
+    """Put one path into the phrase an administrator needs to go looking for it."""
+    text = f'{path["device"]} is {path["checker_state"]}'
+    if path['device_state'] != 'running':
+        text += f', the device is {path["device_state"]}'
+    if path['dm_state'] != DM_PATH_ACTIVE:
+        text += ', device-mapper has taken it out of the map'
+    if path['marginal']:
+        text += ', flagged marginal'
+    return text
+
+
+def analyze(mpath, expected_paths, args):
+    """Work out how one map is doing and how bad that is."""
+    name = mpath.get('name') or mpath.get('uuid') or '?'
+    paths, usable, dead, marginal = analyze_paths(mpath)
+    # A pinned count for this map wins, then the host-wide `--count`, and only where
+    # neither is given is the map graded against the paths it currently holds.
+    if expected_paths is None:
+        expected_paths = args.COUNT
+    expected = expected_paths if expected_paths is not None else len(paths)
+    # A map without any path at all would divide by zero here. It has already lost
+    # everything, so it is graded as nothing being left rather than as nothing to grade.
+    percent = 0 if expected <= 0 else len(usable) / expected * 100
+    state = lib.base.get_state(percent, args.WARN, args.CRIT, _operator='range')
+    suspended = (mpath.get('dm_st') or '').lower() == DM_MAP_SUSPENDED
+    if suspended:
+        state = lib.base.get_worst(state, STATE_CRIT)
+    if marginal:
+        state = lib.base.get_worst(state, lib.base.str2state(args.MARGINAL_SEVERITY))
+    return {
+        'dead': dead,
+        'dm_state': (mpath.get('dm_st') or 'undef').lower(),
+        'expected': expected,
+        'marginal': marginal,
+        'name': name,
+        'paths': paths,
+        # `queueing` counts down while a map without any path holds the I/O that
+        # reaches it, and says `off` once it starts failing it instead.
+        'queueing': mpath.get('queueing') or '-',
+        'suspended': suspended,
+        'state': state,
+        'sysfs': mpath.get('sysfs') or '-',
+        'usable': usable,
+        'uuid': mpath.get('uuid') or '-',
+    }
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    # args.MAP is not set here, None means "check every map"
+
+    # fetch data
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'Device-mapper multipath is a Linux kernel feature. '
+            'This check belongs on a Linux host.'
+        )
+    maps = get_maps(args)
+
+    # init some vars
+    msg = ''
+    msg_body = ''
+    perfdata = ''
+    state = STATE_OK
+    table_data = []
+    headline = []
+    maps_degraded = 0
+    maps_without_path = 0
+    paths_expected = 0
+    paths_dead = 0
+    paths_marginal = 0
+    paths_usable = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # decide which maps to check and how many paths each of them is expected to have.
+    # With --map the named maps are checked, against a pinned count or against what they
+    # currently hold; without it every map is checked against what it holds, minus
+    # --ignore.
+    maps_by_name = {}
+    for mpath in maps:
+        maps_by_name[mpath.get('name') or mpath.get('uuid') or '?'] = mpath
+    if args.MAP:
+        expected_map = parse_map_specs(args.MAP)
+        check_names = list(expected_map)
+    else:
+        expected_map = {}
+        check_names = [
+            name
+            for name in maps_by_name
+            if not any(item.search(name) for item in compiled_ignore)
+        ]
+
+    # analyze data
+    for name in sorted(check_names):
+        mpath = maps_by_name.get(name)
+
+        # a map named with --map that multipathd does not hold cannot be graded against
+        # a path count. Reporting it as ok would hide exactly what naming it was for.
+        if mpath is None:
+            state = lib.base.get_worst(state, STATE_CRIT)
+            maps_degraded += 1
+            headline.append(f'{name} is not among the maps multipathd holds')
+            table_data.append(
+                {
+                    'dm_state': '-',
+                    'map': name,
+                    'paths': '-',
+                    'queueing': '-',
+                    'state': (f'not found{lib.base.state2str(STATE_CRIT, prefix=" ")}'),
+                    'sysfs': '-',
+                    'uuid': '-',
+                }
+            )
+            continue
+
+        report = analyze(mpath, expected_map.get(name), args)
+        state = lib.base.get_worst(state, report['state'])
+        paths_dead += len(report['dead'])
+        paths_expected += report['expected']
+        paths_marginal += len(report['marginal'])
+        paths_usable += len(report['usable'])
+        if not report['usable']:
+            maps_without_path += 1
+        if report['state'] != STATE_OK:
+            maps_degraded += 1
+            problems = []
+            if not report['usable']:
+                problems.append(
+                    f'{name} has no usable path left of {report["expected"]}'
+                )
+            elif len(report['usable']) < report['expected']:
+                problems.append(
+                    f'{name} runs on {len(report["usable"])} of '
+                    f'{report["expected"]} paths'
+                )
+            if report['suspended']:
+                problems.append(f'{name} is suspended and blocks every I/O')
+            if report['marginal'] and len(report['usable']) >= report['expected']:
+                count = len(report['marginal'])
+                problems.append(
+                    f'{name} carries {count} marginal '
+                    f'{lib.txt.pluralize("path", count, ",s")}'
+                )
+            headline.extend(problems)
+            for path in report['dead'] + report['marginal']:
+                msg_body += f'{name}: {describe_path(path)}\n'
+
+        if report['suspended']:
+            status = 'suspended'
+        elif not report['usable']:
+            status = 'no usable path'
+        elif report['marginal']:
+            status = f'{len(report["usable"])} usable, marginal'
+        else:
+            status = f'{len(report["usable"])} usable'
+        table_data.append(
+            {
+                'dm_state': report['dm_state'],
+                'map': name,
+                'paths': f'{len(report["usable"])}/{report["expected"]}',
+                'queueing': report['queueing'],
+                'state': (f'{status}{lib.base.state2str(report["state"], prefix=" ")}'),
+                'sysfs': report['sysfs'],
+                'uuid': report['uuid'],
+            }
+        )
+
+    # build the message
+    if not maps:
+        msg = f'multipathd holds no map, so nothing could be checked.\n{NO_MAPS_HELP}'
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MAPS_SEVERITY))
+    elif not table_data:
+        count = len(maps)
+        msg = (
+            f'{count} multipath {lib.txt.pluralize("map", count, ",s")} on this host, '
+            f'filtered out by --map or --ignore.'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+    else:
+        checked = len(table_data)
+        if headline:
+            msg = f'{". ".join(headline)}.'
+        else:
+            msg = (
+                f'{checked} multipath {lib.txt.pluralize("map", checked, ",s")}, '
+                f'{paths_usable} of {paths_expected} paths usable.'
+            )
+        queueing = [
+            row
+            for row in table_data
+            if row['paths'].startswith('0/') and row['queueing']
+        ]
+        for row in queueing:
+            if row['queueing'] not in ('-', 'off'):
+                msg += (
+                    f'\n{row["map"]} is holding its I/O for another '
+                    f'{row["queueing"]} before it starts failing it.'
+                )
+            elif row['queueing'] == 'off':
+                msg += f'\n{row["map"]} is failing every I/O that reaches it.'
+        if msg_body:
+            msg += f'\n{msg_body.rstrip()}'
+        if paths_dead or maps_without_path:
+            msg += f'\n{PATH_HELP}'
+
+    perfdata += lib.base.get_perfdata('maps', len(table_data), uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'maps_degraded',
+        maps_degraded,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'maps_without_path',
+        maps_without_path,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'paths_expected', paths_expected, uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata('paths_usable', paths_usable, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'paths_dead',
+        paths_dead,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'paths_marginal',
+        paths_marginal,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = ['map', 'uuid', 'sysfs', 'paths', 'dm_state', 'queueing', 'state']
+            headers = [
+                'Map',
+                'WWID',
+                'Device',
+                'Usable/Expected',
+                'Map State',
+                'Queueing',
+                'State',
+            ]
+        else:
+            keys = ['map', 'paths', 'state']
+            headers = ['Map', 'Usable/Expected', 'State']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

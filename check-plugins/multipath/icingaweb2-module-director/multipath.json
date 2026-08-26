@@ -1,0 +1,406 @@
+{
+    "Command": {
+        "cmd-check-multipath": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$multipath_always_ok$"
+                },
+                "--count": {
+                    "value": "$multipath_count$"
+                },
+                "--critical": {
+                    "value": "$multipath_critical$"
+                },
+                "--ignore": {
+                    "value": "$multipath_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$multipath_lengthy$"
+                },
+                "--map": {
+                    "value": "$multipath_map$",
+                    "repeat_key": true
+                },
+                "--marginal-severity": {
+                    "value": "$multipath_marginal_severity$"
+                },
+                "--no-maps-severity": {
+                    "value": "$multipath_no_maps_severity$"
+                },
+                "--no-match-severity": {
+                    "value": "$multipath_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$multipath_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$multipath_timeout$"
+                },
+                "--warning": {
+                    "value": "$multipath_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/multipath",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-multipath",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "f2a5626e-8231-46e7-b554-9479b8c7386a"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-multipath": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-multipath",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "multipath.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the number of paths it currently holds, which cannot catch a path that disappeared from the map entirely; --count states how many paths a LUN on this host is supposed to have and closes that gap, and --map pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via --lengthy.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/multipath/",
+            "object_name": "tpl-service-multipath",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "multipath_always_ok": false,
+                "multipath_critical": "50:",
+                "multipath_ignore": [],
+                "multipath_lengthy": false,
+                "multipath_map": [],
+                "multipath_marginal_severity": "warn",
+                "multipath_no_maps_severity": "warn",
+                "multipath_no_match_severity": "ok",
+                "multipath_no_perfdata": false,
+                "multipath_timeout": 8,
+                "multipath_warning": "100:"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b4a7b60a-f479-4fe1-bc56-5885ade41fe4"
+        }
+    },
+    "DataList": {
+        "multipath_marginal_severity_list": {
+            "list_name": "multipath_marginal_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "0427d124-f1d6-495b-8e46-df8bb9add420"
+        },
+        "multipath_no_maps_severity_list": {
+            "list_name": "multipath_no_maps_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "98d0b220-3a47-4035-bc32-a88a03b60d1e"
+        },
+        "multipath_no_match_severity_list": {
+            "list_name": "multipath_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a861f9ad-0027-42b1-992c-c72728e0faed"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "multipath_always_ok",
+            "caption": "Multipath: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "3571e54e-d282-46e3-8c15-369423b0dcca"
+        },
+        "2": {
+            "varname": "multipath_count",
+            "caption": "Multipath: Count",
+            "description": "Expected number of paths per multipath map. A LUN in a fabric normally has the same number of paths as every other one, so one value covers the whole host and catches a path that disappeared from a map entirely, which comparing a map against itself cannot. `--map` pins a single map that has a different number. Example: `--count=4` on a host with two HBAs and two controllers.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1cbe9d4b-6c83-4379-8f27-4500a5fe2255"
+        },
+        "3": {
+            "varname": "multipath_critical",
+            "caption": "Multipath: Critical",
+            "description": "CRIT threshold for the percentage of the expected paths that are usable, compared as a Nagios range. Supports Nagios ranges. Example: `--critical=1:` alerts only once a map has no usable path left.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "00b34d13-a0da-4537-9daa-6d27905b6f79"
+        },
+        "4": {
+            "varname": "multipath_ignore",
+            "caption": "Multipath: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cb099638-d3b5-4bfe-9441-d8c6c85adda5"
+        },
+        "5": {
+            "varname": "multipath_lengthy",
+            "caption": "Multipath: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "bb0d2e64-f976-45e0-8def-501eeacce7ec"
+        },
+        "6": {
+            "varname": "multipath_map",
+            "caption": "Multipath: Map",
+            "description": "Check this multipath map and, optionally, the number of paths it is expected to have, written as `name=count`. The name is the alias where the host uses one, and the WWID otherwise. Without `=count` the map is graded against `--count`, and against its own number of paths where that is not given either. Can be specified multiple times; if given at least once, only the named maps are checked. Example: `--map=mpatha=4` alerts when the `mpatha` map does not have its four paths, even after one of them disappeared from the map entirely. Example: `--map=mpathb` checks `mpathb` against the paths it currently has.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "8527a1fa-fc4e-4d60-9a66-57375c946384"
+        },
+        "7": {
+            "varname": "multipath_marginal_severity",
+            "caption": "Multipath: Marginal Severity",
+            "description": "State to report for a path multipathd has declared marginal, which means it went up and down often enough that the daemon keeps it out of the normal path groups.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "multipath_marginal_severity_list"
+            },
+            "uuid": "43e58710-b6da-4048-b191-9dee87fbed7b"
+        },
+        "8": {
+            "varname": "multipath_no_maps_severity",
+            "caption": "Multipath: No Maps Severity",
+            "description": "State to report when multipathd holds no map at all. A map whose last path disappears is flushed rather than kept with zero paths, so this is not necessarily a host without multipathed storage.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "multipath_no_maps_severity_list"
+            },
+            "uuid": "02b2c7a7-40f9-4319-b921-2b809c41495e"
+        },
+        "9": {
+            "varname": "multipath_no_match_severity",
+            "caption": "Multipath: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "multipath_no_match_severity_list"
+            },
+            "uuid": "dc78a708-2fdf-4645-a79d-a1dde107d9db"
+        },
+        "10": {
+            "varname": "multipath_no_perfdata",
+            "caption": "Multipath: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f277612b-aba4-4450-912e-c8f9d6787255"
+        },
+        "11": {
+            "varname": "multipath_timeout",
+            "caption": "Multipath: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0b796a7f-e570-429c-8d59-ba054984fbe5"
+        },
+        "12": {
+            "varname": "multipath_warning",
+            "caption": "Multipath: Warning",
+            "description": "WARN threshold for the percentage of the expected paths that are usable, compared as a Nagios range. Supports Nagios ranges. Example: `--warning=60:` tolerates losing up to 40% of the paths before warning.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aa3941e9-83ff-4917-8708-69819756a833"
+        }
+    }
+}
