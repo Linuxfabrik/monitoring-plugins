@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# psi-irq reads a file and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's /proc, selected with the hidden `--config-root`
+# hook. Each tree holds the files the check reads.
+#
+# Where the fixtures come from, all captured on this workstation (Fedora 44, kernel 7.1,
+# eight CPUs) unless noted:
+#
+#   idle      an unloaded host
+#   loaded    thirty-two loopback connections writing a kibibyte at a time for two
+#             minutes, which saturates the machine on software interrupts. 16.44 % of
+#             the last minute lost to interrupt handling
+#   burst     the same load fifteen seconds in, while the ten second average has risen
+#             and the one minute average has not caught up yet. That is the shape
+#             --warning-avg10 and --critical-avg10 exist for
+#   no-irq    a kernel that accounts for pressure but not for interrupts: /proc/pressure
+#             holds cpu, io and memory, and no irq. Debian and Ubuntu ship that way,
+#             verified against the kernel configuration of Debian 11, 12 and 13 and of
+#             Ubuntu 22.04 and 24.04, and so does the Red Hat family before version 9
+#   no-psi    a host whose kernel keeps no pressure statistics at all: /proc is there,
+#             /proc/pressure is not. That is what the whole Red Hat family boots into,
+#             because it ships CONFIG_PSI_DEFAULT_DISABLED=y
+#   malformed derived from the idle capture by replacing one average with a word. No
+#             kernel prints this; the fixture exists to prove that a value the check
+#             cannot read is reported instead of silently becoming a zero
+#
+# The kernel also refuses the read outright, with EOPNOTSUPP, while interrupt accounting
+# is switched off at runtime. No regular file can be made to answer that way, so that
+# path is covered in the library's own tests rather than by a fixture here.
+#
+# The same fixture drives several testcases with different thresholds, which is what the
+# thresholds are for: the state belongs to the testcase id, not to the fixture name.
+TESTS = [
+    {
+        'id': 'ok-an-idle-host',
+        'test': '',
+        'params': '--config-root=config/idle',
+        'assert-retc': STATE_OK,
+        'assert-in': ['irq pressure, last minute: ', "'full_avg60'="],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # The kernel reports interrupts with a "full" line only, so nothing in the
+        # output or the graph may claim a "some" line that does not exist.
+        'id': 'ok-only-the-full-line-is-reported',
+        'test': '',
+        'params': '--config-root=config/idle',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['some'],
+    },
+    {
+        'id': 'warn-the-cpus-are-servicing-interrupts',
+        'test': '',
+        'params': '--config-root=config/loaded',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'irq pressure, last minute: full 16.44% [WARNING]',
+            'The CPUs are busy servicing interrupts instead of running work.',
+            '/proc/interrupts',
+        ],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-above-the-critical-threshold',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=5 --critical=10',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['full 16.44% [CRITICAL]'],
+    },
+    {
+        # A host that is expected to carry a heavy packet rate, a router or a firewall,
+        # wants the pressure graphed and nobody woken. `~:` is the Nagios range for
+        # "any value is fine".
+        'id': 'ok-thresholds-turned-off-with-a-range',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=~: --critical=~:',
+        'assert-retc': STATE_OK,
+        'assert-in': ['irq pressure, last minute: full 16.44%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'servicing interrupts'],
+    },
+    {
+        'id': 'ok-always-ok-masks-the-warn',
+        'test': '',
+        'params': '--config-root=config/loaded --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[WARNING]'],
+    },
+    {
+        'id': 'warn-no-perfdata-drops-the-perfdata-only',
+        'test': '',
+        'params': '--config-root=config/loaded --no-perfdata',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING]'],
+        'assert-not-in': ["'full_avg60'="],
+    },
+    {
+        'id': 'ok-every-window-is-reported',
+        'test': '',
+        'params': '--config-root=config/loaded --warning=~: --critical=~:',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'full = every task with work to do waited for interrupt handling to finish',
+            'avg10',
+            'avg300',
+        ],
+    },
+    {
+        # The default leaves the ten second average unjudged, so a burst that the one
+        # minute average smooths away stays in the graph and out of the alert.
+        'id': 'ok-a-burst-is-not-judged-by-default',
+        'test': '',
+        'params': '--config-root=config/burst',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'full_avg10'=16.2%;;;0;100"],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'last ten seconds'],
+    },
+    {
+        # The same reading with a threshold on the ten second average: the one minute
+        # average is still inside its range, and the burst alerts on its own.
+        'id': 'warn-a-burst-alerts-once-avg10-has-a-threshold',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=10',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'irq pressure, last minute: full 4.36%; '
+            'last ten seconds: full 16.2% [WARNING]',
+            "'full_avg10'=16.2%;10;;0;100",
+        ],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-a-burst-past-the-critical-threshold',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=10 --critical-avg10=15',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'last ten seconds: full 16.2% [CRITICAL]',
+            'The CPUs are busy servicing interrupts instead of running work.',
+        ],
+    },
+    {
+        # A burst inside its range is not worth a word in the headline, even though the
+        # check judged it.
+        'id': 'ok-a-judged-burst-within-its-range-stays-quiet',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=40',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['last ten seconds', '[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # Both windows out of range at once: each is named with its own state.
+        'id': 'crit-the-minute-and-the-burst-alert-together',
+        'test': '',
+        'params': '--config-root=config/burst --warning=2 --critical=4 '
+        '--warning-avg10=10',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'full 4.36% [CRITICAL]',
+            'last ten seconds: full 16.2% [WARNING]',
+        ],
+    },
+    {
+        # A kernel that accounts for pressure but not for interrupts. The remedy is a
+        # different one than for a kernel without pressure accounting at all, so the
+        # two states do not share a message.
+        'id': 'ok-a-kernel-without-interrupt-accounting',
+        'test': '',
+        'params': '--config-root=config/no-irq',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'This kernel accounts for pressure, but not for interrupts',
+            '`tsc=noirqtime`',
+        ],
+        'assert-not-in': ['irq pressure', '`psi=1`'],
+    },
+    {
+        # The Red Hat default. Nothing to measure, and the check says how to change
+        # that instead of going quiet or alerting. Switching pressure accounting on is
+        # not enough on every host, so the message says that before somebody reboots
+        # for it: Rocky 8 gains the other three checks that way and not this one.
+        'id': 'ok-a-kernel-without-pressure-statistics',
+        'test': '',
+        'params': '--config-root=config/no-psi',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'This kernel keeps no pressure statistics',
+            '`psi=1`',
+            'the reboot will not deliver this check',
+        ],
+        'assert-not-in': ['irq pressure'],
+    },
+    {
+        'id': 'warn-a-kernel-without-interrupt-accounting-can-alert',
+        'test': '',
+        'params': '--config-root=config/no-irq --severity-no-psi=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['not for interrupts'],
+    },
+    {
+        'id': 'unknown-a-value-that-is-no-number',
+        'test': '',
+        'params': '--config-root=config/malformed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['which is no average'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../psi-irq'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import sys
+
+import lib.args
+import lib.base
+import lib.psi
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082602'
+
+DESCRIPTION = """Reports how much of its time a host loses to interrupt handling, taken from the
+pressure stall information of the Linux kernel. A pressure of 10 percent means that for a
+tenth of the time no task could get on, because the CPUs were busy servicing hardware and
+software interrupts instead.
+The check alerts on that share, averaged over the last minute. It answers what neither
+CPU utilization nor packet counters can: whether the interrupt load is costing the
+workload its time on the CPU.
+The ten second average is reported but not judged, until --warning-avg10 or
+--critical-avg10 give it a threshold; those catch a burst that the one minute average
+smooths away.
+A host whose kernel does not account for interrupt pressure is reported as OK, because
+there is nothing to measure; raise --severity-no-psi to flag it where the statistics are
+expected. Alerts when the pressure leaves the warning or critical range."""
+
+# The resource this check reports on. The kernel keeps one file per resource below
+# /proc/pressure and the library reads it.
+RESOURCE = 'irq'
+
+# What the tasks were waiting for, in the words an administrator needs to act on it.
+WAITING_FOR = 'interrupt handling to finish'
+
+# The line the check alerts on. Interrupts are the one resource with no "some" line:
+# psi_show() in kernel/sched/psi.c sets only_full for PSI_IRQ and prints a single line
+# labelled "full". An interrupt does not stall one task while the others get on, it
+# takes the CPU away from whatever was running on it.
+ALERT_KIND = 'full'
+
+# The averaging window the check alerts on by default. The kernel offers ten, sixty and
+# three hundred seconds; all three are reported, and the middle one is the one that
+# matches a check running every minute. Five minutes smears a burst until it no longer
+# stands out, and it never rises without the last minute having risen first, so it would
+# only repeat an alert late. Ten seconds is too short to survive a check interval, which
+# is why it is judged on request rather than by default.
+ALERT_WINDOW = 'avg60'
+
+# The window --warning-avg10 and --critical-avg10 judge.
+BURST_WINDOW = 'avg10'
+
+# The lines this check reports. Interrupts have the one.
+REPORTED_KINDS = ('full',)
+
+# Thresholds measured on an eight core workstation (Fedora 44, kernel 7.1): an idle host
+# sits at 0.2 to 0.3 %, and thirty-two loopback connections writing a kibibyte at a time,
+# which saturates the machine on software interrupts, plateaus just under 20 %. A host
+# losing a tenth of its wall clock to interrupt handling is therefore well outside
+# ordinary operation, and the critical threshold sits beyond what that flood produced.
+DEFAULT_CRIT = '25'
+DEFAULT_CRIT_AVG10 = None
+DEFAULT_SEVERITY_NO_PSI = 'ok'
+DEFAULT_WARN = '10'
+DEFAULT_WARN_AVG10 = None
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the interrupt pressure, in percent of wall clock '
+        'time, measured over the last minute. '
+        'Supports Nagios ranges. '
+        'Example: `25` alerts where 25 percent of the time is lost. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-avg10',
+        help='CRIT threshold for the interrupt pressure, in percent of wall clock '
+        'time, measured over the last ten seconds. '
+        'Catches a burst that the one minute average smooths away, at the price of '
+        'alerting on a stall that is over before anybody looks. '
+        'Supports Nagios ranges. '
+        'Example: `60` alerts where interrupt handling took six of the last ten '
+        'seconds. '
+        'Default: no critical threshold',
+        dest='CRIT_AVG10',
+        default=DEFAULT_CRIT_AVG10,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity-no-psi',
+        help='Severity for alerting if the kernel keeps no pressure statistics. '
+        'Default: %(default)s',
+        dest='SEVERITY_NO_PSI',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_SEVERITY_NO_PSI,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the interrupt pressure, in percent of wall clock '
+        'time, measured over the last minute. '
+        'Supports Nagios ranges. '
+        'Example: `10` alerts where 10 percent of the time is lost. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-avg10',
+        help='WARN threshold for the interrupt pressure, in percent of wall clock '
+        'time, measured over the last ten seconds. '
+        'Catches a burst that the one minute average smooths away, at the price of '
+        'alerting on a stall that is over before anybody looks. '
+        'Supports Nagios ranges. '
+        'Example: `40` alerts where interrupt handling took four of the last ten '
+        'seconds. '
+        'Default: no warning threshold',
+        dest='WARN_AVG10',
+        default=DEFAULT_WARN_AVG10,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'Pressure stall information is published by the Linux kernel. '
+            'This check belongs on a Linux host.'
+        )
+    pressure = lib.base.coe(lib.psi.read(RESOURCE, root=args.CONFIG_ROOT))
+    if pressure is None:
+        # Two kernels answer nothing here, and the administrator can act on only one
+        # of them, so the two are told apart instead of sharing one message.
+        if lib.psi.is_enabled(root=args.CONFIG_ROOT):
+            msg = (
+                'This kernel accounts for pressure, but not for interrupts, so there '
+                'is nothing to measure. The Red Hat family carries the accounting from '
+                'version 9 on, Debian and Ubuntu do not build it in at all. Where a '
+                'kernel has it, the `tsc=noirqtime` boot parameter switches it off '
+                'again.'
+            )
+        else:
+            msg = (
+                'This kernel keeps no pressure statistics, so there is nothing to '
+                'measure. Add `psi=1` to the kernel command line and reboot to switch '
+                'them on. Interrupt pressure needs a kernel that accounts for '
+                'interrupt time on top of that, which the Red Hat family carries from '
+                'version 9 on and Debian and Ubuntu do not build in at all, so on an '
+                'older or a Debian family host the reboot will not deliver this check.'
+            )
+        lib.base.oao(
+            msg,
+            lib.base.str2state(args.SEVERITY_NO_PSI),
+            always_ok=args.ALWAYS_OK,
+        )
+    if ALERT_KIND not in pressure:
+        lib.base.cu(
+            f'The kernel reports no "{ALERT_KIND}" pressure for {RESOURCE}, so there '
+            'is nothing to alert on. That line has been part of the interface since it '
+            'was introduced, so this kernel changed it.'
+        )
+
+    # init some vars
+    thresholds = {ALERT_WINDOW: (args.WARN, args.CRIT)}
+    if args.WARN_AVG10 is not None or args.CRIT_AVG10 is not None:
+        thresholds[BURST_WINDOW] = (args.WARN_AVG10, args.CRIT_AVG10)
+
+    # analyze data
+    states = lib.psi.get_states(pressure, ALERT_KIND, thresholds)
+    state = lib.base.get_worst(*states.values())
+
+    # build the message
+    # The kernel's own word, "full", stays in the output so that what an administrator
+    # reads matches what the interface and its documentation call it. The library
+    # spells it out, because nobody should have to look that up.
+    msg = lib.psi.get_summary(
+        pressure,
+        RESOURCE,
+        WAITING_FOR,
+        REPORTED_KINDS,
+        ALERT_KIND,
+        states,
+        window=ALERT_WINDOW,
+    )
+    if state != STATE_OK:
+        msg += (
+            '\nThe CPUs are busy servicing interrupts instead of running work. '
+            '`/proc/interrupts` names the device behind them, `network-io` reports '
+            'the packet rate that usually drives them and `cpu-usage` how much of '
+            'each CPU goes into interrupt handling.'
+        )
+    perfdata = lib.psi.get_perfdata(pressure, REPORTED_KINDS, ALERT_KIND, thresholds)
+
+    # build table output
+    msg += '\n\n' + lib.psi.get_table(pressure, REPORTED_KINDS, ALERT_KIND, states)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

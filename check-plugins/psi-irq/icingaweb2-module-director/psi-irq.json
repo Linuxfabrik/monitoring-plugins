@@ -1,0 +1,239 @@
+{
+    "Command": {
+        "cmd-check-psi-irq": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$psi_irq_always_ok$"
+                },
+                "--critical": {
+                    "value": "$psi_irq_critical$"
+                },
+                "--critical-avg10": {
+                    "value": "$psi_irq_critical_avg10$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$psi_irq_no_perfdata$"
+                },
+                "--severity-no-psi": {
+                    "value": "$psi_irq_severity_no_psi$"
+                },
+                "--warning": {
+                    "value": "$psi_irq_warning$"
+                },
+                "--warning-avg10": {
+                    "value": "$psi_irq_warning_avg10$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/psi-irq",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-psi-irq",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "b280915d-1d1b-4e68-a458-3f411158f4b0"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-psi-irq": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-psi-irq",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "psi-irq.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports how much of its time a host loses to interrupt handling, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time no task could get on, because the CPUs were busy servicing hardware and software interrupts instead. The check alerts on that share, averaged over the last minute. It answers what neither CPU utilization nor packet counters can: whether the interrupt load is costing the workload its time on the CPU. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel does not account for interrupt pressure is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-irq/",
+            "object_name": "tpl-service-psi-irq",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "psi_irq_always_ok": false,
+                "psi_irq_critical": "25",
+                "psi_irq_no_perfdata": false,
+                "psi_irq_severity_no_psi": "ok",
+                "psi_irq_warning": "10"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "ee4a4886-576c-41ff-9ed0-a78ba8645736"
+        }
+    },
+    "DataList": {
+        "psi_irq_severity_no_psi_list": {
+            "list_name": "psi_irq_severity_no_psi_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "46a950cd-8456-46d8-819a-687690548c17"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "psi_irq_always_ok",
+            "caption": "Psi Irq: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "f7f6259a-0ded-4b3e-bfd8-197d2a8ce2fb"
+        },
+        "2": {
+            "varname": "psi_irq_critical",
+            "caption": "Psi Irq: Critical",
+            "description": "CRIT threshold for the interrupt pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `25` alerts where 25 percent of the time is lost.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ee768966-ee43-40ae-b0a9-0e6dd411a579"
+        },
+        "3": {
+            "varname": "psi_irq_critical_avg10",
+            "caption": "Psi Irq: Critical Avg10",
+            "description": "CRIT threshold for the interrupt pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `60` alerts where interrupt handling took six of the last ten seconds. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2f37c9ba-9e99-4de2-8dec-fc5a861a12e2"
+        },
+        "4": {
+            "varname": "psi_irq_no_perfdata",
+            "caption": "Psi Irq: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "205dd3ef-e510-4181-8464-375ebca74a3d"
+        },
+        "5": {
+            "varname": "psi_irq_severity_no_psi",
+            "caption": "Psi Irq: Severity No Psi",
+            "description": "Severity for alerting if the kernel keeps no pressure statistics.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "psi_irq_severity_no_psi_list"
+            },
+            "uuid": "63d29f3b-c1c9-4965-980a-4c59d5d71b2a"
+        },
+        "6": {
+            "varname": "psi_irq_warning",
+            "caption": "Psi Irq: Warning",
+            "description": "WARN threshold for the interrupt pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `10` alerts where 10 percent of the time is lost.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "acefa408-c96e-410e-be21-4233c0f09199"
+        },
+        "7": {
+            "varname": "psi_irq_warning_avg10",
+            "caption": "Psi Irq: Warning Avg10",
+            "description": "WARN threshold for the interrupt pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `40` alerts where interrupt handling took four of the last ten seconds. Default: no warning threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "866c8487-6310-4bec-bf5f-2191fbf698f8"
+        }
+    }
+}

@@ -43,6 +43,7 @@ Monitoring Plugins:
 * openstack-quota: alerts when the compute, block storage or network quotas of a project fill up ([#489](https://github.com/Linuxfabrik/monitoring-plugins/issues/489))
 * psi-cpu: alerts when work waits for a CPU, which CPU utilization and the load average do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * psi-io: alerts when work waits for storage, which throughput and device utilization do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* psi-irq: alerts when the CPUs are busy servicing interrupts instead of running work ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * psi-memory: alerts when work waits for memory, which memory and swap usage do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * redfish-*: `--verbose` records every request to the management controller, with timings, into a log file, so a check that runs into its timeout can be diagnosed ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 
