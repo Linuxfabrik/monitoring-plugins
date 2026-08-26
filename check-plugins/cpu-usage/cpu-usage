@@ -30,16 +30,27 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071301'
+__version__ = '2026082601'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
-cpu-usage (100 - idle - nice).
+cpu-usage, which is the total busy share of all CPUs (100 - idle) and therefore includes
+nice.
 
-Thresholds (WARN/CRIT) are checked against user, system, and cpu-usage. An alert is raised
-only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing
-on sustained load. iowait is reported and graphed but never triggers an alert, because Linux
-iowait is relabelled idle time and unreliable on multi-core systems.
+Thresholds (WARN/CRIT) are checked against user, system, and the busy share without nice.
+Work that runs at a lowered priority yields to everything else, so a host busy with nothing
+but niced batch work stays OK while its cpu-usage graph shows the machine at full load. An
+alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing
+short spikes and focusing on sustained load. iowait is reported and graphed but never
+triggers an alert, because Linux iowait is relabelled idle time and unreliable on
+multi-core systems.
+
+Steal time carries its own threshold, because a virtual machine can sit at a harmless
+overall utilization while an oversubscribed hypervisor takes a quarter of its CPU time
+away.
+
+--per-cpu adds one utilization metric per core and names the busiest one, which is what a
+single-threaded bottleneck looks like on a machine that otherwise appears mostly idle.
 
 Perfdata is emitted for every field to enable full graphing. Extended stats (context switches,
 interrupts, etc.) are included if supported on this platform.
@@ -53,7 +64,10 @@ DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute interval
 )
 DEFAULT_CRIT = 90  # %
+DEFAULT_CRIT_STEAL = None  # %
+DEFAULT_PER_CPU = False
 DEFAULT_WARN = 80  # %
+DEFAULT_WARN_STEAL = '10'  # %
 
 
 def parse_args():
@@ -97,11 +111,34 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-steal',
+        help='CRIT threshold for the share of CPU time an oversubscribed hypervisor '
+        'takes away from this machine, in percent. '
+        'Supports Nagios ranges. '
+        'Alerts only after `--count` consecutive runs above the threshold. '
+        'Always 0 on a physical machine and on platforms that do not account for it. '
+        'Default: %(default)s',
+        dest='CRIT_STEAL',
+        default=DEFAULT_CRIT_STEAL,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--per-cpu',
+        help='Report the utilization of every single core as its own metric, and name '
+        'the busiest one in the output. Finds the single saturated core that the '
+        'overall utilization hides on a machine with many cores. Adds one metric per '
+        'core and does not alert on its own.',
+        dest='PER_CPU',
+        action='store_true',
+        default=DEFAULT_PER_CPU,
     )
 
     parser.add_argument(
@@ -111,6 +148,18 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-steal',
+        help='WARN threshold for the share of CPU time an oversubscribed hypervisor '
+        'takes away from this machine, in percent. '
+        'Supports Nagios ranges. '
+        'Alerts only after `--count` consecutive runs above the threshold. '
+        'Always 0 on a physical machine and on platforms that do not account for it. '
+        'Default: %(default)s',
+        dest='WARN_STEAL',
+        default=DEFAULT_WARN_STEAL,
     )
 
     args, _ = parser.parse_known_args()
@@ -135,6 +184,34 @@ def _cpu_times_to_dict(ct):
     return {f: getattr(ct, f, 0.0) for f in fields}
 
 
+def _cpu_tot_time(deltas):
+    """Return the total CPU time a sample covers, given the per-field deltas.
+
+    This is not the plain sum of the fields. The Linux kernel books guest time into
+    "user" and guest_nice into "nice" on top of their own fields (account_guest_time()
+    in kernel/sched/cputime.c), and /proc/stat prints both (fs/proc/stat.c), so adding
+    every field up counts a hypervisor's guest time twice. The total would then be too
+    large and every field's share too small, which is exactly the workload where the
+    numbers matter. psutil subtracts the two for the same reason.
+
+    A platform that does not account for guest time reports it as zero here, so the
+    subtraction is a no-op off Linux.
+
+    Verified against Linux 7.1.
+    """
+    total = sum(deltas.values())
+    total -= deltas.get('guest', 0.0)
+    total -= deltas.get('guest_nice', 0.0)
+    return total
+
+
+def _cpu_times_deltas(now_d, last):
+    """Return the per-field deltas between the current and the previous snapshot."""
+    # max() guards against clock and counter oddities: psutil clips negative deltas
+    # too, and a counter that went backwards must not turn into a negative share.
+    return {k: max(0.0, v - float(last[k])) for k, v in now_d.items()}
+
+
 # * Store a single last raw snapshot of psutil.cpu_times() (cumulative jiffy/seconds counters
 #   since boot) + a timestamp in the existing SQLite file.
 # * On the next run, read the last snapshot, compute deltas for each field, and turn those
@@ -146,25 +223,41 @@ def _cpu_times_to_dict(ct):
 # of sleeping within a run.
 
 
+RAW_SNAPSHOT_DEFINITION = """
+    ts REAL NOT NULL,
+    user REAL DEFAULT 0,
+    nice REAL DEFAULT 0,
+    system REAL DEFAULT 0,
+    idle REAL DEFAULT 0,
+    iowait REAL DEFAULT 0,
+    irq REAL DEFAULT 0,
+    softirq REAL DEFAULT 0,
+    steal REAL DEFAULT 0,
+    guest REAL DEFAULT 0,
+    guest_nice REAL DEFAULT 0
+"""
+
+# The blocking sample the very first run falls back to. Short enough not to stall the
+# check, long enough for stable numbers.
+FALLBACK_INTERVAL = 0.25
+
+# How far the per-core baseline may sit from the one the overall numbers use before it
+# counts as stale. The two are written by the same run, milliseconds apart, so anything
+# beyond this means a run in between did not write the per-core one. Well below the
+# shortest check interval anybody runs, so a skipped interval is always caught.
+STALE_BASELINE_SECONDS = 2
+
+
 def cpu_times_percent_nonblocking(conn):
     """Compute a non-blocking equivalent of psutil.cpu_times_percent(percpu=False).
     Falls back to a short blocking sample only on the very first run.
+
+    Returns a tuple of the percentages and the number of seconds the sample covers.
     """
     # create one-row table for the last raw snapshot, if not exists
-    definition = """
-        ts REAL NOT NULL,
-        user REAL DEFAULT 0,
-        nice REAL DEFAULT 0,
-        system REAL DEFAULT 0,
-        idle REAL DEFAULT 0,
-        iowait REAL DEFAULT 0,
-        irq REAL DEFAULT 0,
-        softirq REAL DEFAULT 0,
-        steal REAL DEFAULT 0,
-        guest REAL DEFAULT 0,
-        guest_nice REAL DEFAULT 0
-    """
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='raw_last'))
+    lib.base.coe(
+        lib.db_sqlite.create_table(conn, RAW_SNAPSHOT_DEFINITION, table='raw_last')
+    )
 
     # read last row (if any)
     last = lib.base.coe(
@@ -176,19 +269,12 @@ def cpu_times_percent_nonblocking(conn):
     )
 
     now_ct = psutil.cpu_times()
-    now = lib.time.now()
+    now = lib.time.now('float')
     now_d = _cpu_times_to_dict(now_ct)
 
     if last:
-        # compute deltas
-        deltas = {}
-        total = 0.0
-        for k, v in now_d.items():
-            dv = max(
-                0.0, v - float(last.get(k, 0.0))
-            )  # guard against clock/counter oddities
-            deltas[k] = dv
-            total += dv
+        deltas = _cpu_times_deltas(now_d, last)
+        total = _cpu_tot_time(deltas)
 
         # update snapshot for next run
         lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM raw_last WHERE 1=1'))
@@ -197,20 +283,80 @@ def cpu_times_percent_nonblocking(conn):
 
         # if total is ~0 (very short time elapsed), fall back to tiny blocking sample
         if total <= 0.0:
-            return psutil.cpu_times_percent(interval=0.25, percpu=False)
+            return (
+                psutil.cpu_times_percent(interval=FALLBACK_INTERVAL, percpu=False),
+                FALLBACK_INTERVAL,
+            )
 
         # turn deltas into percentages (namedtuple-like simple object)
         pct = SimpleNamespace()
         for k, dv in deltas.items():
             setattr(pct, k, round((dv / total) * 100.0, 1))
-        return pct
+        return (pct, now - float(last['ts']))
 
     # first run: store snapshot and do a short, blocking read to produce sane output
     lib.base.coe(lib.db_sqlite.insert(conn, {'ts': now, **now_d}, table='raw_last'))
     lib.base.coe(lib.db_sqlite.commit(conn))
-    # short window to avoid a 1.25s stall like in previos versions while
-    # still getting stable numbers
-    return psutil.cpu_times_percent(interval=0.25, percpu=False)
+    return (
+        psutil.cpu_times_percent(interval=FALLBACK_INTERVAL, percpu=False),
+        FALLBACK_INTERVAL,
+    )
+
+
+def cpu_usage_percpu(conn, window):
+    """Return the utilization of every single core, in the order psutil lists them.
+
+    Uses the same cross-run snapshot as the overall numbers, in its own table so that
+    a check run without --per-cpu leaves no per-core rows behind and an existing
+    database keeps working untouched.
+
+    Returns None while there is nothing trustworthy to measure against: on the first
+    run with --per-cpu, after a reboot, after a core was added, and after --per-cpu
+    was switched off for a while. That last one is what `window` is for. The per-core
+    snapshot is only written by a run that was given --per-cpu, so a gap in those runs
+    leaves a baseline that is older than the one the overall numbers use, and the
+    per-core percentages would silently cover a different, longer period than the
+    percentages printed next to them.
+    """
+    definition = f'cpu INTEGER NOT NULL, {RAW_SNAPSHOT_DEFINITION}'
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='raw_last_percpu'))
+
+    rows = lib.base.coe(lib.db_sqlite.select(conn, 'SELECT * FROM raw_last_percpu'))
+    last = {row['cpu']: row for row in rows}
+
+    now_cts = psutil.cpu_times(percpu=True)
+    now = lib.time.now('float')
+
+    # replace the snapshot for the next run, whatever we end up reporting
+    lib.base.coe(lib.db_sqlite.delete(conn, 'DELETE FROM raw_last_percpu WHERE 1=1'))
+    for index, now_ct in enumerate(now_cts):
+        lib.base.coe(
+            lib.db_sqlite.insert(
+                conn,
+                {'cpu': index, 'ts': now, **_cpu_times_to_dict(now_ct)},
+                table='raw_last_percpu',
+            )
+        )
+    lib.base.coe(lib.db_sqlite.commit(conn))
+
+    usage = []
+    for index, now_ct in enumerate(now_cts):
+        if index not in last:
+            # First run, or the machine gained a core since the last one. Either way
+            # there is no baseline to measure this core against, and reporting the
+            # ones that do have one would put a graph next to a gap.
+            return None
+        if abs((now - float(last[index]['ts'])) - window) > STALE_BASELINE_SECONDS:
+            # This core's baseline is not the one the overall numbers were measured
+            # against, so the two would cover different periods.
+            return None
+        deltas = _cpu_times_deltas(_cpu_times_to_dict(now_ct), last[index])
+        total = _cpu_tot_time(deltas)
+        if total <= 0.0:
+            # A core that was offline for the whole window has no time to divide by.
+            return None
+        usage.append(round(100.0 - (deltas['idle'] / total) * 100.0, 1))
+    return usage
 
 
 def cpu_stats_rates(conn, now_stats):
@@ -296,6 +442,36 @@ def get_from_db(conn, threshold):
     return int(result['cnt'])
 
 
+def get_steal_state(conn, count, warn, crit):
+    """Return the state the last COUNT steal samples agree on.
+
+    Steal carries its own threshold instead of riding on the overall utilization,
+    because the two say different things. A guest whose hypervisor is oversubscribed
+    can show a modest overall utilization and still lose a quarter of its CPU time,
+    and nothing an administrator changes inside that guest will help. The overall
+    threshold cannot catch it, because the machine is not busy.
+
+    Held to the same hysteresis as the overall thresholds: a single sample above the
+    threshold is a neighbour's build job, COUNT of them in a row is a placement
+    problem.
+    """
+    rows = lib.base.coe(lib.db_sqlite.select(conn, 'SELECT steal FROM perfdata'))
+    samples = [row['steal'] for row in rows if row['steal'] is not None]
+    if len(samples) < count:
+        # Still warming up: too few samples to tell a burst from a trend. A row
+        # without a steal value counts as missing rather than as zero, so a history
+        # written by a version that did not record it cannot alert either way.
+        return STATE_OK
+    states = [
+        lib.base.get_state(sample, warn, crit, _operator='range') for sample in samples
+    ]
+    if all(item == STATE_CRIT for item in states):
+        return STATE_CRIT
+    if all(item in (STATE_CRIT, STATE_WARN) for item in states):
+        return STATE_WARN
+    return STATE_OK
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -311,7 +487,9 @@ def main():
     state = STATE_OK
     stats = {}
     extstats = {}
+    percpu_usage = None
 
+    # fetch data
     # create the db table
     definition = """
         guest REAL DEFAULT NULL,
@@ -348,7 +526,9 @@ def main():
         # cpu_times_percent = psutil.cpu_times_percent(interval=1.25, percpu=False)
 
         # NEW (non-blocking, with first-run 0.25s fallback):
-        cpu_times_percent = cpu_times_percent_nonblocking(conn)
+        cpu_times_percent, window = cpu_times_percent_nonblocking(conn)
+        if args.PER_CPU:
+            percpu_usage = cpu_usage_percpu(conn, window)
     except ValueError:
         lib.db_sqlite.close(conn)
         lib.base.cu('psutil raised an error')
@@ -386,7 +566,13 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
-    # this is what we want to warn about: 100% - idle - nice
+    # analyze data
+    # This is what we want to warn about: everything the CPUs did except idling and
+    # except work that was asked to stand back. Niced work yields to anything else the
+    # machine has to do, so a box that is busy with nothing but batch jobs is doing
+    # exactly what it was told to. The metric reported below is the plain total
+    # (100 - idle) and therefore includes nice, because that is what an administrator
+    # looking at a utilization graph expects to see.
     stats['cpu_usage'] = round(100.0 - stats['idle'] - stats['nice'], 1)
 
     # save trend data to local sqlite database, limited to "count" rows max.
@@ -411,8 +597,11 @@ def main():
         # emitting uom='c' continuous counters (issue #320).
         extstats_rates = cpu_stats_rates(conn, extstats)
 
-    # this is for msg and perfdata
-    cpu_usage = stats['cpu_usage'] + getattr(cpu_times_percent, 'nice', 0)
+    # This is for msg and perfdata: the plain total, niced work included. Rounded
+    # again because adding two rounded percentages back together reintroduces the
+    # float error they were rounded to get rid of, and a metric carrying fifteen
+    # decimals is neither readable nor useful to a graph.
+    cpu_usage = round(stats['cpu_usage'] + getattr(cpu_times_percent, 'nice', 0), 1)
 
     # for the msg, sort by highest value, but without the cpu_usage sum
     del stats['cpu_usage']
@@ -426,6 +615,9 @@ def main():
         state = STATE_CRIT
     elif get_from_db(conn, args.WARN) == args.COUNT:
         state = STATE_WARN
+
+    steal_state = get_steal_state(conn, args.COUNT, args.WARN_STEAL, args.CRIT_STEAL)
+    state = lib.base.get_worst(state, steal_state)
 
     lib.db_sqlite.close(conn)
 
@@ -446,7 +638,9 @@ def main():
         if key == 'idle':
             continue
         part = f'{key}: {val:.1f}%'
-        if val != 0:
+        if key == 'steal':
+            part += lib.base.state2str(steal_state, prefix=' ')
+        if val != 0 or (key == 'steal' and steal_state != STATE_OK):
             msg_header.append(part)
         else:
             msg_body.append(part)
@@ -454,16 +648,37 @@ def main():
             key,
             val,
             uom='%',
-            warn=None,
-            crit=None,
+            # steal is the one category with a threshold of its own
+            warn=args.WARN_STEAL if key == 'steal' else None,
+            crit=args.CRIT_STEAL if key == 'steal' else None,
             _min=0,
             _max=100,
         )
-    msg = f'{cpu_usage:.1f}%'
+
+    # Name the window the percentages were measured over. They cover the time since
+    # the previous run, so a check that was delayed or skipped reports a longer one,
+    # and the very first run reports its short blocking sample.
+    window_txt = f'{window:.0f}s' if window >= 1 else f'{window:.2f}s'
+    msg = f'{cpu_usage:.1f}% over {window_txt}'
+    if percpu_usage:
+        hottest = max(percpu_usage)
+        msg += f', hottest core cpu{percpu_usage.index(hottest)} at {hottest:.1f}%'
     if msg_header:
         msg += ' - ' + ', '.join(msg_header)
     if msg_body:
         msg += '\n' + ', '.join(msg_body)
+
+    if percpu_usage:
+        for index, val in enumerate(percpu_usage):
+            perfdata += lib.base.get_perfdata(
+                f'cpu{index}_usage',
+                val,
+                uom='%',
+                warn=None,
+                crit=None,
+                _min=0,
+                _max=100,
+            )
 
     if extstats_rates:
         ext_parts = []

@@ -20,6 +20,7 @@ from collections import defaultdict
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.disk
 import lib.human
 import lib.time
 import lib.txt
@@ -33,13 +34,23 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082601'
 
 DESCRIPTION = """Monitors running processes and alerts on process count, aggregated memory usage, or
 aggregated CPU usage. Processes can be filtered by name, command-line arguments, and
 user name using regular expressions. Optionally lists the top processes by CPU time
 and memory usage.
+
+On Linux, also reports how many processes the whole system creates per second. A
+headcount stays flat while a retry loop, a runaway cron job or a fork bomb creates and
+reaps thousands of processes a second, and this is the number that shows it. It covers
+the whole system and is not narrowed down by the filters above.
+
 Supports extended reporting via --lengthy."""
+
+# The file the Linux kernel counts every process it has created in. No other system
+# keeps it, and neither does a container started without a `/proc` of its own.
+PROC_STAT = '/proc/stat'
 
 DEFAULT_CRIT = None
 DEFAULT_CRIT_AGE = None
@@ -259,6 +270,43 @@ def parse_args():
     return args
 
 
+def get_forks_since_boot():
+    """Return how many processes the kernel has created since boot, or None where
+    that number is not available.
+
+    The counter sits in the `processes` line of `/proc/stat` and covers every
+    `fork()` and `clone()` the whole system has carried out. It is cumulative, so it
+    is only meaningful as a delta against a previous reading.
+
+    None is a state and not an error: no system except Linux keeps this file, and
+    neither does a container without a `/proc` of its own. A malformed line yields
+    None as well, because a rate against a counter this function could not read would
+    be worse than no rate at all.
+
+    Verified against `fs/proc/stat.c` of Linux 7.1.
+    """
+    # Files below /proc report a size of zero, so their presence has to be probed
+    # allowing an empty file.
+    if not lib.disk.file_exists(PROC_STAT, allow_empty=True):
+        return None
+    success, content = lib.disk.read_file(PROC_STAT)
+    if not success:
+        return None
+    for line in content.splitlines():
+        fields = line.split()
+        # Read by line name, never by position. The kernel has added lines to this
+        # file before, and a reader going by position picks up the wrong one as soon
+        # as it adds the next. Only the first value of the line is read, so a line
+        # the kernel one day appends to keeps working, the way `intr` and `softirq`
+        # already print their total ahead of one number per interrupt.
+        if len(fields) >= 2 and fields[0] == 'processes':
+            try:
+                return int(fields[1])
+            except ValueError:
+                return None
+    return None
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -387,6 +435,7 @@ def main():
 
     total_ram = psutil.virtual_memory().total or 0
 
+    # fetch data
     # Using ad_value avoids slow exception paths for
     # AccessDenied / racing processes.
     # https://psutil.readthedocs.io/en/latest/#psutil.process_iter
@@ -507,10 +556,13 @@ def main():
             # specific psutil version does not have such an attribute from above
             continue
 
-    # analyze data, build the message
+    # analyze data
 
     # compute memory percent once (mathematically equals sum of per-proc percentages)
-    procs_mem_percent = procs_mem / total_ram * 100.0 if total_ram else 0
+    # Rounded here rather than where it is printed, so the message, the graph and
+    # the value the threshold is compared against are all the same number. Perfdata
+    # carrying thirteen decimals is neither readable nor of any use to a graph.
+    procs_mem_percent = round(procs_mem / total_ram * 100.0, 1) if total_ram else 0
 
     # compute CPU% via SQLite delta if thresholds are set
     if need_cpu_percent:
@@ -572,6 +624,25 @@ def main():
         lib.base.coe(lib.db_sqlite.commit(conn))
         lib.db_sqlite.close(conn)
 
+    # How many processes the system created per second, which is the one thing about
+    # process activity a headcount cannot show: a runaway cron job, a retry loop or a
+    # fork bomb keeps the number of processes roughly constant while creating and
+    # reaping thousands of them a second. The kernel counts them for the whole system,
+    # so the filters above do not narrow it down, and no system except Linux keeps that
+    # counter at all. Read and turned into a rate here, after the connection above is
+    # closed: the helper opens its own, and an uncommitted write would lock it out and
+    # cost the rate without saying so.
+    forks_per_second = None
+    forks = get_forks_since_boot()
+    if forks is not None:
+        rates = lib.db_sqlite.per_second_deltas(
+            'linuxfabrik-monitoring-plugins-procs.db',
+            'forks',
+            {'processes': forks},
+        )
+        if rates is not None:
+            forks_per_second = round(rates['processes'], 1)
+
     # list used filters
     msg_filter = ''
     if need_username:
@@ -590,7 +661,7 @@ def main():
     # system uptime for context (helps interpret cumulative CPU times)
     uptime = lib.time.now() - psutil.boot_time()
 
-    # check the state
+    # build the message
 
     # number of processes
     local_state = lib.base.get_state(procs_count, args.WARN, args.CRIT, 'range')
@@ -603,8 +674,6 @@ def main():
     # memory usage (bytes)
     local_state = lib.base.get_state(procs_mem, args.WARN_MEM, args.CRIT_MEM, 'range')
     state = lib.base.get_worst(state, local_state)
-
-    # build the message
     msg += (
         f' using {lib.human.bytes2human(procs_mem)} RAM'
         f'{lib.base.state2str(local_state, prefix=" ")}, '
@@ -619,7 +688,7 @@ def main():
     )
     state = lib.base.get_worst(state, local_state)
     msg = (
-        msg[:-2] + f' ({round(procs_mem_percent, 1)}%)'
+        msg[:-2] + f' ({procs_mem_percent}%)'
         f'{lib.base.state2str(local_state, prefix=" ")}, '
     )
 
@@ -680,8 +749,10 @@ def main():
             msg += f'{cnt}x {name}, '
         msg = msg[:-2] + '), '
 
-    # strip trailing ", " from the summary line, append uptime
+    # strip trailing ", " from the summary line, append the fork rate and the uptime
     msg = msg.rstrip(', ')
+    if forks_per_second is not None:
+        msg += f', {lib.human.number2human(forks_per_second)} forks/s system-wide'
     msg += f', up {lib.human.seconds2human(uptime)}'
 
     # build --top table
@@ -774,6 +845,16 @@ def main():
         _min=0,
         _max=None,
     )
+    if forks_per_second is not None:
+        perfdata += lib.base.get_perfdata(
+            'procs_forks_per_second',
+            forks_per_second,
+            uom=None,
+            warn=None,
+            crit=None,
+            _min=0,
+            _max=None,
+        )
     perfdata += lib.base.get_perfdata(
         'procs_mem',
         procs_mem,

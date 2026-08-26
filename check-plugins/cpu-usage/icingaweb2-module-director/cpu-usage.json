@@ -11,11 +11,20 @@
                 "--critical": {
                     "value": "$cpu_usage_critical$"
                 },
+                "--critical-steal": {
+                    "value": "$cpu_usage_critical_steal$"
+                },
                 "--no-perfdata": {
                     "set_if": "$cpu_usage_no_perfdata$"
                 },
+                "--per-cpu": {
+                    "set_if": "$cpu_usage_per_cpu$"
+                },
                 "--warning": {
                     "value": "$cpu_usage_warning$"
+                },
+                "--warning-steal": {
+                    "value": "$cpu_usage_warning_steal$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/cpu-usage",
@@ -45,6 +54,21 @@
                     "datafield_id": 5,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -68,31 +92,25 @@
                 "--critical": {
                     "value": "$cpu_usage_windows_critical$"
                 },
+                "--critical-steal": {
+                    "value": "$cpu_usage_windows_critical_steal$"
+                },
                 "--no-perfdata": {
                     "set_if": "$cpu_usage_windows_no_perfdata$"
                 },
+                "--per-cpu": {
+                    "set_if": "$cpu_usage_windows_per_cpu$"
+                },
                 "--warning": {
                     "value": "$cpu_usage_windows_warning$"
+                },
+                "--warning-steal": {
+                    "value": "$cpu_usage_windows_warning_steal$"
                 }
             },
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\cpu-usage.exe",
             "disabled": false,
             "fields": [
-                {
-                    "datafield_id": 6,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 7,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 8,
-                    "is_required": "n",
-                    "var_filter": null
-                },
                 {
                     "datafield_id": 9,
                     "is_required": "n",
@@ -100,6 +118,36 @@
                 },
                 {
                     "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -162,7 +210,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 - idle - nice). Thresholds (WARN/CRIT) are checked against user, system, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. iowait is reported and graphed but never triggers an alert, because Linux iowait is relabelled idle time and unreliable on multi-core systems. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage, which is the total busy share of all CPUs (100 - idle) and therefore includes nice. Thresholds (WARN/CRIT) are checked against user, system, and the busy share without nice. Work that runs at a lowered priority yields to everything else, so a host busy with nothing but niced batch work stays OK while its cpu-usage graph shows the machine at full load. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. iowait is reported and graphed but never triggers an alert, because Linux iowait is relabelled idle time and unreliable on multi-core systems. Steal time carries its own threshold, because a virtual machine can sit at a harmless overall utilization while an oversubscribed hypervisor takes a quarter of its CPU time away. --per-cpu adds one utilization metric per core and names the busiest one, which is what a single-threaded bottleneck looks like on a machine that otherwise appears mostly idle. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/",
             "object_name": "tpl-service-cpu-usage",
             "object_type": "template",
@@ -177,7 +225,9 @@
                 "cpu_usage_count": 5,
                 "cpu_usage_critical": 90,
                 "cpu_usage_no_perfdata": false,
-                "cpu_usage_warning": 80
+                "cpu_usage_per_cpu": false,
+                "cpu_usage_warning": 80,
+                "cpu_usage_warning_steal": "10"
             },
             "volatile": null,
             "zone": null,
@@ -212,7 +262,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage (100 - idle - nice). Thresholds (WARN/CRIT) are checked against user, system, and cpu-usage. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. iowait is reported and graphed but never triggers an alert, because Linux iowait is relabelled idle time and unreliable on multi-core systems. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
+            "notes": "Reports CPU utilization percentages for all available time categories (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall cpu-usage, which is the total busy share of all CPUs (100 - idle) and therefore includes nice. Thresholds (WARN/CRIT) are checked against user, system, and the busy share without nice. Work that runs at a lowered priority yields to everything else, so a host busy with nothing but niced batch work stays OK while its cpu-usage graph shows the machine at full load. An alert is raised only if the threshold is exceeded for COUNT consecutive runs, suppressing short spikes and focusing on sustained load. iowait is reported and graphed but never triggers an alert, because Linux iowait is relabelled idle time and unreliable on multi-core systems. Steal time carries its own threshold, because a virtual machine can sit at a harmless overall utilization while an oversubscribed hypervisor takes a quarter of its CPU time away. --per-cpu adds one utilization metric per core and names the busiest one, which is what a single-threaded bottleneck looks like on a machine that otherwise appears mostly idle. Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform. This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-usage/",
             "object_name": "tpl-service-cpu-usage-windows",
             "object_type": "template",
@@ -227,7 +277,9 @@
                 "cpu_usage_windows_count": 5,
                 "cpu_usage_windows_critical": 90,
                 "cpu_usage_windows_no_perfdata": false,
-                "cpu_usage_windows_warning": 80
+                "cpu_usage_windows_per_cpu": false,
+                "cpu_usage_windows_warning": 80,
+                "cpu_usage_windows_warning_steal": "10"
             },
             "volatile": null,
             "zone": null,
@@ -267,6 +319,17 @@
             "uuid": "a9c69583-5e98-4ae8-bec0-a7f4826dceb1"
         },
         "4": {
+            "varname": "cpu_usage_critical_steal",
+            "caption": "CPU Usage: Critical Steal",
+            "description": "CRIT threshold for the share of CPU time an oversubscribed hypervisor takes away from this machine, in percent. Supports Nagios ranges. Alerts only after `--count` consecutive runs above the threshold. Always 0 on a physical machine and on platforms that do not account for it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b96e06e6-2767-4c2e-a2b9-1dd4445266af"
+        },
+        "5": {
             "varname": "cpu_usage_no_perfdata",
             "caption": "CPU Usage: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -275,7 +338,16 @@
             "settings": {},
             "uuid": "021dfa20-75ca-4655-9bcd-fa7eba159ba3"
         },
-        "5": {
+        "6": {
+            "varname": "cpu_usage_per_cpu",
+            "caption": "CPU Usage: Per CPU?",
+            "description": "Report the utilization of every single core as its own metric, and name the busiest one in the output. Finds the single saturated core that the overall utilization hides on a machine with many cores. Adds one metric per core and does not alert on its own.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9de7b25e-61fd-489d-b275-22010f5b831c"
+        },
+        "7": {
             "varname": "cpu_usage_warning",
             "caption": "CPU Usage: Warning",
             "description": "WARN threshold in percent.",
@@ -286,7 +358,18 @@
             },
             "uuid": "d59b27e4-44f7-4fa6-aaf4-36e4885af075"
         },
-        "6": {
+        "8": {
+            "varname": "cpu_usage_warning_steal",
+            "caption": "CPU Usage: Warning Steal",
+            "description": "WARN threshold for the share of CPU time an oversubscribed hypervisor takes away from this machine, in percent. Supports Nagios ranges. Alerts only after `--count` consecutive runs above the threshold. Always 0 on a physical machine and on platforms that do not account for it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "99d28c44-5be3-4f6c-90f6-2de19bfe5dd3"
+        },
+        "9": {
             "varname": "cpu_usage_windows_always_ok",
             "caption": "CPU Usage: Always OK?",
             "description": "Always returns OK.",
@@ -295,7 +378,7 @@
             "settings": {},
             "uuid": "5a7722fb-e5ab-48a2-bcc9-8dc3036e92de"
         },
-        "7": {
+        "10": {
             "varname": "cpu_usage_windows_count",
             "caption": "CPU Usage: Count",
             "description": "Number of consecutive checks the threshold must be exceeded before alerting.",
@@ -306,7 +389,7 @@
             },
             "uuid": "f3f24630-5a4a-4461-accc-0c4399ed9d8a"
         },
-        "8": {
+        "11": {
             "varname": "cpu_usage_windows_critical",
             "caption": "CPU Usage: Critical",
             "description": "CRIT threshold in percent.",
@@ -317,7 +400,18 @@
             },
             "uuid": "368a0e17-0456-4024-8b4b-412a6367d387"
         },
-        "9": {
+        "12": {
+            "varname": "cpu_usage_windows_critical_steal",
+            "caption": "CPU Usage: Critical Steal",
+            "description": "CRIT threshold for the share of CPU time an oversubscribed hypervisor takes away from this machine, in percent. Supports Nagios ranges. Alerts only after `--count` consecutive runs above the threshold. Always 0 on a physical machine and on platforms that do not account for it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2a7e6c57-616b-48ca-8d11-fcec2b5e4c12"
+        },
+        "13": {
             "varname": "cpu_usage_windows_no_perfdata",
             "caption": "CPU Usage: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -326,7 +420,16 @@
             "settings": {},
             "uuid": "6b895045-c512-403d-ac6e-1201f615b838"
         },
-        "10": {
+        "14": {
+            "varname": "cpu_usage_windows_per_cpu",
+            "caption": "CPU Usage: Per CPU?",
+            "description": "Report the utilization of every single core as its own metric, and name the busiest one in the output. Finds the single saturated core that the overall utilization hides on a machine with many cores. Adds one metric per core and does not alert on its own.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "e38bb744-ad7f-481a-aff4-4a92b20c6941"
+        },
+        "15": {
             "varname": "cpu_usage_windows_warning",
             "caption": "CPU Usage: Warning",
             "description": "WARN threshold in percent.",
@@ -336,6 +439,17 @@
                 "visibility": "visible"
             },
             "uuid": "ea34d9e4-12d3-442a-a2c0-8a8594197050"
+        },
+        "16": {
+            "varname": "cpu_usage_windows_warning_steal",
+            "caption": "CPU Usage: Warning Steal",
+            "description": "WARN threshold for the share of CPU time an oversubscribed hypervisor takes away from this machine, in percent. Supports Nagios ranges. Alerts only after `--count` consecutive runs above the threshold. Always 0 on a physical machine and on platforms that do not account for it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "56d11e59-76ad-41c2-a019-823ac04dce05"
         }
     }
 }

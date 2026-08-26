@@ -117,12 +117,41 @@ def _check_containerfile(test, containerfile):
             print(f'Script output:\n{output.strip()}', flush=True)
 
             # Plugin must exit cleanly and produce its normal
-            # "<percent>% - ..., user: X%, ..." line. Use a
-            # multi-line-tolerant regex because the "user:" segment
+            # "<percent>% over <window> - ..., user: X%, ..." line. Use
+            # a multi-line-tolerant regex because the "user:" segment
             # can land on the first or the second line depending on
             # psutil's by-value sort when several counters read 0%.
             test.assertEqual(result.exit_code, STATE_OK)
-            test.assertRegex(output, r'(?s)\d+\.\d+%.*user:')
+            test.assertRegex(output, r'(?s)\d+\.\d+% over .*user:')
+
+            # Steal carries a threshold of its own, so its metric has to
+            # come out of every distro's psutil carrying it, even where
+            # the field itself reads zero.
+            test.assertRegex(output, r"'steal'=\d+\.\d+%;10;")
+
+            # Two more runs, both with --per-cpu. Only a run given that
+            # option writes the per-core snapshot, so the first of the
+            # two seeds it and the second is the one that can report a
+            # rate. The sleep in between gives the counters something to
+            # differ by; on an idle container a back-to-back run can
+            # produce no CPU time at all and no per-core metric with it.
+            # Whether psutil reports per-CPU times at all depends on the
+            # kernel and on the distro's psutil build, which is the
+            # thing worth testing across the matrix.
+            percpu_cmd = [
+                c.replace('./cpu-usage', './cpu-usage --per-cpu') for c in cmd
+            ]
+            print(f'Run plugin: {" ".join(percpu_cmd)}', flush=True)
+            seed = container.exec(percpu_cmd)
+            test.assertEqual(seed.exit_code, STATE_OK)
+            container.exec(['sleep', '2'])
+            print(f'Run plugin: {" ".join(percpu_cmd)}', flush=True)
+            result = container.exec(percpu_cmd)
+            output = (result.output or b'').decode('utf-8', errors='replace')
+            print(f'Script output:\n{output.strip()}', flush=True)
+            test.assertEqual(result.exit_code, STATE_OK)
+            test.assertRegex(output, r"'cpu0_usage'=\d+\.\d+%")
+            test.assertRegex(output, r'hottest core cpu\d+ at \d+\.\d+%')
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_containerfile)

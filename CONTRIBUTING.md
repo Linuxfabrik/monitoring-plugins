@@ -364,6 +364,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --critical-pattern
 --critical-regex
 --critical-slowreq
+--critical-steal
 --database
 --datasource
 --date
@@ -411,6 +412,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --password
 --path
 --pattern
+--per-cpu
 --perfdata
 --perfdata-key
 --period
@@ -450,6 +452,7 @@ For all other options, use long parameters only. Separate words using a `-`. We 
 --warning-pattern
 --warning-regex
 --warning-slowreq
+--warning-steal
 ```
 
 [Parameter types](https://docs.python.org/3/library/argparse.html) are usually:

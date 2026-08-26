@@ -5,10 +5,14 @@
 
 Monitors running processes and alerts on process count, aggregated memory usage, or aggregated CPU usage. Processes can be filtered by name, command-line arguments, and user name using regular expressions. Optionally lists the top processes by CPU time and memory usage.
 
+On Linux, also reports how many processes the whole system creates per second. A headcount stays flat while a retry loop, a runaway cron job or a fork bomb creates and reaps thousands of processes a second, and this is the number that shows it. It covers the whole system and is not narrowed down by the filters above.
+
 **Important Notes:**
 
 * Some process names in psutil do not match the ones from `ps aux`. Use the troubleshooting section below to get the correct process names.
 * Memory fields vary by platform. On Linux: rss, vms, shared, text, lib, data, dirty. On Windows: rss, vms, num_page_faults, peak_rss, peak_paged_pool, paged_pool, peak_nonpaged_pool, nonpaged_pool, peak_vms, private. Fields not available on the current platform are automatically omitted.
+* The fork rate is system-wide and not affected by `--argument`, `--command`, `--status` or `--username`. Every service of this check on a host therefore reports the same number.
+* The fork rate is reported on Linux only. It is absent on the very first run, because there is no earlier reading to measure against, and on the first run after a reboot, because the kernel counter it is calculated from starts over at zero.
 
 **Data Collection:**
 
@@ -18,6 +22,7 @@ Monitors running processes and alerts on process count, aggregated memory usage,
 * The `--top` table aggregates processes by name and shows the top N by cumulative CPU time
 * CPU usage (`--warning-cpu-percent`/`--critical-cpu-percent`) requires a local SQLite database for delta calculation between runs. A value of 100% equals one fully utilized CPU core. On multi-core systems, values above 100% are possible.
 * Supports extended reporting via `--lengthy`, which adds all platform-specific `memory_info()` fields to the `--top` table
+* The fork rate comes from the kernel's own counter of processes created since boot, kept in the same local SQLite database and turned into a per-second rate against the previous run
 
 
 ## Fact Sheet
@@ -51,8 +56,12 @@ usage: procs [-h] [-V] [--always-ok] [--argument ARGUMENT] [--command COMMAND]
 Monitors running processes and alerts on process count, aggregated memory
 usage, or aggregated CPU usage. Processes can be filtered by name,
 command-line arguments, and user name using regular expressions. Optionally
-lists the top processes by CPU time and memory usage. Supports extended
-reporting via --lengthy.
+lists the top processes by CPU time and memory usage. On Linux, also reports
+how many processes the whole system creates per second. A headcount stays flat
+while a retry loop, a runaway cron job or a fork bomb creates and reaps
+thousands of processes a second, and this is the number that shows it. It
+covers the whole system and is not narrowed down by the filters above.
+Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -186,6 +195,7 @@ Other examples:
 * WARN or CRIT if aggregated memory usage exceeds the configured thresholds.
 * WARN or CRIT if aggregated CPU usage exceeds the configured thresholds (requires two consecutive runs).
 * WARN or CRIT if the oldest matching process age exceeds the configured thresholds.
+* The fork rate never changes the state. It is reported and graphed, because what counts as too many processes per second depends entirely on what the host does.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -197,6 +207,7 @@ Other examples:
 | procs_age | Continuous Counter | Age of the oldest process found, in seconds. |
 | procs_cpu_percent | Percentage | Aggregated CPU usage of all matching processes (only when using `--warning-cpu-percent` or `--critical-cpu-percent`). |
 | procs_dead | Number | Number of dead processes. |
+| procs_forks_per_second | Number | Processes the whole system created per second, calculated in the plugin from two consecutive runs. Linux only, and not affected by the filters. |
 | procs_mem | Bytes | Aggregated RSS memory usage of matching processes. |
 | procs_mem_percent | Percentage | Aggregated RSS memory usage, in percent. |
 | procs_running | Number | Number of processes in running state. |
@@ -211,6 +222,10 @@ Other examples:
 ### `Python module "psutil" is not installed.`
 
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
+
+### The output shows no fork rate
+
+Expected on anything that is not Linux, where the kernel counter it is calculated from does not exist. On Linux it is also absent on the first run after a reboot, and on a run that followed the previous one within the same second, because there is no usable interval to calculate a rate over. Wait for the next check interval.
 
 ### How to get process names
 
