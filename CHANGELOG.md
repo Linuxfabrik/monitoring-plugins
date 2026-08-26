@@ -53,6 +53,7 @@ Icinga Director:
 * `libvirtd Service Set` (host tag `libvirtd`) and `virtqemud Service Set` (host tag `virtqemud`), one per libvirt daemon. A host runs either the monolithic daemon or the modular one
 * `Sensors Service Set` (host tag `sensors`) runs the fan and temperature checks, and `smartmontools Service Set` (host tag `smartmontools`) runs the SMART check. Both checks shipped without a tag so far, which meant nothing rolled them out. `about-me --tags` proposes them on real hardware and stays quiet on a virtual machine
 * `MD RAID Service Set` (host tag `md-raid`) and `Multipath Service Set` (host tag `multipath`) run the two new storage checks. Neither belongs in the OS Basic Service Sets, because neither exists on an ordinary virtual machine. `about-me --tags` proposes both
+* `NFS Client Service Set` (host tag `nfs-client`) runs the NFS mount check, as the counterpart to the existing `nfs-server` tag. `about-me --tags` proposes it on a host that mounts NFS or is set up to
 
 ### Changed
 

@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601 / v7.0.0'
+__version__ = '2026082602 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -969,6 +969,11 @@ def get_lftags(distro):
             ],
         },
         {
+            'sw': 'NFS Client',
+            'package': [],
+            'expr': [has_nfs_filesystem()],
+        },
+        {
             'sw': 'NFS Server',
             'package': [],
             'expr': [
@@ -1770,6 +1775,30 @@ def cmd_output_contains(cmd, needle):
         return False
     stdout, stderr, _retc = result
     return needle in stdout or needle in stderr
+
+
+def has_nfs_filesystem():
+    """Return whether this host mounts an NFS filesystem, or is set up to mount one.
+
+    The signal is the filesystem and not the NFS utilities package, which arrives through
+    dependencies on plenty of hosts that never mount anything. /etc/fstab is read next to
+    the mount table, because a host whose NFS mount is currently failing is exactly the
+    one that needs the check.
+
+    Only the two files are read, never a mount point: asking a mount point whose server
+    is unreachable blocks in a state that cannot be interrupted, and about-me must not be
+    able to hang on it.
+    """
+    for path in ('/proc/self/mounts', '/etc/fstab'):
+        success, content = lib.disk.read_file(path)
+        if not success:
+            continue
+        for line in content.splitlines():
+            fields = line.split()
+            if len(fields) > 2 and not fields[0].startswith('#'):
+                if fields[2] in ('nfs', 'nfs4'):
+                    return True
+    return False
 
 
 def run_cmd(cmd, ignore_output=False):
