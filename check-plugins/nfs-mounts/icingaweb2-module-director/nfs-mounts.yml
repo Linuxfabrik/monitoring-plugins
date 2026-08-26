@@ -1,0 +1,19 @@
+---
+overwrites:
+  # The command timeout has to sit clearly above the plugin's own --timeout, which
+  # defaults to 8 seconds. A check that runs into its deadline needs about 8.1 seconds
+  # including the interpreter start, and being killed at 10 would replace the plugin's
+  # own answer, which names every affected mount, with a bare timeout.
+  '["Command"]["cmd-check-nfs-mounts"]["timeout"]': 20
+  # A mount nobody can reach is a reason to act, so this sits in the same criticality
+  # band as the other storage checks. --lengthy is on, because the extra columns say
+  # whether a mount blocks or gives up and how long it took to answer, which is what
+  # decides how bad the finding is; the number of NFS mounts on a host is small enough
+  # that the output stays readable.
+  '["ServiceTemplate"]["tpl-service-nfs-mounts"]["enable_perfdata"]': true
+  # A server that just came back needs a moment: the client's connection has to time out
+  # and be re-established, which took about 10 seconds when measured, so retrying sooner
+  # only produces another blocking probe.
+  '["ServiceTemplate"]["tpl-service-nfs-mounts"]["retry_interval"]': 60
+  '["ServiceTemplate"]["tpl-service-nfs-mounts"]["vars"]["criticality"]': 'A'
+  '["ServiceTemplate"]["tpl-service-nfs-mounts"]["vars"]["nfs_mounts_lengthy"]': true

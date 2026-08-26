@@ -1,0 +1,627 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import errno
+import json
+import os
+import re
+import signal
+import sys
+import time
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082601'
+
+DESCRIPTION = """Checks that every mounted NFS filesystem still answers, by asking each one for its
+filesystem statistics and giving it a deadline.
+Two failures are invisible to the disk usage, inode and read-only checks, because those
+only look at local block devices: a stale file handle, where the mount stays "active"
+while every access returns an error, and a mount whose server no longer answers, where
+an access blocks instead of failing. The blocking one is the more damaging of the two,
+because a waiting process only gets out of that wait by being killed and every further
+access piles up behind it.
+The check itself never blocks. Each mount is asked in a process of its own, all of them
+at the same time, and a process that misses the deadline is killed, so the runtime stays
+within --timeout no matter how many mounts are unreachable. Reading the list of mounts
+is safe on its own, so a host whose server is gone still reports which mounts are
+affected.
+No elevated privileges are needed: asking for filesystem statistics works even on an
+export the user is not allowed to enter.
+Supports filtering mount points by regular expression via --match and --ignore, and
+extended reporting via --lengthy.
+Alerts when a mount reports a stale file handle, misses the deadline, or answers with an
+error."""
+
+DEFAULT_ERROR_SEVERITY = 'warn'
+DEFAULT_HUNG_SEVERITY = 'crit'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_STALE_SEVERITY = 'crit'
+DEFAULT_TIMEOUT = 8
+
+MOUNTS = '/proc/self/mounts'
+
+# The two filesystem types the kernel reports for an NFS mount: "nfs" for NFSv2 and
+# NFSv3, "nfs4" for every NFSv4 minor version. There is no "nfs3". Verified on Rocky 10
+# with nfs-utils 2.8.3 and kernel 6.12: a `-o vers=3` mount reads "nfs", a `-o vers=4.2`
+# mount reads "nfs4".
+NFS_FSTYPES = ('nfs', 'nfs4')
+
+# The kernel renders the device and the mount point in /proc/self/mounts through
+# mangle_path() with the escape set " \t\n\\", turning each of those characters into a
+# backslash followed by its three-digit octal code (fs/seq_file.c, fs/proc_namespace.c).
+OCTAL_ESCAPE_REGEX = re.compile(r'\\([0-7]{3})')
+
+# How often the parent looks whether a probe has finished. It starts out looking almost
+# immediately, because a healthy mount answers in about a millisecond and the wait is
+# what the response time is read off, and then backs off towards the upper bound so that
+# waiting out an unreachable server does not spin on the CPU.
+POLL_INTERVAL_MAX = 0.02
+POLL_INTERVAL_MIN = 0.001
+
+# Exit code a probe uses when it fails for a reason that is not an OSError, so it cannot
+# collide with an errno: Linux stops well below this (EHWPOISON is 133).
+PROBE_UNEXPECTED = 255
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--error-severity',
+        help='State to report for a mount that answers with an error other than a '
+        'stale file handle, for example the I/O error a `soft` mount reports once it '
+        'has given up on its server. '
+        'Default: %(default)s',
+        dest='ERROR_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_ERROR_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--hung-severity',
+        help='State to report for a mount that does not answer within --timeout. '
+        'A `hard` mount blocks instead of failing, so this is what an unreachable '
+        'server looks like, and a process waiting on such a mount only gets out of '
+        'that wait by being killed. '
+        'Default: %(default)s',
+        dest='HUNG_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_HUNG_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--stale-severity',
+        help='State to report for a mount that answers with a stale file handle. '
+        'The export it points at is gone, and the mount does not recover on its own. '
+        'Default: %(default)s',
+        dest='STALE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_STALE_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout')
+        + ' Every mount is asked at the same time and they share one deadline, so this '
+        'is the runtime of the whole check and not a budget per mount. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def format_response(seconds):
+    """Render how long a probe took.
+
+    Not lib.human.seconds2human(): it divides a float by the length of each unit, so a
+    sub-second duration that is not exactly representable in binary loses a microsecond
+    on the way and 0.35 comes out as "349ms 999us" instead of "350ms". Millisecond
+    granularity is all a round trip needs, and it is what the reader compares across
+    rows.
+    """
+    if seconds < 1:
+        return f'{seconds * 1000:.0f}ms'
+    return f'{seconds:.1f}s'
+
+
+def get_hint(counts):
+    """Return one line telling the administrator what the findings mean for the host, so
+    that the difference between a mount that fails and a mount that blocks does not have
+    to be looked up.
+
+    Only the two findings that have an answer get a line. A mount that reports an error
+    of its own already carries the kernel's wording in its status, and repeating that it
+    is an error would say nothing about what to do next.
+    """
+    hints = []
+    if counts['hung']:
+        hints.append(
+            'a mount that does not answer blocks every access to it until its server '
+            'is back, and a process that is waiting only gets out of that wait by '
+            'being killed'
+        )
+    if counts['stale']:
+        hints.append(
+            'a stale file handle needs the export back on the server and the mount '
+            'unmounted and mounted again'
+        )
+    if not hints:
+        return ''
+    return f'Hint: {"; ".join(hints)}.'
+
+
+def get_mode(options):
+    """Return whether a mount blocks or gives up when its server stops answering.
+
+    The kernel always spells one of the two out in the option list, so there is nothing
+    to guess: `hard` retries forever, `soft` returns an error after its own timeout.
+    """
+    flags = options.split(',')
+    if 'soft' in flags:
+        return 'soft'
+    if 'hard' in flags:
+        return 'hard'
+    return ''
+
+
+def get_nfs_mounts(mounts):
+    """Return the NFS mounts the kernel currently reports, as a list of dicts.
+
+    Reading the mount table is safe even while a server is unreachable, because the
+    kernel renders it from its own structures and never asks the server. Measured on
+    Rocky 10 (kernel 6.12) against a blackholed server: 1 ms, while asking the same
+    mount for its filesystem statistics blocked indefinitely.
+    """
+    result = []
+    for line in mounts.splitlines():
+        fields = line.split()
+        if len(fields) < 4:
+            continue
+        source, mount_point, fstype, options = fields[:4]
+        if fstype not in NFS_FSTYPES:
+            continue
+        result.append(
+            {
+                'fstype': fstype,
+                'mount_point': unescape(mount_point),
+                'options': options,
+                'source': unescape(source),
+            }
+        )
+    return result
+
+
+def get_option(options, name):
+    """Return the value of a `name=value` mount option, or an empty string when the
+    option is not set.
+    """
+    for option in options.split(','):
+        key, separator, value = option.partition('=')
+        if separator and key == name:
+            return value
+    return ''
+
+
+def get_status(result, args):
+    """Return what to report for one probe result, as a `(state, status)` pair, where
+    `status` names the finding the way an administrator recognizes it.
+    """
+    if result['outcome'] == 'ok':
+        return STATE_OK, 'responds'
+    if result['outcome'] == 'hung':
+        return (
+            lib.base.str2state(args.HUNG_SEVERITY),
+            f'no answer within {args.TIMEOUT}s',
+        )
+    if result['errno'] == errno.ESTALE:
+        return lib.base.str2state(args.STALE_SEVERITY), 'stale file handle'
+    if result['errno'] == PROBE_UNEXPECTED:
+        return lib.base.str2state(args.ERROR_SEVERITY), 'could not be asked'
+    return (
+        lib.base.str2state(args.ERROR_SEVERITY),
+        os.strerror(result['errno']).lower(),
+    )
+
+
+def load_test_fixture(raw_json):
+    """Convert a test fixture into the two things the plugin gets from the host: the
+    mount table, and what every mount answered.
+
+    The mount table stays raw text so that a fixture exercises the same parsing a real
+    host goes through, down to the octal escapes and the filesystem types that are not
+    NFS.
+
+    Fixture shape:
+
+        {
+          "mounts": "nfs1.example.com:/export/data /mnt/data nfs4 rw,hard 0 0\\n...",
+          "probes": {
+            "/mnt/data": {"outcome": "ok", "seconds": 0.004},
+            "/mnt/gone": {"outcome": "error", "errno": 116, "seconds": 0.003}
+          }
+        }
+
+    `outcome` is one of `ok`, `hung` and `error`; `errno` carries the error number for
+    `error` and is ignored otherwise. A mount point the `probes` object does not mention
+    answered right away, which keeps a fixture of healthy mounts short.
+    """
+    data = json.loads(raw_json)
+    mounts = get_nfs_mounts(data.get('mounts', ''))
+    probes = data.get('probes', {})
+    results = {}
+    for item in mounts:
+        probe = probes.get(item['mount_point'], {})
+        results[item['mount_point']] = {
+            'errno': probe.get('errno', 0),
+            'outcome': probe.get('outcome', 'ok'),
+            'seconds': probe.get('seconds', 0.0),
+        }
+    return mounts, results
+
+
+def probe_all(mount_points, timeout):
+    """Ask every mount point for its filesystem statistics and return what came back, as
+    a dict keyed by mount point, each value a dict of `outcome` (`ok`, `hung` or
+    `error`), `errno` and `seconds`.
+
+    Asking an NFS mount whose server does not answer puts the caller to sleep in the RPC
+    layer in an uninterruptible state, which no timeout inside this process can cut
+    short, so every probe runs in a child process the parent can kill. The children are
+    forked up front and share a single deadline, so a host with ten unreachable mounts
+    takes as long as one and not ten times as long.
+
+    `seconds` is how long the parent waited, not what the child measured, so it is
+    rounded up by at most one polling interval. That is accurate enough for the purpose,
+    which is telling a mount that answers straight away apart from one that takes
+    seconds.
+
+    Measured on Rocky 10 (kernel 6.12) against a blackholed server: the children sleep in
+    `rpc_wait_bit_killable`, which is TASK_KILLABLE and therefore ends on SIGKILL, and
+    five unreachable mounts finished in 8.01 s with an 8 s deadline, leaving no process
+    behind.
+    """
+    pending = {}
+    started = time.time()
+    for mount_point in mount_points:
+        pid = os.fork()
+        if pid == 0:
+            # The child does one syscall and leaves through os._exit(), which skips
+            # cleanup handlers and buffer flushing, so it can never emit output of its
+            # own or run any of the parent's remaining code.
+            code = 0
+            try:
+                os.statvfs(mount_point)
+            except OSError as e:
+                code = e.errno or PROBE_UNEXPECTED
+            except Exception:
+                code = PROBE_UNEXPECTED
+            os._exit(code)
+        pending[pid] = mount_point
+
+    results = {}
+    deadline = started + timeout
+    interval = POLL_INTERVAL_MIN
+    while pending:
+        for pid in list(pending):
+            finished, status = os.waitpid(pid, os.WNOHANG)
+            if not finished:
+                continue
+            mount_point = pending.pop(pid)
+            # A probe that died on a signal never reported an errno, so it counts as a
+            # probe that could not be carried out rather than as a healthy mount.
+            code = os.WEXITSTATUS(status) if os.WIFEXITED(status) else PROBE_UNEXPECTED
+            results[mount_point] = {
+                'errno': code,
+                'outcome': 'ok' if code == 0 else 'error',
+                'seconds': time.time() - started,
+            }
+        if not pending or time.time() >= deadline:
+            break
+        time.sleep(interval)
+        interval = min(interval * 2, POLL_INTERVAL_MAX)
+
+    for pid, mount_point in pending.items():
+        # SIGKILL and not SIGTERM: both end the uninterruptible sleep, because an
+        # unhandled SIGTERM is a fatal signal and the kernel promotes it to a pending
+        # SIGKILL, but a probe that is merely slow could still install a handler and
+        # ignore SIGTERM.
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+        results[mount_point] = {
+            'errno': 0,
+            'outcome': 'hung',
+            'seconds': time.time() - started,
+        }
+    return results
+
+
+def unescape(field):
+    """Turn the octal escape sequences of a /proc/self/mounts field back into the
+    characters they stand for, so that a mount point containing a space is asked about
+    and printed the way the administrator wrote it.
+    """
+    return OCTAL_ESCAPE_REGEX.sub(lambda match: chr(int(match.group(1), 8)), field)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    fixture_results = None
+    if args.TEST is None:
+        if not lib.disk.file_exists(MOUNTS, allow_empty=True):
+            lib.base.cu(
+                f'This host does not provide {MOUNTS}. '
+                'This check belongs on a Linux host.'
+            )
+        mounts = get_nfs_mounts(lib.base.coe(lib.disk.read_file(MOUNTS)))
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        mounts, fixture_results = load_test_fixture(stdout)
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    problems = []
+    counts = {'error': 0, 'hung': 0, 'stale': 0}
+    slowest = 0.0
+    compiled_match = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    # Filter mount points. --match (include) is applied first, then --ignore (exclude),
+    # so a mount point hit by --ignore is dropped even if it also matches --match. Both
+    # use case-sensitive Python regex. The filter runs before the mounts are asked
+    # anything, so a mount an administrator has deliberately excluded never costs the
+    # check its deadline.
+    selected = []
+    for item in mounts:
+        mount_point = item['mount_point']
+        if compiled_match and not any(p.search(mount_point) for p in compiled_match):
+            continue
+        if any(p.search(mount_point) for p in compiled_ignore):
+            continue
+        selected.append(item)
+
+    if fixture_results is None:
+        results = probe_all([item['mount_point'] for item in selected], args.TIMEOUT)
+    else:
+        results = fixture_results
+
+    for item in selected:
+        result = results[item['mount_point']]
+        slowest = max(slowest, result['seconds'])
+        local_state, status = get_status(result, args)
+        state = lib.base.get_worst(state, local_state)
+        if local_state != STATE_OK:
+            if result['outcome'] == 'hung':
+                counts['hung'] += 1
+            elif result['errno'] == errno.ESTALE:
+                counts['stale'] += 1
+            else:
+                counts['error'] += 1
+            problems.append(f'{item["mount_point"]} ({item["source"]}): {status}')
+        table_data.append(
+            {
+                '_state': local_state,
+                'mode': get_mode(item['options']) or '-',
+                'mountpoint': item['mount_point'],
+                'response': format_response(result['seconds']),
+                'source': item['source'],
+                'state': f'{status}{lib.base.state2str(local_state, prefix=" ")}',
+                'version': get_option(item['options'], 'vers') or item['fstype'],
+            }
+        )
+
+    # Filter table rows for --brief display: hide the mounts that answer and keep only
+    # the ones in a WARN or CRIT state. Perfdata and alerting stay untouched above this
+    # point, --brief only reshapes the human-readable output.
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['_state'] != STATE_OK]
+    else:
+        display_rows = table_data
+
+    # build the message
+    checked = len(table_data)
+    if not mounts:
+        msg = 'Everything is ok. This host has no NFS mounts.'
+    elif not table_data:
+        count = len(mounts)
+        msg = (
+            f'{count} NFS {lib.txt.pluralize("mount", count)}, '
+            f'filtered out by --match or --ignore.'
+        )
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
+    elif problems:
+        count = len(problems)
+        msg = (
+            f'{count} of {checked} NFS {lib.txt.pluralize("mount", checked)} '
+            f'{lib.txt.pluralize("", count, "is,are")} not usable:'
+        )
+        if count == 1:
+            # show the mount point on the first line when there is only one hit
+            msg += f' {problems[0]}'
+        else:
+            for problem in problems:
+                msg += f'\n* {problem}'
+        hint = get_hint(counts)
+        if hint:
+            msg += f'\n{hint}'
+    else:
+        msg = (
+            f'Everything is ok. {checked} NFS '
+            f'{lib.txt.pluralize("mount", checked)} '
+            f'{lib.txt.pluralize("", checked, "responds,respond")}, '
+            f'slowest {format_response(slowest)}.'
+        )
+
+    perfdata += lib.base.get_perfdata(
+        'nfs_mounts_total',
+        checked,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_mounts_hung',
+        counts['hung'],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_mounts_stale',
+        counts['stale'],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_mounts_failed',
+        counts['error'],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    # The slowest round trip is the early warning the counters above cannot give: a
+    # server on its way out answers in seconds long before it stops answering at all.
+    perfdata += lib.base.get_perfdata(
+        'nfs_mounts_slowest_seconds',
+        round(slowest, 3),
+        uom='s',
+        _min=0,
+    )
+
+    # build table output
+    if display_rows:
+        if args.LENGTHY:
+            keys = ['mountpoint', 'source', 'version', 'mode', 'response', 'state']
+            headers = ['Mountpoint', 'Source', 'Vers', 'Mode', 'Response', 'State']
+        else:
+            keys = ['mountpoint', 'source', 'state']
+            headers = ['Mountpoint', 'Source', 'State']
+        msg += '\n\n' + lib.base.get_table(display_rows, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

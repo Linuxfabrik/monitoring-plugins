@@ -37,6 +37,7 @@ Monitoring Plugins:
 * md-raid: alerts when a software RAID array loses redundancy, when the kernel says a member is failing, and on inconsistent sectors
 * memory-paging: alerts when a host pages to and from swap, which swap usage on its own never shows
 * multipath: alerts when a LUN loses one of its paths and when a multipath map runs out of them altogether
+* nfs-mounts: alerts when an NFS mount reports a stale file handle or stops answering, and never blocks on one itself
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
 * openstack-cinder-list: lists the block storage volumes of a project and alerts on the ones in a status that needs attention

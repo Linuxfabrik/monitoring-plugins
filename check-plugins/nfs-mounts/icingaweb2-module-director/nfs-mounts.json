@@ -1,0 +1,418 @@
+{
+    "Command": {
+        "cmd-check-nfs-mounts": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nfs_mounts_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$nfs_mounts_brief$"
+                },
+                "--error-severity": {
+                    "value": "$nfs_mounts_error_severity$"
+                },
+                "--hung-severity": {
+                    "value": "$nfs_mounts_hung_severity$"
+                },
+                "--ignore": {
+                    "value": "$nfs_mounts_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$nfs_mounts_lengthy$"
+                },
+                "--match": {
+                    "value": "$nfs_mounts_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$nfs_mounts_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$nfs_mounts_no_perfdata$"
+                },
+                "--stale-severity": {
+                    "value": "$nfs_mounts_stale_severity$"
+                },
+                "--timeout": {
+                    "value": "$nfs_mounts_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/nfs-mounts",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nfs-mounts",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "1f33c4d7-3fc2-4702-b862-aa2cdc6852d6"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-nfs-mounts": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nfs-mounts",
+            "check_interval": 60,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nfs-mounts.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks that every mounted NFS filesystem still answers, by asking each one for its filesystem statistics and giving it a deadline. Two failures are invisible to the disk usage, inode and read-only checks, because those only look at local block devices: a stale file handle, where the mount stays \"active\" while every access returns an error, and a mount whose server no longer answers, where an access blocks instead of failing. The blocking one is the more damaging of the two, because a waiting process only gets out of that wait by being killed and every further access piles up behind it. The check itself never blocks. Each mount is asked in a process of its own, all of them at the same time, and a process that misses the deadline is killed, so the runtime stays within --timeout no matter how many mounts are unreachable. Reading the list of mounts is safe on its own, so a host whose server is gone still reports which mounts are affected. No elevated privileges are needed: asking for filesystem statistics works even on an export the user is not allowed to enter. Supports filtering mount points by regular expression via --match and --ignore, and extended reporting via --lengthy. Alerts when a mount reports a stale file handle, misses the deadline, or answers with an error.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nfs-mounts/",
+            "object_name": "tpl-service-nfs-mounts",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "nfs_mounts_always_ok": false,
+                "nfs_mounts_brief": false,
+                "nfs_mounts_error_severity": "warn",
+                "nfs_mounts_hung_severity": "crit",
+                "nfs_mounts_ignore": [],
+                "nfs_mounts_lengthy": true,
+                "nfs_mounts_match": [],
+                "nfs_mounts_no_match_severity": "ok",
+                "nfs_mounts_no_perfdata": false,
+                "nfs_mounts_stale_severity": "crit",
+                "nfs_mounts_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "d32cde59-7105-4532-bf4f-f234079d753b"
+        }
+    },
+    "DataList": {
+        "nfs_mounts_error_severity_list": {
+            "list_name": "nfs_mounts_error_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "20f5d2b7-3aab-440e-9104-1e6aee1d7840"
+        },
+        "nfs_mounts_hung_severity_list": {
+            "list_name": "nfs_mounts_hung_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "82803034-48d9-4a52-8513-83b296f91358"
+        },
+        "nfs_mounts_no_match_severity_list": {
+            "list_name": "nfs_mounts_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "3be4bf36-9543-4fca-bae6-400d9a80d921"
+        },
+        "nfs_mounts_stale_severity_list": {
+            "list_name": "nfs_mounts_stale_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "7f998ac3-aa0a-4b96-b7aa-0de6132d120c"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "nfs_mounts_always_ok",
+            "caption": "Nfs Mounts: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b69e2fc6-faba-4a0f-8ace-569679c8b832"
+        },
+        "2": {
+            "varname": "nfs_mounts_brief",
+            "caption": "Nfs Mounts: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "baade2c4-2877-4078-b46b-c9c0feb31dd3"
+        },
+        "3": {
+            "varname": "nfs_mounts_error_severity",
+            "caption": "Nfs Mounts: Error Severity",
+            "description": "State to report for a mount that answers with an error other than a stale file handle, for example the I/O error a `soft` mount reports once it has given up on its server.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_mounts_error_severity_list"
+            },
+            "uuid": "4e071021-5cd7-4136-8d83-c45b34212a27"
+        },
+        "4": {
+            "varname": "nfs_mounts_hung_severity",
+            "caption": "Nfs Mounts: Hung Severity",
+            "description": "State to report for a mount that does not answer within --timeout. A `hard` mount blocks instead of failing, so this is what an unreachable server looks like, and a process waiting on such a mount only gets out of that wait by being killed.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_mounts_hung_severity_list"
+            },
+            "uuid": "1d5a4aa8-9cbd-42f8-8b1a-0106718a934c"
+        },
+        "5": {
+            "varname": "nfs_mounts_ignore",
+            "caption": "Nfs Mounts: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b1b91ab1-4227-49da-8172-f7e11286638e"
+        },
+        "6": {
+            "varname": "nfs_mounts_lengthy",
+            "caption": "Nfs Mounts: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "26a28f66-2793-4009-ab28-c6b79f3d838f"
+        },
+        "7": {
+            "varname": "nfs_mounts_match",
+            "caption": "Nfs Mounts: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "bbe0257e-49a7-49ce-a2a0-9b8474c784df"
+        },
+        "8": {
+            "varname": "nfs_mounts_no_match_severity",
+            "caption": "Nfs Mounts: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_mounts_no_match_severity_list"
+            },
+            "uuid": "99f2c108-fa5a-40e7-b742-f56553d71d8d"
+        },
+        "9": {
+            "varname": "nfs_mounts_no_perfdata",
+            "caption": "Nfs Mounts: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9577d013-d67c-4322-9728-8ff977badcd6"
+        },
+        "10": {
+            "varname": "nfs_mounts_stale_severity",
+            "caption": "Nfs Mounts: Stale Severity",
+            "description": "State to report for a mount that answers with a stale file handle. The export it points at is gone, and the mount does not recover on its own.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_mounts_stale_severity_list"
+            },
+            "uuid": "9f5a3b50-6fca-4045-8187-1660f7853c2b"
+        },
+        "11": {
+            "varname": "nfs_mounts_timeout",
+            "caption": "Nfs Mounts: Timeout",
+            "description": "Network timeout in seconds. Every mount is asked at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per mount.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5fda8a44-ebda-4dd4-9a7d-3395a67212b4"
+        }
+    }
+}

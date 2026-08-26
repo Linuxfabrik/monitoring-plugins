@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# A fixture carries both halves of what the check reads from a host: the raw mount table
+# as the kernel writes it, and what each mount answered when asked for its filesystem
+# statistics. Asking a real mount needs a real NFS server, so the answers are injected
+# instead; the mount table stays raw text and goes through the same parsing a real host
+# does.
+
+TESTS = [
+    {
+        'id': 'ok-every-mount-answers',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 3 NFS mounts respond, slowest 351ms\.',
+    },
+    {
+        # the fixture also holds xfs and tmpfs lines, which must not be picked up
+        'id': 'ok-local-filesystems-are-not-nfs',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['/boot', '/run', 'xfs', 'tmpfs'],
+    },
+    {
+        'id': 'ok-a-host-without-nfs-mounts',
+        'test': 'stdout/no-nfs-mounts,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. This host has no NFS mounts.'],
+    },
+    {
+        # a fixture root that does not provide the file at all reads as an empty table,
+        # which is the same answer as a host that mounts nothing over NFS
+        'id': 'ok-an-empty-mount-table',
+        'test': 'stdout/empty-mount-table,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. This host has no NFS mounts.'],
+    },
+    {
+        # the kernel writes a space as "\040" in both the source and the mount point
+        'id': 'ok-a-mount-point-holding-a-space',
+        'test': 'stdout/mount-point-with-space,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/mnt/my data', 'nfs1.example.com:/export/my data'],
+    },
+    {
+        'id': 'ok-perfdata-counts-every-checked-mount',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'nfs_mounts_total'=3;;;0",
+            "'nfs_mounts_hung'=0;0;;0",
+            "'nfs_mounts_stale'=0;0;;0",
+            "'nfs_mounts_failed'=0;0;;0",
+            "'nfs_mounts_slowest_seconds'=0.351s;;;0",
+        ],
+    },
+    {
+        # the version and the hard/soft mode only show up with --lengthy
+        'id': 'ok-lengthy-names-the-version-and-the-mode',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Vers', 'Mode', 'Response', '4.2', '3', 'hard'],
+    },
+    {
+        # the mode is read off the option list, where the kernel always spells out one
+        # of the two
+        'id': 'crit-lengthy-tells-a-soft-mount-from-a-hard-one',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['soft', 'hard'],
+    },
+    {
+        # every mount answers, so --brief has nothing left to show and prints no table
+        'id': 'ok-brief-hides-the-mounts-that-answer',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Mountpoint'],
+    },
+    {
+        'id': 'ok-ignore-drops-a-mount-point',
+        'test': 'stdout/one-stale-handle,,0',
+        'params': '--ignore=/mnt/gone',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 1 NFS mount responds',
+    },
+    {
+        'id': 'ok-match-keeps-only-what-it-names',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '--match=/mnt/data',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 1 NFS mount responds',
+    },
+    {
+        # --ignore wins over --match for a mount point both of them hit
+        'id': 'ok-ignore-beats-match',
+        'test': 'stdout/one-stale-handle,,0',
+        'params': '--match=/mnt --ignore=/mnt/gone',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 1 NFS mount responds',
+    },
+    {
+        'id': 'ok-filters-leave-nothing-to-check',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '--match=/does/not/exist',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 NFS mounts, filtered out by --match or --ignore.'],
+    },
+    {
+        'id': 'warn-filters-leave-nothing-to-check',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '--match=/does/not/exist --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['3 NFS mounts, filtered out by --match or --ignore.'],
+    },
+    {
+        'id': 'crit-a-stale-file-handle',
+        'test': 'stdout/one-stale-handle,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'1 of 2 NFS mounts is not usable: /mnt/gone '
+        r'\(nfs1\.example\.com:/export/gone\): stale file handle',
+    },
+    {
+        'id': 'crit-a-stale-file-handle-names-the-way-out',
+        'test': 'stdout/one-stale-handle,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['unmounted and mounted again'],
+    },
+    {
+        'id': 'warn-a-stale-file-handle-can-be-graded-down',
+        'test': 'stdout/one-stale-handle,,0',
+        'params': '--stale-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['stale file handle [WARNING]'],
+    },
+    {
+        'id': 'ok-a-stale-file-handle-can-be-silenced',
+        'test': 'stdout/one-stale-handle,,0',
+        'params': '--stale-severity=ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-an-unreachable-server',
+        'test': 'stdout/server-unreachable,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'2 of 2 NFS mounts are not usable:',
+    },
+    {
+        'id': 'crit-an-unreachable-server-names-the-deadline',
+        'test': 'stdout/server-unreachable,,0',
+        'params': '--timeout=5',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'no answer within 5s',
+            'only gets out of that wait by being killed',
+        ],
+    },
+    {
+        'id': 'warn-an-unreachable-server-can-be-graded-down',
+        'test': 'stdout/server-unreachable,,0',
+        'params': '--hung-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'nfs_mounts_hung'=2;0;;0"],
+    },
+    {
+        # a soft mount does not block, it reports the error the kernel worded
+        'id': 'warn-a-soft-mount-that-gave-up',
+        'test': 'stdout/soft-mount-io-error,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['input/output error', "'nfs_mounts_failed'=1;0;;0"],
+    },
+    {
+        'id': 'crit-a-soft-mount-that-gave-up-can-be-graded-up',
+        'test': 'stdout/soft-mount-io-error,,0',
+        'params': '--error-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['input/output error [CRITICAL]'],
+    },
+    {
+        # one healthy, one stale, one hung and one erroring mount at the same time
+        'id': 'crit-every-kind-of-failure-at-once',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            "'nfs_mounts_total'=4;;;0",
+            "'nfs_mounts_hung'=1;0;;0",
+            "'nfs_mounts_stale'=1;0;;0",
+            "'nfs_mounts_failed'=1;0;;0",
+        ],
+    },
+    {
+        'id': 'crit-brief-keeps-only-the-failing-mounts',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['/mnt/data '],
+    },
+    {
+        # the worst finding decides, so a downgraded hang still leaves the stale CRIT
+        'id': 'crit-the-worst-finding-decides',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '--hung-severity=ok --error-severity=ok',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['stale file handle [CRITICAL]'],
+    },
+    {
+        'id': 'ok-always-ok-masks-every-failure',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/one-of-each-failure,,0',
+        'params': '--no-perfdata --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['nfs_mounts_total'],
+    },
+    {
+        'id': 'unknown-an-invalid-regex',
+        'test': 'stdout/three-mounts-healthy,,0',
+        'params': '--match=[',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nfs-mounts'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
