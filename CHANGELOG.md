@@ -34,7 +34,9 @@ Monitoring Plugins:
 * kvm-network-io: reports what each virtual machine of a libvirt host sends and receives per network interface, and the frames it loses ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-storage-pool: reports the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-volume: reports what a libvirt host's storage pools hold and how far they have promised more space than they have ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* md-raid: alerts when a software RAID array loses a member, when the kernel declares it failed, and when a consistency check found inconsistent sectors
 * memory-paging: alerts when a host pages to and from swap, which swap usage on its own never shows
+* multipath: alerts when a LUN loses one of its paths and when a multipath map runs out of them altogether
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
 * openstack-cinder-list: lists the block storage volumes of a project and alerts on the ones in a status that needs attention
@@ -48,6 +50,7 @@ Icinga Director:
 
 * `libvirtd Service Set` (host tag `libvirtd`) and `virtqemud Service Set` (host tag `virtqemud`), one per libvirt daemon. A host runs either the monolithic daemon or the modular one
 * `Sensors Service Set` (host tag `sensors`) runs the fan and temperature checks, and `smartmontools Service Set` (host tag `smartmontools`) runs the SMART check. Both checks shipped without a tag so far, which meant nothing rolled them out. `about-me --tags` proposes them on real hardware and stays quiet on a virtual machine
+* `MD RAID Service Set` (host tag `md-raid`) and `Multipath Service Set` (host tag `multipath`) run the two new storage checks. Neither belongs in the OS Basic Service Sets, because neither exists on an ordinary virtual machine. `about-me --tags` proposes both
 
 ### Changed
 

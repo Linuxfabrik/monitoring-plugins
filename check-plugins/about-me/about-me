@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503 / v7.0.0'
+__version__ = '2026082601 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -395,6 +395,10 @@ def get_lftags(distro):
         has_fan_sensors = bool(psutil.sensors_fans())
     except Exception:
         has_fan_sensors = False
+    # An assembled array is the signal for software RAID, not the mdadm package: the
+    # package sits on plenty of hosts that never assemble one. Every md device carries
+    # an `md` directory below /sys/block, and nothing else does.
+    has_md_array = bool(lib.disk.glob('/sys/block/md*/md'))
     lftags = [
         # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
         #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
@@ -853,6 +857,11 @@ def get_lftags(distro):
             ],
         },
         {
+            'sw': 'MD RAID',
+            'package': [],
+            'expr': [has_md_array],
+        },
+        {
             'sw': 'Metabase',
             'package': [],
             'expr': [
@@ -900,6 +909,16 @@ def get_lftags(distro):
             'expr': [
                 run_cmd(
                     ['systemctl', 'is-enabled', 'moodle-cron.timer'], ignore_output=True
+                )
+            ],
+        },
+        {
+            'sw': 'Multipath',
+            'package': ['device-mapper-multipath', 'multipath-tools'],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'multipathd.service'],
+                    ignore_output=True,
                 )
             ],
         },
