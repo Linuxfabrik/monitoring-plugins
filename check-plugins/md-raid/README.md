@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when it says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With `--spares` it also alerts when an array holds fewer spare devices than it is supposed to. Supports extended reporting via `--lengthy`.
+Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when a parity array has lost the write journal it needs in order to accept writes at all, when the kernel says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With `--spares` it also alerts when an array holds fewer spare devices than it is supposed to. Supports extended reporting via `--lengthy`.
 
 **What the kernel reports:**
 
@@ -26,6 +26,7 @@ Below that, a redundant array reports how many members it wants and how many are
 * **A mismatch on a mirror is not the same finding as a mismatch on a parity array.** md(4) is explicit about it: on RAID 5 and RAID 6 "any mismatches should indicate a hardware problem at some level - software issues should never cause such a mismatch", while on RAID 1 and RAID 10 a page written while the check reads it, and above all a swap area, leave the copies different in a place nothing ever reads back, so "the mismatch_cnt value can not be interpreted very reliably". That is why `--mismatch-severity` defaults to `warn` and `--mirror-mismatch-severity` to `ok`. Both numbers are always reported and always in the performance data, so a mirror whose count keeps growing from check to check is still visible on the graph.
 * **The commands in the output name this host's array and this host's member.** Where the check reports a problem, the `mdadm` lines it suggests carry the real names it just read, so they can be copied without being checked against the machine first. The one thing it cannot know is the device of the replacement disk, and the text asks for it in words rather than inventing a path.
 * **Neither the kernel device nor the array name is a stable identifier, so both are reported.** The kernel hands out `md127` from a pool when the array is assembled, which can differ between boots on a host with several arrays, and the name an array was created under gains a `<homehost>:` prefix as soon as mdadm stops treating the array as local. Measured on a host still called `localhost.localdomain`, where the same array was `/dev/md/raid5` after creation and `/dev/md/localhost.localdomain:raid5` after the next boot. The kernel device is what every `mdadm` command and every path below `/sys` takes, so it is the identifier the check reports and labels its performance data with; `--lengthy` shows the name beside it, and `--match` and `--ignore` accept either.
+* **A parity array that lost its write journal reports every member in sync and cannot be written to.** A RAID 4, 5 or 6 array can keep a write journal on a device of its own to close the write hole. Where that device dies, `/proc/mdstat` keeps printing `[3/3] [UUU]`, `degraded` stays at 0 and `array_state` stays `clean`, while reads run at full speed and writes do not: a direct write answers `Input/output error`, and a buffered write is reported to the application as having succeeded and then thrown away, with only `lost async page write` in the kernel log. Taking the dead journal out does not help and makes it worse, because then nothing is flagged anywhere and the array is indistinguishable from a healthy one. Measured on kernel 6.12 with mdadm 4.4. This check reads it either way and reports CRITICAL, from the journal member's own flag or, once that is gone, from `consistency_policy` still reading `journal` while no member carries the journal. `--journal-severity` changes it.
 * **A member on its way out is invisible in `/proc/mdstat`.** The kernel keeps three more words about each member next to the array, in `/sys/block/*/md/dev-*/state`, and prints none of them into `/proc/mdstat`: `want_replacement` means it wants this member replaced and will pull a spare in for it, `write_error` means a write to it failed and the bad block list absorbed it, and `blocked` means it has bad blocks nobody has acknowledged yet, so writes to it are waiting. An array carrying all three still reports `[3/3] [UUU]`, which is what a check reading `/proc/mdstat` alone reports as healthy. Measured on kernel 7.1. `--member-severity` changes what these are worth.
 * **A frozen sync stops an array from ever repairing itself.** Writing `frozen` to `sync_action` forbids resync, recovery and reshape, and nothing clears it by itself. A degraded array in that state does not rebuild however many spares sit in it, and `/proc/mdstat` prints no line that would say why: it looks merely idle. Where the check finds one, it says so and gives the command that lets the sync run again.
 * **A spare is only checked against a number somebody gave.** The kernel does not know how many spares an array is supposed to hold, so nothing says a spare that quietly disappeared is missing. `--spares` pins the number, either once for every array or per array with `--spares=md0=1`, and the check alerts when an array holds fewer. This is what `mdadm --monitor` calls `SparesMissing` and takes from the `spares=` of its own configuration file, which this check does not read. RAID 0 and linear arrays are never graded against it, because they have nothing to rebuild onto.
@@ -38,7 +39,7 @@ Below that, a redundant array reports how many members it wants and how many are
 **Data Collection:**
 
 * Reads `/proc/mdstat` for the list of arrays, their members and the progress of a running resync, recovery, reshape or check
-* Reads `array_state`, `degraded`, `level`, `mismatch_cnt`, `raid_disks` and `sync_action` below `/sys/block/md*/md`
+* Reads `array_state`, `consistency_policy`, `degraded`, `level`, `mismatch_cnt`, `raid_disks` and `sync_action` below `/sys/block/md*/md`
 * Reads `state` below `/sys/block/md*/md/dev-*` for what the kernel says about each member device
 * Needs no root and no `sudo`, and calls no external command
 
@@ -58,7 +59,8 @@ Below that, a redundant array reports how many members it wants and how many are
 ## Help
 
 ```text
-usage: md-raid [-h] [-V] [--always-ok] [--ignore IGNORE] [--lengthy]
+usage: md-raid [-h] [-V] [--always-ok] [--ignore IGNORE]
+               [--journal-severity {ok,warn,crit,unknown}] [--lengthy]
                [--match MATCH] [--member-severity {ok,warn,crit,unknown}]
                [--mirror-mismatch-severity {ok,warn,crit,unknown}]
                [--mismatch-severity {ok,warn,crit,unknown}]
@@ -74,10 +76,11 @@ recovery or reshape is under way or frozen, and how many inconsistent sectors
 the last consistency check found. Every array the kernel knows is reported, so
 an array nobody remembers is on the list as well. Alerts when an array has
 lost the redundancy it was built for, when the kernel declares it failed, when
-it says a member wants replacing or has seen a write error, and when a
-consistency check found differences between the members of a parity array.
-With --spares it also alerts when an array holds fewer spare devices than it
-is supposed to. Supports extended reporting via --lengthy.
+a parity array has lost the write journal it needs in order to accept writes
+at all, when the kernel says a member wants replacing or has seen a write
+error, and when a consistency check found differences between the members of a
+parity array. With --spares it also alerts when an array holds fewer spare
+devices than it is supposed to. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -86,6 +89,12 @@ options:
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
+  --journal-severity {ok,warn,crit,unknown}
+                        State to report when a parity array (RAID 4, RAID 5,
+                        RAID 6) that keeps a write journal has lost it. Such
+                        an array reports every member in sync and cannot be
+                        written to, and a buffered write to it is reported as
+                        having succeeded and then thrown away. Default: crit
   --lengthy             Extended reporting.
   --match MATCH         Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
@@ -224,6 +233,17 @@ md5   ! -    ! raid5 ! 4/4 [UUUU] ! 1.2      ! -               ! 0          ! re
 
 The flagged members are the ones the kernel says something about, from either of the two places it says it. `/proc/mdstat` gives `faulty` for a member it threw out, `spare` for one waiting to be pulled in, `replacement` for one being built up next to the member it replaces, `write-mostly` for a mirror leg reads avoid, and `journal` for the write journal of a parity array. Next to the array it gives `want_replacement`, `write_error` and `blocked`, in its own spelling so they can be grepped for in `/sys` and in the kernel log. A member neither of them says anything about is doing its ordinary job and is not listed.
 
+Output on a parity array whose write journal is gone. `/proc/mdstat` reports `[3/3] [UUU]` and the array accepts no writes:
+
+```text
+md0: write journal lost, so writes to this array fail and buffered ones are thrown away.
+md0 keeps its write journal on a device of its own, and that device is dead. Reads still work and writes do not: a direct write answers with an I/O error, and a buffered write is reported as having succeeded while the kernel throws it away, so an application on top of this array is losing data right now without being told. Nothing in /proc/mdstat says so, it keeps reporting every member in sync. Take the dead journal out with `mdadm /dev/md0 --remove /dev/vdf`, then put a new one in: `mdadm --readonly /dev/md0` first, because `--add-journal` is refused on a running array, then `mdadm /dev/md0 --add-journal` followed by the device. mdadm switches the array back to read-write by itself at that point, so no `--readwrite` is needed afterwards. Where there is no disk to spare, `echo resync > /sys/block/md0/md/consistency_policy` gives up journalling instead and makes the array writable again immediately, at the price of the write hole the journal was there to close.
+
+Array ! Name ! Level ! Devices   ! Metadata ! Flagged Members       ! Mismatches ! Sync ! State
+------+------+-------+-----------+----------+-----------------------+------------+------+------------------------
+md0   ! -    ! raid5 ! 3/3 [UUU] ! 1.2      ! vdf (journal, faulty) ! 0          ! idle ! journal lost [CRITICAL]
+```
+
 Output where the array is at its full width and the kernel is unhappy about its members all the same. This is what nothing in `/proc/mdstat` shows:
 
 ```text
@@ -299,6 +319,7 @@ Leave a single array out, for example one that is deliberately kept degraded:
 * WARN if an array holds fewer spare devices than `--spares` says it should. `--spares-severity` changes it. Without `--spares` no array is graded against a spare count.
 * WARN if the last consistency check on a parity array (RAID 4, RAID 5, RAID 6) found inconsistent sectors. `--mismatch-severity` changes it.
 * OK with the count reported if the last consistency check on a mirror (RAID 1, RAID 10) found inconsistent sectors. `--mirror-mismatch-severity` raises it.
+* CRIT if a parity array has lost the write journal it keeps on a device of its own. Such an array reports every member in sync and cannot be written to. `--journal-severity` changes it.
 * CRIT if the kernel reports an array as `broken`, which is its own word for an array that can no longer serve its data.
 * CRIT if an array is `inactive`, which means it was assembled but never started.
 * WARN if the host runs no software RAID array at all, and WARN with a different explanation on a kernel that has no md support loaded, which are two different statements. `--no-arrays-severity` changes both.
@@ -318,6 +339,7 @@ The array counts are taken after `--match` and `--ignore` have been applied, so 
 | arrays_broken              | Number | Arrays the kernel can no longer serve data from. |
 | arrays_degraded            | Number | Arrays running on fewer members than they were built for. |
 | arrays_inactive            | Number | Arrays that were assembled but never started. |
+| arrays_journal_lost        | Number | Parity arrays that have lost their write journal and therefore accept no writes. |
 | arrays_sync_frozen         | Number | Arrays whose sync is frozen, so they neither resync, recover nor reshape. |
 | arrays_syncing             | Number | Arrays with a resync, recovery, reshape or consistency check running. |
 | devices_faulty             | Number | Member devices the kernel has thrown out, across all arrays. |
@@ -402,6 +424,38 @@ A spare took over and the rebuild finished, so the array has its full width back
     ```
 
     On an array that is already at its full width, `--add` puts the new device in as a spare rather than starting a rebuild.
+
+### `md0: write journal lost`
+
+A RAID 4, 5 or 6 array can keep a write journal on a device of its own, which closes the write hole: a stripe that was half written when the power went is reconstructed from the journal instead of being silently wrong. Where that device is gone, the array keeps reporting every member in sync and stops accepting writes. Reads are unaffected, a direct write gets `Input/output error`, and a buffered write is reported to the application as having succeeded and then dropped. Anything writing to this array is losing data now.
+
+1. Take the dead journal out, if one is still attached:
+
+    ```bash
+    mdadm /dev/md0 --remove /dev/sdf
+    ```
+
+2. Put a new journal in. The array has to be read-only for this, `--add-journal` is refused on a running array:
+
+    ```bash
+    mdadm --readonly /dev/md0
+    mdadm /dev/md0 --add-journal /dev/sdf
+    ```
+
+    ```text
+    mdadm: Journal added successfully, making /dev/md0 read-write
+    mdadm: added /dev/sdf
+    ```
+
+    mdadm switches the array back to read-write by itself, so no `mdadm --readwrite` follows. Running it anyway answers `failed to set writable for /dev/md0: Device or resource busy`.
+
+3. Where there is no disk to spare, give up journalling instead. The array becomes writable again immediately and loses the write-hole protection the journal provided:
+
+    ```bash
+    echo resync > /sys/block/md0/md/consistency_policy
+    ```
+
+    `mdadm --grow --consistency-policy=resync` does not do this on a running array; it answers `Current consistency policy is journal, cannot change to resync`.
 
 ### The kernel says a member wants replacing, has seen a write error, or is blocked
 

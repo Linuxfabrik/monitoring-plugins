@@ -175,6 +175,36 @@ spec:
         operator: '='
         value: arrays_inactive
 
+    - alias: Write journal lost
+      refId: arrays_journal_lost
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: arrays_journal_lost
+
     - alias: Sync frozen
       refId: arrays_sync_frozen
       groupBy:

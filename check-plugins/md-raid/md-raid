@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082604'
+__version__ = '2026082605'
 
 DESCRIPTION = """Reports the health of the Linux software RAID arrays (md) on this host: how
 many member devices each array is running on, which of them the kernel has thrown out,
@@ -32,9 +32,11 @@ under way or frozen, and how many inconsistent sectors the last consistency chec
 Every array the kernel knows is reported, so an array nobody remembers is on the list as
 well.
 Alerts when an array has lost the redundancy it was built for, when the kernel declares
-it failed, when it says a member wants replacing or has seen a write error, and when a
-consistency check found differences between the members of a parity array. With --spares
-it also alerts when an array holds fewer spare devices than it is supposed to.
+it failed, when a parity array has lost the write journal it needs in order to accept
+writes at all, when the kernel says a member wants replacing or has seen a write error,
+and when a consistency check found differences between the members of a parity array.
+With --spares it also alerts when an array holds fewer spare devices than it is supposed
+to.
 Supports extended reporting via --lengthy."""
 
 # The kernel writes one block per array here. It exists on every kernel that has md
@@ -116,6 +118,17 @@ MEMBER_STATE_NAMES = {
     MEMBER_STATE_WRITE_ERROR: 'has seen a write error',
 }
 
+# `consistency_policy` says how a parity array protects itself against the write hole.
+# `journal` means it does so through a write journal on a device of its own, and a
+# raid4/5/6 in that state without a working journal cannot be written to at all:
+# raid5-cache.c:r5l_log_disk_error() returns true both while the journal member is faulty
+# and once it is gone (it falls back to MD_HAS_JOURNAL there), and raid5.c:handle_stripe()
+# then fails the stripe. Measured on kernel 6.12 / mdadm 4.4: reads still ran at full
+# speed, a direct write answered `Input/output error`, and a buffered write plus `sync`
+# both reported success while the kernel logged `lost async page write`. /proc/mdstat
+# says `[3/3] [UUU]` throughout.
+CONSISTENCY_POLICY_JOURNAL = 'journal'
+
 # `sync_action` while nothing is running, and the one value there that does not simply
 # mean "nothing to do": it forbids resync, recovery and reshape, so a degraded array
 # stays degraded however many spares sit in it. /proc/mdstat prints no line for it, so
@@ -176,6 +189,7 @@ PENDING_PATTERN = re.compile(r'^(?P<action>recover|reshape|resync)=(?P<state>[A-
 SIZE_PATTERN = re.compile(r'^(?P<blocks>\d+) blocks\b')
 SUPER_PATTERN = re.compile(r'\bsuper (?P<metadata>\S+)')
 
+DEFAULT_JOURNAL_SEVERITY = 'crit'
 DEFAULT_LENGTHY = False
 DEFAULT_MEMBER_SEVERITY = 'warn'
 DEFAULT_MIRROR_MISMATCH_SEVERITY = 'ok'
@@ -250,7 +264,7 @@ def remediation(report):
     sync looks like: the disk is there, the kernel is just not allowed to use it.
     """
     array = report['name']
-    faulty = report['faulty']
+    faulty = report['faulty_members']
     frozen = report['frozen']
     read_only = report['read_only']
     spare = report['spare']
@@ -348,6 +362,43 @@ def inactive_help(array):
         f'ones that are missing, and `mdadm --run /dev/{array}` starts it where they '
         f'are merely late.'
     )
+
+
+def journal_help(array, faulty):
+    """
+    Say what to do about a parity array whose write journal is gone.
+
+    The array keeps reporting its full width and every member in sync, and it cannot be
+    written to. `faulty` names the dead journal where one is still attached; it is empty
+    once somebody has taken it out, which does not help and is the state that hides the
+    problem completely.
+    """
+    text = (
+        f'{array} keeps its write journal on a device of its own, and that device is '
+        f'{"dead" if faulty else "gone"}. Reads still work and writes do not: a direct '
+        f'write answers with an I/O error, and a buffered write is reported as having '
+        f'succeeded while the kernel throws it away, so an application on top of this '
+        f'array is losing data right now without being told. Nothing in /proc/mdstat '
+        f'says so, it keeps reporting every member in sync. '
+    )
+    if faulty:
+        removals = ', '.join(
+            f'`mdadm /dev/{array} --remove /dev/{item}`' for item in faulty
+        )
+        text += f'Take the dead journal out with {removals}, then '
+    else:
+        text += 'Taking the journal out was not enough, so '
+    text += (
+        f'put a new one in: `mdadm --readonly /dev/{array}` first, because '
+        f'`--add-journal` is refused on a running array, then `mdadm /dev/{array} '
+        f'--add-journal` followed by the device. mdadm switches the array back to '
+        f'read-write by itself at that point, so no `--readwrite` is needed afterwards. '
+        f'Where there is no disk to spare, `echo resync > '
+        f'/sys/block/{array}/md/consistency_policy` gives up journalling instead and '
+        f'makes the array writable again immediately, at the price of the write hole '
+        f'the journal was there to close.'
+    )
+    return text
 
 
 def replaced_help(array, faulty):
@@ -464,6 +515,18 @@ def parse_args():
         action='append',
         default=None,
         dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--journal-severity',
+        help='State to report when a parity array (RAID 4, RAID 5, RAID 6) that keeps a '
+        'write journal has lost it. '
+        'Such an array reports every member in sync and cannot be written to, and a '
+        'buffered write to it is reported as having succeeded and then thrown away. '
+        'Default: %(default)s',
+        dest='JOURNAL_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_JOURNAL_SEVERITY,
     )
 
     parser.add_argument(
@@ -788,6 +851,7 @@ def read_sysfs(root, name):
     attrs = {}
     for attr in (
         'array_state',
+        'consistency_policy',
         'degraded',
         'level',
         'mismatch_cnt',
@@ -918,6 +982,21 @@ def analyze(array, expected_spares, args):
     faulty = [
         item['device'] for item in array['components'] if FLAG_FAULTY in item['flags']
     ]
+    # The write journal of a parity array is not one of the members the array is built
+    # from, so it is kept out of everything that talks about redundancy: it fills no
+    # slot, a spare does not replace it, and losing it costs writes rather than
+    # redundancy. `faulty` keeps counting it, because the kernel did throw a device out.
+    journal = [
+        item['device'] for item in array['components'] if FLAG_JOURNAL in item['flags']
+    ]
+    faulty_members = [item for item in faulty if item not in journal]
+    # A parity array whose write journal is dead, and one whose journal was taken out
+    # afterwards, are the same thing to the kernel and neither reaches /proc/mdstat. The
+    # second is the quieter of the two: nothing is flagged anywhere any more.
+    journal_faulty = [item for item in faulty if item in journal]
+    journal_lost = bool(journal_faulty) or (
+        sysfs.get('consistency_policy') == CONSISTENCY_POLICY_JOURNAL and not journal
+    )
     spare = [
         item['device'] for item in array['components'] if FLAG_SPARE in item['flags']
     ]
@@ -950,10 +1029,15 @@ def analyze(array, expected_spares, args):
     elif inactive:
         status = STATE_INACTIVE
         state = STATE_CRIT
+    elif journal_lost:
+        # An array that cannot be written to leads over one that is merely short of a
+        # member, and the row still shows the device counters next to it.
+        status = 'journal lost'
+        state = lib.base.str2state(args.JOURNAL_SEVERITY)
     elif degraded:
         status = 'degraded'
         state = lib.base.str2state(args.SEVERITY)
-    elif faulty:
+    elif faulty_members:
         # A spare that stepped in brings the array back to its full width while the
         # member the kernel threw out is still attached. Nothing is degraded any more,
         # and a disk has died all the same, which is what this says out loud.
@@ -968,6 +1052,8 @@ def analyze(array, expected_spares, args):
     if array['read_only']:
         status += f' ({array["read_only"]})'
 
+    if journal_lost:
+        state = lib.base.get_worst(state, lib.base.str2state(args.JOURNAL_SEVERITY))
     if member_states:
         state = lib.base.get_worst(state, lib.base.str2state(args.MEMBER_SEVERITY))
     if spares_missing:
@@ -1020,6 +1106,9 @@ def analyze(array, expected_spares, args):
         'devices': devices,
         'expected_spares': expected_spares,
         'faulty': faulty,
+        'faulty_members': faulty_members,
+        'journal_faulty': journal_faulty,
+        'journal_lost': journal_lost,
         'label': array.get('label', '-'),
         'flagged': flagged or '-',
         'frozen': frozen,
@@ -1092,6 +1181,7 @@ def main():
     flagged_members = []
     frozen = []
     inactive = []
+    journal_lost = []
     mismatched = []
     replaced = []
     reports = []
@@ -1144,9 +1234,11 @@ def main():
             broken.append(report)
         elif report['inactive']:
             inactive.append(report)
+        elif report['journal_lost']:
+            journal_lost.append(report)
         elif report['degraded']:
             degraded.append(report)
-        elif report['faulty']:
+        elif report['faulty_members']:
             replaced.append(report)
         if report['member_states']:
             flagged_members.append(report)
@@ -1209,18 +1301,26 @@ def main():
                 parts.append(report['progress'])
             elif report['frozen']:
                 parts.append('sync frozen')
+            # What the array itself is: one clause, because the four are exclusive.
+            # A lost write journal is a second axis and gets its own clause, since an
+            # array can be degraded and unwritable at the same time.
+            if report['journal_lost']:
+                parts.append(
+                    'write journal lost, so writes to this array fail and buffered '
+                    'ones are thrown away'
+                )
             if report['broken']:
                 parts.append('broken')
             elif report['inactive']:
                 parts.append('inactive')
             elif report['degraded']:
                 parts.append(f'degraded, running on {report["counted"]} devices')
-            elif report['faulty']:
-                count = len(report['faulty'])
+            elif report['faulty_members']:
+                count = len(report['faulty_members'])
                 parts.append(
                     f'complete again but still carrying {count} failed '
                     f'{lib.txt.pluralize("member", count, ",s")} '
-                    f'({", ".join(report["faulty"])})'
+                    f'({", ".join(report["faulty_members"])})'
                 )
             for item in report['member_states']:
                 parts.append(
@@ -1259,8 +1359,10 @@ def main():
             msg += f'\n{inactive_help(item["name"])}'
         for item in degraded:
             msg += f'\n{remediation(item)}'
+        for item in journal_lost:
+            msg += f'\n{journal_help(item["name"], item["journal_faulty"])}'
         for item in replaced:
-            msg += f'\n{replaced_help(item["name"], item["faulty"])}'
+            msg += f'\n{replaced_help(item["name"], item["faulty_members"])}'
         for item in flagged_members:
             msg += f'\n{member_help(item["name"], item["member_states"])}'
         for item in short_of_spares:
@@ -1291,6 +1393,13 @@ def main():
     perfdata += lib.base.get_perfdata(
         'arrays_inactive',
         len(inactive),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'arrays_journal_lost',
+        len(journal_lost),
         uom=None,
         warn='0',
         _min=0,

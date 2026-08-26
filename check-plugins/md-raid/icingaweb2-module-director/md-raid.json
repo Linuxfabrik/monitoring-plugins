@@ -9,6 +9,9 @@
                     "value": "$md_raid_ignore$",
                     "repeat_key": true
                 },
+                "--journal-severity": {
+                    "value": "$md_raid_journal_severity$"
+                },
                 "--lengthy": {
                     "set_if": "$md_raid_lengthy$"
                 },
@@ -112,6 +115,11 @@
                     "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -155,7 +163,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when it says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With --spares it also alerts when an array holds fewer spare devices than it is supposed to. Supports extended reporting via --lengthy.",
+            "notes": "Reports the health of the Linux software RAID arrays (md) on this host: how many member devices each array is running on, which of them the kernel has thrown out, what it says about each of the remaining ones, whether a resync, recovery or reshape is under way or frozen, and how many inconsistent sectors the last consistency check found. Every array the kernel knows is reported, so an array nobody remembers is on the list as well. Alerts when an array has lost the redundancy it was built for, when the kernel declares it failed, when a parity array has lost the write journal it needs in order to accept writes at all, when the kernel says a member wants replacing or has seen a write error, and when a consistency check found differences between the members of a parity array. With --spares it also alerts when an array holds fewer spare devices than it is supposed to. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/md-raid/",
             "object_name": "tpl-service-md-raid",
             "object_type": "template",
@@ -168,6 +176,7 @@
                 "criticality": "A",
                 "md_raid_always_ok": false,
                 "md_raid_ignore": [],
+                "md_raid_journal_severity": "crit",
                 "md_raid_lengthy": true,
                 "md_raid_match": [],
                 "md_raid_member_severity": "warn",
@@ -186,6 +195,37 @@
         }
     },
     "DataList": {
+        "md_raid_journal_severity_list": {
+            "list_name": "md_raid_journal_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a74afa37-9ef7-4692-af7f-019b82b1e932"
+        },
         "md_raid_member_severity_list": {
             "list_name": "md_raid_member_severity_list",
             "owner": "icinga-admin",
@@ -426,6 +466,19 @@
             "uuid": "2e02f253-09df-4834-8508-dce5a7f69aa7"
         },
         "3": {
+            "varname": "md_raid_journal_severity",
+            "caption": "Md Raid: Journal Severity",
+            "description": "State to report when a parity array (RAID 4, RAID 5, RAID 6) that keeps a write journal has lost it. Such an array reports every member in sync and cannot be written to, and a buffered write to it is reported as having succeeded and then thrown away.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "md_raid_journal_severity_list"
+            },
+            "uuid": "65d49d70-1093-420d-8a40-5f93c9921856"
+        },
+        "4": {
             "varname": "md_raid_lengthy",
             "caption": "Md Raid: Lengthy?",
             "description": "Extended reporting.",
@@ -434,7 +487,7 @@
             "settings": {},
             "uuid": "d602ceb1-14a4-4277-8f17-d323dcd3cb8f"
         },
-        "4": {
+        "5": {
             "varname": "md_raid_match",
             "caption": "Md Raid: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -445,7 +498,7 @@
             },
             "uuid": "fc0f9dbf-8dd6-4c73-81c1-ab7ec58a128c"
         },
-        "5": {
+        "6": {
             "varname": "md_raid_member_severity",
             "caption": "Md Raid: Member Severity",
             "description": "State to report when the kernel says a member device wants replacing, has seen a write error, or has bad blocks that are not acknowledged yet. None of the three reaches /proc/mdstat, so an array carrying one of them still reads as complete.",
@@ -458,7 +511,7 @@
             },
             "uuid": "c2820d7e-5faf-4354-bff4-ddc0f0c1fa1a"
         },
-        "6": {
+        "7": {
             "varname": "md_raid_mirror_mismatch_severity",
             "caption": "Md Raid: Mirror Mismatch Severity",
             "description": "State to report when a consistency check found inconsistent sectors on a mirrored array (RAID 1, RAID 10). A page written while the check reads it, and above all a swap area, produce differences between the copies that nothing ever reads back, which is why this defaults to not alerting.",
@@ -471,7 +524,7 @@
             },
             "uuid": "1378c2a7-450a-48b9-bf29-2a6ae6857b41"
         },
-        "7": {
+        "8": {
             "varname": "md_raid_mismatch_severity",
             "caption": "Md Raid: Mismatch Severity",
             "description": "State to report when a consistency check found inconsistent sectors on a parity array (RAID 4, RAID 5, RAID 6). On such an array the difference points at hardware rather than at the way the data was written.",
@@ -484,7 +537,7 @@
             },
             "uuid": "9345ce88-5638-4239-a936-3516bf853c0d"
         },
-        "8": {
+        "9": {
             "varname": "md_raid_no_arrays_severity",
             "caption": "Md Raid: No Arrays Severity",
             "description": "State to report when the host runs no software RAID array at all. An array is assembled from the superblocks on its members at every boot, so an array that used to be here and is gone is worth looking at.",
@@ -497,7 +550,7 @@
             },
             "uuid": "b29d7699-3aa3-4966-874a-75058e54967b"
         },
-        "9": {
+        "10": {
             "varname": "md_raid_no_match_severity",
             "caption": "Md Raid: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -510,7 +563,7 @@
             },
             "uuid": "1d9bf875-8a42-4b69-bffd-954414a71ea9"
         },
-        "10": {
+        "11": {
             "varname": "md_raid_no_perfdata",
             "caption": "Md Raid: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -519,7 +572,7 @@
             "settings": {},
             "uuid": "54cae3a6-233c-4afa-9e89-d0bbab454898"
         },
-        "11": {
+        "12": {
             "varname": "md_raid_severity",
             "caption": "Md Raid: Severity",
             "description": "Severity for alerting. Applies to an array that is running on fewer members than it was built for, so it has lost the redundancy it is meant to provide, and to a member the kernel threw out that is still attached to an array a spare has already brought back to its full width.",
@@ -532,7 +585,7 @@
             },
             "uuid": "0957ab0c-c6fd-44b0-8ca2-4f3ddc30c44d"
         },
-        "12": {
+        "13": {
             "varname": "md_raid_spares",
             "caption": "Md Raid: Spares",
             "description": "Number of spare devices an array is expected to hold. A bare count applies to every array, `array=count` pins one array and wins over the bare count. The array is named by its kernel device or by the name it was created under. Can be specified multiple times. Example: `--spares=1` on a host where every array carries one hot spare. Example: `--spares=md0=1 --spares=md1=0` where only the first one does.",
@@ -543,7 +596,7 @@
             },
             "uuid": "020e25bf-0864-40d0-ac87-01804ffede71"
         },
-        "13": {
+        "14": {
             "varname": "md_raid_spares_severity",
             "caption": "Md Raid: Spares Severity",
             "description": "State to report when an array holds fewer spare devices than --spares says it should. Without a spare the next member the kernel throws out leaves the array degraded until somebody puts a disk in.",

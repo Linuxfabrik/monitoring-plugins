@@ -89,6 +89,18 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                                 prints `[3/3] [UUU]` all the same. A second, plainly
 #                                 healthy raid1 sits beside them, so the same tree
 #                                 carries the case where nothing is flagged
+#   raid5-journal-faulty          a raid5 with a write journal on a device of its own,
+#                                 after `mdadm --fail` on that device. `vdf[0](J)(F)`
+#                                 next to `[3/3] [UUU]`: the array reports every member
+#                                 in sync and cannot be written to. Measured on the same
+#                                 array: a direct write answered `Input/output error`,
+#                                 a buffered write plus `sync` both reported success
+#                                 while the kernel logged `lost async page write`
+#   raid5-journal-missing         the same array after `mdadm --remove` on the dead
+#                                 journal, which does not help. Now nothing is flagged
+#                                 anywhere and /proc/mdstat is indistinguishable from a
+#                                 healthy raid5; only `consistency_policy` still reads
+#                                 `journal` while no member carries the journal flag
 #   raid5-degraded-frozen         `echo frozen > sync_action` before failing a member of
 #                                 a raid5 that has a spare in it. The array is degraded,
 #                                 the disk to rebuild onto is right there, and nothing
@@ -358,6 +370,63 @@ TESTS = [
         # is a different statement from a host whose arrays are gone
         'assert-in': ['This kernel has no software RAID support loaded'],
         'assert-not-in': ['Either every array was dismantled'],
+    },
+    {
+        'id': 'crit-a-dead-write-journal-leaves-the-array-unwritable',
+        'test': '',
+        'params': '--config-root=config/raid5-journal-faulty --lengthy',
+        'assert-retc': STATE_CRIT,
+        # the array reports every member in sync, so nothing but the journal flag says
+        # that writes to it are being thrown away
+        'assert-in': [
+            'md0: write journal lost, so writes to this array fail and buffered ones '
+            'are thrown away.',
+            'that device is dead',
+            '`mdadm /dev/md0 --remove /dev/vdf`',
+            '`mdadm --readonly /dev/md0` first',
+            'no `--readwrite` is needed afterwards',
+            'vdf (journal, faulty)',
+            "'arrays_journal_lost'=1",
+        ],
+        # a journal is not one of the members the array is built from, so losing it is
+        # not a spare taking over and not a loss of redundancy
+        'assert-not-in': [
+            'complete again but still carrying',
+            "'arrays_degraded'=1",
+        ],
+    },
+    {
+        'id': 'crit-removing-the-dead-journal-does-not-help',
+        'test': '',
+        'params': '--config-root=config/raid5-journal-missing --lengthy',
+        'assert-retc': STATE_CRIT,
+        # /proc/mdstat is now indistinguishable from a healthy raid5, and the array is
+        # still unwritable. Only consistency_policy says so
+        'assert-in': [
+            'md0: write journal lost',
+            'that device is gone',
+            'Taking the journal out was not enough',
+            '`echo resync > /sys/block/md0/md/consistency_policy`',
+            "'arrays_journal_lost'=1",
+            "'devices_faulty'=0",
+        ],
+        'assert-not-in': ['--remove'],
+    },
+    {
+        'id': 'warn-journal-severity-lowered',
+        'test': '',
+        'params': ('--config-root=config/raid5-journal-faulty --journal-severity=warn'),
+        'assert-retc': STATE_WARN,
+        'assert-in': ['write journal lost'],
+    },
+    {
+        'id': 'ok-a-healthy-write-journal-says-nothing',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare',
+        'assert-retc': STATE_OK,
+        # an array without a journal must never be read as having lost one
+        'assert-in': ["'arrays_journal_lost'=0"],
+        'assert-not-in': ['write journal lost'],
     },
     {
         'id': 'warn-member-states-the-array-itself-does-not-report',
