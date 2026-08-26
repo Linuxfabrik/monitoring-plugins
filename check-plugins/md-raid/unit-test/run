@@ -82,6 +82,18 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #   raid5-reshape-running         `mdadm --grow --raid-devices=4`, caught at 2.7%.
 #                                 `raid_disks` reads `4 (3)` while this runs, which is
 #                                 the one place the attribute is not a plain number
+#   raid1-member-states           three members of a healthy raid1 carrying one of the
+#                                 states the kernel publishes only next to the array,
+#                                 `blocked`, `want_replacement` and `write_error`,
+#                                 written straight to `dev-<device>/state`. /proc/mdstat
+#                                 prints `[3/3] [UUU]` all the same. A second, plainly
+#                                 healthy raid1 sits beside them, so the same tree
+#                                 carries the case where nothing is flagged
+#   raid5-degraded-frozen         `echo frozen > sync_action` before failing a member of
+#                                 a raid5 that has a spare in it. The array is degraded,
+#                                 the disk to rebuild onto is right there, and nothing
+#                                 happens: /proc/mdstat prints no progress line and only
+#                                 `sync_action` says why
 #   no-arrays                     the same kernel before any array was created
 #
 # Two fixtures are assembled by hand, because they are the absence of something:
@@ -346,6 +358,119 @@ TESTS = [
         # is a different statement from a host whose arrays are gone
         'assert-in': ['This kernel has no software RAID support loaded'],
         'assert-not-in': ['Either every array was dismantled'],
+    },
+    {
+        'id': 'warn-member-states-the-array-itself-does-not-report',
+        'test': '',
+        'params': '--config-root=config/raid1-member-states --lengthy',
+        'assert-retc': STATE_WARN,
+        # the array is at its full width and the kernel is unhappy about every one of
+        # its members all the same
+        'assert-in': [
+            'md0: vda has unacknowledged bad blocks, so writes to it wait, '
+            'vdb is marked for replacement, vdc has seen a write error.',
+            'vda (blocked), vdb (want_replacement), vdc (write_error)',
+            '`mdadm /dev/md0 --add` followed by a device',
+            '`cat /sys/block/md0/md/dev-vda/unacknowledged_bad_blocks`',
+            "'devices_flagged'=3",
+        ],
+        # the healthy array beside it says nothing, and neither array is degraded
+        'assert-not-in': ['md1:', "'arrays_degraded'=1"],
+    },
+    {
+        'id': 'ok-member-states-lowered',
+        'test': '',
+        'params': '--config-root=config/raid1-member-states --member-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['vdb is marked for replacement'],
+    },
+    {
+        'id': 'crit-member-states-raised',
+        'test': '',
+        'params': '--config-root=config/raid1-member-states --member-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'member flagged\s+\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-a-degraded-array-whose-sync-is-frozen-does-not-rebuild',
+        'test': '',
+        'params': '--config-root=config/raid5-degraded-frozen --lengthy',
+        'assert-retc': STATE_WARN,
+        # the spare is already in the array, so the instruction must not ask for another
+        # device, and it must say that nothing moves until the sync is thawed
+        'assert-in': [
+            'md0: sync frozen, degraded, running on 2 of 3 devices.',
+            'A spare is attached to md0 already (vdd)',
+            '`echo idle > /sys/block/md0/md/sync_action` comes before any of it',
+            "'arrays_sync_frozen'=1",
+        ],
+        'assert-not-in': ['The array rebuilds on its own from there'],
+    },
+    {
+        'id': 'warn-an-array-short-of-a-spare',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --spares=1',
+        'assert-retc': STATE_WARN,
+        # raid0 and linear have nothing to rebuild onto, so a spare count means nothing
+        # to them and they are not graded against one
+        'assert-in': [
+            'md2: degraded, running on 3 of 4 devices, short of 1 spare device.',
+            'md2 holds 0 of the 1 spare device it is expected to',
+            "'devices_spare_missing'=1",
+        ],
+        'assert-not-in': ['md0:', 'md1:'],
+    },
+    {
+        'id': 'ok-an-array-holding-the-spare-it-is-expected-to',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare --spares=1',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 software RAID array, intact.', "'devices_spare_missing'=0"],
+    },
+    {
+        'id': 'ok-a-pinned-spare-count-wins-over-the-one-for-every-array',
+        'test': '',
+        'params': (
+            '--config-root=config/raid5-healthy-with-spare --spares=2 --spares=md5=1'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 software RAID array, intact.'],
+    },
+    {
+        'id': 'crit-spares-severity-raised',
+        'test': '',
+        'params': (
+            '--config-root=config/raid5-healthy-with-spare --spares=2 '
+            '--spares-severity=crit'
+        ),
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['short of 1 spare device'],
+    },
+    {
+        'id': 'unknown-invalid-spare-count',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare --spares=md5=many',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid --spares value'],
+        # a typo in a parameter is the expected answer, not a defect worth a stack trace
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        'id': 'ok-sync-progress-reaches-the-performance-data',
+        'test': '',
+        'params': '--config-root=config/raid1-check-running',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'md0_sync_percent'=1.1%;;;0;100",
+            "'md0_sync_bytes_per_second'=917504B",
+        ],
+    },
+    {
+        'id': 'ok-an-idle-array-has-no-sync-progress-to-report',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['_sync_percent', '_sync_bytes_per_second'],
     },
     {
         'id': 'ok-match-picks-one-array',

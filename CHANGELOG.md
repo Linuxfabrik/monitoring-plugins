@@ -34,7 +34,7 @@ Monitoring Plugins:
 * kvm-network-io: reports what each virtual machine of a libvirt host sends and receives per network interface, and the frames it loses ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-storage-pool: reports the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-volume: reports what a libvirt host's storage pools hold and how far they have promised more space than they have ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* md-raid: alerts when a software RAID array loses a member, when the kernel declares it failed, and when a consistency check found inconsistent sectors
+* md-raid: alerts when a software RAID array loses redundancy, when the kernel says a member is failing, and on inconsistent sectors
 * memory-paging: alerts when a host pages to and from swap, which swap usage on its own never shows
 * multipath: alerts when a LUN loses one of its paths and when a multipath map runs out of them altogether
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it

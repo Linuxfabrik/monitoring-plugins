@@ -23,16 +23,18 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082603'
+__version__ = '2026082604'
 
 DESCRIPTION = """Reports the health of the Linux software RAID arrays (md) on this host: how
 many member devices each array is running on, which of them the kernel has thrown out,
-whether a resync, recovery or reshape is under way, and how many inconsistent sectors the
-last consistency check found. Every array the kernel knows is reported, so an array
-nobody remembers is on the list as well.
+what it says about each of the remaining ones, whether a resync, recovery or reshape is
+under way or frozen, and how many inconsistent sectors the last consistency check found.
+Every array the kernel knows is reported, so an array nobody remembers is on the list as
+well.
 Alerts when an array has lost the redundancy it was built for, when the kernel declares
-it failed, and when a consistency check found differences between the members of a parity
-array.
+it failed, when it says a member wants replacing or has seen a write error, and when a
+consistency check found differences between the members of a parity array. With --spares
+it also alerts when an array holds fewer spare devices than it is supposed to.
 Supports extended reporting via --lengthy."""
 
 # The kernel writes one block per array here. It exists on every kernel that has md
@@ -85,6 +87,41 @@ FLAG_NAMES = {
     FLAG_WRITE_MOSTLY: 'write-mostly',
 }
 
+# What the kernel says about a single member, in `md/dev-<device>/state` next to the
+# array. drivers/md/md.c:state_show() prints eleven of these words where /proc/mdstat
+# prints five flags, and these three are the ones that say a member is on its way out
+# while the array itself still reads as complete:
+#
+#   blocked           the member has bad blocks the metadata handler has not
+#                     acknowledged yet, and writes to it wait for that
+#   want_replacement  the kernel wants this member replaced and pulls a spare in for it
+#                     as soon as one is there
+#   write_error       a write to this member failed, and the kernel absorbed it into the
+#                     bad block list instead of throwing the member out
+#
+# The remaining words are either already in /proc/mdstat (faulty, in_sync, journal,
+# replacement, spare, write_mostly) or say nothing about the member's health
+# (external_bbl, failfast). Read from the source of v7.1 and measured on kernel 7.1,
+# where a raid1 whose three members carried one of these each still printed
+# `[3/3] [UUU]`.
+MEMBER_STATE_BLOCKED = 'blocked'
+MEMBER_STATE_WANT_REPLACEMENT = 'want_replacement'
+MEMBER_STATE_WRITE_ERROR = 'write_error'
+
+# The kernel's own word goes into the table, because that is what an administrator greps
+# for in /sys and in the kernel log. The message says the same thing in a sentence.
+MEMBER_STATE_NAMES = {
+    MEMBER_STATE_BLOCKED: 'has unacknowledged bad blocks, so writes to it wait',
+    MEMBER_STATE_WANT_REPLACEMENT: 'is marked for replacement',
+    MEMBER_STATE_WRITE_ERROR: 'has seen a write error',
+}
+
+# `sync_action` while nothing is running, and the one value there that does not simply
+# mean "nothing to do": it forbids resync, recovery and reshape, so a degraded array
+# stays degraded however many spares sit in it. /proc/mdstat prints no line for it, so
+# the array looks merely idle. drivers/md/md.c:action_name[].
+SYNC_ACTION_FROZEN = 'frozen'
+
 # The array states md_seq_show() and the sysfs `array_state` attribute agree on. "broken"
 # is the kernel's own word for an array that has lost so many members that it can no
 # longer serve its data.
@@ -101,6 +138,11 @@ PARITY_LEVELS = ('raid4', 'raid5', 'raid6')
 # back. Hence "the mismatch_cnt value can not be interpreted very reliably on RAID1 or
 # RAID10, especially when the device is used for swap".
 MIRROR_LEVELS = ('raid1', 'raid10')
+
+# RAID levels that rebuild, and therefore the only ones a spare device is any use to.
+# raid0 and linear have nothing to rebuild onto and the kernel publishes no `degraded`
+# for them, so a spare count means nothing there and they are not graded against one.
+REDUNDANT_LEVELS = MIRROR_LEVELS + PARITY_LEVELS
 
 # `<device>[<index>]` plus the flag group. The flags are matched as a group of complete
 # `(X)` items instead of as a character class, so a member carrying more than one of them
@@ -135,11 +177,14 @@ SIZE_PATTERN = re.compile(r'^(?P<blocks>\d+) blocks\b')
 SUPER_PATTERN = re.compile(r'\bsuper (?P<metadata>\S+)')
 
 DEFAULT_LENGTHY = False
+DEFAULT_MEMBER_SEVERITY = 'warn'
 DEFAULT_MIRROR_MISMATCH_SEVERITY = 'ok'
 DEFAULT_MISMATCH_SEVERITY = 'warn'
 DEFAULT_NO_ARRAYS_SEVERITY = 'warn'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_SEVERITY = 'warn'
+DEFAULT_SPARES = None
+DEFAULT_SPARES_SEVERITY = 'warn'
 
 # What an administrator is supposed to do next, built from the names this run actually
 # read. A command in the output is there to be copied, so it has to name this host's
@@ -192,16 +237,24 @@ def readwrite_first(array, read_only):
     )
 
 
-def remediation(array, faulty, read_only=None, rebuilding=False):
+def remediation(report):
     """
     Say what to do about an array that is running on fewer members than it was built for.
 
-    `faulty` is empty where a slot is simply unfilled, which is a different thing from a
-    member the kernel threw out and gets a different instruction. An array that is
+    Takes the whole report, because what to say depends on five things about the array at
+    once. `faulty` is empty where a slot is simply unfilled, which is a different thing
+    from a member the kernel threw out and gets a different instruction. An array that is
     already rebuilding needs neither: asking for another device there would only put a
-    spare in beside the replacement the kernel is busy building up.
+    spare in beside the replacement the kernel is busy building up. Nor does an array
+    that already has a spare sitting in it, which is what a degraded array with a frozen
+    sync looks like: the disk is there, the kernel is just not allowed to use it.
     """
-    if rebuilding:
+    array = report['name']
+    faulty = report['faulty']
+    frozen = report['frozen']
+    read_only = report['read_only']
+    spare = report['spare']
+    if report['rebuilding']:
         text = f'{array} is already rebuilding onto a replacement, so let it finish. '
         if faulty:
             removals = ', '.join(
@@ -223,19 +276,42 @@ def remediation(array, faulty, read_only=None, rebuilding=False):
             f'{array} lost {", ".join(faulty)}. Look at what the kernel said about it '
             f'(`journalctl --dmesg --grep=md`) and at the health of the disk carrying '
             f'that member (`smartctl --all` on the disk it sits on) before writing it '
-            f'off. Then take it out with {removals}, replace the hardware, and add the '
-            f'new member with `mdadm /dev/{array} --add` followed by its device.'
+            f'off. Then take it out with {removals} and replace the hardware.'
         )
+        if spare:
+            text += (
+                f' A spare is attached to {array} already ({", ".join(spare)}), so '
+                f'nothing has to be added for the rebuild itself.'
+            )
+        else:
+            text += (
+                f' The replacement goes in with `mdadm /dev/{array} --add` followed by '
+                f'its device.'
+            )
     else:
         text = (
             f'{array} is short of a member without the kernel having thrown one out, so '
             f'one never turned up. `mdadm --detail /dev/{array}` names the slot that is '
-            f'empty, and `mdadm /dev/{array} --add` followed by a device fills it.'
+            f'empty'
         )
-    return (
-        f'{text}{readwrite_first(array, read_only)} The array rebuilds on its own from '
-        f'there. Until it is done, it has no redundancy left to lose.'
-    )
+        if spare:
+            text += (
+                f', and a spare is attached to {array} already ({", ".join(spare)}), so '
+                f'nothing has to be added to fill it.'
+            )
+        else:
+            text += f', and `mdadm /dev/{array} --add` followed by a device fills it.'
+    if frozen:
+        tail = (
+            f' Nothing rebuilds while the sync of {array} is frozen, so '
+            f'`echo idle > /sys/block/{array}/md/sync_action` comes before any of it.'
+        )
+    else:
+        tail = (
+            ' The array rebuilds on its own from there. Until it is done, it has no '
+            'redundancy left to lose.'
+        )
+    return f'{text}{readwrite_first(array, read_only)}{tail}'
 
 
 def broken_help(array):
@@ -245,6 +321,22 @@ def broken_help(array):
         f'recreate it: `mdadm --assemble --force /dev/{array}` on the members that are '
         f'still readable is the way back, and it needs those members left untouched. '
         f'`mdadm --examine` on each of them says which ones are still usable.'
+    )
+
+
+def frozen_help(array):
+    """
+    Say what a frozen sync keeps an array from doing.
+
+    Freezing forbids resync, recovery and reshape, and it is not a state an array reaches
+    on its own: somebody wrote it, or something wrote it on their behalf. /proc/mdstat
+    prints no line for it, so the array looks merely idle until the day it is supposed to
+    rebuild and does not.
+    """
+    return (
+        f'The sync of {array} is frozen, which forbids resync, recovery and reshape. '
+        f'That is not a state an array reaches by itself, so somebody set it and left '
+        f'it set. `echo idle > /sys/block/{array}/md/sync_action` lets it run again.'
     )
 
 
@@ -271,6 +363,44 @@ def replaced_help(array, faulty):
     )
 
 
+def member_help(array, members):
+    """
+    Say what to do about members carrying a state only the kernel's own attributes show.
+
+    None of the three reaches /proc/mdstat, so the array's own line says nothing while a
+    disk behind it is on its way out. What to look at is the same for all of them; what
+    to do next is not, so the two states that have an instruction of their own get one.
+    """
+    devices = ', '.join(item['device'] for item in members)
+    text = (
+        f'The kernel publishes this next to {array} and not in /proc/mdstat, so the '
+        f'line the array itself gets says nothing about it. Look at the health of the '
+        f'{lib.txt.pluralize("disk", len(members), ",s")} behind {devices} with '
+        f'`smartctl --all` on '
+        f'{lib.txt.pluralize("", len(members), "it,each of them")} '
+        f'and at what the kernel said with `journalctl --dmesg --grep=md`.'
+    )
+    if any(MEMBER_STATE_WANT_REPLACEMENT in item['states'] for item in members):
+        text += (
+            f' A member the kernel wants replaced is replaced by putting a spare in '
+            f'with `mdadm /dev/{array} --add` followed by a device: the kernel builds '
+            f'the spare up and takes the old member out by itself.'
+        )
+    blocked = [
+        item['device'] for item in members if MEMBER_STATE_BLOCKED in item['states']
+    ]
+    if blocked:
+        listings = ', '.join(
+            f'`cat /sys/block/{array}/md/dev-{item}/unacknowledged_bad_blocks`'
+            for item in blocked
+        )
+        text += (
+            f' Writes to a blocked member wait until the bad blocks behind it are '
+            f'acknowledged, and {listings} lists them.'
+        )
+    return text
+
+
 def parity_mismatch_help(arrays):
     """Say what to do about inconsistent sectors found on a parity array."""
     repairs = ', '.join(
@@ -282,6 +412,17 @@ def parity_mismatch_help(arrays):
         '`smartctl --all` on each member and `journalctl --dmesg --grep=md`, then '
         f'rewrite the parity with {repairs} and run another check afterwards to confirm '
         'the count went back to zero.'
+    )
+
+
+def spares_help(array, present, expected):
+    """Say what to do about an array holding fewer spares than it is expected to."""
+    return (
+        f'{array} holds {present} of the {expected} spare '
+        f'{lib.txt.pluralize("device", expected, ",s")} it is expected to, so the next '
+        f'member the kernel throws out has nothing to be rebuilt onto and the array '
+        f'stays degraded until somebody puts a disk in. `mdadm /dev/{array} --add` '
+        f'followed by a device puts one in now.'
     )
 
 
@@ -339,6 +480,18 @@ def parse_args():
         action='append',
         default=None,
         dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--member-severity',
+        help='State to report when the kernel says a member device wants replacing, has '
+        'seen a write error, or has bad blocks that are not acknowledged yet. '
+        'None of the three reaches /proc/mdstat, so an array carrying one of them still '
+        'reads as complete. '
+        'Default: %(default)s',
+        dest='MEMBER_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_MEMBER_SEVERITY,
     )
 
     parser.add_argument(
@@ -406,8 +559,65 @@ def parse_args():
         default=DEFAULT_SEVERITY,
     )
 
+    parser.add_argument(
+        '--spares',
+        help='Number of spare devices an array is expected to hold. '
+        'A bare count applies to every array, `array=count` pins one array and wins '
+        'over the bare count. The array is named by its kernel device or by the name it '
+        'was created under. '
+        'Can be specified multiple times. '
+        'Example: `--spares=1` on a host where every array carries one hot spare. '
+        'Example: `--spares=md0=1 --spares=md1=0` where only the first one does. '
+        'Default: %(default)s, which grades no array against a spare count.',
+        dest='SPARES',
+        action='append',
+        default=DEFAULT_SPARES,
+    )
+
+    parser.add_argument(
+        '--spares-severity',
+        help='State to report when an array holds fewer spare devices than --spares '
+        'says it should. '
+        'Without a spare the next member the kernel throws out leaves the array '
+        'degraded until somebody puts a disk in. '
+        'Default: %(default)s',
+        dest='SPARES_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_SPARES_SEVERITY,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def parse_spare_specs(specs):
+    """
+    Turn the --spares values into (count for every array, {array: count}).
+
+    A bare number applies to every array, `array=count` pins one array. Ends the check on
+    a malformed or negative count, so a typo does not silently disable the expectation.
+    """
+    default = None
+    pinned = {}
+    for spec in specs:
+        name, separator, count = spec.partition('=')
+        try:
+            value = int(count if separator else name)
+            if value < 0:
+                raise ValueError
+        except ValueError:
+            # A typo in a parameter is the expected answer here, not a defect, so it
+            # gets the sentence that says so and no Python stack trace.
+            lib.base.cu(
+                f'Invalid --spares value "{spec}", expected a count of 0 or more, '
+                f'optionally prefixed with the array and an equals sign.',
+                traceback=False,
+            )
+        if separator:
+            pinned[name.strip()] = value
+        else:
+            default = value
+    return (default, pinned)
 
 
 def parse_components(fields):
@@ -537,12 +747,36 @@ def read_attr(path):
     return content if content else None
 
 
+def read_members(md_dir):
+    """
+    Read what the kernel says about each member device of one array.
+
+    Returns a dict of member device to the list of words below `dev-<device>/state`.
+    Empty where the array publishes no member directories at all, which is what an
+    inactive array does.
+    """
+    try:
+        entries = sorted(os.listdir(md_dir))
+    except OSError:
+        return {}
+    members = {}
+    for entry in entries:
+        if not entry.startswith('dev-'):
+            continue
+        state = read_attr(os.path.join(md_dir, entry, 'state'))
+        if state is None:
+            continue
+        members[entry[len('dev-') :]] = [item for item in state.split(',') if item]
+    return members
+
+
 def read_sysfs(root, name):
     """
     Read the attributes the kernel publishes next to an array.
 
     Returns a dict, empty where the array has no sysfs directory. Every value is either
-    the attribute's text or None.
+    the attribute's text or None, except `members`, which is one list of state words per
+    member device.
     """
     # The name comes out of a file, so it never gets to leave the directory it is looked
     # up in, however that file came to say what it says.
@@ -561,6 +795,7 @@ def read_sysfs(root, name):
         'sync_action',
     ):
         attrs[attr] = read_attr(os.path.join(md_dir, attr))
+    attrs['members'] = read_members(md_dir)
     return attrs
 
 
@@ -630,10 +865,10 @@ def to_int(value):
         return None
 
 
-def describe_progress(progress):
+def describe_progress(progress, frozen=False):
     """Put an array's resync, recovery, reshape or check into one readable phrase."""
     if not progress:
-        return 'idle'
+        return SYNC_ACTION_FROZEN if frozen else 'idle'
     action = progress['action']
     if progress.get('state'):
         # `resync=PENDING` on an array that has not been written to yet, `DELAYED`
@@ -652,11 +887,12 @@ def describe_progress(progress):
     return text
 
 
-def analyze(array, args):
+def analyze(array, expected_spares, args):
     """
     Work out what one array is doing and how bad that is.
 
-    Returns a dict describing the array plus its state.
+    Returns a dict describing the array plus its state. `expected_spares` is the number
+    of spare devices this array is supposed to hold, or None where nothing said.
     """
     sysfs = array['sysfs']
     level = array['level'] or sysfs.get('level')
@@ -686,6 +922,26 @@ def analyze(array, args):
         item['device'] for item in array['components'] if FLAG_SPARE in item['flags']
     ]
     mismatch = to_int(sysfs.get('mismatch_cnt')) or 0
+    frozen = sysfs.get('sync_action') == SYNC_ACTION_FROZEN
+
+    # What the kernel says about the members it has not thrown out. A member carrying
+    # `(F)` already has an instruction of its own, and repeating it here would only say
+    # the same thing twice.
+    member_attrs = sysfs.get('members') or {}
+    member_states = []
+    for device in sorted(member_attrs):
+        if device in faulty:
+            continue
+        states = [item for item in member_attrs[device] if item in MEMBER_STATE_NAMES]
+        if states:
+            member_states.append({'device': device, 'states': states})
+
+    # An array is graded against a number of spares only where one was given. This is
+    # what `mdadm --monitor` calls SparesMissing, which it takes from the `spares=` of
+    # its own configuration file rather than from the array.
+    spares_missing = 0
+    if expected_spares is not None and level in REDUNDANT_LEVELS:
+        spares_missing = max(0, expected_spares - len(spare))
 
     state = STATE_OK
     if broken:
@@ -703,10 +959,19 @@ def analyze(array, args):
         # and a disk has died all the same, which is what this says out loud.
         status = 'failed member attached'
         state = lib.base.str2state(args.SEVERITY)
+    elif member_states:
+        # The array is at its full width and the kernel is unhappy about a member all
+        # the same, which is the whole point of reading them.
+        status = 'member flagged'
     else:
         status = 'active'
     if array['read_only']:
         status += f' ({array["read_only"]})'
+
+    if member_states:
+        state = lib.base.get_worst(state, lib.base.str2state(args.MEMBER_SEVERITY))
+    if spares_missing:
+        state = lib.base.get_worst(state, lib.base.str2state(args.SPARES_SEVERITY))
 
     if mismatch:
         if level in PARITY_LEVELS:
@@ -730,14 +995,21 @@ def analyze(array, args):
         devices = str(members)
         counted = f'{members} {lib.txt.pluralize("member", members, ",s")}'
 
-    # Every member carrying a flag, with the flag spelled out. A plain member says
-    # nothing beyond what the device counters already say, so only the flagged ones are
-    # listed.
+    # Every member the kernel says something about, from both places it says it: the
+    # flags in /proc/mdstat, spelled out, and the words next to the array, in the
+    # kernel's own spelling so they can be grepped for. A plain member says nothing
+    # beyond what the device counters already say, so only these are listed.
+    annotations = {}
+    for item in array['components']:
+        if item['flags']:
+            annotations.setdefault(item['device'], []).extend(
+                FLAG_NAMES.get(flag, flag) for flag in item['flags']
+            )
+    for item in member_states:
+        annotations.setdefault(item['device'], []).extend(item['states'])
     flagged = ', '.join(
-        f'{item["device"]} '
-        f'({", ".join(FLAG_NAMES.get(flag, flag) for flag in item["flags"])})'
-        for item in array['components']
-        if item['flags']
+        f'{device} ({", ".join(states)})'
+        for device, states in sorted(annotations.items())
     )
 
     progress = array['progress']
@@ -746,15 +1018,18 @@ def analyze(array, args):
         'counted': counted,
         'degraded': degraded,
         'devices': devices,
+        'expected_spares': expected_spares,
         'faulty': faulty,
         'label': array.get('label', '-'),
         'flagged': flagged or '-',
+        'frozen': frozen,
         'inactive': inactive,
         'level': level or 'unknown',
+        'member_states': member_states,
         'mismatch': mismatch,
         'name': array['name'],
         'metadata': array['metadata'] or '-',
-        'progress': describe_progress(progress),
+        'progress': describe_progress(progress, frozen),
         'read_only': array['read_only'],
         # a recovery is the kernel building a member up, which is what happens once a
         # replacement was added. A resync or a check on a degraded array is not that,
@@ -762,8 +1037,20 @@ def analyze(array, args):
         # put a spare in beside it.
         'rebuilding': bool(progress and progress.get('action') == 'recovery'),
         'spare': spare,
+        'spares_missing': spares_missing,
         'state': state,
         'status': status,
+        # The kernel prints its progress in whole percent with one decimal and its speed
+        # in KiB/s. Both are only there while something is running, and a graph of an
+        # idle array would have to invent a value to fill the gap.
+        'sync_percent': (
+            float(progress['percent']) if progress and progress.get('percent') else None
+        ),
+        'sync_speed': (
+            int(progress['speed']) * 1024
+            if progress and progress.get('speed')
+            else None
+        ),
         # An array waiting for a resync that has not started reports the action without
         # any progress behind it, which is not the same thing as one that is running.
         'syncing': bool(progress and progress.get('percent')),
@@ -784,6 +1071,8 @@ def main():
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
+    if args.SPARES is None:
+        args.SPARES = []
 
     # fetch data
     if not lib.base.LINUX:
@@ -800,13 +1089,18 @@ def main():
     table_data = []
     broken = []
     degraded = []
+    flagged_members = []
+    frozen = []
     inactive = []
     mismatched = []
     replaced = []
     reports = []
+    short_of_spares = []
     syncing = []
     faulty_devices = 0
     spare_devices = 0
+    missing_spare_devices = 0
+    default_spares, pinned_spares = parse_spare_specs(args.SPARES)
     compiled_match = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -832,11 +1126,20 @@ def main():
         if any(item.search(text) for item in compiled_ignore for text in identifiers):
             continue
 
-        report = analyze(array, args)
+        # A count pinned to this array wins over the one given for every array, and
+        # the pin is looked up under both names the array answers to.
+        expected_spares = default_spares
+        for identifier in identifiers:
+            if identifier in pinned_spares:
+                expected_spares = pinned_spares[identifier]
+                break
+
+        report = analyze(array, expected_spares, args)
         reports.append(report)
         state = lib.base.get_worst(state, report['state'])
         faulty_devices += len(report['faulty'])
         spare_devices += len(report['spare'])
+        missing_spare_devices += report['spares_missing']
         if report['broken']:
             broken.append(report)
         elif report['inactive']:
@@ -845,8 +1148,14 @@ def main():
             degraded.append(report)
         elif report['faulty']:
             replaced.append(report)
+        if report['member_states']:
+            flagged_members.append(report)
+        if report['frozen']:
+            frozen.append(report)
         if report['mismatch']:
             mismatched.append(report)
+        if report['spares_missing']:
+            short_of_spares.append(report)
         if report['syncing']:
             syncing.append(report)
         table_data.append(
@@ -898,6 +1207,8 @@ def main():
             parts = []
             if report['syncing']:
                 parts.append(report['progress'])
+            elif report['frozen']:
+                parts.append('sync frozen')
             if report['broken']:
                 parts.append('broken')
             elif report['inactive']:
@@ -910,6 +1221,16 @@ def main():
                     f'complete again but still carrying {count} failed '
                     f'{lib.txt.pluralize("member", count, ",s")} '
                     f'({", ".join(report["faulty"])})'
+                )
+            for item in report['member_states']:
+                parts.append(
+                    f'{item["device"]} '
+                    f'{" and ".join(MEMBER_STATE_NAMES[word] for word in item["states"])}'
+                )
+            if report['spares_missing']:
+                parts.append(
+                    f'short of {report["spares_missing"]} spare '
+                    f'{lib.txt.pluralize("device", report["spares_missing"], ",s")}'
                 )
             if report['mismatch']:
                 parts.append(
@@ -937,14 +1258,20 @@ def main():
         for item in inactive:
             msg += f'\n{inactive_help(item["name"])}'
         for item in degraded:
-            msg += '\n' + remediation(
-                item['name'],
-                item['faulty'],
-                item['read_only'],
-                item['rebuilding'],
-            )
+            msg += f'\n{remediation(item)}'
         for item in replaced:
             msg += f'\n{replaced_help(item["name"], item["faulty"])}'
+        for item in flagged_members:
+            msg += f'\n{member_help(item["name"], item["member_states"])}'
+        for item in short_of_spares:
+            msg += '\n' + spares_help(
+                item['name'], len(item['spare']), item['expected_spares']
+            )
+        # A degraded array has already been told that its sync is frozen, as part of
+        # what to do about the missing member.
+        for item in frozen:
+            if item not in degraded:
+                msg += f'\n{frozen_help(item["name"])}'
 
     perfdata += lib.base.get_perfdata('arrays', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata(
@@ -968,6 +1295,12 @@ def main():
         warn='0',
         _min=0,
     )
+    perfdata += lib.base.get_perfdata(
+        'arrays_sync_frozen',
+        len(frozen),
+        uom=None,
+        _min=0,
+    )
     perfdata += lib.base.get_perfdata('arrays_syncing', len(syncing), uom=None, _min=0)
     perfdata += lib.base.get_perfdata(
         'devices_faulty',
@@ -976,15 +1309,46 @@ def main():
         warn='0',
         _min=0,
     )
+    perfdata += lib.base.get_perfdata(
+        'devices_flagged',
+        sum(len(item['member_states']) for item in reports),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
     perfdata += lib.base.get_perfdata('devices_spare', spare_devices, uom=None, _min=0)
-    for row in table_data:
-        label = re.sub(r'\W+', '_', row['array'])
+    perfdata += lib.base.get_perfdata(
+        'devices_spare_missing',
+        missing_spare_devices,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    for report in reports:
+        label = re.sub(r'\W+', '_', report['name'])
         perfdata += lib.base.get_perfdata(
             f'{label}_mismatch_cnt',
-            row['mismatch'],
+            report['mismatch'],
             uom=None,
             _min=0,
         )
+        # Only while something runs. An idle array has no progress and no speed, and a
+        # line drawn through the gap would have to invent both.
+        if report['sync_percent'] is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_sync_percent',
+                report['sync_percent'],
+                uom='%',
+                _min=0,
+                _max=100,
+            )
+        if report['sync_speed'] is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_sync_bytes_per_second',
+                report['sync_speed'],
+                uom='B',
+                _min=0,
+            )
 
     # build table output
     if table_data:
