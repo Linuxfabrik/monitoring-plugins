@@ -15,19 +15,20 @@ import errno
 import json
 import os
 import re
-import signal
 import sys
 import time
 
 import lib.args
 import lib.base
 import lib.disk
+import lib.human
 import lib.lftest
+import lib.task
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026082602'
 
 DESCRIPTION = """Checks that every mounted NFS filesystem still answers, by asking each one for its
 filesystem statistics and giving it a deadline.
@@ -67,13 +68,6 @@ NFS_FSTYPES = ('nfs', 'nfs4')
 # mangle_path() with the escape set " \t\n\\", turning each of those characters into a
 # backslash followed by its three-digit octal code (fs/seq_file.c, fs/proc_namespace.c).
 OCTAL_ESCAPE_REGEX = re.compile(r'\\([0-7]{3})')
-
-# How often the parent looks whether a probe has finished. It starts out looking almost
-# immediately, because a healthy mount answers in about a millisecond and the wait is
-# what the response time is read off, and then backs off towards the upper bound so that
-# waiting out an unreachable server does not spin on the CPU.
-POLL_INTERVAL_MAX = 0.02
-POLL_INTERVAL_MIN = 0.001
 
 # Exit code a probe uses when it fails for a reason that is not an OSError, so it cannot
 # collide with an errno: Linux stops well below this (EHWPOISON is 133).
@@ -207,17 +201,13 @@ def parse_args():
 
 
 def format_response(seconds):
-    """Render how long a probe took.
+    """Render how long a probe took, to the millisecond.
 
-    Not lib.human.seconds2human(): it divides a float by the length of each unit, so a
-    sub-second duration that is not exactly representable in binary loses a microsecond
-    on the way and 0.35 comes out as "349ms 999us" instead of "350ms". Millisecond
-    granularity is all a round trip needs, and it is what the reader compares across
-    rows.
+    Rounding before formatting is what picks the granularity: a round trip is measured
+    far more precisely than it is worth reporting, and without it a four millisecond
+    answer reads as "4ms 132us".
     """
-    if seconds < 1:
-        return f'{seconds * 1000:.0f}ms'
-    return f'{seconds:.1f}s'
+    return lib.human.seconds2human(round(seconds, 3))
 
 
 def get_hint(counts):
@@ -355,79 +345,68 @@ def load_test_fixture(raw_json):
     return mounts, results
 
 
+def probe(mount_point):
+    """Ask one mount point for its filesystem statistics and return `errno` and how long
+    the answer took, as a dict.
+
+    Reports instead of raising, and measures itself. It runs in a process of its own, and
+    what crosses that boundary is text: an exception would arrive as its message, and the
+    error number is what tells a stale file handle apart from every other failure. The
+    duration is taken here rather than by the caller, which only sees when it got round to
+    looking.
+    """
+    started = time.time()
+    try:
+        os.statvfs(mount_point)
+        number = 0
+    except OSError as e:
+        number = e.errno or PROBE_UNEXPECTED
+    except Exception:
+        number = PROBE_UNEXPECTED
+    return {'errno': number, 'seconds': time.time() - started}
+
+
 def probe_all(mount_points, timeout):
-    """Ask every mount point for its filesystem statistics and return what came back, as
-    a dict keyed by mount point, each value a dict of `outcome` (`ok`, `hung` or
-    `error`), `errno` and `seconds`.
+    """Ask every mount point and return what came back, as a dict keyed by mount point,
+    each value a dict of `outcome` (`ok`, `hung` or `error`), `errno` and `seconds`.
 
     Asking an NFS mount whose server does not answer puts the caller to sleep in the RPC
-    layer in an uninterruptible state, which no timeout inside this process can cut
-    short, so every probe runs in a child process the parent can kill. The children are
-    forked up front and share a single deadline, so a host with ten unreachable mounts
-    takes as long as one and not ten times as long.
+    layer in a state no timeout inside this process can cut short, which is what
+    lib.task.run_each() is for: it asks every mount point in a process of its own, all of
+    them at the same time and under one shared deadline, and disposes of the ones that
+    miss it. A host with ten unreachable mounts therefore takes as long as one.
 
-    `seconds` is how long the parent waited, not what the child measured, so it is
-    rounded up by at most one polling interval. That is accurate enough for the purpose,
-    which is telling a mount that answers straight away apart from one that takes
-    seconds.
-
-    Measured on Rocky 10 (kernel 6.12) against a blackholed server: the children sleep in
-    `rpc_wait_bit_killable`, which is TASK_KILLABLE and therefore ends on SIGKILL, and
-    five unreachable mounts finished in 8.01 s with an 8 s deadline, leaving no process
-    behind.
+    Measured on Rocky 10 and Debian 13 (kernel 6.12) against a blackholed server: five
+    unreachable mounts finished in 8.01 s with an 8 s deadline, leaving no process behind.
     """
-    pending = {}
-    started = time.time()
-    for mount_point in mount_points:
-        pid = os.fork()
-        if pid == 0:
-            # The child does one syscall and leaves through os._exit(), which skips
-            # cleanup handlers and buffer flushing, so it can never emit output of its
-            # own or run any of the parent's remaining code.
-            code = 0
-            try:
-                os.statvfs(mount_point)
-            except OSError as e:
-                code = e.errno or PROBE_UNEXPECTED
-            except Exception:
-                code = PROBE_UNEXPECTED
-            os._exit(code)
-        pending[pid] = mount_point
-
+    answers = lib.task.run_each(
+        [
+            (mount_point, lambda mp=mount_point: probe(mp))
+            for mount_point in mount_points
+        ],
+        timeout,
+    )
     results = {}
-    deadline = started + timeout
-    interval = POLL_INTERVAL_MIN
-    while pending:
-        for pid in list(pending):
-            finished, status = os.waitpid(pid, os.WNOHANG)
-            if not finished:
-                continue
-            mount_point = pending.pop(pid)
-            # A probe that died on a signal never reported an errno, so it counts as a
-            # probe that could not be carried out rather than as a healthy mount.
-            code = os.WEXITSTATUS(status) if os.WIFEXITED(status) else PROBE_UNEXPECTED
+    for mount_point, (success, answer) in answers.items():
+        if success:
             results[mount_point] = {
-                'errno': code,
-                'outcome': 'ok' if code == 0 else 'error',
-                'seconds': time.time() - started,
+                'errno': answer['errno'],
+                'outcome': 'ok' if answer['errno'] == 0 else 'error',
+                'seconds': answer['seconds'],
             }
-        if not pending or time.time() >= deadline:
-            break
-        time.sleep(interval)
-        interval = min(interval * 2, POLL_INTERVAL_MAX)
-
-    for pid, mount_point in pending.items():
-        # SIGKILL and not SIGTERM: both end the uninterruptible sleep, because an
-        # unhandled SIGTERM is a fatal signal and the kernel promotes it to a pending
-        # SIGKILL, but a probe that is merely slow could still install a handler and
-        # ignore SIGTERM.
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-        results[mount_point] = {
-            'errno': 0,
-            'outcome': 'hung',
-            'seconds': time.time() - started,
-        }
+        elif answer == lib.task.TIMEOUT:
+            # nothing came back at all, so the only duration known is the deadline
+            results[mount_point] = {
+                'errno': 0,
+                'outcome': 'hung',
+                'seconds': timeout,
+            }
+        else:
+            results[mount_point] = {
+                'errno': PROBE_UNEXPECTED,
+                'outcome': 'error',
+                'seconds': timeout,
+            }
     return results
 
 

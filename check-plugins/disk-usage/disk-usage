@@ -12,18 +12,16 @@
 
 import argparse
 import json
-import os
 import re
-import select
-import signal
 import sys
-import time
 from collections import namedtuple
 
 import lib.args
 import lib.base
 import lib.human
 import lib.lftest
+import lib.psutil
+import lib.task
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -33,17 +31,14 @@ except ImportError:
     print('Python module "psutil" is not installed.')
     sys.exit(STATE_UNKNOWN)
 
-# The fields this plugin uses out of what psutil reports, as namedtuples of its own.
-# Borrowing psutil's meant borrowing their shape as well, and that shape moves: psutil
-# 5.9 grew `maxfile` and `maxpath` on the partition tuple, so building one from four
-# values raised a TypeError there. Everything psutil returns is turned into one of these
-# before the plugin looks at it, which keeps that out of the plugin for good.
-sdiskpart = namedtuple('sdiskpart', ['device', 'mountpoint', 'fstype', 'opts'])
+# The fields this plugin uses out of what psutil reports about a filesystem's usage,
+# as a namedtuple of its own. psutil's own tuples are not reused, because their shape
+# moves between releases; the partition tuple comes from lib.psutil for the same reason.
 sdiskusage = namedtuple('sdiskusage', ['total', 'used', 'free', 'percent'])
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026082602'
 
 DESCRIPTION = """Checks used or free disk space for each mounted partition. By default, only physical
 devices are checked (hard disks, USB drives), ignoring pseudo and memory filesystems.
@@ -62,10 +57,10 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'warn'
 
-# What call_with_deadline() reports when a filesystem never came back, as opposed to one
-# that answered with an error. The caller compares against it to tell a filesystem that
-# is unreachable from one that is merely unreadable, which are two different findings.
-TIMEOUT_MESSAGE = 'did not answer in time'
+# What lib.task reports for a filesystem that never came back, as opposed to one that
+# answered with an error. The two are different findings, so the rows are compared
+# against it to tell a filesystem that is unreachable from one that is merely unreadable.
+TIMEOUT_MESSAGE = lib.task.TIMEOUT
 
 
 def parse_args():
@@ -245,9 +240,11 @@ def parse_args():
 
     parser.add_argument(
         '--timeout',
-        help='How long a single filesystem gets to answer before it is reported as '
+        help='How long a filesystem gets to answer before it is reported as '
         'unreachable. Only a network filesystem ever needs it: one whose server has '
-        'stopped answering does not fail, it blocks. '
+        'stopped answering does not fail, it blocks. Every filesystem is asked at the '
+        'same time and they share one deadline, so this is the runtime of the whole '
+        'check and not a budget per filesystem. '
         'Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
@@ -317,7 +314,7 @@ def _load_disk_usage_fixture(raw_json):
     """
     data = json.loads(raw_json)
     partitions = [
-        sdiskpart(
+        lib.psutil.sdiskpart(
             p['device'],
             p['mountpoint'],
             p.get('fstype', ''),
@@ -333,159 +330,20 @@ def _load_disk_usage_fixture(raw_json):
     return partitions, usage, timeouts
 
 
-def call_each_with_deadline(jobs, timeout):
-    """Run every job and give the whole batch one deadline, returning a dict keyed by the
-    job's key, each value a `(True, result)` or `(False, errormessage)` pair. `jobs` is a
-    list of `(key, callable)`; a callable has to return something JSON can carry, because
-    that is how its result travels back.
-
-    A filesystem whose server has stopped answering does not fail, it blocks, and it
-    blocks in a sleep inside the kernel that no timeout inside this process can cut
-    short. Both of the psutil calls this plugin makes run into that:
-
-    - listing the filesystems looks up `os.pathconf()` on every mount point, so merely
-      finding out what is mounted blocks, which is what `--list-fstypes` and any run with
-      `--fstype` did.
-    - asking one for its usage blocks on the one that is gone.
-
-    So every job runs in a child process the parent can kill. The children are started
-    before the first one is waited for and share a single deadline, because a server that
-    goes away usually takes several mounts with it and asking them one after the other
-    would multiply the deadline by their number.
-
-    Measured on Rocky 10 (kernel 6.12) against a blackholed NFS server: both calls
-    blocked indefinitely without this and returned within the deadline with it, leaving
-    no process behind.
-
-    os.fork() is Unix-only, and the sleep it guards against is how the Linux NFS client
-    behaves, so everywhere else the jobs are simply run.
-    """
-    if not lib.base.LINUX:
-        results = {}
-        for key, func in jobs:
-            try:
-                results[key] = (True, func())
-            except Exception as e:
-                results[key] = (False, str(e))
-        return results
-
-    started = time.time()
-    pending = {}
-    for key, func in jobs:
-        read_fd, write_fd = os.pipe()
-        pid = os.fork()
-        if pid == 0:
-            # The child answers with `{"ok": ...}` either way, so that a call which
-            # raised is told apart from one that never came back: the first keeps the
-            # behaviour this plugin has always had for an unreadable filesystem, the
-            # second is the new finding. It leaves through os._exit(), which skips
-            # cleanup handlers and buffer flushing, so it can never emit output of its
-            # own or run any of the parent's remaining code.
-            os.close(read_fd)
-            try:
-                answer = {'ok': True, 'value': func()}
-            except Exception as e:
-                answer = {'ok': False, 'error': str(e)}
-            try:
-                os.write(write_fd, lib.txt.to_bytes(json.dumps(answer)))
-            except Exception:
-                pass
-            os._exit(0)
-        os.close(write_fd)
-        pending[read_fd] = {'chunks': [], 'key': key, 'pid': pid}
-
-    results = {}
-    deadline = started + timeout
-    while pending:
-        remaining = deadline - time.time()
-        if remaining <= 0:
-            break
-        # An answer can be larger than a pipe holds, which makes the child wait for the
-        # parent to read, so every descriptor is read until the child closes its end.
-        ready = select.select(list(pending), [], [], remaining)[0]
-        if not ready:
-            break
-        for read_fd in ready:
-            chunk = os.read(read_fd, 65536)
-            if chunk:
-                pending[read_fd]['chunks'].append(chunk)
-                continue
-            job = pending.pop(read_fd)
-            os.close(read_fd)
-            os.waitpid(job['pid'], 0)
-            results[job['key']] = _decode_answer(job['chunks'])
-
-    for read_fd, job in pending.items():
-        os.kill(job['pid'], signal.SIGKILL)
-        os.waitpid(job['pid'], 0)
-        os.close(read_fd)
-        results[job['key']] = (False, TIMEOUT_MESSAGE)
-    return results
-
-
-def call_with_deadline(func, timeout):
-    """Run one job through call_each_with_deadline() and return its
-    `(True, result)` or `(False, errormessage)` pair.
-    """
-    return call_each_with_deadline([(None, func)], timeout)[None]
-
-
-def _decode_answer(chunks):
-    """Turn what a child wrote back into a `(True, result)` or `(False, errormessage)`
-    pair. A child that was killed before it wrote anything never reaches this.
-    """
-    try:
-        answer = json.loads(lib.txt.to_text(b''.join(chunks)))
-    except ValueError:
-        return False, 'the answer could not be read'
-    if not answer.get('ok'):
-        return False, answer.get('error', 'the answer could not be read')
-    return True, answer['value']
-
-
-def list_partitions(all_of_them):
-    """Return psutil's partitions as plain four-field lists, without the per-mount-point
-    `os.pathconf()` lookups that `psutil.disk_partitions()` adds on top on POSIX.
-
-    Those lookups are the reason merely listing the filesystems blocks on a network
-    filesystem whose server is gone, and their result (`maxfile`, `maxpath`) is not used
-    here. Reading the mount table underneath them never blocks, so taking them out is
-    what lets a run that asked for every filesystem type still report the local ones.
-
-    psutil's platform module is not its published interface, so a layout that does not
-    match falls back to the documented function. That one is guarded by a deadline like
-    everything else, which is the behaviour this avoids rather than depends on.
-    """
-    try:
-        parts = psutil._psplatform.disk_partitions(all_of_them)
-    except Exception:
-        parts = psutil.disk_partitions(all=all_of_them)
-    return [[p.device, p.mountpoint, p.fstype, p.opts] for p in parts]
-
-
-def get_partitions(all_of_them, timeout):
-    """Return the partitions psutil reports, as a list of `sdiskpart` namedtuples, or
-    `(False, errormessage)` when listing them did not finish in time.
-    """
-    success, result = call_with_deadline(lambda: list_partitions(all_of_them), timeout)
-    if not success:
-        return False, result
-    return True, [sdiskpart(*fields) for fields in result]
-
-
 def get_usage(mountpoints, timeout):
     """Return the usage of every mount point, as a dict keyed by mount point, each value
     a `(True, sdiskusage)` or `(False, errormessage)` pair.
 
-    Every mount point is asked in a child process of its own, all of them started before
-    the first is waited for, and the whole batch shares one deadline. Asking them one
-    after the other would multiply the deadline by the number of filesystems that are
-    gone, which is exactly the case this has to survive: a server that goes away usually
-    takes several mounts with it.
+    A filesystem whose server has stopped answering does not fail, it blocks, and it
+    blocks in a sleep inside the kernel that no timeout inside this process can cut
+    short. lib.task asks every mount point in a process of its own, all of them at the
+    same time and under one shared deadline, and disposes of the ones that miss it, so
+    several mounts of the same missing server cost one `--timeout` between them and not
+    one each.
     """
     if not mountpoints:
         return {}
-    answers = call_each_with_deadline(
+    answers = lib.task.run_each(
         [
             (mountpoint, lambda mp=mountpoint: list(psutil.disk_usage(mp)))
             for mountpoint in mountpoints
@@ -498,20 +356,10 @@ def get_usage(mountpoints, timeout):
     return result
 
 
-def list_fstypes(timeout):
+def list_fstypes():
     """Print a nice table showing which file system types exist and which are checked by default."""
     # get all partitions, no matter which ones
-    success, parts = get_partitions(True, timeout)
-    if not success:
-        # Listing every filesystem is exactly the call a network filesystem whose server
-        # has gone away holds up, so this is the likely reason and naming it saves the
-        # reader from chasing the plugin instead of the mount.
-        lib.base.cu(
-            f'The list of filesystems {parts}. A network filesystem whose server '
-            'stopped answering holds up the listing itself. Find it with '
-            '`findmnt --types nfs,nfs4,cifs`, then either get its server back or '
-            'unmount it with `umount --lazy`.'
-        )
+    parts = lib.psutil.get_partitions(include_all=True)
     table_data = []
     for part in parts:
         table_data.append(
@@ -524,9 +372,7 @@ def list_fstypes(timeout):
         )
 
     # get which ones are checked by default
-    success, checked_parts = get_partitions(False, timeout)
-    if success:
-        parts = checked_parts
+    parts = lib.psutil.get_partitions()
     for i, item in enumerate(table_data):
         for part in parts:
             if part.mountpoint == item['mountpoint']:
@@ -680,7 +526,7 @@ def main():
 
     # show partition information and exit
     if args.LIST_FSTYPES:
-        list_fstypes(args.TIMEOUT)
+        list_fstypes()
 
     # init some vars
     state = STATE_OK
@@ -719,22 +565,7 @@ def main():
         # everything is listed; the default behaviour is to check physical devices only
         # (e.g. hard disks, cd-rom drives, USB keys) and ignore all others (e.g. pseudo,
         # memory, duplicate, inaccessible filesystems).
-        success, parts = get_partitions(bool(args.FSTYPE), args.TIMEOUT)
-        if not success:
-            # Listing the filesystems is the one step nothing can be reported without,
-            # so there is no partial result to fall back on. It only ever runs into this
-            # with `--fstype`, which asks for every filesystem including the network
-            # ones; the default listing leaves those out and cannot be held up.
-            # `--ignore` is no way out here, because it is applied to the list this call
-            # was supposed to return.
-            lib.base.oao(
-                f'The list of filesystems {parts}, so nothing could be checked. '
-                'A network filesystem whose server stopped answering holds up the '
-                'listing itself. Find it with `findmnt --types nfs,nfs4,cifs`, then '
-                'either get its server back or unmount it with `umount --lazy`.',
-                lib.base.str2state(args.UNREACHABLE_SEVERITY),
-                always_ok=args.ALWAYS_OK,
-            )
+        parts = lib.psutil.get_partitions(include_all=bool(args.FSTYPE))
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)
         parts, fixture_usage, fixture_timeouts = _load_disk_usage_fixture(stdout)

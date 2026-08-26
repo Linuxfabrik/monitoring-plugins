@@ -9,7 +9,7 @@ Checks used or free disk space for each mounted partition. By default, only phys
 
 * On Unix systems, `total` and `used` refer to the overall total and used space, whereas `free` represents the space available for the user and `percent` represents the user utilization. That is why `percent` may appear 5% higher than expected (starting with psutil v4.3.0)
 * Run `disk-usage --list-fstypes` to see which file system types are available on the current machine and which are checked by default
-* Network filesystems are not checked by default, because only local block devices are. A filesystem whose server has stopped answering does not fail, it blocks, so every filesystem gets `--timeout` seconds to answer and one that misses it is reported as unreachable. All of them are asked at the same time, so several mounts of the same missing server cost one `--timeout` between them and not one each
+* Network filesystems are not checked by default, because only local block devices are. A filesystem whose server has stopped answering does not fail, it blocks, so every filesystem gets `--timeout` seconds to answer and one that misses it is reported as unreachable. All of them are asked at the same time, so several mounts of the same missing server cost one `--timeout` between them and not one each. Finding out what is mounted never waits on the filesystems themselves, so `--list-fstypes` answers on such a host too
 * A filesystem that answers with an error, for example a Kubernetes CSI volume below `/var/lib/kubelet` that a non-root user may not read, is listed as `N/A` and does not alert. That is a different case from one that does not answer at all, see `--unreachable-severity`
 * The deadline is enforced on Linux. Elsewhere the filesystem is asked directly and `--timeout` has no effect, because the uninterruptible wait it guards against is how the Linux NFS client behaves and has not been measured on other platforms
 
@@ -115,10 +115,13 @@ options:
                         Only emit perfdata keys matching this Python regex.
                         For a list of perfdata keys, see the README or run
                         this plugin. Can be specified multiple times.
-  --timeout TIMEOUT     How long a single filesystem gets to answer before it
-                        is reported as unreachable. Only a network filesystem
+  --timeout TIMEOUT     How long a filesystem gets to answer before it is
+                        reported as unreachable. Only a network filesystem
                         ever needs it: one whose server has stopped answering
-                        does not fail, it blocks. Default: 8 (seconds)
+                        does not fail, it blocks. Every filesystem is asked at
+                        the same time and they share one deadline, so this is
+                        the runtime of the whole check and not a budget per
+                        filesystem. Default: 8 (seconds)
   --unreachable-severity {ok,warn,crit,unknown}
                         State to report for a filesystem that does not answer
                         within --timeout. A filesystem that answers with an
@@ -232,7 +235,6 @@ Some other examples:
 * WARN if a filesystem does not answer within `--timeout`. `--unreachable-severity` lowers or raises that case. The filesystems that did answer are reported as usual.
 * OK for a filesystem that answers with an error rather than not at all. It is listed as `N/A` and never alerts, because a mount point the monitoring user may not read says nothing about the health of the host.
 * UNKNOWN on invalid parameter values, a malformed `--mount` entry, or regex compilation errors.
-* UNKNOWN if `--list-fstypes` cannot list the filesystems within `--timeout`.
 * `--no-match-severity` sets the state reported when the filters match no filesystem and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing filesystem) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -253,21 +255,6 @@ Can be limited by using `--perfdata-regex`.
 ### `Python module "psutil" is not installed.`
 
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
-
-
-### `The list of filesystems did not answer in time, so nothing could be checked.`
-
-Listing the filesystems is the one step nothing can be reported without, and a network filesystem whose server has gone away can hold up that listing itself. It only happens with `--fstype`, which asks for every filesystem type including the network ones; the default listing leaves those out and cannot be held up.
-
-`--ignore` is no way out here, because it is applied to the very list that did not come back. Find the mount and deal with it:
-
-```bash
-findmnt --types nfs,nfs4,cifs
-```
-
-Then either get its server answering again, or detach the mount point with `umount --lazy /your/mount/point`. A plain `umount` blocks on such a mount just like everything else.
-
-For the mounts themselves, `nfs-mounts` is the check that watches them and says which one is gone.
 
 
 ### A filesystem is reported as `did not answer in time`

@@ -198,8 +198,8 @@ Hint: a mount that does not answer blocks every access to it until its server is
 Mountpoint   ! Source                           ! Vers ! Mode ! Response ! State
 -------------+----------------------------------+------+------+----------+-------------------------------
 /mnt/gone    ! nfs1.example.com:/export/gone    ! 4.2  ! hard ! 3ms      ! stale file handle [CRITICAL]
-/mnt/backup  ! nfs2.example.com:/export/backup  ! 3    ! hard ! 8.0s     ! no answer within 8s [CRITICAL]
-/mnt/scratch ! nfs3.example.com:/export/scratch ! 4.2  ! soft ! 5.0s     ! input/output error [WARNING]
+/mnt/backup  ! nfs2.example.com:/export/backup  ! 3    ! hard ! 8s       ! no answer within 8s [CRITICAL]
+/mnt/scratch ! nfs3.example.com:/export/scratch ! 4.2  ! soft ! 5s 20ms  ! input/output error [WARNING]
 ```
 
 Give the mounts less time, for a check that has to return quickly:
