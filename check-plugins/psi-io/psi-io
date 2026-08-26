@@ -19,7 +19,7 @@ import lib.psi
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082601'
 
 DESCRIPTION = """Reports how much of its time a host loses waiting for storage, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means that for a
@@ -28,6 +28,9 @@ The check alerts on the share of time in which every task that had work to do wa
 at once, averaged over the last minute. That is the state in which the machine spends its
 cycles waiting instead of working, and it answers what throughput and utilization cannot:
 a disk can be busy all day without anybody waiting for it.
+The ten second average is reported but not judged, until --warning-avg10 or
+--critical-avg10 give it a threshold; those catch a burst that the one minute average
+smooths away.
 A host whose kernel keeps no pressure statistics is reported as OK, because there is
 nothing to measure; raise --severity-no-psi to flag it where the statistics are expected.
 Alerts when the pressure leaves the warning or critical range."""
@@ -36,32 +39,40 @@ Alerts when the pressure leaves the warning or critical range."""
 # /proc/pressure and the library reads it.
 RESOURCE = 'io'
 
+# What the tasks were waiting for, in the words an administrator needs to act on it.
+WAITING_FOR = 'storage'
+
 # The line the check alerts on. "full" is the share of time in which every non-idle task
 # was stalled at once, which the kernel documentation calls thrashing: nothing gets done
 # while the CPUs are busy. "some" moves as soon as a single task waits, which happens on
 # a healthy host as a matter of course.
 ALERT_KIND = 'full'
 
-# The averaging window the check alerts on. The kernel offers ten, sixty and three
-# hundred seconds; all three are reported, and the middle one is the one that matches a
-# check running every minute. Ten seconds is too short to survive a check interval, five
-# minutes smears a burst until it no longer stands out.
+# The averaging window the check alerts on by default. The kernel offers ten, sixty and
+# three hundred seconds; all three are reported, and the middle one is the one that
+# matches a check running every minute. Five minutes smears a burst until it no longer
+# stands out, and it never rises without the last minute having risen first, so it would
+# only repeat an alert late. Ten seconds is too short to survive a check interval, which
+# is why it is judged on request rather than by default.
 ALERT_WINDOW = 'avg60'
 
-# The lines this check reports. Both carry a real value for storage.
+# The window --warning-avg10 and --critical-avg10 judge.
+BURST_WINDOW = 'avg10'
+
+# The lines this check reports, the alerting one last so its state marker ends the row.
+# Both carry a real value for storage.
 REPORTED_KINDS = ('some', 'full')
 
-# What each line means, in the words an administrator needs to act on it.
-KIND_DESCRIPTION = {
-    'full': 'every task with work to do stalled',
-    'some': 'at least one task stalled',
-}
-
-WINDOWS = ('avg10', 'avg60', 'avg300')
-
-DEFAULT_CRIT = '60'
+# Thresholds measured on an NVMe workstation (Fedora 44, kernel 7.1): six processes
+# writing with direct I/O never moved the value at all, while a cgroup doing nothing but
+# refaulting a file too large for it settled at a "full" minute average of 23 %. A disk
+# that is merely busy therefore stays well inside the warning, and a host that wastes a
+# fifth of its wall clock waiting for storage is on the list.
+DEFAULT_CRIT = '30'
+DEFAULT_CRIT_AVG10 = None
 DEFAULT_SEVERITY_NO_PSI = 'ok'
-DEFAULT_WARN = '40'
+DEFAULT_WARN = '15'
+DEFAULT_WARN_AVG10 = None
 
 
 def parse_args():
@@ -102,10 +113,24 @@ def parse_args():
         help='CRIT threshold for the storage pressure, in percent of wall clock time, '
         'measured over the last minute. '
         'Supports Nagios ranges. '
-        'Example: `60` alerts where 60 percent of the time is lost. '
+        'Example: `30` alerts where 30 percent of the time is lost. '
         'Default: %(default)s',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-avg10',
+        help='CRIT threshold for the storage pressure, in percent of wall clock time, '
+        'measured over the last ten seconds. '
+        'Catches a burst that the one minute average smooths away, at the price of '
+        'alerting on a stall that is over before anybody looks. '
+        'Supports Nagios ranges. '
+        'Example: `90` alerts where the storage stood still for nine of the last ten '
+        'seconds. '
+        'Default: no critical threshold',
+        dest='CRIT_AVG10',
+        default=DEFAULT_CRIT_AVG10,
     )
 
     parser.add_argument(
@@ -131,10 +156,24 @@ def parse_args():
         help='WARN threshold for the storage pressure, in percent of wall clock time, '
         'measured over the last minute. '
         'Supports Nagios ranges. '
-        'Example: `40` alerts where 40 percent of the time is lost. '
+        'Example: `15` alerts where 15 percent of the time is lost. '
         'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-avg10',
+        help='WARN threshold for the storage pressure, in percent of wall clock time, '
+        'measured over the last ten seconds. '
+        'Catches a burst that the one minute average smooths away, at the price of '
+        'alerting on a stall that is over before anybody looks. '
+        'Supports Nagios ranges. '
+        'Example: `80` alerts where the storage stood still for eight of the last ten '
+        'seconds. '
+        'Default: no warning threshold',
+        dest='WARN_AVG10',
+        default=DEFAULT_WARN_AVG10,
     )
 
     args, _ = parser.parse_known_args()
@@ -174,42 +213,26 @@ def main():
         )
 
     # init some vars
-    perfdata = ''
-    table_data = []
+    thresholds = {ALERT_WINDOW: (args.WARN, args.CRIT)}
+    if args.WARN_AVG10 is not None or args.CRIT_AVG10 is not None:
+        thresholds[BURST_WINDOW] = (args.WARN_AVG10, args.CRIT_AVG10)
 
     # analyze data
-    value = pressure[ALERT_KIND][ALERT_WINDOW]
-    state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
+    states = lib.psi.get_states(pressure, ALERT_KIND, thresholds)
+    state = lib.base.get_worst(*states.values())
 
     # build the message
     # The kernel's own words, "some" and "full", stay in the output so that what an
     # administrator reads matches what the interface and its documentation call it. The
-    # line below spells both of them out, because nobody should have to look that up.
-    msg = ''
-    for kind in REPORTED_KINDS:
-        if kind not in pressure:
-            continue
-        msg += ', ' if msg else f'{RESOURCE} pressure, last minute: '
-        msg += f'{kind} {pressure[kind][ALERT_WINDOW]}%'
-        if kind == ALERT_KIND:
-            msg += lib.base.state2str(state, prefix=' ')
-        for window in WINDOWS:
-            # only the one value the check judges carries the thresholds, so a graph
-            # does not draw a warning line across the windows nobody alerts on
-            alerting = kind == ALERT_KIND and window == ALERT_WINDOW
-            perfdata += lib.base.get_perfdata(
-                f'{kind}_{window}',
-                pressure[kind][window],
-                uom='%',
-                warn=args.WARN if alerting else None,
-                crit=args.CRIT if alerting else None,
-                _min=0,
-                _max=100,
-            )
-    msg += '\n' + ', '.join(
-        f'{kind} = {KIND_DESCRIPTION[kind]}'
-        for kind in REPORTED_KINDS
-        if kind in pressure
+    # library spells both of them out, because nobody should have to look that up.
+    msg = lib.psi.get_summary(
+        pressure,
+        RESOURCE,
+        WAITING_FOR,
+        REPORTED_KINDS,
+        ALERT_KIND,
+        states,
+        window=ALERT_WINDOW,
     )
     if state != STATE_OK:
         msg += (
@@ -217,21 +240,10 @@ def main():
             'and how long it takes to answer, `memory-paging` whether the traffic is '
             'the host paging rather than the workload reading and writing.'
         )
+    perfdata = lib.psi.get_perfdata(pressure, REPORTED_KINDS, ALERT_KIND, thresholds)
 
     # build table output
-    kinds = [kind for kind in REPORTED_KINDS if kind in pressure]
-    for window in WINDOWS:
-        row = {'window': window}
-        for kind in kinds:
-            row[kind] = f'{pressure[kind][window]}%'
-            if kind == ALERT_KIND and window == ALERT_WINDOW:
-                row[kind] += lib.base.state2str(state, prefix=' ')
-        table_data.append(row)
-    msg += '\n\n' + lib.base.get_table(
-        table_data,
-        ['window', *kinds],
-        header=['Window', *[kind.capitalize() for kind in kinds]],
-    )
+    msg += '\n\n' + lib.psi.get_table(pressure, REPORTED_KINDS, ALERT_KIND, states)
 
     # over and out
     lib.base.oao(

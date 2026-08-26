@@ -8,6 +8,9 @@
                 "--critical": {
                     "value": "$psi_cpu_critical$"
                 },
+                "--critical-avg10": {
+                    "value": "$psi_cpu_critical_avg10$"
+                },
                 "--no-perfdata": {
                     "set_if": "$psi_cpu_no_perfdata$"
                 },
@@ -16,6 +19,9 @@
                 },
                 "--warning": {
                     "value": "$psi_cpu_warning$"
+                },
+                "--warning-avg10": {
+                    "value": "$psi_cpu_warning_avg10$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/psi-cpu",
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports how much of its time a host loses waiting for a CPU, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the CPUs were contended. The check alerts on the share of time in which at least one task was ready to run and had to wait for a CPU, averaged over the last minute. It answers what CPU utilization cannot: a host can be busy to the last percent and serve everything on time, and it can be busy to the same percent while everything queues up behind it. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes": "Reports how much of its time a host loses waiting for a CPU, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the CPUs were contended. The check alerts on the share of time in which at least one task was ready to run and had to wait for a CPU, averaged over the last minute. It answers what CPU utilization cannot: a host can be busy to the last percent and serve everything on time, and it can be busy to the same percent while everything queues up behind it. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-cpu/",
             "object_name": "tpl-service-psi-cpu",
             "object_type": "template",
@@ -165,6 +181,17 @@
             "uuid": "6ad3f1b8-b348-4821-ac96-eb320404b2f1"
         },
         "3": {
+            "varname": "psi_cpu_critical_avg10",
+            "caption": "Psi CPU: Critical Avg10",
+            "description": "CRIT threshold for the CPU pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `90` alerts where work waited for a CPU for nine of the last ten seconds. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "656de428-3a88-4fc8-b2ef-36f5fb528384"
+        },
+        "4": {
             "varname": "psi_cpu_no_perfdata",
             "caption": "Psi CPU: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -173,7 +200,7 @@
             "settings": {},
             "uuid": "cf142433-5534-4090-b516-c3881300e3dc"
         },
-        "4": {
+        "5": {
             "varname": "psi_cpu_severity_no_psi",
             "caption": "Psi CPU: Severity No Psi",
             "description": "Severity for alerting if the kernel keeps no pressure statistics.",
@@ -186,7 +213,7 @@
             },
             "uuid": "ea36d39d-8ea2-4730-ad5d-94550b69a4c3"
         },
-        "5": {
+        "6": {
             "varname": "psi_cpu_warning",
             "caption": "Psi CPU: Warning",
             "description": "WARN threshold for the CPU pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `50` alerts where work waits for a CPU 50 percent of the time.",
@@ -196,6 +223,17 @@
                 "visibility": "visible"
             },
             "uuid": "fe14dcbc-0b07-41d0-b8e0-f49728e7ba60"
+        },
+        "7": {
+            "varname": "psi_cpu_warning_avg10",
+            "caption": "Psi CPU: Warning Avg10",
+            "description": "WARN threshold for the CPU pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `80` alerts where work waited for a CPU for eight of the last ten seconds. Default: no warning threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "497780b3-7ad5-4ca6-96ea-a32b03936277"
         }
     }
 }

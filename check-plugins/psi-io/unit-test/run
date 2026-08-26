@@ -26,9 +26,15 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #
 #   idle      an unloaded host
 #   loaded    six processes writing with direct I/O for eighty seconds. 18.57 % of the
-#             last minute with at least one task stalled, 9.76 % with every task
-#             stalled: the gap between the two lines is the work the host still got
+#             last minute with at least one task waiting, 9.76 % with every task
+#             waiting: the gap between the two lines is the work the host still got
 #             done while somebody was waiting
+#   burst     a cgroup limited to 128 MiB reading a 900 MiB file with six readers, so
+#             the kernel evicts and faults the same pages back in continuously, read
+#             fourteen seconds in. The ten second average has risen and the one minute
+#             average has not caught up yet, which is the shape --warning-avg10 and
+#             --critical-avg10 exist for. Captured at cgroup scope, which the kernel
+#             publishes in the same format as /proc/pressure
 #   no-psi    a host whose kernel keeps no pressure statistics: /proc is there,
 #             /proc/pressure is not. That is what the whole Red Hat family boots into,
 #             because it ships CONFIG_PSI_DEFAULT_DISABLED=y
@@ -108,10 +114,65 @@ TESTS = [
         'params': '--config-root=config/loaded --warning=~: --critical=~:',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'some = at least one task stalled',
-            'full = every task with work to do stalled',
+            'some = at least one task waited for storage',
+            'full = every task with work to do waited for storage',
             'avg10',
             'avg300',
+        ],
+    },
+    {
+        # The default leaves the ten second average unjudged, so a burst that the one
+        # minute average smooths away stays in the graph and out of the alert.
+        'id': 'ok-a-burst-is-not-judged-by-default',
+        'test': '',
+        'params': '--config-root=config/burst',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'full_avg10'=18.86%;;;0;100"],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'last ten seconds'],
+    },
+    {
+        # The same reading with a threshold on the ten second average: the one minute
+        # average is still inside its range, and the burst alerts on its own.
+        'id': 'warn-a-burst-alerts-once-avg10-has-a-threshold',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=10',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'io pressure, last minute: some 5.32%, full 5.14%; '
+            'last ten seconds: full 18.86% [WARNING]',
+            "'full_avg10'=18.86%;10;;0;100",
+        ],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-a-burst-past-the-critical-threshold',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=10 --critical-avg10=15',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'last ten seconds: full 18.86% [CRITICAL]',
+            'Work is stalling on storage.',
+        ],
+    },
+    {
+        # A burst inside its range is not worth a word in the headline, even though the
+        # check judged it.
+        'id': 'ok-a-judged-burst-within-its-range-stays-quiet',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=50',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['last ten seconds', '[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # Both windows out of range at once: each is named with its own state.
+        'id': 'crit-the-minute-and-the-burst-alert-together',
+        'test': '',
+        'params': '--config-root=config/burst --warning=2 --critical=4 '
+        '--warning-avg10=10',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'full 5.14% [CRITICAL]',
+            'last ten seconds: full 18.86% [WARNING]',
         ],
     },
     {

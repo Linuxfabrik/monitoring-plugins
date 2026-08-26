@@ -19,7 +19,7 @@ import lib.psi
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082601'
 
 DESCRIPTION = """Reports how much of its time a host loses waiting for a CPU, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means that for a
@@ -28,6 +28,9 @@ The check alerts on the share of time in which at least one task was ready to ru
 to wait for a CPU, averaged over the last minute. It answers what CPU utilization cannot:
 a host can be busy to the last percent and serve everything on time, and it can be busy
 to the same percent while everything queues up behind it.
+The ten second average is reported but not judged, until --warning-avg10 or
+--critical-avg10 give it a threshold; those catch a burst that the one minute average
+smooths away.
 A host whose kernel keeps no pressure statistics is reported as OK, because there is
 nothing to measure; raise --severity-no-psi to flag it where the statistics are expected.
 Alerts when the pressure leaves the warning or critical range."""
@@ -36,15 +39,23 @@ Alerts when the pressure leaves the warning or critical range."""
 # /proc/pressure and the library reads it.
 RESOURCE = 'cpu'
 
+# What the tasks were waiting for, in the words an administrator needs to act on it.
+WAITING_FOR = 'a CPU'
+
 # The line the check alerts on. For the CPU there is only one line to choose: "some" is
 # the share of time in which at least one task was ready to run and waited.
 ALERT_KIND = 'some'
 
-# The averaging window the check alerts on. The kernel offers ten, sixty and three
-# hundred seconds; all three are reported, and the middle one is the one that matches a
-# check running every minute. Ten seconds is too short to survive a check interval, five
-# minutes smears a burst until it no longer stands out.
+# The averaging window the check alerts on by default. The kernel offers ten, sixty and
+# three hundred seconds; all three are reported, and the middle one is the one that
+# matches a check running every minute. Five minutes smears a burst until it no longer
+# stands out, and it never rises without the last minute having risen first, so it would
+# only repeat an alert late. Ten seconds is too short to survive a check interval, which
+# is why it is judged on request rather than by default.
 ALERT_WINDOW = 'avg60'
+
+# The window --warning-avg10 and --critical-avg10 judge.
+BURST_WINDOW = 'avg10'
 
 # The lines this check reports. The kernel prints a "full" line for the CPU as well,
 # and it is a hardcoded zero: psi_show() in kernel/sched/psi.c skips the accounting for
@@ -53,16 +64,15 @@ ALERT_WINDOW = 'avg60'
 # would put a line into every graph that can never move.
 REPORTED_KINDS = ('some',)
 
-# What each line means, in the words an administrator needs to act on it.
-KIND_DESCRIPTION = {
-    'some': 'at least one task waited for a CPU',
-}
-
-WINDOWS = ('avg10', 'avg60', 'avg300')
-
+# Thresholds measured on an eight core workstation (Fedora 44, kernel 7.1): twice as
+# many busy loops as there are cores settled at a "some" minute average of about 50 %,
+# which is the point where a task waits about as long as it runs. The critical threshold
+# is several times oversubscribed.
 DEFAULT_CRIT = '80'
+DEFAULT_CRIT_AVG10 = None
 DEFAULT_SEVERITY_NO_PSI = 'ok'
 DEFAULT_WARN = '50'
+DEFAULT_WARN_AVG10 = None
 
 
 def parse_args():
@@ -110,6 +120,20 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-avg10',
+        help='CRIT threshold for the CPU pressure, in percent of wall clock time, '
+        'measured over the last ten seconds. '
+        'Catches a burst that the one minute average smooths away, at the price of '
+        'alerting on a stall that is over before anybody looks. '
+        'Supports Nagios ranges. '
+        'Example: `90` alerts where work waited for a CPU for nine of the last ten '
+        'seconds. '
+        'Default: no critical threshold',
+        dest='CRIT_AVG10',
+        default=DEFAULT_CRIT_AVG10,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -136,6 +160,20 @@ def parse_args():
         'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-avg10',
+        help='WARN threshold for the CPU pressure, in percent of wall clock time, '
+        'measured over the last ten seconds. '
+        'Catches a burst that the one minute average smooths away, at the price of '
+        'alerting on a stall that is over before anybody looks. '
+        'Supports Nagios ranges. '
+        'Example: `80` alerts where work waited for a CPU for eight of the last ten '
+        'seconds. '
+        'Default: no warning threshold',
+        dest='WARN_AVG10',
+        default=DEFAULT_WARN_AVG10,
     )
 
     args, _ = parser.parse_known_args()
@@ -175,42 +213,26 @@ def main():
         )
 
     # init some vars
-    perfdata = ''
-    table_data = []
+    thresholds = {ALERT_WINDOW: (args.WARN, args.CRIT)}
+    if args.WARN_AVG10 is not None or args.CRIT_AVG10 is not None:
+        thresholds[BURST_WINDOW] = (args.WARN_AVG10, args.CRIT_AVG10)
 
     # analyze data
-    value = pressure[ALERT_KIND][ALERT_WINDOW]
-    state = lib.base.get_state(value, args.WARN, args.CRIT, _operator='range')
+    states = lib.psi.get_states(pressure, ALERT_KIND, thresholds)
+    state = lib.base.get_worst(*states.values())
 
     # build the message
     # The kernel's own words, "some" and "full", stay in the output so that what an
     # administrator reads matches what the interface and its documentation call it. The
-    # line below spells both of them out, because nobody should have to look that up.
-    msg = ''
-    for kind in REPORTED_KINDS:
-        if kind not in pressure:
-            continue
-        msg += ', ' if msg else f'{RESOURCE} pressure, last minute: '
-        msg += f'{kind} {pressure[kind][ALERT_WINDOW]}%'
-        if kind == ALERT_KIND:
-            msg += lib.base.state2str(state, prefix=' ')
-        for window in WINDOWS:
-            # only the one value the check judges carries the thresholds, so a graph
-            # does not draw a warning line across the windows nobody alerts on
-            alerting = kind == ALERT_KIND and window == ALERT_WINDOW
-            perfdata += lib.base.get_perfdata(
-                f'{kind}_{window}',
-                pressure[kind][window],
-                uom='%',
-                warn=args.WARN if alerting else None,
-                crit=args.CRIT if alerting else None,
-                _min=0,
-                _max=100,
-            )
-    msg += '\n' + ', '.join(
-        f'{kind} = {KIND_DESCRIPTION[kind]}'
-        for kind in REPORTED_KINDS
-        if kind in pressure
+    # library spells both of them out, because nobody should have to look that up.
+    msg = lib.psi.get_summary(
+        pressure,
+        RESOURCE,
+        WAITING_FOR,
+        REPORTED_KINDS,
+        ALERT_KIND,
+        states,
+        window=ALERT_WINDOW,
     )
     if state != STATE_OK:
         msg += (
@@ -219,21 +241,10 @@ def main():
             'the CPUs are, `load` how long the run queue is and `procs` which '
             'processes it consists of.'
         )
+    perfdata = lib.psi.get_perfdata(pressure, REPORTED_KINDS, ALERT_KIND, thresholds)
 
     # build table output
-    kinds = [kind for kind in REPORTED_KINDS if kind in pressure]
-    for window in WINDOWS:
-        row = {'window': window}
-        for kind in kinds:
-            row[kind] = f'{pressure[kind][window]}%'
-            if kind == ALERT_KIND and window == ALERT_WINDOW:
-                row[kind] += lib.base.state2str(state, prefix=' ')
-        table_data.append(row)
-    msg += '\n\n' + lib.base.get_table(
-        table_data,
-        ['window', *kinds],
-        header=['Window', *[kind.capitalize() for kind in kinds]],
-    )
+    msg += '\n\n' + lib.psi.get_table(pressure, REPORTED_KINDS, ALERT_KIND, states)
 
     # over and out
     lib.base.oao(

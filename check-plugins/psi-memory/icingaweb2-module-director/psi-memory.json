@@ -8,6 +8,9 @@
                 "--critical": {
                     "value": "$psi_memory_critical$"
                 },
+                "--critical-avg10": {
+                    "value": "$psi_memory_critical_avg10$"
+                },
                 "--no-perfdata": {
                     "set_if": "$psi_memory_no_perfdata$"
                 },
@@ -16,6 +19,9 @@
                 },
                 "--warning": {
                     "value": "$psi_memory_warning$"
+                },
+                "--warning-avg10": {
+                    "value": "$psi_memory_warning_avg10$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/psi-memory",
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports how much of its time a host loses waiting for memory, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because memory was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what neither memory usage nor swap usage can: whether the shortage costs anything. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes": "Reports how much of its time a host loses waiting for memory, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because memory was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what neither memory usage nor swap usage can: whether the shortage costs anything. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-memory/",
             "object_name": "tpl-service-psi-memory",
             "object_type": "template",
@@ -100,7 +116,7 @@
             "vars": {
                 "criticality": "C",
                 "psi_memory_always_ok": false,
-                "psi_memory_critical": "20",
+                "psi_memory_critical": "10",
                 "psi_memory_no_perfdata": false,
                 "psi_memory_severity_no_psi": "ok",
                 "psi_memory_warning": "5"
@@ -156,7 +172,7 @@
         "2": {
             "varname": "psi_memory_critical",
             "caption": "Psi Memory: Critical",
-            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `20` alerts where 20 percent of the time is lost.",
+            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `10` alerts where 10 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -165,6 +181,17 @@
             "uuid": "35f1e3df-1f54-407c-8852-1a9e2397c893"
         },
         "3": {
+            "varname": "psi_memory_critical_avg10",
+            "caption": "Psi Memory: Critical Avg10",
+            "description": "CRIT threshold for the memory pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `90` alerts where work waited for memory for nine of the last ten seconds. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "16844797-656d-4558-929c-986beb98fe91"
+        },
+        "4": {
             "varname": "psi_memory_no_perfdata",
             "caption": "Psi Memory: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -173,7 +200,7 @@
             "settings": {},
             "uuid": "f6774261-eec8-44f0-be3a-e92d3e51ce8c"
         },
-        "4": {
+        "5": {
             "varname": "psi_memory_severity_no_psi",
             "caption": "Psi Memory: Severity No Psi",
             "description": "Severity for alerting if the kernel keeps no pressure statistics.",
@@ -186,7 +213,7 @@
             },
             "uuid": "6dce2060-1a91-45ef-ad5c-b7abea279d59"
         },
-        "5": {
+        "6": {
             "varname": "psi_memory_warning",
             "caption": "Psi Memory: Warning",
             "description": "WARN threshold for the memory pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `5` alerts where 5 percent of the time is lost.",
@@ -196,6 +223,17 @@
                 "visibility": "visible"
             },
             "uuid": "e0837d79-29be-4a54-ab10-cbfbc6e5432a"
+        },
+        "7": {
+            "varname": "psi_memory_warning_avg10",
+            "caption": "Psi Memory: Warning Avg10",
+            "description": "WARN threshold for the memory pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `80` alerts where work waited for memory for eight of the last ten seconds. Default: no warning threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1106a965-4cd5-4f56-a5b0-23e1a6d0f213"
         }
     }
 }

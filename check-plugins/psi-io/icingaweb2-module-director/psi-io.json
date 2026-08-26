@@ -8,6 +8,9 @@
                 "--critical": {
                     "value": "$psi_io_critical$"
                 },
+                "--critical-avg10": {
+                    "value": "$psi_io_critical_avg10$"
+                },
                 "--no-perfdata": {
                     "set_if": "$psi_io_no_perfdata$"
                 },
@@ -16,6 +19,9 @@
                 },
                 "--warning": {
                     "value": "$psi_io_warning$"
+                },
+                "--warning-avg10": {
+                    "value": "$psi_io_warning_avg10$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/psi-io",
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports how much of its time a host loses waiting for storage, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the storage was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what throughput and utilization cannot: a disk can be busy all day without anybody waiting for it. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
+            "notes": "Reports how much of its time a host loses waiting for storage, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the storage was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what throughput and utilization cannot: a disk can be busy all day without anybody waiting for it. The ten second average is reported but not judged, until --warning-avg10 or --critical-avg10 give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise --severity-no-psi to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-io/",
             "object_name": "tpl-service-psi-io",
             "object_type": "template",
@@ -100,10 +116,10 @@
             "vars": {
                 "criticality": "C",
                 "psi_io_always_ok": false,
-                "psi_io_critical": "60",
+                "psi_io_critical": "30",
                 "psi_io_no_perfdata": false,
                 "psi_io_severity_no_psi": "ok",
-                "psi_io_warning": "40"
+                "psi_io_warning": "15"
             },
             "volatile": null,
             "zone": null,
@@ -156,7 +172,7 @@
         "2": {
             "varname": "psi_io_critical",
             "caption": "Psi I/O: Critical",
-            "description": "CRIT threshold for the storage pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `60` alerts where 60 percent of the time is lost.",
+            "description": "CRIT threshold for the storage pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `30` alerts where 30 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -165,6 +181,17 @@
             "uuid": "762f972f-b5e8-45ba-88a0-2ac85d31c1a7"
         },
         "3": {
+            "varname": "psi_io_critical_avg10",
+            "caption": "Psi I/O: Critical Avg10",
+            "description": "CRIT threshold for the storage pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `90` alerts where the storage stood still for nine of the last ten seconds. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "4f2c6d07-635f-40e2-ab55-58b823d6e050"
+        },
+        "4": {
             "varname": "psi_io_no_perfdata",
             "caption": "Psi I/O: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -173,7 +200,7 @@
             "settings": {},
             "uuid": "a4ae1203-d80c-447e-80e4-1fde27668ac1"
         },
-        "4": {
+        "5": {
             "varname": "psi_io_severity_no_psi",
             "caption": "Psi I/O: Severity No Psi",
             "description": "Severity for alerting if the kernel keeps no pressure statistics.",
@@ -186,16 +213,27 @@
             },
             "uuid": "37decba3-fa7c-4cc0-b815-6c05e821780f"
         },
-        "5": {
+        "6": {
             "varname": "psi_io_warning",
             "caption": "Psi I/O: Warning",
-            "description": "WARN threshold for the storage pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `40` alerts where 40 percent of the time is lost.",
+            "description": "WARN threshold for the storage pressure, in percent of wall clock time, measured over the last minute. Supports Nagios ranges. Example: `15` alerts where 15 percent of the time is lost.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "5d9cfe96-a69c-4d2f-9277-088d301cddff"
+        },
+        "7": {
+            "varname": "psi_io_warning_avg10",
+            "caption": "Psi I/O: Warning Avg10",
+            "description": "WARN threshold for the storage pressure, in percent of wall clock time, measured over the last ten seconds. Catches a burst that the one minute average smooths away, at the price of alerting on a stall that is over before anybody looks. Supports Nagios ranges. Example: `80` alerts where the storage stood still for eight of the last ten seconds. Default: no warning threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a7eb62f7-1ee2-43ac-9fc5-3cd26c2362b2"
         }
     }
 }

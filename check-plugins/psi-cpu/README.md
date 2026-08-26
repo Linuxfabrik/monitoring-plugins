@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports how much of its time a host loses waiting for a CPU, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the CPUs were contended. The check alerts on the share of time in which at least one task was ready to run and had to wait for a CPU, averaged over the last minute. It answers what CPU utilization cannot: a host can be busy to the last percent and serve everything on time, and it can be busy to the same percent while everything queues up behind it. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
+Reports how much of its time a host loses waiting for a CPU, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because the CPUs were contended. The check alerts on the share of time in which at least one task was ready to run and had to wait for a CPU, averaged over the last minute. It answers what CPU utilization cannot: a host can be busy to the last percent and serve everything on time, and it can be busy to the same percent while everything queues up behind it. The ten second average is reported but not judged, until `--warning-avg10` or `--critical-avg10` give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
 
 **What the numbers mean:**
 
@@ -44,8 +44,9 @@ The value comes as an average over the last 10, 60 and 300 seconds. The check al
 ## Help
 
 ```text
-usage: psi-cpu [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
-               [--severity-no-psi {ok,warn,crit,unknown}] [-w WARN]
+usage: psi-cpu [-h] [-V] [--always-ok] [-c CRIT] [--critical-avg10 CRIT_AVG10]
+               [--no-perfdata] [--severity-no-psi {ok,warn,crit,unknown}]
+               [-w WARN] [--warning-avg10 WARN_AVG10]
 
 Reports how much of its time a host loses waiting for a CPU, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means
@@ -54,10 +55,12 @@ contended. The check alerts on the share of time in which at least one task
 was ready to run and had to wait for a CPU, averaged over the last minute. It
 answers what CPU utilization cannot: a host can be busy to the last percent
 and serve everything on time, and it can be busy to the same percent while
-everything queues up behind it. A host whose kernel keeps no pressure
-statistics is reported as OK, because there is nothing to measure; raise
---severity-no-psi to flag it where the statistics are expected. Alerts when
-the pressure leaves the warning or critical range.
+everything queues up behind it. The ten second average is reported but not
+judged, until --warning-avg10 or --critical-avg10 give it a threshold; those
+catch a burst that the one minute average smooths away. A host whose kernel
+keeps no pressure statistics is reported as OK, because there is nothing to
+measure; raise --severity-no-psi to flag it where the statistics are expected.
+Alerts when the pressure leaves the warning or critical range.
 
 options:
   -h, --help            show this help message and exit
@@ -68,6 +71,14 @@ options:
                         Supports Nagios ranges. Example: `80` alerts where
                         work waits for a CPU 80 percent of the time. Default:
                         80
+  --critical-avg10 CRIT_AVG10
+                        CRIT threshold for the CPU pressure, in percent of
+                        wall clock time, measured over the last ten seconds.
+                        Catches a burst that the one minute average smooths
+                        away, at the price of alerting on a stall that is over
+                        before anybody looks. Supports Nagios ranges. Example:
+                        `90` alerts where work waited for a CPU for nine of
+                        the last ten seconds. Default: no critical threshold
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -80,6 +91,14 @@ options:
                         Supports Nagios ranges. Example: `50` alerts where
                         work waits for a CPU 50 percent of the time. Default:
                         50
+  --warning-avg10 WARN_AVG10
+                        WARN threshold for the CPU pressure, in percent of
+                        wall clock time, measured over the last ten seconds.
+                        Catches a burst that the one minute average smooths
+                        away, at the price of alerting on a stall that is over
+                        before anybody looks. Supports Nagios ranges. Example:
+                        `80` alerts where work waited for a CPU for eight of
+                        the last ten seconds. Default: no warning threshold
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-cpu/
@@ -131,6 +150,24 @@ A latency-sensitive host, a database or a broker, is worth watching far earlier:
 ./psi-cpu --warning=10 --critical=25
 ```
 
+A host where a short queue already hurts wants the 10 second average judged as well. It alerts on its own, while the minute average stays inside its range:
+
+```bash
+./psi-cpu --warning-avg10=40
+```
+
+```text
+cpu pressure, last minute: some 11.74%; last ten seconds: some 47.86% [WARNING]
+some = at least one task waited for a CPU
+Work is waiting for a CPU. Give the host more of them, move a workload off it, or find what is running: `cpu-usage` reports how busy the CPUs are, `load` how long the run queue is and `procs` which processes it consists of.
+
+Window ! Some            
+-------+-----------------
+avg10  ! 47.86% [WARNING]
+avg60  ! 11.74%          
+avg300 ! 8.37%
+```
+
 
 ## States
 
@@ -138,6 +175,7 @@ A latency-sensitive host, a database or a broker, is worth watching far earlier:
 * OK with an explanation if the kernel keeps no pressure statistics, which is the Red Hat default. `--severity-no-psi` raises that to `warn`, `crit` or `unknown`.
 * WARN if the `some` pressure over the last minute leaves the `--warning` range, 50 % by default.
 * CRIT if it leaves the `--critical` range, 80 % by default.
+* WARN or CRIT if the `some` pressure over the last ten seconds leaves `--warning-avg10` or `--critical-avg10`. Neither is set by default, so that value does not alert until one of them is given. The worst of the two windows wins.
 * UNKNOWN if a value in `/proc/pressure/cpu` is not a number, or if the file exists but cannot be read.
 * UNKNOWN if the check does not run on Linux.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -145,7 +183,7 @@ A latency-sensitive host, a database or a broker, is worth watching far earlier:
 
 ## Perfdata / Metrics
 
-Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `some_avg60`, the value the check judges. The kernel's `full` line for the CPU is undefined at the system level and is not reported.
+Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `some_avg60`, the value the check judges, and on `some_avg10` once `--warning-avg10` or `--critical-avg10` is given. The kernel's `full` line for the CPU is undefined at the system level and is not reported.
 
 | Name | Type | Description |
 |----|----|----|
@@ -214,7 +252,9 @@ grep CONFIG_PSI /boot/config-$(uname --kernel-release)
 
 ### The pressure looks harmless although users complain
 
-The check alerts on the 60 second average, which needs about a minute of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it. The `some_avg10` metric keeps those bursts, so the graph shows what the alert deliberately does not.
+The check alerts on the 60 second average, which needs about a minute of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it, which is deliberate: a stall that is over before anybody looks is rarely worth an alert. The `some_avg10` metric keep those bursts, so the graph shows what the alert does not.
+
+Where the bursts do matter, give the 10 second average its own threshold with `--warning-avg10` and `--critical-avg10`. Pick it well above the 60 second threshold, because the short window swings much further on the same workload. Expect more alerts that have resolved themselves by the time somebody reads them.
 
 
 ## Credits, License

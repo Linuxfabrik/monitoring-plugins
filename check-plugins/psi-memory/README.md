@@ -3,14 +3,14 @@
 
 ## Overview
 
-Reports how much of its time a host loses waiting for memory, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because memory was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what neither memory usage nor swap usage can: whether the shortage costs anything. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
+Reports how much of its time a host loses waiting for memory, taken from the pressure stall information of the Linux kernel. A pressure of 10 percent means that for a tenth of the time work could not go on because memory was contended. The check alerts on the share of time in which every task that had work to do was stalled at once, averaged over the last minute. That is the state in which the machine spends its cycles waiting instead of working, and it answers what neither memory usage nor swap usage can: whether the shortage costs anything. The ten second average is reported but not judged, until `--warning-avg10` or `--critical-avg10` give it a threshold; those catch a burst that the one minute average smooths away. A host whose kernel keeps no pressure statistics is reported as OK, because there is nothing to measure; raise `--severity-no-psi` to flag it where the statistics are expected. Alerts when the pressure leaves the warning or critical range.
 
 **What the numbers mean:**
 
 The kernel writes two lines per resource, and both are a share of wall clock time, not of memory:
 
-* `some` is the time in which **at least one** task was stalled. On a working host this is never zero. Something waits for a page now and then, and the machine gets on with other work in the meantime.
-* `full` is the time in which **every task that had work to do** was stalled at once. Nothing was accomplished during that time although the CPUs were awake. The kernel documentation calls this thrashing, and it is what this check judges.
+* `some` is the time in which **at least one** task waited for memory. On a working host this is never zero. Something waits for a page now and then, and the machine gets on with other work in the meantime.
+* `full` is the time in which **every task that had work to do** waited at once. Nothing was accomplished during that time although the CPUs were awake. The kernel documentation calls this thrashing, and it is what this check judges.
 
 Both lines come as averages over the last 10, 60 and 300 seconds. The check alerts on the 60 second average because that is the window a check running every minute can actually see: 10 seconds is gone again before the next run, 300 seconds smears a burst until it no longer stands out. All three go into the performance data, so the graph keeps the short spike as well as the long trend.
 
@@ -44,8 +44,10 @@ Both lines come as averages over the last 10, 60 and 300 seconds. The check aler
 ## Help
 
 ```text
-usage: psi-memory [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
+usage: psi-memory [-h] [-V] [--always-ok] [-c CRIT]
+                  [--critical-avg10 CRIT_AVG10] [--no-perfdata]
                   [--severity-no-psi {ok,warn,crit,unknown}] [-w WARN]
+                  [--warning-avg10 WARN_AVG10]
 
 Reports how much of its time a host loses waiting for memory, taken from the
 pressure stall information of the Linux kernel. A pressure of 10 percent means
@@ -54,10 +56,12 @@ contended. The check alerts on the share of time in which every task that had
 work to do was stalled at once, averaged over the last minute. That is the
 state in which the machine spends its cycles waiting instead of working, and
 it answers what neither memory usage nor swap usage can: whether the shortage
-costs anything. A host whose kernel keeps no pressure statistics is reported
-as OK, because there is nothing to measure; raise --severity-no-psi to flag it
-where the statistics are expected. Alerts when the pressure leaves the warning
-or critical range.
+costs anything. The ten second average is reported but not judged, until
+--warning-avg10 or --critical-avg10 give it a threshold; those catch a burst
+that the one minute average smooths away. A host whose kernel keeps no
+pressure statistics is reported as OK, because there is nothing to measure;
+raise --severity-no-psi to flag it where the statistics are expected. Alerts
+when the pressure leaves the warning or critical range.
 
 options:
   -h, --help            show this help message and exit
@@ -65,8 +69,16 @@ options:
   --always-ok           Always returns OK.
   -c, --critical CRIT   CRIT threshold for the memory pressure, in percent of
                         wall clock time, measured over the last minute.
-                        Supports Nagios ranges. Example: `20` alerts where 20
-                        percent of the time is lost. Default: 20
+                        Supports Nagios ranges. Example: `10` alerts where 10
+                        percent of the time is lost. Default: 10
+  --critical-avg10 CRIT_AVG10
+                        CRIT threshold for the memory pressure, in percent of
+                        wall clock time, measured over the last ten seconds.
+                        Catches a burst that the one minute average smooths
+                        away, at the price of alerting on a stall that is over
+                        before anybody looks. Supports Nagios ranges. Example:
+                        `90` alerts where work waited for memory for nine of
+                        the last ten seconds. Default: no critical threshold
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -78,6 +90,14 @@ options:
                         wall clock time, measured over the last minute.
                         Supports Nagios ranges. Example: `5` alerts where 5
                         percent of the time is lost. Default: 5
+  --warning-avg10 WARN_AVG10
+                        WARN threshold for the memory pressure, in percent of
+                        wall clock time, measured over the last ten seconds.
+                        Catches a burst that the one minute average smooths
+                        away, at the price of alerting on a stall that is over
+                        before anybody looks. Supports Nagios ranges. Example:
+                        `80` alerts where work waited for memory for eight of
+                        the last ten seconds. Default: no warning threshold
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/psi-memory/
@@ -94,7 +114,7 @@ Output on a host with memory to spare:
 
 ```text
 memory pressure, last minute: some 0.0%, full 0.0%
-some = at least one task stalled, full = every task with work to do stalled
+some = at least one task waited for memory, full = every task with work to do waited for memory
 
 Window ! Some  ! Full 
 -------+-------+------
@@ -107,7 +127,7 @@ Output on a host whose working set no longer fits, measured while a workload wal
 
 ```text
 memory pressure, last minute: some 20.23%, full 20.23% [CRITICAL]
-some = at least one task stalled, full = every task with work to do stalled
+some = at least one task waited for memory, full = every task with work to do waited for memory
 Work is stalling on memory. Add memory, move a workload off the host, or cap the process that grew. `memory-usage` reports how much memory is in use, `memory-paging` whether the host is already paying for the shortage with paging traffic.
 
 Window ! Some   ! Full             
@@ -123,6 +143,24 @@ A host that is expected to run at its memory limit, a batch node or a build mach
 ./psi-memory --warning=~: --critical=~:
 ```
 
+A host where a short stall already hurts wants the 10 second average judged as well. It alerts on its own, while the minute average stays inside its range:
+
+```bash
+./psi-memory --warning-avg10=5
+```
+
+```text
+memory pressure, last minute: some 1.65%, full 1.65%; last ten seconds: full 6.23% [WARNING]
+some = at least one task waited for memory, full = every task with work to do waited for memory
+Work is stalling on memory. Add memory, move a workload off the host, or cap the process that grew. `memory-usage` reports how much memory is in use, `memory-paging` whether the host is already paying for the shortage with paging traffic.
+
+Window ! Some  ! Full           
+-------+-------+----------------
+avg10  ! 6.23% ! 6.23% [WARNING]
+avg60  ! 1.65% ! 1.65%          
+avg300 ! 0.37% ! 0.37%
+```
+
 Where pressure statistics are expected on every host, an unswitched interface is worth reporting instead of passing as OK:
 
 ```bash
@@ -135,7 +173,8 @@ Where pressure statistics are expected on every host, an unswitched interface is
 * OK if the `full` pressure over the last minute is within `--warning` and `--critical`.
 * OK with an explanation if the kernel keeps no pressure statistics, which is the Red Hat default. `--severity-no-psi` raises that to `warn`, `crit` or `unknown`.
 * WARN if the `full` pressure over the last minute leaves the `--warning` range, 5 % by default.
-* CRIT if it leaves the `--critical` range, 20 % by default.
+* CRIT if it leaves the `--critical` range, 10 % by default.
+* WARN or CRIT if the `full` pressure over the last ten seconds leaves `--warning-avg10` or `--critical-avg10`. Neither is set by default, so that value does not alert until one of them is given. The worst of the two windows wins.
 * UNKNOWN if a value in `/proc/pressure/memory` is not a number, or if the file exists but cannot be read.
 * UNKNOWN if the check does not run on Linux.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -143,14 +182,14 @@ Where pressure statistics are expected on every host, an unswitched interface is
 
 ## Perfdata / Metrics
 
-Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `full_avg60`, the value the check judges.
+Every value is a share of wall clock time in percent, as the kernel reports it. The thresholds sit on `full_avg60`, the value the check judges, and on `full_avg10` once `--warning-avg10` or `--critical-avg10` is given.
 
 | Name | Type | Description |
 |----|----|----|
-| full_avg10  | Percentage | Time in which every task with work to do was stalled on memory, over the last 10 seconds. |
+| full_avg10  | Percentage | Time in which every task with work to do waited for memory, over the last 10 seconds. |
 | full_avg60  | Percentage | The same over the last 60 seconds. This is the value the check alerts on. |
 | full_avg300 | Percentage | The same over the last 300 seconds. |
-| some_avg10  | Percentage | Time in which at least one task was stalled on memory, over the last 10 seconds. |
+| some_avg10  | Percentage | Time in which at least one task waited for memory, over the last 10 seconds. |
 | some_avg60  | Percentage | The same over the last 60 seconds. |
 | some_avg300 | Percentage | The same over the last 300 seconds. |
 
@@ -211,11 +250,13 @@ grep CONFIG_PSI /boot/config-$(uname --kernel-release)
 
 ### `some` and `full` show the same number
 
-Expected on a host with one busy workload. `full` counts the time in which every task that had work to do was stalled, so when only one task has work, its stall is by definition a full stall. The two numbers separate as soon as several things run at once, and the gap between them is then worth reading: a large `some` next to a small `full` means the machine is still getting work done.
+Expected on a host with one busy workload. `full` counts the time in which every task that had work to do waited, so when only one task has work, its stall is by definition a full stall. The two numbers separate as soon as several things run at once, and the gap between them is then worth reading: a large `some` next to a small `full` means the machine is still getting work done.
 
 ### The pressure looks harmless although users complain
 
-The check alerts on the 60 second average, which needs about a minute of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it. The `some_avg10` and `full_avg10` metrics keep those bursts, so the graph shows what the alert deliberately does not.
+The check alerts on the 60 second average, which needs about a minute of sustained pressure to reach the real level. A burst that lasts ten seconds barely moves it, which is deliberate: a stall that is over before anybody looks is rarely worth an alert. The `some_avg10` and `full_avg10` metrics keep those bursts, so the graph shows what the alert does not.
+
+Where the bursts do matter, give the 10 second average its own threshold with `--warning-avg10` and `--critical-avg10`. Pick it well above the 60 second threshold, because the short window swings much further on the same workload. Expect more alerts that have resolved themselves by the time somebody reads them.
 
 
 ## Credits, License

@@ -29,6 +29,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #             and a half, so the kernel evicts and faults the same pages back in
 #             continuously. Both lines read 20.23 % over the last minute, which is the
 #             state the check exists for
+#   burst     a cgroup limited to 128 MiB reading a 900 MiB file with six readers, so
+#             the kernel evicts and faults the same pages back in continuously, read
+#             fourteen seconds in. The ten second average has risen and the one minute
+#             average has not caught up yet, which is the shape --warning-avg10 and
+#             --critical-avg10 exist for. Captured at cgroup scope, which the kernel
+#             publishes in the same format as /proc/pressure
 #   no-psi    a host whose kernel keeps no pressure statistics: /proc is there,
 #             /proc/pressure is not. That is what the whole Red Hat family boots into,
 #             because it ships CONFIG_PSI_DEFAULT_DISABLED=y
@@ -99,10 +105,65 @@ TESTS = [
         'params': '--config-root=config/thrash --warning=~: --critical=~:',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'some = at least one task stalled',
-            'full = every task with work to do stalled',
+            'some = at least one task waited for memory',
+            'full = every task with work to do waited for memory',
             'avg10',
             'avg300',
+        ],
+    },
+    {
+        # The default leaves the ten second average unjudged, so a burst that the one
+        # minute average smooths away stays in the graph and out of the alert.
+        'id': 'ok-a-burst-is-not-judged-by-default',
+        'test': '',
+        'params': '--config-root=config/burst',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'full_avg10'=6.23%;;;0;100"],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'last ten seconds'],
+    },
+    {
+        # The same reading with a threshold on the ten second average: the one minute
+        # average is still inside its range, and the burst alerts on its own.
+        'id': 'warn-a-burst-alerts-once-avg10-has-a-threshold',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=5',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'memory pressure, last minute: some 1.65%, full 1.65%; '
+            'last ten seconds: full 6.23% [WARNING]',
+            "'full_avg10'=6.23%;5;;0;100",
+        ],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-a-burst-past-the-critical-threshold',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=5 --critical-avg10=6',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'last ten seconds: full 6.23% [CRITICAL]',
+            'Work is stalling on memory.',
+        ],
+    },
+    {
+        # A burst inside its range is not worth a word in the headline, even though the
+        # check judged it.
+        'id': 'ok-a-judged-burst-within-its-range-stays-quiet',
+        'test': '',
+        'params': '--config-root=config/burst --warning-avg10=20',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['last ten seconds', '[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # Both windows out of range at once: each is named with its own state.
+        'id': 'crit-the-minute-and-the-burst-alert-together',
+        'test': '',
+        'params': '--config-root=config/burst --warning=1 --critical=1.5 '
+        '--warning-avg10=5',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'full 1.65% [CRITICAL]',
+            'last ten seconds: full 6.23% [WARNING]',
         ],
     },
     {
