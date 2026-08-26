@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082601'
+
+DESCRIPTION = """Reports which of the CPU vulnerabilities the kernel knows about are left
+without a mitigation on this host. The kernel publishes its own verdict per vulnerability,
+so the check reports what the running kernel, the microcode and the boot parameters
+together actually achieve, and not what the CPU model would allow. This works in a virtual
+machine as well, where the answer additionally depends on what the hypervisor hands
+through.
+A vulnerability the kernel cannot decide on is reported separately and does not alert by
+default, because a guest regularly cannot see what its host does; raise
+--unknown-severity to flag it where the answer is expected.
+Alerts when a vulnerability the CPU is affected by has no mitigation in effect."""
+
+# The kernel publishes one file per vulnerability here, named after its code name. The
+# directory exists wherever the kernel was built with CONFIG_GENERIC_CPU_VULNERABILITIES,
+# which every distribution kernel on x86, arm64 and powerpc is.
+VULNERABILITIES_DIR = '/sys/devices/system/cpu/vulnerabilities'
+
+# The verdicts this check sorts the kernel's wording into.
+MITIGATED = 'mitigated'
+NOT_AFFECTED = 'not affected'
+UNKNOWN = 'unknown'
+VULNERABLE = 'vulnerable'
+
+# The wording the kernel uses. Documentation/ABI/testing/sysfs-devices-system-cpu names
+# three forms, and the implementation produces four more. The full list, read from
+# arch/*/kernel/**/*.c and drivers/base/cpu.c over the whole history of the interface
+# (v4.15 to v7.1) and measured on kernel 7.1 in a KVM guest presenting several CPU
+# models:
+#
+#   "Not affected"          the CPU does not have the flaw
+#   "Vulnerable[: <why>]"   it has it and nothing mitigates it
+#   "Mitigation: <how>"     it has it and something mitigates it
+#   "Unknown[: <why>]"      the kernel cannot decide, for example because it runs as a
+#                           guest and the answer belongs to the hypervisor
+#   "KVM: <verdict>"        itlb_multihit speaks for the KVM side only and prefixes its
+#                           verdict, so "KVM: Mitigation: VMX unsupported" and
+#                           "KVM: Vulnerable" both occur
+#   "Processor vulnerable"  itlb_multihit again, on a kernel built without KVM support
+#
+# Everything after the first word is free text that names the mitigation or the reason,
+# and several files append markers such as "; SMT vulnerable" or "; BHI: Vulnerable" that
+# describe a residual risk within an applied mitigation. The verdict is therefore taken
+# from the beginning of the line and never from a substring: a host reporting
+# "Mitigation: Enhanced / Automatic IBRS; ...; BHI: Vulnerable" is mitigated, and a check
+# grepping for "Vulnerable" would call it the opposite.
+KVM_PREFIX = 'kvm: '
+MITIGATION_PREFIX = 'mitigation: '
+NOT_AFFECTED_PREFIX = 'not affected'
+UNKNOWN_PREFIX = 'unknown'
+VULNERABLE_PREFIXES = ('vulnerable', 'processor vulnerable')
+
+# Two states carry the "Mitigation: " prefix and name no mitigation behind it, so the
+# prefix is the one thing that must not be believed there:
+#
+#   "Mitigation: Vulnerable, KVM: Not affected"  indirect_target_selection with
+#       `indirect_target_selection=vmexit`. Documentation/admin-guide/hw-vuln/
+#       indirect-target-selection.rst calls that state "System is vulnerable to
+#       intra-mode BTI, but not affected by eIBRS guest/host isolation": the guests are
+#       covered, the host is not. Measured on kernel 7.1
+#   "Mitigation: None"  documented for spectre_v2 in
+#       Documentation/admin-guide/hw-vuln/spectre.rst as "Vulnerable, no mitigation".
+#       No kernel between v4.15 and v7.1 emits it, the mainline string for that state
+#       has always been the plain "Vulnerable", so the documentation and the
+#       implementation disagree. Reading it as vulnerable costs nothing and keeps the
+#       answer right whichever of the two a distribution kernel follows
+#
+# The first is matched by its beginning, because the text continues with the part that
+# is covered. The second is matched whole, so a mitigation that merely starts with the
+# word cannot be mistaken for it.
+NO_MITIGATION_PREFIX = 'vulnerable'
+NO_MITIGATION_TEXT = 'none'
+
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_UNKNOWN_SEVERITY = 'ok'
+
+# What to do about a vulnerability nothing mitigates. Named here so the same words reach
+# the plugin output and the README.
+REMEDIATION = (
+    'Install the current microcode package, rebuild the initial ramdisk and reboot, run '
+    'a current kernel, and check whether the kernel command line switches mitigations '
+    'off (`mitigations=off`, `nopti`, `nospectre_v2` and the like). On a virtual machine '
+    'the hypervisor decides which CPU features and which microcode the guest gets to '
+    'see, so the same list has to be worked through there.'
+)
+
+NO_VERDICT = (
+    'The kernel cannot decide this on its own. A guest sees only what its hypervisor '
+    'hands through, so run this check on the hypervisor as well.'
+)
+
+UNKNOWN_WORDING = (
+    'No verdict was derived from it, because guessing one would be the wrong kind of '
+    'answer for a security property. Please report the wording so the check learns it.'
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help=lib.args.help('--severity')
+        + ' Applies to a vulnerability the CPU is affected by that has no mitigation '
+        'in effect. '
+        'Default: %(default)s',
+        dest='SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--unknown-severity',
+        help='State to report for a vulnerability whose state cannot be determined, '
+        'and for a kernel that publishes no vulnerability information at all. '
+        'A guest sees only what its hypervisor hands through and regularly cannot '
+        'decide, which is why this defaults to not alerting. '
+        'Default: %(default)s',
+        dest='UNKNOWN_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNKNOWN_SEVERITY,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def classify(report):
+    """
+    Sort the kernel's wording for one vulnerability into a verdict.
+
+    Returns (verdict, recognized). `recognized` is False for wording this check does
+    not know, which is reported as `UNKNOWN` rather than assumed to be harmless.
+    """
+    text = report.strip()
+
+    # itlb_multihit speaks for the KVM side only and puts that in front of its verdict.
+    # Strip the component so the verdict behind it reads like every other one.
+    if text.lower().startswith(KVM_PREFIX):
+        text = text[len(KVM_PREFIX) :].strip()
+    lowered = text.lower()
+
+    if lowered.startswith(NOT_AFFECTED_PREFIX):
+        return (NOT_AFFECTED, True)
+    if lowered.startswith(VULNERABLE_PREFIXES):
+        return (VULNERABLE, True)
+    if lowered.startswith(MITIGATION_PREFIX):
+        # Where the prefix promises a mitigation and the text behind it names none,
+        # the text decides. See NO_MITIGATION_PREFIX for the two states this covers.
+        mitigation = lowered[len(MITIGATION_PREFIX) :]
+        if (
+            mitigation.startswith(NO_MITIGATION_PREFIX)
+            or mitigation == NO_MITIGATION_TEXT
+        ):
+            return (VULNERABLE, True)
+        return (MITIGATED, True)
+    if lowered.startswith(UNKNOWN_PREFIX):
+        return (UNKNOWN, True)
+    return (UNKNOWN, False)
+
+
+def get_reports(root):
+    """
+    Read every vulnerability the kernel publishes.
+
+    Returns (True, dict) mapping the code name to the kernel's line, or to an error
+    message where the file exists but could not be read. The dict is empty where the
+    kernel publishes nothing at all.
+    """
+    path = os.path.join(root, VULNERABILITIES_DIR.lstrip('/'))
+    if not lib.disk.dir_exists(path):
+        return (True, {})
+    reports = {}
+    for name in sorted(os.listdir(path)):
+        # Files below /sys report a size of zero, so their presence has to be probed
+        # allowing an empty file.
+        if not lib.disk.file_exists(os.path.join(path, name), allow_empty=True):
+            continue
+        success, content = lib.disk.read_file(os.path.join(path, name))
+        reports[name] = content.strip() if success else content
+    return (True, reports)
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'CPU vulnerabilities are published by the Linux kernel. '
+            'This check belongs on a Linux host.'
+        )
+    reports = lib.base.coe(get_reports(args.CONFIG_ROOT))
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    table_data = []
+    counts = {MITIGATED: 0, NOT_AFFECTED: 0, UNKNOWN: 0, VULNERABLE: 0}
+    unrecognized = []
+    vulnerable = []
+    undecided = []
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    for name, report in reports.items():
+        # Filter vulnerabilities. --match (include) is applied first, then --ignore
+        # (exclude), so one hit by --ignore is dropped even if it also matches --match.
+        # Both use case-sensitive Python regex.
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        verdict, recognized = classify(report)
+        counts[verdict] += 1
+        if verdict == VULNERABLE:
+            item_state = lib.base.str2state(args.SEVERITY)
+            vulnerable.append((name, report))
+        elif verdict == UNKNOWN:
+            item_state = lib.base.str2state(args.UNKNOWN_SEVERITY)
+            if recognized:
+                undecided.append((name, report))
+            else:
+                unrecognized.append((name, report))
+        else:
+            item_state = STATE_OK
+        state = lib.base.get_worst(state, item_state)
+        table_data.append(
+            {
+                'name': name,
+                'report': report,
+                'state': f'{verdict}{lib.base.state2str(item_state, prefix=" ")}',
+            }
+        )
+
+    # build the message
+    if not reports:
+        # A kernel that publishes nothing looks exactly like a host with nothing to
+        # report, so the line says which of the two it is.
+        msg = (
+            'This kernel publishes no CPU vulnerability information, so nothing could '
+            'be checked. It was built without CONFIG_GENERIC_CPU_VULNERABILITIES, '
+            'which no distribution kernel on x86, arm64 or powerpc is.'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.UNKNOWN_SEVERITY))
+    elif not table_data:
+        count = len(reports)
+        msg = (
+            f'{count} CPU {lib.txt.pluralize("vulnerabilit", count, "y,ies")} '
+            f'published by the kernel, filtered out by --match or --ignore.'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+    else:
+        # The table below lists every vulnerability with the kernel's own wording, so
+        # the message names the code names and the way out and repeats nothing of it.
+        checked = len(table_data)
+        if vulnerable:
+            # The code names go on the first line, because that is the line an
+            # administrator gets to see in a list of services and in a notification.
+            count = len(vulnerable)
+            msg = (
+                f'{count} of {checked} CPU '
+                f'{lib.txt.pluralize("vulnerabilit", checked, "y,ies")} '
+                f'{lib.txt.pluralize("", count, "has,have")} no mitigation in effect: '
+                f'{", ".join(name for name, _ in vulnerable)}.'
+            )
+        else:
+            msg = (
+                f'No CPU vulnerability is left without a mitigation. '
+                f'{counts[MITIGATED]} mitigated, {counts[NOT_AFFECTED]} not affected'
+            )
+            msg += f', {counts[UNKNOWN]} without a verdict.' if counts[UNKNOWN] else '.'
+        if undecided:
+            count = len(undecided)
+            msg += (
+                f'\n{count} CPU '
+                f'{lib.txt.pluralize("vulnerabilit", count, "y,ies")} the kernel could '
+                f'not decide on: {", ".join(name for name, _ in undecided)}.'
+            )
+        if unrecognized:
+            count = len(unrecognized)
+            msg += (
+                f'\n{count} CPU '
+                f'{lib.txt.pluralize("vulnerabilit", count, "y,ies")} reported in '
+                f'wording this check does not know: '
+                f'{", ".join(name for name, _ in unrecognized)}.'
+            )
+        if vulnerable:
+            msg += f'\n{REMEDIATION}'
+        if undecided:
+            msg += f'\n{NO_VERDICT}'
+        if unrecognized:
+            msg += f'\n{UNKNOWN_WORDING}'
+    perfdata += lib.base.get_perfdata('checked', len(table_data), uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('mitigated', counts[MITIGATED], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'not_affected',
+        counts[NOT_AFFECTED],
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata('unknown', counts[UNKNOWN], uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'vulnerable',
+        counts[VULNERABLE],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        msg += '\n\n' + lib.base.get_table(
+            table_data,
+            ['name', 'report', 'state'],
+            header=['Vulnerability', 'Kernel Report', 'State'],
+        )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

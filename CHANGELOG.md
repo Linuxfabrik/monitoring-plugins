@@ -25,6 +25,7 @@ Monitoring Plugins:
 * apache-httpd-disclosure: reports what an Apache httpd server gives away about itself in its HTTP responses ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
 * apache-httpd-security: audits the loaded modules, the worker account, the file permissions and the request limits of a local Apache httpd installation ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
 * conntrack: alerts when the netfilter connection tracking table fills up and when the kernel starts evicting connections or dropping packets
+* cpu-vulnerabilities: alerts when the CPU is affected by a hardware vulnerability that no mitigation is holding off
 * file-growth: alerts when a file grows or shrinks faster than a configured rate ([#48](https://github.com/Linuxfabrik/monitoring-plugins/issues/48))
 * fs-mounts: alerts when a filesystem listed in `/etc/fstab` is not mounted, which no other check and no failed systemd unit reports
 * kvm-cpu-usage: reports the CPU each virtual machine of a libvirt host uses, and how much CPU the host makes it wait for ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))

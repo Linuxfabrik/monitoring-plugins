@@ -1,0 +1,299 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# cpu-vulnerabilities reads files and runs no command, so its fixtures are directory
+# trees under `config/` that stand in for the host's /sys, selected with the hidden
+# `--config-root` hook. Each tree holds the files the kernel publishes below
+# /sys/devices/system/cpu/vulnerabilities.
+#
+# Four fixtures were captured from a running kernel 7.1, once on this workstation (Intel
+# Core Ultra 7 258V, Fedora 44) and three times in a KVM guest booted on
+# /boot/vmlinuz-7.1.7-200.fc44.x86_64 with a busybox initramfs, varying the CPU model,
+# the kernel command line and the kvm module parameters. Each holds all nineteen files
+# that kernel publishes:
+#
+#   all-mitigated       the workstation's own /sys. Four mitigated, fifteen not affected
+#   mitigations-off     `-cpu host`, booted with `mitigations=off`. The three
+#                       vulnerabilities this CPU has are reported unmitigated
+#   hypervisor-guest    `-cpu Skylake-Client,+vmx`, with kvm.ko loaded as
+#                       `nx_huge_pages=never` and kvm-intel.ko on top. Carries all four
+#                       wordings at once: five vulnerable, two the kernel cannot decide
+#                       on because it is a guest, one of them behind the "KVM: " prefix
+#                       that itlb_multihit puts in front of its verdict
+#   its-vmexit-only     `-cpu Icelake-Server,model=106`, booted with
+#                       `indirect_target_selection=vmexit`. The one state whose prefix
+#                       contradicts itself: the kernel writes "Mitigation: Vulnerable,
+#                       KVM: Not affected", and its own documentation calls that state
+#                       "System is vulnerable to intra-mode BTI". Only the guests are
+#                       covered, so this has to read as vulnerable. Reachable only on an
+#                       ITS_NATIVE_ONLY model, otherwise the option is silently
+#                       downgraded to aligned thunks
+#
+# The remaining four are assembled by hand, because no kernel that can be booted here
+# produces them. Their content is a literal from the kernel source or from its
+# documentation, never an interpretation of it:
+#
+#   no-kvm-support      `Processor vulnerable`, which itlb_multihit reports on a kernel
+#                       built with CONFIG_KVM_INTEL=n. A distribution kernel builds it as
+#                       a module and `#if IS_ENABLED()` counts that as enabled, so this
+#                       needs a kernel of one's own. It is the one wording that reaches
+#                       the check through a prefix of its own
+#   no-interface        a kernel that publishes nothing, built without
+#                       CONFIG_GENERIC_CPU_VULNERABILITIES. /sys is there, the
+#                       vulnerabilities directory is not. An empty directory never
+#                       reaches git, so the tree carries a neighbouring file instead
+#   mitigation-none     `Mitigation: None`, which spectre.rst documents for spectre_v2
+#                       as "Vulnerable, no mitigation" while no kernel between v4.15 and
+#                       v7.1 emits it, so that the answer stays right whichever of the
+#                       two a distribution kernel follows
+#   unrecognized        wording no kernel prints at all. The fixture exists to prove that
+#                       a verdict this check cannot derive is reported as such instead of
+#                       quietly counting as mitigated
+#
+# One wording is neither captured nor fixtured: `Unknown (XEN PV detected, hypervisor
+# mitigation required)`, which meltdown reports under Xen PV. It reaches the check
+# through the same "Unknown" prefix that the hypervisor-guest capture already exercises.
+TESTS = [
+    {
+        'id': 'ok-everything-is-mitigated-or-not-affected',
+        'test': '',
+        'params': '--config-root=config/all-mitigated',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No CPU vulnerability is left without a mitigation.',
+            '4 mitigated, 15 not affected.',
+            "'vulnerable'=0",
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # A long mitigation line ends in "; BHI: Vulnerable", which names a residual
+        # risk inside an applied mitigation. The verdict belongs to the first word.
+        'id': 'ok-a-mitigation-line-mentioning-vulnerable-stays-mitigated',
+        'test': '',
+        'params': '--config-root=config/all-mitigated --match=^spectre_v2$',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'spectre_v2\s+!.*BHI: BHI_DIS_S\s+!\s+mitigated',
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-mitigations-switched-off-on-the-kernel-command-line',
+        'test': '',
+        'params': '--config-root=config/mitigations-off',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 19 CPU vulnerabilities have no mitigation in effect: '
+            'spec_store_bypass, spectre_v1, spectre_v2.',
+            'Install the current microcode package',
+            "'vulnerable'=3;0;;0",
+        ],
+    },
+    {
+        'id': 'crit-an-unmitigated-vulnerability-can-wake-somebody',
+        'test': '',
+        'params': '--config-root=config/mitigations-off --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['no mitigation in effect'],
+    },
+    {
+        'id': 'ok-an-unmitigated-vulnerability-can-be-graphed-only',
+        'test': '',
+        'params': '--config-root=config/mitigations-off --severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no mitigation in effect', "'vulnerable'=3;0;;0"],
+    },
+    {
+        # itlb_multihit speaks for the KVM side only and prefixes its verdict with the
+        # component. The verdict behind it still decides.
+        'id': 'warn-the-kvm-prefix-does-not-hide-the-verdict',
+        'test': '',
+        'params': '--config-root=config/hypervisor-guest',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '5 of 19 CPU vulnerabilities have no mitigation in effect',
+            "'vulnerable'=5;0;;0",
+        ],
+        'assert-regex': r'itlb_multihit\s+!\s+KVM: Vulnerable\s+!\s+vulnerable',
+    },
+    {
+        # A guest cannot see what its hypervisor does, which is the common case in a
+        # fleet of virtual machines and therefore not worth an alert by default.
+        'id': 'ok-what-the-kernel-cannot-decide-does-not-alert-by-itself',
+        'test': '',
+        'params': '--config-root=config/hypervisor-guest --severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2 CPU vulnerabilities the kernel could not decide on: '
+            'gather_data_sampling, srbds.',
+            'run this check on the hypervisor as well',
+            "'unknown'=2",
+        ],
+        'assert-regex': r'srbds\s+!\s+Unknown: Dependent on hypervisor status',
+    },
+    {
+        'id': 'warn-an-undecided-vulnerability-can-alert-where-it-is-expected',
+        'test': '',
+        'params': '--config-root=config/hypervisor-guest --severity=ok'
+        ' --unknown-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['the kernel could not decide on'],
+    },
+    {
+        # The kernel calls this state a mitigation and its own documentation calls the
+        # system vulnerable. The word behind the prefix decides.
+        'id': 'warn-a-mitigation-that-says-vulnerable-is-vulnerable',
+        'test': '',
+        'params': '--config-root=config/its-vmexit-only'
+        ' --match=^indirect_target_selection$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'indirect_target_selection\s+!\s+'
+        r'Mitigation: Vulnerable, KVM: Not affected\s+!\s+vulnerable',
+    },
+    {
+        # The kernel's own documentation calls this state vulnerable while its
+        # implementation words that state "Vulnerable" instead. Either way it alerts.
+        'id': 'warn-a-mitigation-that-names-none-is-vulnerable',
+        'test': '',
+        'params': '--config-root=config/mitigation-none',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-not-in': ["'mitigated'=1"],
+        'assert-regex': r'spectre_v2\s+!\s+Mitigation: None\s+!\s+vulnerable',
+    },
+    {
+        # The only wording that reaches the check through a prefix of its own, and the
+        # only one that cannot be produced on a distribution kernel.
+        'id': 'warn-a-kernel-without-kvm-support-words-it-differently',
+        'test': '',
+        'params': '--config-root=config/no-kvm-support',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'vulnerable'=1;0;;0"],
+        'assert-regex': r'itlb_multihit\s+!\s+Processor vulnerable\s+!\s+vulnerable',
+    },
+    {
+        'id': 'ok-a-vulnerability-nobody-can-fix-can-be-ignored',
+        'test': '',
+        'params': '--config-root=config/mitigations-off'
+        ' --ignore=^spec_store_bypass$ --ignore=^spectre_',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'checked'=16", "'vulnerable'=0"],
+        'assert-not-in': ['no mitigation in effect'],
+    },
+    {
+        'id': 'ok-every-vulnerability-filtered-out',
+        'test': '',
+        'params': '--config-root=config/all-mitigated --match=^nothing-matches-this$',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '19 CPU vulnerabilities published by the kernel, filtered out by --match '
+            'or --ignore.'
+        ],
+    },
+    {
+        'id': 'warn-nothing-checked-can-alert',
+        'test': '',
+        'params': '--config-root=config/all-mitigated --match=^nothing-matches-this$'
+        ' --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'ok-a-kernel-that-publishes-nothing',
+        'test': '',
+        'params': '--config-root=config/no-interface',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'This kernel publishes no CPU vulnerability information',
+            "'checked'=0",
+        ],
+        'assert-not-in': ['no mitigation in effect'],
+    },
+    {
+        'id': 'warn-a-kernel-that-publishes-nothing-can-alert',
+        'test': '',
+        'params': '--config-root=config/no-interface --unknown-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['This kernel publishes no CPU vulnerability information'],
+    },
+    {
+        'id': 'ok-wording-this-check-does-not-know-is-not-called-mitigated',
+        'test': '',
+        'params': '--config-root=config/unrecognized',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'reported in wording this check does not know: spectre_v2.',
+            "'unknown'=1",
+        ],
+        'assert-not-in': ["'mitigated'=1"],
+        'assert-regex': r'spectre_v2\s+!\s+Probably fine, who knows\s+!\s+unknown',
+    },
+    {
+        'id': 'unknown-wording-this-check-does-not-know-can-alert',
+        'test': '',
+        'params': '--config-root=config/unrecognized --unknown-severity=unknown',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['reported in wording this check does not know'],
+    },
+    {
+        'id': 'ok-always-ok-masks-the-warning',
+        'test': '',
+        'params': '--config-root=config/mitigations-off --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no mitigation in effect'],
+    },
+    {
+        'id': 'warn-no-perfdata-drops-the-perfdata-only',
+        'test': '',
+        'params': '--config-root=config/mitigations-off --no-perfdata',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['no mitigation in effect'],
+        'assert-not-in': ["'vulnerable'="],
+    },
+    {
+        'id': 'ok-the-table-lists-every-vulnerability-with-the-kernels-own-words',
+        'test': '',
+        'params': '--config-root=config/all-mitigated',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Vulnerability',
+            'Kernel Report',
+            'meltdown',
+            'Mitigation: Speculative Store Bypass disabled via prctl',
+        ],
+    },
+    {
+        'id': 'unknown-an-invalid-regex',
+        'test': '',
+        'params': '--config-root=config/all-mitigated --ignore=*broken',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--ignore'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../cpu-vulnerabilities'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,309 @@
+{
+    "Command": {
+        "cmd-check-cpu-vulnerabilities": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$cpu_vulnerabilities_always_ok$"
+                },
+                "--ignore": {
+                    "value": "$cpu_vulnerabilities_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$cpu_vulnerabilities_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$cpu_vulnerabilities_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$cpu_vulnerabilities_no_perfdata$"
+                },
+                "--severity": {
+                    "value": "$cpu_vulnerabilities_severity$"
+                },
+                "--unknown-severity": {
+                    "value": "$cpu_vulnerabilities_unknown_severity$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/cpu-vulnerabilities",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-cpu-vulnerabilities",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "230d0135-4fb8-435d-afe2-14bb34efa12f"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-cpu-vulnerabilities": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-cpu-vulnerabilities",
+            "check_interval": 86400,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "cpu-vulnerabilities.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports which of the CPU vulnerabilities the kernel knows about are left without a mitigation on this host. The kernel publishes its own verdict per vulnerability, so the check reports what the running kernel, the microcode and the boot parameters together actually achieve, and not what the CPU model would allow. This works in a virtual machine as well, where the answer additionally depends on what the hypervisor hands through. A vulnerability the kernel cannot decide on is reported separately and does not alert by default, because a guest regularly cannot see what its host does; raise --unknown-severity to flag it where the answer is expected. Alerts when a vulnerability the CPU is affected by has no mitigation in effect.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cpu-vulnerabilities/",
+            "object_name": "tpl-service-cpu-vulnerabilities",
+            "object_type": "template",
+            "retry_interval": 3600,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "cpu_vulnerabilities_always_ok": false,
+                "cpu_vulnerabilities_ignore": [],
+                "cpu_vulnerabilities_match": [],
+                "cpu_vulnerabilities_no_match_severity": "ok",
+                "cpu_vulnerabilities_no_perfdata": false,
+                "cpu_vulnerabilities_severity": "warn",
+                "cpu_vulnerabilities_unknown_severity": "ok"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "9bb03c68-2eed-45a5-90f7-69064185812f"
+        }
+    },
+    "DataList": {
+        "cpu_vulnerabilities_no_match_severity_list": {
+            "list_name": "cpu_vulnerabilities_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "1ce2e831-5060-41f1-960b-a3b4ae8dc65e"
+        },
+        "cpu_vulnerabilities_severity_list": {
+            "list_name": "cpu_vulnerabilities_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "64b3f9c0-548a-43a5-b86b-7ef856d6dbee"
+        },
+        "cpu_vulnerabilities_unknown_severity_list": {
+            "list_name": "cpu_vulnerabilities_unknown_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "08fff0ce-07b6-46d1-b9ec-5ee9a2a6d895"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "cpu_vulnerabilities_always_ok",
+            "caption": "CPU Vulnerabilities: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "72e305e6-7306-4fbd-b6c5-6edd135c24f2"
+        },
+        "2": {
+            "varname": "cpu_vulnerabilities_ignore",
+            "caption": "CPU Vulnerabilities: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1c3826a8-bfc7-43e2-9b98-85e9218f1af2"
+        },
+        "3": {
+            "varname": "cpu_vulnerabilities_match",
+            "caption": "CPU Vulnerabilities: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cc1134c8-bcee-46e9-9542-6846e5183bf2"
+        },
+        "4": {
+            "varname": "cpu_vulnerabilities_no_match_severity",
+            "caption": "CPU Vulnerabilities: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "cpu_vulnerabilities_no_match_severity_list"
+            },
+            "uuid": "adf0487f-f37d-43c4-944c-2976bc6bdeae"
+        },
+        "5": {
+            "varname": "cpu_vulnerabilities_no_perfdata",
+            "caption": "CPU Vulnerabilities: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "5646146f-6deb-404e-bfa4-f443dd7ddcc3"
+        },
+        "6": {
+            "varname": "cpu_vulnerabilities_severity",
+            "caption": "CPU Vulnerabilities: Severity",
+            "description": "Severity for alerting. Applies to a vulnerability the CPU is affected by that has no mitigation in effect.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "cpu_vulnerabilities_severity_list"
+            },
+            "uuid": "c6bcc898-43ce-45a8-93ae-4688fe37a831"
+        },
+        "7": {
+            "varname": "cpu_vulnerabilities_unknown_severity",
+            "caption": "CPU Vulnerabilities: Unknown Severity",
+            "description": "State to report for a vulnerability whose state cannot be determined, and for a kernel that publishes no vulnerability information at all. A guest sees only what its hypervisor hands through and regularly cannot decide, which is why this defaults to not alerting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "cpu_vulnerabilities_unknown_severity_list"
+            },
+            "uuid": "0d9d047c-ddc2-45bb-a064-5048113abce3"
+        }
+    }
+}
