@@ -1,0 +1,854 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.human
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082601'
+
+DESCRIPTION = """Reports the health of the Linux software RAID arrays (md) on this host: how
+many member devices each array is running on, which of them the kernel has thrown out,
+whether a resync, recovery or reshape is under way, and how many inconsistent sectors the
+last consistency check found. Every array the kernel knows is reported, so an array
+nobody remembers is on the list as well.
+Alerts when an array has lost the redundancy it was built for, when the kernel declares
+it failed, and when a consistency check found differences between the members of a parity
+array.
+Supports extended reporting via --lengthy."""
+
+# The kernel writes one block per array here. It exists on every kernel that has md
+# support, and it is what an administrator looks at, which is why the array list comes
+# from this file and not from a directory listing.
+MDSTAT = '/proc/mdstat'
+
+# Per-array attributes the kernel publishes next to it. They carry three things
+# /proc/mdstat does not: the number of inconsistent sectors the last check found, a
+# machine-readable array state, and the array state on kernels that do not yet spell
+# "broken" into /proc/mdstat.
+SYSFS_BLOCK = '/sys/block'
+
+# A device line names its members as `<device>[<index>]` followed by zero or more flags.
+# drivers/md/md.c:md_seq_show() prints exactly five of them, in this order, and a faulty
+# member gets nothing but its own flag because the function stops there:
+#
+#   (W)  write-mostly, reads avoid this member (a mirror over a slow link)
+#   (J)  the write journal of a raid4/5/6 array
+#   (F)  the kernel has thrown this member out
+#   (S)  spare, waiting to be pulled in
+#   (R)  replacement, being built up while the member it replaces still serves reads
+#
+# Several flags on one member do occur, `vda[3](W)(S)` for instance, which is why the
+# flag group is read as a whole. Read from the source of v7.1 and measured on kernel 7.1.
+FLAG_FAULTY = 'F'
+FLAG_JOURNAL = 'J'
+FLAG_REPLACEMENT = 'R'
+FLAG_SPARE = 'S'
+FLAG_WRITE_MOSTLY = 'W'
+
+FLAG_NAMES = {
+    FLAG_FAULTY: 'faulty',
+    FLAG_JOURNAL: 'journal',
+    FLAG_REPLACEMENT: 'replacement',
+    FLAG_SPARE: 'spare',
+    FLAG_WRITE_MOSTLY: 'write-mostly',
+}
+
+# The array states md_seq_show() and the sysfs `array_state` attribute agree on. "broken"
+# is the kernel's own word for an array that has lost so many members that it can no
+# longer serve its data.
+STATE_BROKEN = 'broken'
+STATE_INACTIVE = 'inactive'
+
+# RAID levels whose redundancy comes from parity, and where md(4) says that any mismatch
+# found by a consistency check "should indicate a hardware problem at some level".
+PARITY_LEVELS = ('raid4', 'raid5', 'raid6')
+
+# RAID levels whose redundancy comes from copies. md(4) is explicit that a mismatch found
+# here does not have to mean corruption: a page written while the check reads it, and
+# above all a swap area, produce differences between the copies that nothing ever reads
+# back. Hence "the mismatch_cnt value can not be interpreted very reliably on RAID1 or
+# RAID10, especially when the device is used for swap".
+MIRROR_LEVELS = ('raid1', 'raid10')
+
+# `<device>[<index>]` plus the flag group. The flags are matched as a group of complete
+# `(X)` items instead of as a character class, so a member carrying more than one of them
+# keeps all of them.
+COMPONENT_PATTERN = re.compile(
+    r'^(?P<device>.+)\[(?P<index>\d+)\](?P<flags>(?:\([A-Z]\))*)$'
+)
+
+# `[4/3] [UUU_]`: how many members the array wants, how many are in sync, and which slot
+# each of them sits in. raid0 and linear print no such line at all, because they have no
+# redundancy to report on.
+DEVICE_COUNT_PATTERN = re.compile(
+    r'\[(?P<total>\d+)/(?P<working>\d+)\]\s+\[(?P<map>[U_]+)\]'
+)
+
+# `[====>................]  recovery = 31.8% (1241578496/3895351808) finish=746.8min
+# speed=59224K/sec`. The four actions are the wording of md_seq_show(); note that it says
+# "recovery" where the sysfs attribute says "recover", and that "repair" reaches this
+# line as "resync".
+PROGRESS_PATTERN = re.compile(
+    r'\b(?P<action>check|recovery|reshape|resync)\s*=\s*(?P<percent>[\d.]+)%'
+    r'\s*\((?P<done>\d+)/(?P<total>\d+)\)'
+    r'(?:\s+finish=(?P<finish>[\d.]+)min)?'
+    r'(?:\s+speed=(?P<speed>\d+)K/sec)?'
+)
+
+# `resync=PENDING`, `resync=DELAYED`, and the three REMOTE forms of a clustered array.
+# They stand in for the progress line while nothing is running yet.
+PENDING_PATTERN = re.compile(r'^(?P<action>recover|reshape|resync)=(?P<state>[A-Z]+)$')
+
+SIZE_PATTERN = re.compile(r'^(?P<blocks>\d+) blocks\b')
+SUPER_PATTERN = re.compile(r'\bsuper (?P<metadata>\S+)')
+
+DEFAULT_LENGTHY = False
+DEFAULT_MIRROR_MISMATCH_SEVERITY = 'ok'
+DEFAULT_MISMATCH_SEVERITY = 'warn'
+DEFAULT_NO_ARRAYS_SEVERITY = 'warn'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_SEVERITY = 'warn'
+
+# What to do about an array that lost a member. Named here so the same words reach the
+# plugin output and the README. The device names are examples on purpose: a placeholder
+# in angle brackets would reach a web interface as an escaped entity.
+REMEDIATION = (
+    'Find out which member the kernel threw out and why (`cat /proc/mdstat`, '
+    '`journalctl --dmesg --grep=md`, `smartctl --all /dev/sdb`), remove it from the '
+    'array, replace the hardware and add the new device back with '
+    '`mdadm /dev/md0 --add /dev/sdb1`. The array rebuilds on its own from there. '
+    'Until it is done, the array has no redundancy left to lose.'
+)
+
+BROKEN_HELP = (
+    'The kernel has stopped serving this array. Do not write to it and do not recreate '
+    'it: `mdadm --assemble --force` on the members that are still readable is the way '
+    'back, and it needs the members left untouched.'
+)
+
+INACTIVE_HELP = (
+    'The array was assembled but never started, which is what happens when not all of '
+    'its members turned up at boot. `mdadm --detail /dev/md0` names the ones that are '
+    'missing.'
+)
+
+REPLACED_HELP = (
+    'The array is back to its full width, so a spare has stepped in or the member was '
+    'replaced, and the device the kernel threw out is still attached. Take it out with '
+    '`mdadm /dev/md0 --remove /dev/sdb1` and put a new spare in, because the next '
+    'failure has nothing left to fall back on.'
+)
+
+MIRROR_MISMATCH_HELP = (
+    'On a mirrored array this does not have to mean corruption. A page written while '
+    'the check reads it, and above all a swap area, leave the copies different in a '
+    'place nothing ever reads back, which is why md(4) says the count cannot be '
+    'interpreted reliably here. Where the count keeps growing from one check to the '
+    'next, go looking for the disk behind it all the same '
+    '(`smartctl --all /dev/sdb`, `journalctl --dmesg --grep=md`).'
+)
+
+PARITY_MISMATCH_HELP = (
+    'On a parity array md(4) says this points at a hardware problem at some level, '
+    'because software alone does not produce it. Look for the disk behind it '
+    '(`smartctl --all /dev/sdb`, `journalctl --dmesg --grep=md`), then rewrite the '
+    'parity with `echo repair > /sys/block/md0/md/sync_action` and run another check '
+    'afterwards to confirm the count went to zero.'
+)
+
+NO_ARRAYS_HELP = (
+    'Either every array was dismantled, in which case this check no longer belongs on '
+    'this host, or the members did not turn up at boot. `mdadm --examine --scan` reads '
+    'the superblocks that are still on the disks.'
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can
+    # stand in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--mirror-mismatch-severity',
+        help='State to report when a consistency check found inconsistent sectors on a '
+        'mirrored array (RAID 1, RAID 10). '
+        'A page written while the check reads it, and above all a swap area, produce '
+        'differences between the copies that nothing ever reads back, which is why '
+        'this defaults to not alerting. '
+        'Default: %(default)s',
+        dest='MIRROR_MISMATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_MIRROR_MISMATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--mismatch-severity',
+        help='State to report when a consistency check found inconsistent sectors on a '
+        'parity array (RAID 4, RAID 5, RAID 6). '
+        'On such an array the difference points at hardware rather than at the way the '
+        'data was written. '
+        'Default: %(default)s',
+        dest='MISMATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_MISMATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-arrays-severity',
+        help='State to report when the host runs no software RAID array at all. '
+        'An array is assembled from the superblocks on its members at every boot, so '
+        'an array that used to be here and is gone is worth looking at. '
+        'Default: %(default)s',
+        dest='NO_ARRAYS_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_ARRAYS_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help=lib.args.help('--severity')
+        + ' Applies to an array that is running on fewer members than it was built '
+        'for, so it has lost the redundancy it is meant to provide, and to a member '
+        'the kernel threw out that is still attached to an array a spare has already '
+        'brought back to its full width. '
+        'Default: %(default)s',
+        dest='SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_SEVERITY,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_components(fields):
+    """
+    Read the member devices out of the tail of an array's first line.
+
+    Returns a list of dicts with the device name, its index in the superblock and the
+    flags the kernel prints behind it.
+    """
+    components = []
+    for field in fields:
+        match = COMPONENT_PATTERN.match(field)
+        if not match:
+            continue
+        components.append(
+            {
+                'device': match.group('device'),
+                'flags': re.findall(r'\(([A-Z])\)', match.group('flags')),
+                'index': int(match.group('index')),
+            }
+        )
+    return components
+
+
+def parse_mdstat(content):
+    """
+    Read /proc/mdstat into one dict per array.
+
+    The file is a sequence of blocks: a line starting in the first column names the
+    array and its members, and every line indented below it adds to it. Only the
+    "Personalities" and "unused devices" lines share the first column with an array.
+    """
+    arrays = []
+    current = None
+    for line in content.splitlines():
+        if not line.strip():
+            continue
+        if not line[0].isspace():
+            if line.startswith(('Personalities', 'unused devices')):
+                current = None
+                continue
+            name, _, rest = line.partition(':')
+            if not rest:
+                current = None
+                continue
+            fields = rest.split()
+            if not fields:
+                current = None
+                continue
+            current = {
+                'blocks': None,
+                'components': [],
+                'level': None,
+                'map': None,
+                'metadata': None,
+                'name': name.strip(),
+                'progress': None,
+                'read_only': None,
+                'status': fields[0],
+                'total_devices': None,
+                'working_devices': None,
+            }
+            # `active (read-only) raid1 sda6[0] sdb6[1]`: the qualifier sits between
+            # the status and the personality, and an inactive array has no personality
+            # at all.
+            index = 1
+            if index < len(fields) and fields[index].startswith('('):
+                current['read_only'] = fields[index].strip('()')
+                index += 1
+            if index < len(fields) and not COMPONENT_PATTERN.match(fields[index]):
+                current['level'] = fields[index]
+                index += 1
+            current['components'] = parse_components(fields[index:])
+            arrays.append(current)
+            continue
+
+        if current is None:
+            continue
+        stripped = line.strip()
+        match = SIZE_PATTERN.match(stripped)
+        if match:
+            current['blocks'] = int(match.group('blocks'))
+            match = SUPER_PATTERN.search(stripped)
+            if match:
+                current['metadata'] = match.group('metadata')
+        match = DEVICE_COUNT_PATTERN.search(stripped)
+        if match:
+            current['map'] = match.group('map')
+            current['total_devices'] = int(match.group('total'))
+            current['working_devices'] = int(match.group('working'))
+        match = PROGRESS_PATTERN.search(stripped)
+        if match:
+            current['progress'] = {
+                'action': match.group('action'),
+                'finish': match.group('finish'),
+                'percent': match.group('percent'),
+                'speed': match.group('speed'),
+            }
+            continue
+        match = PENDING_PATTERN.match(stripped)
+        if match:
+            current['progress'] = {
+                'action': match.group('action'),
+                'finish': None,
+                'percent': None,
+                'speed': None,
+                'state': match.group('state'),
+            }
+    return arrays
+
+
+def read_attr(path):
+    """
+    Read one attribute below /sys, or None where it does not exist.
+
+    Files below /sys report a size of zero, so their presence has to be probed allowing
+    an empty file. An attribute that does not apply to the RAID level of the array is
+    simply absent: raid0 and linear have no `degraded`, no `sync_action` and no
+    `mismatch_cnt`.
+    """
+    if not lib.disk.file_exists(path, allow_empty=True):
+        return None
+    success, content = lib.disk.read_file(path)
+    if not success:
+        return None
+    content = content.strip()
+    return content if content else None
+
+
+def read_sysfs(root, name):
+    """
+    Read the attributes the kernel publishes next to an array.
+
+    Returns a dict, empty where the array has no sysfs directory. Every value is either
+    the attribute's text or None.
+    """
+    # The name comes out of a file, so it never gets to leave the directory it is looked
+    # up in, however that file came to say what it says.
+    if not name or '/' in name or name in ('.', '..'):
+        return {}
+    md_dir = os.path.join(root, SYSFS_BLOCK.lstrip('/'), name, 'md')
+    if not lib.disk.dir_exists(md_dir):
+        return {}
+    attrs = {}
+    for attr in (
+        'array_state',
+        'degraded',
+        'level',
+        'mismatch_cnt',
+        'raid_disks',
+        'sync_action',
+    ):
+        attrs[attr] = read_attr(os.path.join(md_dir, attr))
+    return attrs
+
+
+def get_arrays(root):
+    """
+    Read every software RAID array the kernel knows about.
+
+    Returns (True, list). The list is empty where the host runs no array, which is also
+    what a kernel without md support looks like from the outside.
+    """
+    path = os.path.join(root, MDSTAT.lstrip('/'))
+    if not lib.disk.file_exists(path, allow_empty=True):
+        return (True, [])
+    success, content = lib.disk.read_file(path)
+    if not success:
+        return (False, content)
+    arrays = parse_mdstat(content)
+    for array in arrays:
+        array['sysfs'] = read_sysfs(root, array['name'])
+    return (True, arrays)
+
+
+def to_int(value):
+    """Read an integer out of a sysfs attribute, or None where it is not one.
+
+    `raid_disks` reads `4 (3)` while an array is being reshaped, so only the leading
+    number is taken.
+    """
+    if value is None:
+        return None
+    try:
+        return int(value.split()[0])
+    except (IndexError, ValueError):
+        return None
+
+
+def describe_progress(progress):
+    """Put an array's resync, recovery, reshape or check into one readable phrase."""
+    if not progress:
+        return 'idle'
+    action = progress['action']
+    if progress.get('state'):
+        # `resync=PENDING` on an array that has not been written to yet, `DELAYED`
+        # behind another array that syncs first, `REMOTE` on a clustered array.
+        return f'{action} {progress["state"].lower()}'
+    text = f'{action} {progress["percent"]}%'
+    if progress['finish']:
+        seconds = int(float(progress['finish']) * 60)
+        text += f', {lib.human.seconds2human(seconds)} left'
+    if progress['speed']:
+        text += f', {lib.human.bytes2human(int(progress["speed"]) * 1024)}/s'
+    return text
+
+
+def analyze(array, args):
+    """
+    Work out what one array is doing and how bad that is.
+
+    Returns a dict describing the array plus its state.
+    """
+    sysfs = array['sysfs']
+    level = array['level'] or sysfs.get('level')
+    array_state = sysfs.get('array_state')
+    # A kernel below 6.12 keeps writing "active" into /proc/mdstat for an array it has
+    # already given up on, while the sysfs attribute has carried "broken" since 5.4.
+    # Either of the two saying so is enough.
+    broken = STATE_BROKEN in (array['status'], array_state)
+    inactive = STATE_INACTIVE in (array['status'], array_state)
+
+    total = array['total_devices']
+    working = array['working_devices']
+    if total is None:
+        total = to_int(sysfs.get('raid_disks'))
+    degraded = to_int(sysfs.get('degraded'))
+    if degraded is None and total is not None and working is not None:
+        degraded = total - working
+    if degraded is None:
+        # raid0 and linear have no redundancy and report neither, which is not a gap in
+        # the reading but the whole truth about them.
+        degraded = 0
+
+    faulty = [
+        item['device'] for item in array['components'] if FLAG_FAULTY in item['flags']
+    ]
+    spare = [
+        item['device'] for item in array['components'] if FLAG_SPARE in item['flags']
+    ]
+    mismatch = to_int(sysfs.get('mismatch_cnt')) or 0
+
+    state = STATE_OK
+    if broken:
+        status = STATE_BROKEN
+        state = STATE_CRIT
+    elif inactive:
+        status = STATE_INACTIVE
+        state = STATE_CRIT
+    elif degraded:
+        status = 'degraded'
+        state = lib.base.str2state(args.SEVERITY)
+    elif faulty:
+        # A spare that stepped in brings the array back to its full width while the
+        # member the kernel threw out is still attached. Nothing is degraded any more,
+        # and a disk has died all the same, which is what this says out loud.
+        status = 'failed member attached'
+        state = lib.base.str2state(args.SEVERITY)
+    else:
+        status = 'active'
+    if array['read_only']:
+        status += f' ({array["read_only"]})'
+
+    if mismatch:
+        if level in PARITY_LEVELS:
+            state = lib.base.get_worst(
+                state, lib.base.str2state(args.MISMATCH_SEVERITY)
+            )
+        elif level in MIRROR_LEVELS:
+            state = lib.base.get_worst(
+                state, lib.base.str2state(args.MIRROR_MISMATCH_SEVERITY)
+            )
+
+    if total is not None and working is not None:
+        devices = f'{working}/{total}'
+        if array['map']:
+            devices += f' [{array["map"]}]'
+        counted = f'{working} of {total}'
+    else:
+        # raid0, linear and an inactive array print no such line, so all that can be
+        # said is how many members the kernel currently attributes to the array.
+        members = len(array['components'])
+        devices = str(members)
+        counted = f'{members} {lib.txt.pluralize("member", members, ",s")}'
+
+    # Every member carrying a flag, with the flag spelled out. A plain member says
+    # nothing beyond what the device counters already say, so only the flagged ones are
+    # listed.
+    flagged = ', '.join(
+        f'{item["device"]} '
+        f'({", ".join(FLAG_NAMES.get(flag, flag) for flag in item["flags"])})'
+        for item in array['components']
+        if item['flags']
+    )
+
+    progress = array['progress']
+    return {
+        'broken': broken,
+        'counted': counted,
+        'degraded': degraded,
+        'devices': devices,
+        'faulty': faulty,
+        'flagged': flagged or '-',
+        'inactive': inactive,
+        'level': level or 'unknown',
+        'mismatch': mismatch,
+        'name': array['name'],
+        'metadata': array['metadata'] or '-',
+        'progress': describe_progress(progress),
+        'spare': spare,
+        'state': state,
+        'status': status,
+        # An array waiting for a resync that has not started reports the action without
+        # any progress behind it, which is not the same thing as one that is running.
+        'syncing': bool(progress and progress.get('percent')),
+    }
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    if not lib.base.LINUX:
+        lib.base.cu(
+            'Software RAID arrays of this kind are a Linux kernel feature. '
+            'This check belongs on a Linux host.'
+        )
+    arrays = lib.base.coe(get_arrays(args.CONFIG_ROOT))
+
+    # init some vars
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    table_data = []
+    broken = []
+    degraded = []
+    inactive = []
+    mismatched = []
+    replaced = []
+    syncing = []
+    faulty_devices = 0
+    spare_devices = 0
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    for array in arrays:
+        # Filter arrays by their kernel name (`md0`, `md127`). --match (include) is
+        # applied first, then --ignore (exclude), so one hit by --ignore is dropped even
+        # if it also matches --match. Both use case-sensitive Python regex.
+        name = array['name']
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        report = analyze(array, args)
+        state = lib.base.get_worst(state, report['state'])
+        faulty_devices += len(report['faulty'])
+        spare_devices += len(report['spare'])
+        if report['broken']:
+            broken.append(report)
+        elif report['inactive']:
+            inactive.append(report)
+        elif report['degraded']:
+            degraded.append(report)
+        elif report['faulty']:
+            replaced.append(report)
+        if report['mismatch']:
+            mismatched.append(report)
+        if report['syncing']:
+            syncing.append(report)
+        table_data.append(
+            {
+                'array': name,
+                'devices': report['devices'],
+                'flagged': report['flagged'],
+                'level': report['level'],
+                'metadata': report['metadata'],
+                'mismatch': str(report['mismatch']),
+                'state': (
+                    f'{report["status"]}'
+                    f'{lib.base.state2str(report["state"], prefix=" ")}'
+                ),
+                'sync': report['progress'],
+            }
+        )
+
+    # build the message
+    if not arrays:
+        msg = (
+            'No software RAID array on this host, so nothing could be checked.\n'
+            f'{NO_ARRAYS_HELP}'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_ARRAYS_SEVERITY))
+    elif not table_data:
+        count = len(arrays)
+        msg = (
+            f'{count} software RAID '
+            f'{lib.txt.pluralize("array", count, ",s")} on this host, '
+            f'filtered out by --match or --ignore.'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+    else:
+        checked = len(table_data)
+        headline = []
+        for item in broken:
+            headline.append(f'{item["name"]} is broken')
+        for item in inactive:
+            headline.append(f'{item["name"]} is inactive')
+        for item in degraded:
+            headline.append(
+                f'{item["name"]} is degraded and runs on {item["counted"]} devices'
+            )
+        for item in replaced:
+            count = len(item['faulty'])
+            headline.append(
+                f'{item["name"]} is complete again but still carries {count} failed '
+                f'{lib.txt.pluralize("member", count, ",s")}: '
+                f'{", ".join(item["faulty"])}'
+            )
+        for item in mismatched:
+            headline.append(
+                f'{item["name"]} carries {item["mismatch"]} inconsistent '
+                f'{lib.txt.pluralize("sector", item["mismatch"], ",s")} '
+                f'from the last consistency check'
+            )
+        if headline:
+            msg = f'{". ".join(headline)}.'
+        else:
+            msg = (
+                f'{checked} software RAID '
+                f'{lib.txt.pluralize("array", checked, ",s")}, '
+                f'{lib.txt.pluralize("", checked, "intact,all of them intact")}.'
+            )
+        if syncing:
+            msg += '\n' + ', '.join(
+                f'{item["name"]}: {item["progress"]}' for item in syncing
+            )
+        if any(item['level'] in MIRROR_LEVELS for item in mismatched):
+            msg += f'\n{MIRROR_MISMATCH_HELP}'
+        if any(item['level'] in PARITY_LEVELS for item in mismatched):
+            msg += f'\n{PARITY_MISMATCH_HELP}'
+        if broken:
+            msg += f'\n{BROKEN_HELP}'
+        if inactive:
+            msg += f'\n{INACTIVE_HELP}'
+        if degraded:
+            msg += f'\n{REMEDIATION}'
+        if replaced:
+            msg += f'\n{REPLACED_HELP}'
+
+    perfdata += lib.base.get_perfdata('arrays', len(table_data), uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'arrays_broken',
+        len(broken),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'arrays_degraded',
+        len(degraded),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'arrays_inactive',
+        len(inactive),
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata('arrays_syncing', len(syncing), uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'devices_faulty',
+        faulty_devices,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata('devices_spare', spare_devices, uom=None, _min=0)
+    for row in table_data:
+        label = re.sub(r'\W+', '_', row['array'])
+        perfdata += lib.base.get_perfdata(
+            f'{label}_mismatch_cnt',
+            row['mismatch'],
+            uom=None,
+            _min=0,
+        )
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = [
+                'array',
+                'level',
+                'devices',
+                'metadata',
+                'flagged',
+                'mismatch',
+                'sync',
+                'state',
+            ]
+            headers = [
+                'Array',
+                'Level',
+                'Devices',
+                'Metadata',
+                'Flagged Members',
+                'Mismatches',
+                'Sync',
+                'State',
+            ]
+        else:
+            keys = ['array', 'level', 'devices', 'state']
+            headers = ['Array', 'Level', 'Devices', 'State']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

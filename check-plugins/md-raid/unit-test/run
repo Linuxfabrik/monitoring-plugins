@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# md-raid reads files and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's /proc and /sys, selected with the hidden
+# `--config-root` hook. Each tree holds a `proc/mdstat` and the `sys/block/md*/md`
+# attributes belonging to it.
+#
+# Every fixture but the last two was captured from a running kernel 7.1 in a qemu guest
+# booted on /boot/vmlinuz-7.1.10-200.fc44.x86_64 with a busybox initramfs carrying
+# mdadm 4.3, with eight virtio disks to build arrays on.
+# /proc/sys/dev/raid/speed_limit_max was turned down to 100 KiB/s wherever a sync had
+# to be caught while it was running:
+#
+#   healthy-raid0-linear-raid10   three arrays side by side. raid0 and linear are the
+#                                 two levels that print no `[n/m] [UU]` line and publish
+#                                 neither `degraded` nor `sync_action` nor
+#                                 `mismatch_cnt`, because they have no redundancy to
+#                                 report on
+#   raid10-degraded               the same three arrays after `mdadm --fail` on one
+#                                 member of the raid10: `[4/3] [_UUU]` plus the `(F)`
+#                                 flag
+#   raid1-recovery-onto-spare     a failed member plus a spare being built up. The array
+#                                 is degraded and recovering at the same time
+#   raid1-check-running           `echo check > sync_action`, caught at 1.1%
+#   raid1-write-mostly-spare      a member carrying two flags at once, `vda[3](W)(S)`.
+#                                 A flag group read as a character class instead of as
+#                                 whole `(X)` items loses both of them
+#   raid1-auto-read-only          an array stopped mid-resync and reassembled with
+#                                 `md_mod.start_ro=1`. `active (auto-read-only)` with a
+#                                 bare `resync=PENDING` where the progress line would
+#                                 be, next to a second array that is really resyncing
+#   raid1-mismatch                256 KiB written straight onto one member behind the
+#                                 kernel's back, then a check run to completion:
+#                                 `mismatch_cnt` reads 512 while /proc/mdstat reports
+#                                 the array as perfectly healthy. This is the one
+#                                 failure mode that is invisible without reading /sys
+#   raid1-broken                  both members marked faulty via
+#                                 `sys/block/md0/md/dev-*/state`, with `fail_last_dev`
+#                                 set so the kernel lets the last one go. `broken` in
+#                                 /proc/mdstat and in `array_state`, `[2/0] [__]`
+#   raid1-inactive                incremental assembly with only one of two members
+#                                 present. No personality, no `[n/m]` line, and `level`,
+#                                 `degraded`, `raid_disks` and `mismatch_cnt` all absent
+#   raid0-broken                  the PCI device of one raid0 member removed, then
+#                                 written to. Both the kernel log and `array_state` say
+#                                 broken while every member still reads `in_sync`,
+#                                 because raid0 never marks a member faulty
+#   raid5-healthy-with-spare      a spare sitting in an otherwise complete array
+#   raid5-spare-took-over         the same array after `mdadm --fail`, once the spare
+#                                 has finished rebuilding. The array is back to `[3/3]
+#                                 [UUU]` and `degraded` reads 0, while the member the
+#                                 kernel threw out is still attached and still carries
+#                                 its `(F)`. Nothing is degraded and a disk has died all
+#                                 the same
+#   raid5-reshape-running         `mdadm --grow --raid-devices=4`, caught at 2.7%.
+#                                 `raid_disks` reads `4 (3)` while this runs, which is
+#                                 the one place the attribute is not a plain number
+#   no-arrays                     the same kernel before any array was created
+#
+# Two fixtures are assembled by hand, because they are the absence of something:
+#
+#   no-md-support                 a kernel with no md support loaded at all, where
+#                                 /proc/mdstat does not exist. An empty directory never
+#                                 reaches git, so the tree carries a neighbouring file
+#
+# One wording is neither captured nor fixtured: `resync=DELAYED`, which an array gets
+# while another array on the same physical disk syncs first. It reaches the check
+# through the same code path as the captured `resync=PENDING`. The three REMOTE
+# forms of a clustered array do too.
+TESTS = [
+    {
+        'id': 'ok-three-arrays-healthy',
+        'test': '',
+        'params': '--config-root=config/healthy-raid0-linear-raid10',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '3 software RAID arrays, all of them intact.',
+            'md0',
+            'md1',
+            'md2',
+            "'arrays'=3",
+            "'arrays_degraded'=0",
+        ],
+    },
+    {
+        'id': 'ok-raid0-and-linear-report-no-redundancy',
+        'test': '',
+        'params': '--config-root=config/healthy-raid0-linear-raid10 --lengthy',
+        'assert-retc': STATE_OK,
+        # both levels publish no degraded counter, and the check must read that as
+        # "not applicable" instead of as a missing member
+        'assert-regex': r'md0\s+!\s+raid0\s+!\s+2\s',
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-raid5-with-a-spare',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 software RAID array, intact.', "'devices_spare'=1"],
+    },
+    {
+        'id': 'ok-reshape-in-progress',
+        'test': '',
+        'params': '--config-root=config/raid5-reshape-running',
+        'assert-retc': STATE_OK,
+        'assert-in': ['md5: reshape 2.7%', "'arrays_syncing'=1"],
+    },
+    {
+        'id': 'ok-check-in-progress',
+        'test': '',
+        'params': '--config-root=config/raid1-check-running',
+        'assert-retc': STATE_OK,
+        'assert-in': ['md0: check 1.1%'],
+    },
+    {
+        'id': 'ok-write-mostly-spare-counts-as-a-spare',
+        'test': '',
+        'params': '--config-root=config/raid1-write-mostly-spare --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'devices_spare'=1",
+            "'devices_faulty'=0",
+            'vda (write-mostly, spare)',
+        ],
+    },
+    {
+        'id': 'ok-auto-read-only-with-a-pending-resync',
+        'test': '',
+        'params': '--config-root=config/raid1-auto-read-only --lengthy',
+        'assert-retc': STATE_OK,
+        # the array that only has a resync pending is not one that is syncing, so it
+        # shows up in the table and not in the progress line
+        'assert-in': [
+            'resync pending',
+            'active (auto-read-only)',
+            "'arrays_syncing'=1",
+        ],
+        'assert-regex': r'md1: resync 1\.5%',
+    },
+    {
+        'id': 'ok-mismatch-on-a-mirror-does-not-alert',
+        'test': '',
+        'params': '--config-root=config/raid1-mismatch',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'md0 carries 512 inconsistent sectors from the last consistency check.',
+            "'md0_mismatch_cnt'=512",
+            'does not have to mean corruption',
+        ],
+    },
+    {
+        'id': 'warn-mismatch-on-a-mirror-raised',
+        'test': '',
+        'params': (
+            '--config-root=config/raid1-mismatch --mirror-mismatch-severity=warn'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': ['512 inconsistent sectors'],
+    },
+    {
+        'id': 'warn-failed-member-on-an-array-a-spare-brought-back',
+        'test': '',
+        'params': '--config-root=config/raid5-spare-took-over',
+        'assert-retc': STATE_WARN,
+        # the array is complete again, so nothing but the member flag says a disk died
+        'assert-in': [
+            'md1 is complete again but still carries 1 failed member: vdc.',
+            "'arrays_degraded'=0",
+            "'devices_faulty'=1",
+        ],
+    },
+    {
+        'id': 'ok-failed-member-lowered',
+        'test': '',
+        'params': '--config-root=config/raid5-spare-took-over --severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['still carries 1 failed member'],
+    },
+    {
+        'id': 'warn-degraded-array',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'md2 is degraded and runs on 3 of 4 devices.',
+            "'arrays_degraded'=1",
+            "'devices_faulty'=1",
+        ],
+    },
+    {
+        'id': 'warn-degraded-array-while-recovering',
+        'test': '',
+        'params': '--config-root=config/raid1-recovery-onto-spare',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['md0 is degraded and runs on 1 of 2 devices.', 'md0: recovery '],
+    },
+    {
+        'id': 'crit-degraded-array-raised',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'degraded\s+\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-degraded-array-lowered',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['md2 is degraded'],
+    },
+    {
+        'id': 'crit-broken-mirror',
+        'test': '',
+        'params': '--config-root=config/raid1-broken',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'md0 is broken.',
+            'mdadm --assemble --force',
+            "'arrays_broken'=1",
+        ],
+    },
+    {
+        'id': 'crit-broken-raid0',
+        'test': '',
+        'params': '--config-root=config/raid0-broken --lengthy',
+        'assert-retc': STATE_CRIT,
+        # raid0 never marks a member faulty, so the array-level word is the only signal
+        'assert-in': ['md0 is broken.', "'devices_faulty'=0"],
+    },
+    {
+        'id': 'crit-inactive-array',
+        'test': '',
+        'params': '--config-root=config/raid1-inactive',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['md0 is inactive.', "'arrays_inactive'=1", 'mdadm --detail'],
+        'assert-not-in': ["'arrays_broken'=1"],
+    },
+    {
+        'id': 'warn-no-array-at-all',
+        'test': '',
+        'params': '--config-root=config/no-arrays',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No software RAID array on this host', "'arrays'=0"],
+    },
+    {
+        'id': 'ok-no-array-at-all-lowered',
+        'test': '',
+        'params': '--config-root=config/no-arrays --no-arrays-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No software RAID array on this host'],
+    },
+    {
+        'id': 'warn-kernel-without-md-support',
+        'test': '',
+        'params': '--config-root=config/no-md-support',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No software RAID array on this host'],
+    },
+    {
+        'id': 'ok-match-picks-one-array',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --match=^md0$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 software RAID array, intact.'],
+        'assert-not-in': ['md2'],
+    },
+    {
+        'id': 'ok-ignore-drops-the-degraded-array',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --ignore=^md2$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['md2'],
+    },
+    {
+        'id': 'ok-everything-filtered-out',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --match=^nothing$',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'warn-everything-filtered-out-raised',
+        'test': '',
+        'params': (
+            '--config-root=config/raid10-degraded --match=^nothing$ '
+            '--no-match-severity=warn'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': '',
+        'params': '--config-root=config/raid10-degraded --match=[',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'ok-always-ok-suppresses-a-broken-array',
+        'test': '',
+        'params': '--config-root=config/raid1-broken --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['md0 is broken.'],
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'arrays'="],
+    },
+    {
+        'id': 'ok-lengthy-adds-columns',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Metadata', 'Flagged Members', 'Mismatches', 'Sync'],
+    },
+    {
+        'id': 'ok-default-output-hides-the-extra-columns',
+        'test': '',
+        'params': '--config-root=config/raid5-healthy-with-spare',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['Metadata', 'Mismatches'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../md-raid'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
