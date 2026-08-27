@@ -58,6 +58,12 @@ skips = ['*/tests/*.py', 'tests/*.py', '*/unit-test/run']
 # therefore analyse two files and report success for the rest, so the pre-commit
 # hook passes the staged files explicitly instead (`pass_filenames: true`). At
 # min_confidence 80 vulture only reports file-local findings - unused imports,
-# unused arguments, unreachable code - so a per-file run finds the same issues a
-# whole-repo run would. `tools/run-linter-checks` sweeps the whole repo.
+# unused arguments, unreachable code - so per-file is the right granularity. It is
+# in fact stricter than the whole-repo sweep in `tools/run-linter-checks`: vulture
+# collects used names across everything it is handed at once, so an import no file
+# needs stays hidden as long as any other file happens to use the same name.
 min_confidence = 80
+# The example plugin is a skeleton that demonstrates the patterns a plugin uses,
+# so its unused imports are the point. ruff ignores F401 there for the same
+# reason; vulture has no per-file rule, so the file is excluded outright.
+exclude = ['*/check-plugins/example/example']
