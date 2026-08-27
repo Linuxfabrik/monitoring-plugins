@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via `--match` and `--ignore`, and extended reporting via `--lengthy`. Alerts when a configured export is not served, or when a served export has no path.
+Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via `--match` and `--ignore`. Alerts when a configured export is not served, or when a served export has no path.
 
 **Important Notes:**
 
@@ -37,7 +37,7 @@ Checks that an NFS server really exports what it is configured to export, and th
 
 ```text
 usage: nfs-exports [-h] [-V] [--always-ok] [--brief] [--etab ETAB]
-                   [--ignore IGNORE] [--lengthy] [--match MATCH]
+                   [--ignore IGNORE] [--match MATCH]
                    [--missing-path-severity {ok,warn,crit,unknown}]
                    [--no-match-severity {ok,warn,crit,unknown}]
                    [--no-perfdata]
@@ -58,9 +58,8 @@ software creating exports at runtime looks like. Nothing is asked over the
 network and no elevated privileges are needed: all of it is read from files.
 The paths are looked at under a deadline, so an export that sits on a
 filesystem which has stopped answering cannot hold the check up. Supports
-filtering export paths by regular expression via --match and --ignore, and
-extended reporting via --lengthy. Alerts when a configured export is not
-served, or when a served export has no path.
+filtering export paths by regular expression via --match and --ignore. Alerts
+when a configured export is not served, or when a served export has no path.
 
 options:
   -h, --help            show this help message and exit
@@ -78,7 +77,6 @@ options:
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
-  --lengthy             Extended reporting.
   --match MATCH         Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
                         matching. Can be specified multiple times. If both
@@ -135,11 +133,11 @@ Output:
 ```text
 Everything is ok. 3 NFS exports are served.
 
-Path            ! Clients          ! State
-----------------+------------------+---------
-/srv/nfs/backup ! 192.168.100.0/24 ! exported
-/srv/nfs/data   ! 192.168.100.0/24 ! exported
-/srv/nfs/home   ! 192.168.100.0/24 ! exported
+Path             ! Source                        ! Clients          ! State
+-----------------+-------------------------------+------------------+---------
+/srv/nfs/backup  ! /etc/exports                  ! 192.168.100.0/24 ! exported
+/srv/nfs/data    ! /etc/exports                  ! 192.168.100.0/24 ! exported
+/srv/nfs/fromdir ! /etc/exports.d/10-lab.exports ! 192.168.100.0/24 ! exported
 ```
 
 Output (with an entry that was added to `/etc/exports` and never put into effect):
@@ -148,11 +146,11 @@ Output (with an entry that was added to `/etc/exports` and never put into effect
 1 of 3 NFS exports is not right: /srv/nfs/forgotten: configured but not exported
 Hint: an export the server does not serve cannot be mounted at all, and `exportfs -ra` is what puts the configuration into effect and names the entries it refuses.
 
-Path               ! Clients          ! State
--------------------+------------------+--------------------------------------
-/srv/nfs/data      ! 192.168.100.0/24 ! exported
-/srv/nfs/forgotten ! 192.168.100.0/24 ! configured but not exported [WARNING]
-/srv/nfs/home      ! 192.168.100.0/24 ! exported
+Path               ! Source       ! Clients          ! State
+-------------------+--------------+------------------+--------------------------------------
+/srv/nfs/data      ! /etc/exports ! 192.168.100.0/24 ! exported
+/srv/nfs/forgotten ! /etc/exports ! 192.168.100.0/24 ! configured but not exported [WARNING]
+/srv/nfs/home      ! /etc/exports ! 192.168.100.0/24 ! exported
 ```
 
 Output (with an export whose directory has gone):
@@ -161,30 +159,13 @@ Output (with an export whose directory has gone):
 1 of 2 NFS exports is not right: /srv/nfs/vanish: path does not exist
 Hint: an export whose path is gone keeps being served, and every client that has it mounted gets a stale file handle until the path is back.
 
-Path            ! Clients          ! State
-----------------+------------------+------------------------------
-/srv/nfs/data   ! 192.168.100.0/24 ! exported
-/srv/nfs/vanish ! 192.168.100.0/24 ! path does not exist [WARNING]
+Path            ! Source       ! Clients          ! State
+----------------+--------------+------------------+------------------------------
+/srv/nfs/data   ! /etc/exports ! 192.168.100.0/24 ! exported
+/srv/nfs/vanish ! /etc/exports ! 192.168.100.0/24 ! path does not exist [WARNING]
 ```
 
-Extended reporting, adding the file each export is written in:
-
-```bash
-./nfs-exports --lengthy
-```
-
-Output:
-
-```text
-Everything is ok. 2 NFS exports are served.
-
-Path             ! Source                        ! Clients          ! State
------------------+-------------------------------+------------------+---------
-/srv/nfs/data    ! /etc/exports                  ! 192.168.100.0/24 ! exported
-/srv/nfs/fromdir ! /etc/exports.d/10-lab.exports ! 192.168.100.0/24 ! exported
-```
-
-An export the server serves and no file asks for is what `exportfs -o ...` and cluster software look like. It is reported and does not alert:
+An export the server serves and no file asks for is what `exportfs -o ...` and cluster software look like. The Source column names `exportfs` for it, and it does not alert:
 
 ```text
 Everything is ok. 2 NFS exports are served.

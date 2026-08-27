@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082701'
+__version__ = '2026082702'
 
 DESCRIPTION = """Checks that an NFS server really exports what it is configured to export, and that
 every path it exports is there.
@@ -38,8 +38,7 @@ exports at runtime looks like.
 Nothing is asked over the network and no elevated privileges are needed: all of it is
 read from files. The paths are looked at under a deadline, so an export that sits on a
 filesystem which has stopped answering cannot hold the check up.
-Supports filtering export paths by regular expression via --match and --ignore, and
-extended reporting via --lengthy.
+Supports filtering export paths by regular expression via --match and --ignore.
 Alerts when a configured export is not served, or when a served export has no path."""
 
 DEFAULT_MISSING_PATH_SEVERITY = 'warn'
@@ -121,14 +120,6 @@ def parse_args():
         dest='IGNORE',
         action='append',
         default=None,
-    )
-
-    parser.add_argument(
-        '--lengthy',
-        help=lib.args.help('--lengthy'),
-        dest='LENGTHY',
-        action='store_true',
-        default=False,
     )
 
     parser.add_argument(
@@ -393,7 +384,7 @@ def rooted(root, path):
 
 
 def source_of(path, origins):
-    """Return the file an export is written in, for the --lengthy table. An export the
+    """Return the file an export is written in, for the table. An export the
     files do not carry was put into the table by `exportfs` directly.
     """
     return ', '.join(origins.get(path, [])) or 'exportfs'
@@ -634,14 +625,15 @@ def main():
     )
 
     # build table output
+    # An export is a path, a source, a client list and a verdict. That is four columns,
+    # which fits on any terminal, so every one of them is always shown; the source in
+    # particular is the first thing needed when hunting a stray entry.
     if display_rows:
-        if args.LENGTHY:
-            keys = ['path', 'source', 'clients', 'state']
-            headers = ['Path', 'Source', 'Clients', 'State']
-        else:
-            keys = ['path', 'clients', 'state']
-            headers = ['Path', 'Clients', 'State']
-        msg += '\n\n' + lib.base.get_table(display_rows, keys, header=headers)
+        msg += '\n\n' + lib.base.get_table(
+            display_rows,
+            ['path', 'source', 'clients', 'state'],
+            header=['Path', 'Source', 'Clients', 'State'],
+        )
 
     # over and out
     lib.base.oao(

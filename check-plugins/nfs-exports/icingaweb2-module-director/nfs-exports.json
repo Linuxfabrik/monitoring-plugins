@@ -15,9 +15,6 @@
                     "value": "$nfs_exports_ignore$",
                     "repeat_key": true
                 },
-                "--lengthy": {
-                    "set_if": "$nfs_exports_lengthy$"
-                },
                 "--match": {
                     "value": "$nfs_exports_match$",
                     "repeat_key": true
@@ -98,11 +95,6 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 12,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -146,7 +138,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via --match and --ignore, and extended reporting via --lengthy. Alerts when a configured export is not served, or when a served export has no path.",
+            "notes": "Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via --match and --ignore. Alerts when a configured export is not served, or when a served export has no path.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nfs-exports/",
             "object_name": "tpl-service-nfs-exports",
             "object_type": "template",
@@ -161,7 +153,6 @@
                 "nfs_exports_brief": false,
                 "nfs_exports_etab": "/var/lib/nfs/etab",
                 "nfs_exports_ignore": [],
-                "nfs_exports_lengthy": true,
                 "nfs_exports_match": [],
                 "nfs_exports_missing_path_severity": "warn",
                 "nfs_exports_no_match_severity": "ok",
@@ -343,15 +334,6 @@
             "uuid": "58ccd156-57f6-46b2-9216-c8e60f41485c"
         },
         "5": {
-            "varname": "nfs_exports_lengthy",
-            "caption": "Nfs Exports: Lengthy?",
-            "description": "Extended reporting.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "4ffbe1dd-cb47-4c68-8c7e-16cb8d4dd841"
-        },
-        "6": {
             "varname": "nfs_exports_match",
             "caption": "Nfs Exports: Match",
             "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
@@ -362,7 +344,7 @@
             },
             "uuid": "7e121c43-1d91-49ab-ab51-fec0d3ffeca2"
         },
-        "7": {
+        "6": {
             "varname": "nfs_exports_missing_path_severity",
             "caption": "Nfs Exports: Missing Path Severity",
             "description": "State to report for an export whose path does not exist. The server keeps serving it, and a client that has it mounted gets a stale file handle.",
@@ -375,7 +357,7 @@
             },
             "uuid": "781d0829-1d6b-463a-85a3-81cdaab7d883"
         },
-        "8": {
+        "7": {
             "varname": "nfs_exports_no_match_severity",
             "caption": "Nfs Exports: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -388,7 +370,7 @@
             },
             "uuid": "b7f9ebf9-b269-4b9d-993d-f5c5af94b591"
         },
-        "9": {
+        "8": {
             "varname": "nfs_exports_no_perfdata",
             "caption": "Nfs Exports: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -397,7 +379,7 @@
             "settings": {},
             "uuid": "44c55fcc-7267-4cf5-b5c1-ce3530b73718"
         },
-        "10": {
+        "9": {
             "varname": "nfs_exports_not_exported_severity",
             "caption": "Nfs Exports: Not Exported Severity",
             "description": "State to report for an export the configuration asks for and the server does not serve. Usually `exportfs -ra` has not been run since the entry was added, or it refused the entry; a client cannot mount such a share at all.",
@@ -410,7 +392,7 @@
             },
             "uuid": "61c90430-dbf9-4cda-b58c-dfab2cd385f5"
         },
-        "11": {
+        "10": {
             "varname": "nfs_exports_timeout",
             "caption": "Nfs Exports: Timeout",
             "description": "How long the export paths get to answer before they are reported as unreachable. Only a path on a network filesystem ever needs it: one whose server has stopped answering does not fail, it blocks. Every path is looked at at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per path.",
@@ -421,7 +403,7 @@
             },
             "uuid": "2ce5dff9-8bbc-4f77-994e-1a6b544b9b0c"
         },
-        "12": {
+        "11": {
             "varname": "nfs_exports_unconfigured_severity",
             "caption": "Nfs Exports: Unconfigured Severity",
             "description": "State to report for an export the server serves and the configuration does not ask for. Cluster software that creates its exports at runtime looks exactly like this, which is why it does not alert by default.",
