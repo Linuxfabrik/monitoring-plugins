@@ -118,10 +118,10 @@ Output on a host whose interrupt load costs it nothing:
 irq pressure, last minute: full 0.0%
 full = every task with work to do waited for interrupt handling to finish
 
-Window ! Full 
+Window ! Full
 -------+------
-avg10  ! 0.0% 
-avg60  ! 0.0% 
+avg10  ! 0.0%
+avg60  ! 0.0%
 avg300 ! 0.78%
 ```
 
@@ -132,9 +132,9 @@ irq pressure, last minute: full 16.44% [WARNING]
 full = every task with work to do waited for interrupt handling to finish
 The CPUs are busy servicing interrupts instead of running work. `/proc/interrupts` names the device behind them, `network-io` reports the packet rate that usually drives them and `cpu-usage` how much of each CPU goes into interrupt handling.
 
-Window ! Full            
+Window ! Full
 -------+-----------------
-avg10  ! 19.12%          
+avg10  ! 19.12%
 avg60  ! 16.44% [WARNING]
 avg300 ! 6.97%
 ```
@@ -156,10 +156,10 @@ irq pressure, last minute: full 4.36%; last ten seconds: full 16.2% [WARNING]
 full = every task with work to do waited for interrupt handling to finish
 The CPUs are busy servicing interrupts instead of running work. `/proc/interrupts` names the device behind them, `network-io` reports the packet rate that usually drives them and `cpu-usage` how much of each CPU goes into interrupt handling.
 
-Window ! Full           
+Window ! Full
 -------+----------------
 avg10  ! 16.2% [WARNING]
-avg60  ! 4.36%          
+avg60  ! 4.36%
 avg300 ! 1.7%
 ```
 
