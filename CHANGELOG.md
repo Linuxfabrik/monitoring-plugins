@@ -34,6 +34,10 @@ Monitoring Plugins:
 * kvm-network-io: what each virtual machine sends, receives and loses per interface ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-storage-pool: the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-volume: what those pools hold, and how far they are overcommitted ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* lvm-snapshots: an LVM snapshot filling up, and one the kernel has already thrown away
+* lvm-thin-pools: an LVM thin pool running out of data or metadata
+* lvm-volume-groups: an LVM volume group missing a physical volume, and its free space
+* lvm-volumes: an LVM logical volume that is incomplete, degraded or not active
 * md-raid: a software RAID array losing redundancy or reporting inconsistent sectors
 * memory-paging: a host paging to and from swap
 * multipath: a LUN losing a path, or a map losing all of them
@@ -111,6 +115,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* a command stuck on storage that has gone away no longer runs past the check's `--timeout`, on all plugins that run one
 * about-me: recognises a KVM host running the modular libvirt daemons again
 * apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`
 * countdown: a malformed `--input` names the date it cannot read instead of a traceback

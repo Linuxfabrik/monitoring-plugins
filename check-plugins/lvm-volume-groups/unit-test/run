@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every fixture below is the verbatim answer of the `vgs` call this check makes, taken
+# from a Rocky 10 guest running lvm2 2.03.28 on kernel 6.12, with the volume groups
+# built on loop devices:
+#
+#   mixed-groups              six groups side by side, among them one that is missing a
+#                             physical volume, one with every extent handed out and one
+#                             that holds no logical volume at all
+#   missing-physical-volume   a group of two physical volumes with one of them detached
+#                             underneath it. LVM answers such a run with warnings on
+#                             stderr and keeps the report on stdout, which is why the
+#                             check asks for JSON
+#   stock-host                the group of a plain Rocky install, every extent handed
+#                             out to root and swap. This is the state that makes a
+#                             default usage threshold a permanent false alarm
+#   no-groups                 a host without a single volume group
+#   malformed                 a report that was cut off mid-write
+
+TESTS = [
+    {
+        # A group with nothing left to give is normal and deliberate, so it is only
+        # graded where somebody asked for it to be.
+        'id': 'ok-a-fully-allocated-group-is-not-a-fault',
+        'test': 'stdout/stock-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 LVM volume group, 0.0B free in total.', "'rl_usage'=100.00%"],
+    },
+    {
+        'id': 'warn-the-same-group-with-a-threshold-set',
+        'test': 'stdout/stock-host,,0',
+        'params': '--warning=90',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['rl has 0.0B free (100% in use)'],
+    },
+    {
+        'id': 'crit-the-same-group-above-the-critical-threshold',
+        'test': 'stdout/stock-host,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-below-the-thresholds',
+        'test': 'stdout/stock-host,,0',
+        'params': '--warning=100: --critical=101',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-groups-at-all',
+        'test': 'stdout/no-groups,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No LVM volume group on this host.'],
+    },
+    {
+        # The group carries incomplete volumes and leaves them deactivated at the next
+        # boot, which is data gone until somebody acts.
+        'id': 'crit-missing-physical-volume',
+        'test': 'stdout/missing-physical-volume,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'parttest is missing 1 of its 2 physical volumes',
+            'vgreduce --removemissing',
+            "'physical_volumes_missing'=1;0",
+            '2 (1 missing)',
+        ],
+    },
+    {
+        'id': 'crit-mixed-host',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['parttest', 'testvg', 'emptyvg', "'volume_groups'=6;;;0"],
+    },
+    {
+        # A group without a single logical volume still has a size and free space.
+        'id': 'crit-an-empty-group-is-reported-too',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ["'emptyvg_usage'=0.00%"],
+    },
+    {
+        'id': 'ok-match-filters-everything-out',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '--match=nothing-matches-this',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'warn-no-match-severity-raises-the-empty-result',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '--match=nothing-matches-this --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-ignore-drops-the-broken-group',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '--ignore=^parttest$',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-brief-keeps-the-rows-that-are-not-ok',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['parttest'],
+        'assert-not-in': ['emptyvg !'],
+    },
+    {
+        'id': 'ok-the-table-carries-every-column',
+        'test': 'stdout/stock-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Group', 'Size', 'Free', 'PVs', 'LVs', 'Snapshots', 'Usage'],
+    },
+    {
+        'id': 'ok-always-ok-swallows-the-state',
+        'test': 'stdout/missing-physical-volume,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/stock-host,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'volume_groups'="],
+    },
+    {
+        'id': 'unknown-report-cut-off',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the LVM report.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/mixed-groups,,0',
+        'params': '--ignore=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--ignore'],
+    },
+    {
+        'id': 'unknown-invalid-threshold',
+        'test': 'stdout/stock-host,,0',
+        'params': '--warning=not-a-range',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../lvm-volume-groups'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

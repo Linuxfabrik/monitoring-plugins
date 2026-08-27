@@ -1,0 +1,383 @@
+{
+    "Command": {
+        "cmd-check-lvm-snapshots": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$lvm_snapshots_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$lvm_snapshots_brief$"
+                },
+                "--critical": {
+                    "value": "$lvm_snapshots_critical$"
+                },
+                "--critical-age": {
+                    "value": "$lvm_snapshots_critical_age$"
+                },
+                "--ignore": {
+                    "value": "$lvm_snapshots_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$lvm_snapshots_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$lvm_snapshots_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$lvm_snapshots_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$lvm_snapshots_timeout$"
+                },
+                "--warning": {
+                    "value": "$lvm_snapshots_warning$"
+                },
+                "--warning-age": {
+                    "value": "$lvm_snapshots_warning_age$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/lvm-snapshots",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-lvm-snapshots",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "2c9ad2ce-81de-4e17-8ef4-10e437191aa9"
+        },
+        "cmd-check-lvm-snapshots-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lvm-snapshots",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-lvm-snapshots"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-lvm-snapshots-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "02659972-5a18-439f-bc58-ef7dc865b563"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-lvm-snapshots": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-snapshots",
+            "check_interval": 300,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "lvm-snapshots.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Monitors the LVM snapshots on this host. A classic snapshot holds the blocks its origin has overwritten since it was taken, in a store of a fixed size, and the kernel throws the whole snapshot away the moment that store is full: the origin keeps running, while the snapshot silently stops being readable and whatever was backing up from it has lost its source. This check reports how full each store is before that happens, and says so when it already has. Thin snapshots draw on their pool instead of on a store of their own and are reported without a fill level, because what can run out for them is the pool. Alerts when the store of a classic snapshot is fuller than the thresholds allow, when the kernel has thrown a snapshot away, and when merging a snapshot back into its origin has failed. Optionally alerts on the age of a snapshot, which is what usually precedes a full one. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lvm-snapshots/",
+            "object_name": "tpl-service-lvm-snapshots",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "lvm_snapshots_always_ok": false,
+                "lvm_snapshots_brief": false,
+                "lvm_snapshots_critical": "90",
+                "lvm_snapshots_critical_age": "0D",
+                "lvm_snapshots_ignore": [],
+                "lvm_snapshots_match": [],
+                "lvm_snapshots_no_match_severity": "ok",
+                "lvm_snapshots_no_perfdata": false,
+                "lvm_snapshots_timeout": 8,
+                "lvm_snapshots_warning": "80",
+                "lvm_snapshots_warning_age": "0D"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "fb82d38b-57b8-416d-b1c5-92beb6fcf04d"
+        },
+        "tpl-service-lvm-snapshots-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-snapshots-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-lvm-snapshots"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-lvm-snapshots-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "f330d2d3-380f-4a27-873d-60321e0ad257"
+        }
+    },
+    "DataList": {
+        "lvm_snapshots_no_match_severity_list": {
+            "list_name": "lvm_snapshots_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "b1fa0e07-d02c-4ab6-a51d-b2d0935d64ca"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "lvm_snapshots_always_ok",
+            "caption": "Lvm Snapshots: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "9154a2d0-cec8-474d-b801-dfdc67e968c2"
+        },
+        "2": {
+            "varname": "lvm_snapshots_brief",
+            "caption": "Lvm Snapshots: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "77e60243-0cb0-4726-ab0b-042c659231e7"
+        },
+        "3": {
+            "varname": "lvm_snapshots_critical",
+            "caption": "Lvm Snapshots: Critical",
+            "description": "CRIT threshold for how full the store of a classic snapshot is, in percent. Does not apply to thin snapshots, which have no store of their own. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c8be7668-cf3d-4e1d-bd7c-1c8b5683c059"
+        },
+        "4": {
+            "varname": "lvm_snapshots_critical_age",
+            "caption": "Lvm Snapshots: Critical Age",
+            "description": "CRIT threshold for the age of a snapshot. A snapshot is meant to live for as long as something reads from it, and one that outlives its purpose keeps collecting the writes of its origin until its store is full. A duration such as `12h`, `8D` or `2W`; `0D` disables the age check. Example: `--critical-age=7D` alerts on a snapshot that has been around for a week.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "096a7467-00ba-45bf-8d6c-2efef80f0b7e"
+        },
+        "5": {
+            "varname": "lvm_snapshots_ignore",
+            "caption": "Lvm Snapshots: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "54693780-3f0e-48ba-b6ab-efa81b97d1d7"
+        },
+        "6": {
+            "varname": "lvm_snapshots_match",
+            "caption": "Lvm Snapshots: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f619d532-a4da-49aa-a7d0-27f350e9a351"
+        },
+        "7": {
+            "varname": "lvm_snapshots_no_match_severity",
+            "caption": "Lvm Snapshots: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "lvm_snapshots_no_match_severity_list"
+            },
+            "uuid": "243abd60-780e-4ff8-aef8-f08b5850f472"
+        },
+        "8": {
+            "varname": "lvm_snapshots_no_perfdata",
+            "caption": "Lvm Snapshots: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "15624542-ac71-421a-8c9d-fd9421c833a7"
+        },
+        "9": {
+            "varname": "lvm_snapshots_timeout",
+            "caption": "Lvm Snapshots: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "acb544e5-d128-440e-b692-35eaa50ff7e8"
+        },
+        "10": {
+            "varname": "lvm_snapshots_warning",
+            "caption": "Lvm Snapshots: Warning",
+            "description": "WARN threshold for how full the store of a classic snapshot is, in percent. Does not apply to thin snapshots, which have no store of their own. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0f761a05-dfc3-4c01-b60f-42f2f0c499dc"
+        },
+        "11": {
+            "varname": "lvm_snapshots_warning_age",
+            "caption": "Lvm Snapshots: Warning Age",
+            "description": "WARN threshold for the age of a snapshot. A snapshot is meant to live for as long as something reads from it, and one that outlives its purpose keeps collecting the writes of its origin until its store is full. A duration such as `12h`, `8D` or `2W`; `0D` disables the age check. Example: `--warning-age=2D` alerts on a snapshot that outlived the nightly job that took it.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3bea9bb0-f437-4981-8739-8aa282c4e16f"
+        }
+    }
+}

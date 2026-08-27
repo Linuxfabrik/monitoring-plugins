@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every fixture below is the verbatim answer of the `lvs` call this check makes, taken
+# from a Rocky 10 guest running lvm2 2.03.28 on kernel 6.12, with the volume groups
+# built on loop devices and driven into the state they show:
+#
+#   mixed-states           the whole host at once: a classic snapshot at 83.74% of its
+#                          store, a second one the kernel threw away after its store ran
+#                          full, a thin snapshot (created inactive, so it reports no
+#                          percentages at all), three thin pools in three different
+#                          states, a volume whose physical volume was removed underneath
+#                          it, and a RAID volume waiting for a refresh
+#   one-classic-snapshot   the 83.74% snapshot and its origin on their own
+#   invalidated-snapshot   the snapshot the kernel threw away, and its origin. The
+#                          origin kept running throughout, which is the whole reason
+#                          this state is silent without a check
+#   stock-host             a plain Rocky install, root and swap and nothing else
+#   no-volumes             a host without a single logical volume
+#   malformed              a report that was cut off mid-write
+#
+# The store of a snapshot was filled by writing to its origin: every block the origin
+# overwrites is copied into the snapshot first, so 260 MiB written to the origin took
+# the 300 MiB store to 83.74%, and 300 MiB written against a 200 MiB store finished it
+# off with `device-mapper: snapshots: Invalidating snapshot: Unable to allocate
+# exception.` in the kernel log.
+
+TESTS = [
+    {
+        'id': 'ok-nothing-to-report',
+        'test': 'stdout/stock-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No LVM snapshot on this host.'],
+    },
+    {
+        'id': 'ok-no-volumes-at-all',
+        'test': 'stdout/no-volumes,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No LVM snapshot on this host.'],
+    },
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 LVM snapshot', '83.74%'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=80 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'83\.74%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-above-crit',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=50 --critical=75',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'83\.74%.*\[CRITICAL\]',
+    },
+    {
+        # `lv_health_status` is empty for this, so a check reading that field alone
+        # reports the destroyed snapshot as healthy.
+        'id': 'warn-snapshot-the-kernel-threw-away',
+        'test': 'stdout/invalidated-snapshot,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'its copy-on-write store ran full and the kernel threw it away',
+            'lvremove',
+            "'snapshots_invalid'=1;0",
+        ],
+    },
+    {
+        # The thresholds are there to warn while there is still something to save. A
+        # snapshot that is already gone reports 100% forever, and raising that to the
+        # severity of an emergency on every run afterwards helps nobody.
+        'id': 'warn-a-destroyed-snapshot-is-not-graded-on-its-fill',
+        'test': 'stdout/invalidated-snapshot,,0',
+        'params': '--warning=50 --critical=75',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'warn-mixed-host',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['testvg/snap', 'testvg/goodsnap', 'testvg/tsnap'],
+    },
+    {
+        # A thin snapshot draws on its pool and has no store that can run out, so it is
+        # listed without a fill level instead of being graded on one.
+        'id': 'ok-thin-snapshot-carries-no-fill-level',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=tsnap --warning=1 --critical=2',
+        'assert-retc': STATE_OK,
+        'assert-in': ['testvg/tsnap'],
+        'assert-not-in': ["'testvg_tsnap_usage'"],
+    },
+    {
+        'id': 'ok-age-thresholds-are-off-by-default',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'warn-older-than-the-age-threshold',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=90 --critical=95 --warning-age=1s',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'testvg/goodsnap is .* old\.',
+        'assert-not-in': ['% full'],
+    },
+    {
+        'id': 'crit-older-than-the-critical-age',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=90 --critical=95 --warning-age=1s --critical-age=2s',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-match-filters-everything-out',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=nothing-matches-this',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'warn-no-match-severity-raises-the-empty-result',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=nothing-matches-this --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-ignore-drops-the-broken-snapshot',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--ignore=testvg/snap$ --warning=90 --critical=95',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['testvg/snap '],
+    },
+    {
+        'id': 'ok-brief-hides-the-rows-within-the-thresholds',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--brief --warning=90 --critical=95 --ignore=testvg/snap$',
+        'assert-retc': STATE_OK,
+        # perfdata stays complete even where the row is hidden
+        'assert-in': ["'testvg_goodsnap_usage'=83.74%"],
+        'assert-not-in': ['Snapshot !'],
+    },
+    {
+        'id': 'warn-the-table-carries-every-column',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--warning=90 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Snapshot', 'Origin', 'Pool', 'Size', 'Usage', 'Age', 'Type'],
+    },
+    {
+        'id': 'ok-always-ok-swallows-the-state',
+        'test': 'stdout/invalidated-snapshot,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--no-perfdata --warning=90 --critical=95 --ignore=testvg/snap$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'snapshots'="],
+    },
+    {
+        'id': 'unknown-report-cut-off',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the LVM report.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--match'],
+    },
+    {
+        'id': 'unknown-invalid-threshold',
+        'test': 'stdout/one-classic-snapshot,,0',
+        'params': '--warning=not-a-range',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../lvm-snapshots'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

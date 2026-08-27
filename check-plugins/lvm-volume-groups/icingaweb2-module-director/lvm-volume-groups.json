@@ -1,0 +1,341 @@
+{
+    "Command": {
+        "cmd-check-lvm-volume-groups": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$lvm_volume_groups_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$lvm_volume_groups_brief$"
+                },
+                "--critical": {
+                    "value": "$lvm_volume_groups_critical$"
+                },
+                "--ignore": {
+                    "value": "$lvm_volume_groups_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$lvm_volume_groups_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$lvm_volume_groups_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$lvm_volume_groups_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$lvm_volume_groups_timeout$"
+                },
+                "--warning": {
+                    "value": "$lvm_volume_groups_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/lvm-volume-groups",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-lvm-volume-groups",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "827d7a42-6338-491f-a7bb-402718e94b1b"
+        },
+        "cmd-check-lvm-volume-groups-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lvm-volume-groups",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-lvm-volume-groups"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-lvm-volume-groups-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "46898633-df24-48fe-b59e-7da6dbbcb772"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-lvm-volume-groups": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-volume-groups",
+            "check_interval": 900,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "lvm-volume-groups.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports the LVM volume groups on this host, how many physical volumes each of them is built from, and how many of those it can no longer find. A volume group that is missing a physical volume carries volumes that are incomplete, and it refuses to activate them at the next boot unless that is asked for explicitly, so a reboot in this state comes back without them. The free space of a group is reported as well, and graded only where thresholds are given: a group with every extent handed out is a perfectly normal and often deliberate state, and alerting on it by default would put a permanent warning on most hosts. Set the thresholds where free space has to be kept for a thin pool or a snapshot to grow into. Alerts when a volume group is missing a physical volume, and when its free space is outside the thresholds, if any are given. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lvm-volume-groups/",
+            "object_name": "tpl-service-lvm-volume-groups",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "lvm_volume_groups_always_ok": false,
+                "lvm_volume_groups_brief": false,
+                "lvm_volume_groups_ignore": [],
+                "lvm_volume_groups_match": [],
+                "lvm_volume_groups_no_match_severity": "ok",
+                "lvm_volume_groups_no_perfdata": false,
+                "lvm_volume_groups_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "327035d3-7fe0-4566-8891-de8b0273a915"
+        },
+        "tpl-service-lvm-volume-groups-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-volume-groups-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-lvm-volume-groups"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-lvm-volume-groups-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "17c00eef-4526-487e-a4e9-e52adcbcb1f8"
+        }
+    },
+    "DataList": {
+        "lvm_volume_groups_no_match_severity_list": {
+            "list_name": "lvm_volume_groups_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "8fc20e96-fb35-4ee7-a13b-212b890a3bd9"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "lvm_volume_groups_always_ok",
+            "caption": "Lvm Volume Groups: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "7cb9fdf2-2b9e-4f77-a029-1911fc96cadc"
+        },
+        "2": {
+            "varname": "lvm_volume_groups_brief",
+            "caption": "Lvm Volume Groups: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "45dd3416-097b-4c96-a2c6-934b47b72c68"
+        },
+        "3": {
+            "varname": "lvm_volume_groups_critical",
+            "caption": "Lvm Volume Groups: Critical",
+            "description": "CRIT threshold for how much of a volume group is handed out to logical volumes, in percent. Not set by default, because a volume group with every extent in use is a normal state and not a fault; set it where free space has to be kept for a thin pool or a snapshot to grow into. Supports Nagios ranges. Example: `--critical=95` keeps a twentieth of the group free for a pool or a snapshot to grow into.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2e9c124f-d802-4054-b1d0-59417ccb6171"
+        },
+        "4": {
+            "varname": "lvm_volume_groups_ignore",
+            "caption": "Lvm Volume Groups: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d1e8dddd-6d41-4cad-979b-ac6f8bd7f4c5"
+        },
+        "5": {
+            "varname": "lvm_volume_groups_match",
+            "caption": "Lvm Volume Groups: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "55739254-950a-4c25-a304-df897b213330"
+        },
+        "6": {
+            "varname": "lvm_volume_groups_no_match_severity",
+            "caption": "Lvm Volume Groups: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "lvm_volume_groups_no_match_severity_list"
+            },
+            "uuid": "8e3f3132-7b3f-43d8-b3a1-a3a6397dba31"
+        },
+        "7": {
+            "varname": "lvm_volume_groups_no_perfdata",
+            "caption": "Lvm Volume Groups: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "20991274-9076-4fca-bc21-0e7ba18e5dbb"
+        },
+        "8": {
+            "varname": "lvm_volume_groups_timeout",
+            "caption": "Lvm Volume Groups: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "08957b56-a534-4f4d-b8d7-43da9b3d2a65"
+        },
+        "9": {
+            "varname": "lvm_volume_groups_warning",
+            "caption": "Lvm Volume Groups: Warning",
+            "description": "WARN threshold for how much of a volume group is handed out to logical volumes, in percent. Not set by default, because a volume group with every extent in use is a normal state and not a fault; set it where free space has to be kept for a thin pool or a snapshot to grow into. Supports Nagios ranges. Example: `--warning=90` keeps a tenth of the group free for a pool or a snapshot to grow into.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7c790e2c-6ffa-4c68-a7fa-c7547ec98310"
+        }
+    }
+}

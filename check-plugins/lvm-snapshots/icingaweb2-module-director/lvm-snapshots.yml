@@ -1,0 +1,20 @@
+---
+variants:
+  - linux
+  - sudo
+
+overwrites:
+  # The command timeout has to sit clearly above the plugin's own --timeout, which
+  # defaults to 8 seconds. `lvs` reads every physical volume on the host and blocks in
+  # an uninterruptible sleep on one that has stopped answering, so a run that hits its
+  # deadline needs about 9 seconds including the interpreter start. Being killed at 10
+  # would replace the plugin's own answer, which names the device to look at, with a
+  # bare timeout.
+  '["Command"]["cmd-check-lvm-snapshots"]["timeout"]': 20
+  # A store that runs full destroys the snapshot for good, so this sits in the same
+  # criticality band as the other storage checks. Five minutes is often enough: a
+  # snapshot fills over hours, not seconds.
+  '["ServiceTemplate"]["tpl-service-lvm-snapshots"]["check_interval"]': 300
+  '["ServiceTemplate"]["tpl-service-lvm-snapshots"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-lvm-snapshots"]["retry_interval"]': 60
+  '["ServiceTemplate"]["tpl-service-lvm-snapshots"]["vars"]["criticality"]': 'A'

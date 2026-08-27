@@ -1,0 +1,436 @@
+{
+    "Command": {
+        "cmd-check-lvm-thin-pools": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$lvm_thin_pools_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$lvm_thin_pools_brief$"
+                },
+                "--critical": {
+                    "value": "$lvm_thin_pools_critical$"
+                },
+                "--critical-metadata": {
+                    "value": "$lvm_thin_pools_critical_metadata$"
+                },
+                "--ignore": {
+                    "value": "$lvm_thin_pools_ignore$",
+                    "repeat_key": true
+                },
+                "--match": {
+                    "value": "$lvm_thin_pools_match$",
+                    "repeat_key": true
+                },
+                "--metadata-limit-severity": {
+                    "value": "$lvm_thin_pools_metadata_limit_severity$"
+                },
+                "--no-match-severity": {
+                    "value": "$lvm_thin_pools_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$lvm_thin_pools_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$lvm_thin_pools_timeout$"
+                },
+                "--warning": {
+                    "value": "$lvm_thin_pools_warning$"
+                },
+                "--warning-metadata": {
+                    "value": "$lvm_thin_pools_warning_metadata$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/lvm-thin-pools",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-lvm-thin-pools",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "de488e70-ea3f-4a1c-8518-03b5276d6b24"
+        },
+        "cmd-check-lvm-thin-pools-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lvm-thin-pools",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-lvm-thin-pools"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-lvm-thin-pools-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "904645c7-3644-485e-ad96-ab121572e5a2"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-lvm-thin-pools": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-thin-pools",
+            "check_interval": 300,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "lvm-thin-pools.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Monitors the LVM thin pools on this host. A thin pool hands out more space than it has, so the volumes living in it keep working only for as long as the pool has blocks left to give them. When its data runs out, the pool queues every write that reaches any of its volumes and starts failing them a minute later; when its metadata runs out, the pool turns read-only and stays that way until it is repaired. Both take every filesystem in the pool down at once, which is why they are reported apart from how full the pool is. LVM also stops creating new volumes and snapshots in a pool long before its metadata is full, and that boundary is reported for what it is. Alerts when a pool is fuller than the thresholds allow, when LVM will not create another snapshot in it, and when the pool has run out of data or metadata, failed, or is flagged as needing a check. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lvm-thin-pools/",
+            "object_name": "tpl-service-lvm-thin-pools",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "lvm_thin_pools_always_ok": false,
+                "lvm_thin_pools_brief": false,
+                "lvm_thin_pools_critical": "90",
+                "lvm_thin_pools_critical_metadata": "90",
+                "lvm_thin_pools_ignore": [],
+                "lvm_thin_pools_match": [],
+                "lvm_thin_pools_metadata_limit_severity": "warn",
+                "lvm_thin_pools_no_match_severity": "ok",
+                "lvm_thin_pools_no_perfdata": false,
+                "lvm_thin_pools_timeout": 8,
+                "lvm_thin_pools_warning": "80",
+                "lvm_thin_pools_warning_metadata": "80"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "e6e6bb0b-ab0a-407b-a9b7-1a36114e3b7a"
+        },
+        "tpl-service-lvm-thin-pools-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-thin-pools-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-lvm-thin-pools"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-lvm-thin-pools-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b187151a-24be-4182-8cbe-f8eef490f84d"
+        }
+    },
+    "DataList": {
+        "lvm_thin_pools_metadata_limit_severity_list": {
+            "list_name": "lvm_thin_pools_metadata_limit_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "c021e7a8-3b82-4ce2-9b75-9e1df17b94dd"
+        },
+        "lvm_thin_pools_no_match_severity_list": {
+            "list_name": "lvm_thin_pools_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "51c8c5cc-9120-4bf1-a101-e2d54593ca28"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "lvm_thin_pools_always_ok",
+            "caption": "Lvm Thin Pools: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4601ee7c-25e5-45fb-89e8-97959e46404e"
+        },
+        "2": {
+            "varname": "lvm_thin_pools_brief",
+            "caption": "Lvm Thin Pools: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "627ac0ba-6d8e-411d-869a-212b71e1da73"
+        },
+        "3": {
+            "varname": "lvm_thin_pools_critical",
+            "caption": "Lvm Thin Pools: Critical",
+            "description": "CRIT threshold for how much of the data space of a pool is in use, in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b5963a7b-978e-4b19-9c69-387d92c10ee6"
+        },
+        "4": {
+            "varname": "lvm_thin_pools_critical_metadata",
+            "caption": "Lvm Thin Pools: Critical Metadata",
+            "description": "CRIT threshold for how much of the metadata volume of a pool is in use, in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "35bbe513-d7b7-41d1-ac48-aa3a64e511bd"
+        },
+        "5": {
+            "varname": "lvm_thin_pools_ignore",
+            "caption": "Lvm Thin Pools: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f47b6ff6-39e4-44e5-a3be-67c87ab484a8"
+        },
+        "6": {
+            "varname": "lvm_thin_pools_match",
+            "caption": "Lvm Thin Pools: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "34577516-b9ad-4e00-894a-c9cac0b707f7"
+        },
+        "7": {
+            "varname": "lvm_thin_pools_metadata_limit_severity",
+            "caption": "Lvm Thin Pools: Metadata Limit Severity",
+            "description": "State to report for a pool whose metadata is full enough that LVM refuses to create another thin volume or snapshot in it. The boundary is not a threshold but a rule inside LVM: it keeps the last 4 MiB, or the last quarter of a metadata volume smaller than 16 MiB, out of reach. The pool itself keeps working, which is why this is reported separately from how full it is.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "lvm_thin_pools_metadata_limit_severity_list"
+            },
+            "uuid": "7fbcb4a4-11b9-4a09-8306-9e75f167e1a0"
+        },
+        "8": {
+            "varname": "lvm_thin_pools_no_match_severity",
+            "caption": "Lvm Thin Pools: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "lvm_thin_pools_no_match_severity_list"
+            },
+            "uuid": "31a472b0-fa58-4189-8134-12845ab30c3c"
+        },
+        "9": {
+            "varname": "lvm_thin_pools_no_perfdata",
+            "caption": "Lvm Thin Pools: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1059db46-d32d-47ad-bd04-2b433eba47a5"
+        },
+        "10": {
+            "varname": "lvm_thin_pools_timeout",
+            "caption": "Lvm Thin Pools: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "680aafd8-7c45-4327-912f-ce6929acfb2f"
+        },
+        "11": {
+            "varname": "lvm_thin_pools_warning",
+            "caption": "Lvm Thin Pools: Warning",
+            "description": "WARN threshold for how much of the data space of a pool is in use, in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "95201b65-bd7e-45ec-8a3f-3de169efd1fe"
+        },
+        "12": {
+            "varname": "lvm_thin_pools_warning_metadata",
+            "caption": "Lvm Thin Pools: Warning Metadata",
+            "description": "WARN threshold for how much of the metadata volume of a pool is in use, in percent. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "da9404f0-4ac6-48c5-bb44-c8c911faa42f"
+        }
+    }
+}

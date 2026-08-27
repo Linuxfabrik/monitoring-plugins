@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every fixture below is the verbatim answer of the `lvs` call this check makes, taken
+# from a Rocky 10 guest running lvm2 2.03.28 on kernel 6.12, with the volume groups
+# built on loop devices and driven into the state they show:
+#
+#   mixed-states              the whole host at once: a volume missing a physical
+#                             volume, a RAID volume waiting for a refresh, four thin
+#                             pools, two classic snapshots and a thin one
+#   missing-physical-volume   a volume spanning two physical volumes, one of which was
+#                             detached underneath it. LVM reports `partial`, and it
+#                             leaves such a volume deactivated at the next boot unless
+#                             it is activated in partial mode by hand
+#   raid-partial              a raid1 activated in degraded mode while one leg is gone.
+#                             LVM tests `partial` before every RAID state, so this reads
+#                             `partial` and never `refresh needed`
+#   raid-refresh-needed       the same array after the device came back. It reports
+#                             `refresh needed` until `lvchange --refresh`, and it
+#                             reports 100% synchronised in both states, which is why
+#                             the percentages are useless as an alert here
+#   raid-mismatch             256 KiB written straight onto one leg behind the kernel's
+#                             back, then a scrub run to completion. `mismatch_count`
+#                             reads 640 while the array reports 100% synchronised and
+#                             an idle sync action, so the health state is the only
+#                             signal there is
+#   inactive-volume           a volume that was deactivated with `lvchange -an`, next to
+#                             two active ones. A volume is deliberately left inactive
+#                             often enough that this does not alert by default
+#   stock-host                a plain Rocky install, root and swap and nothing else
+#   no-volumes                a host without a single logical volume
+#   malformed                 a report that was cut off mid-write
+
+TESTS = [
+    {
+        'id': 'ok-a-plain-host',
+        'test': 'stdout/stock-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 LVM logical volumes, 2 healthy.', 'rl/root', 'rl/swap'],
+    },
+    {
+        'id': 'ok-no-volumes-at-all',
+        'test': 'stdout/no-volumes,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No LVM logical volume on this host.'],
+    },
+    {
+        # The volume is incomplete now and will not come up at the next boot, which is
+        # data gone until somebody acts.
+        'id': 'crit-missing-physical-volume',
+        'test': 'stdout/missing-physical-volume,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'one of the physical volumes it sits on is missing',
+            'vgreduce --removemissing',
+            "'volumes_degraded'=1;0",
+        ],
+    },
+    {
+        'id': 'crit-a-raid-volume-with-a-leg-gone-reads-as-partial',
+        'test': 'stdout/raid-partial,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['one of the physical volumes it sits on is missing'],
+        'assert-not-in': ['refresh needed', 'lvchange --refresh'],
+    },
+    {
+        'id': 'warn-raid-refresh-needed',
+        'test': 'stdout/raid-refresh-needed,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'a device came back and the array has not been refreshed onto it',
+            'lvchange --refresh',
+        ],
+    },
+    {
+        # Only the health state gives this away: the array reports 100% synchronised
+        # and an idle sync action while 640 sectors of its two copies disagree.
+        'id': 'warn-raid-mismatches-exist',
+        'test': 'stdout/raid-mismatch,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'a scrub found blocks whose copies disagree',
+            'lvchange --syncaction repair',
+        ],
+        # the refresh instruction belongs to a leg that is out of service, not here
+        'assert-not-in': ['lvchange --refresh'],
+    },
+    {
+        'id': 'ok-an-inactive-volume-does-not-alert-by-default',
+        'test': 'stdout/inactive-volume,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 not active', "'volumes_inactive'=1"],
+    },
+    {
+        'id': 'warn-an-inactive-volume-can-be-raised',
+        'test': 'stdout/inactive-volume,,0',
+        'params': '--inactive-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['is not active'],
+    },
+    {
+        # Snapshots and thin pools have a check of their own, so one missing physical
+        # volume must not raise three alerts.
+        'id': 'crit-snapshots-and-pools-are-left-to-their-own-checks',
+        'test': 'stdout/mixed-states,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': [
+            'testvg/goodsnap',
+            'testvg/snap ',
+            'testvg/tpool',
+            'testvg/dpool',
+            'testvg/mpool',
+        ],
+    },
+    {
+        'id': 'crit-mixed-host-lists-the-plain-volumes',
+        'test': 'stdout/mixed-states,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['parttest/spanned', 'raidvg/r1', 'testvg/tvol', 'rl/root'],
+    },
+    {
+        'id': 'ok-match-filters-everything-out',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=nothing-matches-this',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'warn-no-match-severity-raises-the-empty-result',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=nothing-matches-this --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-ignore-drops-the-broken-volumes',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--ignore=^parttest/ --ignore=^raidvg/',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-brief-keeps-the-rows-that-are-not-ok',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['parttest/spanned'],
+        'assert-not-in': ['rl/root'],
+    },
+    {
+        'id': 'ok-the-table-carries-every-column',
+        'test': 'stdout/stock-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Volume', 'Layout', 'Size', 'Pool', 'Usage', 'Active', 'Health'],
+    },
+    {
+        # A thin volume reports how much of its virtual size carries data; a thick one
+        # has all of its size allocated and reports nothing, which is not a zero.
+        'id': 'crit-thin-usage-is-shown-and-thick-is-left-empty',
+        'test': 'stdout/mixed-states,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'testvg/tvol.*25\.00%',
+    },
+    {
+        'id': 'ok-always-ok-swallows-the-state',
+        'test': 'stdout/missing-physical-volume,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/stock-host,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'volumes'="],
+    },
+    {
+        'id': 'unknown-report-cut-off',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the LVM report.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--match'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../lvm-volumes'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,243 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every fixture below is the verbatim answer of the `lvs` call this check makes, taken
+# from a Rocky 10 guest running lvm2 2.03.28 on kernel 6.12, with the volume groups
+# built on loop devices and driven into the state they show:
+#
+#   mixed-states              the whole host at once, four thin pools among everything
+#                             else it carries
+#   healthy-thin-pool         a pool at 50% data and 15.33% metadata, with a thin volume
+#                             and a thin snapshot in it
+#   pool-out-of-data          a 512 MiB pool written past its data volume with 700 MiB.
+#                             The kernel logged `switching pool to out-of-data-space
+#                             (queue IO) mode` and, a minute later, `(error IO)`, and
+#                             ext4 on the volume in it started reporting write errors
+#   pool-metadata-read-only   a pool whose 4 MiB metadata volume was exhausted. `lvcreate`
+#                             refuses to help here, because it stops at 75%, so the
+#                             metadata was filled by sending `create_thin` messages
+#                             straight to the pool's device-mapper device until the
+#                             kernel logged `No free metadata blocks` and `switching pool
+#                             to read-only mode`
+#   pool-at-metadata-limit    the same treatment stopped at 80.08% of a 4 MiB metadata
+#                             volume. The pool is perfectly healthy and `lvcreate
+#                             --snapshot` still refuses with "free space in thin pool
+#                             reached threshold", which is the boundary this check
+#                             reports separately
+#   stock-host                a plain Rocky install, root and swap and no pool at all
+#   no-volumes                a host without a single logical volume
+#   malformed                 a report that was cut off mid-write
+
+TESTS = [
+    {
+        'id': 'ok-a-host-without-thin-pools',
+        'test': 'stdout/stock-host,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No LVM thin pool on this host.'],
+    },
+    {
+        'id': 'ok-no-volumes-at-all',
+        'test': 'stdout/no-volumes,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No LVM thin pool on this host.'],
+    },
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1 LVM thin pool, the fullest at 50%.',
+            "'testvg_tpool_data_usage'=50.00%;80;90;0;100",
+            "'testvg_tpool_metadata_usage'=15.33%;80;90;0;100",
+        ],
+    },
+    {
+        'id': 'warn-data-above-warn',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '--warning=40 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'50\.00%.*\[WARNING\]',
+    },
+    {
+        'id': 'crit-data-above-crit',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '--warning=20 --critical=40',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'50\.00%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'warn-metadata-above-warn',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '--warning-metadata=10 --critical-metadata=95',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        # Every write to every volume in the pool is being failed while it is in this
+        # state, so it is the one thing here worth waking somebody up for.
+        'id': 'crit-out-of-data-space',
+        'test': 'stdout/pool-out-of-data,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'the pool is out of data space',
+            'lvextend --size',
+            "'thin_pools_degraded'=1;0",
+        ],
+    },
+    {
+        'id': 'crit-metadata-read-only',
+        'test': 'stdout/pool-metadata-read-only,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['the pool metadata is full', 'lvconvert --repair'],
+    },
+    {
+        # A pool that has already gone read-only is past the boundary, so repeating
+        # that it will take no new snapshot adds nothing to saying it takes no writes.
+        'id': 'crit-read-only-pool-is-not-also-reported-as-at-the-limit',
+        'test': 'stdout/pool-metadata-read-only,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['create another snapshot'],
+    },
+    {
+        # LVM keeps a quarter of a 4 MiB metadata volume out of reach, so it refuses a
+        # new snapshot from 75% on although the pool itself is fine.
+        'id': 'warn-lvm-will-not-create-another-snapshot',
+        'test': 'stdout/pool-at-metadata-limit,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'too full of metadata for LVM to create another snapshot in it '
+            '(80% of 75%)',
+            'lvextend --poolmetadatasize',
+        ],
+    },
+    {
+        'id': 'ok-the-metadata-limit-can-be-turned-off',
+        'test': 'stdout/pool-at-metadata-limit,,0',
+        'params': '--metadata-limit-severity=ok --warning-metadata=95 '
+        '--critical-metadata=99',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-the-metadata-limit-can-be-raised',
+        'test': 'stdout/pool-at-metadata-limit,,0',
+        'params': '--metadata-limit-severity=crit --warning-metadata=95 '
+        '--critical-metadata=99',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'crit-mixed-host',
+        'test': 'stdout/mixed-states,,0',
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'testvg/dpool',
+            'testvg/mpool',
+            'testvg/lpool',
+            "'thin_pools'=4;;;0",
+        ],
+    },
+    {
+        'id': 'ok-match-filters-everything-out',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--match=nothing-matches-this',
+        'assert-retc': STATE_OK,
+        'assert-in': ['filtered out by --match or --ignore'],
+    },
+    {
+        'id': 'ok-ignore-drops-the-broken-pools',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--ignore=dpool --ignore=mpool --ignore=lpool',
+        'assert-retc': STATE_OK,
+        'assert-in': ['testvg/tpool'],
+    },
+    {
+        'id': 'crit-brief-keeps-the-rows-that-are-not-ok',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--brief',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['testvg/tpool !'],
+        # perfdata stays complete even where the row is hidden
+        'assert-in': ["'testvg_tpool_data_usage'=50.00%"],
+    },
+    {
+        'id': 'ok-the-table-carries-every-column',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Metadata Size', 'Volumes', 'When Full', '8.0MiB', 'queue'],
+    },
+    {
+        # The pool holds one thin volume and one thin snapshot, and both count.
+        'id': 'ok-the-table-counts-the-volumes-in-the-pool',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'testvg/tpool.*\s2\s',
+    },
+    {
+        'id': 'ok-always-ok-swallows-the-state',
+        'test': 'stdout/pool-out-of-data,,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '--no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'thin_pools'="],
+    },
+    {
+        'id': 'unknown-report-cut-off',
+        'test': 'stdout/malformed,,0',
+        'params': '',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the LVM report.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/mixed-states,,0',
+        'params': '--ignore=[unclosed',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--ignore'],
+    },
+    {
+        'id': 'unknown-invalid-threshold',
+        'test': 'stdout/healthy-thin-pool,,0',
+        'params': '--warning=not-a-range',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../lvm-thin-pools'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

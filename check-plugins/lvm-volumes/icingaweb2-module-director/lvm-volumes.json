@@ -1,0 +1,356 @@
+{
+    "Command": {
+        "cmd-check-lvm-volumes": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$lvm_volumes_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$lvm_volumes_brief$"
+                },
+                "--ignore": {
+                    "value": "$lvm_volumes_ignore$",
+                    "repeat_key": true
+                },
+                "--inactive-severity": {
+                    "value": "$lvm_volumes_inactive_severity$"
+                },
+                "--match": {
+                    "value": "$lvm_volumes_match$",
+                    "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$lvm_volumes_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$lvm_volumes_no_perfdata$"
+                },
+                "--timeout": {
+                    "value": "$lvm_volumes_timeout$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/lvm-volumes",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-lvm-volumes",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "47bff340-ab7e-449c-97d2-09c8caae6a93"
+        },
+        "cmd-check-lvm-volumes-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lvm-volumes",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-lvm-volumes"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-lvm-volumes-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "8bd09b8f-cb98-47eb-b092-e501114a6388"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-lvm-volumes": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-volumes",
+            "check_interval": 300,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "lvm-volumes.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Reports the health of the LVM logical volumes on this host: a volume whose physical volume has gone missing, a mirrored or RAID volume running on fewer legs than it was built with, a cache that has failed, and a volume that is not active. LVM answers all of this with a state and never with a number, so there is nothing to set a threshold on. A volume that has lost a physical volume is the one that deserves the most attention: it is not only incomplete, it also refuses to come up at the next boot unless it is activated in partial mode by hand. Snapshots and thin pools are checked by lvm-snapshots and lvm-thin-pools, so nothing is reported twice. Alerts when a volume is missing a physical volume, when a RAID volume needs a refresh or a repair, when a scrub found copies that disagree, when a cache has failed, and when a volume is flagged as needing a check. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lvm-volumes/",
+            "object_name": "tpl-service-lvm-volumes",
+            "object_type": "template",
+            "retry_interval": 60,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "lvm_volumes_always_ok": false,
+                "lvm_volumes_brief": false,
+                "lvm_volumes_ignore": [],
+                "lvm_volumes_inactive_severity": "ok",
+                "lvm_volumes_match": [],
+                "lvm_volumes_no_match_severity": "ok",
+                "lvm_volumes_no_perfdata": false,
+                "lvm_volumes_timeout": 8
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "d9a882a8-686e-44d5-aa6c-632b55ac7e44"
+        },
+        "tpl-service-lvm-volumes-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lvm-volumes-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-lvm-volumes"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-lvm-volumes-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b5531f94-b8f8-40a5-b270-44f0f7b37c47"
+        }
+    },
+    "DataList": {
+        "lvm_volumes_inactive_severity_list": {
+            "list_name": "lvm_volumes_inactive_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a189d3c6-677c-46b2-bc7b-94ebf6ebccaf"
+        },
+        "lvm_volumes_no_match_severity_list": {
+            "list_name": "lvm_volumes_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "887734b1-dc42-44d4-a6f4-2214db2ff597"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "lvm_volumes_always_ok",
+            "caption": "Lvm Volumes: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d7371184-47ec-4f08-839b-4f1c4579d4f0"
+        },
+        "2": {
+            "varname": "lvm_volumes_brief",
+            "caption": "Lvm Volumes: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "d5f18157-c7b5-4158-9a12-34635bd8e436"
+        },
+        "3": {
+            "varname": "lvm_volumes_ignore",
+            "caption": "Lvm Volumes: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "27d2bbb0-14d6-4b36-bb2e-f6fbe79c120a"
+        },
+        "4": {
+            "varname": "lvm_volumes_inactive_severity",
+            "caption": "Lvm Volumes: Inactive Severity",
+            "description": "State to report for a volume that is not active. A volume is deliberately left inactive often enough that this does not alert by default: one that belongs to a machine that is switched off, and one created with activation skipped, are both inactive and both perfectly fine. Raise it on a host where every volume is supposed to be up, and an activation that silently did not happen at boot becomes visible.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "lvm_volumes_inactive_severity_list"
+            },
+            "uuid": "96ff0a61-5b11-4d6a-8a6f-ba8e822f2c47"
+        },
+        "5": {
+            "varname": "lvm_volumes_match",
+            "caption": "Lvm Volumes: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a8fb8c9d-02bd-4929-81ce-6451e2a03623"
+        },
+        "6": {
+            "varname": "lvm_volumes_no_match_severity",
+            "caption": "Lvm Volumes: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "lvm_volumes_no_match_severity_list"
+            },
+            "uuid": "f77a289e-321a-470c-b578-31fa6fcf3fc2"
+        },
+        "7": {
+            "varname": "lvm_volumes_no_perfdata",
+            "caption": "Lvm Volumes: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4c844193-5b6e-4527-bad4-c0763a019275"
+        },
+        "8": {
+            "varname": "lvm_volumes_timeout",
+            "caption": "Lvm Volumes: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ae2cecc3-150c-48d9-a759-35cae1b4e5a5"
+        }
+    }
+}

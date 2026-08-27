@@ -1,0 +1,18 @@
+---
+variants:
+  - linux
+  - sudo
+
+overwrites:
+  # The command timeout has to sit clearly above the plugin's own --timeout, which
+  # defaults to 8 seconds. `lvs` reads every physical volume on the host and blocks in
+  # an uninterruptible sleep on one that has stopped answering, so a run that hits its
+  # deadline needs about 9 seconds including the interpreter start.
+  '["Command"]["cmd-check-lvm-thin-pools"]["timeout"]': 20
+  # A pool that runs out takes every filesystem in it down at once, so this sits in the
+  # same criticality band as the other storage checks and is checked often enough to
+  # leave room to act.
+  '["ServiceTemplate"]["tpl-service-lvm-thin-pools"]["check_interval"]': 300
+  '["ServiceTemplate"]["tpl-service-lvm-thin-pools"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-lvm-thin-pools"]["retry_interval"]': 60
+  '["ServiceTemplate"]["tpl-service-lvm-thin-pools"]["vars"]["criticality"]': 'A'

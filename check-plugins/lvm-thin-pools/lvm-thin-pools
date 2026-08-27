@@ -1,0 +1,505 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.lftest
+import lib.lvm
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082701'
+
+DESCRIPTION = """Monitors the LVM thin pools on this host. A thin pool hands out more
+space than it has, so the volumes living in it keep working only for as long as the
+pool has blocks left to give them. When its data runs out, the pool queues every write
+that reaches any of its volumes and starts failing them a minute later; when its
+metadata runs out, the pool turns read-only and stays that way until it is repaired.
+Both take every filesystem in the pool down at once, which is why they are reported
+apart from how full the pool is. LVM also stops creating new volumes and snapshots in
+a pool long before its metadata is full, and that boundary is reported for what it is.
+Alerts when a pool is fuller than the thresholds allow, when LVM will not create
+another snapshot in it, and when the pool has run out of data or metadata, failed, or
+is flagged as needing a check.
+Requires root or sudo."""
+
+# What a pool in one of these states is doing to the machine right now: every write to
+# every volume in it is being queued and then failed, so the filesystems on top of it
+# are taking I/O errors. Measured on Rocky 10 / kernel 6.12 by writing a pool past its
+# data volume and by exhausting its metadata; in both cases ext4 on a volume in the
+# pool started logging write errors within a minute. That is the "react immediately"
+# case, and the rest of what LVM can report about a pool is not.
+CRITICAL_HEALTH = ('failed', 'metadata_read_only', 'out_of_data')
+
+# Named here so the same words reach the plugin output and the README.
+OUT_OF_DATA_HELP = (
+    'Give the pool room with `lvextend --size +10G vg0/pool0`, which puts it back into '
+    'write mode as soon as it lands. Where the volume group has nothing left to give, '
+    'remove what the pool is holding for nothing first, old snapshots above all. '
+    '`thin_pool_autoextend_threshold` in `lvm.conf` is 100 by default, which means LVM '
+    'never grows a pool on its own; setting it below 100 is what turns this into a '
+    'problem that fixes itself.'
+)
+
+# `lvconvert --repair` runs `thin_repair` from thin-provisioning-tools, which the
+# Debian family only recommends with lvm2 rather than depending on it. Measured on
+# Debian 13: without the package the repair ends in `thin_repair: execvp failed: No
+# such file or directory`, so the instruction names it. LVM also refuses the repair
+# while any volume of the pool is still up, and does not say which one, hence the
+# whole volume group.
+METADATA_FULL_HELP = (
+    'A pool whose metadata ran out does not come back with a resize. Deactivate the '
+    'whole volume group (`vgchange -an vg0`), repair the metadata with '
+    '`lvconvert --repair vg0/pool0`, and give the repaired pool a larger metadata '
+    'volume with `lvextend --poolmetadatasize`. On the Debian family, install '
+    '`thin-provisioning-tools` first: lvm2 only recommends it, and the repair needs it.'
+)
+
+METADATA_LIMIT_HELP = (
+    'LVM keeps the last 4 MiB, or the last quarter of a small metadata volume, out of '
+    'reach and refuses to create another thin volume or snapshot once the metadata is '
+    'that full. The pool itself keeps working. '
+    '`lvextend --poolmetadatasize +64M vg0/pool0` gives it room again.'
+)
+
+DEFAULT_BRIEF = False
+DEFAULT_CRIT = '90'
+DEFAULT_CRIT_METADATA = '90'
+DEFAULT_METADATA_LIMIT_SEVERITY = 'warn'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '80'
+DEFAULT_WARN_METADATA = '80'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for how much of the data space of a pool is in use, in '
+        'percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-metadata',
+        help='CRIT threshold for how much of the metadata volume of a pool is in use, '
+        'in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT_METADATA',
+        default=DEFAULT_CRIT_METADATA,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--metadata-limit-severity',
+        help='State to report for a pool whose metadata is full enough that LVM '
+        'refuses to create another thin volume or snapshot in it. '
+        'The boundary is not a threshold but a rule inside LVM: it keeps the last '
+        '4 MiB, or the last quarter of a metadata volume smaller than 16 MiB, out of '
+        'reach. The pool itself keeps working, which is why this is reported '
+        'separately from how full it is. '
+        'Default: %(default)s',
+        dest='METADATA_LIMIT_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_METADATA_LIMIT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for how much of the data space of a pool is in use, in '
+        'percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-metadata',
+        help='WARN threshold for how much of the metadata volume of a pool is in use, '
+        'in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN_METADATA',
+        default=DEFAULT_WARN_METADATA,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_volumes(args):
+    """
+    Ask LVM for the logical volumes of this host.
+
+    A host whose LVM stopped answering, and one without the LVM tools although
+    something is asking it about its volumes, both have a problem worth putting on the
+    list of things to fix instead of on the UNKNOWN pile nobody reads. Everything else
+    is the reading that broke and says nothing about the volumes.
+    """
+    if args.TEST is not None:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        return lib.base.coe(lib.lvm.parse_report(stdout, 'lv'))
+    success, result = lib.lvm.get_logical_volumes(timeout=args.TIMEOUT)
+    if not success:
+        lib.base.oao(
+            result,
+            lib.lvm.failure_state(result),
+            always_ok=args.ALWAYS_OK,
+        )
+    return result
+
+
+def analyze(pool, volumes, args):
+    """Work out how one thin pool is doing and how bad that is."""
+    name = pool.get('lv_full_name') or pool.get('lv_name') or '?'
+    data = lib.lvm.to_number(pool.get('data_percent'))
+    metadata = lib.lvm.to_number(pool.get('metadata_percent'))
+    limit = lib.lvm.metadata_limit(pool.get('lv_metadata_size'))
+    state = STATE_OK
+    problems = []
+
+    if data is not None:
+        state = lib.base.get_worst(
+            state,
+            lib.base.get_state(data, args.WARN, args.CRIT, _operator='range'),
+        )
+    if metadata is not None:
+        state = lib.base.get_worst(
+            state,
+            lib.base.get_state(
+                metadata,
+                args.WARN_METADATA,
+                args.CRIT_METADATA,
+                _operator='range',
+            ),
+        )
+
+    health = pool.get('lv_health_status') or ''
+
+    # The pool is still fully functional at this point and simply refuses to take
+    # another snapshot, so it is rated on its own knob rather than on the thresholds.
+    # A pool that has already gone read-only is past this boundary and is reported by
+    # its health alone, because saying it will take no new snapshot adds nothing to
+    # saying it takes no writes at all.
+    at_limit = (
+        limit is not None
+        and metadata is not None
+        and metadata >= limit
+        and health not in CRITICAL_HEALTH
+    )
+    if at_limit:
+        state = lib.base.get_worst(
+            state, lib.base.str2state(args.METADATA_LIMIT_SEVERITY)
+        )
+        problems.append(
+            f'{name} is too full of metadata for LVM to create another snapshot in it '
+            f'({metadata:.0f}% of {limit:.0f}%)'
+        )
+
+    problem = lib.lvm.health(pool)
+    if problem:
+        state = lib.base.get_worst(
+            state,
+            STATE_CRIT if health in CRITICAL_HEALTH else STATE_WARN,
+        )
+        problems.append(f'{name}: {problem}')
+    elif state != STATE_OK and not problems:
+        problems.append(
+            f'{name} is {data:.0f}% full'
+            if data is not None and metadata is None
+            else f'{name} is {data:.0f}% full, its metadata {metadata:.0f}%'
+        )
+
+    return {
+        'at_limit': at_limit,
+        'data': data,
+        'health': health,
+        'metadata': metadata,
+        'metadata_limit': limit,
+        'metadata_size': lib.lvm.to_number(pool.get('lv_metadata_size')),
+        'name': name,
+        'problems': problems,
+        'size': lib.lvm.to_number(pool.get('lv_size')),
+        'state': state,
+        'volumes': sum(
+            1 for item in volumes if item.get('pool_lv') == pool.get('lv_name')
+        ),
+        'when_full': pool.get('lv_when_full') or '-',
+    }
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    volumes = get_volumes(args)
+
+    # init some vars
+    msg = ''
+    msg_body = ''
+    perfdata = ''
+    state = STATE_OK
+    table_data = []
+    headline = []
+    checked = 0
+    degraded = 0
+    fullest = None
+    seen_health = set()
+    at_limit = False
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    pools = [item for item in volumes if lib.lvm.is_thin_pool(item)]
+
+    # analyze data
+    for pool in sorted(pools, key=lambda item: item.get('lv_full_name') or ''):
+        name = pool.get('lv_full_name') or pool.get('lv_name') or '?'
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        report = analyze(pool, volumes, args)
+        checked += 1
+        state = lib.base.get_worst(state, report['state'])
+        if report['state'] != STATE_OK:
+            degraded += 1
+        if report['data'] is not None and (fullest is None or report['data'] > fullest):
+            fullest = report['data']
+        if report['health']:
+            seen_health.add(report['health'])
+        at_limit = at_limit or report['at_limit']
+        headline.extend(report['problems'])
+
+        row = {
+            'data': '-' if report['data'] is None else f'{report["data"]:.2f}%',
+            'metadata': (
+                '-' if report['metadata'] is None else f'{report["metadata"]:.2f}%'
+            ),
+            'metadata_size': lib.human.bytes2human(report['metadata_size'] or 0),
+            'pool': report['name'],
+            'size': lib.human.bytes2human(report['size'] or 0),
+            # A pool that has reached the boundary is healthy in LVM's own words and
+            # still refuses a new snapshot, so the column says what the marker next to
+            # it is about rather than reading "healthy [WARNING]". A pool that is
+            # merely over a fill threshold keeps LVM's own word: "healthy [CRITICAL]"
+            # next to a data column reading 100.00% is not a contradiction but the
+            # useful distinction between a pool that is full and one whose kernel has
+            # started failing writes over it.
+            'state': (
+                f'{report["health"] or ("at metadata limit" if report["at_limit"] else "healthy")}'
+                f'{lib.base.state2str(report["state"], prefix=" ")}'
+            ),
+            'volumes': report['volumes'],
+            'when_full': report['when_full'],
+        }
+        if not (args.BRIEF and report['state'] == STATE_OK):
+            table_data.append(row)
+
+        # Perfdata stays complete: --brief hides rows, it does not drop metrics.
+        label = re.sub(r'\W+', '_', report['name'])
+        if report['data'] is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_data_usage',
+                f'{report["data"]:.2f}',
+                uom='%',
+                warn=args.WARN,
+                crit=args.CRIT,
+                _min=0,
+                _max=100,
+            )
+        if report['metadata'] is not None:
+            perfdata += lib.base.get_perfdata(
+                f'{label}_metadata_usage',
+                f'{report["metadata"]:.2f}',
+                uom='%',
+                warn=args.WARN_METADATA,
+                crit=args.CRIT_METADATA,
+                _min=0,
+                _max=100,
+            )
+
+    # build the message
+    if not pools:
+        msg = 'No LVM thin pool on this host.'
+    elif not checked:
+        count = len(pools)
+        msg = (
+            f'{count} LVM thin {lib.txt.pluralize("pool", count, ",s")} on this host, '
+            f'filtered out by --match or --ignore.'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+    elif headline:
+        msg = f'{". ".join(headline)}.'
+    else:
+        msg = (
+            f'{checked} LVM thin {lib.txt.pluralize("pool", checked, ",s")}'
+            f'{"" if fullest is None else f", the fullest at {fullest:.0f}%"}.'
+        )
+    if 'out_of_data' in seen_health:
+        msg_body += f'{OUT_OF_DATA_HELP}\n'
+    if 'metadata_read_only' in seen_health:
+        msg_body += f'{METADATA_FULL_HELP}\n'
+    if at_limit:
+        msg_body += f'{METADATA_LIMIT_HELP}\n'
+    if msg_body:
+        msg += f'\n{msg_body.rstrip()}'
+
+    perfdata += lib.base.get_perfdata('thin_pools', checked, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'thin_pools_degraded',
+        degraded,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+
+    # build table output
+    if table_data:
+        keys = [
+            'pool',
+            'size',
+            'data',
+            'metadata_size',
+            'metadata',
+            'volumes',
+            'when_full',
+            'state',
+        ]
+        headers = [
+            'Pool',
+            'Size',
+            'Data',
+            'Metadata Size',
+            'Metadata',
+            'Volumes',
+            'When Full',
+            'Health',
+        ]
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

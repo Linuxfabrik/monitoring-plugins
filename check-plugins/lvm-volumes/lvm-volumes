@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.lftest
+import lib.lvm
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082701'
+
+DESCRIPTION = """Reports the health of the LVM logical volumes on this host: a volume
+whose physical volume has gone missing, a mirrored or RAID volume running on fewer legs
+than it was built with, a cache that has failed, and a volume that is not active. LVM
+answers all of this with a state and never with a number, so there is nothing to set a
+threshold on. A volume that has lost a physical volume is the one that deserves the
+most attention: it is not only incomplete, it also refuses to come up at the next boot
+unless it is activated in partial mode by hand. Snapshots and thin pools are checked by
+lvm-snapshots and lvm-thin-pools, so nothing is reported twice.
+Alerts when a volume is missing a physical volume, when a RAID volume needs a refresh
+or a repair, when a scrub found copies that disagree, when a cache has failed, and when
+a volume is flagged as needing a check.
+Requires root or sudo."""
+
+# What a volume in one of these states means for the data on it, rather than for the
+# array holding it. `partial` is the one LVM tests before every other case, so it is
+# also what a RAID volume reports while one of its legs is gone.
+CRITICAL_HEALTH = ('failed', 'partial')
+
+# Named here so the same words reach the plugin output and the README.
+PARTIAL_HELP = (
+    'Find the missing physical volume before anything else: `pvs` lists it as '
+    '`[unknown]`, and `lsblk` plus the logs of the storage transport say whether the '
+    'device is gone or merely unplugged. A volume group that is missing a physical '
+    'volume does not activate its incomplete volumes at the next boot, so a host in '
+    'this state comes back up without them. Once the device is back, `vgchange '
+    '--refresh` picks it up again; where it is gone for good, `vgreduce '
+    '--removemissing` takes it out of the volume group and whatever sat on it has to '
+    'be restored.'
+)
+
+# `refresh needed` is what LVM up to 2.03.38 answers for a leg the kernel has marked
+# dead, whether its device is back or gone for good, so the instruction has to cover
+# both. 2.03.39 tells the two apart and adds `repair needed` for the second.
+RAID_HELP = (
+    'A RAID volume that needs a refresh has a leg the kernel stopped using. Where the '
+    'device behind it is back, `lvchange --refresh` puts the leg into service again; '
+    'where it is gone for good, `lvconvert --repair` replaces it, so look at the '
+    'device before picking one. In both states the volume reports 100% synchronised, '
+    'because the legs it still has are in sync with each other.'
+)
+
+# A scrub that found disagreeing copies is a different problem from a leg that is out
+# of service, and the way out is not a refresh. LVM cannot tell which copy is right,
+# so a repair overwrites from the first leg, which is a guess and has to be said.
+MISMATCH_HELP = (
+    'A scrub compared the copies of every block and found some that disagree; '
+    '`raid_mismatch_count` says how many sectors. LVM cannot tell which copy is the '
+    'good one, so `lvchange --syncaction repair` overwrites the others from the first '
+    'leg and the data has to be verified afterwards. A count that keeps rising is a '
+    'reason to look at the disks themselves.'
+)
+
+DEFAULT_BRIEF = False
+DEFAULT_INACTIVE_SEVERITY = 'ok'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--inactive-severity',
+        help='State to report for a volume that is not active. '
+        'A volume is deliberately left inactive often enough that this does not alert '
+        'by default: one that belongs to a machine that is switched off, and one '
+        'created with activation skipped, are both inactive and both perfectly fine. '
+        'Raise it on a host where every volume is supposed to be up, and an activation '
+        'that silently did not happen at boot becomes visible. '
+        'Default: %(default)s',
+        dest='INACTIVE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_INACTIVE_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_volumes(args):
+    """
+    Ask LVM for the logical volumes of this host.
+
+    A host whose LVM stopped answering, and one without the LVM tools although
+    something is asking it about its volumes, both have a problem worth putting on the
+    list of things to fix instead of on the UNKNOWN pile nobody reads. Everything else
+    is the reading that broke and says nothing about the volumes.
+    """
+    if args.TEST is not None:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        return lib.base.coe(lib.lvm.parse_report(stdout, 'lv'))
+    success, result = lib.lvm.get_logical_volumes(timeout=args.TIMEOUT)
+    if not success:
+        lib.base.oao(
+            result,
+            lib.lvm.failure_state(result),
+            always_ok=args.ALWAYS_OK,
+        )
+    return result
+
+
+def analyze(lv, args):
+    """Work out how one volume is doing and how bad that is."""
+    name = lv.get('lv_full_name') or lv.get('lv_name') or '?'
+    health = lv.get('lv_health_status') or ''
+    problem = lib.lvm.health(lv)
+    active = bool(lv.get('lv_active'))
+    state = STATE_OK
+
+    if problem:
+        state = lib.base.get_worst(
+            state,
+            STATE_CRIT if health in CRITICAL_HEALTH else STATE_WARN,
+        )
+    if not active:
+        state = lib.base.get_worst(state, lib.base.str2state(args.INACTIVE_SEVERITY))
+
+    return {
+        'active': active,
+        'health': health,
+        'layout': lv.get('lv_layout') or '-',
+        'name': name,
+        'pool': lv.get('pool_lv') or '-',
+        'problem': problem,
+        'size': lib.lvm.to_number(lv.get('lv_size')),
+        'state': state,
+        # A thin volume reports how much of its virtual size carries data. A thick one
+        # has all of its size allocated and reports nothing, which is not a zero.
+        'usage': lib.lvm.to_number(lv.get('data_percent')),
+    }
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    volumes = get_volumes(args)
+
+    # init some vars
+    msg = ''
+    msg_body = ''
+    perfdata = ''
+    state = STATE_OK
+    table_data = []
+    headline = []
+    checked = 0
+    degraded = 0
+    inactive = 0
+    seen_health = set()
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # Snapshots and thin pools have a check of their own, so leaving them out here is
+    # what keeps one missing physical volume from raising three alerts.
+    candidates = [
+        item
+        for item in volumes
+        if not lib.lvm.is_snapshot(item) and not lib.lvm.is_thin_pool(item)
+    ]
+
+    # analyze data
+    for lv in sorted(candidates, key=lambda item: item.get('lv_full_name') or ''):
+        name = lv.get('lv_full_name') or lv.get('lv_name') or '?'
+        if compiled_match and not any(item.search(name) for item in compiled_match):
+            continue
+        if any(item.search(name) for item in compiled_ignore):
+            continue
+
+        report = analyze(lv, args)
+        checked += 1
+        state = lib.base.get_worst(state, report['state'])
+        if report['problem']:
+            degraded += 1
+            seen_health.add(report['health'])
+            headline.append(f'{name}: {report["problem"]}')
+        if not report['active']:
+            inactive += 1
+            if report['state'] != STATE_OK and not report['problem']:
+                headline.append(f'{name} is not active')
+
+        row = {
+            'active': 'yes' if report['active'] else 'no',
+            'layout': report['layout'],
+            'pool': report['pool'],
+            'size': lib.human.bytes2human(report['size'] or 0),
+            'state': (
+                f'{report["health"] or "healthy"}'
+                f'{lib.base.state2str(report["state"], prefix=" ")}'
+            ),
+            'usage': '-' if report['usage'] is None else f'{report["usage"]:.2f}%',
+            'volume': report['name'],
+        }
+        if not (args.BRIEF and report['state'] == STATE_OK):
+            table_data.append(row)
+
+    # build the message
+    if not candidates:
+        msg = 'No LVM logical volume on this host.'
+    elif not checked:
+        count = len(candidates)
+        msg = (
+            f'{count} LVM logical {lib.txt.pluralize("volume", count, ",s")} on this '
+            f'host, filtered out by --match or --ignore.'
+        )
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+    elif headline:
+        msg = f'{". ".join(headline)}.'
+    else:
+        msg = (
+            f'{checked} LVM logical {lib.txt.pluralize("volume", checked, ",s")}, '
+            f'{checked - degraded} healthy'
+            f'{"" if not inactive else f", {inactive} not active"}.'
+        )
+    if 'partial' in seen_health:
+        msg_body += f'{PARTIAL_HELP}\n'
+    if seen_health & {
+        'refresh needed',
+        'refresh or repair needed',
+        'repair needed',
+    }:
+        msg_body += f'{RAID_HELP}\n'
+    if 'mismatches exist' in seen_health:
+        msg_body += f'{MISMATCH_HELP}\n'
+    if msg_body:
+        msg += f'\n{msg_body.rstrip()}'
+
+    perfdata += lib.base.get_perfdata('volumes', checked, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'volumes_degraded',
+        degraded,
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata('volumes_inactive', inactive, uom=None, _min=0)
+
+    # build table output
+    if table_data:
+        keys = ['volume', 'layout', 'size', 'pool', 'usage', 'active', 'state']
+        headers = ['Volume', 'Layout', 'Size', 'Pool', 'Usage', 'Active', 'Health']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
