@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082602 / v7.0.0'
+__version__ = '2026082701 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -399,6 +399,16 @@ def get_lftags(distro):
     # package sits on plenty of hosts that never assemble one. Every md device carries
     # an `md` directory below /sys/block, and nothing else does.
     has_md_array = bool(lib.disk.glob('/sys/block/md*/md'))
+    # A logical volume that is actually there is the signal for LVM, not the lvm2
+    # package, which sits on almost every host whether it uses LVM or not. Every
+    # device-mapper device publishes its uuid below /sys/block, and LVM prefixes its
+    # own with `LVM-`, which separates a logical volume from a multipath map, a
+    # LUKS container and every other device-mapper user. The file is world readable,
+    # so this needs none of the rights the LVM commands themselves insist on.
+    has_lvm_volume = any(
+        lib.disk.read_file(path)[1].strip().startswith('LVM-')
+        for path in lib.disk.glob('/sys/block/dm-*/dm/uuid')
+    )
     lftags = [
         # template: {'sw': '<entry_value from all-the-rest.json tag_list>',
         #            'package': ['<pkg1>', '<pkg2>'],   # admin-installed → tag fires
@@ -805,6 +815,11 @@ def get_lftags(distro):
                 lib.disk.dir_exists('/usr/share/lynis'),
                 lib.disk.dir_exists('/etc/lynis'),
             ],
+        },
+        {
+            'sw': 'LVM',
+            'package': [],
+            'expr': [has_lvm_volume],
         },
         {
             'sw': 'MariaDB',

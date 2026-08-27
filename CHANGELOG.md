@@ -55,6 +55,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * `libvirtd Service Set`
+* `LVM Service Set`
 * `MD RAID Service Set`
 * `Multipath Service Set`
 * `NFS Client Service Set`
