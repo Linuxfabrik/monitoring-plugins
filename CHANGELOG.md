@@ -37,6 +37,7 @@ Monitoring Plugins:
 * md-raid: alerts when a software RAID array loses redundancy, when the kernel says a member is failing, and on inconsistent sectors
 * memory-paging: alerts when a host pages to and from swap, which swap usage on its own never shows
 * multipath: alerts when a LUN loses one of its paths and when a multipath map runs out of them altogether
+* nfs-exports: alerts when an NFS server does not serve an export it is configured for, or serves one whose directory has gone
 * nfs-mounts: alerts when an NFS mount reports a stale file handle or stops answering, and never blocks on one itself
 * nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
 * nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
@@ -54,6 +55,7 @@ Icinga Director:
 * `Sensors Service Set` (host tag `sensors`) runs the fan and temperature checks, and `smartmontools Service Set` (host tag `smartmontools`) runs the SMART check. Both checks shipped without a tag so far, which meant nothing rolled them out. `about-me --tags` proposes them on real hardware and stays quiet on a virtual machine
 * `MD RAID Service Set` (host tag `md-raid`) and `Multipath Service Set` (host tag `multipath`) run the two new storage checks. Neither belongs in the OS Basic Service Sets, because neither exists on an ordinary virtual machine. `about-me --tags` proposes both
 * `NFS Client Service Set` (host tag `nfs-client`) runs the NFS mount check, as the counterpart to the existing `nfs-server` tag. `about-me --tags` proposes it on a host that mounts NFS or is set up to
+* the NFS Server Service Set runs the new export check next to its three unit checks. The units stay green while the export table is empty, so a share that was added and never reloaded went unnoticed
 
 ### Changed
 

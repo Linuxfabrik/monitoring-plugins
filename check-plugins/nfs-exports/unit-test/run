@@ -1,0 +1,227 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# nfs-exports reads files and runs no command, so its fixtures are directory trees under
+# `config/` that stand in for the host's filesystem, selected with the hidden
+# `--config-root` hook. Each tree holds an `etc/exports`, a `var/lib/nfs/etab` and the
+# directories the exports point at, because whether those exist is part of the finding.
+
+TESTS = [
+    {
+        'id': 'ok-everything-configured-is-served',
+        'test': '',
+        'params': '--config-root=config/all-served',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 3 NFS exports are served\.',
+    },
+    {
+        'id': 'ok-a-server-that-exports-nothing',
+        'test': '',
+        'params': '--config-root=config/nothing-at-all',
+        'assert-retc': STATE_OK,
+        'assert-in': ['This host exports nothing and is configured to export nothing.'],
+    },
+    {
+        # exportfs reads /etc/exports.d only for a name ending in ".exports" that does
+        # not start with a dot and is longer than the suffix itself
+        'id': 'ok-exports-d-is-read-and-filtered-like-exportfs',
+        'test': '',
+        'params': '--config-root=config/exports-d --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/srv/nfs/fromdir', '/etc/exports.d/10-lab.exports'],
+        'assert-not-in': ['/srv/nfs/ignored', '/srv/nfs/hidden', '/srv/nfs/suffixonly'],
+    },
+    {
+        # comments, a continued entry, quoting, octal escapes and the default-options
+        # syntax, all of them straight out of the nfs-utils reader
+        'id': 'ok-every-syntax-rule-of-the-export-file',
+        'test': '',
+        'params': '--config-root=config/tricky-syntax',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '/srv/nfs/data',
+            '/srv/nfs/defaults',
+            '/srv/nfs/continued',
+            '/srv/nfs/quoted path',
+            '/srv/nfs/escaped space',
+            '/srv/nfs/noclient',
+        ],
+    },
+    {
+        # `exportfs -o ...` by hand, or cluster software creating its exports at
+        # runtime, is a legitimate state and does not alert
+        'id': 'ok-an-export-nobody-configured',
+        'test': '',
+        'params': '--config-root=config/exported-by-hand',
+        'assert-retc': STATE_OK,
+        'assert-in': ['exported but not configured'],
+    },
+    {
+        # the path decides before the question of who configured it: an export cluster
+        # software created and whose path then vanished must not read as merely
+        # unconfigured and stay OK
+        'id': 'warn-an-unconfigured-export-whose-path-is-gone',
+        'test': '',
+        'params': '--config-root=config/unconfigured-path-gone --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/srv/nfs/adhoc-gone', 'path does not exist [WARNING]'],
+        'assert-regex': r'/srv/nfs/adhoc\s+!\s+exportfs\s+!\s+\S+\s+!\s+'
+        r'exported but not configured',
+    },
+    {
+        'id': 'warn-an-export-nobody-configured-can-be-graded-up',
+        'test': '',
+        'params': '--config-root=config/exported-by-hand --unconfigured-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['exported but not configured [WARNING]'],
+    },
+    {
+        'id': 'ok-the-source-column-names-the-file',
+        'test': '',
+        'params': '--config-root=config/exported-by-hand --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['/etc/exports', 'exportfs'],
+    },
+    {
+        'id': 'ok-filters-leave-nothing-to-check',
+        'test': '',
+        'params': '--config-root=config/all-served --match=/does/not/exist',
+        'assert-retc': STATE_OK,
+        'assert-in': ['3 NFS exports, filtered out by --match or --ignore.'],
+    },
+    {
+        'id': 'warn-filters-leave-nothing-to-check',
+        'test': '',
+        'params': '--config-root=config/all-served --match=/does/not/exist '
+        '--no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+    },
+    {
+        'id': 'ok-ignore-drops-a-failing-export',
+        'test': '',
+        'params': '--config-root=config/not-reloaded --ignore=/srv/nfs/forgotten',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\. 2 NFS exports are served\.',
+    },
+    {
+        # the entry was added to /etc/exports and `exportfs -ra` was never run
+        'id': 'warn-configured-but-not-exported',
+        'test': '',
+        'params': '--config-root=config/not-reloaded',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'1 of 3 NFS exports is not right: /srv/nfs/forgotten: '
+        r'configured but not exported',
+    },
+    {
+        'id': 'warn-configured-but-not-exported-names-the-way-out',
+        'test': '',
+        'params': '--config-root=config/not-reloaded',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['exportfs -ra'],
+    },
+    {
+        'id': 'crit-configured-but-not-exported-can-be-graded-up',
+        'test': '',
+        'params': '--config-root=config/not-reloaded --not-exported-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['configured but not exported [CRITICAL]'],
+    },
+    {
+        # the export keeps being served while its directory is gone, which is what a
+        # client sees as a stale file handle
+        'id': 'warn-an-export-whose-path-is-gone',
+        'test': '',
+        'params': '--config-root=config/path-gone',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['/srv/nfs/vanish', 'path does not exist', 'stale file handle'],
+    },
+    {
+        'id': 'crit-an-export-whose-path-is-gone-can-be-graded-up',
+        'test': '',
+        'params': '--config-root=config/path-gone --missing-path-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['path does not exist [CRITICAL]'],
+    },
+    {
+        # a path that is configured and not served is not looked at: whether its
+        # directory happens to be there says nothing about why it is not served
+        'id': 'warn-a-missing-export-is-reported-once',
+        'test': '',
+        'params': '--config-root=config/not-reloaded',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['path does not exist'],
+    },
+    {
+        'id': 'warn-brief-keeps-only-the-failing-exports',
+        'test': '',
+        'params': '--config-root=config/not-reloaded --brief',
+        'assert-retc': STATE_WARN,
+        'assert-not-in': ['/srv/nfs/home'],
+    },
+    {
+        'id': 'warn-perfdata-counts-every-finding',
+        'test': '',
+        'params': '--config-root=config/not-reloaded',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'nfs_exports_configured'=3;;;0",
+            "'nfs_exports_served'=2;;;0",
+            "'nfs_exports_not_exported'=1;0;;0",
+            "'nfs_exports_missing_path'=0;0;;0",
+            "'nfs_exports_unconfigured'=0;;;0",
+        ],
+    },
+    {
+        'id': 'ok-always-ok-masks-every-finding',
+        'test': '',
+        'params': '--config-root=config/not-reloaded --always-ok',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-metrics',
+        'test': '',
+        'params': '--config-root=config/all-served --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['nfs_exports_configured'],
+    },
+    {
+        'id': 'unknown-a-host-that-is-no-nfs-server',
+        'test': '',
+        'params': '--config-root=config/no-server',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['This check belongs on an NFS server.'],
+    },
+    {
+        'id': 'unknown-an-invalid-regex',
+        'test': '',
+        'params': '--config-root=config/all-served --match=[',
+        'assert-retc': STATE_UNKNOWN,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../nfs-exports'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

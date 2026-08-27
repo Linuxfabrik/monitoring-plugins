@@ -1,0 +1,438 @@
+{
+    "Command": {
+        "cmd-check-nfs-exports": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$nfs_exports_always_ok$"
+                },
+                "--brief": {
+                    "set_if": "$nfs_exports_brief$"
+                },
+                "--etab": {
+                    "value": "$nfs_exports_etab$"
+                },
+                "--ignore": {
+                    "value": "$nfs_exports_ignore$",
+                    "repeat_key": true
+                },
+                "--lengthy": {
+                    "set_if": "$nfs_exports_lengthy$"
+                },
+                "--match": {
+                    "value": "$nfs_exports_match$",
+                    "repeat_key": true
+                },
+                "--missing-path-severity": {
+                    "value": "$nfs_exports_missing_path_severity$"
+                },
+                "--no-match-severity": {
+                    "value": "$nfs_exports_no_match_severity$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$nfs_exports_no_perfdata$"
+                },
+                "--not-exported-severity": {
+                    "value": "$nfs_exports_not_exported_severity$"
+                },
+                "--timeout": {
+                    "value": "$nfs_exports_timeout$"
+                },
+                "--unconfigured-severity": {
+                    "value": "$nfs_exports_unconfigured_severity$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/nfs-exports",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 10,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 11,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-nfs-exports",
+            "object_type": "object",
+            "timeout": 20,
+            "vars": {},
+            "zone": null,
+            "uuid": "ca642f39-65a1-465e-b6c4-895e6a5ca2d2"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-nfs-exports": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-nfs-exports",
+            "check_interval": 900,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "nfs-exports.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Checks that an NFS server really exports what it is configured to export, and that every path it exports is there. The daemons say nothing about this: they keep running while the export table is empty, so a share that was added but never reloaded, and one whose directory has gone, both leave a server that looks healthy and serves nothing. A client only finds out when it tries to mount, or when its mount turns into a stale file handle. The check compares the export files against the table the server actually serves, and looks whether each exported path exists. An export the table has but the files do not is reported and does not alert by default, because that is what cluster software creating exports at runtime looks like. Nothing is asked over the network and no elevated privileges are needed: all of it is read from files. The paths are looked at under a deadline, so an export that sits on a filesystem which has stopped answering cannot hold the check up. Supports filtering export paths by regular expression via --match and --ignore, and extended reporting via --lengthy. Alerts when a configured export is not served, or when a served export has no path.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nfs-exports/",
+            "object_name": "tpl-service-nfs-exports",
+            "object_type": "template",
+            "retry_interval": 180,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "A",
+                "nfs_exports_always_ok": false,
+                "nfs_exports_brief": false,
+                "nfs_exports_etab": "/var/lib/nfs/etab",
+                "nfs_exports_ignore": [],
+                "nfs_exports_lengthy": true,
+                "nfs_exports_match": [],
+                "nfs_exports_missing_path_severity": "warn",
+                "nfs_exports_no_match_severity": "ok",
+                "nfs_exports_no_perfdata": false,
+                "nfs_exports_not_exported_severity": "warn",
+                "nfs_exports_timeout": 8,
+                "nfs_exports_unconfigured_severity": "ok"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "b89ccf12-bd4a-4f36-a4cb-a730e9385e0d"
+        }
+    },
+    "DataList": {
+        "nfs_exports_missing_path_severity_list": {
+            "list_name": "nfs_exports_missing_path_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "c7163730-ee96-4beb-9730-7fbfabc9b8f8"
+        },
+        "nfs_exports_no_match_severity_list": {
+            "list_name": "nfs_exports_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "ab544a97-5cb8-44fe-b101-22b5c5c86ad8"
+        },
+        "nfs_exports_not_exported_severity_list": {
+            "list_name": "nfs_exports_not_exported_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "861be34c-216b-4422-99b5-1240eb51b780"
+        },
+        "nfs_exports_unconfigured_severity_list": {
+            "list_name": "nfs_exports_unconfigured_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "e1d2d56c-e34e-4993-838a-b71979474e81"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "nfs_exports_always_ok",
+            "caption": "Nfs Exports: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c040b9b5-7618-4641-bfab-e2e41826e437"
+        },
+        "2": {
+            "varname": "nfs_exports_brief",
+            "caption": "Nfs Exports: Brief?",
+            "description": "Hide the rows that are within the thresholds and show only those in a WARN or CRIT state. Perfdata and alerting are unaffected: every item still emits performance data and still drives the overall check state, so this is safe to leave on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "98046199-1982-4aef-9caf-ece0b9060248"
+        },
+        "3": {
+            "varname": "nfs_exports_etab",
+            "caption": "Nfs Exports: Etab",
+            "description": "Path to the export table the server serves, which is where the state directory of the NFS utilities was moved to if it was moved at all.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "415b3f80-78c2-4267-a138-f4a2e3d30e6a"
+        },
+        "4": {
+            "varname": "nfs_exports_ignore",
+            "caption": "Nfs Exports: Ignore",
+            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "58ccd156-57f6-46b2-9216-c8e60f41485c"
+        },
+        "5": {
+            "varname": "nfs_exports_lengthy",
+            "caption": "Nfs Exports: Lengthy?",
+            "description": "Extended reporting.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "4ffbe1dd-cb47-4c68-8c7e-16cb8d4dd841"
+        },
+        "6": {
+            "varname": "nfs_exports_match",
+            "caption": "Nfs Exports: Match",
+            "description": "Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead).",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7e121c43-1d91-49ab-ab51-fec0d3ffeca2"
+        },
+        "7": {
+            "varname": "nfs_exports_missing_path_severity",
+            "caption": "Nfs Exports: Missing Path Severity",
+            "description": "State to report for an export whose path does not exist. The server keeps serving it, and a client that has it mounted gets a stale file handle.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_exports_missing_path_severity_list"
+            },
+            "uuid": "781d0829-1d6b-463a-85a3-81cdaab7d883"
+        },
+        "8": {
+            "varname": "nfs_exports_no_match_severity",
+            "caption": "Nfs Exports: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_exports_no_match_severity_list"
+            },
+            "uuid": "b7f9ebf9-b269-4b9d-993d-f5c5af94b591"
+        },
+        "9": {
+            "varname": "nfs_exports_no_perfdata",
+            "caption": "Nfs Exports: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "44c55fcc-7267-4cf5-b5c1-ce3530b73718"
+        },
+        "10": {
+            "varname": "nfs_exports_not_exported_severity",
+            "caption": "Nfs Exports: Not Exported Severity",
+            "description": "State to report for an export the configuration asks for and the server does not serve. Usually `exportfs -ra` has not been run since the entry was added, or it refused the entry; a client cannot mount such a share at all.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_exports_not_exported_severity_list"
+            },
+            "uuid": "61c90430-dbf9-4cda-b58c-dfab2cd385f5"
+        },
+        "11": {
+            "varname": "nfs_exports_timeout",
+            "caption": "Nfs Exports: Timeout",
+            "description": "How long the export paths get to answer before they are reported as unreachable. Only a path on a network filesystem ever needs it: one whose server has stopped answering does not fail, it blocks. Every path is looked at at the same time and they share one deadline, so this is the runtime of the whole check and not a budget per path.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "2ce5dff9-8bbc-4f77-994e-1a6b544b9b0c"
+        },
+        "12": {
+            "varname": "nfs_exports_unconfigured_severity",
+            "caption": "Nfs Exports: Unconfigured Severity",
+            "description": "State to report for an export the server serves and the configuration does not ask for. Cluster software that creates its exports at runtime looks exactly like this, which is why it does not alert by default.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "nfs_exports_unconfigured_severity_list"
+            },
+            "uuid": "ad088e36-0805-4532-94ff-ede8ce412542"
+        }
+    }
+}

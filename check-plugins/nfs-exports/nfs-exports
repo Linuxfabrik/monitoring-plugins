@@ -1,0 +1,656 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.task
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082701'
+
+DESCRIPTION = """Checks that an NFS server really exports what it is configured to export, and that
+every path it exports is there.
+The daemons say nothing about this: they keep running while the export table is empty,
+so a share that was added but never reloaded, and one whose directory has gone, both
+leave a server that looks healthy and serves nothing. A client only finds out when it
+tries to mount, or when its mount turns into a stale file handle.
+The check compares the export files against the table the server actually serves, and
+looks whether each exported path exists. An export the table has but the files do not is
+reported and does not alert by default, because that is what cluster software creating
+exports at runtime looks like.
+Nothing is asked over the network and no elevated privileges are needed: all of it is
+read from files. The paths are looked at under a deadline, so an export that sits on a
+filesystem which has stopped answering cannot hold the check up.
+Supports filtering export paths by regular expression via --match and --ignore, and
+extended reporting via --lengthy.
+Alerts when a configured export is not served, or when a served export has no path."""
+
+DEFAULT_MISSING_PATH_SEVERITY = 'warn'
+DEFAULT_NOT_EXPORTED_SEVERITY = 'warn'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
+DEFAULT_UNCONFIGURED_SEVERITY = 'ok'
+
+# Where an administrator writes down what is to be exported. exportfs reads both, the
+# directory only for the files ending in ".exports" (nfs-utils `_EXT_EXPORT`).
+EXPORTS = '/etc/exports'
+EXPORTS_D = '/etc/exports.d'
+EXPORTS_D_SUFFIX = '.exports'
+
+# The table exportfs writes and the server reads, which is what is really being served.
+# It is world readable, so this check needs no privileges, and reading a file cannot
+# block the way asking the server over RPC could. nfs-utils calls this the state
+# directory and allows it to be moved at build and at run time, so it is a parameter.
+ETAB = '/var/lib/nfs/etab'
+
+# nfs-utils escapes a byte it cannot write plainly as a backslash and three octal
+# digits, in the export files and in the table alike: `fprintpath()` does it for every
+# control character, quote, backslash, hash and space, and `xgettok()` reads it back.
+OCTAL_ESCAPE_REGEX = re.compile(r'\\([0-7]{3})')
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=False,
+    )
+
+    # hidden test hook: prefix every path the check reads, so a fixture tree can stand
+    # in for the host's filesystem without touching the host
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='/',
+    )
+
+    parser.add_argument(
+        '--etab',
+        help='Path to the export table the server serves, which is where the state '
+        'directory of the NFS utilities was moved to if it was moved at all. '
+        'Default: %(default)s',
+        dest='ETAB',
+        default=ETAB,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--missing-path-severity',
+        help='State to report for an export whose path does not exist. The server keeps '
+        'serving it, and a client that has it mounted gets a stale file handle. '
+        'Default: %(default)s',
+        dest='MISSING_PATH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_MISSING_PATH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--not-exported-severity',
+        help='State to report for an export the configuration asks for and the server '
+        'does not serve. Usually `exportfs -ra` has not been run since the entry was '
+        'added, or it refused the entry; a client cannot mount such a share at all. '
+        'Default: %(default)s',
+        dest='NOT_EXPORTED_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NOT_EXPORTED_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help='How long the export paths get to answer before they are reported as '
+        'unreachable. Only a path on a network filesystem ever needs it: one whose '
+        'server has stopped answering does not fail, it blocks. Every path is looked at '
+        'at the same time and they share one deadline, so this is the runtime of the '
+        'whole check and not a budget per path. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--unconfigured-severity',
+        help='State to report for an export the server serves and the configuration '
+        'does not ask for. Cluster software that creates its exports at runtime looks '
+        'exactly like this, which is why it does not alert by default. '
+        'Default: %(default)s',
+        dest='UNCONFIGURED_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNCONFIGURED_SEVERITY,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_configured(root):
+    """Return what the configuration asks to be exported: a dict of export path to the
+    list of clients it is meant for, a dict of export path to the files it is written
+    in, and the list of files that were read.
+
+    Reads /etc/exports and the files below /etc/exports.d whose name ends in
+    ".exports", which is what exportfs reads (nfs-utils `export_read()` and
+    `export_d_read()`). The directory is walked in the same order, so a path named twice
+    reports the clients in the order the server sees them.
+    """
+    configured = {}
+    origins = {}
+    read = []
+    for path in [rooted(root, EXPORTS), *list_exports_d(root)]:
+        if not lib.disk.file_exists(path, allow_empty=True):
+            continue
+        read.append(path)
+        shown = unrooted(root, path)
+        content = lib.base.coe(lib.disk.read_file(path))
+        for export_path, clients in parse_exports(content):
+            configured.setdefault(export_path, []).extend(clients)
+            if shown not in origins.setdefault(export_path, []):
+                origins[export_path].append(shown)
+    return configured, origins, read
+
+
+def get_hint(counts):
+    """Return one line telling the administrator what the findings mean for the host, so
+    that the difference between an export that is not served and one that has no path
+    does not have to be looked up.
+    """
+    hints = []
+    if counts['not exported']:
+        hints.append(
+            'an export the server does not serve cannot be mounted at all, and `exportfs '
+            '-ra` is what puts the configuration into effect and names the entries it '
+            'refuses'
+        )
+    if counts['missing path']:
+        hints.append(
+            'an export whose path is gone keeps being served, and every client that has '
+            'it mounted gets a stale file handle until the path is back'
+        )
+    if counts['unreachable']:
+        hints.append(
+            'an export whose path did not answer sits on a filesystem that has stopped '
+            'answering, which is what `nfs-mounts` reports for this host'
+        )
+    if not hints:
+        return ''
+    return f'Hint: {"; ".join(hints)}.'
+
+
+def get_served(path):
+    """Return the export paths the server really serves, as a dict of path to the list
+    of clients each is served to.
+
+    The table holds one line per path and client, the path escaped the same way the
+    export files escape it, the client followed by the whole option list in brackets.
+    """
+    served = {}
+    if not lib.disk.file_exists(path, allow_empty=True):
+        return served, False
+    content = lib.base.coe(lib.disk.read_file(path))
+    for line in content.splitlines():
+        fields = line.split()
+        if len(fields) < 2:
+            continue
+        # the second field is the client with the whole expanded option list glued to
+        # it, and that list is far too long to put in front of a reader
+        client = fields[1].split('(', 1)[0] or '*'
+        served.setdefault(unescape(fields[0]), []).append(client)
+    return served, True
+
+
+def get_status(finding, args):
+    """Return what to report for one export, as a `(state, status)` pair, where `status`
+    names the finding the way an administrator recognizes it.
+    """
+    if finding == 'ok':
+        return STATE_OK, 'exported'
+    if finding == 'not exported':
+        return (
+            lib.base.str2state(args.NOT_EXPORTED_SEVERITY),
+            'configured but not exported',
+        )
+    if finding == 'missing path':
+        return lib.base.str2state(args.MISSING_PATH_SEVERITY), 'path does not exist'
+    if finding == 'unreachable':
+        return (
+            lib.base.str2state(args.MISSING_PATH_SEVERITY),
+            f'path did not answer within {args.TIMEOUT}s',
+        )
+    return (
+        lib.base.str2state(args.UNCONFIGURED_SEVERITY),
+        'exported but not configured',
+    )
+
+
+def join_continuations(content):
+    """Return the logical lines of an export file: a backslash at the end of a line
+    joins it with the next one, and the leading whitespace of that next line is dropped.
+
+    Any trailing backslash continues the line, however many precede it. `xgetc()` in
+    nfs-utils returns a backslash unchanged unless a newline follows it, so in `\\` at
+    the end of a line the first one is a literal backslash and the second one still
+    continues.
+    """
+    lines = []
+    pending = ''
+    for raw in content.splitlines():
+        line = pending + raw.lstrip(' \t') if pending else raw
+        pending = ''
+        if line.endswith('\\'):
+            pending = line[:-1] + ' '
+            continue
+        lines.append(line)
+    if pending:
+        lines.append(pending)
+    return lines
+
+
+def list_exports_d(root):
+    """Return the files below /etc/exports.d that exportfs reads, in the order it reads
+    them.
+
+    Only a name ending in ".exports" and longer than that suffix counts, a name starting
+    with a dot never does, and the directory is walked in version order. Taken from
+    `export_d_read()` in nfs-utils 2.9.2.
+    """
+    directory = rooted(root, EXPORTS_D)
+    if not lib.disk.dir_exists(directory):
+        return []
+    names = [
+        name
+        for name in os.listdir(directory)
+        if not name.startswith('.')
+        and name.endswith(EXPORTS_D_SUFFIX)
+        and len(name) > len(EXPORTS_D_SUFFIX)
+    ]
+    return [os.path.join(directory, name) for name in sorted(names)]
+
+
+def parse_exports(content):
+    """Return the entries of an export file, as a list of `(path, clients)` pairs.
+
+    The format is not a plain table, and every rule below is taken from the reader in
+    nfs-utils 2.9.2 (`xgetc()`, `xgettok()`, `xskip()` and `getexportent()`):
+
+    - a backslash at the end of a line continues the entry on the next one, and the
+      leading whitespace of that next line is dropped
+    - a `#` where a word is expected starts a comment that runs to the end of the line
+    - a double quote toggles quoting, and whitespace inside quotes belongs to the word
+    - a backslash and three octal digits stand for the byte they spell
+    - the first word of an entry is the path; a word that begins with `-` carries the
+      default options for the entry, and every other word names a client, either bare
+      or as `client(options)`
+    """
+    entries = []
+    for line in join_continuations(content):
+        words = split_words(line)
+        if not words:
+            continue
+        path = words[0]
+        clients = []
+        for word in words[1:]:
+            if word.startswith('-'):
+                # the default options of the entry, not a client
+                continue
+            clients.append(word.split('(', 1)[0] or '*')
+        entries.append((path, clients))
+    return entries
+
+
+def rooted(root, path):
+    """Return `path` below the configuration root, for both absolute and relative
+    paths.
+    """
+    return os.path.join(root, path.lstrip('/'))
+
+
+def source_of(path, origins):
+    """Return the file an export is written in, for the --lengthy table. An export the
+    files do not carry was put into the table by `exportfs` directly.
+    """
+    return ', '.join(origins.get(path, [])) or 'exportfs'
+
+
+def split_words(line):
+    """Return the words of one logical line, honouring quotes, comments and the octal
+    escapes.
+    """
+    words = []
+    word = ''
+    started = False
+    quoted = False
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if char == '"':
+            quoted = not quoted
+            started = True
+        elif char == '#' and not quoted and not started:
+            # a comment only where a word is expected, never inside one
+            break
+        elif char in ' \t' and not quoted:
+            if started:
+                words.append(unescape(word))
+                word = ''
+                started = False
+        else:
+            word += char
+            started = True
+        index += 1
+    if started:
+        words.append(unescape(word))
+    return words
+
+
+def unescape(field):
+    """Turn the octal escape sequences of an export file or of the export table back into
+    the characters they stand for, so that a path containing a space is looked at and
+    printed the way the administrator wrote it.
+    """
+    return OCTAL_ESCAPE_REGEX.sub(lambda match: chr(int(match.group(1), 8)), field)
+
+
+def unrooted(root, path):
+    """Return `path` without the configuration root, so that a fixture tree does not
+    leak its own prefix into the output.
+    """
+    if root in ('', '/'):
+        return path
+    prefix = root.rstrip('/')
+    if path.startswith(prefix):
+        return path[len(prefix) :] or '/'
+    return path
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    root = args.CONFIG_ROOT
+    configured, origins, read = get_configured(root)
+    served, has_etab = get_served(rooted(root, args.ETAB))
+    if not read and not has_etab:
+        lib.base.cu(
+            f'This host has neither {EXPORTS} nor an export table at {args.ETAB}. '
+            'This check belongs on an NFS server.'
+        )
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    problems = []
+    counts = {
+        'missing path': 0,
+        'not exported': 0,
+        'unconfigured': 0,
+        'unreachable': 0,
+    }
+    compiled_match = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    # Filter export paths. --match (include) is applied first, then --ignore (exclude),
+    # so a path hit by --ignore is dropped even if it also matches --match. Both use
+    # case-sensitive Python regex. The filter runs before the paths are looked at, so a
+    # path an administrator has deliberately excluded never costs the check its deadline.
+    selected = []
+    for path in sorted(set(configured) | set(served)):
+        if compiled_match and not any(p.search(path) for p in compiled_match):
+            continue
+        if any(p.search(path) for p in compiled_ignore):
+            continue
+        selected.append(path)
+
+    # Only a path the server actually serves is looked at. One that is configured and not
+    # served has a finding of its own already, and whether its directory happens to be
+    # there says nothing about why the server does not serve it.
+    jobs = []
+    for path in selected:
+        if path not in served:
+            continue
+        target = rooted(root, path)
+        jobs.append((path, lambda target=target: os.path.isdir(target)))
+    answers = lib.task.run_each(jobs, args.TIMEOUT)
+
+    for path in selected:
+        clients = served.get(path) or configured.get(path) or []
+        if path not in served:
+            finding = 'not exported'
+        else:
+            # An export that is served is graded by its path first, and whether anyone
+            # configured it comes second. An export no file carries is a normal state,
+            # one whose path is gone is not, so the path has to win: otherwise an export
+            # that cluster software created and whose path then vanished would be
+            # reported as merely unconfigured and stay OK.
+            success, answer = answers[path]
+            if not success:
+                # `answer` is the reason the look did not happen, not a verdict
+                finding = (
+                    'unreachable' if answer == lib.task.TIMEOUT else 'missing path'
+                )
+            elif not answer:
+                finding = 'missing path'
+            elif path not in configured:
+                finding = 'unconfigured'
+            else:
+                finding = 'ok'
+        local_state, status = get_status(finding, args)
+        state = lib.base.get_worst(state, local_state)
+        if finding != 'ok':
+            counts[finding] += 1
+        if local_state != STATE_OK:
+            problems.append(f'{path}: {status}')
+        table_data.append(
+            {
+                '_state': local_state,
+                'clients': ', '.join(clients) if clients else '-',
+                'path': path,
+                'source': source_of(path, origins),
+                'state': f'{status}{lib.base.state2str(local_state, prefix=" ")}',
+            }
+        )
+
+    # Filter table rows for --brief display: hide the exports that are fine and keep only
+    # the ones in a WARN or CRIT state. Perfdata and alerting stay untouched above this
+    # point, --brief only reshapes the human-readable output.
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['_state'] != STATE_OK]
+    else:
+        display_rows = table_data
+
+    # build the message
+    checked = len(table_data)
+    if not configured and not served:
+        msg = (
+            'Everything is ok. This host exports nothing '
+            'and is configured to export nothing.'
+        )
+    elif not table_data:
+        count = len(set(configured) | set(served))
+        msg = (
+            f'{count} NFS {lib.txt.pluralize("export", count)}, '
+            f'filtered out by --match or --ignore.'
+        )
+        state = lib.base.str2state(args.NO_MATCH_SEVERITY)
+    elif problems:
+        count = len(problems)
+        msg = (
+            f'{count} of {checked} NFS {lib.txt.pluralize("export", checked)} '
+            f'{lib.txt.pluralize("", count, "is,are")} not right:'
+        )
+        if count == 1:
+            # show the export on the first line when there is only one hit
+            msg += f' {problems[0]}'
+        else:
+            for problem in problems:
+                msg += f'\n* {problem}'
+        hint = get_hint(counts)
+        if hint:
+            msg += f'\n{hint}'
+    else:
+        served_count = len([row for row in table_data if row['_state'] == STATE_OK])
+        msg = (
+            f'Everything is ok. {served_count} NFS '
+            f'{lib.txt.pluralize("export", served_count)} '
+            f'{lib.txt.pluralize("", served_count, "is,are")} served.'
+        )
+
+    perfdata += lib.base.get_perfdata(
+        'nfs_exports_configured',
+        len(configured),
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_exports_served',
+        len(served),
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_exports_not_exported',
+        counts['not exported'],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_exports_missing_path',
+        counts['missing path'] + counts['unreachable'],
+        uom=None,
+        warn='0',
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'nfs_exports_unconfigured',
+        counts['unconfigured'],
+        uom=None,
+        _min=0,
+    )
+
+    # build table output
+    if display_rows:
+        if args.LENGTHY:
+            keys = ['path', 'source', 'clients', 'state']
+            headers = ['Path', 'Source', 'Clients', 'State']
+        else:
+            keys = ['path', 'clients', 'state']
+            headers = ['Path', 'Clients', 'State']
+        msg += '\n\n' + lib.base.get_table(display_rows, keys, header=headers)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
