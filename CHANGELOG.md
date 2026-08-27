@@ -131,6 +131,7 @@ Monitoring Plugins:
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * kvm-vm: a machine that crashed or never started is reported instead of counted as switched off
 * kvm-vm: no longer fails on a machine name containing a space, and reports the machines without root
+* needs-restarting: says so when it could not ask a Debian host at all instead of calling it clean, and stops announcing a reboot where only services need restarting
 * openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
 * path-rw-test: no longer runs forever when a path sits on a network filesystem that stopped answering
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`

@@ -17,63 +17,124 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# needs-restarting has OS-family-specific branches. The tests use
-# `--test-os-family` (a hidden test hook) to force the detection and
-# `--test` to inject the relevant shell-command fixtures for each
-# code path:
+# The check has one branch per OS family, so the tests force the detection with
+# `--test-os-family` (a hidden test hook) and inject the fixtures with `--test`.
+# One fixture per command, named after the base plus the command's suffix:
+#
 #   RedHat: needs-restarting --reboothint   -> <base>-reboothint
 #           needs-restarting                -> <base>-services
 #   Debian: needrestart -b                  -> <base>-needrestart
 #
-# The `containerfiles/` directory next door still holds the legacy
-# per-distro podman setup for future cross-OS smoke coverage and can
-# be migrated to testcontainers-python later if desired.
+# Every fixture below is the verbatim answer of that command, captured from a real
+# host. The Red Hat ones come from Rocky 9.4 and Rocky 10.0 with yum-utils 4.14 and
+# 4.20, the Debian ones from Debian 13 with needrestart 3.11:
+#
+#   rhel-clean                 Rocky 9 right after a reboot: `--reboothint` returns 0
+#                              and the process list is empty
+#   rhel-reboot-and-services   Rocky 10 after `dnf update` and no reboot: seven core
+#                              packages replaced since boot, seven processes still on
+#                              the old code
+#   debian-clean               Debian 13 right after a reboot: the kernel is the
+#                              installed one and no service is listed
+#   debian-services-only       the same host patched but with the kernel untouched.
+#                              `KSTA: 1` and `KCUR == KEXP`, five services listed. This
+#                              is the case that must not be reported as a pending
+#                              reboot
+#   debian-kernel-and-services a newer kernel installed on top, so `KSTA: 3` with
+#                              `KCUR != KEXP` next to the same five services
+#   debian-answered-nothing    what needrestart answers when it cannot do its job: the
+#                              version line, nothing else, and exit code 0. Left in
+#                              because that answer is indistinguishable from a clean
+#                              host by its exit code alone
+#
+# The grace period is not exercised here. It keeps its state in a local SQLite cache,
+# which `--test` deliberately does not touch, so every finding counts as due in these
+# runs. It was measured on the hosts above instead.
+
 TESTS = [
     {
-        'id': 'ok-rhel-clean',
+        'id': 'ok-rhel-nothing-pending',
         'test': 'stdout/rhel-clean,,0',
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_OK,
-        'assert-in': ['No system or service restart needed'],
+        'assert-in': ['No reboot and no service restart pending.'],
     },
     {
-        'id': 'warn-rhel-reboot-required',
-        'test': 'stdout/rhel-reboot-required,,1',
+        'id': 'warn-rhel-reboot-and-services',
+        'test': 'stdout/rhel-reboot-and-services,,1',
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_WARN,
-        'assert-in': ['A system reboot may be required'],
+        'assert-in': [
+            'A reboot is pending. 7 running processes need a restart.',
+            'replaced since boot: dbus-broker, glibc, kernel',
+            '/usr/sbin/NetworkManager --no-daemon',
+            'Schedule the reboot.',
+        ],
     },
     {
-        'id': 'warn-rhel-services-restart-needed',
-        'test': 'stdout/rhel-services,,0',
+        # The first line is what reaches a notification, so it stays a summary and the
+        # packages behind the reboot go below it.
+        'id': 'warn-rhel-the-first-line-stays-short',
+        'test': 'stdout/rhel-reboot-and-services,,1',
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_WARN,
-        'assert-in': ['sshd', 'may need a restart'],
+        'assert-regex': r'(?m)\AA reboot is pending\. 7 running processes need a restart\.$',
     },
     {
-        'id': 'ok-debian-clean',
+        'id': 'ok-debian-nothing-pending',
         'test': 'stdout/debian-clean,,0',
         'params': '--test-os-family=Debian',
         'assert-retc': STATE_OK,
-        'assert-in': ['No system or service restart needed'],
+        'assert-in': ['No reboot and no service restart pending.'],
     },
     {
-        'id': 'warn-debian-kernel-and-services-pending',
-        'test': 'stdout/debian-kernel-pending,,0',
+        # `KSTA: 1` with `KCUR == KEXP` means the kernel is current. Saying a reboot is
+        # pending here sends somebody to schedule a maintenance window for nothing.
+        'id': 'warn-debian-services-without-a-reboot',
+        'test': 'stdout/debian-services-only,,0',
         'params': '--test-os-family=Debian',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'sshd.service',
-            'Version upgrade pending',
-            'Running Kernel 6.1.0-13-amd64 != Installed Kernel 6.1.0-15-amd64',
+            '5 running processes need a restart.',
+            'cron.service',
+            'systemd-logind.service',
         ],
+        'assert-not-in': ['A reboot is pending', 'Schedule the reboot'],
+    },
+    {
+        'id': 'warn-debian-kernel-upgrade-pending',
+        'test': 'stdout/debian-kernel-and-services,,0',
+        'params': '--test-os-family=Debian',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'A reboot is pending. 5 running processes need a restart.',
+            'a kernel version upgrade is pending',
+            'running 6.12.43+deb13-amd64 against the installed 6.12.105+deb13-amd64',
+        ],
+    },
+    {
+        # needrestart exits 0 and prints its version line when it cannot do its job,
+        # which by exit code alone is indistinguishable from a clean host. The check
+        # refuses such a run before it gets here, by insisting on root; this pins that
+        # the parser at least does not invent findings out of it.
+        'id': 'ok-debian-an-empty-answer-invents-nothing',
+        'test': 'stdout/debian-answered-nothing,,0',
+        'params': '--test-os-family=Debian',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['A reboot is pending', 'need a restart'],
+    },
+    {
+        'id': 'ok-always-ok-swallows-the-state',
+        'test': 'stdout/rhel-reboot-and-services,,1',
+        'params': '--test-os-family=RedHat --always-ok',
+        'assert-retc': STATE_OK,
     },
     {
         'id': 'unknown-os-not-supported',
         'test': 'stdout/rhel-clean,,0',
         'params': '--test-os-family=Arch',
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['OS not supported'],
+        'assert-in': ['Arch is not supported by this check.'],
     },
 ]
 

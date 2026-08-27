@@ -4,6 +4,9 @@
             "arguments": {
                 "--always-ok": {
                     "set_if": "$needs_restarting_always_ok$"
+                },
+                "--grace-wait": {
+                    "value": "$needs_restarting_grace_wait$"
                 }
             },
             "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/needs-restarting",
@@ -11,6 +14,11 @@
             "fields": [
                 {
                     "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -56,7 +64,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 3,
-            "notes": "Checks for processes that were started before they or one of their dependencies were updated. Returns WARN if a full system reboot is required or if individual services need a restart. Useful for detecting servers that have been patched but not yet rebooted. Requires root or sudo.",
+            "notes": "Reports what on this host is still running the code it had before the last update: processes that were started before they or one of their dependencies were replaced, and a kernel or core library that only a full reboot puts into service. A machine that was patched and not restarted keeps running the old code, vulnerabilities included, and nothing on it says so by itself. The reboot and the individual services are reported apart, because they are fixed by different things. A grace period holds the alert back for as long as a host is allowed to take between its updates and its reboot. Alerts when a reboot is pending and when a running process needs a restart. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/needs-restarting/",
             "object_name": "tpl-service-needs-restarting",
             "object_type": "template",
@@ -67,7 +75,8 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
-                "needs_restarting_always_ok": false
+                "needs_restarting_always_ok": false,
+                "needs_restarting_grace_wait": "4h"
             },
             "volatile": null,
             "zone": null,
@@ -83,6 +92,17 @@
             "format": null,
             "settings": {},
             "uuid": "dda5aeae-326b-4ee7-9738-653c06c9569d"
+        },
+        "2": {
+            "varname": "needs_restarting_grace_wait",
+            "caption": "Needs Restarting: Grace Wait",
+            "description": "How long a pending restart is tolerated before it counts towards the state. Set this to cover the time a host needs between taking its updates and rebooting, so a machine that is already scheduled for a reboot stays quiet until it has had its chance. Starts when the pending restart is first seen, separately for the reboot and for each service, and starts over once that entry is gone. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b91e93cc-5506-45f0-9e6b-bc60b46c981a"
         }
     }
 }

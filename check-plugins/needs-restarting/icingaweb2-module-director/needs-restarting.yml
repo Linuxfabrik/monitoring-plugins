@@ -5,3 +5,10 @@ overwrites:
   '["ServiceTemplate"]["tpl-service-needs-restarting"]["check_interval"]': 3600
   '["ServiceTemplate"]["tpl-service-needs-restarting"]["max_check_attempts"]': 3
   '["ServiceTemplate"]["tpl-service-needs-restarting"]["retry_interval"]': 300
+  # A host takes its updates and reboots hours later, because the reboot waits for a
+  # maintenance window or for whatever else runs on it. Four hours is what the Director
+  # gives a host elsewhere too, and it keeps the check quiet over that span instead of
+  # alerting on every machine the moment its patch run finishes. The plugin itself
+  # defaults to no grace at all, so a run from the command line reports what is pending
+  # right now.
+  '["ServiceTemplate"]["tpl-service-needs-restarting"]["vars"]["needs_restarting_grace_wait"]': '4h'

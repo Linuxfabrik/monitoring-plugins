@@ -11,25 +11,82 @@
 """See the check's README for more details."""
 
 import argparse
+import os
 import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
 import lib.disk
 import lib.distro
+import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082701'
 
-DESCRIPTION = """Checks for processes that were started before they or one of their dependencies were
-updated. Returns WARN if a full system reboot is required or if individual services
-need a restart. Useful for detecting servers that have been patched but not yet
-rebooted.
+DESCRIPTION = """Reports what on this host is still running the code it had before the
+last update: processes that were started before they or one of their dependencies were
+replaced, and a kernel or core library that only a full reboot puts into service. A
+machine that was patched and not restarted keeps running the old code, vulnerabilities
+included, and nothing on it says so by itself. The reboot and the individual services
+are reported apart, because they are fixed by different things. A grace period holds the
+alert back for as long as a host is allowed to take between its updates and its reboot.
+Alerts when a reboot is pending and when a running process needs a restart.
 Requires root or sudo."""
+
+# Where the tool sits on each family. `needrestart` is in `/usr/sbin`, which is not in
+# the PATH of an unprivileged user on the Debian family, so resolving it through PATH
+# alone finds nothing and the check would report a patched host as clean. Measured on
+# Debian 13: the login PATH is `/usr/local/bin:/usr/bin:/bin:/usr/games`, while sudo's
+# `secure_path` does carry `/usr/sbin`. PATH is tried first and these are the fallback.
+TOOL_PATHS = {
+    'Debian': ('/usr/sbin/needrestart', '/sbin/needrestart'),
+    'RedHat': ('/usr/bin/needs-restarting', '/bin/needs-restarting'),
+}
+
+# What to install where the tool is missing altogether.
+TOOL_PACKAGES = {
+    'Debian': '`apt install needrestart`',
+    'RedHat': '`dnf install yum-utils`',
+}
+
+TOOL_NAMES = {'Debian': 'needrestart', 'RedHat': 'needs-restarting'}
+
+# What `NEEDRESTART-KSTA` means, from the needrestart manual. 2 and 3 both mean the
+# running kernel is not the one that is installed, which only a reboot changes; 0 is
+# needrestart saying it could not tell, which is not a finding of its own.
+KSTA_LABELS = {
+    '0': 'the kernel state could not be detected',
+    '1': 'no kernel upgrade pending',
+    '2': 'an ABI compatible kernel upgrade is pending',
+    '3': 'a kernel version upgrade is pending',
+}
+KSTA_NEEDS_REBOOT = ('2', '3')
+
+# Debian packages drop this marker when something they replaced only takes effect after
+# a reboot. `/var/run` is a symlink to `/run`, so one path covers both.
+REBOOT_REQUIRED_FILE = '/run/reboot-required'
+
+# Named here so the same words reach the plugin output and the README.
+REBOOT_HELP = (
+    'Schedule the reboot. Until it happens the host keeps running the old kernel and '
+    'the old core libraries, so a fix that came with the update is not in effect. '
+    '`--grace-wait` holds this back for as long as a host is allowed to take between '
+    'its updates and its reboot.'
+)
+
+SERVICE_HELP = (
+    'Restart the listed services, which puts them on the libraries that are now '
+    'installed: `systemctl restart dbus.service` for each of them, or let the '
+    'configuration management do it. On the Debian family `needrestart -r a` restarts '
+    'all of them in one go.'
+)
+
+DEFAULT_GRACE_WAIT = '0D'
 
 
 def parse_args():
@@ -56,6 +113,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--grace-wait',
+        help=lib.args.help('--grace-wait') + ' Default: %(default)s',
+        dest='GRACE_WAIT',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_WAIT,
+    )
+
+    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -75,6 +140,126 @@ def parse_args():
     return args
 
 
+def find_tool(os_family):
+    """
+    Locate the tool that answers what needs restarting.
+
+    PATH first, because that is how every other check resolves a command, then the
+    places the tool is actually installed in. Returns the path, or None where the tool
+    is not on the host at all.
+    """
+    name = TOOL_NAMES[os_family]
+    for directory in os.environ.get('PATH', '').split(os.pathsep):
+        candidate = os.path.join(directory, name)
+        if directory and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    for candidate in TOOL_PATHS[os_family]:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def run_tool(command, args, suffix):
+    """
+    Run one of the tool's invocations, or replay its fixture.
+
+    Returns `(stdout, stderr, retc)`. A command that will not start ends the check
+    rather than being read as an empty answer, because "nothing came back" and "nothing
+    needs restarting" look the same and only one of them is good news.
+    """
+    if args.TEST is not None:
+        return lib.lftest.test([args.TEST[0] + suffix, args.TEST[1], args.TEST[2]])
+    success, result = lib.shell.shell_exec(command)
+    if not success:
+        lib.base.cu(f'Could not ask what needs restarting: {result}')
+    return result
+
+
+def collect_redhat(args, tool):
+    """
+    Ask `needs-restarting` what is pending.
+
+    Two invocations, because the tool answers two different questions: `--reboothint`
+    returns 1 when a core library or the kernel was replaced since boot, and the plain
+    call lists the processes that are running older code than what is installed.
+    """
+    findings = []
+
+    stdout, _, retc = run_tool([tool, '--reboothint'], args, '-reboothint')
+    if int(retc) != 0:
+        packages = [
+            line.strip().lstrip('* ').strip()
+            for line in stdout.splitlines()
+            if line.strip().startswith('*')
+        ]
+        findings.append(
+            {
+                'key': 'reboot',
+                'kind': 'reboot',
+                'text': (
+                    'replaced since boot: ' + ', '.join(packages)
+                    if packages
+                    else 'a core library or the kernel was replaced since boot'
+                ),
+            }
+        )
+
+    stdout, _, _ = run_tool([tool], args, '-services')
+    for line in stdout.splitlines():
+        # `<pid> : <command>`. The pid changes on every restart, the command does not,
+        # so the command is what the grace period can age.
+        _, _, command = line.partition(' : ')
+        command = command.strip()
+        if command:
+            findings.append({'key': command, 'kind': 'service', 'text': command})
+    return findings
+
+
+def collect_debian(args, tool):
+    """
+    Ask `needrestart` what is pending, and read the marker Debian packages drop.
+
+    The two cover different things: needrestart compares the running kernel against the
+    installed one and lists the services running replaced libraries, while the marker
+    file is written by packages whose change only takes effect after a reboot.
+    """
+    findings = []
+    stdout, _, _ = run_tool([tool, '-b'], args, '-needrestart')
+
+    ksta, kcur, kexp = '', '', ''
+    for line in stdout.splitlines():
+        if line.startswith('NEEDRESTART-KCUR: '):
+            kcur = line[len('NEEDRESTART-KCUR: ') :].strip()
+        elif line.startswith('NEEDRESTART-KEXP: '):
+            kexp = line[len('NEEDRESTART-KEXP: ') :].strip()
+        elif line.startswith('NEEDRESTART-KSTA: '):
+            ksta = line[len('NEEDRESTART-KSTA: ') :].strip()
+        elif line.startswith('NEEDRESTART-SVC: '):
+            service = line[len('NEEDRESTART-SVC: ') :].strip()
+            if service:
+                findings.append({'key': service, 'kind': 'service', 'text': service})
+
+    # The kernel state is the authority here. A host whose services need a restart but
+    # whose kernel is current does not need a reboot, and saying it does sends somebody
+    # to schedule a maintenance window for nothing.
+    if ksta in KSTA_NEEDS_REBOOT:
+        detail = KSTA_LABELS[ksta]
+        if kcur and kexp and kcur != kexp:
+            detail += f', running {kcur} against the installed {kexp}'
+        findings.append({'key': 'reboot', 'kind': 'reboot', 'text': detail})
+    elif args.TEST is None and lib.disk.file_exists(
+        REBOOT_REQUIRED_FILE, allow_empty=True
+    ):
+        findings.append(
+            {
+                'key': 'reboot',
+                'kind': 'reboot',
+                'text': f'a package left {REBOOT_REQUIRED_FILE} behind',
+            }
+        )
+    return findings
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -84,132 +269,122 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # Pad args.TEST to 3 elements so the per-command fixture
-    # loads below that splice `args.TEST[1]` and `args.TEST[2]`
-    # into custom lib.lftest.test() calls do not go out of range
-    # when the user passes `--test=path` without trailing commas.
+    # Pad args.TEST to 3 elements so the per-command fixture loads below that splice
+    # `args.TEST[1]` and `args.TEST[2]` into custom lib.lftest.test() calls do not go
+    # out of range when the user passes `--test=path` without trailing commas.
     if args.TEST is not None:
         while len(args.TEST) < 3:
             args.TEST.append('')
 
-    # init some vars
-    if args.TEST_OS_FAMILY:
-        distro = {'os_family': args.TEST_OS_FAMILY}
-    else:
-        distro = lib.distro.get_distribution_facts()
+    # fetch data
+    os_family = args.TEST_OS_FAMILY or lib.distro.get_distribution_facts()['os_family']
+    if os_family not in TOOL_NAMES:
+        lib.base.cu(f'{os_family} is not supported by this check.')
 
-    # build the message
-    if distro['os_family'] == 'RedHat':
-        # 1. full reboot necessary? check the return code (<> 0: needs reboot):
-        # needs-restarting --reboothint
-        if args.TEST is None:
-            stdout, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(['needs-restarting', '--reboothint'])
-            )
-        else:
-            stdout, stderr, retc = lib.lftest.test(
-                [args.TEST[0] + '-reboothint', args.TEST[1], args.TEST[2]],
-            )
-        if int(retc) == 1:
-            lib.base.oao(
-                'A system reboot may be required.', STATE_WARN, always_ok=args.ALWAYS_OK
-            )
-
-        # 2. long list of all updated services (process list): needs-restarting
-        if args.TEST is None:
-            stdout, _, retc = lib.base.coe(lib.shell.shell_exec(['needs-restarting']))
-        else:
-            stdout, _, retc = lib.lftest.test(
-                [args.TEST[0] + '-services', args.TEST[1], args.TEST[2]],
-            )
-        service_restart_needed = stdout.strip()
-        if service_restart_needed:
-            #  support for backslash characters within the brace substitution is still disallowed
-            lib.base.oao(
-                (
-                    f'Found {stdout.count(chr(10))} running '
-                    f'{lib.txt.pluralize("process", stdout.count(chr(10)), "es")} that '
-                    f'{lib.txt.pluralize("", stdout.count(chr(10)), "has,have")} been updated '
-                    f'and may need a restart:\n{service_restart_needed}'
-                ),
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
-        if stderr:
-            lib.base.oao(f'No system or service restart needed, but {stderr}', STATE_OK)
-        lib.base.oao('No system or service restart needed.', STATE_OK)
-
-    if distro['os_family'] == 'Debian':
-        # 1. check if needrestart is available - if yes, use it
-        if args.TEST is None:
-            success, result = lib.shell.shell_exec(['needrestart', '-b'])
-        else:
-            success = True
-            result = lib.lftest.test(
-                [args.TEST[0] + '-needrestart', args.TEST[1], args.TEST[2]],
-            )
-        if success:
-            stdout, stderr, retc = result
-            # NEEDRESTART-VER: 3.5
-            # NEEDRESTART-KCUR: 4.19.0-20-amd64
-            # NEEDRESTART-KEXP: 5.10.0-13-amd64
-            # NEEDRESTART-KSTA: 3
-            # NEEDRESTART-SVC: dbus.service
-            # NEEDRESTART-SVC: getty@tty1.service
-            # NEEDRESTART-SVC: ifup@enp1s0.service
-            # NEEDRESTART-SVC: systemd-logind.service
-            # The kernel status (NEEDRESTART-KSTA) value has the following meaning:
-            #     0: unknown or failed to detect
-            #     1: no pending upgrade
-            #     2: ABI compatible upgrade pending
-            #     3: version upgrade pending
-            msg = ''
-            svc = 0
-            svcs = ''
-            kcur, kexp = '', ''
-            for line in stdout.split('\n'):
-                if line.startswith('NEEDRESTART-KCUR: '):
-                    kcur = line.replace('NEEDRESTART-KCUR: ', '')
-                if line.startswith('NEEDRESTART-KEXP: '):
-                    kexp = line.replace('NEEDRESTART-KEXP: ', '')
-                if line.startswith('NEEDRESTART-KSTA: '):
-                    if line.endswith('0'):
-                        msg += '(Unknown or failed to detect)'
-                    if line.endswith('2'):
-                        msg += '(ABI compatible upgrade pending)'
-                    if line.endswith('3'):
-                        msg += '(Version upgrade pending)'
-                if line.startswith('NEEDRESTART-SVC: '):
-                    svc += 1
-                    svcs += f'* {line.replace("NEEDRESTART-SVC: ", "")}\n'
-            if kcur != kexp:
-                msg = f'Running Kernel {kcur} != Installed Kernel {kexp} {msg}. '
-            if svc:
-                msg += (
-                    f'Found {svc} running '
-                    f'{lib.txt.pluralize("process", svc, "es")} that '
-                    f'{lib.txt.pluralize("", svc, "has,have")} been updated '
-                    f'and may need a restart:\n{svcs}, '
-                )
-            if msg:
-                lib.base.oao(
-                    f'A system reboot may be required. {msg[:-2]}',
-                    STATE_WARN,
-                    always_ok=args.ALWAYS_OK,
-                )
-            lib.base.oao('No system or service restart needed.', STATE_OK)
-
-        # 2. if not, check if reboot is required
-        if lib.disk.file_exists('/var/run/reboot-required', allow_empty=True):
-            lib.base.oao(
-                'A system reboot may be required.', STATE_WARN, always_ok=args.ALWAYS_OK
-            )
-        # over and out
-        lib.base.oao(
-            'No system or service restart needed.', STATE_OK, always_ok=args.ALWAYS_OK
+    # Both tools need root to see the processes of other users, and `needrestart`
+    # answers an unprivileged run with its version line and nothing else: no kernel
+    # verdict, no services, exit code 0. Read as a result that would be a clean bill of
+    # health for a host that is in fact running replaced code, so the rights are
+    # checked before the answer is trusted. Measured on Debian 13 / needrestart 3.11.
+    if args.TEST is None and hasattr(os, 'geteuid') and os.geteuid() != 0:
+        lib.base.cu(
+            'This check has to run as root to see what needs restarting. Without it '
+            f'{TOOL_NAMES[os_family]} answers with nothing at all, which is not the '
+            'same as nothing being pending. Deploy the sudoers file that comes with '
+            'the check and call it through sudo.'
         )
 
-    lib.base.cu('OS not supported.')
+    tool = 'needs-restarting' if args.TEST is not None else find_tool(os_family)
+    if tool is None:
+        # Without the tool the check knows nothing about the host, which is what
+        # UNKNOWN is for. It is not WARN: the package is not part of a working host
+        # the way the check is part of a working monitoring setup, and putting a
+        # missing dependency on the alert path buries it among real findings.
+        lib.base.cu(
+            f'{TOOL_NAMES[os_family]} is not installed, so nothing here says whether '
+            f'this host is running the code it was patched to. Install it with '
+            f'{TOOL_PACKAGES[os_family]}, or stop running this check here.'
+        )
+
+    if os_family == 'RedHat':
+        findings = collect_redhat(args, tool)
+    else:
+        findings = collect_debian(args, tool)
+
+    # init some vars
+    msg = ''
+    msg_body = ''
+    state = STATE_OK
+
+    # Remember since when each pending restart has been pending, so the grace period
+    # can hold the alert back until the host has had its chance to reboot. The reboot
+    # and every service age separately. Skipped under `--test`, which must not touch
+    # the host's state.
+    ages = None
+    if args.TEST is None:
+        ages = lib.db_sqlite.first_seen(
+            'linuxfabrik-monitoring-plugins-needs-restarting.db',
+            'needs-restarting',
+            [finding['key'] for finding in findings],
+        )
+
+    # analyze data
+    # A cache that could not be read means the ages are unknown, and an unknown age
+    # must never silence the check, so everything counts as due in that case.
+    for finding in findings:
+        age = 0 if ages is None else ages.get(finding['key'], 0)
+        finding['age'] = age
+        finding['due'] = ages is None or age >= args.GRACE_WAIT
+
+    due = [finding for finding in findings if finding['due']]
+    waiting = [finding for finding in findings if not finding['due']]
+    reboot = [finding for finding in due if finding['kind'] == 'reboot']
+    services = [finding for finding in due if finding['kind'] == 'service']
+    if due:
+        state = STATE_WARN
+
+    # build the message
+    headline = []
+    if reboot:
+        headline.append('A reboot is pending')
+    if services:
+        count = len(services)
+        headline.append(
+            f'{count} running {lib.txt.pluralize("process", count, ",es")} '
+            f'{lib.txt.pluralize("", count, "needs,need")} a restart'
+        )
+    oldest = max((finding['age'] for finding in waiting), default=0)
+    if headline:
+        msg = f'{". ".join(headline)}.'
+        if waiting:
+            msg += (
+                f' {len(waiting)} more within the grace period, the oldest for '
+                f'{lib.human.seconds2human(oldest)}.'
+            )
+    elif waiting:
+        # Saying nothing is pending and then counting what is would read as a
+        # contradiction, so a host that is only waiting out its grace says exactly that.
+        count = len(waiting)
+        msg = (
+            f'{count} pending {lib.txt.pluralize("restart", count, ",s")}, all within '
+            f'the grace period, the oldest for {lib.human.seconds2human(oldest)}.'
+        )
+    else:
+        msg = 'No reboot and no service restart pending.'
+
+    if reboot:
+        msg_body += f'{reboot[0]["text"]}\n'
+    if services:
+        msg_body += '\n'.join(f'* {finding["text"]}' for finding in services) + '\n'
+    if reboot:
+        msg_body += f'{REBOOT_HELP}\n'
+    if services:
+        msg_body += f'{SERVICE_HELP}\n'
+    if msg_body:
+        msg += f'\n{msg_body.rstrip()}'
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
