@@ -87,7 +87,7 @@ Icinga Director:
 * the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
-* the Needs Restarting service runs hourly instead of daily
+* the Needs Restarting service runs hourly instead of daily and waits four hours before alerting; its tag now reaches Debian hosts too, so tag them
 * the NFS Server Service Set runs the export check
 
 Grafana:

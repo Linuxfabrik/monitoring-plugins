@@ -958,9 +958,13 @@ def get_lftags(distro):
         {'sw': 'MySQL Security', 'package': [], 'expr': [db_flavor == 'mysql']},
         {
             'sw': 'Needs Restarting',
-            'package': ['dnf-utils', 'yum-utils'],
+            # Both families, and both tools. The Debian one is `needrestart` and sits
+            # in /usr/sbin, so a host that has it was invisible to this tag while it
+            # only looked for the Red Hat binary in /usr/bin.
+            'package': ['dnf-utils', 'needrestart', 'yum-utils'],
             'expr': [
-                lib.disk.file_exists('/usr/bin/needs-restarting', allow_empty=True)
+                lib.disk.file_exists('/usr/bin/needs-restarting', allow_empty=True),
+                lib.disk.file_exists('/usr/sbin/needrestart', allow_empty=True),
             ],
         },
         {
