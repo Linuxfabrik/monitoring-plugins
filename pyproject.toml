@@ -50,3 +50,14 @@ skips = ['B110', 'B112', 'B311']
 # `unit-test/run` scripts, which neither pattern matches, so that layout is listed
 # as well.
 skips = ['*/tests/*.py', 'tests/*.py', '*/unit-test/run']
+
+[tool.vulture]
+# No `paths` here, unlike the other Linuxfabrik repos. vulture only walks a
+# directory for `*.py`, and 581 of the 583 Python files in this repo are
+# extension-less shebang scripts (the plugins themselves). A `paths` entry would
+# therefore analyse two files and report success for the rest, so the pre-commit
+# hook passes the staged files explicitly instead (`pass_filenames: true`). At
+# min_confidence 80 vulture only reports file-local findings - unused imports,
+# unused arguments, unreachable code - so a per-file run finds the same issues a
+# whole-repo run would. `tools/run-linter-checks` sweeps the whole repo.
+min_confidence = 80

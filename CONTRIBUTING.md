@@ -859,7 +859,7 @@ ruff format check-plugins/my-check/my-check
 
 ### PyLint
 
-PyLint runs as a second linter after ruff in the pre-commit hooks. It catches additional issues that ruff does not cover (e.g. undefined variables across module boundaries).
+PyLint is a manual, per-plugin tool. It catches issues that ruff does not cover (e.g. undefined variables across module boundaries), but it is not a pre-commit hook: its metric checks (`R0912` branches, `R0914` locals, `R0915` statements) fire on almost every plugin, because a check plugin is one long linear function by design, and `C0301` measures against PyLint's own 100-character default while the house limit is the 88 characters ruff enforces. Run it by hand when you want to audit a plugin, and read the metric findings as a hint rather than a verdict.
 
 ```bash
 # lint a single plugin

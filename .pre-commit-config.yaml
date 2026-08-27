@@ -37,10 +37,14 @@ repos:
         args: ['--fix']
       - id: 'ruff-format'
 
-  - repo: 'https://github.com/pylint-dev/pylint'
-    rev: 'v4.0.7'
-    hooks:
-      - id: 'pylint'
+  # pylint is deliberately not run as a hook. Its metric checks (R0912 branches,
+  # R0914 locals, R0915 statements) fire on almost every plugin, because a check
+  # plugin is one long linear function by design, and C0301 measures against
+  # pylint's own 100-character default while the house limit is the 88 characters
+  # ruff enforces. The result was a hook that failed on every Python file in the
+  # repo. Suppressing that much would leave pylint without a job here, so it stays
+  # a manual, per-plugin audit tool - the same reasoning `tools/run-linter-checks`
+  # spells out for leaving pylint out of the repo-wide sweep.
 
   - repo: 'https://github.com/PyCQA/bandit'
     rev: '1.9.4'
@@ -53,6 +57,11 @@ repos:
   - repo: 'https://github.com/jendrikseipp/vulture'
     rev: 'v2.16'
     hooks:
+      # The upstream hook ships `pass_filenames: false` and expects the scope in
+      # `[tool.vulture] paths`, which only works for repos whose Python files carry a
+      # `.py` extension. Ours are extension-less shebang scripts, so the staged files
+      # are passed explicitly. min_confidence lives in pyproject.toml so a hand-run
+      # of `vulture <file>` behaves like the hook.
       - id: 'vulture'
-        args: ['--min-confidence=80']
+        pass_filenames: true
         types_or: ['python']
