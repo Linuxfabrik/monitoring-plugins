@@ -12,86 +12,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Icinga Director:
 
-* the certificate check no longer ships a second, older service template under the same name. Delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the Director may keep rendering that one and the check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
-* the MySQL Database Metrics, Storage Engines and Table Indexes services swap their `Ignore Schemas` / `Ignore Tables` fields for `Match` / `Ignore`. Re-import the basket and move your patterns over, the old fields are no longer handed to the check
-* the KVM Host Service Set no longer carries the libvirtd unit check. Which libvirt daemon a host runs is not a property of it being a KVM host, so the check moved into a `libvirtd` and a `virtqemud` Service Set of its own. Tag your hypervisors with whichever of the two they run, otherwise they lose the check on the next deployment; `about-me --tags` names the right one
-* the RPM Updates Service Set and its `rpm-updates` host tag are gone. The check moved into the Fedora and RHEL Basic Service Sets, where a host carrying both would have ended up with the service twice. Drop the tag from your hosts. A host that carried the tag without the matching Basic Service Set needs that set to keep the check
-* the Deb Updates and RPM Updates services report every pending update instead of security updates only, and they hold an ordinary update back for a week and a day before alerting on it. A security update still alerts right away. Expect hosts that have not been patched for over a week to go WARNING. Tick `Only Critical` on the service for the old report, or set `Grace Updates` to `0D` to alert on an ordinary update immediately
+* Deb Updates and RPM Updates alert on every pending update and hold an ordinary one back for a week and a day. Long-unpatched hosts go WARNING; tick `Only Critical` for the old report
+* delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the certificate check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* MySQL Database Metrics, Storage Engines and Table Indexes: `Ignore Schemas` / `Ignore Tables` become `Match` / `Ignore`, move your patterns over
+* the KVM Host Service Set drops the libvirtd unit check: tag your hypervisors `libvirtd` or `virtqemud`
+* the `rpm-updates` tag and its Service Set are gone: drop the tag, the check is in the Basic Service Sets now
 
 ### Added
 
 Monitoring Plugins:
 
-* apache-httpd-disclosure: reports what an Apache httpd server gives away about itself in its HTTP responses ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
-* apache-httpd-security: audits the loaded modules, the worker account, the file permissions and the request limits of a local Apache httpd installation ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
-* conntrack: alerts when the netfilter connection tracking table fills up and when the kernel starts evicting connections or dropping packets
-* cpu-vulnerabilities: alerts when the CPU is affected by a hardware vulnerability that no mitigation is holding off
-* file-growth: alerts when a file grows or shrinks faster than a configured rate ([#48](https://github.com/Linuxfabrik/monitoring-plugins/issues/48))
-* fs-mounts: alerts when a filesystem listed in `/etc/fstab` is not mounted, which no other check and no failed systemd unit reports
-* kvm-cpu-usage: reports the CPU each virtual machine of a libvirt host uses, and how much CPU the host makes it wait for ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* kvm-disk-io: reports what each virtual machine of a libvirt host reads and writes, and how long its storage takes to answer ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* kvm-memory-usage: reports the memory each virtual machine of a libvirt host has, needs and occupies, and how much of the host is promised to them ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* kvm-network-io: reports what each virtual machine of a libvirt host sends and receives per network interface, and the frames it loses ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* kvm-storage-pool: reports the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* kvm-volume: reports what a libvirt host's storage pools hold and how far they have promised more space than they have ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
-* md-raid: alerts when a software RAID array loses redundancy, when the kernel says a member is failing, and on inconsistent sectors
-* memory-paging: alerts when a host pages to and from swap, which swap usage on its own never shows
-* multipath: alerts when a LUN loses one of its paths and when a multipath map runs out of them altogether
-* nfs-exports: alerts when an NFS server does not serve an export it is configured for, or serves one whose directory has gone
-* nfs-mounts: alerts when an NFS mount reports a stale file handle or stops answering, and never blocks on one itself
-* nginx-disclosure: reports what an NGINX server gives away about itself and about the application behind it
-* nginx-security: audits the loaded modules, the worker account, the file permissions and the request body limit of a local NGINX installation
-* openstack-cinder-list: lists the block storage volumes of a project and alerts on the ones in a status that needs attention
-* openstack-quota: alerts when the compute, block storage or network quotas of a project fill up ([#489](https://github.com/Linuxfabrik/monitoring-plugins/issues/489))
-* psi-cpu: alerts when work waits for a CPU, which CPU utilization and the load average do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
-* psi-io: alerts when work waits for storage, which throughput and device utilization do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
-* psi-irq: alerts when the CPUs are busy servicing interrupts instead of running work ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
-* psi-memory: alerts when work waits for memory, which memory and swap usage do not show ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
-* redfish-*: `--verbose` records every request to the management controller, with timings, into a log file, so a check that runs into its timeout can be diagnosed ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* apache-httpd-disclosure: what an Apache httpd server gives away about itself ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
+* apache-httpd-security: modules, worker account, permissions and request limits of a local Apache httpd ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
+* conntrack: the netfilter connection tracking table filling up
+* cpu-vulnerabilities: a CPU vulnerability no mitigation is holding off
+* file-growth: a file growing or shrinking faster than a set rate ([#48](https://github.com/Linuxfabrik/monitoring-plugins/issues/48))
+* fs-mounts: a filesystem from `/etc/fstab` that is not mounted
+* kvm-cpu-usage: the CPU each virtual machine of a libvirt host uses, and its steal time ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* kvm-disk-io: what each virtual machine reads and writes, and its storage latency ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* kvm-memory-usage: the memory each virtual machine has, needs and occupies ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* kvm-network-io: what each virtual machine sends, receives and loses per interface ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* kvm-storage-pool: the state and free space of a libvirt host's storage pools ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* kvm-volume: what those pools hold, and how far they are overcommitted ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
+* md-raid: a software RAID array losing redundancy or reporting inconsistent sectors
+* memory-paging: a host paging to and from swap
+* multipath: a LUN losing a path, or a map losing all of them
+* nfs-exports: an NFS server not serving an export it is configured for
+* nfs-mounts: an NFS mount going stale or no longer answering
+* nginx-disclosure: what an NGINX server gives away about itself and its application
+* nginx-security: modules, worker account, permissions and body limit of a local NGINX
+* openstack-cinder-list: the block storage volumes of a project
+* openstack-quota: the compute, block storage and network quotas of a project ([#489](https://github.com/Linuxfabrik/monitoring-plugins/issues/489))
+* psi-cpu: work waiting for a CPU ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* psi-io: work waiting for storage ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* psi-irq: CPUs busy servicing interrupts ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* psi-memory: work waiting for memory ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 
 Icinga Director:
 
-* `libvirtd Service Set` (host tag `libvirtd`) and `virtqemud Service Set` (host tag `virtqemud`), one per libvirt daemon. A host runs either the monolithic daemon or the modular one
-* `Sensors Service Set` (host tag `sensors`) runs the fan and temperature checks, and `smartmontools Service Set` (host tag `smartmontools`) runs the SMART check. Both checks shipped without a tag so far, which meant nothing rolled them out. `about-me --tags` proposes them on real hardware and stays quiet on a virtual machine
-* `MD RAID Service Set` (host tag `md-raid`) and `Multipath Service Set` (host tag `multipath`) run the two new storage checks. Neither belongs in the OS Basic Service Sets, because neither exists on an ordinary virtual machine. `about-me --tags` proposes both
-* `NFS Client Service Set` (host tag `nfs-client`) runs the NFS mount check, as the counterpart to the existing `nfs-server` tag. `about-me --tags` proposes it on a host that mounts NFS or is set up to
-* the NFS Server Service Set runs the new export check next to its three unit checks. The units stay green while the export table is empty, so a share that was added and never reloaded went unnoticed
+* `libvirtd Service Set`
+* `MD RAID Service Set`
+* `Multipath Service Set`
+* `NFS Client Service Set`
+* `Sensors Service Set`
+* `smartmontools Service Set`
+* `virtqemud Service Set`
 
 ### Changed
 
 Monitoring Plugins:
 
-* apache-httpd-status: worker usage counts every busy slot, so a graceful restart no longer reads as an idle server; rates replace per-interval totals and `ExtendedStatus Off` no longer blanks most metrics
-* cert: reaches a TLS endpoint through an HTTP proxy, so the certificate an external client sees can be checked from inside ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
-* countdown: reports its dates as a table, thresholds accept Nagios ranges, and days left are reported as performance data
-* cpu-usage: alerts when an oversubscribed hypervisor takes CPU time away from a virtual machine, at 10% steal by default
-* deb-updates, rpm-updates: `--grace-updates` and `--grace-security` hold an alert back until an update has been pending for a while, so a host stays quiet about updates it has had no chance to install yet. Both are off in the plugin; the Director service template sets a week plus a day for ordinary updates and nothing for security ones
+* apache-httpd-status: worker usage counts every busy slot, and `ExtendedStatus Off` no longer blanks most metrics
+* cert: reaches a TLS endpoint through an HTTP proxy ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* countdown: table output, Nagios ranges, and days left as performance data
+* cpu-usage: alerts on CPU steal, at 10% by default
 * dmesg: fewer false alarms on physical servers and in virtual machines
-* file-age, file-size: no longer shipped in the sudoers allowlist and no longer offer a `-sudo` check command, so they see only the files the monitoring user may read
-* file-age, file-count, file-growth, file-size: the summary line names the range a file broke in plain words (`2 not in (0s..2D) [WARNING]`) instead of repeating the threshold syntax
-* kvm-vm: reports a machine set to start with the host but not running, and no longer needs root, so it is gone from the sudoers allowlist
-* lynis: alerts when no host was audited and says why, and counts answering hosts apart from probed addresses
-* mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`, and keep working
-* nextcloud-stats: also lists the five accounts using the most storage, and runs longer on instances with many accounts ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
-* openstack-nova-list: a password reset or a rescue image no longer alerts as CRITICAL
-* openstack-swift-stat: alerts on the object quota of a container and on the account quota, reuses the token of the previous run, reads only the containers the filters keep, and no longer drops one the store refused
-* procs: reports how many processes the system creates per second, which a headcount of running processes never shows (Linux only)
+* file-age, file-count, file-growth, file-size: the summary names the broken range in plain words
+* file-age, file-size: no longer run through sudo, so they see only what the monitoring user may read
+* kvm-vm: reports a machine that should start with the host and does not, and no longer needs root
+* lynis: alerts when no host was audited
+* mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
+* nextcloud-stats: also lists the five largest accounts, and runs longer on big instances ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
+* openstack-nova-list: a password reset or a rescue image no longer alerts CRITICAL
+* openstack-swift-stat: alerts on the container and account quotas
+* procs: reports the fork rate (Linux only)
 
 Icinga Director:
 
 * the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
-* the Basic Service Sets also report excluded and pinned packages, so a host carrying a repository exclude or an APT pin goes WARNING
-* the Basic Service Sets no longer report a version lock on the monitoring plugins packages themselves
-* the Basic Service Sets no longer report the exclusions and pins that the Grafana and InfluxData repository configurations set
+* the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
-* the Needs Restarting service runs hourly instead of once a day
+* the Needs Restarting service runs hourly instead of daily
+* the NFS Server Service Set runs the export check
 
 Grafana:
 
-* apache-httpd-status: re-import the dashboard, the metric names changed
-* cpu-usage: re-import the dashboard, it has panels for steal time and for the per-core utilization
-* kvm-vm: import the dashboard, the check ships one now
-* procs: re-import the dashboard, it has a panel for the fork rate
+* apache-httpd-status: re-import, the metric names changed
+* cpu-usage: re-import, it has panels for steal time and per-core utilization
+* kvm-vm: import, the check ships one now
+* procs: re-import, it has a panel for the fork rate
 
 ### Removed
 
@@ -99,50 +98,50 @@ Monitoring Plugins:
 
 * swap-usage: the cumulative `sin` and `sout` metrics are gone, memory-paging reports the paging traffic as a rate
 
+Icinga Director:
+
+* the `File Size - /var/log/audit/audit.log` service is gone from the RHEL and Fedora Basic Service Sets
+* the Basic and Apache Service Sets for Debian 10, RHEL 7, Ubuntu 16, 18 and 20 are gone with their host tags: retag those hosts or they lose their checks
+
 Build, CI/CD:
 
 * Drop packages for Ubuntu 20.04
-
-Icinga Director:
-
-* the Basic and Apache Service Sets for Debian 10, RHEL 7, Ubuntu 16, Ubuntu 18 and Ubuntu 20 are gone, together with their host tags. Hosts still carrying those tags lose their checks on the next deployment; retag them or drop them from monitoring
-* the `File Size - /var/log/audit/audit.log` service is gone from the RHEL and Fedora Basic Service Sets. auditd rotates its log at 8 MB by default, so a threshold of 180/200 MB could never fire; PLUGINS-FILE.md shows what to watch instead
 
 ### Fixed
 
 Monitoring Plugins:
 
-* apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`; they connected directly no matter what was set
-* countdown: a malformed `--input` names the date it cannot read instead of printing a traceback
-* cpu-usage: the CPU percentages of a host running virtual machines were wrong, guest time was counted twice
-* deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs of the same check at the same time no longer report each other's rows
-* deb-updates: `--only-critical` no longer stays OK on a fresh security update that only the security repository offers
-* disk-usage: no longer runs forever when a network filesystem stops answering. It reports that filesystem as unreachable and the others as usual, and `--fstype` and `--list-fstypes` work again on such a host
-* disk-usage: the warning and critical lines in the graphs stay on the chart for filesystems smaller than an absolute `FREE` threshold
-* file-ownership: a `--filename` that is missing its `owner:group,` prefix names the expected format instead of crashing
-* grassfish-players: the warning line in the player-count graphs matches when the check actually warns, instead of showing the `--warning` hours
+* about-me: recognises a KVM host running the modular libvirt daemons again
+* apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`
+* countdown: a malformed `--input` names the date it cannot read instead of a traceback
+* cpu-usage: the CPU percentages of a host running virtual machines were wrong
+* deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows
+* deb-updates: `--only-critical` no longer stays OK on a fresh security update
+* disk-usage: no longer runs forever when a network filesystem stops answering, and `--fstype` and `--list-fstypes` work again on such a host
+* disk-usage: the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
+* file-ownership: a `--filename` missing its `owner:group,` prefix names the expected format instead of crashing
+* grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
-* keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing when Keycloak withholds the server info
-* about-me: recognises a KVM host again. It only ever asked about `libvirtd`, which current installations do not run, so no hypervisor with the modular daemons was tagged
-* kvm-vm: a machine that crashed, was killed off the host or never started is reported instead of counted as switched off
-* kvm-vm: no longer fails on a machine whose name contains a space, and reports the machines of the host instead of an empty list when it runs without root
+* keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
+* kvm-vm: a machine that crashed or never started is reported instead of counted as switched off
+* kvm-vm: no longer fails on a machine name containing a space, and reports the machines without root
 * openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
-* path-rw-test: no longer runs forever when a path sits on a network filesystem whose server stopped answering; such a path is reported like one that cannot be written to
-* php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`, which only limits classic form uploads
-* redfish-\*: the checks recover on their own after a management controller drops its sessions, instead of failing until their cached credentials expire. They also log in far less often, no longer leave a session behind on every login, and retry a login that fails once instead of falling back to slower authentication ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* path-rw-test: no longer runs forever when a path sits on a network filesystem that stopped answering
+* php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
+* redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 
 Icinga Director:
 
-* the Active Directory Domain Service Set names two services the way the rest of the set does, `Service - ADWS` becomes `Service - Active Directory Web Services` and `Service - DFSR` becomes `Service - DFS Replication`. Both are renamed on the next deployment and start their history over
-* the Huawei Dorado Service Set runs all of its checks again, six of its services shared one name and only one of them was deployed
+* the Active Directory Domain Service Set renames `Service - ADWS` and `Service - DFSR`; both start their history over
+* the Huawei Dorado Service Set runs all of its checks again, six services shared one name
 
 Build, CI/CD:
 
-* the SELinux policy loads on RHEL 10 again, on fully updated hosts as well as on those still on the initial release
+* the SELinux policy loads on RHEL 10 again
 
 Grafana:
 
-* series hidden from a panel no longer show up in its tooltip. Re-import the affected dashboards (the Icinga overview plus apache-httpd-status, cpu-usage, disk-io, keycloak-memory-usage, load, memory-usage, network-io, php-status, ping, procs, swap-usage)
+* series hidden from a panel no longer show up in its tooltip. Re-import: Icinga overview, apache-httpd-status, cpu-usage, disk-io, keycloak-memory-usage, load, memory-usage, network-io, php-status, ping, procs, swap-usage
 
 
 ## [v7.0.0] - 2026-08-14
