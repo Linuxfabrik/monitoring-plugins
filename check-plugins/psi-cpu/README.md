@@ -117,9 +117,9 @@ Output on a host that keeps up with its work:
 cpu pressure, last minute: some 0.95%
 some = at least one task waited for a CPU
 
-Window ! Some 
+Window ! Some
 -------+------
-avg10  ! 0.0% 
+avg10  ! 0.0%
 avg60  ! 0.95%
 avg300 ! 2.79%
 ```
@@ -131,9 +131,9 @@ cpu pressure, last minute: some 47.23% [WARNING]
 some = at least one task waited for a CPU
 Work is waiting for a CPU. Give the host more of them, move a workload off it, or find what is running: `cpu-usage` reports how busy the CPUs are, `load` how long the run queue is and `procs` which processes it consists of.
 
-Window ! Some            
+Window ! Some
 -------+-----------------
-avg10  ! 58.28%          
+avg10  ! 58.28%
 avg60  ! 47.23% [WARNING]
 avg300 ! 17.28%
 ```
@@ -161,10 +161,10 @@ cpu pressure, last minute: some 11.74%; last ten seconds: some 47.86% [WARNING]
 some = at least one task waited for a CPU
 Work is waiting for a CPU. Give the host more of them, move a workload off it, or find what is running: `cpu-usage` reports how busy the CPUs are, `load` how long the run queue is and `procs` which processes it consists of.
 
-Window ! Some            
+Window ! Some
 -------+-----------------
 avg10  ! 47.86% [WARNING]
-avg60  ! 11.74%          
+avg60  ! 11.74%
 avg300 ! 8.37%
 ```
 

@@ -116,10 +116,10 @@ Output on a host with memory to spare:
 memory pressure, last minute: some 0.0%, full 0.0%
 some = at least one task waited for memory, full = every task with work to do waited for memory
 
-Window ! Some  ! Full 
+Window ! Some  ! Full
 -------+-------+------
-avg10  ! 0.0%  ! 0.0% 
-avg60  ! 0.0%  ! 0.0% 
+avg10  ! 0.0%  ! 0.0%
+avg60  ! 0.0%  ! 0.0%
 avg300 ! 0.57% ! 0.57%
 ```
 
@@ -130,9 +130,9 @@ memory pressure, last minute: some 20.23%, full 20.23% [CRITICAL]
 some = at least one task waited for memory, full = every task with work to do waited for memory
 Work is stalling on memory. Add memory, move a workload off the host, or cap the process that grew. `memory-usage` reports how much memory is in use, `memory-paging` whether the host is already paying for the shortage with paging traffic.
 
-Window ! Some   ! Full             
+Window ! Some   ! Full
 -------+--------+------------------
-avg10  ! 27.42% ! 27.42%           
+avg10  ! 27.42% ! 27.42%
 avg60  ! 20.23% ! 20.23% [CRITICAL]
 avg300 ! 6.34%  ! 6.34%
 ```
@@ -154,10 +154,10 @@ memory pressure, last minute: some 1.65%, full 1.65%; last ten seconds: full 6.2
 some = at least one task waited for memory, full = every task with work to do waited for memory
 Work is stalling on memory. Add memory, move a workload off the host, or cap the process that grew. `memory-usage` reports how much memory is in use, `memory-paging` whether the host is already paying for the shortage with paging traffic.
 
-Window ! Some  ! Full           
+Window ! Some  ! Full
 -------+-------+----------------
 avg10  ! 6.23% ! 6.23% [WARNING]
-avg60  ! 1.65% ! 1.65%          
+avg60  ! 1.65% ! 1.65%
 avg300 ! 0.37% ! 0.37%
 ```
 

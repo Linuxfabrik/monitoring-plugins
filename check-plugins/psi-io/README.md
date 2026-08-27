@@ -118,9 +118,9 @@ Output on a host whose storage keeps up:
 io pressure, last minute: some 0.03%, full 0.03%
 some = at least one task waited for storage, full = every task with work to do waited for storage
 
-Window ! Some  ! Full 
+Window ! Some  ! Full
 -------+-------+------
-avg10  ! 0.0%  ! 0.0% 
+avg10  ! 0.0%  ! 0.0%
 avg60  ! 0.03% ! 0.03%
 avg300 ! 1.4%  ! 0.81%
 ```
@@ -131,10 +131,10 @@ Output while six processes wrote with direct I/O:
 io pressure, last minute: some 18.57%, full 9.76%
 some = at least one task waited for storage, full = every task with work to do waited for storage
 
-Window ! Some   ! Full  
+Window ! Some   ! Full
 -------+--------+-------
 avg10  ! 26.3%  ! 13.75%
-avg60  ! 18.57% ! 9.76% 
+avg60  ! 18.57% ! 9.76%
 avg300 ! 7.63%  ! 4.22%
 ```
 
@@ -161,10 +161,10 @@ io pressure, last minute: some 5.32%, full 5.14%; last ten seconds: full 18.86% 
 some = at least one task waited for storage, full = every task with work to do waited for storage
 Work is stalling on storage. `disk-io` reports which device is busy and how long it takes to answer, `memory-paging` whether the traffic is the host paging rather than the workload reading and writing.
 
-Window ! Some   ! Full            
+Window ! Some   ! Full
 -------+--------+-----------------
 avg10  ! 19.56% ! 18.86% [WARNING]
-avg60  ! 5.32%  ! 5.14%           
+avg60  ! 5.32%  ! 5.14%
 avg300 ! 1.2%   ! 1.16%
 ```
 
