@@ -127,6 +127,40 @@ CASES = [
         'assert_in': ['1 warning found'],  # one of two warnings was filtered
     },
     {
+        # The counters of offending lines alert from their first hit on, so their
+        # warn field is `0` ("outside 0..0"); the log size carries the 32 MiB
+        # cutoff the check really warns at, and the lifecycle counters none.
+        'id': 'crit-perfdata-carries-the-thresholds',
+        'fixture': 'sample-error.txt',
+        'extra': [],
+        'retc': STATE_CRIT,
+        'assert_in': [
+            "'mysql_error_lines'=1;0;;0",
+            "'mysql_warning_lines'=2;0;;0",
+            "'mysql_logfile_size'=467B;33554432;;0",
+            "'mysql_startups'=1;;;0",
+            "'mysql_shutdowns'=0;;;0",
+        ],
+    },
+    {
+        'id': 'ok-match-drops-everything',
+        'fixture': 'sample-error.txt',
+        'extra': ['--match', 'nothing-in-this-log-matches-this'],
+        'retc': STATE_OK,
+        'assert_in': ['Nothing checked: `--match` dropped all'],
+    },
+    {
+        'id': 'unknown-match-drops-everything-with-severity',
+        'fixture': 'sample-error.txt',
+        'extra': [
+            '--match',
+            'nothing-in-this-log-matches-this',
+            '--no-match-severity=unknown',
+        ],
+        'retc': STATE_UNKNOWN,
+        'assert_in': ['Nothing checked'],
+    },
+    {
         'id': 'always-ok-masks-crit',
         'fixture': 'sample-error.txt',
         'extra': ['--always-ok'],

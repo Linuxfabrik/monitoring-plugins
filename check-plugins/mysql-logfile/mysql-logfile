@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026082802'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -529,6 +529,7 @@ def main():
     # which combinations of paths fire.
     recommendations = []
     last_errs, last_warns, last_shutdowns, last_starts = [], [], [], []
+    considered_cnt = 0
     suppressed_cnt = 0
     compiled_ignore = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
@@ -575,6 +576,7 @@ def main():
         # line hit by `--ignore` is dropped even if it also matches `--match`.
         if compiled_match and not any(item.search(haystack) for item in compiled_match):
             continue
+        considered_cnt += 1
         # Drop a line an operator has already taken on. The whole log line is
         # keyed, timestamp included, so the very same message logged again later
         # is a new event and alerts again.
@@ -593,8 +595,28 @@ def main():
         if 'ready for connections' in log_line:
             last_starts.append(log_line)
 
+    log_lines = logfile.splitlines()
+
+    # `--match` narrowed the run down to nothing, so this run looked at no line
+    # at all rather than at a quiet error log. Only reachable when the operator
+    # set a filter, so a log that simply has nothing to report stays OK.
+    if compiled_match and log_lines and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(log_lines)} '
+            f'{lib.txt.pluralize("line", len(log_lines))} of {log_error}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
     # build the message
 
+    # The window is named with the number of lines it holds, because everything
+    # below counts within it: on a log that was rotated an hour ago, a run that
+    # reports no startup at all is telling the truth about a handful of lines,
+    # and saying so beats leaving the admin to work that out from the file size.
+    window = f'{len(log_lines)} {lib.txt.pluralize("line", len(log_lines))}'
     if source_size is not None:
         size_human = lib.human.bytes2human(source_size)
         threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
@@ -602,7 +624,7 @@ def main():
             state = lib.base.get_worst(state, STATE_WARN)
             facts.append(
                 f'Source: {source_label} (size: {size_human} >'
-                f' {threshold_human})'
+                f' {threshold_human}, {window})'
                 f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
             )
             recommendations.append(
@@ -611,10 +633,11 @@ def main():
             )
         else:
             facts.append(
-                f'Source: {source_label} (size: {size_human} < {threshold_human})'
+                f'Source: {source_label} '
+                f'(size: {size_human} < {threshold_human}, {window})'
             )
     else:
-        facts.append(f'Source: {source_label}')
+        facts.append(f'Source: {source_label} ({window})')
 
     n_err = len(last_errs)
     if n_err:
@@ -695,12 +718,20 @@ def main():
             'mysql_logfile_size',
             source_size,
             uom='B',
+            warn=LOGFILE_BIG_THRESHOLD,
             _min=0,
         )
-    perfdata += lib.base.get_perfdata('mysql_error_lines', n_err, _min=0)
-    perfdata += lib.base.get_perfdata('mysql_warning_lines', n_warn, _min=0)
-    perfdata += lib.base.get_perfdata('mysql_startups', n_start, _min=0)
-    perfdata += lib.base.get_perfdata('mysql_shutdowns', n_shut, _min=0)
+    # The counters of offending lines alert from their first hit on, hence
+    # `warn='0'` ("outside 0..0") rather than `warn=1`. The startup and shutdown
+    # counters carry none, because neither is a problem in itself.
+    perfdata += lib.base.get_perfdata(
+        'mysql_error_lines', n_err, uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_warning_lines', n_warn, uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata('mysql_startups', n_start, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata('mysql_shutdowns', n_shut, uom=None, _min=0)
 
     # Ask the monitoring server about the acknowledgement. Where the service is
     # acknowledged, persist the lines currently being reported so an unchanged
