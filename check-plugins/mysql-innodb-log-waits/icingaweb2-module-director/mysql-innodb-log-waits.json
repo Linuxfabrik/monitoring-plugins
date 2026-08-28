@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_innodb_log_waits_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_innodb_log_waits_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_innodb_log_waits_defaults_file$"
                 },
@@ -16,6 +19,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_innodb_log_waits_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_innodb_log_waits_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-innodb-log-waits",
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks InnoDB redo log buffer health in MySQL/MariaDB. Primary check - **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to wait because the in-memory log buffer was full before its contents could be flushed to disk. Per the MariaDB InnoDB source this counter is the authoritative signal for an undersized log buffer (\"Number of log waits due to small log buffer\"). Any value above 0 means `innodb_log_buffer_size` was too small for the write workload at some point, so the plugin alerts and recommends a larger buffer. Secondary informational metric - **Write log efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`) / `Innodb_log_write_requests` * 100): the share of in-memory log appends that were batched into a shared physical write. This ratio is governed by group commit and `innodb_flush_log_at_trx_commit`, not by buffer size, so the plugin reports it for trending but never alerts on it and never recommends resizing the buffer based on it. Deliberate deviation from MySQLTuner: MySQLTuner alerts and recommends increasing `innodb_log_buffer_size` whenever write log efficiency drops below 90%. The MariaDB InnoDB source does not support that link, so this plugin treats write log efficiency as informational only and alerts solely on log waits.",
+            "notes": "Checks InnoDB redo log health in MySQL/MariaDB. Check 1 - **Redo log pressure**: how far the redo log has filled up since the last checkpoint, expressed as a percentage of the point at which InnoDB starts to flush synchronously. From that point on, writing sessions are held back until the flush catches up, which is exactly what an undersized redo log looks like on a busy server: the database is slow while the application is busiest. A short spike during a bulk import is normal, sustained pressure is not, so the plugin alerts and recommends a larger redo log. Check 2 - **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to wait because the in-memory log buffer was full before its contents could be flushed to disk. Per the MariaDB InnoDB source this counter is the authoritative signal for an undersized log buffer (\"Number of log waits due to small log buffer\"). Any value above 0 means `innodb_log_buffer_size` was too small for the write workload at some point, so the plugin alerts and recommends a larger buffer. Informational metric - **Write log efficiency** ((`Innodb_log_write_requests` - `Innodb_log_writes`) / `Innodb_log_write_requests` * 100): the share of in-memory log appends that were batched into a shared physical write. This ratio is governed by group commit and `innodb_flush_log_at_trx_commit`, not by buffer size, so the plugin reports it for trending but never alerts on it and never recommends resizing the buffer based on it. Deliberate deviation from MySQLTuner: MySQLTuner alerts and recommends increasing `innodb_log_buffer_size` whenever write log efficiency drops below 90%. The MariaDB InnoDB source does not support that link, so this plugin treats write log efficiency as informational only and alerts solely on log waits. MySQLTuner does not look at redo log pressure at all.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-log-waits/",
             "object_name": "tpl-service-mysql-innodb-log-waits",
             "object_type": "template",
@@ -100,10 +116,12 @@
             "vars": {
                 "criticality": "C",
                 "mysql_innodb_log_waits_always_ok": false,
+                "mysql_innodb_log_waits_critical": 100,
                 "mysql_innodb_log_waits_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_innodb_log_waits_defaults_group": "client",
                 "mysql_innodb_log_waits_no_perfdata": false,
-                "mysql_innodb_log_waits_timeout": 3
+                "mysql_innodb_log_waits_timeout": 3,
+                "mysql_innodb_log_waits_warning": 87.5
             },
             "volatile": null,
             "zone": null,
@@ -121,6 +139,17 @@
             "uuid": "fefbd725-b987-42ec-a6f1-6c7f6ff4be7a"
         },
         "2": {
+            "varname": "mysql_innodb_log_waits_critical",
+            "caption": "MySQL Innodb Log Waits: Critical",
+            "description": "Threshold for redo log pressure, in percent of the point where InnoDB starts to flush synchronously and holds back writing sessions.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6097ea33-3cba-4c35-82f9-a20f09caea5d"
+        },
+        "3": {
             "varname": "mysql_innodb_log_waits_defaults_file",
             "caption": "MySQL Innodb Log Waits: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from (instead of specifying them on the command line). Example: `/var/spool/icinga2/.my.cnf`.",
@@ -131,7 +160,7 @@
             },
             "uuid": "805cdc58-ead5-43be-8b57-07d27f987d1e"
         },
-        "3": {
+        "4": {
             "varname": "mysql_innodb_log_waits_defaults_group",
             "caption": "MySQL Innodb Log Waits: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -142,7 +171,7 @@
             },
             "uuid": "6d29f814-3d60-4d19-8d6d-f92e30c01da2"
         },
-        "4": {
+        "5": {
             "varname": "mysql_innodb_log_waits_no_perfdata",
             "caption": "MySQL Innodb Log Waits: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -151,7 +180,7 @@
             "settings": {},
             "uuid": "2406e22a-4746-45a8-9b0e-d94b76a91161"
         },
-        "5": {
+        "6": {
             "varname": "mysql_innodb_log_waits_timeout",
             "caption": "MySQL Innodb Log Waits: Timeout",
             "description": "Network timeout in seconds.",
@@ -161,6 +190,17 @@
                 "visibility": "visible"
             },
             "uuid": "e885b7f0-a896-418d-b3ec-27abec1ae863"
+        },
+        "7": {
+            "varname": "mysql_innodb_log_waits_warning",
+            "caption": "MySQL Innodb Log Waits: Warning",
+            "description": "Threshold for redo log pressure, in percent of the point where InnoDB starts to flush synchronously and holds back writing sessions.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "93889a8d-1720-4728-ba85-c8b9ebedc628"
         }
     }
 }

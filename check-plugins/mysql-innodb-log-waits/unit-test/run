@@ -16,9 +16,10 @@ so a static fixture cannot drive it - we spin up an actual
 MariaDB server and let the plugin talk to it over TCP.
 
 Per CONTRIBUTING's "Combine container tests with fixtures" rule,
-this file holds only the happy-path integration test. A freshly
-booted, idle MariaDB has zero log waits, which is STATE_OK with
-the plugin's defaults.
+this file holds the happy-path integration test plus the fast
+tests for the redo log math, which needs no server at all. A
+freshly booted, idle MariaDB has zero log waits and an almost
+empty redo log, which is STATE_OK with the plugin's defaults.
 
 The test matrix is defined by the Containerfiles under
 `containerfiles/`. Each file is a Containerfile (typically a
@@ -33,6 +34,8 @@ Requirements:
   `TESTCONTAINERS_RYUK_DISABLED`
 """
 
+import importlib.machinery
+import importlib.util
 import os
 import subprocess
 import sys
@@ -44,12 +47,58 @@ import lib.lftest
 from lib.globals import STATE_OK
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'mysql-innodb-log-waits')
 CONTAINERFILES_DIR = os.path.join(HERE, 'containerfiles')
 CONTAINERFILES = sorted(
     name
     for name in os.listdir(CONTAINERFILES_DIR)
     if os.path.isfile(os.path.join(CONTAINERFILES_DIR, name))
 )
+
+
+def load_plugin_module():
+    """Import the plugin script as a module so its pure helpers can be called directly.
+    The script carries no `.py` suffix, so the source loader has to be named explicitly.
+    """
+    loader = importlib.machinery.SourceFileLoader(
+        'mysql_innodb_log_waits_plugin', PLUGIN
+    )
+    spec = importlib.util.spec_from_loader('mysql_innodb_log_waits_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class TestSyncFlushAge(unittest.TestCase):
+    """`sync_flush_age_mysql()` replicates InnoDB's own capacity math, so it is
+    pinned to values measured against a real server instead of to itself.
+    """
+
+    def setUp(self):
+        self.plugin = load_plugin_module()
+
+    def test_default_capacity(self):
+        # MySQL 8.4.9, `innodb_redo_log_capacity` = 100 MiB, 16 KiB pages: under
+        # sustained writes `Innodb_redo_log_logical_size` plateaued at 87001600.
+        limit = self.plugin.sync_flush_age_mysql(104857600, 16384)
+        self.assertEqual(limit, 87086592)
+        self.assertLess(87001600, limit)
+
+    def test_scales_with_capacity(self):
+        # Bigger capacity, bigger limit, and always well below the capacity
+        # itself: the file headers, the writer margin and the sync flush margin
+        # are subtracted first.
+        for capacity in (8388608, 104857600, 1073741824, 17179869184):
+            limit = self.plugin.sync_flush_age_mysql(capacity, 16384)
+            self.assertGreater(limit, 0)
+            self.assertLess(limit, capacity)
+            self.assertGreater(limit / capacity, 0.75)
+
+    def test_alignment(self):
+        # InnoDB aligns every limit down to the log block size.
+        for page_size in (4096, 16384, 65536):
+            limit = self.plugin.sync_flush_age_mysql(104857600, page_size)
+            self.assertEqual(limit % self.plugin.LOG_BLOCK_SIZE, 0)
 
 
 class TestCheck(unittest.TestCase):
@@ -80,6 +129,13 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_OK)
         test.assertIn("|'mysql_", combined)
+        # An idle server has an almost empty redo log, so the pressure check has
+        # to report a reading, and never the "not reported by this server" line:
+        # every image in the matrix is either MariaDB or MySQL 8.0.30+.
+        test.assertIn('InnoDB redo log pressure: ', combined)
+        test.assertNotIn('not reported by this server', combined)
+        test.assertIn("'mysql_innodb_redo_log_pressure_pct'=", combined)
+        test.assertIn("'mysql_innodb_redo_log_sync_flush_age'=", combined)
 
 
 lib.lftest.attach_each(TestCheck, CONTAINERFILES, _check_image)

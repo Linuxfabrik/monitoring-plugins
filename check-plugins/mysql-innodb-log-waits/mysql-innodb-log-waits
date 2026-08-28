@@ -21,18 +21,25 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082801'
 
-DESCRIPTION = """Checks InnoDB redo log buffer health in MySQL/MariaDB.
+DESCRIPTION = """Checks InnoDB redo log health in MySQL/MariaDB.
 
-Primary check - **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to
+Check 1 - **Redo log pressure**: how far the redo log has filled up since the last checkpoint,
+expressed as a percentage of the point at which InnoDB starts to flush synchronously. From that
+point on, writing sessions are held back until the flush catches up, which is exactly what an
+undersized redo log looks like on a busy server: the database is slow while the application is
+busiest. A short spike during a bulk import is normal, sustained pressure is not, so the plugin
+alerts and recommends a larger redo log.
+
+Check 2 - **Log waits** (`Innodb_log_waits` / `Innodb_log_writes`): how often InnoDB had to
 wait because the in-memory log buffer was full before its contents could be flushed to disk. Per
 the MariaDB InnoDB source this counter is the authoritative signal for an undersized log buffer
 ("Number of log waits due to small log buffer"). Any value above 0 means `innodb_log_buffer_size`
 was too small for the write workload at some point, so the plugin alerts and recommends a larger
 buffer.
 
-Secondary informational metric - **Write log efficiency** ((`Innodb_log_write_requests` -
+Informational metric - **Write log efficiency** ((`Innodb_log_write_requests` -
 `Innodb_log_writes`) / `Innodb_log_write_requests` * 100): the share of in-memory log appends that
 were batched into a shared physical write. This ratio is governed by group commit and
 `innodb_flush_log_at_trx_commit`, not by buffer size, so the plugin reports it for trending but
@@ -41,13 +48,27 @@ never alerts on it and never recommends resizing the buffer based on it.
 Deliberate deviation from MySQLTuner: MySQLTuner alerts and recommends increasing
 `innodb_log_buffer_size` whenever write log efficiency drops below 90%. The MariaDB InnoDB source
 does not support that link, so this plugin treats write log efficiency as informational only and
-alerts solely on log waits."""
+alerts solely on log waits. MySQLTuner does not look at redo log pressure at all."""
 
+DEFAULT_CRIT = 100  # %
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
 DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = 87.5  # %
 
 SQLITE_DB = 'linuxfabrik-monitoring-plugins-mysql-innodb-log-waits.db'
+
+# Constants of the MySQL 8.0.30+ redo log, needed to derive the synchronous flush
+# point from `innodb_redo_log_capacity` (see `sync_flush_age_mysql()`). Names and
+# values are taken from `storage/innobase/include/log0constants.h`; all of them are
+# unchanged from MySQL 8.0.30 up to and including 9.6.0.
+LOG_BLOCK_SIZE = 512  # OS_FILE_LOG_BLOCK_SIZE
+LOG_EXTRA_SAFETY_MARGIN = 2 * 64 * 1024  # 2 * UNIV_PAGE_SIZE_MAX
+LOG_EXTRA_WRITER_MARGIN_PCT = 5
+LOG_FILE_HDR_SIZE = 4 * 512  # 4 * OS_FILE_LOG_BLOCK_SIZE
+LOG_FORCING_ADAPTIVE_FLUSH_RATIO_MAX = 16
+LOG_N_FILES = 32
+LOG_NEXT_FILE_EARLIER_MARGIN_PCT = 10
 
 
 def parse_args():
@@ -71,6 +92,16 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--critical',
+        help='Threshold for redo log pressure, in percent of the point where '
+        'InnoDB starts to flush synchronously and holds back writing sessions. '
+        'Default: %(default)s',
+        dest='CRIT',
+        type=float,
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -105,6 +136,16 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '--warning',
+        help='Threshold for redo log pressure, in percent of the point where '
+        'InnoDB starts to flush synchronously and holds back writing sessions. '
+        'Default: %(default)s',
+        dest='WARN',
+        type=float,
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -114,6 +155,9 @@ def get_vars(conn):
     sql = """
         show global variables
         where variable_name like 'innodb_log_buffer_size'
+            or variable_name like 'innodb_log_file_size'
+            or variable_name like 'innodb_page_size'
+            or variable_name like 'innodb_redo_log_capacity'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
@@ -123,12 +167,70 @@ def get_status(conn):
     # Do not implement `get_all_vars()`, just fetch the ones we need for this check.
     sql = """
         show global status
-        where variable_name like 'Innodb_log_waits'
+        where variable_name like 'Innodb_checkpoint_age'
+            or variable_name like 'Innodb_checkpoint_max_age'
+            or variable_name like 'Innodb_log_waits'
             or variable_name like 'Innodb_log_writes'
             or variable_name like 'Innodb_log_write_requests'
+            or variable_name like 'Innodb_redo_log_logical_size'
             ;
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
+
+
+def align_down(value, size):
+    """Round `value` down to a multiple of `size`, like InnoDB's
+    `ut_uint64_align_down()`.
+    """
+    return int(value) - int(value) % size
+
+
+def align_up(value, size):
+    """Round `value` up to a multiple of `size`, like InnoDB's
+    `ut_uint64_align_up()`.
+    """
+    return align_down(int(value) + size - 1, size)
+
+
+def sync_flush_age_mysql(redo_log_capacity, page_size):
+    """Return the redo log age in bytes at which MySQL 8.0.30+ switches to
+    synchronous flushing, derived from `innodb_redo_log_capacity`.
+
+    MySQL does not publish this limit as a status variable (unlike MariaDB,
+    which exposes it as `Innodb_checkpoint_max_age`), so the plugin replicates
+    InnoDB's own math: `Log_files_capacity::hard_logical_capacity_for_physical()`,
+    `soft_logical_capacity_for_hard()` and `sync_flush_logical_capacity_for_soft()`
+    in `storage/innobase/log/log0files_capacity.cc`. Verified against the MySQL
+    source from 8.0.30 (where the variable was introduced) through 9.6.0, in which
+    all constants involved are unchanged. Measured on MySQL 8.4.9 with the default
+    capacity of 100 MiB: under sustained writes `Innodb_redo_log_logical_size`
+    plateaus at 87.0 MB, against the 87.1 MB computed here.
+
+    Returns `None` for a capacity too small to produce a usable limit.
+    """
+    # Two of the 32 redo log files are kept free so InnoDB can always create the
+    # next one, and the file headers plus a safety margin never hold redo data.
+    overhead = (LOG_N_FILES - 1) * LOG_FILE_HDR_SIZE + LOG_EXTRA_SAFETY_MARGIN
+    lsn_capacity = redo_log_capacity * (LOG_N_FILES - 2) // LOG_N_FILES - overhead
+    # InnoDB starts the next log file before the current one is full ("snake's
+    # tongue"), which costs another slice of the capacity.
+    next_file_size = align_down(redo_log_capacity // LOG_N_FILES, page_size)
+    next_file_margin = align_up(
+        -(-next_file_size * LOG_NEXT_FILE_EARLIER_MARGIN_PCT // 100),
+        LOG_BLOCK_SIZE,
+    )
+    # What the log writer sees ...
+    hard_capacity = align_down(lsn_capacity - next_file_margin, LOG_BLOCK_SIZE)
+    # ... minus the log writer's private reserve is what all other threads see.
+    soft_capacity = align_down(
+        hard_capacity * (100 - LOG_EXTRA_WRITER_MARGIN_PCT) // 100,
+        LOG_BLOCK_SIZE,
+    )
+    sync_flush_age = align_down(
+        soft_capacity - soft_capacity // LOG_FORCING_ADAPTIVE_FLUSH_RATIO_MAX,
+        LOG_BLOCK_SIZE,
+    )
+    return sync_flush_age if sync_flush_age > 0 else None
 
 
 def main():
@@ -148,6 +250,13 @@ def main():
     # capacity. MySQLTuner alerts and recommends a bigger buffer when that ratio
     # drops below 90%; since the source does not support that, we emit it as an
     # informational metric only.
+    #
+    # The redo log pressure check has no counterpart in MySQLTuner, which says
+    # nothing about redo log sizing on MariaDB at all. It is derived from the
+    # InnoDB sources of both servers, which throttle writing sessions the same
+    # way once the redo log has filled up too far since the last checkpoint:
+    # MariaDB `log0log.cc:set_capacity()` plus `mtr0mtr.cc:log_close()`, MySQL
+    # `log0files_capacity.cc` plus `log0chkp.cc:log_sync_flush_lsn()`.
 
     # parse the command line
     try:
@@ -188,6 +297,30 @@ def main():
         int(log_write_requests_raw) if log_write_requests_raw is not None else None
     )
 
+    # Redo log pressure. MariaDB publishes both the age and the limit, MySQL 8.0.30+
+    # publishes the age only and gets its limit derived from
+    # `innodb_redo_log_capacity`. MySQL < 8.0.30 publishes neither, so the check is
+    # skipped there.
+    redo_log_size = None
+    redo_log_knob = None
+    redo_age = None
+    redo_limit = None
+    if mystat.get('Innodb_checkpoint_max_age') is not None:
+        # MariaDB
+        redo_log_size = int(myvar['innodb_log_file_size'])
+        redo_log_knob = 'innodb_log_file_size'
+        redo_age = int(mystat.get('Innodb_checkpoint_age') or 0)
+        redo_limit = int(mystat['Innodb_checkpoint_max_age']) or None
+    elif mystat.get('Innodb_redo_log_logical_size') is not None:
+        # MySQL 8.0.30+
+        redo_log_size = int(myvar['innodb_redo_log_capacity'])
+        redo_log_knob = 'innodb_redo_log_capacity'
+        redo_age = int(mystat['Innodb_redo_log_logical_size'])
+        redo_limit = sync_flush_age_mysql(
+            redo_log_size,
+            int(myvar['innodb_page_size']),
+        )
+
     state = STATE_OK
     sections = []
     # All recommendations from all WARN paths land here and render once at the
@@ -196,7 +329,57 @@ def main():
     recommendations = []
 
     # analyze data
-    # 1. InnoDB Log Waits: any wait at all earns a WARN. mysqltuner uses the same
+    # 1. Redo log pressure: how far the redo log has filled up since the last
+    #    checkpoint, in percent of the point where InnoDB flushes synchronously and
+    #    holds back writing sessions. The default warning threshold of 87.5% is the
+    #    point where MariaDB starts to flush ahead of the checkpoint
+    #    (`max_modified_age_async`, 7/8 of `Innodb_checkpoint_max_age`), the default
+    #    critical threshold of 100% is the synchronous flush itself. This is a
+    #    gauge: a single sample above the threshold can be a bulk import, the same
+    #    reading over consecutive checks is an undersized redo log.
+    redo_pressure_pct = None
+    if redo_limit:
+        redo_pressure_pct = round(redo_age / redo_limit * 100, 1)
+        redo_state = lib.base.get_state(redo_pressure_pct, args.WARN, args.CRIT)
+        state = lib.base.get_worst(state, redo_state)
+        redo_msg = (
+            f'InnoDB redo log pressure: {redo_pressure_pct}%'
+            f' ({lib.human.bytes2human(redo_age)} of'
+            f' {lib.human.bytes2human(redo_limit)} written since the last'
+            f' checkpoint, `{redo_log_knob}` ='
+            f' {lib.human.bytes2human(redo_log_size)})'
+        )
+        if redo_state != STATE_OK:
+            sections.append(f'{redo_msg}{lib.base.state2str(redo_state, prefix=" ")}.')
+            if redo_log_knob == 'innodb_log_file_size':
+                # Dynamic since MariaDB 10.9, read-only before that.
+                apply_hint = (
+                    'MariaDB 10.9 and newer apply a new size while the server runs'
+                    ' (`SET GLOBAL innodb_log_file_size`), older releases need a'
+                    ' restart'
+                )
+            else:
+                apply_hint = (
+                    'MySQL applies a new size while the server runs'
+                    ' (`SET GLOBAL innodb_redo_log_capacity`)'
+                )
+            recommendations.append(
+                f'Raise `{redo_log_knob}` above its current'
+                f' {lib.human.bytes2human(redo_log_size)} until this stays below'
+                f' {args.WARN}% under load, and persist the new value in the'
+                f' server configuration. A common target is a redo log that holds'
+                f' about one hour of writes. {apply_hint}. Tradeoff: a larger redo'
+                f' log means longer crash recovery and more disk space'
+            )
+        else:
+            sections.append(f'{redo_msg}.')
+    else:
+        sections.append(
+            'InnoDB redo log pressure: not reported by this server'
+            ' (MySQL before 8.0.30).'
+        )
+
+    # 2. InnoDB Log Waits: any wait at all earns a WARN. mysqltuner uses the same
     #    "any wait" threshold (`> 0.000001` in their float math).
     pct_log_waits = round(log_waits / log_writes * 100, 4) if log_writes > 0 else 0.0
 
@@ -214,7 +397,7 @@ def main():
     else:
         sections.append(f'{log_waits_msg}.')
 
-    # 2. InnoDB Write Log efficiency: informational only. Unlike MySQLTuner (see
+    # 3. InnoDB Write Log efficiency: informational only. Unlike MySQLTuner (see
     #    the note at the top of main()) this never alerts and never recommends a
     #    larger buffer, because the ratio reflects group commit /
     #    `innodb_flush_log_at_trx_commit` batching, not buffer capacity. Only
@@ -293,6 +476,29 @@ def main():
         _min=0,
         _max=100,
     )
+    if redo_pressure_pct is not None:
+        # No `_max`: the reading tops out slightly above the limit while InnoDB
+        # flushes synchronously (measured 100.001% on MariaDB 11.4).
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_redo_log_pressure_pct',
+            redo_pressure_pct,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_redo_log_age',
+            redo_age,
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_redo_log_sync_flush_age',
+            redo_limit,
+            uom='B',
+            _min=0,
+        )
     if (
         log_write_requests is not None
         and log_write_requests > 0
