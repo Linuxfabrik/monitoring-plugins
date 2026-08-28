@@ -55,10 +55,10 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
                [--icinga-service-name ICINGA_SERVICE_NAME]
                [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
-               [--ignore-pattern IGNORE_PATTERN] [--ignore-regex IGNORE_REGEX]
-               [--insecure] [--no-insecure] [--no-perfdata] [--no-proxy]
-               [--proxy PROXY] [--suppress-lines] [--timeout TIMEOUT]
-               [-w WARN] [--warning-pattern WARN_PATTERN]
+               [--ignore IGNORE] [--match MATCH] [--insecure] [--no-insecure]
+               [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
+               [--no-proxy] [--proxy PROXY] [--suppress-lines]
+               [--timeout TIMEOUT] [-w WARN] [--warning-pattern WARN_PATTERN]
                [--warning-regex WARN_REGEX]
 
 Scans a logfile for matching patterns or regular expressions and alerts based
@@ -99,47 +99,74 @@ options:
                         Example: `/var/log/app/{today}.log`. Example:
                         `/var/log/app/app-{today}.log`. Example:
                         `/var/log/app/{%Y}{%m}{%d}.log`.
-  --icinga-callback     Get the service acknowledgement from Icinga.
-                        Overwrites `--alarm-duration`. Default: False
+  --icinga-callback     Ask the monitoring server whether the service running
+                        this check is acknowledged. Where it is, what this run
+                        reports is remembered as already handled, so it no
+                        longer raises an alert on the following runs. Requires
+                        `--icinga-url`, `--icinga-username`, `--icinga-
+                        password` and `--icinga-service-name`. Default: False
   --icinga-password ICINGA_PASSWORD
-                        Icinga API password.
+                        Monitoring server API password.
   --icinga-service-name ICINGA_SERVICE_NAME
-                        Unique name of the service using this check within
-                        Icinga. Take it from the `__name` service attribute.
-                        Example: `icinga-server!my-service-name`.
+                        Unique name of the service running this check, as the
+                        monitoring server knows it. Take it from the `__name`
+                        service attribute. Example: `monitoring-server!my-
+                        service-name`.
   --icinga-url ICINGA_URL
-                        Icinga API URL. Example: `https://icinga-server:5665`.
+                        Monitoring server API URL. Example:
+                        `https://monitoring.example.com:5665`.
   --icinga-username ICINGA_USERNAME
-                        Icinga API username.
-  --ignore-pattern IGNORE_PATTERN
-                        Any line containing this pattern will be ignored.
-                        Case-sensitive. Can be specified multiple times.
-  --ignore-regex IGNORE_REGEX
-                        Any item matching this Python regex will be ignored.
-                        Can be specified multiple times. Example:
-                        `(?i)linuxfabrik` for a case-insensitive match.
-  --insecure            This option explicitly allows insecure SSL
-                        connections.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
+                        Monitoring server API username.
+  --ignore IGNORE       Ignore a line matching this Python regular expression,
+                        whichever warning or critical pattern it also matches.
+                        Case-sensitive by default; use `(?i)` for case-
+                        insensitive matching. Can be specified multiple times.
+                        Example: `--ignore='(?i)linuxfabrik'`.
+  --match MATCH         Only consider a line matching this Python regular
+                        expression. Applied before the warning and critical
+                        patterns decide the severity, so it narrows what is
+                        looked at rather than what counts as a problem. Case-
+                        sensitive by default; use `(?i)` for case-insensitive
+                        matching. Can be specified multiple times. If both
+                        `--match` and `--ignore` are given, an item must match
+                        `--match` AND not match `--ignore` to be reported
+                        (include first, exclude second). Example:
+                        `--match='^\[prod\]'`.
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. This option
+                        explicitly allows insecure SSL connections.
+  --no-insecure         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. Verify the TLS
+                        certificate against the system trust store, overriding
+                        the insecure default of this check. Use it once the
+                        endpoint presents a publicly trusted certificate, or
+                        once its CA has been added to the system trust store.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy, not even one the environment
-                        names. Overrides `--proxy`.
-  --proxy PROXY         Proxy to reach the target through. The scheme defaults
-                        to `http` when omitted. Overrides the proxy the
-                        environment names (`http_proxy`, `https_proxy`,
-                        `all_proxy`) together with the exceptions it lists in
-                        `no_proxy`, and is itself overridden by `--no-proxy`.
-                        Without either parameter the environment applies.
-                        Credentials belong into the environment variable
-                        rather than here, because a command-line argument is
-                        visible to every user on the host. Example:
+  --no-proxy            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. Do not use a
+                        proxy, not even one the environment names. Overrides
+                        `--proxy`.
+  --proxy PROXY         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. Proxy to reach
+                        the target through. The scheme defaults to `http` when
+                        omitted. Overrides the proxy the environment names
+                        (`http_proxy`, `https_proxy`, `all_proxy`) together
+                        with the exceptions it lists in `no_proxy`, and is
+                        itself overridden by `--no-proxy`. Without either
+                        parameter the environment applies. Credentials belong
+                        into the environment variable rather than here,
+                        because a command-line argument is visible to every
+                        user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --suppress-lines      Suppress the found lines in the output and only report
                         the number of findings.

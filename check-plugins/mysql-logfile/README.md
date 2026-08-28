@@ -44,8 +44,13 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                      [--defaults-file DEFAULTS_FILE]
                      [--defaults-group DEFAULTS_GROUP] [-H HOSTNAME]
-                     [--ignore-pattern IGNORE_PATTERN]
-                     [--ignore-regex IGNORE_REGEX] [--no-perfdata]
+                     [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
+                     [--icinga-service-name ICINGA_SERVICE_NAME]
+                     [--icinga-url ICINGA_URL]
+                     [--icinga-username ICINGA_USERNAME] [--insecure]
+                     [--no-insecure] [--ignore IGNORE] [--match MATCH]
+                     [--no-match-severity {ok,warn,crit,unknown}]
+                     [--no-perfdata] [--no-proxy] [--proxy PROXY]
                      [--port PORT] [--server-log SERVER_LOG]
                      [--timeout TIMEOUT]
 
@@ -83,20 +88,69 @@ options:
   -H, --hostname HOSTNAME
                         MySQL/MariaDB hostname or IP address. Default:
                         127.0.0.1
-  --ignore-pattern IGNORE_PATTERN
-                        Any line containing this pattern will be ignored. The
-                        log line is lowercased before matching, so write the
-                        pattern in lowercase. Can be specified multiple times.
-  --ignore-regex IGNORE_REGEX
-                        Any item matching this Python regex will be ignored.
-                        Can be specified multiple times. Example:
-                        `(?i)linuxfabrik` for a case-insensitive match. The
-                        log line is lowercased before matching, so write the
-                        pattern in lowercase (or use the `(?i)` flag).
+  --icinga-callback     Ask the monitoring server whether the service running
+                        this check is acknowledged. Where it is, what this run
+                        reports is remembered as already handled, so it no
+                        longer raises an alert on the following runs. Requires
+                        `--icinga-url`, `--icinga-username`, `--icinga-
+                        password` and `--icinga-service-name`. Default: False
+  --icinga-password ICINGA_PASSWORD
+                        Monitoring server API password.
+  --icinga-service-name ICINGA_SERVICE_NAME
+                        Unique name of the service running this check, as the
+                        monitoring server knows it. Take it from the `__name`
+                        service attribute. Example: `monitoring-server!my-
+                        service-name`.
+  --icinga-url ICINGA_URL
+                        Monitoring server API URL. Example:
+                        `https://monitoring.example.com:5665`.
+  --icinga-username ICINGA_USERNAME
+                        Monitoring server API username.
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes. This option explicitly
+                        allows insecure SSL connections.
+  --no-insecure         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes. Verify the TLS
+                        certificate against the system trust store, overriding
+                        the insecure default of this check. Use it once the
+                        endpoint presents a publicly trusted certificate, or
+                        once its CA has been added to the system trust store.
+  --ignore IGNORE       Ignore a log line matching this Python regular
+                        expression. The log line is lowercased before
+                        matching, so write the pattern in lowercase (or use
+                        the `(?i)` flag). Can be specified multiple times.
+                        Example: `--ignore='(?i)linuxfabrik'`.
+  --match MATCH         Only consider a log line matching this Python regular
+                        expression. The log line is lowercased before
+                        matching, so write the pattern in lowercase (or use
+                        the `(?i)` flag). Can be specified multiple times. If
+                        both `--match` and `--ignore` are given, an item must
+                        match `--match` AND not match `--ignore` to be
+                        reported (include first, exclude second). Example:
+                        `--match='innodb'`.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --no-proxy            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes. Do not use a proxy,
+                        not even one the environment names. Overrides
+                        `--proxy`.
+  --proxy PROXY         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes. Proxy to reach the
+                        target through. The scheme defaults to `http` when
+                        omitted. Overrides the proxy the environment names
+                        (`http_proxy`, `https_proxy`, `all_proxy`) together
+                        with the exceptions it lists in `no_proxy`, and is
+                        itself overridden by `--no-proxy`. Without either
+                        parameter the environment applies. Credentials belong
+                        into the environment variable rather than here,
+                        because a command-line argument is visible to every
+                        user on the host. Example:
+                        `--proxy=http://proxy.example.com:3128`.
   --port PORT           MySQL/MariaDB port number. Default: 3306
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,

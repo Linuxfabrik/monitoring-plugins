@@ -17,16 +17,46 @@
                 "--hostname": {
                     "value": "$mysql_logfile_hostname$"
                 },
-                "--ignore-pattern": {
-                    "value": "$mysql_logfile_ignore_pattern$",
+                "--icinga-callback": {
+                    "set_if": "$mysql_logfile_icinga_callback$"
+                },
+                "--icinga-password": {
+                    "value": "$mysql_logfile_icinga_password$"
+                },
+                "--icinga-service-name": {
+                    "value": "$mysql_logfile_icinga_service_name$"
+                },
+                "--icinga-url": {
+                    "value": "$mysql_logfile_icinga_url$"
+                },
+                "--icinga-username": {
+                    "value": "$mysql_logfile_icinga_username$"
+                },
+                "--insecure": {
+                    "set_if": "$mysql_logfile_insecure$"
+                },
+                "--no-insecure": {
+                    "set_if": "$mysql_logfile_no_insecure$"
+                },
+                "--ignore": {
+                    "value": "$mysql_logfile_ignore$",
                     "repeat_key": true
                 },
-                "--ignore-regex": {
-                    "value": "$mysql_logfile_ignore_regex$",
+                "--match": {
+                    "value": "$mysql_logfile_match$",
                     "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$mysql_logfile_no_match_severity$"
                 },
                 "--no-perfdata": {
                     "set_if": "$mysql_logfile_no_perfdata$"
+                },
+                "--no-proxy": {
+                    "set_if": "$mysql_logfile_no_proxy$"
+                },
+                "--proxy": {
+                    "value": "$mysql_logfile_proxy$"
                 },
                 "--port": {
                     "value": "$mysql_logfile_port$"
@@ -95,6 +125,56 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 14,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 15,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 16,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -154,9 +234,13 @@
                 "mysql_logfile_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_logfile_defaults_group": "client",
                 "mysql_logfile_hostname": "127.0.0.1",
-                "mysql_logfile_ignore_pattern": [],
-                "mysql_logfile_ignore_regex": [],
+                "mysql_logfile_icinga_callback": false,
+                "mysql_logfile_insecure": true,
+                "mysql_logfile_ignore": [],
+                "mysql_logfile_match": [],
+                "mysql_logfile_no_match_severity": "ok",
                 "mysql_logfile_no_perfdata": false,
+                "mysql_logfile_no_proxy": false,
                 "mysql_logfile_port": "3306",
                 "mysql_logfile_timeout": 3,
                 "mysql_logfile_server_log": "/var/log/mariadb/mariadb.log"
@@ -164,6 +248,39 @@
             "volatile": null,
             "zone": null,
             "uuid": "b2613a25-9712-4720-906f-d356e4b19679"
+        }
+    },
+    "DataList": {
+        "mysql_logfile_no_match_severity_list": {
+            "list_name": "mysql_logfile_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "35dcb6f8-aa5e-4932-9dee-4be695469958"
         }
     },
     "Datafield": {
@@ -221,28 +338,112 @@
             "uuid": "78fec2c7-6200-47be-ae54-013c1b9cdc59"
         },
         "6": {
-            "varname": "mysql_logfile_ignore_pattern",
-            "caption": "MySQL Logfile: Ignore Pattern",
-            "description": "Any line containing this pattern will be ignored. The log line is lowercased before matching, so write the pattern in lowercase. Can be specified multiple times.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "varname": "mysql_logfile_icinga_callback",
+            "caption": "MySQL Logfile: Icinga Callback?",
+            "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "85c68ef9-5299-42ca-befe-ea727c5e5021"
+            "settings": {},
+            "uuid": "2298be1a-7ef5-4106-bfed-1939bccf25fa"
         },
         "7": {
-            "varname": "mysql_logfile_ignore_regex",
-            "caption": "MySQL Logfile: Ignore Regex",
-            "description": "Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag).",
+            "varname": "mysql_logfile_icinga_password",
+            "caption": "MySQL Logfile: Icinga Password",
+            "description": "Monitoring server API password.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "hidden"
+            },
+            "uuid": "cd34c5c1-87d7-4d5e-8329-62b089893b37"
+        },
+        "8": {
+            "varname": "mysql_logfile_icinga_service_name",
+            "caption": "MySQL Logfile: Icinga Service Name",
+            "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "990a59f6-abca-4a50-be50-92706437e7c3"
+        },
+        "9": {
+            "varname": "mysql_logfile_icinga_url",
+            "caption": "MySQL Logfile: Icinga URL",
+            "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5d476017-b0b5-42cb-bf56-3d6d73f052bb"
+        },
+        "10": {
+            "varname": "mysql_logfile_icinga_username",
+            "caption": "MySQL Logfile: Icinga Username",
+            "description": "Monitoring server API username.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "d6510ee3-c692-49b6-b3b6-3e61713c1f1f"
+        },
+        "11": {
+            "varname": "mysql_logfile_insecure",
+            "caption": "MySQL Logfile: Insecure?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ebd2176c-2102-437d-b6c3-1be8a0775aad"
+        },
+        "12": {
+            "varname": "mysql_logfile_no_insecure",
+            "caption": "MySQL Logfile: No Insecure?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "74335c0b-a0ec-4c5a-9f25-d432d2edef89"
+        },
+        "13": {
+            "varname": "mysql_logfile_ignore",
+            "caption": "MySQL Logfile: Ignore",
+            "description": "Ignore a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "1fd8ef10-489d-4750-bc02-f0a73725cd16"
+            "uuid": "e2ffffd8-1847-47e8-8f89-d284c92baf15"
         },
-        "8": {
+        "14": {
+            "varname": "mysql_logfile_match",
+            "caption": "MySQL Logfile: Match",
+            "description": "Only consider a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='innodb'`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6758938b-df16-4d4c-8335-09377f1d89d2"
+        },
+        "15": {
+            "varname": "mysql_logfile_no_match_severity",
+            "caption": "MySQL Logfile: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "mysql_logfile_no_match_severity_list"
+            },
+            "uuid": "ae701871-6717-4d99-b516-002a8e7e4452"
+        },
+        "16": {
             "varname": "mysql_logfile_no_perfdata",
             "caption": "MySQL Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -251,7 +452,27 @@
             "settings": {},
             "uuid": "412891b4-a266-4965-9d4a-51770621f99b"
         },
-        "9": {
+        "17": {
+            "varname": "mysql_logfile_no_proxy",
+            "caption": "MySQL Logfile: No Proxy?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "58988fd2-3778-41f0-9840-6ca011fdc633"
+        },
+        "18": {
+            "varname": "mysql_logfile_proxy",
+            "caption": "MySQL Logfile: Proxy",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a2897d76-cf02-4d73-991a-ea0c814c700a"
+        },
+        "19": {
             "varname": "mysql_logfile_port",
             "caption": "MySQL Logfile: Port",
             "description": "MySQL/MariaDB port number.",
@@ -262,7 +483,7 @@
             },
             "uuid": "3b721c59-1a25-48a4-9ebe-70d27be7f341"
         },
-        "10": {
+        "20": {
             "varname": "mysql_logfile_server_log",
             "caption": "MySQL Logfile: Server Log",
             "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check first probes `performance_schema.error_log` (MySQL 8.0.22+) and then falls back to the file from `log_error`.",
@@ -273,7 +494,7 @@
             },
             "uuid": "e700457c-57c2-4934-ae9b-dd76d24a66db"
         },
-        "11": {
+        "21": {
             "varname": "mysql_logfile_timeout",
             "caption": "MySQL Logfile: Timeout",
             "description": "Network timeout in seconds.",

@@ -54,11 +54,11 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--icinga-service-name ICINGA_SERVICE_NAME]
                       [--icinga-url ICINGA_URL]
                       [--icinga-username ICINGA_USERNAME]
-                      [--identifier IDENTIFIER]
-                      [--ignore-pattern IGNORE_PATTERN]
-                      [--ignore-regex IGNORE_REGEX] [--insecure]
-                      [--no-insecure] [--no-perfdata] [--no-proxy]
-                      [--priority PRIORITY] [--proxy PROXY]
+                      [--identifier IDENTIFIER] [--ignore IGNORE]
+                      [--match MATCH]
+                      [--no-match-severity {ok,warn,crit,unknown}]
+                      [--insecure] [--no-insecure] [--no-perfdata]
+                      [--no-proxy] [--priority PRIORITY] [--proxy PROXY]
                       [--severity {warn,crit}] [--since SINCE]
                       [--timeout TIMEOUT] [--unit UNIT]
                       [--user-unit USER_UNIT]
@@ -77,57 +77,77 @@ options:
   --facility FACILITY   Filter output by syslog facility (passed to
                         journalctl). Takes a comma-separated list of numbers
                         or facility names. Default: None
-  --icinga-callback     Get the service acknowledgement from Icinga. When the
-                        service is acknowledged, the currently reported
-                        journald events are persisted as "already handled" so
-                        they no longer trigger alerts on following runs.
-                        Default: False
+  --icinga-callback     Ask the monitoring server whether the service running
+                        this check is acknowledged. Where it is, what this run
+                        reports is remembered as already handled, so it no
+                        longer raises an alert on the following runs. Requires
+                        `--icinga-url`, `--icinga-username`, `--icinga-
+                        password` and `--icinga-service-name`. Default: False
   --icinga-password ICINGA_PASSWORD
-                        Icinga API password.
+                        Monitoring server API password.
   --icinga-service-name ICINGA_SERVICE_NAME
-                        Unique name of the service using this check within
-                        Icinga. Take it from the `__name` service attribute.
-                        Example: `icinga-server!my-service-name`.
+                        Unique name of the service running this check, as the
+                        monitoring server knows it. Take it from the `__name`
+                        service attribute. Example: `monitoring-server!my-
+                        service-name`.
   --icinga-url ICINGA_URL
-                        Icinga API URL. Example: `https://icinga-server:5665`.
+                        Monitoring server API URL. Example:
+                        `https://monitoring.example.com:5665`.
   --icinga-username ICINGA_USERNAME
-                        Icinga API username.
+                        Monitoring server API username.
   --identifier IDENTIFIER
                         Show messages for the specified syslog identifier
                         (passed to journalctl). Default: None
-  --ignore-pattern IGNORE_PATTERN
-                        Any line containing this case-sensitive string in the
-                        MESSAGE field will be ignored. Can be specified
-                        multiple times. Unlike journalctl, this allows easy
-                        string-based filtering.
-  --ignore-regex IGNORE_REGEX
-                        Any line matching this Python regex on the MESSAGE
-                        field will be ignored. Can be specified multiple
-                        times. Example: `--ignore-regex='(?i)linuxfabrik'`.
-  --insecure            This option explicitly allows insecure SSL
-                        connections.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
+  --ignore IGNORE       Ignore an event whose MESSAGE field matches this
+                        Python regular expression. Case-sensitive by default;
+                        use `(?i)` for case-insensitive matching. Can be
+                        specified multiple times. Example:
+                        `--ignore='(?i)linuxfabrik'`.
+  --match MATCH         Only report an event whose MESSAGE field matches this
+                        Python regular expression. Case-sensitive by default;
+                        use `(?i)` for case-insensitive matching. Can be
+                        specified multiple times. If both `--match` and
+                        `--ignore` are given, an item must match `--match` AND
+                        not match `--ignore` to be reported (include first,
+                        exclude second). Example: `--match='(?i)out of
+                        memory'`.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. This option
+                        explicitly allows insecure SSL connections.
+  --no-insecure         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. Verify the TLS
+                        certificate against the system trust store, overriding
+                        the insecure default of this check. Use it once the
+                        endpoint presents a publicly trusted certificate, or
+                        once its CA has been added to the system trust store.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
-  --no-proxy            Do not use a proxy, not even one the environment
-                        names. Overrides `--proxy`.
+  --no-proxy            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. Do not use a
+                        proxy, not even one the environment names. Overrides
+                        `--proxy`.
   --priority PRIORITY   Filter output by message priorities or priority ranges
                         (passed to journalctl). Default: emerg..err
-  --proxy PROXY         Proxy to reach the target through. The scheme defaults
-                        to `http` when omitted. Overrides the proxy the
-                        environment names (`http_proxy`, `https_proxy`,
-                        `all_proxy`) together with the exceptions it lists in
-                        `no_proxy`, and is itself overridden by `--no-proxy`.
-                        Without either parameter the environment applies.
-                        Credentials belong into the environment variable
-                        rather than here, because a command-line argument is
-                        visible to every user on the host. Example:
+  --proxy PROXY         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. Proxy to reach
+                        the target through. The scheme defaults to `http` when
+                        omitted. Overrides the proxy the environment names
+                        (`http_proxy`, `https_proxy`, `all_proxy`) together
+                        with the exceptions it lists in `no_proxy`, and is
+                        itself overridden by `--no-proxy`. Without either
+                        parameter the environment applies. Credentials belong
+                        into the environment variable rather than here,
+                        because a command-line argument is visible to every
+                        user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --severity {warn,crit}
                         Severity for alerts when journalctl returns results.

@@ -21,8 +21,6 @@ matches its fixture to ensure a clean "first scan" state.
 
 import datetime
 import glob
-import hashlib
-import json
 import os
 import shutil
 import sqlite3
@@ -36,6 +34,7 @@ sys.path.insert(0, '..')
 import lib.db_sqlite
 import lib.disk
 import lib.lftest
+import lib.logmatch
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # The plugin confines --filename to /var/log plus its own unit-test/ directory.
@@ -114,6 +113,54 @@ TESTS = [
             "' ERROR ' (matched 1 line) [CRITICAL]",
             'MYPRODUCT salutation sync failed',
         ],
+    },
+    {
+        'id': 'ok-both-warnings-suppressed-via-ignore',
+        'test': 'stdout/django-app-two-warnings,,0',
+        'params': (
+            '--filename=stdout/django-app-two-warnings '
+            '--warning-regex=" WARNING " '
+            '--ignore=favicon.ico --ignore=robots.txt'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ["ignoring 'favicon.ico' and 'robots.txt'"],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        # the former name keeps working, so a service configured before the
+        # rename does not have to be touched
+        'id': 'ok-deprecated-ignore-regex-still-accepted',
+        'test': 'stdout/django-app-two-warnings,,0',
+        'params': (
+            '--filename=stdout/django-app-two-warnings '
+            '--warning-regex=" WARNING " '
+            '--ignore-regex=favicon.ico --ignore-regex=robots.txt'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'warn-match-narrows-what-is-looked-at',
+        'test': 'stdout/django-app-two-warnings,,0',
+        'params': (
+            '--filename=stdout/django-app-two-warnings '
+            '--warning-regex=" WARNING " '
+            '--match="favicon"'
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Not Found: /favicon.ico'],
+        'assert-not-in': ['Not Found: /robots.txt'],
+    },
+    {
+        'id': 'ok-match-that-hits-nothing-checks-nothing',
+        'test': 'stdout/django-app-two-warnings,,0',
+        'params': (
+            '--filename=stdout/django-app-two-warnings '
+            '--warning-regex=" WARNING " '
+            '--match="nothing-matches-this"'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[WARNING]'],
     },
     {
         'id': 'ok-one-warning-suppressed-via-ignore-pattern',
@@ -210,8 +257,8 @@ class TestMultipleChecksSameFile(unittest.TestCase):
         )
 
 
-# The hash algorithm below mirrors the plugin's instance-hash exactly.
-# Keep it in sync if the plugin ever changes the calculation.
+# Derived through the library the plugin itself uses, so the test cannot drift
+# away from it.
 def _instance_hash(
     warn_pattern=None,
     warn_regex=None,
@@ -220,18 +267,16 @@ def _instance_hash(
     ignore_pattern=None,
     ignore_regex=None,
 ):
-    payload = json.dumps(
+    return lib.logmatch.instance_id(
         {
-            'crit_pattern': sorted(crit_pattern or []),
-            'crit_regex': sorted(crit_regex or []),
-            'ignore_pattern': sorted(ignore_pattern or []),
-            'ignore_regex': sorted(ignore_regex or []),
-            'warn_pattern': sorted(warn_pattern or []),
-            'warn_regex': sorted(warn_regex or []),
-        },
-        sort_keys=True,
-    ).encode('utf-8')
-    return hashlib.sha256(payload).hexdigest()[:10]
+            'crit_pattern': crit_pattern or [],
+            'crit_regex': crit_regex or [],
+            'ignore_pattern': ignore_pattern or [],
+            'ignore_regex': ignore_regex or [],
+            'warn_pattern': warn_pattern or [],
+            'warn_regex': warn_regex or [],
+        }
+    )
 
 
 def _per_check_db_path(basename, **hash_kwargs):
@@ -353,6 +398,88 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         # One more unchanged run to confirm the offset keeps advancing
         # cleanly after the legacy row has been overwritten.
         self._run(expected_new_lines=0)
+
+    def test_legacy_pending_matches_are_carried_over(self):
+        # An update must not drop what earlier runs already found: a pending
+        # match is a real problem nobody has acknowledged yet, and losing it
+        # would clear the alert without anybody having looked at it.
+        db_path = _per_check_db_path(self.scratch_basename, **self.hash_kwargs)
+        stat = os.stat(self.scratch_file)
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute("""
+                CREATE TABLE file_stats (
+                    filename TEXT NOT NULL PRIMARY KEY,
+                    offset INTEGER NOT NULL,
+                    inode TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE matching_lines (
+                    filename TEXT NOT NULL,
+                    state INTEGER NOT NULL,
+                    line TEXT NOT NULL,
+                    found_at TIMESTAMP NOT NULL
+                )
+            """)
+            conn.execute(
+                'INSERT INTO file_stats VALUES (?, ?, ?)',
+                (self.scratch_file, stat.st_size, str(stat.st_ino)),
+            )
+            conn.execute(
+                'INSERT INTO matching_lines VALUES (?, ?, ?, ?)',
+                (
+                    self.scratch_file,
+                    STATE_CRIT,
+                    'left over from an earlier release',
+                    str(datetime.datetime.now()),
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # The file itself has nothing new, so the only reason to alarm is the
+        # match carried over from the old schema.
+        lib.lftest.run(
+            self,
+            self.check,
+            {
+                'id': 'legacy-pending-match-survives',
+                'test': f'{self.scratch_file},,0',
+                'params': (
+                    f'--filename={self.scratch_file} '
+                    '--warning-regex=" WARNING " '
+                    '--critical-regex=" ERROR "'
+                ),
+                'assert-retc': STATE_CRIT,
+                'assert-in': [
+                    '(0 lines)',
+                    '1 unacknowledged critical match from previous runs.',
+                    'left over from an earlier release',
+                ],
+            },
+        )
+
+    def test_legacy_tables_are_replaced_by_the_current_layout(self):
+        # The old tables are dropped once carried over, so a later run cannot
+        # import the same matches a second time.
+        db_path = _per_check_db_path(self.scratch_basename, **self.hash_kwargs)
+        self._run(expected_new_lines=3)
+        conn = sqlite3.connect(db_path)
+        try:
+            tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+        finally:
+            conn.close()
+        self.assertNotIn('file_stats', tables)
+        self.assertNotIn('matching_lines', tables)
+        self.assertIn('findings', tables)
+        self.assertIn('positions', tables)
 
     def test_file_rotation_via_inode_change_still_resets_offset(self):
         # After a real log rotation the file name stays the same but the
@@ -640,6 +767,22 @@ class TestPathConfinement(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_non_file_source_is_refused(self):
+        # The library can also read a systemd unit or a container log, but this
+        # check is about files: neither the time macros nor the confinement
+        # apply to those, so accepting one would fake support that is not there.
+        lib.lftest.run(
+            self,
+            self.check,
+            {
+                'id': 'confine-refuses-non-file-source',
+                'test': 'systemd:sshd,,0',
+                'params': '--filename=systemd:sshd --warning-regex=.',
+                'assert-retc': STATE_UNKNOWN,
+                'assert-in': ['takes the path to a logfile'],
+            },
+        )
 
     def test_filename_outside_var_log_is_refused(self):
         lib.lftest.run(

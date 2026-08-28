@@ -11,9 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import datetime
-import hashlib
-import json
 import os
 import re
 import sys
@@ -21,14 +18,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
-import lib.disk
-import lib.icinga
+import lib.logmatch
+import lib.logsource
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082801'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -55,36 +52,82 @@ DEFAULT_CRIT = 1
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
 DEFAULT_WARN = 1
 
 
-def is_rewritten(filename, old_fingerprint):
-    """Tell whether the head of a logfile still matches the fingerprint stored
-    on the previous run.
+def migrate_state(conn, filename):
+    """Carry a state database written by an earlier version over to the current layout.
 
-    The head is the part of a logfile that appending does not touch, so it
-    identifies the file: it only changes if the logfile has become a different
-    one. Hashes exactly as many bytes as were hashed back then, so that
-    appending to a logfile whose head was shorter than the fingerprint does not
-    look like a rewrite.
+    Returns the read position recovered from it, or None where there was nothing to carry
+    over. Without this, the first run after an update would start at offset 0 and report
+    every match the logfile still holds, on every host at once.
+
+    The migration works inside the state database that is already open, and never constructs,
+    moves or opens a path of its own. Keep it that way: the previous attempt at carrying old
+    state over moved a file from a predictable location in the shared temp directory and
+    followed a symlink planted there (GHSA-w2gg-hx6w-24w3).
     """
-    length = old_fingerprint['length']
-    if not length:
-        # The logfile was empty on the previous run, so there is nothing to
-        # compare against - and nothing to miss either, because a read offset
-        # of 0 stays valid no matter what was written since.
-        return (True, False)
-    success, result = lib.disk.get_fingerprint(filename, length=length)
-    if not success:
-        return (False, result)
-    fingerprint, hashed = result
-    if hashed < length:
-        # the file no longer holds the bytes we hashed last time, so it must
-        # have been truncated
-        return (True, True)
-    return (True, fingerprint != old_fingerprint['fingerprint'])
+    tables = lib.base.coe(lib.db_sqlite.get_tables(conn))
+    position = None
+    if 'file_stats' in tables:
+        row = lib.base.coe(
+            lib.db_sqlite.select(
+                conn,
+                'SELECT * FROM file_stats WHERE filename = :filename',
+                {'filename': filename},
+                fetchone=True,
+            )
+        )
+        if row:
+            position = {
+                # A database from before the fingerprint was stored simply has
+                # none, and a length of 0 is what tells the rewrite check that
+                # there is nothing to compare against yet.
+                'fingerprint': '',
+                'inode': str(row.get('inode')),
+                'kind': lib.logsource.KIND_FILE,
+                'length': 0,
+                'offset': row.get('offset', 0),
+            }
+    if position and 'file_fingerprints' in tables:
+        row = lib.base.coe(
+            lib.db_sqlite.select(
+                conn,
+                'SELECT * FROM file_fingerprints WHERE filename = :filename',
+                {'filename': filename},
+                fetchone=True,
+            )
+        )
+        if row:
+            position['fingerprint'] = row.get('fingerprint', '')
+            position['length'] = row.get('length', 0)
+    if 'matching_lines' in tables:
+        rows = lib.base.coe(
+            lib.db_sqlite.select(
+                conn,
+                'SELECT * FROM matching_lines WHERE filename = :filename',
+                {'filename': filename},
+                fetchone=False,
+            )
+        )
+        if rows:
+            # The alarm duration of a carried-over match restarts here, because
+            # it is recorded as seen now. That costs one extra alarm duration
+            # once, where dropping the matches would let a real pending problem
+            # disappear silently.
+            lib.base.coe(
+                lib.logmatch.record(
+                    conn,
+                    [{'line': row['line'], 'state': row['state']} for row in rows],
+                )
+            )
+    for table in ('file_fingerprints', 'file_stats', 'matching_lines'):
+        if table in tables:
+            lib.base.coe(lib.db_sqlite.drop_table(conn, table=table))
+    return position
 
 
 def parse_args():
@@ -165,9 +208,7 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-callback',
-        help='Get the service acknowledgement from Icinga. '
-        'Overwrites `--alarm-duration`. '
-        'Default: %(default)s',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
         dest='ICINGA_CALLBACK',
         action='store_true',
         default=DEFAULT_ICINGA_CALLBACK,
@@ -175,35 +216,43 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-password',
-        help='Icinga API password.',
+        help=lib.args.help('--icinga-password'),
         dest='ICINGA_PASSWORD',
     )
 
     parser.add_argument(
         '--icinga-service-name',
-        help='Unique name of the service using this check within Icinga. '
-        'Take it from the `__name` service attribute. '
-        'Example: `icinga-server!my-service-name`.',
+        help=lib.args.help('--icinga-service-name'),
         dest='ICINGA_SERVICE_NAME',
     )
 
     parser.add_argument(
         '--icinga-url',
-        help='Icinga API URL. Example: `https://icinga-server:5665`.',
+        help=lib.args.help('--icinga-url'),
         dest='ICINGA_URL',
     )
 
     parser.add_argument(
         '--icinga-username',
-        help='Icinga API username.',
+        help=lib.args.help('--icinga-username'),
         dest='ICINGA_USERNAME',
     )
 
     parser.add_argument(
+        '--ignore',
+        help='Ignore a line matching this Python regular expression, whichever '
+        'warning or critical pattern it also matches. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        "Example: `--ignore='(?i)linuxfabrik'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
         '--ignore-pattern',
-        help='Any line containing this pattern will be ignored. '
-        'Case-sensitive. '
-        'Can be specified multiple times.',
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_PATTERN',
@@ -211,15 +260,30 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-regex',
-        help=lib.args.help('--ignore-regex'),
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_REGEX',
     )
 
     parser.add_argument(
+        '--match',
+        help='Only consider a line matching this Python regular expression. '
+        'Applied before the warning and critical patterns decide the severity, '
+        'so it narrows what is looked at rather than what counts as a problem. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='^\\[prod\\]'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
         '--insecure',
-        help=lib.args.help('--insecure'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -227,10 +291,19 @@ def parse_args():
 
     parser.add_argument(
         '--no-insecure',
-        help=lib.args.help('--no-insecure'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-insecure'),
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -243,7 +316,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help=lib.args.help('--no-proxy'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-proxy'),
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -251,7 +325,8 @@ def parse_args():
 
     parser.add_argument(
         '--proxy',
-        help=lib.args.help('--proxy'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--proxy'),
         dest='PROXY',
         default=None,
     )
@@ -317,49 +392,23 @@ def main():
         args.CRIT_PATTERN = []
     if args.CRIT_REGEX is None:
         args.CRIT_REGEX = []
+    if args.IGNORE is None:
+        args.IGNORE = []
     if args.IGNORE_PATTERN is None:
         args.IGNORE_PATTERN = []
-    if args.IGNORE_REGEX is None:
-        args.IGNORE_REGEX = []
+    if args.MATCH is None:
+        args.MATCH = []
+    # `--ignore-regex` is the former name of `--ignore` and means the same
+    # thing, so its values simply join the list. `--ignore-pattern` stays a
+    # plain substring filter of its own, because folding a substring into a
+    # regex list would change what it matches as soon as it carries a
+    # metacharacter.
+    if args.IGNORE_REGEX:
+        args.IGNORE += args.IGNORE_REGEX
     if args.WARN_PATTERN is None:
         args.WARN_PATTERN = []
     if args.WARN_REGEX is None:
         args.WARN_REGEX = []
-
-    # Expand time macros for filesystem access only. args.FILENAME stays the
-    # DB key so offset and pending matches survive the daily filename change
-    # (issue #678). For {today} / {yesterday}, try the compact form
-    # (`20260422`) first because that is what most rotated logfiles use, and
-    # fall back to ISO 8601 (`2026-04-22`) if no compact file exists.
-    scan_path = lib.time.macro2timestr(args.FILENAME, format='%Y%m%d')
-    if not os.path.exists(scan_path):
-        iso_path = lib.time.macro2timestr(args.FILENAME, format='%Y-%m-%d')
-        if iso_path != scan_path and os.path.exists(iso_path):
-            scan_path = iso_path
-
-    # Refuse to open anything outside the system log directory: the plugin runs
-    # as root via sudo, so an unconfined path would be an arbitrary root file
-    # read. is_within() resolves symlinks and `..`, so neither can escape. The
-    # plugin's own unit-test/ directory is also allowed so the fixture-based
-    # tests work; on a deployed host that directory does not exist next to the
-    # flat, root-owned plugin, so it grants nothing (and needs no environment
-    # flag that a misconfigured sudoers could leak).
-    allowed_roots = [
-        *ALLOWED_LOG_ROOTS,
-        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
-    ]
-    if not lib.disk.is_within(scan_path, allowed_roots):
-        lib.base.cu(
-            f'Refusing to read "{scan_path}": resolved path is outside the allowed log '
-            f'directory {ALLOWED_LOG_ROOTS[0]}; bind-mount it under {ALLOWED_LOG_ROOTS[0]} '
-            f'if intended.'
-        )
-
-    try:
-        file_stat = os.stat(scan_path)
-    except FileNotFoundError as e:
-        # no traceback wanted, so using oao() instead of cu()
-        lib.base.oao(f'{e.strerror}: "{scan_path}"', STATE_UNKNOWN)
 
     if not any(
         (args.WARN_PATTERN, args.WARN_REGEX, args.CRIT_PATTERN, args.CRIT_REGEX)
@@ -375,127 +424,91 @@ def main():
         )
     ):
         lib.base.cu(
-            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, `--icinga-username` and `--icinga-service-name`.'
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
         )
 
-    # Derive a short, stable hash over every argument that influences which
-    # lines this check flags. This is used to give each unique combination
-    # of patterns/regexes its own state DB, so two Icinga services on the
-    # same logfile with different patterns no longer trample each other's
-    # read offset or match history (issue #698).
-    instance_payload = json.dumps(
-        {
-            'crit_pattern': sorted(args.CRIT_PATTERN),
-            'crit_regex': sorted(args.CRIT_REGEX),
-            'ignore_pattern': sorted(args.IGNORE_PATTERN),
-            'ignore_regex': sorted(args.IGNORE_REGEX),
-            'warn_pattern': sorted(args.WARN_PATTERN),
-            'warn_regex': sorted(args.WARN_REGEX),
-        },
-        sort_keys=True,
-    ).encode('utf-8')
-    instance_hash = hashlib.sha256(instance_payload).hexdigest()[:10]
+    # fetch data
+    # Expand time macros for filesystem access only. args.FILENAME stays the
+    # state key so offset and pending matches survive the daily filename change
+    # (issue #678). For {today} / {yesterday}, try the compact form
+    # (`20260422`) first because that is what most rotated logfiles use, and
+    # fall back to ISO 8601 (`2026-04-22`) if no compact file exists.
+    scan_path = lib.time.macro2timestr(args.FILENAME, format='%Y%m%d')
+    if not os.path.exists(scan_path):
+        iso_path = lib.time.macro2timestr(args.FILENAME, format='%Y-%m-%d')
+        if iso_path != scan_path and os.path.exists(iso_path):
+            scan_path = iso_path
 
+    # This check reads a file, and only a file. The library also resolves
+    # `systemd:` and `docker:` style sources, but neither the time macros above
+    # nor the path confinement below mean anything for those, so accepting one
+    # here would look like support that is not there.
+    kind, _, _ = lib.base.coe(lib.logsource.parse(scan_path))
+    if kind != lib.logsource.KIND_FILE:
+        lib.base.cu('`--filename` takes the path to a logfile.')
+
+    # Give each unique combination of patterns and regexes its own state
+    # database, so two services watching the same logfile for different things
+    # no longer trample each other's read position or match history (issue
+    # #698). The basename keeps the file recognizable among the databases.
+    # The payload names the filters actually in effect, and an unused filter
+    # contributes nothing to it. That keeps the identifier of a service
+    # configured before `--match` existed byte-identical, so its state database,
+    # and with it the read position and every pending match, survives the
+    # update. `--ignore` sits in the slot of `--ignore-regex`, which it replaces
+    # and whose semantics it shares.
+    instance_payload = {
+        'crit_pattern': args.CRIT_PATTERN,
+        'crit_regex': args.CRIT_REGEX,
+        'ignore_pattern': args.IGNORE_PATTERN,
+        'ignore_regex': args.IGNORE,
+        'warn_pattern': args.WARN_PATTERN,
+        'warn_regex': args.WARN_REGEX,
+    }
+    if args.MATCH:
+        instance_payload['match'] = args.MATCH
+    instance = lib.logmatch.instance_id(instance_payload)
     basename = os.path.basename(args.FILENAME)
-    db_filename = (
-        f'linuxfabrik-monitoring-plugins-logfile-{basename}-{instance_hash}.db'
-    )
-    # create the db table
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename=db_filename,
-        )
-    )
-    definition = """
-        filename TEXT NOT NULL PRIMARY KEY,
-        offset INTEGER NOT NULL,
-        inode TEXT NOT NULL
-    """
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='file_stats'))
-    # The fingerprint lives in its own table instead of an additional file_stats
-    # column: a DB written by an older release then simply has no fingerprint
-    # row yet, and the stored read offset survives the upgrade. Extending
-    # file_stats would require a schema migration, and rebuilding it from
-    # scratch would re-report every match the logfile still holds.
-    definition = """
-        filename TEXT NOT NULL PRIMARY KEY,
-        fingerprint TEXT NOT NULL,
-        length INTEGER NOT NULL
-    """
-    lib.base.coe(
-        lib.db_sqlite.create_table(conn, definition, table='file_fingerprints')
-    )
-    definition = """
-        filename TEXT NOT NULL,
-        state INTEGER NOT NULL,
-        line TEXT NOT NULL,
-        found_at TIMESTAMP NOT NULL
-    """
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='matching_lines'))
+    conn = lib.base.coe(lib.logmatch.connect('logfile', f'{basename}-{instance}'))
 
-    current_inode = str(file_stat.st_ino)
-    current_size = file_stat.st_size
-    # Fingerprint the file before scanning it: if it gets rewritten in between,
-    # the stored fingerprint is the older one, so the next run rescans the file
-    # instead of missing what was written in the meantime.
-    current_fingerprint, current_fingerprint_length = lib.base.coe(
-        lib.disk.get_fingerprint(scan_path)
-    )
+    position = lib.base.coe(lib.logmatch.get_position(conn, args.FILENAME))
+    if position is None:
+        position = migrate_state(conn, args.FILENAME)
 
-    old_file_stats = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            """
-        SELECT *
-        FROM file_stats
-        WHERE filename = :filename
-        """,
-            {
-                'filename': args.FILENAME,
-            },
-            fetchone=True,
-        )
+    # The plugin runs as root via sudo, so it only opens files that resolve
+    # inside the system log directory. To monitor logs stored elsewhere,
+    # bind-mount that location under /var/log (see the README); a symlink is
+    # rejected because the confinement resolves symlinks. The plugin's own
+    # unit-test/ directory is allowed too so the fixture-based tests work; on a
+    # deployed host that directory does not exist next to the flat, root-owned
+    # plugin, so it grants nothing (and needs no environment flag that a
+    # misconfigured sudoers could leak).
+    allowed_roots = [
+        *ALLOWED_LOG_ROOTS,
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    success, result = lib.logsource.read(
+        scan_path,
+        position=position,
+        allowed_roots=allowed_roots,
     )
-    old_fingerprint = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            """
-        SELECT *
-        FROM file_fingerprints
-        WHERE filename = :filename
-        """,
-            {
-                'filename': args.FILENAME,
-            },
-            fetchone=True,
-        )
-    )
+    if not success:
+        # no traceback wanted: a logfile that was rotated away between two runs
+        # is an everyday event, not a defect in the plugin
+        lib.db_sqlite.close(conn)
+        lib.base.oao(result, STATE_UNKNOWN)
+    lib.base.coe(lib.logmatch.set_position(conn, args.FILENAME, result['position']))
 
-    if old_file_stats:
-        # this is not the first time we are scanning this logfile, try to continue where we left off
-        offset = old_file_stats.get('offset', 0)
-        # Compare the stored inode as string: legacy DBs created before
-        # issue #1035 still hold the inode column with INTEGER affinity
-        # and return int on read, while current_inode is a string. Without
-        # the cast the comparison is always truthy and the offset is
-        # reset to 0 on every run, making the plugin re-read the whole
-        # file each time.
-        if str(old_file_stats.get('inode')) != current_inode or current_size < offset:
-            # this means the file has been rotated
-            offset = 0
-        elif old_fingerprint and lib.base.coe(is_rewritten(scan_path, old_fingerprint)):
-            # An application that rewrites its logfile from the beginning
-            # (`> logfile` instead of `>> logfile`) keeps the inode, and if the
-            # new content is at least as long as what we read last time, the
-            # size does not shrink either. Only the head of the file tells us
-            # that everything after our offset is gone (issue #1330).
-            offset = 0
-    else:
-        offset = 0
-
+    # init some vars
     compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
     compiled_crit_regex = [re.compile(item) for item in args.CRIT_REGEX]
-    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
 
     # per-pattern counters, for the verbose "matched N lines" summary.
     # These are purely for reporting; the scan semantics (which lines are
@@ -507,108 +520,67 @@ def main():
 
     warn_matches = []
     crit_matches = []
-    line_counter = 0
-    try:
-        with open(scan_path) as logfile:
-            logfile.seek(offset)
-            for line in logfile:
-                line_counter += 1
-                is_ignored = any(
-                    ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN
-                ) or any(item.search(line) for item in compiled_ignore_regex)
+    line_counter = len(result['lines'])
 
-                # due to lazy evaluation, the regex will only be executed
-                # if the pattern does not match
-                # see https://docs.python.org/3/reference/expressions.html#boolean-operations
-                if any(
-                    warn_pattern in line for warn_pattern in args.WARN_PATTERN
-                ) or any(item.search(line) for item in compiled_warn_regex):
-                    if not is_ignored:
-                        warn_matches.append(line.strip())
-                        for pat in args.WARN_PATTERN:
-                            if pat in line:
-                                warn_pattern_hits[pat] += 1
-                        for idx, rgx in enumerate(compiled_warn_regex):
-                            if rgx.search(line):
-                                warn_regex_hits[args.WARN_REGEX[idx]] += 1
+    # analyze data
+    matched_any = False
+    for line in result['lines']:
+        # `--match` (include) is applied first, then `--ignore` (exclude), so a
+        # line hit by `--ignore` is dropped even if it also matches `--match`.
+        if compiled_match and not any(item.search(line) for item in compiled_match):
+            continue
+        matched_any = True
+        is_ignored = any(
+            ignore_pattern in line for ignore_pattern in args.IGNORE_PATTERN
+        ) or any(item.search(line) for item in compiled_ignore)
 
-                if any(
-                    crit_pattern in line for crit_pattern in args.CRIT_PATTERN
-                ) or any(item.search(line) for item in compiled_crit_regex):
-                    if not is_ignored:
-                        crit_matches.append(line.strip())
-                        for pat in args.CRIT_PATTERN:
-                            if pat in line:
-                                crit_pattern_hits[pat] += 1
-                        for idx, rgx in enumerate(compiled_crit_regex):
-                            if rgx.search(line):
-                                crit_regex_hits[args.CRIT_REGEX[idx]] += 1
-            offset = logfile.tell()
-    except PermissionError:
-        lib.base.cu(f"Permission denied opening '{scan_path}'.")
-        # make sure conn is always closed
+        # due to lazy evaluation, the regex will only be executed
+        # if the pattern does not match
+        # see https://docs.python.org/3/reference/expressions.html#boolean-operations
+        if any(warn_pattern in line for warn_pattern in args.WARN_PATTERN) or any(
+            item.search(line) for item in compiled_warn_regex
+        ):
+            if not is_ignored:
+                warn_matches.append(line.strip())
+                for pat in args.WARN_PATTERN:
+                    if pat in line:
+                        warn_pattern_hits[pat] += 1
+                for idx, rgx in enumerate(compiled_warn_regex):
+                    if rgx.search(line):
+                        warn_regex_hits[args.WARN_REGEX[idx]] += 1
+
+        if any(crit_pattern in line for crit_pattern in args.CRIT_PATTERN) or any(
+            item.search(line) for item in compiled_crit_regex
+        ):
+            if not is_ignored:
+                crit_matches.append(line.strip())
+                for pat in args.CRIT_PATTERN:
+                    if pat in line:
+                        crit_pattern_hits[pat] += 1
+                for idx, rgx in enumerate(compiled_crit_regex):
+                    if rgx.search(line):
+                        crit_regex_hits[args.CRIT_REGEX[idx]] += 1
+
+    # `--match` narrowed the run down to nothing, so this run looked at no line
+    # at all rather than at a quiet logfile. Only reachable when the operator
+    # set a filter, so a logfile that simply has nothing to report stays OK.
+    if compiled_match and line_counter and not matched_any:
         lib.db_sqlite.close(conn)
-
-    # Save the current position for the next run
-    new_file_stats = {
-        'filename': args.FILENAME,
-        'offset': offset,
-        'inode': current_inode,
-    }
-    lib.base.coe(lib.db_sqlite.replace(conn, new_file_stats, table='file_stats'))
-    new_file_fingerprint = {
-        'filename': args.FILENAME,
-        'fingerprint': current_fingerprint,
-        'length': current_fingerprint_length,
-    }
-    lib.base.coe(
-        lib.db_sqlite.replace(conn, new_file_fingerprint, table='file_fingerprints')
-    )
-
-    # if we are using the alarm duration (aka not using the icinga callback),
-    # remove all outdated matches from the db now
-    now = lib.time.now(as_type='datetime')
-    if not args.ICINGA_CALLBACK:
-        outdated = now - datetime.timedelta(minutes=args.ALARM_DURATION)
-        lib.base.coe(
-            lib.db_sqlite.delete(
-                conn,
-                """
-            DELETE
-            FROM matching_lines
-            WHERE filename = :filename and found_at <= :outdated
-            """,
-                {'filename': args.FILENAME, 'outdated': outdated},
-            )
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {line_counter} new '
+            f'{lib.txt.pluralize("line", line_counter)} of {scan_path}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
         )
 
-    # get the old matches and take them into consideration for the state
-    # for example, if there are no new lines we still want to alarm the old ones
-    # until the service is acknowledged
-    old_warn_matches = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            """
-        SELECT *
-        FROM matching_lines
-        WHERE filename = :filename and state = :state
-        """,
-            {'filename': args.FILENAME, 'state': STATE_WARN},
-            fetchone=False,
-        )
-    )
-    old_crit_matches = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            """
-        SELECT *
-        FROM matching_lines
-        WHERE filename = :filename and state = :state
-        """,
-            {'filename': args.FILENAME, 'state': STATE_CRIT},
-            fetchone=False,
-        )
-    )
+    # Read what earlier runs found before recording this run's matches, so the
+    # two can be told apart in the output. Both drive the state: with no new
+    # lines we still alarm the old ones, until they age out or the service is
+    # acknowledged.
+    max_age = None if args.ICINGA_CALLBACK else args.ALARM_DURATION
+    old_matches = lib.base.coe(lib.logmatch.pending(conn, max_age=max_age))
+    old_warn_matches = [item for item in old_matches if item['state'] == STATE_WARN]
+    old_crit_matches = [item for item in old_matches if item['state'] == STATE_CRIT]
 
     state = lib.base.get_worst(
         lib.base.get_state(len(warn_matches) + len(old_warn_matches), args.WARN, None),
@@ -617,73 +589,36 @@ def main():
 
     msg_addendum = ''
     if args.ICINGA_CALLBACK and state != STATE_OK:
-        # check if the service is acknowledged
-        success, icinga = lib.icinga.get_service(
-            args.ICINGA_URL,
-            args.ICINGA_USERNAME,
-            args.ICINGA_PASSWORD,
-            servicename=args.ICINGA_SERVICE_NAME,
-            attrs='state,acknowledgement',
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+        acknowledged, msg_addendum = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-        if success:
-            try:
-                if icinga['results'][0]['attrs']['acknowledgement']:
-                    # this means the service is acknowledged
-                    state = STATE_OK
-                    lib.base.coe(
-                        lib.db_sqlite.delete(
-                            conn,
-                            """
-                        DELETE
-                        FROM matching_lines
-                        WHERE filename = :filename
-                        """,
-                            {'filename': args.FILENAME},
-                        )
-                    )
-                    old_warn_matches = []
-                    old_crit_matches = []
-                else:
-                    msg_addendum += (
-                        'Note: Acknowledge this service to reset the state to OK.'
-                    )
-            except IndexError:
-                msg_addendum += 'Note: Could not determine the acknowledgement from the Icinga API, this could be due to an incorrect service name.'
-        else:
-            msg_addendum += f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.'
+        if acknowledged:
+            state = STATE_OK
+            lib.base.coe(lib.logmatch.acknowledge(conn, old_matches))
+            old_warn_matches = []
+            old_crit_matches = []
 
-    # save to db, these lines will be alarmed until the service is acknowledged in icinga2
-    for match in warn_matches:
-        lib.base.coe(
-            lib.db_sqlite.insert(
-                conn,
-                {
-                    'filename': args.FILENAME,
-                    'state': STATE_WARN,
-                    'line': match.strip(),
-                    'found_at': now,
-                },
-                table='matching_lines',
-            )
+    # Record this run's matches, so they keep alarming on the following runs
+    # until they age out or the service is acknowledged. Every occurrence gets
+    # its own key, because the file is read incrementally: a line that turns up
+    # again after an acknowledgement is a new event and has to alarm again.
+    lib.base.coe(
+        lib.logmatch.record(
+            conn,
+            [{'line': match, 'state': STATE_WARN} for match in warn_matches]
+            + [{'line': match, 'state': STATE_CRIT} for match in crit_matches],
         )
-    for match in crit_matches:
-        lib.base.coe(
-            lib.db_sqlite.insert(
-                conn,
-                {
-                    'filename': args.FILENAME,
-                    'state': STATE_CRIT,
-                    'line': match.strip(),
-                    'found_at': now,
-                },
-                table='matching_lines',
-            )
-        )
-    lib.base.coe(lib.db_sqlite.commit(conn))
+    )
+    lib.base.coe(lib.logmatch.prune(conn))
     lib.db_sqlite.close(conn)
 
     # build the message: name the scanned file, every configured pattern /
@@ -712,9 +647,7 @@ def main():
     for rgx in sorted(args.CRIT_REGEX):
         pattern_parts.append(_fmt_pattern(rgx, crit_regex_hits[rgx], 'CRITICAL'))
 
-    ignore_parts = [
-        f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE_REGEX)
-    ]
+    ignore_parts = [f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE)]
 
     msg = (
         f'Scanned {scan_path} ({line_counter} '

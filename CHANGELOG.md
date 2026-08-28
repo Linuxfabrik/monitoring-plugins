@@ -14,6 +14,7 @@ Icinga Director:
 
 * Deb Updates and RPM Updates alert on every pending update and hold an ordinary one back for a week and a day. Long-unpatched hosts go WARNING; tick `Only Critical` for the old report
 * delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the certificate check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* Logfile, MySQL Logfile and Journald Query: `Ignore Pattern` / `Ignore Regex` become `Ignore`, move your patterns over. `Ignore` takes a regular expression, so escape any metacharacter a former `Ignore Pattern` contained. The old parameters still work on the command line but no longer have a field in the Director
 * MySQL Database Metrics, Storage Engines and Table Indexes: `Ignore Schemas` / `Ignore Tables` become `Match` / `Ignore`, move your patterns over
 * the KVM Host Service Set drops the libvirtd unit check: tag your hypervisors `libvirtd` or `virtqemud`
 * the `rpm-updates` tag and its Service Set are gone: drop the tag, the check is in the Basic Service Sets now
@@ -77,6 +78,8 @@ Monitoring Plugins:
 * kvm-vm: reports a machine that should start with the host and does not, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
+* mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too, where the check used to be skipped
+* mysql-innodb-log-waits: alerts when the redo log runs so full that InnoDB holds writing sessions back
 * mysql-perf-metrics: the `innodb_snapshot_isolation` advice warns that every connected application has to cope with the rollbacks it causes, and `--ignore-innodb-snapshot-isolation` turns the check off where an application cannot
 * nextcloud-stats: also lists the five largest accounts, and runs longer on big instances ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
@@ -132,6 +135,8 @@ Monitoring Plugins:
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * kvm-vm: a machine that crashed or never started is reported instead of counted as switched off
 * kvm-vm: no longer fails on a machine name containing a space, and reports the machines without root
+* logfile, mysql-logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
+* mysql-logfile: reads the error log of a container again, which the images write to standard error
 * needs-restarting: says so when it could not ask a Debian host at all instead of calling it clean, and stops announcing a reboot where only services need restarting
 * openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
 * path-rw-test: no longer runs forever when a path sits on a network filesystem that stopped answering

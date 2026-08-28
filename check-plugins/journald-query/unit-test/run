@@ -10,7 +10,6 @@
 
 import datetime
 import hashlib
-import json
 import os
 import sqlite3
 import sys
@@ -22,6 +21,7 @@ import unittest
 import lib.db_sqlite
 import lib.disk
 import lib.lftest
+import lib.logmatch
 import lib.time
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -98,11 +98,10 @@ class TestCheck(unittest.TestCase):
 lib.lftest.attach_tests(TestCheck, TESTS)
 
 
-# The hash algorithm below mirrors the plugin's instance-hash and event
-# fingerprint exactly. Keep them in sync if the plugin ever changes either.
+# Derived through the library the plugin itself uses, so the test cannot drift
+# away from it.
 def _instance_db_path(payload):
-    blob = json.dumps(payload, sort_keys=True).encode('utf-8')
-    instance_hash = hashlib.sha256(blob).hexdigest()[:10]
+    instance_hash = lib.logmatch.instance_id(payload)
     filename = f'linuxfabrik-monitoring-plugins-journald-query-{instance_hash}.db'
     # Resolve via the lib so the test seeds and removes the exact file the plugin
     # reads/writes, including the secured per-user directory.

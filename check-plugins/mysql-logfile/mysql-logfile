@@ -12,7 +12,6 @@
 
 import argparse
 import os
-import re
 import stat
 import sys
 
@@ -20,15 +19,17 @@ import lib.args
 import lib.base
 import lib.cache
 import lib.db_mysql
+import lib.db_sqlite
 import lib.disk
 import lib.human
-import lib.shell
+import lib.logmatch
+import lib.logsource
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082801'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -49,11 +50,16 @@ SELECT on that table but no filesystem access."""
 DEFAULT_CACHE_EXPIRE = 5 * 24 * 60  # in minutes (= 5 days)
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
 DEFAULT_TIMEOUT = 3
 
 LOGFILE_BIG_THRESHOLD = 32 * 1024 * 1024  # 32 MiB - matches mysqltuner's cutoff
+ACK_RETENTION_DAYS = 30
 MAXLINES = 30000  # maximum log lines to consider from the end of the source
 
 
@@ -113,10 +119,70 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes. '
+        + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes. '
+        + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='(?i)linuxfabrik'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
         '--ignore-pattern',
-        help='Any line containing this pattern will be ignored. '
-        'The log line is lowercased before matching, so write the pattern in lowercase. '
-        'Can be specified multiple times.',
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_PATTERN',
@@ -124,12 +190,31 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-regex',
-        help=lib.args.help('--ignore-regex')
-        + ' The log line is lowercased before matching, so write the pattern in '
-        'lowercase (or use the `(?i)` flag).',
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_REGEX',
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='innodb'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -138,6 +223,23 @@ def parse_args():
         dest='NO_PERFDATA',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes. '
+        + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes. '
+        + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
     )
 
     parser.add_argument(
@@ -251,23 +353,6 @@ def read_pfs_error_log(conn):
     return '\n'.join(lines)
 
 
-def read_container_logs(prefix, target):
-    """Run `<prefix> logs --tail=<MAXLINES> <target>`; abort on non-zero exit."""
-    cmd = [prefix, 'logs', f'--tail={MAXLINES}', target]
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-    if retc != 0:
-        lib.base.cu(f'`{" ".join(cmd)}` exited with error ({retc}, {stderr.strip()}).')
-    return stdout
-
-
-def read_systemd_logs(unit):
-    cmd = ['journalctl', '--lines', str(MAXLINES), '--boot', '--unit', unit]
-    stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-    if retc != 0:
-        lib.base.cu(f'`{" ".join(cmd)}` exited with error ({retc}, {stderr.strip()}).')
-    return stdout
-
-
 def shorten(items, head=5, tail=5):
     """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
     if len(items) > head + tail:
@@ -287,10 +372,32 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    if args.IGNORE is None:
+        args.IGNORE = []
     if args.IGNORE_PATTERN is None:
         args.IGNORE_PATTERN = []
-    if args.IGNORE_REGEX is None:
-        args.IGNORE_REGEX = []
+    if args.MATCH is None:
+        args.MATCH = []
+    # `--ignore-regex` is the former name of `--ignore` and means the same
+    # thing, so its values simply join the list. `--ignore-pattern` stays a
+    # plain substring filter of its own, because folding a substring into a
+    # regex list would change what it matches as soon as it carries a
+    # metacharacter.
+    if args.IGNORE_REGEX:
+        args.IGNORE += args.IGNORE_REGEX
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
 
     # fetch data
     # `source_label` always describes what the admin sees ("Source: ..."),
@@ -359,44 +466,13 @@ def main():
     if logfile is None:
         if log_error == 'stderr':
             lib.base.cu("log_error is set to STDERR, so this check can't read stderr.")
-        container = re.match(r'^(docker|podman|kubectl):(.*)$', log_error)
-        systemd_match = re.match(r'^systemd:(.*)$', log_error)
-        if container:
-            logfile = read_container_logs(
-                container.group(1).strip(),
-                container.group(2).strip(),
-            )
-            source_label = f'`{log_error}`'
-        elif systemd_match:
-            logfile = read_systemd_logs(systemd_match.group(1).strip())
-            source_label = f'`{log_error}`'
-        else:
-            # plain on-disk file
-            if not os.path.isabs(log_error):
-                log_error = os.path.join(myvar.get('datadir', ''), log_error)
-            # The plugin runs as root via sudo, so restrict the on-disk log to
-            # the system log directory and the default MySQL data directory;
-            # is_within() resolves symlinks and `..` so neither can escape. The
-            # datadir reported by the server is deliberately NOT trusted here,
-            # because an attacker controls which server the check connects to
-            # (`--defaults-file`/`--hostname`) and could report `datadir=/etc`.
-            # The plugin's own unit-test/ directory is allowed so the fixture
-            # tests work; it does not exist next to the flat, root-owned plugin
-            # in production. Bind-mount a custom data/log directory under
-            # /var/log to include it (see the README).
-            allowed_roots = [
-                '/var/log',
-                '/var/lib/mysql',
-                os.path.join(
-                    os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'
-                ),
-            ]
-            if not lib.disk.is_within(log_error, allowed_roots):
-                lib.base.cu(
-                    f'Refusing to read "{log_error}": resolved path is outside the allowed '
-                    f'log directories (/var/log, /var/lib/mysql); bind-mount it under '
-                    f'/var/log if intended.'
-                )
+        kind, _, target = lib.base.coe(lib.logsource.parse(log_error))
+        if kind == lib.logsource.KIND_FILE:
+            if not os.path.isabs(target):
+                log_error = os.path.join(myvar.get('datadir', ''), target)
+            # Report a path that is not a regular file before reading it, so the
+            # admin hears about a directory or a device rather than about an I/O
+            # error further down.
             log_stat = lib.disk.stat(log_error)
             if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
                 lib.base.oao(
@@ -416,8 +492,33 @@ def main():
                     f'Log file `{log_error}` is empty. Assuming log-rotation.',
                     STATE_OK,
                 )
-            logfile = lib.base.coe(lib.disk.read_file(log_error))
-            source_label = f'`{log_error}`'
+        # The plugin runs as root via sudo, so restrict an on-disk log to the
+        # system log directory and the default MySQL data directory. The datadir
+        # reported by the server is deliberately NOT trusted here, because an
+        # attacker controls which server the check connects to
+        # (`--defaults-file`/`--hostname`) and could report `datadir=/etc`. The
+        # plugin's own unit-test/ directory is allowed so the fixture tests
+        # work; it does not exist next to the flat, root-owned plugin in
+        # production. Bind-mount a custom data/log directory under /var/log to
+        # include it (see the README).
+        allowed_roots = [
+            '/var/log',
+            '/var/lib/mysql',
+            os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+        ]
+        # No position is kept on purpose: this check reports on a window of the
+        # log, counting startups and shutdowns next to errors and warnings, so
+        # every run has to see the whole window rather than only what is new.
+        result = lib.base.coe(
+            lib.logsource.read(
+                log_error,
+                allowed_roots=allowed_roots,
+                max_lines=MAXLINES,
+                timeout=args.TIMEOUT,
+            )
+        )
+        logfile = '\n'.join(result['lines'])
+        source_label = f'`{log_error}`'
 
     # init some vars
     state = STATE_OK
@@ -428,14 +529,57 @@ def main():
     # which combinations of paths fire.
     recommendations = []
     last_errs, last_warns, last_shutdowns, last_starts = [], [], [], []
-    compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+    suppressed_cnt = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # Persisted acknowledgements are only needed when the callback is in use.
+    # Each unique combination of filters gets its own state database, so two
+    # services watching the same error log for different things do not share
+    # what has been acknowledged. Only the filters actually set take part in the
+    # identifier, so adding a filter later does not orphan the state of a
+    # service that does not use it.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = {'hostname': args.HOSTNAME, 'port': args.PORT}
+        for name, value in (
+            ('ignore', args.IGNORE),
+            ('ignore_pattern', args.IGNORE_PATTERN),
+            ('match', args.MATCH),
+        ):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'mysql-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        # Drop acknowledgements older than the retention: by that age the line
+        # has left the window this check reads and can no longer re-appear.
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
 
     # analyze data
     for log_line in logfile.splitlines():
         haystack = log_line.lower()
         if any(pattern.lower() in haystack for pattern in args.IGNORE_PATTERN) or any(
-            item.search(haystack) for item in compiled_ignore_regex
+            item.search(haystack) for item in compiled_ignore
         ):
+            continue
+        # `--match` (include) is applied first, then `--ignore` (exclude), so a
+        # line hit by `--ignore` is dropped even if it also matches `--match`.
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        # Drop a line an operator has already taken on. The whole log line is
+        # keyed, timestamp included, so the very same message logged again later
+        # is a new event and alerts again.
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
             continue
         # MySQL/MariaDB tag the severity in brackets like `[ERROR]` / `[Warning]`.
         # Match the bracketed form so words like "errors" inside table names or
@@ -557,6 +701,43 @@ def main():
     perfdata += lib.base.get_perfdata('mysql_warning_lines', n_warn, _min=0)
     perfdata += lib.base.get_perfdata('mysql_startups', n_start, _min=0)
     perfdata += lib.base.get_perfdata('mysql_shutdowns', n_shut, _min=0)
+
+    # Ask the monitoring server about the acknowledgement. Where the service is
+    # acknowledged, persist the lines currently being reported so an unchanged
+    # error log does not raise them again on the following runs.
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in last_errs + last_warns
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
 
     # over and out
     lib.base.oao(

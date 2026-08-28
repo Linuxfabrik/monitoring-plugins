@@ -26,13 +26,16 @@
                 "--identifier": {
                     "value": "$journald_query_identifier$"
                 },
-                "--ignore-pattern": {
-                    "value": "$journald_query_ignore_pattern$",
+                "--ignore": {
+                    "value": "$journald_query_ignore$",
                     "repeat_key": true
                 },
-                "--ignore-regex": {
-                    "value": "$journald_query_ignore_regex$",
+                "--match": {
+                    "value": "$journald_query_match$",
                     "repeat_key": true
+                },
+                "--no-match-severity": {
+                    "value": "$journald_query_no_match_severity$"
                 },
                 "--insecure": {
                     "set_if": "$journald_query_insecure$"
@@ -177,6 +180,11 @@
                     "datafield_id": 21,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -233,8 +241,9 @@
                 "criticality": "C",
                 "journald_query_always_ok": false,
                 "journald_query_icinga_callback": false,
-                "journald_query_ignore_pattern": [],
-                "journald_query_ignore_regex": [],
+                "journald_query_ignore": [],
+                "journald_query_match": [],
+                "journald_query_no_match_severity": "ok",
                 "journald_query_insecure": true,
                 "journald_query_no_perfdata": false,
                 "journald_query_no_proxy": false,
@@ -251,6 +260,37 @@
         }
     },
     "DataList": {
+        "journald_query_no_match_severity_list": {
+            "list_name": "journald_query_no_match_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "379292b3-4cff-498c-a0f2-73ced7795918"
+        },
         "journald_query_severity_list": {
             "list_name": "journald_query_severity_list",
             "owner": "icinga-admin",
@@ -295,7 +335,7 @@
         "3": {
             "varname": "journald_query_icinga_callback",
             "caption": "Journald Query: Icinga Callback?",
-            "description": "Get the service acknowledgement from Icinga. When the service is acknowledged, the currently reported journald events are persisted as \"already handled\" so they no longer trigger alerts on following runs.",
+            "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -304,7 +344,7 @@
         "4": {
             "varname": "journald_query_icinga_password",
             "caption": "Journald Query: Icinga Password",
-            "description": "Icinga API password.",
+            "description": "Monitoring server API password.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -315,7 +355,7 @@
         "5": {
             "varname": "journald_query_icinga_service_name",
             "caption": "Journald Query: Icinga Service Name",
-            "description": "Unique name of the service using this check within Icinga. Take it from the `__name` service attribute. Example: `icinga-server!my-service-name`.",
+            "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -326,7 +366,7 @@
         "6": {
             "varname": "journald_query_icinga_url",
             "caption": "Journald Query: Icinga URL",
-            "description": "Icinga API URL. Example: `https://icinga-server:5665`.",
+            "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -337,7 +377,7 @@
         "7": {
             "varname": "journald_query_icinga_username",
             "caption": "Journald Query: Icinga Username",
-            "description": "Icinga API username.",
+            "description": "Monitoring server API username.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -357,46 +397,59 @@
             "uuid": "f8067419-b975-4dc2-8907-1d55b64f4895"
         },
         "9": {
-            "varname": "journald_query_ignore_pattern",
-            "caption": "Journald Query: Ignore Pattern",
-            "description": "Any line containing this case-sensitive string in the MESSAGE field will be ignored. Can be specified multiple times. Unlike journalctl, this allows easy string-based filtering.",
+            "varname": "journald_query_ignore",
+            "caption": "Journald Query: Ignore",
+            "description": "Ignore an event whose MESSAGE field matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "38241f89-41dc-40c9-8210-4d2e9f4d1064"
+            "uuid": "a7605c6c-dd26-4859-9b2e-12eac6957349"
         },
         "10": {
-            "varname": "journald_query_ignore_regex",
-            "caption": "Journald Query: Ignore Regex",
-            "description": "Any line matching this Python regex on the MESSAGE field will be ignored. Can be specified multiple times. Example: `--ignore-regex='(?i)linuxfabrik'`.",
+            "varname": "journald_query_match",
+            "caption": "Journald Query: Match",
+            "description": "Only report an event whose MESSAGE field matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='(?i)out of memory'`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "49e141c2-b6c4-498d-85b1-5f7a26d7aa1a"
+            "uuid": "fc6c6893-3581-4063-bae6-5e868fb637b9"
         },
         "11": {
+            "varname": "journald_query_no_match_severity",
+            "caption": "Journald Query: No Match Severity",
+            "description": "State to report when no item matches the filters and nothing is checked.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "journald_query_no_match_severity_list"
+            },
+            "uuid": "74b7ec4f-372b-4957-bb84-f8c9ba3929d6"
+        },
+        "12": {
             "varname": "journald_query_insecure",
             "caption": "Journald Query: Insecure?",
-            "description": "This option explicitly allows insecure SSL connections.",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "7d905e4c-8461-4a4e-b98d-3dc3412562cf"
         },
-        "12": {
+        "13": {
             "varname": "journald_query_no_insecure",
             "caption": "Journald Query: No Insecure?",
-            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "c0c48247-d133-48de-925e-65e57a7d66d5"
         },
-        "13": {
+        "14": {
             "varname": "journald_query_no_perfdata",
             "caption": "Journald Query: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -405,16 +458,16 @@
             "settings": {},
             "uuid": "1e52be09-5804-4288-91d7-203047c24e79"
         },
-        "14": {
+        "15": {
             "varname": "journald_query_no_proxy",
             "caption": "Journald Query: No Proxy?",
-            "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
             "uuid": "55e6d16f-1454-46a3-927e-78d19f7fd1f0"
         },
-        "15": {
+        "16": {
             "varname": "journald_query_priority",
             "caption": "Journald Query: Priority",
             "description": "Filter output by message priorities or priority ranges (passed to journalctl).",
@@ -425,10 +478,10 @@
             },
             "uuid": "365b15ae-a51c-4e48-a457-994549b05d76"
         },
-        "16": {
+        "17": {
             "varname": "journald_query_proxy",
             "caption": "Journald Query: Proxy",
-            "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -436,7 +489,7 @@
             },
             "uuid": "6152a13b-e966-4c68-8ee9-a9a697e440e4"
         },
-        "17": {
+        "18": {
             "varname": "journald_query_severity",
             "caption": "Journald Query: Severity",
             "description": "Severity for alerts when journalctl returns results.",
@@ -449,7 +502,7 @@
             },
             "uuid": "13f9360c-fa85-47f2-9503-9e91a73695f7"
         },
-        "18": {
+        "19": {
             "varname": "journald_query_since",
             "caption": "Journald Query: Since",
             "description": "Show entries on or newer than the specified date (passed to journalctl).",
@@ -460,7 +513,7 @@
             },
             "uuid": "858a4298-5f7e-41af-be65-a0028115b7be"
         },
-        "19": {
+        "20": {
             "varname": "journald_query_timeout",
             "caption": "Journald Query: Timeout",
             "description": "Network timeout in seconds.",
@@ -471,7 +524,7 @@
             },
             "uuid": "157f271f-7d0a-449b-87a3-422afaba2ce1"
         },
-        "20": {
+        "21": {
             "varname": "journald_query_unit",
             "caption": "Journald Query: Unit",
             "description": "Show messages for the specified systemd unit UNIT|PATTERN (passed to journalctl). Can be specified multiple times.",
@@ -482,7 +535,7 @@
             },
             "uuid": "8a6371ec-9b10-4bd3-b689-731b4dfeea67"
         },
-        "21": {
+        "22": {
             "varname": "journald_query_user_unit",
             "caption": "Journald Query: User Unit",
             "description": "Show messages for the specified user session unit (passed to journalctl). Can be specified multiple times.",

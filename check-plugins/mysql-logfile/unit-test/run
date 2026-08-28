@@ -166,6 +166,40 @@ for _case in CASES:
     setattr(TestCheck, _method, _make_test(_case))
 
 
+class TestIcingaCallback(unittest.TestCase):
+    """The acknowledgement callback needs all four connection parameters, and
+    says so instead of failing halfway through the run."""
+
+    def test_callback_without_credentials_is_refused(self):
+        cmd = [
+            PLUGIN,
+            f'--server-log={fixture("sample-error.txt")}',
+            '--icinga-callback',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
+        self.assertIn('`--icinga-callback` requires', combined)
+
+    def test_callback_is_not_reached_on_a_clean_log(self):
+        # nothing to acknowledge means no call to the monitoring server, so an
+        # unreachable one must not turn a healthy check into a failure
+        cmd = [
+            PLUGIN,
+            f'--server-log={fixture("sample-ok.txt")}',
+            '--icinga-callback',
+            '--icinga-url=https://monitoring.example.invalid:5665',
+            '--icinga-username=username',
+            '--icinga-password=linuxfabrik',
+            '--icinga-service-name=host!service',
+            '--timeout=1',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_OK, combined)
+        self.assertNotIn('acknowledgement', combined)
+
+
 class TestPathConfinement(unittest.TestCase):
     """A --server-log that resolves outside /var/log and /var/lib/mysql (here a
     /tmp scratch file) is refused, so a root-run plugin cannot be turned into an

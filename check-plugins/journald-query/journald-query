@@ -11,10 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
-import datetime
-import hashlib
 import json
-import re
 import sys
 
 import lib.args
@@ -22,15 +19,15 @@ import lib.base
 import lib.db_sqlite
 import lib.disk
 import lib.human
-import lib.icinga
 import lib.lftest
+import lib.logmatch
 import lib.shell
 import lib.time
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082801'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -44,6 +41,7 @@ ACK_RETENTION_DAYS = 30
 DEFAULT_FACILITY = None
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_IDENTIFIER = None
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_INSECURE = True
 DEFAULT_NO_PROXY = False
 DEFAULT_PRIORITY = 'emerg..err'
@@ -100,10 +98,7 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-callback',
-        help='Get the service acknowledgement from Icinga. When the service is '
-        'acknowledged, the currently reported journald events are persisted as '
-        '"already handled" so they no longer trigger alerts on following runs. '
-        'Default: %(default)s',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
         dest='ICINGA_CALLBACK',
         action='store_true',
         default=DEFAULT_ICINGA_CALLBACK,
@@ -111,27 +106,25 @@ def parse_args():
 
     parser.add_argument(
         '--icinga-password',
-        help='Icinga API password.',
+        help=lib.args.help('--icinga-password'),
         dest='ICINGA_PASSWORD',
     )
 
     parser.add_argument(
         '--icinga-service-name',
-        help='Unique name of the service using this check within Icinga. '
-        'Take it from the `__name` service attribute. '
-        'Example: `icinga-server!my-service-name`.',
+        help=lib.args.help('--icinga-service-name'),
         dest='ICINGA_SERVICE_NAME',
     )
 
     parser.add_argument(
         '--icinga-url',
-        help='Icinga API URL. Example: `https://icinga-server:5665`.',
+        help=lib.args.help('--icinga-url'),
         dest='ICINGA_URL',
     )
 
     parser.add_argument(
         '--icinga-username',
-        help='Icinga API username.',
+        help=lib.args.help('--icinga-username'),
         dest='ICINGA_USERNAME',
     )
 
@@ -144,10 +137,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--ignore-pattern',
-        help='Any line containing this case-sensitive string in the MESSAGE field will be ignored. '
+        '--ignore',
+        help='Ignore an event whose MESSAGE field matches this Python regular expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
-        'Unlike journalctl, this allows easy string-based filtering.',
+        "Example: `--ignore='(?i)linuxfabrik'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--ignore-pattern',
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_PATTERN',
@@ -155,17 +157,37 @@ def parse_args():
 
     parser.add_argument(
         '--ignore-regex',
-        help='Any line matching this Python regex on the MESSAGE field will be ignored. '
-        'Can be specified multiple times. '
-        "Example: `--ignore-regex='(?i)linuxfabrik'`.",
+        help=argparse.SUPPRESS,
         action='append',
         default=None,
         dest='IGNORE_REGEX',
     )
 
     parser.add_argument(
+        '--match',
+        help='Only report an event whose MESSAGE field matches this Python regular '
+        'expression. '
+        'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='(?i)out of memory'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
         '--insecure',
-        help=lib.args.help('--insecure'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
@@ -173,7 +195,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-insecure',
-        help=lib.args.help('--no-insecure'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-insecure'),
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
@@ -189,7 +212,8 @@ def parse_args():
 
     parser.add_argument(
         '--no-proxy',
-        help=lib.args.help('--no-proxy'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-proxy'),
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
@@ -205,7 +229,8 @@ def parse_args():
 
     parser.add_argument(
         '--proxy',
-        help=lib.args.help('--proxy'),
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--proxy'),
         dest='PROXY',
         default=None,
     )
@@ -266,6 +291,40 @@ def parse_args():
     return args
 
 
+def migrate_ack_state(conn):
+    """Carry acknowledgements written by an earlier version over to the current layout.
+
+    Without this, the first run after an update finds no acknowledgement at all and raises
+    every event an operator had already taken on, on every host at once.
+
+    The migration works inside the state database that is already open, and never constructs,
+    moves or opens a path of its own. Keep it that way: the previous attempt at carrying old
+    state over moved a file from a predictable location in the shared temp directory and
+    followed a symlink planted there (GHSA-w2gg-hx6w-24w3).
+    """
+    tables = lib.base.coe(lib.db_sqlite.get_tables(conn))
+    if 'acknowledged_events' not in tables:
+        return
+    rows = lib.base.coe(
+        lib.db_sqlite.select(
+            conn,
+            'SELECT event_hash FROM acknowledged_events',
+            fetchone=False,
+        )
+    )
+    if rows:
+        # The message itself was never stored in the old layout, only its hash,
+        # so the text stays empty here. It is not read back anywhere: the hash
+        # is what an acknowledgement is matched on.
+        lib.base.coe(
+            lib.logmatch.acknowledge(
+                conn,
+                [{'key': row['event_hash'], 'line': ''} for row in rows],
+            )
+        )
+    lib.base.coe(lib.db_sqlite.drop_table(conn, table='acknowledged_events'))
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -284,10 +343,19 @@ def main():
     args.SINCE = args.SINCE.lstrip('\\')
 
     # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
     if args.IGNORE_PATTERN is None:
         args.IGNORE_PATTERN = []
-    if args.IGNORE_REGEX is None:
-        args.IGNORE_REGEX = []
+    if args.MATCH is None:
+        args.MATCH = []
+    # `--ignore-regex` is the former name of `--ignore` and means the same
+    # thing, so its values simply join the list. `--ignore-pattern` stays a
+    # plain substring filter of its own, because folding a substring into a
+    # regex list would change what it matches as soon as it carries a
+    # metacharacter.
+    if args.IGNORE_REGEX:
+        args.IGNORE += args.IGNORE_REGEX
 
     if args.ICINGA_CALLBACK and not all(
         (
@@ -308,58 +376,31 @@ def main():
     acked_fingerprints = set()
     ack_conn = None
     if args.ICINGA_CALLBACK:
-        instance_payload = json.dumps(
-            {
-                'facility': args.FACILITY,
-                'identifier': args.IDENTIFIER,
-                'ignore_pattern': sorted(args.IGNORE_PATTERN),
-                'ignore_regex': sorted(args.IGNORE_REGEX),
-                'priority': args.PRIORITY,
-                'since': args.SINCE,
-                'unit': sorted(args.UNIT) if args.UNIT else [],
-                'user_unit': sorted(args.USER_UNIT) if args.USER_UNIT else [],
-            },
-            sort_keys=True,
-        ).encode('utf-8')
-        instance_hash = hashlib.sha256(instance_payload).hexdigest()[:10]
-        ack_db_filename = (
-            f'linuxfabrik-monitoring-plugins-journald-query-{instance_hash}.db'
-        )
-        ack_conn = lib.base.coe(lib.db_sqlite.connect(filename=ack_db_filename))
-        definition = """
-            event_hash TEXT NOT NULL PRIMARY KEY,
-            event_timestamp INTEGER NOT NULL,
-            acknowledged_at TIMESTAMP NOT NULL
-        """
-        lib.base.coe(
-            lib.db_sqlite.create_table(
-                ack_conn, definition, table='acknowledged_events'
-            )
-        )
-        # Prune ack records that are older than ACK_RETENTION_DAYS to keep
-        # the DB bounded. By that age the event has rotated out of the
-        # journal and can no longer re-appear anyway.
-        retention_cutoff = lib.time.now(as_type='datetime') - datetime.timedelta(
-            days=ACK_RETENTION_DAYS
-        )
-        lib.base.coe(
-            lib.db_sqlite.delete(
-                ack_conn,
-                """
-                DELETE FROM acknowledged_events
-                WHERE acknowledged_at <= :cutoff
-                """,
-                {'cutoff': retention_cutoff},
-            )
-        )
-        rows = lib.base.coe(
-            lib.db_sqlite.select(
-                ack_conn,
-                'SELECT event_hash FROM acknowledged_events',
-                fetchone=False,
-            )
-        )
-        acked_fingerprints = {row['event_hash'] for row in rows}
+        # The payload names the filters actually in effect, and an unused filter
+        # contributes nothing to it. That keeps the identifier of a service
+        # configured before `--match` existed byte-identical, so its state
+        # database, and with it every acknowledgement in there, survives the
+        # update. `--ignore` sits in the slot of `--ignore-regex`, which it
+        # replaces and whose semantics it shares.
+        instance_payload = {
+            'facility': args.FACILITY,
+            'identifier': args.IDENTIFIER,
+            'ignore_pattern': args.IGNORE_PATTERN,
+            'ignore_regex': args.IGNORE,
+            'priority': args.PRIORITY,
+            'since': args.SINCE,
+            'unit': args.UNIT or [],
+            'user_unit': args.USER_UNIT or [],
+        }
+        if args.MATCH:
+            instance_payload['match'] = args.MATCH
+        instance = lib.logmatch.instance_id(instance_payload)
+        ack_conn = lib.base.coe(lib.logmatch.connect('journald-query', instance))
+        migrate_ack_state(ack_conn)
+        # Drop ack records older than the retention: by that age the event has
+        # rotated out of the journal and can no longer re-appear anyway.
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
 
     # fetch data
     if args.TEST is None:
@@ -451,7 +492,13 @@ def main():
         state = lib.base.str2state(args.SEVERITY)
         result = stdout.splitlines()
 
-        compiled_ignore_regex = [re.compile(item) for item in args.IGNORE_REGEX]
+        compiled_ignore = [
+            lib.base.coe(item)
+            for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+        ]
+        compiled_match = [
+            lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+        ]
         for item in result:
             try:
                 event = json.loads(item)
@@ -463,17 +510,21 @@ def main():
             if any(
                 ignore_pattern in event['MESSAGE']
                 for ignore_pattern in args.IGNORE_PATTERN
-            ) or any(item.search(event['MESSAGE']) for item in compiled_ignore_regex):
+            ) or any(item.search(event['MESSAGE']) for item in compiled_ignore):
+                continue
+            # `--match` (include) is applied first, then `--ignore` (exclude),
+            # so an event hit by `--ignore` is dropped even if it also matches
+            # `--match`.
+            if compiled_match and not any(
+                item.search(event['MESSAGE']) for item in compiled_match
+            ):
                 continue
             # Stable per-event fingerprint for ack persistence. Kept
             # deliberately simple (timestamp + message) so the same hash is
             # derived the next time journalctl returns the same entry.
-            event_fingerprint = hashlib.sha256(
-                (
-                    f'{event.get("__REALTIME_TIMESTAMP", "")}|'
-                    f'{event.get("MESSAGE", "")}'
-                ).encode()
-            ).hexdigest()
+            event_fingerprint = lib.logmatch.key(
+                f'{event.get("__REALTIME_TIMESTAMP", "")}|{event.get("MESSAGE", "")}'
+            )
             if event_fingerprint in acked_fingerprints:
                 continue
             event['_fingerprint'] = event_fingerprint
@@ -497,7 +548,13 @@ def main():
 
         cnt = len(table_data)
         if cnt == 0:
+            # A journal that reported nothing is the normal quiet case and stays
+            # OK. Only where the operator's own filters dropped everything the
+            # journal did report does `--no-match-severity` get a say, because
+            # then the check looked at nothing rather than at a quiet host.
             state = STATE_OK
+            if result and (args.MATCH or args.IGNORE or args.IGNORE_PATTERN):
+                state = lib.base.str2state(args.NO_MATCH_SEVERITY)
         if cnt > 10:
             # shorten the message
             table_data = table_data[0:5] + table_data[-5:]
@@ -511,50 +568,33 @@ def main():
     # issue #649.
     msg_addendum = ''
     if args.ICINGA_CALLBACK and state != STATE_OK:
-        success, icinga = lib.icinga.get_service(
-            args.ICINGA_URL,
-            args.ICINGA_USERNAME,
-            args.ICINGA_PASSWORD,
-            servicename=args.ICINGA_SERVICE_NAME,
-            attrs='state,acknowledgement',
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+        acknowledged, msg_addendum = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-        if success:
-            try:
-                if icinga['results'][0]['attrs']['acknowledgement']:
-                    now_dt = lib.time.now(as_type='datetime')
-                    for event in table_data:
-                        lib.base.coe(
-                            lib.db_sqlite.replace(
-                                ack_conn,
-                                {
-                                    'event_hash': event['_fingerprint'],
-                                    'event_timestamp': int(
-                                        event.get('__REALTIME_TIMESTAMP', 0)
-                                    ),
-                                    'acknowledged_at': now_dt,
-                                },
-                                table='acknowledged_events',
-                            )
-                        )
-                    state = STATE_OK
-                else:
-                    msg_addendum += (
-                        'Note: Acknowledge this service to reset the state to OK.'
-                    )
-            except IndexError:
-                msg_addendum += (
-                    'Note: Could not determine the acknowledgement from the '
-                    'Icinga API, this could be due to an incorrect service name.'
+        if acknowledged:
+            # Persist the events currently being reported, so they do not
+            # re-alert on the following runs (issue #649).
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': event['_fingerprint'], 'line': event['MESSAGE']}
+                        for event in table_data
+                    ],
                 )
-        else:
-            msg_addendum += f'Note: Could not determine the acknowledgement from the Icinga API:\n{icinga}.'
+            )
+            state = STATE_OK
 
     if ack_conn is not None:
-        lib.base.coe(lib.db_sqlite.commit(ack_conn))
         lib.db_sqlite.close(ack_conn)
 
     # build the message
@@ -635,7 +675,7 @@ def main():
             filter_parts.append(f"identifier='{args.IDENTIFIER}'")
 
         ignore_parts = [
-            f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE_REGEX)
+            f"'{item}'" for item in sorted(args.IGNORE_PATTERN + args.IGNORE)
         ]
 
         msg = f'Queried the systemd journal (0 events) using {_join_and(filter_parts)}'
