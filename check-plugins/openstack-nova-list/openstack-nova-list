@@ -26,13 +26,15 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026082802'
 
 DESCRIPTION = """Lists the OpenStack Nova compute instances (virtual servers) of a project and
 reports the status of every one of them. Alerts when an instance sits in a status that needs
-attention, for example ERROR, or when the Nova API cannot be reached in time. The state reported
-per Nova status is configurable, so a cloud on which powered-off instances are a problem can say
-so. Supports extended reporting via --lengthy."""
+attention, for example ERROR, or when the Nova API cannot be reached in time. Also alerts on an
+instance Nova lists as ACTIVE while the hypervisor last reported it as anything but running,
+which the Nova status itself never shows. The state reported per Nova status is configurable, so
+a cloud on which powered-off instances are a problem can say so. Supports extended reporting via
+--lengthy."""
 
 # The Compute API microversion to ask for. 2.1 is the baseline every Nova release
 # since Kilo speaks. Instances whose cell is unreachable are silently left out
@@ -98,6 +100,36 @@ FILTER_FIELDS = {
 # drops out of the table by itself on a quiet cloud.
 TASK_STATE_KEY = 'OS-EXT-STS:task_state'
 
+# What the hypervisor last reported about the instance, and what Nova wrote into
+# its database from that. This is the field the Nova status is NOT derived from,
+# which is why it is read here at all: `status_from_state()` builds the status
+# out of the VM state and the task state alone, so an instance whose domain is
+# paused, shut down or gone keeps saying ACTIVE.
+POWER_STATE_KEY = 'OS-EXT-STS:power_state'
+
+# The one power state that belongs to an instance Nova calls ACTIVE. Nova puts it
+# that way itself: "The only rational power state should be RUNNING".
+POWER_STATE_RUNNING = 1
+
+# What each power state index means, taken whole from
+# nova/objects/fields.py:InstancePowerState.ALL, which is ordered by index and
+# lists `_unused` at 2 and 5. Those two are carried rather than dropped: a cloud
+# that ever reports one must not fall through to a missing key.
+# Index 0 is spelled `pending` upstream, which says the opposite of what it means
+# for an instance that is already ACTIVE. Nova sets it when the driver answers
+# `InstanceNotFound` and logs "Instance is unexpectedly not found", so it is
+# worded for the administrator here.
+POWER_STATES = {
+    0: 'not found',
+    1: 'running',
+    2: 'unused',
+    3: 'paused',
+    4: 'shutdown',
+    5: 'unused',
+    6: 'crashed',
+    7: 'suspended',
+}
+
 # How much of an opaque identifier the table shows, the way a short commit hash
 # stands in for the full one. The instance ID is a UUID, and `hostId` is a
 # SHA-224 over the project ID and the compute host, so ten characters still
@@ -111,6 +143,7 @@ DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
 DEFAULT_INSECURE = False
 DEFAULT_LENGTHY = False
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_POWER_MISMATCH_SEVERITY = 'warn'
 DEFAULT_RC_FILE = '/var/spool/icinga2/.openstack.cnf'
 DEFAULT_TIMEOUT = 8
 
@@ -264,6 +297,19 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--power-mismatch-severity',
+        help='State to report for an instance Nova lists as ACTIVE while the '
+        'hypervisor last reported it as anything but running, for example '
+        'paused, shut down or gone. The Nova status never shows this, and Nova '
+        'does not correct all of these cases by itself. '
+        'Use `crit` on a cloud where such an instance is an outage. '
+        'Default: %(default)s',
+        dest='POWER_MISMATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_POWER_MISMATCH_SEVERITY,
     )
 
     parser.add_argument(
@@ -453,6 +499,36 @@ def get_addresses(server):
     return ', '.join(ips)
 
 
+def get_power_mismatch(server, status):
+    """Return the power state of an instance Nova calls ACTIVE without it running.
+
+    Returns the wording for that power state, or an empty string when there is
+    nothing to report.
+
+    Nova compares the two itself in `_sync_instance_power_state()` and does not
+    settle the disagreement in every case: `paused` and a domain the driver
+    cannot find are logged and left alone, and the rest is handed to the stop
+    API, which the status only follows once that call gets through. The status
+    is therefore the last thing to move, and on two of the five power states it
+    never moves at all. Measured against nova 33.1.0.dev367 with
+    `vm_state=active` and no task: every power state other than `running`
+    leaves the reported status at ACTIVE.
+
+    Only ACTIVE without a running task is compared, which is the same guard
+    Nova applies before it looks at the power state. Otherwise a reboot or a
+    live migration, both of which legitimately stop or pause the domain for a
+    while, would read as a mismatch.
+    """
+    if status != 'ACTIVE' or server.get(TASK_STATE_KEY):
+        return ''
+    power = server.get(POWER_STATE_KEY)
+    # A cloud whose cell did not answer reports no power state at all. Nothing
+    # is known then, which is not the same as something being wrong.
+    if power is None or power == POWER_STATE_RUNNING:
+        return ''
+    return POWER_STATES.get(power, f'power state {power}')
+
+
 def get_timestamp(server, key):
     """Return an API timestamp as `YYYY-MM-DD hh:mm:ss`, or an empty string.
 
@@ -506,6 +582,9 @@ def main():
     perfdata = ''
     table_data = []
     status_count = dict.fromkeys(severity_map, 0)
+    # Counted per power state rather than as one number, because `paused` and a
+    # domain the hypervisor cannot find are different problems.
+    power_count = {}
     last_update = ''
     compiled_match = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
@@ -546,6 +625,17 @@ def main():
         status_count[status] += 1
 
         server_state = lib.base.str2state(severity_map[status])
+
+        # The status alone would call this instance healthy, so the power state
+        # gets its own say and the reason travels in the status cell: a bare
+        # `ACTIVE [WARNING]` would leave an administrator guessing.
+        power = get_power_mismatch(server, status)
+        if power:
+            power_count[power] = power_count.get(power, 0) + 1
+            server_state = lib.base.get_worst(
+                server_state,
+                lib.base.str2state(args.POWER_MISMATCH_SEVERITY),
+            )
         state = lib.base.get_worst(state, server_state)
 
         updated = get_timestamp(server, 'updated')
@@ -562,7 +652,10 @@ def main():
             'host_id': (server.get('hostId') or '')[:SHORT_ID_LENGTH],
             'id': server.get('id', '')[:SHORT_ID_LENGTH],
             'name': name,
-            'status': f'{status}{lib.base.state2str(server_state, prefix=" ")}',
+            'status': (
+                f'{status}{f" ({power})" if power else ""}'
+                f'{lib.base.state2str(server_state, prefix=" ")}'
+            ),
             'task': server.get(TASK_STATE_KEY) or '',
             'zone': server.get(FILTER_FIELDS['zone'][0]) or '',
         }
@@ -607,6 +700,18 @@ def main():
     if reported:
         msg += f': {", ".join(reported)}'
     msg += '.'
+    # Ahead of the timestamp, because the status counts above read as healthy
+    # while this is what is actually wrong.
+    if power_count:
+        mismatched = sum(power_count.values())
+        detail = ', '.join(
+            f'{cnt} {power}' for power, cnt in sorted(power_count.items())
+        )
+        msg += (
+            f' {mismatched} ACTIVE '
+            f'{lib.txt.pluralize("instance", mismatched)} not running '
+            f'on the hypervisor: {detail}.'
+        )
     if last_update:
         ago = lib.human.seconds2human(
             lib.time.timestrdiff(lib.time.now(as_type='iso'), last_update),
@@ -614,6 +719,15 @@ def main():
         msg += f' Last status change {last_update} UTC ({ago} ago).'
 
     perfdata += lib.base.get_perfdata('total', checked, uom=None, _min=0)
+    # A problem counter, so it alerts from the first instance on.
+    perfdata += lib.base.get_perfdata(
+        'power_mismatch',
+        sum(power_count.values()),
+        uom=None,
+        warn='0',
+        _min=0,
+        _max=checked,
+    )
     for status, cnt in sorted(status_count.items()):
         perfdata += lib.base.get_perfdata(
             status,

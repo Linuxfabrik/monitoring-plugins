@@ -3,7 +3,7 @@
 
 ## Overview
 
-Lists the OpenStack Nova compute instances (virtual servers) of a project and reports the status of every one of them. Alerts when an instance sits in a status that needs attention, for example ERROR, or when the Nova API cannot be reached in time. The state reported per Nova status is configurable, so a cloud on which powered-off instances are a problem can say so. Supports extended reporting via `--lengthy`.
+Lists the OpenStack Nova compute instances (virtual servers) of a project and reports the status of every one of them. Alerts when an instance sits in a status that needs attention, for example ERROR, or when the Nova API cannot be reached in time. Also alerts on an instance Nova lists as ACTIVE while the hypervisor last reported it as anything but running, which the Nova status itself never shows. The state reported per Nova status is configurable, so a cloud on which powered-off instances are a problem can say so. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 
@@ -12,6 +12,7 @@ Lists the OpenStack Nova compute instances (virtual servers) of a project and re
 * The check reuses the Keystone token of the previous run. A run that has a valid token makes a single API request, a run that has to authenticate first makes one more. `--cache-expire` bounds the reuse, and a token is never reused past its own lifetime. A password that changed therefore takes until the cached token expires to show up as a failed authentication. The token is stored in the plugin cache database, which lives in a directory only the user running the check can read.
 * The check reports the instances of the project the rc file scopes to, not of the whole cloud. Point it at one service per project.
 * Instances whose Nova cell does not answer are left out of the listing by the Compute API itself, and the check cannot tell them apart from instances that do not exist. A cell outage therefore shows up as a shrinking instance count, not as an alert. Trend the `total` metric to catch it.
+* A Nova status says what was last done to an instance, not what the hypervisor sees. It is built from the VM state and the running task alone, never from the power state, so an instance whose domain is paused, shut down or gone keeps reporting ACTIVE. Nova compares the two itself and leaves `paused` and a domain it cannot find alone; the remaining cases it hands to the stop API, and the status follows only once that call gets through. The check therefore reads the power state separately and rates the disagreement with `--power-mismatch-severity`. None of this says anything about the guest operating system: a kernel panic or a broken network stack leaves the domain running and the instance ACTIVE, and only a ping or agent check sees it.
 * The compute host an instance runs on is reported by Nova only to a project with administrative rights, because it sits behind the `os_compute_api:os-extended-server-attributes` policy, which defaults to admin. With an ordinary project account the Host column stays out of the table, and `--match-host` and `--ignore-host` report UNKNOWN instead of quietly matching nothing.
 
 **Data Collection:**
@@ -22,6 +23,7 @@ Lists the OpenStack Nova compute instances (virtual servers) of a project and re
 * `--match` and `--ignore` filter by instance name, `--match-zone`, `--match-vm-state` and `--match-host` (each with an `--ignore-` counterpart) by availability zone, VM state and compute host
 * `--brief` hides the instances that are fine, `--lengthy` adds the id, the host id, the availability zone, the addresses, the creation date and the task Nova is currently running on the instance
 * The id and the host id are shortened to ten characters, the way a short commit hash stands in for the full one
+* Compares the power state the hypervisor last reported against the status, for every instance that is ACTIVE with no task running, which is the same guard Nova applies before it looks at the two
 * A column that no instance filled in is left out of the table, so the compute host does not take up space on a project that is not allowed to see it
 
 
@@ -52,14 +54,17 @@ usage: openstack-nova-list [-h] [-V] [--always-ok] [--brief]
                            [--match-vm-state MATCH_VM_STATE]
                            [--match-zone MATCH_ZONE]
                            [--no-match-severity {ok,warn,crit,unknown}]
-                           [--no-perfdata] [--no-proxy] [--proxy PROXY]
-                           [--rc-file RC_FILE] [--severity SEVERITY]
-                           [--timeout TIMEOUT]
+                           [--no-perfdata] [--no-proxy]
+                           [--power-mismatch-severity {ok,warn,crit,unknown}]
+                           [--proxy PROXY] [--rc-file RC_FILE]
+                           [--severity SEVERITY] [--timeout TIMEOUT]
 
 Lists the OpenStack Nova compute instances (virtual servers) of a project and
 reports the status of every one of them. Alerts when an instance sits in a
 status that needs attention, for example ERROR, or when the Nova API cannot be
-reached in time. The state reported per Nova status is configurable, so a
+reached in time. Also alerts on an instance Nova lists as ACTIVE while the
+hypervisor last reported it as anything but running, which the Nova status
+itself never shows. The state reported per Nova status is configurable, so a
 cloud on which powered-off instances are a problem can say so. Supports
 extended reporting via --lengthy.
 
@@ -153,6 +158,14 @@ options:
                         dropped.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
+  --power-mismatch-severity {ok,warn,crit,unknown}
+                        State to report for an instance Nova lists as ACTIVE
+                        while the hypervisor last reported it as anything but
+                        running, for example paused, shut down or gone. The
+                        Nova status never shows this, and Nova does not
+                        correct all of these cases by itself. Use `crit` on a
+                        cloud where such an instance is an outage. Default:
+                        warn
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,
@@ -240,6 +253,30 @@ Instances that are powered down on purpose are fine by default. On a cloud where
 ./openstack-nova-list --rc-file=/var/spool/icinga2/rc/.openstack-myproject.rc --severity=SHUTOFF,warn --severity=BUILD,ok
 ```
 
+An instance that is ACTIVE but not running is an outage on this cloud, not something to look at tomorrow:
+
+```bash
+./openstack-nova-list --rc-file=/var/spool/icinga2/rc/.openstack-myproject.rc --power-mismatch-severity=crit
+```
+
+Output:
+
+```text
+7 instances checked: 1 HARD_REBOOT, 5 ACTIVE, 1 SHUTOFF. 3 ACTIVE instances not running on the hypervisor: 1 not found, 1 paused, 1 shutdown. Last status change 2026-07-13 14:29:16 UTC (1M 2W ago).
+
+Name        ! Updated (UTC)                   ! Status
+------------+---------------------------------+------------------------------
+batch01     ! 2026-07-13 14:29:16 (1M 2W ago) ! SHUTOFF
+gone01      ! 2026-07-13 14:29:16 (1M 2W ago) ! ACTIVE (not found) [CRITICAL]
+healthy01   ! 2026-07-13 14:29:16 (1M 2W ago) ! ACTIVE
+nocell01    ! 2026-07-13 14:29:16 (1M 2W ago) ! ACTIVE
+paused01    ! 2026-07-13 14:29:16 (1M 2W ago) ! ACTIVE (paused) [CRITICAL]
+rebooting01 ! 2026-07-13 14:29:16 (1M 2W ago) ! HARD_REBOOT [WARNING]
+shutdown01  ! 2026-07-13 14:29:16 (1M 2W ago) ! ACTIVE (shutdown) [CRITICAL]
+```
+
+`rebooting01` is powered off too, but a task is running on it, so its status explains it and it is not counted as a mismatch. `nocell01` comes without a power state at all, which is what an unanswering cell looks like, and says nothing either way.
+
 Check only the database instances of the project:
 
 ```bash
@@ -282,6 +319,16 @@ Further:
 * UNKNOWN if `--severity` names a status or a state that does not exist, or if any `--match` or `--ignore` pattern is not a valid regular expression.
 * UNKNOWN if a `--match-` or `--ignore-` filter names a field the Compute API did not report for a single instance. That is the normal answer for `--match-host` on a project without administrative rights, and it beats dropping every instance without saying why.
 * WARN if the OpenStack API cannot be reached within `--timeout`, refuses the credentials, or answers with an error. A cloud that does not answer says nothing about the instances in it, so this does not silently pass as OK.
+* `--power-mismatch-severity` decides the state for an instance that is ACTIVE while the hypervisor last reported it as anything but running. Default: WARN. The power state is named in the Status column next to ACTIVE, for example `ACTIVE (paused)`, and the summary line counts the instances per power state.
+
+    | Power State | Meaning |
+    |----|----|
+    | not found | The hypervisor does not know this domain. Nova logs it and takes no further action, so it stays this way. Nova spells this state `pending`, which is misleading once an instance is ACTIVE. |
+    | paused | The domain is paused. Often an external action such as a snapshot, but also what KVM does to a domain that hit an I/O error. Nova logs it and takes no further action. |
+    | shutdown | The domain is powered off. Nova asks the stop API to move the instance to SHUTOFF; while that is pending, or if it keeps failing, the status stays ACTIVE. |
+    | crashed | The domain crashed. Treated like `shutdown` by Nova. |
+    | suspended | The domain is suspended. Nova asks the stop API to move the instance to SHUTOFF. |
+
 * `--no-match-severity` decides the state when `--match` or `--ignore` leaves nothing to check. Default: OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -312,6 +359,7 @@ One metric per Nova server status, so every status keeps a series in Grafana eve
 | SUSPENDED | Number | Number of instances in this status. |
 | UNKNOWN | Number | Number of instances in this status. |
 | VERIFY_RESIZE | Number | Number of instances in this status. |
+| power_mismatch | Number | Number of instances that are ACTIVE while the hypervisor last reported them as anything but running. Carries a warning threshold of 0, so it alerts from the first instance on. |
 | total | Number | Total number of instances checked. |
 
 

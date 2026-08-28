@@ -172,6 +172,79 @@ TESTS = [
         'assert-in': ['Task', 'updating_password', 'spawning'],
     },
     {
+        # Nova derives the status from the VM state alone, so these three keep
+        # saying ACTIVE while the hypervisor last reported them as anything but
+        # running. Two of them Nova never corrects, the third only once the
+        # stop API it calls gets through.
+        'id': 'warn-active-instances-that-are-not-running',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 ACTIVE instances not running on the hypervisor',
+            '1 not found, 1 paused, 1 shutdown',
+        ],
+    },
+    {
+        # The reason travels in the status cell, a bare ACTIVE [WARNING] would
+        # leave an administrator guessing.
+        'id': 'warn-the-status-cell-names-the-power-state',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '--match=^paused01$',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'paused01[^\n]*! ACTIVE \(paused\) \[WARNING\]',
+    },
+    {
+        # A running task legitimately stops or pauses the domain for a while.
+        # Nova skips the comparison then, and so does this check: the row must
+        # carry its own status and no power state remark.
+        'id': 'warn-a-running-task-is-not-a-mismatch',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '--match=^rebooting01$ --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'rebooting01[^\n]*! HARD_REBOOT \[WARNING\]',
+        'assert-not-in': ['not running on the hypervisor'],
+    },
+    {
+        # An instance whose cell did not answer comes without a power state.
+        # Nothing is known then, which is not the same as something being wrong.
+        'id': 'ok-a-missing-power-state-is-not-a-mismatch',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '--match=^(healthy01|nocell01|batch01)$',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['not running on the hypervisor', '[WARNING]'],
+    },
+    {
+        'id': 'crit-power-mismatch-raised-by-severity',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '--match=^gone01$ --power-mismatch-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'ACTIVE \(not found\) \[CRITICAL\]',
+    },
+    {
+        'id': 'ok-power-mismatch-lowered-by-severity',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '--power-mismatch-severity=ok --ignore=^rebooting01$',
+        'assert-retc': STATE_OK,
+        # Lowering the state must not hide what was found.
+        'assert-in': ['3 ACTIVE instances not running on the hypervisor'],
+    },
+    {
+        # A problem counter, so it alerts from the first instance on.
+        'id': 'warn-power-mismatch-perfdata',
+        'test': 'stdout/power-state-mismatch,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'power_mismatch'=3;0;;0;7"],
+    },
+    {
+        'id': 'ok-power-mismatch-perfdata-is-zero-on-a-healthy-cloud',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'power_mismatch'=0;0;;0;3"],
+    },
+    {
         'id': 'ok-match-zone-narrows-the-listing',
         'test': 'stdout/three-instances-active,,0',
         'params': '--match-zone=^zone-b$',

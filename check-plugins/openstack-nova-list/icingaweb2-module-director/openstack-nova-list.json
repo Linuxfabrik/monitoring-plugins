@@ -58,6 +58,9 @@
                 "--no-proxy": {
                     "set_if": "$openstack_nova_list_no_proxy$"
                 },
+                "--power-mismatch-severity": {
+                    "value": "$openstack_nova_list_power_mismatch_severity$"
+                },
                 "--proxy": {
                     "value": "$openstack_nova_list_proxy$"
                 },
@@ -174,6 +177,11 @@
                     "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -217,7 +225,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Lists the OpenStack Nova compute instances (virtual servers) of a project and reports the status of every one of them. Alerts when an instance sits in a status that needs attention, for example ERROR, or when the Nova API cannot be reached in time. The state reported per Nova status is configurable, so a cloud on which powered-off instances are a problem can say so. Supports extended reporting via --lengthy.",
+            "notes": "Lists the OpenStack Nova compute instances (virtual servers) of a project and reports the status of every one of them. Alerts when an instance sits in a status that needs attention, for example ERROR, or when the Nova API cannot be reached in time. Also alerts on an instance Nova lists as ACTIVE while the hypervisor last reported it as anything but running, which the Nova status itself never shows. The state reported per Nova status is configurable, so a cloud on which powered-off instances are a problem can say so. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-list/",
             "object_name": "tpl-service-openstack-nova-list",
             "object_type": "template",
@@ -244,6 +252,7 @@
                 "openstack_nova_list_no_match_severity": "ok",
                 "openstack_nova_list_no_perfdata": false,
                 "openstack_nova_list_no_proxy": false,
+                "openstack_nova_list_power_mismatch_severity": "warn",
                 "openstack_nova_list_rc_file": "/var/spool/icinga2/.openstack.cnf",
                 "openstack_nova_list_severity": [],
                 "openstack_nova_list_timeout": 8
@@ -329,6 +338,37 @@
                 }
             ],
             "uuid": "84183985-9a2e-4602-849b-350d6f03173e"
+        },
+        "openstack_nova_list_power_mismatch_severity_list": {
+            "list_name": "openstack_nova_list_power_mismatch_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "3258fb75-5963-46af-b090-e0456af67a99"
         }
     },
     "Datafield": {
@@ -499,6 +539,19 @@
             "uuid": "5c79ecb6-e711-4a23-b8d4-f8e63184e36a"
         },
         "17": {
+            "varname": "openstack_nova_list_power_mismatch_severity",
+            "caption": "Openstack Nova List: Power Mismatch Severity",
+            "description": "State to report for an instance Nova lists as ACTIVE while the hypervisor last reported it as anything but running, for example paused, shut down or gone. The Nova status never shows this, and Nova does not correct all of these cases by itself. Use `crit` on a cloud where such an instance is an outage.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "openstack_nova_list_power_mismatch_severity_list"
+            },
+            "uuid": "fdf6085d-956a-4f5d-acff-baf0b3ee7ddd"
+        },
+        "18": {
             "varname": "openstack_nova_list_proxy",
             "caption": "Openstack Nova List: Proxy",
             "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -509,7 +562,7 @@
             },
             "uuid": "ec0c1f13-e543-4e7a-a096-e6d42236ad2b"
         },
-        "18": {
+        "19": {
             "varname": "openstack_nova_list_rc_file",
             "caption": "Openstack Nova List: Rc File",
             "description": "Path to a rc file containing OpenStack connection parameters like OS_USERNAME (instead of specifying them on the command line). Example: `--rc-file=/var/spool/icinga2/.openstack.cnf`.",
@@ -520,7 +573,7 @@
             },
             "uuid": "3f888410-5f40-4878-8e55-0855238ac7cc"
         },
-        "19": {
+        "20": {
             "varname": "openstack_nova_list_severity",
             "caption": "Openstack Nova List: Severity",
             "description": "State to report for instances in a given Nova status, as `STATUS,STATE`. STATUS is a Nova server status such as `SHUTOFF`, case-insensitive. STATE is one of `ok`, `warn`, `crit` or `unknown`. Overrides the built-in state for that status only, every other status keeps its default. Can be specified multiple times. Example: `--severity=SHUTOFF,warn --severity=BUILD,ok`",
@@ -531,7 +584,7 @@
             },
             "uuid": "bf8ebf27-b82c-4218-84ae-a6c3f1c05c28"
         },
-        "20": {
+        "21": {
             "varname": "openstack_nova_list_timeout",
             "caption": "Openstack Nova List: Timeout",
             "description": "Network timeout in seconds. Applies to the whole run, not to a single request.",
