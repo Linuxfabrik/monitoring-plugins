@@ -59,18 +59,24 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --icinga-callback     Query Icinga for the service acknowledgement state and
-                        auto-clear alerts on ack. Default: False
+  --icinga-callback     Ask the monitoring server whether the service running
+                        this check is acknowledged. Where it is, what this run
+                        reports is remembered as already handled, so it no
+                        longer raises an alert on the following runs. Requires
+                        `--icinga-url`, `--icinga-username`, `--icinga-
+                        password` and `--icinga-service-name`. Default: False
   --icinga-password ICINGA_PASSWORD
-                        Password for the Icinga API.
+                        Monitoring server API password.
   --icinga-service-name ICINGA_SERVICE_NAME
-                        Unique name of the service using this check within
-                        Icinga, taken from the `__name` service attribute.
-                        Example: `icinga-server!my-service-name`.
+                        Unique name of the service running this check, as the
+                        monitoring server knows it. Take it from the `__name`
+                        service attribute. Example: `monitoring-server!my-
+                        service-name`.
   --icinga-url ICINGA_URL
-                        Icinga API URL. Example: `https://icinga-server:5665`.
+                        Monitoring server API URL. Example:
+                        `https://monitoring.example.com:5665`.
   --icinga-username ICINGA_USERNAME
-                        Username for the Icinga API.
+                        Monitoring server API username.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --latest              Return the newest feed item, even if its timestamp is
