@@ -1285,20 +1285,20 @@ Each plugin README follows a fixed structure. Use [check-plugins/example/README.
     * **Important Notes** (optional, but comes first if present): Operational edge cases the admin must know before deploying, for example: "Requires sudo", "Only works with Redis 3.0+", "First run returns OK with 'Waiting for more data.'", "After a reboot, counters reset and the check waits for a new baseline". No implementation details - only things that affect deployment and daily operations.
     * **Data Collection**: How data is gathered (shell command, API, psutil, etc.), filtering options, SQLite usage, non-blocking measurement.
 
-2. **Fact Sheet**: Key properties as a table (download link, check name, check interval, parameters required, Windows support, 3rd party modules, state file path, etc.). Only list applicable rows.
+2. **Fact Sheet**: Key properties as a table (download link, check name, check interval, parameters required, Windows support, 3rd party modules, state file path, etc.). Only list applicable rows, and only rows from the list below, in that order. The list is closed: a fact that fits none of these rows belongs into the Overview, not into a row of its own, otherwise the table stops being comparable across plugins. Write the separator line as `|----|----|`.
 
     | Fact | Value |
     |----|----|
-    | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example> |
+    | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/example>. A notification plugin uses the label `Notification Plugin Download`, an event plugin `Event Plugin Download`. |
     | Nagios/Icinga Check Name              | `check_example` (for SEO: helps admins find the plugin when searching for the traditional Nagios-style name). Always use underscores, never dashes. |
     | Check Interval Recommendation         | Every minute, Every 5/15/30 minutes, Every hour, Every 4/8/12 hours, Every day, Every week |
     | Can be called without parameters      | Yes/No |
     | Runs on                               | Cross-platform / Linux / Windows. Use "Cross-platform" by default since Python runs everywhere. Only use "Linux" if the plugin uses Linux-specific APIs (`/proc`, `systemd`, `dmesg`, `dnf`/`apt`/`yum`, `journalctl`, etc.). The absence of a `.windows` file does not mean the plugin is Linux-only. |
-    | Compiled for Windows                  | Yes (when `.windows` file exists)/No (runs with Python interpreter) |
+    | Compiled for Windows                  | Yes (when `.windows` file exists) / No (runs with Python interpreter). Drop the parenthesis and write a bare "No" where "Runs on" says "Linux", and on notification and event plugins: no interpreter runs those on Windows either. |
     | Requirements                          | command-line tool `foo`; User with higher permissions |
     | 3rd Party Python modules              | `module-name` |
     | Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
-    | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-<plugin-name>.db` |
+    | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-<plugin-name>.db`. Covers everything the check keeps between runs, an SQLite database included; do not invent a second label for it. A database opened with `in_memory=True` is not a state file and gets no row. |
 
 3. **Help**: The full `--help` output in a code block. Regenerate via `tools/update-readmes`.
 
