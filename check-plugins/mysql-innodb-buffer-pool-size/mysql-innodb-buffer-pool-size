@@ -21,18 +21,18 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082801'
 
 DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
-configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and on
-MySQL 8.0.30+ derives a workload-based recommendation for `innodb_redo_log_capacity` from
-the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (matches
-mysqltuner). Also flags `innodb_file_per_table = OFF` and architecture-related
-buffer-pool size limits.
-Alerts if the buffer pool is undersized relative to the data or if `innodb_redo_log_capacity`
-is smaller than the workload-based target. On older MySQL and on MariaDB (no
-`innodb_redo_log_capacity`), the redo-log size check is skipped; the redo-log file size is
-still emitted as perfdata for trending."""
+configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and derives
+a workload-based recommendation for the redo log size from the per-hour `Innodb_os_log_written`
+write rate and the host's RAM tier (rounding matches mysqltuner). The redo log knob is
+`innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times
+`innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL.
+Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits.
+Alerts if the buffer pool is undersized relative to the data or if the redo log is smaller than
+the workload-based target. On freshly booted servers (less than one hour of uptime) the
+redo-log recommendation is deferred, because the hourly write rate is not yet meaningful."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -118,6 +118,7 @@ def get_vars(conn):
         where variable_name like 'innodb_buffer_pool_size'
             or variable_name like 'innodb_file_per_table'
             or variable_name like 'innodb_log_file_size'
+            or variable_name like 'innodb_log_files_in_group'
             or variable_name like 'innodb_redo_log_capacity'
             ;
           """
@@ -175,14 +176,13 @@ def main():
 
     # logic taken from mysqltuner.pl:mysql_innodb(), section "InnoDB Buffer Pool
     # Size", verified in sync with MySQLTuner (architecture limits,
-    # buffer-pool-vs-data-size check, and the workload-based
-    # `innodb_redo_log_capacity` recommendation for MySQL 8.0.30+). The older
-    # 25% log-size-ratio rule that mysqltuner used pre-8.0.30 is intentionally
-    # not ported - it is an unsourced heuristic that mysqltuner itself
-    # replaced with the workload-based path. On servers without
-    # `innodb_redo_log_capacity` (MariaDB, MySQL < 8.0.30) the redo-log sizing
-    # is skipped; admins still get the underlying `innodb_log_file_size` as
-    # perfdata for trending.
+    # buffer-pool-vs-data-size check, and the workload-based redo log
+    # recommendation). The older 25% log-size-ratio rule that mysqltuner used
+    # pre-8.0.30 is intentionally not ported - it is an unsourced heuristic that
+    # mysqltuner itself replaced with the workload-based path. Deliberate
+    # deviation from MySQLTuner: the workload-based target is applied to
+    # `innodb_log_file_size` as well, so MariaDB and MySQL < 8.0.30 get a
+    # recommendation instead of nothing (see the comment at the sizing check).
 
     # parse the command line
     try:
@@ -237,6 +237,21 @@ def main():
         if redo_log_capacity_raw is not None and int(redo_log_capacity_raw) > 0
         else None
     )
+    # `innodb_log_files_in_group` is gone on MariaDB 10.5+ (always one file) and
+    # ignored on MySQL 8.0.30+, so it defaults to 1 - same as mysqltuner does.
+    log_files_in_group = int(myvar.get('innodb_log_files_in_group') or 1) or 1
+    # The knob that actually sizes the redo log on this server. MySQL 8.0.30+
+    # exposes both variables, but only `innodb_redo_log_capacity` has an effect
+    # there, so it wins.
+    if redo_log_capacity is not None:
+        redo_size = redo_log_capacity
+        redo_knob = 'innodb_redo_log_capacity'
+    elif log_file_size:
+        redo_size = log_file_size * log_files_in_group
+        redo_knob = 'innodb_log_file_size'
+    else:
+        redo_size = None
+        redo_knob = None
     file_per_table = myvar.get('innodb_file_per_table', '').upper()
     uptime = int(mystat.get('Uptime') or 0)
     os_log_written = int(mystat.get('Innodb_os_log_written') or 0)
@@ -310,56 +325,74 @@ def main():
             f' ({data_h}).'
         )
 
-    # 4. Workload-based redo log capacity check (MySQL 8.0.30+ only).
-    #    Compare the configured `innodb_redo_log_capacity` against an hourly
-    #    write rate target rounded into the appropriate RAM tier. Skipped on
-    #    servers without `innodb_redo_log_capacity` (MariaDB, older MySQL) and
-    #    on freshly booted servers (< 1 h uptime) where the rate is unreliable.
+    # 4. Workload-based redo log sizing. Compare the redo log against an hourly
+    #    write rate target rounded into the appropriate RAM tier. mysqltuner only
+    #    runs this on MySQL 8.0.30+, because its version gate leaves MariaDB in the
+    #    `innodb_redo_log_capacity` branch, where that variable does not exist, and
+    #    the older 25% log-size-ratio branch is unreachable there. The input
+    #    `Innodb_os_log_written` and the redo log size itself are available on both
+    #    servers (MariaDB exports the counter in srv0srv.cc as the LSN written since
+    #    startup), so this plugin applies the same target to `innodb_log_file_size`.
+    #    Deferred on freshly booted servers (< 1 h uptime), where the rate is
+    #    unreliable.
     hourly_rate = None
     recommended_redo = None
-    if redo_log_capacity is not None and physical_memory is not None:
+    if redo_size is not None and physical_memory is not None:
+        redo_h = lib.human.bytes2human(redo_size)
         if uptime >= REDO_LOG_MIN_UPTIME:
             hourly_rate = os_log_written / (uptime / 3600)
             recommended_redo = recommended_redo_log_capacity(
                 hourly_rate,
                 physical_memory,
             )
-            redo_h = lib.human.bytes2human(redo_log_capacity)
             rec_h = lib.human.bytes2human(recommended_redo)
             rate_h = lib.human.bytes2human(int(hourly_rate))
-            if redo_log_capacity < recommended_redo * REDO_LOG_TOLERANCE:
+            if redo_size < recommended_redo * REDO_LOG_TOLERANCE:
                 state = lib.base.get_worst(state, STATE_WARN)
                 sections.append(
-                    f'`innodb_redo_log_capacity` ({redo_h}) is below the'
+                    f'`{redo_knob}` ({redo_h}) is below the'
                     f' workload-based target of {rec_h} (hourly InnoDB log'
                     f' write rate: {rate_h}/h on a host with'
                     f' {lib.human.bytes2human(physical_memory)} RAM)'
                     f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
                 )
-                recommendations.append(
-                    f'Raise `innodb_redo_log_capacity` to {rec_h} or more.'
-                    f' Tradeoff: higher capacity means longer crash recovery'
-                )
+                if redo_knob == 'innodb_log_file_size' and log_files_in_group > 1:
+                    # Pre-8.0.30 MySQL splits the redo log over several files, so
+                    # the per-file value the admin has to set is not the target.
+                    # MySQL 8.0.30+ still reports the variable, but ignores it.
+                    per_file_h = lib.human.bytes2human(
+                        recommended_redo // log_files_in_group
+                    )
+                    recommendations.append(
+                        f'Raise `innodb_log_file_size` to {per_file_h} or more'
+                        f' ({rec_h} across the {log_files_in_group} files of'
+                        f' `innodb_log_files_in_group`). Tradeoff: a larger redo'
+                        f' log means longer crash recovery'
+                    )
+                else:
+                    recommendations.append(
+                        f'Raise `{redo_knob}` to {rec_h} or more.'
+                        f' Tradeoff: a larger redo log means longer crash recovery'
+                    )
             else:
                 sections.append(
-                    f'`innodb_redo_log_capacity` ({redo_h}) matches the'
+                    f'`{redo_knob}` ({redo_h}) matches the'
                     f' workload-based target ({rec_h} for'
                     f' {rate_h}/h on'
                     f' {lib.human.bytes2human(physical_memory)} RAM).'
                 )
         else:
             sections.append(
-                f'`innodb_redo_log_capacity` ({lib.human.bytes2human(redo_log_capacity)});'
-                f' uptime < 1 h, workload-based sizing recommendation'
-                f' deferred.'
+                f'`{redo_knob}` ({redo_h}); uptime < 1 h, workload-based sizing'
+                f' recommendation deferred.'
             )
-    elif redo_log_capacity is None:
-        # MariaDB / MySQL < 8.0.30: no innodb_redo_log_capacity to size. The
-        # underlying innodb_log_file_size is still emitted as perfdata.
+    elif redo_size is not None:
+        # The RAM tier picks the minimum target size, so without the host's RAM
+        # there is no target to compare against.
         sections.append(
-            f'`innodb_log_file_size` ({lib.human.bytes2human(log_file_size)});'
-            f' redo-log sizing check skipped on this server (no'
-            f' `innodb_redo_log_capacity`).'
+            f'`{redo_knob}` ({lib.human.bytes2human(redo_size)}); the host does'
+            f' not report its physical memory, workload-based sizing'
+            f' recommendation skipped.'
         )
 
     if recommendations:
