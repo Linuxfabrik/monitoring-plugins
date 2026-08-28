@@ -1,0 +1,800 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.logmatch
+import lib.logsource
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082801'
+
+DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
+on: rejected configurations, worker crashes, requests that ran into
+`request_terminate_timeout` or `request_slowlog_timeout`, pools that hit
+`pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker
+failures. Startups, reloads and shutdowns are counted alongside them, so a pool that
+keeps restarting is visible.
+Alerts CRITICAL on `ALERT` and `ERROR` lines, and WARNING on `WARNING` lines; the
+levels PHP-FPM itself puts at the head of every line decide the state, so a message
+that merely contains the word "error" does not trip the count.
+The log is read either from a file, from a systemd unit (`systemd:`) or from a
+container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is
+taken from the `error_log` directive of the PHP-FPM configuration, with the common
+locations of the distributions probed when that yields nothing.
+Note that PHP-FPM discards everything its workers write unless
+`catch_workers_output = yes` is set, so an error log that only ever shows master
+events is the default behaviour rather than a quiet application.
+Requires root or sudo."""
+
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_TIMEOUT = 8
+
+ACK_RETENTION_DAYS = 30
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
+
+# PHP-FPM configuration files that carry the global `error_log` directive. The
+# directive is global-only, so the pool files in `php-fpm.d/` never override it
+# and are not read. The Debian family installs one tree per PHP version, hence
+# the glob; the last match wins, which is the highest version installed.
+CONFIG_FILES = (
+    '/etc/php-fpm.conf',
+    '/etc/php/*/fpm/php-fpm.conf',
+    '/usr/local/etc/php-fpm.conf',
+)
+ERROR_LOG_REGEX = re.compile(r'^\s*error_log\s*=\s*(\S+)', re.MULTILINE)
+
+# What PHP-FPM accepts instead of a path, matched case-insensitively the way
+# PHP-FPM itself compares it.
+SYSLOG_TARGET = 'syslog'
+
+# Where the distributions keep the error log when the configuration does not say.
+# The last entry is the path a source build compiles in (`log/php-fpm.log`
+# relative to the local state directory).
+LOG_FILE_CANDIDATES = (
+    '/var/log/php-fpm/error.log',
+    '/var/log/php-fpm.log',
+    '/var/log/php*-fpm.log',
+    '/usr/local/var/log/php-fpm.log',
+)
+
+# The master writes `[28-Aug-2026 15:08:23] NOTICE: message`. A worker that logs
+# without going through the master writes the same line without the timestamp,
+# because PHP-FPM prints the time only in the master process. Both shapes carry
+# the level, so both are recognized (verified against php-fpm 8.0.30 on Rocky 9).
+LEVEL_REGEX = re.compile(
+    r'^(?:\[[^\]]+\]\s+)?(ALERT|ERROR|WARNING|NOTICE|DEBUG):\s*(.*)$',
+)
+
+# The events worth naming on their own, because the level alone does not say what
+# happened. Everything else PHP-FPM logs is covered by the per-level counts. The
+# message texts are taken from php-src `sapi/fpm/fpm/` and reproduced on
+# php-fpm 8.0.30; a pattern therefore matches the whole message, not a keyword.
+EVENTS = (
+    {
+        'key': 'worker_crashes',
+        'label': 'worker crash',
+        'suffix': 'es',
+        'perfdata': 'php_fpm_worker_crashes',
+        # `SIGQUIT` is how PHP-FPM ends a worker gracefully and `SIGTERM` is how
+        # it terminates one that ran over `request_terminate_timeout` (which logs
+        # a line of its own), so both are ordinary. Every other signal means the
+        # worker died on a fault or was killed from outside, the OOM killer for
+        # example. The lookahead also lets the line through when PHP-FPM has no
+        # name for the signal and prints an empty pair of brackets.
+        'regex': re.compile(r'exited on signal \d+ \((?!SIGQUIT|SIGTERM)'),
+        'recommendation': (
+            'Workers died on a signal PHP-FPM did not send them; look for a core'
+            ' dump, a faulty PHP extension, or the OOM killer in the kernel log'
+        ),
+    },
+    {
+        'key': 'request_timeouts',
+        'label': 'request timeout',
+        'perfdata': 'php_fpm_request_timeouts',
+        'regex': re.compile(r'execution timed out \([\d.]+ sec\), terminating'),
+        'recommendation': (
+            'Requests were terminated after `request_terminate_timeout`; profile'
+            ' the scripts named above or raise the timeout for that pool'
+        ),
+    },
+    {
+        'key': 'slow_requests',
+        'label': 'slow request',
+        'perfdata': 'php_fpm_slow_requests',
+        'regex': re.compile(r'executing too slow \([\d.]+ sec\), logging'),
+        'recommendation': (
+            'Requests ran longer than `request_slowlog_timeout`; the backtrace of'
+            ' each one is in the pool `slowlog`'
+        ),
+    },
+    {
+        'key': 'pool_saturations',
+        'label': 'pool saturation',
+        'perfdata': 'php_fpm_pool_saturations',
+        'regex': re.compile(
+            r'server reached (?:pm\.)?max_children setting'
+            r'|the maximum number of processes has been reached',
+            re.IGNORECASE,
+        ),
+        'recommendation': (
+            'A pool ran out of workers; raise `pm.max_children` (or `process.max`)'
+            ' or shorten the requests, otherwise clients wait in the listen queue'
+        ),
+    },
+    {
+        'key': 'spawn_pressure',
+        'label': 'spawn pressure warning',
+        'perfdata': 'php_fpm_spawn_pressure',
+        'regex': re.compile(r'seems busy \(you may need to increase'),
+        'recommendation': (
+            'A pool had to spawn workers in bursts; raise `pm.start_servers` and'
+            ' `pm.min_spare_servers` so requests do not wait for a fork'
+        ),
+    },
+    {
+        'key': 'emergency_restarts',
+        'label': 'emergency restart',
+        'perfdata': 'php_fpm_emergency_restarts',
+        'regex': re.compile(
+            r'failed processes threshold \(\d+ in \d+ sec\) is reached,'
+            r' initiating reload',
+        ),
+        'recommendation': (
+            'PHP-FPM reloaded itself because too many workers failed in a row;'
+            ' treat this as a crashing application until proven otherwise'
+        ),
+    },
+)
+
+# PHP-FPM writes this once into the fresh file when logrotate has moved the old
+# one away and signalled it with SIGUSR1, so the window of a just-rotated log
+# holds exactly this line. Counted, and named next to the window size, which
+# turns "no startup, no reload, no shutdown" from a puzzle into a sentence.
+ROTATION_REGEX = re.compile(r'^error log file re-opened')
+
+# Lifecycle markers, counted but never alerting on. A reload re-executes the
+# master, so it shows up as a reload and as a startup. The reload is recognized
+# by the line the exec itself writes, because the `Reloading in progress ...`
+# that a `SIGUSR2` triggers is missing when PHP-FPM reloads itself after too many
+# worker failures.
+LIFECYCLE = (
+    {
+        'key': 'startups',
+        'label': 'startup',
+        'perfdata': 'php_fpm_startups',
+        'regex': re.compile(r'^fpm is running, pid \d+'),
+        'verb': 'detected',
+    },
+    {
+        'key': 'reloads',
+        'label': 'reload',
+        'perfdata': 'php_fpm_reloads',
+        'regex': re.compile(r'^reloading: execvp\('),
+        'verb': 'detected',
+    },
+    {
+        'key': 'shutdowns',
+        'label': 'shutdown',
+        'perfdata': 'php_fpm_shutdowns',
+        'regex': re.compile(r'^exiting, bye-bye!'),
+        'verb': 'detected',
+    },
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Developer-only hook, like `--test` on the plugins that inject command
+    # output: it prefixes every path the check opens, so the fixture tests can
+    # stand a directory tree in for the host's file system. Deliberately not
+    # named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='(?i)linuxfabrik'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='\\[pool www\\]'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--server-log',
+        help='Log source to read from. '
+        'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
+        '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'If omitted, the check reads the `error_log` directive of the PHP-FPM '
+        'configuration and falls back to the common locations of the '
+        'distributions. '
+        'Example: `--server-log=systemd:php-fpm.service`.',
+        dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_configured_log_file(config_root=''):
+    """Return the `error_log` the PHP-FPM configuration names, or None.
+
+    The value `syslog` is handed back lowercased, because that is a value PHP-FPM
+    understands (case-insensitively) and the caller has to report rather than
+    open. Only the fixed configuration locations of the distributions are read,
+    so nothing the log itself contains can steer the check to another file.
+    """
+    error_log = None
+    for candidate in CONFIG_FILES:
+        for filename in lib.disk.glob(f'{config_root}{candidate}'):
+            success, content = lib.disk.read_file(filename)
+            if not success or not content:
+                continue
+            match = ERROR_LOG_REGEX.search(content)
+            if match:
+                error_log = match.group(1)
+    if error_log is None:
+        return None
+    if error_log.lower() == SYSLOG_TARGET:
+        return SYSLOG_TARGET
+    if not error_log.startswith('/'):
+        # A relative path is resolved against a prefix that is compiled into
+        # PHP-FPM and not readable from here, so probing the known locations
+        # gets further than guessing that prefix.
+        return None
+    return f'{config_root}{error_log}'
+
+
+def get_log_file_real_path(config_root=''):
+    """Probe the locations the distributions keep the PHP-FPM error log in."""
+    for candidate in LOG_FILE_CANDIDATES:
+        for filename in lib.disk.glob(f'{config_root}{candidate}'):
+            if lib.disk.file_exists(filename, allow_empty=True):
+                return filename
+    return None
+
+
+def shorten(items, head=5, tail=5):
+    """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
+    if len(items) > head + tail:
+        return [*items[:head], '...', *items[-tail:]]
+    return items
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # fetch data
+    # `source_size` is set only for plain on-disk files, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container.
+    source_size = None
+    server_log = args.SERVER_LOG
+    if not server_log:
+        server_log = get_configured_log_file(
+            args.CONFIG_ROOT
+        ) or get_log_file_real_path(args.CONFIG_ROOT)
+    if not server_log:
+        lib.base.cu(
+            'Found no PHP-FPM error log. Set `error_log` in the PHP-FPM '
+            "configuration, or name the log with the check's `--server-log` "
+            'parameter.'
+        )
+    if server_log == SYSLOG_TARGET:
+        lib.base.cu(
+            '`error_log` is set to syslog, so the log is not a file this check '
+            'can open. Point `--server-log` at the systemd unit '
+            '(`--server-log=systemd:php-fpm.service`) or at the file the syslog '
+            'daemon writes.'
+        )
+
+    kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+    if kind == lib.logsource.KIND_FILE:
+        # Report a path that is not a regular file before reading it, so the
+        # admin hears about a directory or a device rather than about an I/O
+        # error further down.
+        log_stat = lib.disk.stat(target)
+        if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
+            lib.base.oao(
+                f'Logging seems to be configured, but `{target}` does not seem to'
+                f' be an existing regular file. Check the path and file'
+                f' permissions, or provide the `--server-log` parameter.',
+                STATE_WARN,
+            )
+        source_size = log_stat.st_size
+        if source_size == 0:
+            # An empty log file is a deterministic "no events observed" state,
+            # not an unknown one - typical right after logrotate fires.
+            lib.base.oao(
+                f'Log file `{target}` is empty. Assuming log-rotation.',
+                STATE_OK,
+            )
+
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system
+    # log directory. The path the PHP-FPM configuration reports is deliberately
+    # not trusted beyond that: a pool file an unprivileged user may edit could
+    # otherwise point the check at any file on the host. The plugin's own
+    # unit-test/ directory is allowed so the fixture tests work; it does not
+    # exist next to the flat, root-owned plugin in production. Bind-mount a
+    # custom log directory under /var/log to include it (see the README).
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    # No position is kept on purpose: this check reports on a window of the log,
+    # counting startups, reloads and shutdowns next to the problems, so every run
+    # has to see the whole window rather than only what is new.
+    result = lib.base.coe(
+        lib.logsource.read(
+            server_log,
+            allowed_roots=allowed_roots,
+            max_lines=MAXLINES,
+            timeout=args.TIMEOUT,
+        )
+    )
+    source_label = f'`{result["label"]}`'
+
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of paths fire.
+    recommendations = []
+    last_alerts, last_errors, last_warnings = [], [], []
+    levels = {
+        'ALERT': (last_alerts, 'alert', STATE_CRIT),
+        'ERROR': (last_errors, 'error', STATE_CRIT),
+        'WARNING': (last_warnings, 'warning', STATE_WARN),
+    }
+    found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in LIFECYCLE})
+    rotations = []
+    considered_cnt = 0
+    recognized_cnt = 0
+    unrecognized_cnt = 0
+    suppressed_cnt = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # Persisted acknowledgements are only needed when the callback is in use.
+    # Each unique combination of filters gets its own state database, so two
+    # services watching the same error log for different things do not share what
+    # has been acknowledged. Only the filters actually set take part in the
+    # identifier, so adding a filter later does not orphan the state of a service
+    # that does not use it.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = {'server_log': server_log}
+        for name, value in (('ignore_regex', args.IGNORE), ('match', args.MATCH)):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'php-fpm-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        # Drop acknowledgements older than the retention: by that age the line has
+        # left the window this check reads and can no longer re-appear.
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
+
+    # analyze data
+    for log_line in result['lines']:
+        haystack = log_line.lower()
+        if any(item.search(haystack) for item in compiled_ignore):
+            continue
+        # `--match` (include) is applied first, then `--ignore` (exclude), so a
+        # line hit by `--ignore` is dropped even if it also matches `--match`.
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        considered_cnt += 1
+        # Drop a line an operator has already taken on. The whole log line is
+        # keyed, timestamp included, so the very same message logged again later
+        # is a new event and alerts again.
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
+            continue
+        level_match = LEVEL_REGEX.match(log_line)
+        if not level_match:
+            # Not a line PHP-FPM wrote. Counted rather than dropped silently,
+            # because a log full of them means the check is pointed at the wrong
+            # file.
+            unrecognized_cnt += 1
+            continue
+        recognized_cnt += 1
+        level, message = level_match.group(1), level_match.group(2)
+        if level in levels:
+            levels[level][0].append(log_line)
+        for event in EVENTS:
+            if event['regex'].search(message):
+                found[event['key']].append(log_line)
+        for item in LIFECYCLE:
+            if item['regex'].search(message):
+                found[item['key']].append(log_line)
+        if ROTATION_REGEX.search(message):
+            rotations.append(log_line)
+
+    # `--match` narrowed the run down to nothing, so this run looked at no line at
+    # all rather than at a quiet log. Only reachable when the operator set a
+    # filter, so a log that simply has nothing to report stays OK.
+    if compiled_match and result['lines'] and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(result["lines"])} '
+            f'{lib.txt.pluralize("line", len(result["lines"]))} of '
+            f'{result["label"]}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # Every line PHP-FPM writes carries its level, so a window without a single
+    # one is not a quiet PHP-FPM but a source that holds something else, the pool
+    # `slowlog` or the access log for example. Saying so beats reporting the
+    # green state a check would otherwise keep on the wrong file forever.
+    if unrecognized_cnt and not recognized_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'None of the {unrecognized_cnt} '
+            f'{lib.txt.pluralize("line", unrecognized_cnt)} read from '
+            f'{result["label"]} carries a PHP-FPM log level, so this does not '
+            f'look like a PHP-FPM error log. Check `--server-log` and the '
+            f'`error_log` directive of the PHP-FPM configuration.',
+            STATE_UNKNOWN,
+        )
+
+    # build the message
+    # The window is named with the number of lines it holds, because everything
+    # below counts within it: on a log that was rotated an hour ago, a run that
+    # reports no startup at all is telling the truth about one line, and saying
+    # so beats leaving the admin to work that out from the file size.
+    window = f'{len(result["lines"])} {lib.txt.pluralize("line", len(result["lines"]))}'
+    if len(rotations) == 1:
+        window += ', rotated once in this window'
+    elif rotations:
+        window += f', rotated {len(rotations)} times in this window'
+    if source_size is not None:
+        facts.append(
+            f'Source: {source_label} '
+            f'(size: {lib.human.bytes2human(source_size)}, {window})'
+        )
+    else:
+        facts.append(f'Source: {source_label} ({window})')
+
+    counts = {}
+    for level, (lines, noun, level_state) in levels.items():
+        counts[level] = len(lines)
+        if not lines:
+            facts.append(f'No {lib.txt.pluralize(noun, 0)} found')
+            continue
+        state = lib.base.get_worst(state, level_state)
+        facts.append(
+            f'{len(lines)} {lib.txt.pluralize(noun, len(lines))} found'
+            f'{lib.base.state2str(level_state, prefix=" ")}'
+            f' (last: {lines[-1]})'
+        )
+
+    # Name the events the level counts above already carry, so the summary says
+    # what happened and not only how bad it was. Quiet events stay out of the
+    # line, which keeps a healthy host down to a single sentence.
+    named = []
+    for event in EVENTS:
+        hits = found[event['key']]
+        if not hits:
+            continue
+        named.append(
+            f'{len(hits)} '
+            f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
+        )
+        recommendations.append(event['recommendation'])
+    if named:
+        facts.append('Among them: ' + ', '.join(named))
+
+    for item in LIFECYCLE:
+        lines = found[item['key']]
+        if lines:
+            facts.append(
+                f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
+                f' {item["verb"]} (last: {lines[-1]})'
+            )
+        else:
+            facts.append(f'No {lib.txt.pluralize(item["label"], 0)} {item["verb"]}')
+
+    # A few lines without a level are normal where the application logs into the
+    # same file; a majority of them means the source is mostly something else.
+    if unrecognized_cnt:
+        facts.append(
+            f'{unrecognized_cnt} {lib.txt.pluralize("line", unrecognized_cnt)}'
+            f' without a PHP-FPM log level'
+        )
+        if unrecognized_cnt > recognized_cnt:
+            recommendations.append(
+                'Most lines carry no PHP-FPM log level; check that the source is'
+                ' the PHP-FPM error log and not the pool `slowlog`, the access'
+                ' log or the log of the application itself'
+            )
+
+    sections.append('. '.join(facts) + '.')
+
+    for lines, noun, _ in levels.values():
+        if lines:
+            sections.append(
+                f'{lib.txt.pluralize(noun, 2).capitalize()}:\n'
+                + '\n'.join(f'* {line}' for line in shorten(lines))
+            )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
+    if source_size is not None:
+        perfdata += lib.base.get_perfdata(
+            'php_fpm_logfile_size',
+            source_size,
+            uom='B',
+            _min=0,
+        )
+    # The problem counters alert from their first hit on, hence `warn='0'`
+    # ("outside 0..0") rather than `warn=1`.
+    perfdata += lib.base.get_perfdata(
+        'php_fpm_alert_lines', counts['ALERT'], uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'php_fpm_error_lines', counts['ERROR'], uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'php_fpm_warning_lines', counts['WARNING'], uom=None, warn='0', _min=0
+    )
+    for event in EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'], len(found[event['key']]), uom=None, warn='0', _min=0
+        )
+    for item in LIFECYCLE:
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'], len(found[item['key']]), uom=None, _min=0
+        )
+    perfdata += lib.base.get_perfdata(
+        'php_fpm_log_rotations', len(rotations), uom=None, _min=0
+    )
+
+    # Ask the monitoring server about the acknowledgement. Where the service is
+    # acknowledged, persist the lines currently being reported so an unchanged
+    # error log does not raise them again on the following runs.
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in last_alerts + last_errors + last_warnings
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

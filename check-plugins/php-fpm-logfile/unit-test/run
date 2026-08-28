@@ -1,0 +1,346 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the php-fpm-logfile check plugin.
+
+Every fixture under `fixtures/` was written by a real PHP-FPM (8.0.30 on Rocky 9,
+driven through a FastCGI client until it logged the situation the file is named
+after), and the trees under `config/` mirror what the RHEL and the Debian family
+install. That keeps the tests honest about the log format instead of confirming
+the plugin's own reading of it.
+
+Reading a systemd unit or a container log is left to the library and is not
+covered here.
+"""
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'php-fpm-logfile')
+
+
+def fixture(name):
+    return os.path.join(HERE, 'fixtures', name)
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+CASES = [
+    {
+        'id': 'ok-clean-start',
+        'params': [f'--server-log={fixture("rocky9-clean-start.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No alerts found',
+            'No errors found',
+            'No warnings found',
+            '1 startup detected',
+            'No reloads detected',
+            'No shutdowns detected',
+        ],
+        'assert-not-in': ['Recommendations:', '[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-empty-log-assumes-rotation',
+        'params': [f'--server-log={fixture("empty.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['is empty. Assuming log-rotation.'],
+    },
+    {
+        # What the check sees for the rest of the day after the nightly
+        # logrotate: PHP-FPM re-opened the file and wrote one line into it. Every
+        # counter reads zero, and the window says why.
+        'id': 'ok-just-rotated',
+        'params': [f'--server-log={fixture("rocky9-just-rotated.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1 line, rotated once in this window',
+            'No startups detected',
+            "'php_fpm_log_rotations'=1",
+        ],
+    },
+    {
+        'id': 'crit-configuration-rejected',
+        'params': [f'--server-log={fixture("rocky9-config-rejected.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 alert found',
+            '2 errors found',
+            '[CRITICAL]',
+            'Alerts:',
+            'Errors:',
+            'user has not been defined',
+        ],
+    },
+    {
+        'id': 'crit-busy-pool-names-every-event',
+        'params': [f'--server-log={fixture("rocky9-busy-pool.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '2 worker crashes',
+            '2 request timeouts',
+            '3 slow requests',
+            '1 pool saturation',
+            '2 startups detected',
+            '1 reload detected',
+            '1 shutdown detected',
+            'Recommendations:',
+        ],
+        # The two workers PHP-FPM terminated itself after
+        # `request_terminate_timeout` also exit on a signal, but they are not
+        # crashes; counting them would make four out of two.
+        'assert-not-in': ['4 worker crashes'],
+    },
+    {
+        # PHP-FPM has not reworded any of these messages between the oldest PHP
+        # an enterprise distribution still ships and the current one, so the
+        # same fixture taken from php-fpm 7.2.24 has to yield the same counts.
+        'id': 'crit-busy-pool-on-php72',
+        'params': [f'--server-log={fixture("rocky8-php72-busy-pool.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '2 worker crashes',
+            '2 request timeouts',
+            '3 slow requests',
+            '1 pool saturation',
+            '2 startups detected',
+            '1 reload detected',
+            '1 shutdown detected',
+        ],
+    },
+    {
+        'id': 'warn-emergency-restart',
+        'params': [f'--server-log={fixture("rocky9-emergency-restart.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 worker crashes',
+            '1 emergency restart',
+            # PHP-FPM reloads itself here without writing the line a SIGUSR2
+            # produces, so the reload is counted off the exec instead.
+            '1 reload detected',
+            'reloaded itself because too many workers failed',
+        ],
+    },
+    {
+        'id': 'warn-spawn-pressure',
+        'params': [f'--server-log={fixture("rocky9-spawn-pressure.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '9 spawn pressure warnings',
+            'raise `pm.start_servers`',
+        ],
+        'assert-not-in': ['pool saturation'],
+    },
+    {
+        'id': 'unknown-source-is-not-a-php-fpm-log',
+        'params': [f'--server-log={fixture("php-application-error-log.txt")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['does not look like a PHP-FPM error log'],
+    },
+    {
+        'id': 'ok-application-lines-in-the-same-file',
+        'params': [f'--server-log={fixture("rocky9-mixed-application-log.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1 startup detected',
+            '6 lines without a PHP-FPM log level',
+            'Most lines carry no PHP-FPM log level',
+        ],
+    },
+    {
+        'id': 'warn-ignore-drops-the-error-lines',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--ignore=ptrace',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No errors found', '14 warnings found'],
+    },
+    {
+        'id': 'warn-match-narrows-down-to-the-saturation',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--match=max_children',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 warning found', '1 pool saturation'],
+        'assert-not-in': ['slow request', 'worker crash'],
+    },
+    {
+        'id': 'ok-match-drops-everything',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--match=nothing-in-this-log-matches-this',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked: `--match` dropped all 33 lines'],
+    },
+    {
+        'id': 'unknown-match-drops-everything-with-severity',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--match=nothing-in-this-log-matches-this',
+            '--no-match-severity=unknown',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--ignore=[unterminated',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--ignore'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-pool.txt")}',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-log-path-from-the-redhat-configuration',
+        'params': [f'--config-root={config_root("rhel")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['/var/log/php-fpm/error.log', '2 worker crashes'],
+    },
+    {
+        'id': 'ok-log-path-from-the-debian-configuration',
+        'params': [f'--config-root={config_root("debian")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/log/php8.2-fpm.log', '1 startup detected'],
+    },
+    {
+        'id': 'ok-log-path-probed-without-a-configuration',
+        'params': [f'--config-root={config_root("probe-only")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/log/php-fpm/error.log', '1 startup detected'],
+    },
+    {
+        'id': 'unknown-error-log-goes-to-syslog',
+        'params': [f'--config-root={config_root("syslog")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['is set to syslog', '--server-log=systemd:php-fpm.service'],
+    },
+    {
+        'id': 'unknown-no-log-found-at-all',
+        'params': [f'--config-root={config_root("no-such-tree")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no PHP-FPM error log'],
+    },
+    {
+        'id': 'warn-source-is-a-directory',
+        'params': [f'--server-log={os.path.join(HERE, "fixtures")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['does not seem to be an existing regular file'],
+    },
+    {
+        'id': 'unknown-callback-without-credentials',
+        'params': [
+            f'--server-log={fixture("rocky9-clean-start.txt")}',
+            '--icinga-callback',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--icinga-callback` requires'],
+    },
+    {
+        # Nothing to acknowledge means no call to the monitoring server, so an
+        # unreachable one must not turn a healthy check into a failure.
+        'id': 'ok-callback-is-not-reached-on-a-clean-log',
+        'params': [
+            f'--server-log={fixture("rocky9-clean-start.txt")}',
+            '--icinga-callback',
+            '--icinga-url=https://monitoring.example.invalid:5665',
+            '--icinga-username=username',
+            '--icinga-password=linuxfabrik',
+            '--icinga-service-name=host!service',
+            '--timeout=1',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['acknowledgement'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _check_case(test, case):
+    result = subprocess.run(
+        [PLUGIN, *case['params']],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = result.stdout + result.stderr
+    test.assertEqual(
+        result.returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {result.returncode}.'
+        f'\nOutput: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+class TestPathConfinement(unittest.TestCase):
+    """A `--server-log` that resolves outside /var/log (here a scratch file in
+    the temp directory) is refused, so a plugin running under sudo cannot be
+    turned into an arbitrary file read (GHSA-f54c-p5vg-mr5c)."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='php-fpm-logfile-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'error.log')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write('[28-Aug-2026 15:08:23] NOTICE: secret\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_server_log_outside_allowed_roots_is_refused(self):
+        result = subprocess.run(
+            [PLUGIN, f'--server-log={self.scratch_file}'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_UNKNOWN, combined)
+        self.assertIn('Refusing to read', combined)
+        self.assertNotIn('secret', combined)
+
+
+if __name__ == '__main__':
+    unittest.main()
