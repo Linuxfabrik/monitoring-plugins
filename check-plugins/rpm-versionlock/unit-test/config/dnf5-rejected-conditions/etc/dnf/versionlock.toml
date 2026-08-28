@@ -1,0 +1,33 @@
+version = "1.0"
+
+# The three condition shapes the package manager rejects on their own terms, each as the
+# only condition of its entry, so each entry is left holding nothing. Verified against
+# dnf5 5.4.2.1 on Fedora 44, where `dnf5 versionlock list` names the reason next to every
+# one of them and none of the three blocks a transaction.
+
+# An epoch is compared as a number, so its value has to read as one.
+[[packages]]
+name = "bash"
+
+[[packages.conditions]]
+key = "epoch"
+comparator = "="
+value = "abc"
+
+# Ordering an architecture is meaningless, so only equality is accepted for it.
+[[packages]]
+name = "glibc"
+
+[[packages.conditions]]
+key = "arch"
+comparator = "<"
+value = "x86_64"
+
+# A condition without a value compares against nothing.
+[[packages]]
+name = "zsh"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = ""

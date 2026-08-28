@@ -136,6 +136,7 @@ Monitoring Plugins:
 * path-rw-test: no longer runs forever when a path sits on a network filesystem that stopped answering
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
 
 Icinga Director:
 

@@ -1,0 +1,23 @@
+version = "1.0"
+
+# A working lock next to a second entry for the same package that the package manager
+# cannot use. The unusable entry still names `bash`, and the package manager collects
+# every version of a named package as locked before it looks at any condition, so
+# nothing is left over to hold back and the working lock above stops holding with it.
+# Verified against dnf5 5.4.2.1 on Fedora 44: with the second entry present the
+# transaction goes through, without it the same lock blocks it.
+[[packages]]
+name = "bash"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.3.9-3.fc44"
+
+[[packages]]
+name = "bash"
+
+[[packages.conditions]]
+key = "bogus"
+comparator = "="
+value = "5.3.9-3.fc44"

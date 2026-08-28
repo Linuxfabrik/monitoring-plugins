@@ -1,0 +1,19 @@
+version = "1.0"
+
+# An entry whose conditions are not all usable. The package manager walks the conditions
+# of a package and skips the invalid one rather than the package, so the lock is in
+# force on the condition that is left, and it holds on every architecture rather than
+# only on the one the file names. Verified against dnf5 5.4.2.1 on Fedora 44, where the
+# transaction is blocked and `dnf5 versionlock list` flags the `arch` line alone.
+[[packages]]
+name = "bash"
+
+[[packages.conditions]]
+key = "arch"
+comparator = "<"
+value = "x86_64"
+
+[[packages.conditions]]
+key = "evr"
+comparator = "="
+value = "5.3.9-3.fc44"

@@ -8,38 +8,33 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
 import sys
 
 sys.path.insert(0, '..')
 
 import unittest
 
+import lib.base
 import lib.lftest
+import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-try:
-    import tomllib
-except ImportError:
-    tomllib = None
-
-# The plugin reads the dnf 5 lock file with `tomllib` and ships no backport, because
-# every distribution that ships dnf 5 also ships a Python that has that module. On the
-# older interpreters of the tox matrix the plugin therefore reports no dnf 5 locks, and
-# the testcases that expect parsed locks cannot pass. They are skipped there instead of
-# asserting the degraded result, so a real regression on those interpreters still fails
-# the run. `ok-dnf5-no-locks` and `warn-excludes-disabled-wholesale-dnf5` stay in,
-# because neither needs the TOML file to be parsed. Drop this skip once the plugin
-# reports the unreadable file instead of staying silent about it, see
-# https://github.com/Linuxfabrik/monitoring-plugins/issues/1462.
-NEEDS_TOMLLIB = [
-    'warn-dnf5-broken-toml',
-    'warn-dnf5-excludes-checked',
-    'warn-dnf5-invalid-entries',
-    'warn-dnf5-locks-present',
-    'warn-dnf5-locks-survive-disabled-plugins',
-    'warn-dnf5-version-not-a-string',
-    'warn-dnf5-version-not-applied',
-]
+# The plugin reads the dnf 5 lock file with `tomllib`, which joined the standard library
+# in Python 3.11, and it ships no backport because every distribution that ships dnf 5
+# also ships a Python that has the module. On an older interpreter it reports the file as
+# one it cannot read instead of reporting no locks, so every testcase whose fixture
+# carries a `versionlock.toml` has two expected answers, and which one applies depends on
+# the interpreter that runs the plugin. Those testcases carry `needs-toml`, and
+# plugin_reads_toml() below decides between the two.
+#
+# The message the degraded answer carries, which is also what NO_TOMLLIB_TESTS asserts
+# on an interpreter that does have the module.
+UNREAD = 'could not be read, so any lock in it is missing from this report'
+# Directory holding a `tomllib` that fails to import. Put on `PYTHONPATH` it shadows the
+# real module on any interpreter, which is what makes the degraded answer testable
+# without an old Python being installed.
+NO_TOMLLIB_PATH = 'no-tomllib'
 
 # rpm-versionlock reads the package manager's configuration, so its fixtures are
 # directory trees under `config/` that stand in for the host's /etc, selected with
@@ -481,6 +476,7 @@ TESTS = [
     # an exclude, which is how `versionlock exclude` records one.
     {
         'id': 'warn-dnf5-locks-present',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/fedora-dnf5',
         'assert-retc': STATE_WARN,
@@ -495,6 +491,7 @@ TESTS = [
     },
     {
         'id': 'ok-dnf5-no-locks',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/fedora-dnf5-no-locks',
         'assert-retc': STATE_OK,
@@ -504,6 +501,7 @@ TESTS = [
     # service leaves these in force and they have to be reported all the same.
     {
         'id': 'warn-dnf5-locks-survive-disabled-plugins',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/dnf5-plugins-disabled',
         'assert-retc': STATE_WARN,
@@ -516,6 +514,7 @@ TESTS = [
     # dnf 5 also looks for repository files in a directory dnf 4 does not know.
     {
         'id': 'warn-dnf5-excludes-checked',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/fedora-dnf5 --check-excludes',
         'assert-retc': STATE_WARN,
@@ -529,6 +528,7 @@ TESTS = [
     # installed at all until the file is fixed.
     {
         'id': 'warn-dnf5-broken-toml',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/fedora-dnf5-broken-toml',
         'assert-retc': STATE_WARN,
@@ -539,6 +539,7 @@ TESTS = [
     },
     {
         'id': 'warn-dnf5-version-not-a-string',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/dnf5-version-not-a-string',
         'assert-retc': STATE_WARN,
@@ -550,6 +551,7 @@ TESTS = [
     # there, so the locks in it must not be reported as being in place.
     {
         'id': 'warn-dnf5-version-not-applied',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/dnf5-version-not-applied',
         'assert-retc': STATE_WARN,
@@ -565,6 +567,7 @@ TESTS = [
     # The same with a single lock in the file, which has to read "is not applied".
     {
         'id': 'warn-dnf5-single-lock-not-applied',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/dnf5-single-lock-not-applied',
         'assert-retc': STATE_WARN,
@@ -574,17 +577,84 @@ TESTS = [
         ],
         'assert-not-in': ['bash'],
     },
-    # A single entry the package manager marks invalid holds nothing, whether the reason
-    # is a condition key it does not know or a package name with no condition at all.
-    # `dnf5 versionlock list` names both itself, so neither may be counted as a lock in
-    # place, while the well-formed entry beside them still is.
+    # A single entry the package manager cannot use holds nothing, whether the reason is
+    # a condition key it does not know or a package name with no condition at all. Both
+    # are named rather than dropped in silence, because whoever wrote them believes the
+    # package is held, while the well-formed entry beside them is a lock and is counted
+    # as one.
     {
         'id': 'warn-dnf5-invalid-entries',
+        'needs-toml': True,
         'test': '',
         'params': '--config-root=config/dnf5-invalid-entries',
         'assert-retc': STATE_WARN,
-        'assert-in': ['1 version lock in place.', 'bash'],
-        'assert-not-in': ['zsh', 'nano'],
+        'assert-in': [
+            '1 version lock in place.',
+            '2 lock entries the package manager cannot parse',
+            'bash',
+            '"nano": missing package conditions',
+            '"zsh": invalid condition key "bogus"',
+        ],
+    },
+    # The comparators dnf 5 spells two ways. `==` is a lock like `=`, and `<>` records an
+    # exclude like `!=`, which the package manager tells apart by the comparison rather
+    # than by the spelling.
+    {
+        'id': 'warn-dnf5-comparator-synonyms',
+        'needs-toml': True,
+        'test': '',
+        'params': '--config-root=config/dnf5-comparator-synonyms',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 version lock and 1 exclusion in place.',
+            '== 5.3.9-3.fc44',
+            '<> 8.18.0-4.fc44',
+            'exclude',
+        ],
+    },
+    # A condition the package manager rejects costs the entry that one condition, not the
+    # whole lock: the rest of the entry still holds the package back, and only what is in
+    # force is reported.
+    {
+        'id': 'warn-dnf5-partial-conditions',
+        'needs-toml': True,
+        'test': '',
+        'params': '--config-root=config/dnf5-partial-conditions',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 version lock in place.', 'bash', '= 5.3.9-3.fc44'],
+        'assert-not-in': ['arch'],
+    },
+    # The three condition shapes the package manager rejects on their own terms. None of
+    # them holds a package back, so none may be counted as a lock in place.
+    {
+        'id': 'warn-dnf5-rejected-conditions',
+        'needs-toml': True,
+        'test': '',
+        'params': '--config-root=config/dnf5-rejected-conditions',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'No version locks in place.',
+            '3 lock entries the package manager cannot parse',
+            'epoch condition value needs to be an unsigned integer',
+            '"arch" condition only supports "=" and "!=" comparison operators',
+            'missing condition value',
+        ],
+        'assert-not-in': ['Locked to'],
+    },
+    # An entry the package manager cannot use cancels every other lock on the same
+    # package name, so the well-formed one above it is not in place either.
+    {
+        'id': 'warn-dnf5-broken-entry-cancels-lock',
+        'needs-toml': True,
+        'test': '',
+        'params': '--config-root=config/dnf5-broken-entry-cancels-lock',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'No version locks in place.',
+            'invalid condition key "bogus"',
+            'so nothing is held back for "bash" at all',
+        ],
+        'assert-not-in': ['Locked to'],
     },
     # Deployed on a host that does not use RPM packages at all.
     {
@@ -597,22 +667,104 @@ TESTS = [
 ]
 
 
+# Testcases that take the degraded path whatever the interpreter brings, because they
+# shadow `tomllib` themselves. They are what keeps the answer for an old interpreter
+# covered on the current ones, where nothing else reaches that branch.
+NO_TOMLLIB_TESTS = [
+    # A host whose lock file holds locks. The verdict may not claim that none are in
+    # place, because the check has not read the file that would say so.
+    {
+        'id': 'warn-dnf5-lockfile-unread',
+        'test': '',
+        'params': '--config-root=config/fedora-dnf5',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'No version locks in the part this check could read.',
+            UNREAD,
+            'reading it needs Python 3.11 or newer',
+        ],
+        'assert-not-in': ['No version locks in place.'],
+    },
+    # The same answer on a host whose locks were all removed again: `versionlock clear`
+    # and `versionlock delete` leave the file behind holding an empty package list, and
+    # without the module the check cannot tell that from a file full of locks. Reporting
+    # the gap is still the right answer, and the way out is an interpreter that reads it.
+    {
+        'id': 'warn-dnf5-cleared-lockfile-unread',
+        'test': '',
+        'params': '--config-root=config/fedora-dnf5-no-locks',
+        'assert-retc': STATE_WARN,
+        'assert-in': [UNREAD],
+    },
+    # A host that runs dnf 4 or yum has no such file, so nothing is missing from the
+    # report and the check says nothing about the module either way.
+    {
+        'id': 'ok-no-dnf5-lockfile-stays-quiet',
+        'test': '',
+        'params': '--config-root=config/no-locks',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No version locks in place.'],
+        'assert-not-in': [UNREAD],
+    },
+]
+
+
 class TestCheck(unittest.TestCase):
     check = '../rpm-versionlock'
 
 
-lib.lftest.attach_tests(TestCheck, TESTS)
+def plugin_reads_toml():
+    """Say whether the interpreter that runs the plugin brings `tomllib`.
 
-if tomllib is None:
-    for test_id in NEEDS_TOMLLIB:
-        method_name = 'test_' + test_id.replace('-', '_')
-        setattr(
-            TestCheck,
-            method_name,
-            unittest.skip('dnf 5 locks are TOML, which needs Python 3.11 or newer')(
-                getattr(TestCheck, method_name)
-            ),
-        )
+    Asking the plugin instead of importing the module here is the whole point. This file
+    and the plugin are two processes, and the plugin picks its interpreter from its own
+    shebang, so running `./run` with one Python while `python3` on PATH is another - the
+    normal case outside `tox` - would otherwise assert the wrong half of the
+    expectations.
+    """
+    stdout, _, _ = lib.base.coe(
+        lib.shell.shell_exec([TestCheck.check, '--config-root=config/fedora-dnf5'])
+    )
+    return UNREAD not in stdout
+
+
+def without_toml(testcase):
+    """Return the testcase with the answer an interpreter without `tomllib` gives.
+
+    Whatever the fixture holds, the plugin cannot read it, so the one thing left to
+    assert is that it says so instead of reporting no locks.
+    """
+    degraded = {
+        key: value for key, value in testcase.items() if not key.startswith('assert-')
+    }
+    degraded['assert-retc'] = STATE_WARN
+    degraded['assert-in'] = [UNREAD, 'reading it needs Python 3.11 or newer']
+    return degraded
+
+
+def run_without_tomllib(test, testcase):
+    """Run one testcase with a `tomllib` on `PYTHONPATH` that fails to import."""
+    previous = os.environ.get('PYTHONPATH')
+    os.environ['PYTHONPATH'] = NO_TOMLLIB_PATH
+    try:
+        lib.lftest.run(test, TestCheck.check, testcase)
+    finally:
+        if previous is None:
+            del os.environ['PYTHONPATH']
+        else:
+            os.environ['PYTHONPATH'] = previous
+
+
+if not plugin_reads_toml():
+    TESTS = [
+        without_toml(testcase) if testcase.get('needs-toml') else testcase
+        for testcase in TESTS
+    ]
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+lib.lftest.attach_each(
+    TestCheck, NO_TOMLLIB_TESTS, run_without_tomllib, id_func=lambda item: item['id']
+)
 
 
 if __name__ == '__main__':

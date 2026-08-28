@@ -25,12 +25,14 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 try:
     import tomllib
 except ImportError:
-    # only dnf 5 keeps its locks in a TOML file, and every distribution that ships
-    # dnf 5 also ships a Python that has this module
+    # Only dnf 5 keeps its locks in a TOML file, and every distribution that ships
+    # dnf 5 also ships a Python that has this module, so no backport is bundled. Where
+    # the check runs on an older interpreter anyway, an existing lock file is reported
+    # as unread instead of as no locks at all - see get_dnf5_locks().
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082101'
+__version__ = '2026082801'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -40,8 +42,9 @@ actually applies are reported, so a lock list it has switched off stays quiet. A
 soon as one lock is in place; raise --warning to tolerate a number of deliberate locks,
 or filter the ones you keep on purpose with --ignore. Alerts as well on a lock
 configuration the package manager refuses, which stops the host from installing or
-upgrading anything, and on one it reads without applying any of it. Optionally also
-reports the packages excluded in the package manager configuration via
+upgrading anything, on one it reads without applying any of it, and on one this check
+cannot read itself, so an incomplete report is never mistaken for an empty one.
+Optionally also reports the packages excluded in the package manager configuration via
 --check-excludes. Supports extended reporting via --lengthy."""
 
 DEFAULT_CRIT = None
@@ -76,9 +79,32 @@ REPO_DIRS = (
     'usr/share/dnf5/repos.d',
 )
 
-# Comparators and condition keys dnf 5 accepts in its lock file.
-DNF5_COMPARATORS = ('!=', '<', '<=', '=', '>', '>=')
+# Comparators dnf 5 accepts in its lock file, each mapped to the comparison it stands
+# for. `==` is a second spelling of `=` and `<>` one of `!=`, both fully applied, and
+# the package manager tells an exclusion from a lock by the comparison rather than by
+# the spelling - so a lock written with either synonym is read the same way here.
+DNF5_COMPARATORS = {
+    '!=': 'ne',
+    '<': 'lt',
+    '<=': 'le',
+    '<>': 'ne',
+    '=': 'eq',
+    '==': 'eq',
+    '>': 'gt',
+    '>=': 'ge',
+}
+# Condition keys dnf 5 accepts, and the two comparisons `arch` is limited to. Ordering
+# an architecture is meaningless, so anything else invalidates such a condition.
 DNF5_KEYS = ('arch', 'epoch', 'evr')
+DNF5_ARCH_COMPARISONS = ('eq', 'ne')
+
+# What dnf 5 accepts as the value of an `epoch` condition. It hands the value to the C++
+# string-to-unsigned-long conversion, which skips leading whitespace, takes an optional
+# sign, reads the digits that follow and stops at the first character that is not one -
+# so `5abc`, `-1` and `007` all pass while `abc` does not, and a run of digits too large
+# for an unsigned 64 bit integer is rejected as out of range.
+DNF5_EPOCH_REGEX = re.compile(r'^[ \t\n\v\f\r]*[+-]?(?P<digits>[0-9]+)')
+DNF5_EPOCH_MAX = 2**64 - 1
 
 # The only lock file format dnf 5 acts on. It reads the file whatever the version says,
 # but applies the locks in it solely for this one: any other string, and a file that
@@ -508,34 +534,93 @@ def split_entry(spec):
 
 
 def parse_dnf5_conditions(conditions):
-    """Turn the conditions of one dnf 5 lock entry into a readable term, its comparators
-    and whether the package manager accepts the entry at all.
+    """Turn the conditions of one dnf 5 lock entry into a readable term, the conditions
+    the package manager accepts and the reasons it rejects the rest.
 
-    Every condition has to hold for the entry to match, so they are joined into one
-    term. A condition the package manager does not understand does not merely drop out:
-    it invalidates the whole entry, and the same goes for an entry that carries no
-    condition. `dnf5 versionlock list` says so itself, printing `invalid condition key
-    "bogus"` next to such a condition and `entry is invalid: missing package conditions`
-    next to a bare package name. Observed with dnf5 5.4.2.1 on Fedora 44.
+    Every accepted condition has to hold for the entry to match, so they are joined into
+    one term. A condition the package manager does not understand does not take the
+    entry with it: it walks the conditions of a package and skips the single invalid
+    one, so an entry with one broken and one good condition still holds the package back
+    on the good one. Only an entry left without a single accepted condition holds
+    nothing at all.
+
+    The reasons repeat the package manager's own wording, so they line up with what
+    `dnf5 versionlock list` prints next to the same condition. Verified against dnf5
+    5.4.2.1 on Fedora 44.
+
+    Returns `(terms, accepted, reasons)`, where `accepted` holds one `(key, comparison)`
+    pair per condition that is in force.
     """
     terms = []
-    comparators = []
+    accepted = []
+    reasons = []
     for condition in conditions:
         if not isinstance(condition, dict):
-            return [], [], False
+            # The package manager reads a condition that is not a table as one whose
+            # every field is missing, so it costs the entry one condition rather than
+            # invalidating it.
+            condition = {}
         key = condition.get('key')
         comparator = condition.get('comparator')
         value = condition.get('value')
-        if key not in DNF5_KEYS or comparator not in DNF5_COMPARATORS:
-            return [], [], False
-        if not isinstance(value, str):
-            return [], [], False
-        comparators.append(comparator)
+        errors = []
+        # A field of the wrong type reads as an empty string to the package manager, so
+        # it is "missing" rather than invalid - the same as one that is not there.
+        if not isinstance(key, str) or not key:
+            errors.append('missing condition key')
+        elif key not in DNF5_KEYS:
+            errors.append(f'invalid condition key "{key}"')
+        if not isinstance(comparator, str) or not comparator:
+            errors.append('missing condition comparison operator')
+        elif comparator not in DNF5_COMPARATORS:
+            errors.append(f'invalid condition comparison operator "{comparator}"')
+        if not isinstance(value, str) or not value:
+            errors.append('missing condition value')
+        comparison = (
+            DNF5_COMPARATORS.get(comparator) if isinstance(comparator, str) else None
+        )
+        if not errors:
+            # Checked only once the three fields are there, exactly as the package
+            # manager orders it, so a condition missing its value is never also blamed
+            # for the value it does not have.
+            if key == 'epoch' and not valid_dnf5_epoch(value):
+                errors.append('epoch condition value needs to be an unsigned integer')
+            elif key == 'arch' and comparison not in DNF5_ARCH_COMPARISONS:
+                errors.append(
+                    '"arch" condition only supports "=" and "!=" comparison operators'
+                )
+        if errors:
+            reasons.append(', '.join(errors))
+            continue
+        accepted.append((key, comparison))
         # the key is spelled out for anything but the version, where it would only
         # repeat what the column already says
         prefix = '' if key == 'evr' else f'{key} '
         terms.append(f'{prefix}{comparator} {value}')
-    return terms, comparators, bool(terms)
+    return terms, accepted, reasons
+
+
+def valid_dnf5_epoch(value):
+    """Say whether dnf 5 accepts this string as the value of an `epoch` condition.
+
+    See DNF5_EPOCH_REGEX for what the package manager's own conversion accepts and for
+    where the two ends of the range come from.
+    """
+    match = DNF5_EPOCH_REGEX.match(value)
+    if not match:
+        return False
+    return int(match.group('digits')) <= DNF5_EPOCH_MAX
+
+
+def is_dnf5_exclude(accepted):
+    """Say whether the conditions in force on a dnf 5 entry make it an exclude.
+
+    An exclude names the versions that must not be installed, so every one of its
+    conditions is a version the package manager compares for inequality. It recognises
+    its own excludes by exactly that, and by the comparison rather than by how the
+    operator is spelled, so `<>` records one just as `!=` does.
+    """
+    return all(key == 'evr' and comparison == 'ne' for key, comparison in accepted)
 
 
 def get_dnf5_locks(root):
@@ -557,36 +642,47 @@ def get_dnf5_locks(root):
         comparator = "="
         value = "5.3.9-3.fc44"
 
-    An entry whose conditions are all `!=` is an exclude, which is how the package
-    manager records one.
+    An entry whose conditions all name a version that must not be installed is an
+    exclude, which is how the package manager records one.
 
-    Returns `(entries, refused, ignored)`. `refused` names a file the package manager
-    gives up on, `ignored` one it reads and then acts on none of - see
-    DNF5_LOCKFILE_VERSION for the difference and for what was measured.
+    Returns `(entries, refused, ignored, unreadable, unread)`. `refused` names a file
+    the package manager gives up on and `ignored` one it reads and then acts on none
+    of - see DNF5_LOCKFILE_VERSION for the difference and for what was measured.
+    `unreadable` names the single entries it cannot use, and `unread` the file this
+    check itself cannot read.
     """
-    if tomllib is None:
-        return [], [], []
-
     lockfile = rooted(root, DNF5_LOCKFILE)
     content = read_config_file(lockfile)
+    if tomllib is None:
+        if not content:
+            # No dnf 5 lock file, so nothing is missing from the report and a host
+            # running only dnf 4 or yum stays quiet.
+            return [], [], [], [], []
+        # The file is there and the package manager applies every lock in it, but this
+        # interpreter cannot read the format. Saying so keeps an incomplete report from
+        # being read as an empty one, which is the whole point of the check.
+        return [], [], [], [], [f'{lockfile}: reading it needs Python 3.11 or newer']
     if not content:
-        return [], [], []
+        return [], [], [], [], []
     try:
         data = tomllib.loads(content)
     except (tomllib.TOMLDecodeError, ValueError):
         # Not a warning about locks that fail to apply: the package manager aborts on
         # this file with an unhandled parser error, so nothing can be installed at all.
-        return [], [f'{lockfile}: it does not parse as TOML'], []
+        return [], [f'{lockfile}: it does not parse as TOML'], [], [], []
 
     version = data.get('version')
     if version is not None and not isinstance(version, str):
         # Aborts the package manager the same way, on the type rather than the syntax.
-        return [], [f'{lockfile}: its version is not a string'], []
+        return [], [f'{lockfile}: its version is not a string'], [], [], []
 
     entries = []
+    # Package names of the entries the package manager cannot use, each with the reasons
+    # it gives for them.
+    rejected = {}
     packages = data.get('packages')
     if not isinstance(packages, list):
-        return [], [], []
+        return [], [], [], [], []
     for package in packages:
         if not isinstance(package, dict):
             continue
@@ -594,20 +690,21 @@ def get_dnf5_locks(root):
         if not isinstance(name, str) or not RPM_NAME_REGEX.match(name):
             continue
         conditions = package.get('conditions')
-        terms, comparators, valid = parse_dnf5_conditions(
+        terms, accepted, reasons = parse_dnf5_conditions(
             conditions if isinstance(conditions, list) else []
         )
-        if not valid:
-            # The package manager marks the entry invalid and holds nothing with it, so
-            # reporting it as a lock in place would be the wrong way round.
+        if not accepted:
+            # Not a single condition survives, so the entry holds nothing. The package
+            # manager words a bare package name that way itself.
+            rejected.setdefault(name, []).extend(
+                reasons or ['missing package conditions']
+            )
             continue
         entries.append(
             {
                 'package': name,
                 'lock': ', '.join(terms),
-                'source': 'exclude'
-                if comparators and all(c == '!=' for c in comparators)
-                else 'versionlock',
+                'source': 'exclude' if is_dnf5_exclude(accepted) else 'versionlock',
                 'origin': lockfile,
             }
         )
@@ -624,8 +721,25 @@ def get_dnf5_locks(root):
                 f'{len(entries)} {lib.txt.pluralize("lock", len(entries))} in it '
                 f'{lib.txt.pluralize("", len(entries), "is,are")} not applied'
             ],
+            [],
+            [],
         )
-    return entries, [], []
+
+    # An entry the package manager cannot use still names its package, and it collects
+    # every version of that name as locked before it ever looks at the conditions.
+    # Nothing is left over to hold back, so such an entry cancels every other lock on
+    # the same package name as well. Verified against dnf5 5.4.2.1 on Fedora 44, where a
+    # working lock on `bash` stops holding as soon as a second, unusable `bash` entry is
+    # added next to it.
+    cancelled = {entry['package'] for entry in entries} & set(rejected)
+    entries = [entry for entry in entries if entry['package'] not in rejected]
+    unreadable = []
+    for name in sorted(rejected):
+        reason = '; '.join(rejected[name])
+        if name in cancelled:
+            reason += f', so nothing is held back for "{name}" at all'
+        unreadable.append(f'{lockfile}: "{name}": {reason}')
+    return entries, [], [], unreadable, []
 
 
 def get_disable_excludes(main_configs):
@@ -787,9 +901,12 @@ def main():
     entries = []
     # Configurations the package manager gives up on, ones it reads without acting on
     # them, and single entries it cannot read. None of the three leaves a lock in place,
-    # and all of them are worth saying out loud.
+    # and all of them are worth saying out loud. `unread` is the odd one out: there the
+    # package manager is fine and this check is the one that cannot read the file, so
+    # the locks in it are missing from the report rather than missing from the host.
     refused = []
     ignored = []
+    unread = []
     unreadable = []
     if plugins_enabled(root):
         locklists, locklist_refused = get_locklists(root, main_configs)
@@ -804,10 +921,14 @@ def main():
     # belong to the package manager's own library, and the switch that turns plugins off
     # only covers the ones loaded from the plugin directory. Its locks therefore stay in
     # force no matter what that switch says, and reporting them is not conditional either.
-    dnf5_entries, dnf5_refused, dnf5_ignored = get_dnf5_locks(root)
+    dnf5_entries, dnf5_refused, dnf5_ignored, dnf5_unreadable, dnf5_unread = (
+        get_dnf5_locks(root)
+    )
     entries += dnf5_entries
     refused += dnf5_refused
     ignored += dnf5_ignored
+    unread += dnf5_unread
+    unreadable += dnf5_unreadable
     if args.CHECK_EXCLUDES:
         # an exclusion is part of the package manager's own configuration, so it stays
         # in force no matter what happens to the plugins
@@ -847,11 +968,18 @@ def main():
     if not entries:
         # Nothing is locked, which is what a healthy host looks like. Both searches are
         # named where both ran, so the admin sees that --check-excludes took effect
-        # rather than wondering whether it did.
-        msg = (
-            'No version locks and no exclusions in place.'
+        # rather than wondering whether it did. Where a configuration could not be read,
+        # the verdict says what the check searched instead of claiming an absence it
+        # cannot know about: the locks it could not see may well be in force.
+        found = (
+            'No version locks and no exclusions'
             if args.CHECK_EXCLUDES
-            else 'No version locks in place.'
+            else 'No version locks'
+        )
+        msg = (
+            f'{found} in the part this check could read.'
+            if unread
+            else f'{found} in place.'
         )
         state = STATE_OK
     elif not table_data:
@@ -893,6 +1021,19 @@ def main():
             f' {len(ignored)} lock '
             f'{lib.txt.pluralize("configuration", len(ignored))} '
             f'{lib.txt.pluralize("", len(ignored), "is,are")} not applied at all.'
+        )
+    if unread:
+        # Nothing is wrong with the host here: the package manager reads the file and
+        # applies every lock in it, and this check is the one that cannot. Whatever is
+        # in there is missing from the report, so an admin reading "no version locks in
+        # place" would be reading an incomplete answer as a complete one.
+        state = lib.base.get_worst(state, STATE_WARN)
+        msg += (
+            f' {len(unread)} lock '
+            f'{lib.txt.pluralize("configuration", len(unread))} could not be read, '
+            'so any lock in '
+            f'{lib.txt.pluralize("", len(unread), "it,them")} is missing from this '
+            'report.'
         )
     if unreadable:
         # Single lines the package manager cannot make sense of. Same reasoning as
@@ -936,6 +1077,9 @@ def main():
     if ignored:
         msg += '\n\nThese configurations are read but applied to nothing:\n'
         msg += '\n'.join(ignored)
+    if unread:
+        msg += '\n\nThis check cannot read these configurations:\n'
+        msg += '\n'.join(unread)
     if unreadable:
         msg += '\n\nThe package manager cannot parse these entries:\n'
         msg += '\n'.join(unreadable)
