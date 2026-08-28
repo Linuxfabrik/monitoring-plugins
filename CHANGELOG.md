@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, the kernel's pressure stall information, the Apache httpd and PHP-FPM error logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags.
+
 ### Breaking Changes
+
+Monitoring Plugins:
+
+* file-age, file-size: no longer run through sudo, so a path only root may read now fails: grant the monitoring user access to it
 
 Icinga Director:
 
@@ -76,14 +82,13 @@ Monitoring Plugins:
 * cpu-usage: alerts on CPU steal, at 10% by default
 * dmesg: fewer false alarms on physical servers and in virtual machines
 * file-age, file-count, file-growth, file-size: the summary names the breached range in plain words
-* file-age, file-size: no longer run through sudo, so they see only what the monitoring user may read
 * kvm-vm: reports a machine that should start with the host and does not, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
 * mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
-* mysql-perf-metrics: `--ignore-innodb-snapshot-isolation` drops the advice where an application cannot cope with the rollbacks it causes
-* nextcloud-stats: also lists the five largest accounts, and runs longer on big instances ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
+* mysql-perf-metrics: `--ignore-innodb-snapshot-isolation` silences the `innodb_snapshot_isolation` warning where the variable cannot be turned on
+* nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
 * openstack-swift-stat: alerts on the container and account quotas
 * procs: reports the fork rate (Linux only)
@@ -122,15 +127,14 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
-* a command stuck on storage that has gone away no longer runs past the check's `--timeout`
 * about-me: recognises a KVM host running the modular libvirt daemons again
+* all plugins: a command stuck on storage that has gone away no longer runs past the check's `--timeout`
 * apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`
 * countdown: a malformed `--input` names the date it cannot read instead of a traceback
-* cpu-usage: the CPU percentages of a host running virtual machines were wrong
+* cpu-usage: reports the right CPU percentages on a host running virtual machines
 * deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update
-* disk-usage: no longer runs forever when a network filesystem stops answering, and `--fstype` and `--list-fstypes` work again on such a host
-* disk-usage: the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
+* disk-usage: no longer runs forever when a network filesystem stops answering, `--fstype` and `--list-fstypes` work again on such a host, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * file-ownership: a `--filename` missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
@@ -148,7 +152,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * the Active Directory Domain Service Set renames `Service - ADWS` and `Service - DFSR`; both start their history over
-* the Huawei Dorado Service Set runs all of its checks again, six services shared one name
+* the Huawei Dorado Service Set runs all of its checks again
 
 Build, CI/CD:
 
@@ -156,7 +160,7 @@ Build, CI/CD:
 
 Grafana:
 
-* series hidden from a panel no longer show up in its tooltip. Re-import: Icinga overview, apache-httpd-status, cpu-usage, disk-io, keycloak-memory-usage, load, memory-usage, network-io, php-status, ping, procs, swap-usage
+* Icinga overview, apache-httpd-status, cpu-usage, disk-io, keycloak-memory-usage, load, memory-usage, network-io, php-status, ping, procs, swap-usage: re-import, series hidden from a panel no longer show up in its tooltip
 
 
 ## [v7.0.0] - 2026-08-14
@@ -239,8 +243,7 @@ Monitoring Plugins:
 * cpu-usage: no longer alerts on iowait, but keeps reporting and graphing it
 * disk-usage: runs every minute instead of every 5 minutes
 * docker-info: reports every warning the daemon raises about itself, and drops the registry address Docker removed in version 24
-* huawei-dorado-\*: a faulty or dead component, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
-* huawei-dorado-\*: an empty hardware inventory reports UNKNOWN instead of "Everything is ok"
+* huawei-dorado-\*: a faulty or dead component, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING, and an empty hardware inventory reports UNKNOWN instead of "Everything is ok"
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, which silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * podman-info: the reported logging driver is the one containers log through, not the event logger
@@ -278,10 +281,7 @@ Monitoring Plugins:
 * file-descriptors: a kernel that does not cap the number of file handles is reported as having no limit instead of "9.2E"
 * fs-inodes: an unreadable mount point such as a Kubernetes CSI volume no longer aborts the check ([#1387](https://github.com/Linuxfabrik/monitoring-plugins/issues/1387))
 * haproxy-status: the `--username` / `--password` migration hint is readable again
-* huawei-dorado-\*: an unexpected firmware response no longer turns the check UNKNOWN
-* huawei-dorado-\*: capacities, wear levels and health scores are reported in the right unit
-* huawei-dorado-\*: a large array reports its full inventory
-* huawei-dorado-\*: a component without a temperature sensor no longer reports CRITICAL when a temperature threshold is set
+* huawei-dorado-\*: a large array reports its full inventory, capacities, wear levels and health scores use the right unit, an unexpected firmware response no longer turns the check UNKNOWN, and a component without a temperature sensor no longer reports CRITICAL when a temperature threshold is set
 * huawei-dorado-hypermetrodomain: a faulty HyperMetro domain is detected
 * journald-query: a relative `--since` such as `-8h` from the Icinga Director works again, and a journal entry carrying newlines no longer breaks the first line of the output ([#1264](https://github.com/Linuxfabrik/monitoring-plugins/issues/1264))
 * librenms-health: a temperature, humidity, voltage or power sensor past its limit alerts instead of reporting OK
@@ -325,8 +325,7 @@ Notification Plugins:
 
 Tools:
 
-* installer: a source install no longer hands the monitoring user ownership of the installed files, closing a local root code-execution path
-* installer: the Python dependencies bundled with a source install no longer carry known vulnerabilities, except `h2` on RHEL 8, RHEL 9 and Debian 11, where no fixed release supports their Python 3.9
+* installer: a source install no longer hands the monitoring user ownership of the installed files, closing a local root code-execution path, and its bundled Python dependencies no longer carry known vulnerabilities, except `h2` on RHEL 8, RHEL 9 and Debian 11, where no fixed release supports their Python 3.9
 
 
 ## [v6.0.0] - 2026-06-14
@@ -463,9 +462,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
-* mysql-\*: cumulative counters are replaced by per-second rates and several perfdata labels are renamed, so re-import the MySQL dashboards after updating
-* mysql-\*: thresholds accept Nagios ranges, which shifts a boundary from `>=N` to `>N`
-* mysql-\*: the required privileges are verified up front, and a missing one exits UNKNOWN naming it
+* mysql-\*: cumulative counters are replaced by per-second rates and several perfdata labels are renamed, so re-import the MySQL dashboards after updating; thresholds accept Nagios ranges, which shifts a boundary from `>=N` to `>N`; and the required privileges are verified up front, a missing one exits UNKNOWN naming it
 * mysql-aria, mysql-binlog-cache, mysql-innodb-log-waits, mysql-logfile: an absent or disabled engine, `log_bin = OFF` and an empty log file report OK instead of UNKNOWN
 * mysql-database-metrics: excludes the `percona` schema, which was falsely flagged, and emits performance data
 * mysql-innodb-buffer-pool-size: checks `innodb_redo_log_capacity` on MySQL 8.0.30 and newer, and `innodb_file_per_table`
@@ -557,8 +554,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* dmesg: `--ignore` takes a regex instead of a substring, is repeatable, and replaces the bundled defaults instead of extending them. The defaults grew to cover SHPC PCI hot-plug noise
-* dmesg: `--severity` is deprecated and the plugin always alerts as CRIT. Existing templates with `dmesg_severity = warn` keep working but no longer downgrade
+* dmesg: `--ignore` takes a regex instead of a substring, is repeatable, and replaces the bundled defaults instead of extending them (they grew to cover SHPC PCI hot-plug noise); `--severity` is deprecated and the plugin always alerts as CRIT, existing templates with `dmesg_severity = warn` keep working but no longer downgrade
 
 Icinga Director:
 
