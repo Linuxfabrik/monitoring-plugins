@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import datetime
 import os
 import re
 import stat
@@ -27,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082802'
+__version__ = '2026082803'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, requests that ran into
@@ -35,9 +36,15 @@ on: rejected configurations, worker crashes, requests that ran into
 `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker
 failures. Startups, reloads and shutdowns are counted alongside them, so a pool that
 keeps restarting is visible.
-Alerts CRITICAL on `ALERT` and `ERROR` lines, and WARNING on `WARNING` lines; the
-levels PHP-FPM itself puts at the head of every line decide the state, so a message
-that merely contains the word "error" does not trip the count.
+Requests that ran long and a pool spawning workers in bursts are counted within
+`--lookback` and judged by how many of them arrived, not by the fact that they did: one
+slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those
+lines are counted there and nowhere else, so a site with one heavy report page does not
+leave the check permanently yellow.
+What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and
+`ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and
+`--warning-level` move. The events named above raise their own state either way. A
+message that merely contains the word "error" never counts.
 The log is read either from a file, from a systemd unit (`systemd:`) or from a
 container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is
 taken from the `error_log` directive of the PHP-FPM configuration, with the common
@@ -49,11 +56,25 @@ Note that PHP-FPM discards everything its workers write unless
 events is the default behaviour rather than a quiet application.
 Requires root or sudo."""
 
+# What `--critical-level` and `--warning-level` accept on top of the levels
+# themselves: no level at all raises that state, which leaves the named events as
+# the only way to reach it.
+LEVEL_NONE = 'none'
+
+DEFAULT_CRITICAL_LEVEL = 'ERROR'
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
+DEFAULT_LOOKBACK = 600  # seconds
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
+DEFAULT_REQUEST_TIMEOUTS_CRITICAL = 50
+DEFAULT_REQUEST_TIMEOUTS_WARNING = 5
+DEFAULT_SLOW_REQUESTS_CRITICAL = 200
+DEFAULT_SLOW_REQUESTS_WARNING = 20
+DEFAULT_SPAWN_PRESSURE_CRITICAL = 100
+DEFAULT_SPAWN_PRESSURE_WARNING = 10
 DEFAULT_TIMEOUT = 8
+DEFAULT_WARNING_LEVEL = 'WARNING'
 
 ACK_RETENTION_DAYS = 30
 MAXLINES = 30000  # maximum log lines to consider from the end of the source
@@ -93,8 +114,28 @@ LOG_FILE_CANDIDATES = (
 # because PHP-FPM prints the time only in the master process. Both shapes carry
 # the level, so both are recognized (verified against php-fpm 8.0.30 on Rocky 9).
 LEVEL_REGEX = re.compile(
-    r'^(?:\[[^\]]+\]\s+)?(ALERT|ERROR|WARNING|NOTICE|DEBUG):\s*(.*)$',
+    r'\b(ALERT|ERROR|WARNING|NOTICE|DEBUG):\s*(.*)$',
 )
+
+# The timestamp PHP-FPM writes in front of a master line, `[28-Aug-2026
+# 15:21:20]`, in the local time of the host and in English regardless of the
+# locale, because PHP-FPM formats it in the C locale. Python parses it in the C
+# locale as well, as nothing here calls `setlocale()`. A worker line and a line
+# a transport prefixed carry none; `lib.logsource.timestamp()` falls back to the
+# transport's.
+TIMESTAMP_REGEX = re.compile(r'\[(\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2})\]')
+TIMESTAMP_FORMAT = '%d-%b-%Y %H:%M:%S'
+
+# The levels that say something is wrong, worst first. Which of them raise which
+# state is left to `--critical-level` and `--warning-level`: a pool that logs one
+# `WARNING` about a single slow request is not a reason to get anybody out of
+# bed, and what genuinely is arrives as one of the named events below.
+LEVELS = (
+    {'level': 'ALERT', 'perfdata': 'php_fpm_alert_lines'},
+    {'level': 'ERROR', 'perfdata': 'php_fpm_error_lines'},
+    {'level': 'WARNING', 'perfdata': 'php_fpm_warning_lines'},
+)
+LEVEL_CHOICES = [item['level'] for item in LEVELS] + [LEVEL_NONE]
 
 # The events worth naming on their own, because the level alone does not say what
 # happened. Everything else PHP-FPM logs is covered by the per-level counts. The
@@ -113,29 +154,10 @@ EVENTS = (
         # example. The lookahead also lets the line through when PHP-FPM has no
         # name for the signal and prints an empty pair of brackets.
         'regex': re.compile(r'exited on signal \d+ \((?!SIGQUIT|SIGTERM)'),
+        'state': STATE_WARN,
         'recommendation': (
             'Workers died on a signal PHP-FPM did not send them; look for a core'
             ' dump, a faulty PHP extension, or the OOM killer in the kernel log'
-        ),
-    },
-    {
-        'key': 'request_timeouts',
-        'label': 'request timeout',
-        'perfdata': 'php_fpm_request_timeouts',
-        'regex': re.compile(r'execution timed out \([\d.]+ sec\), terminating'),
-        'recommendation': (
-            'Requests were terminated after `request_terminate_timeout`; profile'
-            ' the scripts named above or raise the timeout for that pool'
-        ),
-    },
-    {
-        'key': 'slow_requests',
-        'label': 'slow request',
-        'perfdata': 'php_fpm_slow_requests',
-        'regex': re.compile(r'executing too slow \([\d.]+ sec\), logging'),
-        'recommendation': (
-            'Requests ran longer than `request_slowlog_timeout`; the backtrace of'
-            ' each one is in the pool `slowlog`'
         ),
     },
     {
@@ -147,19 +169,10 @@ EVENTS = (
             r'|the maximum number of processes has been reached',
             re.IGNORECASE,
         ),
+        'state': STATE_CRIT,
         'recommendation': (
             'A pool ran out of workers; raise `pm.max_children` (or `process.max`)'
             ' or shorten the requests, otherwise clients wait in the listen queue'
-        ),
-    },
-    {
-        'key': 'spawn_pressure',
-        'label': 'spawn pressure warning',
-        'perfdata': 'php_fpm_spawn_pressure',
-        'regex': re.compile(r'seems busy \(you may need to increase'),
-        'recommendation': (
-            'A pool had to spawn workers in bursts; raise `pm.start_servers` and'
-            ' `pm.min_spare_servers` so requests do not wait for a fork'
         ),
     },
     {
@@ -170,9 +183,68 @@ EVENTS = (
             r'failed processes threshold \(\d+ in \d+ sec\) is reached,'
             r' initiating reload',
         ),
+        'state': STATE_CRIT,
         'recommendation': (
             'PHP-FPM reloaded itself because too many workers failed in a row;'
             ' treat this as a crashing application until proven otherwise'
+        ),
+    },
+)
+
+# What PHP-FPM writes once per request or once per maintenance tick rather than
+# once per problem. One of these is a traffic peak or a single slow page and no
+# reason to get anybody out of bed; dozens of them within ten minutes say the
+# pool is mis-sized. They are therefore counted against a rate over `--lookback`,
+# and they are kept out of the per-level counts above, so a site with one slow
+# report page does not leave the check permanently yellow.
+RATE_EVENTS = (
+    {
+        'key': 'request_timeouts',
+        'label': 'request timeout',
+        'perfdata': 'php_fpm_request_timeouts',
+        # PHP-FPM kills the worker and the client gets nothing, so the threshold
+        # is the lowest of the three: a handful of these is already a bad
+        # afternoon for somebody.
+        'regex': re.compile(r'execution timed out \([\d.]+ sec\), terminating'),
+        'critical': 'REQUEST_TIMEOUTS_CRITICAL',
+        'warning': 'REQUEST_TIMEOUTS_WARNING',
+        'recommendation': (
+            'Requests were terminated after `request_terminate_timeout`; profile'
+            ' the scripts named above or raise the timeout for that pool'
+        ),
+    },
+    {
+        'key': 'slow_requests',
+        'label': 'slow request',
+        'perfdata': 'php_fpm_slow_requests',
+        # The request still finishes; PHP-FPM only writes a backtrace. A site
+        # with one heavy report page produces these all day.
+        'regex': re.compile(r'executing too slow \([\d.]+ sec\), logging'),
+        'critical': 'SLOW_REQUESTS_CRITICAL',
+        'warning': 'SLOW_REQUESTS_WARNING',
+        'recommendation': (
+            'Requests ran longer than `request_slowlog_timeout`; the backtrace of'
+            ' each one is in the pool `slowlog`'
+        ),
+    },
+    {
+        'key': 'spawn_pressure',
+        'label': 'spawn pressure warning',
+        'perfdata': 'php_fpm_spawn_pressure',
+        # Only `pm = dynamic` writes this, and only once the spawn rate has
+        # doubled its way to 8, which takes several seconds of sustained
+        # pressure. Unlike `server reached pm.max_children`, which PHP-FPM guards
+        # with a flag and logs once, this one has no guard at all: it is written
+        # on every maintenance tick, so roughly once a second, for as long as the
+        # pressure lasts. A traffic peak therefore leaves a burst of them behind
+        # and then silence, which is a rate and not an event (verified against
+        # `fpm_pctl_perform_idle_server_maintenance()` in php-src).
+        'regex': re.compile(r'seems busy \(you may need to increase'),
+        'critical': 'SPAWN_PRESSURE_CRITICAL',
+        'warning': 'SPAWN_PRESSURE_WARNING',
+        'recommendation': (
+            'A pool had to spawn workers in bursts; raise `pm.start_servers` and'
+            ' `pm.min_spare_servers` so requests do not wait for a fork'
         ),
     },
 )
@@ -249,6 +321,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--critical-level',
+        help='Least severe PHP-FPM log level that returns CRITICAL. '
+        'Each level includes everything more severe than itself, so `WARNING` '
+        'covers `ERROR` and `ALERT` as well. '
+        'Case-sensitive. '
+        '`none` lets no level return CRITICAL, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--critical-level=WARNING`. '
+        'Default: %(default)s',
+        dest='CRITICAL_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_CRITICAL_LEVEL,
+    )
+
+    parser.add_argument(
         '--icinga-callback',
         help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
         dest='ICINGA_CALLBACK',
@@ -299,6 +386,18 @@ def parse_args():
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Request timeouts, slow requests and spawn pressure are counted '
+        'within this window rather than reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=3600`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
     )
 
     parser.add_argument(
@@ -357,6 +456,30 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--request-timeouts-critical',
+        help='Number of terminated requests within `--lookback` that returns '
+        'CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--request-timeouts-critical=20`. '
+        'Default: %(default)s',
+        dest='REQUEST_TIMEOUTS_CRITICAL',
+        type=int,
+        default=DEFAULT_REQUEST_TIMEOUTS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--request-timeouts-warning',
+        help='Number of terminated requests within `--lookback` that returns '
+        'WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--request-timeouts-warning=1`. '
+        'Default: %(default)s',
+        dest='REQUEST_TIMEOUTS_WARNING',
+        type=int,
+        default=DEFAULT_REQUEST_TIMEOUTS_WARNING,
+    )
+
+    parser.add_argument(
         '--server-log',
         help='Log source to read from. '
         'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
@@ -369,11 +492,74 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--slow-requests-critical',
+        help='Number of slow requests within `--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--slow-requests-critical=100`. '
+        'Default: %(default)s',
+        dest='SLOW_REQUESTS_CRITICAL',
+        type=int,
+        default=DEFAULT_SLOW_REQUESTS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--slow-requests-warning',
+        help='Number of slow requests within `--lookback` that returns WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--slow-requests-warning=5`. '
+        'Default: %(default)s',
+        dest='SLOW_REQUESTS_WARNING',
+        type=int,
+        default=DEFAULT_SLOW_REQUESTS_WARNING,
+    )
+
+    parser.add_argument(
+        '--spawn-pressure-critical',
+        help='Number of spawn pressure warnings within `--lookback` that returns '
+        'CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--spawn-pressure-critical=50`. '
+        'Default: %(default)s',
+        dest='SPAWN_PRESSURE_CRITICAL',
+        type=int,
+        default=DEFAULT_SPAWN_PRESSURE_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--spawn-pressure-warning',
+        help='Number of spawn pressure warnings within `--lookback` that returns '
+        'WARNING. '
+        'A pool logs one of these per second while it is spawning in bursts, so '
+        'this counts how many arrived rather than that any did. '
+        '0 turns the threshold off. '
+        'Example: `--spawn-pressure-warning=30`. '
+        'Default: %(default)s',
+        dest='SPAWN_PRESSURE_WARNING',
+        type=int,
+        default=DEFAULT_SPAWN_PRESSURE_WARNING,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
         type=int,
         default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-level',
+        help='Least severe PHP-FPM log level that returns WARNING. '
+        'Each level includes everything more severe than itself, and a level '
+        'that `--critical-level` already covers returns CRITICAL instead. '
+        'Case-sensitive. '
+        '`none` lets no level return WARNING, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--warning-level=none`. '
+        'Default: %(default)s',
+        dest='WARNING_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_WARNING_LEVEL,
     )
 
     args, _ = parser.parse_known_args()
@@ -416,6 +602,41 @@ def get_log_file_real_path(config_root=''):
             if lib.disk.file_exists(filename, allow_empty=True):
                 return filename
     return None
+
+
+def parse_timestamp(log_line):
+    """Return the moment PHP-FPM stamped a line with, or None when it carries none.
+
+    Only PHP-FPM's own timestamp; `lib.logsource.timestamp()` falls back to the
+    one the transport prefixed. A line without either is not an error: PHP-FPM
+    prints the time only in the master process, so a line a worker wrote on its
+    own carries none.
+    """
+    match = TIMESTAMP_REGEX.search(log_line)
+    if not match:
+        return None
+    try:
+        return datetime.datetime.strptime(match.group(1), TIMESTAMP_FORMAT)
+    except ValueError:
+        return None
+
+
+def get_level_states(critical_level, warning_level):
+    """Map every counted level to the state it raises.
+
+    A level raises a state when it is at least as severe as the level the
+    parameter names, and CRITICAL wins wherever both would apply.
+    """
+    ranks = {item['level']: rank for rank, item in enumerate(LEVELS)}
+    states = {}
+    for level, rank in ranks.items():
+        if critical_level != LEVEL_NONE and rank <= ranks[critical_level]:
+            states[level] = STATE_CRIT
+        elif warning_level != LEVEL_NONE and rank <= ranks[warning_level]:
+            states[level] = STATE_WARN
+        else:
+            states[level] = STATE_OK
+    return states
 
 
 def shorten(items, head=5, tail=5):
@@ -531,14 +752,12 @@ def main():
     # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
     # combinations of paths fire.
     recommendations = []
-    last_alerts, last_errors, last_warnings = [], [], []
-    levels = {
-        'ALERT': (last_alerts, 'alert', STATE_CRIT),
-        'ERROR': (last_errors, 'error', STATE_CRIT),
-        'WARNING': (last_warnings, 'warning', STATE_WARN),
-    }
+    level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
+    levels = {item['level']: [] for item in LEVELS}
     found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in RATE_EVENTS})
     found.update({item['key']: [] for item in LIFECYCLE})
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
     rotations = []
     considered_cnt = 0
     recognized_cnt = 0
@@ -590,7 +809,7 @@ def main():
         if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
             suppressed_cnt += 1
             continue
-        level_match = LEVEL_REGEX.match(log_line)
+        level_match = LEVEL_REGEX.search(log_line)
         if not level_match:
             # Not a line PHP-FPM wrote. Counted rather than dropped silently,
             # because a log full of them means the check is pointed at the wrong
@@ -599,8 +818,14 @@ def main():
             continue
         recognized_cnt += 1
         level, message = level_match.group(1), level_match.group(2)
-        if level in levels:
-            levels[level][0].append(log_line)
+        rate_hits = [event for event in RATE_EVENTS if event['regex'].search(message)]
+        for event in rate_hits:
+            found[event['key']].append(log_line)
+        # A line a rate event owns is judged by how often it arrives and is
+        # therefore left out of the per-level counts; counting it in both places
+        # would leave a site with one slow report page permanently yellow.
+        if not rate_hits and level in levels:
+            levels[level].append(log_line)
         for event in EVENTS:
             if event['regex'].search(message):
                 found[event['key']].append(log_line)
@@ -658,34 +883,77 @@ def main():
     else:
         facts.append(f'Source: {source_label} ({window})')
 
-    counts = {}
-    for level, (lines, noun, level_state) in levels.items():
-        counts[level] = len(lines)
-        if not lines:
-            facts.append(f'No {lib.txt.pluralize(noun, 0)} found')
+    # The counted events. Their state comes from how many of them arrived within
+    # the rate window, not from the fact that they arrived at all. Their facts
+    # are collected before the level counts are rendered, because a run that has
+    # something to say about them is not the quiet one the literal below claims.
+    rate_counts = {}
+    rate_facts = []
+    for event in RATE_EVENTS:
+        hits = found[event['key']]
+        recent, undated = lib.logsource.count_within(
+            hits, rate_since, parse_line=parse_timestamp
+        )
+        rate_counts[event['key']] = recent
+        if not hits:
             continue
+        rate_state = lib.base.get_state(
+            recent,
+            getattr(args, event['warning']) or None,
+            getattr(args, event['critical']) or None,
+        )
+        state = lib.base.get_worst(state, rate_state)
+        fact = (
+            f'{recent} '
+            f'{lib.txt.pluralize(event["label"], recent)} in the last'
+            f' {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(rate_state, prefix=" ")}'
+        )
+        if len(hits) != recent:
+            fact += f' ({len(hits)} in the window read)'
+        if undated:
+            fact += f', {undated} of them without a timestamp and therefore not counted'
+        rate_facts.append(fact)
+        if rate_state != STATE_OK:
+            recommendations.append(event['recommendation'])
+
+    counts = {}
+    for item in LEVELS:
+        lines = levels[item['level']]
+        counts[item['level']] = len(lines)
+        if not lines:
+            continue
+        level_state = level_states[item['level']]
         state = lib.base.get_worst(state, level_state)
         facts.append(
-            f'{len(lines)} {lib.txt.pluralize(noun, len(lines))} found'
+            f'{len(lines)} {item["level"]} '
+            f'{lib.txt.pluralize("line", len(lines))} found'
             f'{lib.base.state2str(level_state, prefix=" ")}'
             f' (last: {lines[-1]})'
         )
+    if not any(counts.values()) and not rate_facts:
+        # Naming all three levels one by one would bury the one sentence a
+        # healthy host is supposed to be.
+        facts.append('No errors or warnings found')
 
-    # Name the events the level counts above already carry, so the summary says
-    # what happened and not only how bad it was. Quiet events stay out of the
-    # line, which keeps a healthy host down to a single sentence.
+    # Name the events, so the summary says what happened and not only how bad it
+    # was, and raise the state for those PHP-FPM logs too quietly. Quiet events
+    # stay out of the line, which keeps a healthy host down to a single sentence.
     named = []
     for event in EVENTS:
         hits = found[event['key']]
         if not hits:
             continue
+        state = lib.base.get_worst(state, event['state'])
         named.append(
             f'{len(hits)} '
             f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
         )
         recommendations.append(event['recommendation'])
     if named:
-        facts.append('Among them: ' + ', '.join(named))
+        facts.append('Found ' + ', '.join(named))
+
+    facts.extend(rate_facts)
 
     for item in LIFECYCLE:
         lines = found[item['key']]
@@ -713,10 +981,11 @@ def main():
 
     sections.append('. '.join(facts) + '.')
 
-    for lines, noun, _ in levels.values():
+    for item in LEVELS:
+        lines = levels[item['level']]
         if lines:
             sections.append(
-                f'{lib.txt.pluralize(noun, 2).capitalize()}:\n'
+                f'{item["level"].capitalize()} lines:\n'
                 + '\n'.join(f'* {line}' for line in shorten(lines))
             )
 
@@ -737,18 +1006,38 @@ def main():
         )
     # The problem counters alert from their first hit on, hence `warn='0'`
     # ("outside 0..0") rather than `warn=1`.
-    perfdata += lib.base.get_perfdata(
-        'php_fpm_alert_lines', counts['ALERT'], uom=None, warn='0', _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'php_fpm_error_lines', counts['ERROR'], uom=None, warn='0', _min=0
-    )
-    perfdata += lib.base.get_perfdata(
-        'php_fpm_warning_lines', counts['WARNING'], uom=None, warn='0', _min=0
-    )
+    # A level counter carries the threshold of the state it actually raises, so
+    # the graph shows the line the check follows and a level left quiet by
+    # `--critical-level` and `--warning-level` draws none.
+    for item in LEVELS:
+        level_state = level_states[item['level']]
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'],
+            counts[item['level']],
+            uom=None,
+            warn='0' if level_state == STATE_WARN else None,
+            crit='0' if level_state == STATE_CRIT else None,
+            _min=0,
+        )
     for event in EVENTS:
         perfdata += lib.base.get_perfdata(
-            event['perfdata'], len(found[event['key']]), uom=None, warn='0', _min=0
+            event['perfdata'],
+            len(found[event['key']]),
+            uom=None,
+            warn='0' if event['state'] == STATE_WARN else None,
+            crit='0' if event['state'] == STATE_CRIT else None,
+            _min=0,
+        )
+    # The rate counters trend what the state follows: how many arrived within the
+    # window, not how many the log holds.
+    for event in RATE_EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            rate_counts[event['key']],
+            uom=None,
+            warn=getattr(args, event['warning']) or None,
+            crit=getattr(args, event['critical']) or None,
+            _min=0,
         )
     for item in LIFECYCLE:
         perfdata += lib.base.get_perfdata(
@@ -775,12 +1064,22 @@ def main():
             )
         )
         if acknowledged:
+            # Both the lines a level flagged and the lines an event flagged,
+            # and the same line can be both, so they are deduplicated on the way
+            # in. The counted events stay out: what alerts there is the arrival
+            # rate and not one line, so silencing the lines already read would
+            # not keep the next run from alerting on the ones arriving meanwhile.
+            reported = {}
+            for item in LEVELS:
+                reported.update(dict.fromkeys(levels[item['level']]))
+            for event in EVENTS:
+                reported.update(dict.fromkeys(found[event['key']]))
             lib.base.coe(
                 lib.logmatch.acknowledge(
                     ack_conn,
                     [
                         {'key': lib.logmatch.key(line), 'line': line}
-                        for line in last_alerts + last_errors + last_warnings
+                        for line in reported
                     ],
                 )
             )

@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$php_fpm_logfile_always_ok$"
                 },
+                "--critical-level": {
+                    "value": "$php_fpm_logfile_critical_level$"
+                },
                 "--icinga-callback": {
                     "set_if": "$php_fpm_logfile_icinga_callback$"
                 },
@@ -27,6 +30,9 @@
                 "--insecure": {
                     "set_if": "$php_fpm_logfile_insecure$"
                 },
+                "--lookback": {
+                    "value": "$php_fpm_logfile_lookback$"
+                },
                 "--match": {
                     "value": "$php_fpm_logfile_match$",
                     "repeat_key": true
@@ -46,11 +52,32 @@
                 "--proxy": {
                     "value": "$php_fpm_logfile_proxy$"
                 },
+                "--request-timeouts-critical": {
+                    "value": "$php_fpm_logfile_request_timeouts_critical$"
+                },
+                "--request-timeouts-warning": {
+                    "value": "$php_fpm_logfile_request_timeouts_warning$"
+                },
                 "--server-log": {
                     "value": "$php_fpm_logfile_server_log$"
                 },
+                "--slow-requests-critical": {
+                    "value": "$php_fpm_logfile_slow_requests_critical$"
+                },
+                "--slow-requests-warning": {
+                    "value": "$php_fpm_logfile_slow_requests_warning$"
+                },
+                "--spawn-pressure-critical": {
+                    "value": "$php_fpm_logfile_spawn_pressure_critical$"
+                },
+                "--spawn-pressure-warning": {
+                    "value": "$php_fpm_logfile_spawn_pressure_warning$"
+                },
                 "--timeout": {
                     "value": "$php_fpm_logfile_timeout$"
+                },
+                "--warning-level": {
+                    "value": "$php_fpm_logfile_warning_level$"
                 }
             },
             "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/php-fpm-logfile",
@@ -135,6 +162,51 @@
                     "datafield_id": 16,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 17,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 18,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 19,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 25,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -178,7 +250,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Alerts CRITICAL on `ALERT` and `ERROR` lines, and WARNING on `WARNING` lines; the levels PHP-FPM itself puts at the head of every line decide the state, so a message that merely contains the word \"error\" does not trip the count. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.",
+            "notes": "Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Requests that ran long and a pool spawning workers in bursts are counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those lines are counted there and nowhere else, so a site with one heavy report page does not leave the check permanently yellow. What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and `ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and `--warning-level` move. The events named above raise their own state either way. A message that merely contains the word \"error\" never counts. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-logfile/",
             "object_name": "tpl-service-php-fpm-logfile",
             "object_type": "template",
@@ -190,14 +262,23 @@
             "vars": {
                 "criticality": "C",
                 "php_fpm_logfile_always_ok": false,
+                "php_fpm_logfile_critical_level": "ERROR",
                 "php_fpm_logfile_icinga_callback": false,
                 "php_fpm_logfile_ignore": [],
                 "php_fpm_logfile_insecure": true,
+                "php_fpm_logfile_lookback": 600,
                 "php_fpm_logfile_match": [],
                 "php_fpm_logfile_no_match_severity": "ok",
                 "php_fpm_logfile_no_perfdata": false,
                 "php_fpm_logfile_no_proxy": false,
-                "php_fpm_logfile_timeout": 8
+                "php_fpm_logfile_request_timeouts_critical": 50,
+                "php_fpm_logfile_request_timeouts_warning": 5,
+                "php_fpm_logfile_slow_requests_critical": 200,
+                "php_fpm_logfile_slow_requests_warning": 20,
+                "php_fpm_logfile_spawn_pressure_critical": 100,
+                "php_fpm_logfile_spawn_pressure_warning": 10,
+                "php_fpm_logfile_timeout": 8,
+                "php_fpm_logfile_warning_level": "WARNING"
             },
             "volatile": null,
             "zone": null,
@@ -205,6 +286,37 @@
         }
     },
     "DataList": {
+        "php_fpm_logfile_critical_level_list": {
+            "list_name": "php_fpm_logfile_critical_level_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ALERT",
+                    "entry_value": "Alert",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "ERROR",
+                    "entry_value": "Error",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "WARNING",
+                    "entry_value": "Warning",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "none",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "a97ec8bb-a407-4b12-b920-32327fe0290e"
+        },
         "php_fpm_logfile_no_match_severity_list": {
             "list_name": "php_fpm_logfile_no_match_severity_list",
             "owner": "icinga-admin",
@@ -235,6 +347,37 @@
                 }
             ],
             "uuid": "4bc2932d-ab5d-4c78-959d-41d96f8d6dd4"
+        },
+        "php_fpm_logfile_warning_level_list": {
+            "list_name": "php_fpm_logfile_warning_level_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ALERT",
+                    "entry_value": "Alert",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "ERROR",
+                    "entry_value": "Error",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "WARNING",
+                    "entry_value": "Warning",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "none",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "1d62d38b-cf23-4cc7-86a9-15dca7ebcf9a"
         }
     },
     "Datafield": {
@@ -248,6 +391,19 @@
             "uuid": "8b3757c6-1a57-40a3-9f44-47a103ccf133"
         },
         "2": {
+            "varname": "php_fpm_logfile_critical_level",
+            "caption": "PHP-FPM Logfile: Critical Level",
+            "description": "Least severe PHP-FPM log level that returns CRITICAL. Each level includes everything more severe than itself, so `WARNING` covers `ERROR` and `ALERT` as well. Case-sensitive. `none` lets no level return CRITICAL, which leaves the events this check names as the only way to reach it. Example: `--critical-level=WARNING`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "php_fpm_logfile_critical_level_list"
+            },
+            "uuid": "65452e80-4103-4dec-acfe-137d86643c42"
+        },
+        "3": {
             "varname": "php_fpm_logfile_icinga_callback",
             "caption": "PHP-FPM Logfile: Icinga Callback?",
             "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
@@ -256,7 +412,7 @@
             "settings": {},
             "uuid": "3303f03c-8005-4382-9600-bbf98a6f81ab"
         },
-        "3": {
+        "4": {
             "varname": "php_fpm_logfile_icinga_password",
             "caption": "PHP-FPM Logfile: Icinga Password",
             "description": "Monitoring server API password.",
@@ -267,7 +423,7 @@
             },
             "uuid": "f54bb5bd-57bd-49d9-872a-524d440809e0"
         },
-        "4": {
+        "5": {
             "varname": "php_fpm_logfile_icinga_service_name",
             "caption": "PHP-FPM Logfile: Icinga Service Name",
             "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
@@ -278,7 +434,7 @@
             },
             "uuid": "2af9743d-3ad3-4f4e-aee3-c3e994a3c2e6"
         },
-        "5": {
+        "6": {
             "varname": "php_fpm_logfile_icinga_url",
             "caption": "PHP-FPM Logfile: Icinga URL",
             "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
@@ -289,7 +445,7 @@
             },
             "uuid": "c6132a27-c052-4cbc-9bba-204cd9a56815"
         },
-        "6": {
+        "7": {
             "varname": "php_fpm_logfile_icinga_username",
             "caption": "PHP-FPM Logfile: Icinga Username",
             "description": "Monitoring server API username.",
@@ -300,7 +456,7 @@
             },
             "uuid": "257dac9d-7375-4fcf-b281-90009ed24eda"
         },
-        "7": {
+        "8": {
             "varname": "php_fpm_logfile_ignore",
             "caption": "PHP-FPM Logfile: Ignore",
             "description": "Ignore a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
@@ -311,7 +467,7 @@
             },
             "uuid": "852f3fa7-35ea-4cff-b733-f7653a21804a"
         },
-        "8": {
+        "9": {
             "varname": "php_fpm_logfile_insecure",
             "caption": "PHP-FPM Logfile: Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
@@ -320,7 +476,18 @@
             "settings": {},
             "uuid": "3fb00ec2-cccd-4861-a6ec-a387b2610222"
         },
-        "9": {
+        "10": {
+            "varname": "php_fpm_logfile_lookback",
+            "caption": "PHP-FPM Logfile: Lookback",
+            "description": "Request timeouts, slow requests and spawn pressure are counted within this window rather than reported one by one. Time window in seconds to look back over, ending at the moment of the run. Only what falls within it is counted, so what is reported is how often something happened lately rather than a total that keeps growing for as long as the source is kept. Example: `--lookback=3600`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a2f18994-f646-49fa-b70b-6384491fb069"
+        },
+        "11": {
             "varname": "php_fpm_logfile_match",
             "caption": "PHP-FPM Logfile: Match",
             "description": "Only consider a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='\\[pool www\\]'`.",
@@ -331,7 +498,7 @@
             },
             "uuid": "669df737-c49f-47a1-9a31-1050d1eac8e6"
         },
-        "10": {
+        "12": {
             "varname": "php_fpm_logfile_no_insecure",
             "caption": "PHP-FPM Logfile: No Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -340,7 +507,7 @@
             "settings": {},
             "uuid": "5e2c3abc-120b-409a-9952-e031345721b2"
         },
-        "11": {
+        "13": {
             "varname": "php_fpm_logfile_no_match_severity",
             "caption": "PHP-FPM Logfile: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -353,7 +520,7 @@
             },
             "uuid": "cfd11895-68fb-4f1f-85ba-186115c62fdb"
         },
-        "12": {
+        "14": {
             "varname": "php_fpm_logfile_no_perfdata",
             "caption": "PHP-FPM Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -362,7 +529,7 @@
             "settings": {},
             "uuid": "6d4cfd28-89fc-4cb8-85d3-57156201c84f"
         },
-        "13": {
+        "15": {
             "varname": "php_fpm_logfile_no_proxy",
             "caption": "PHP-FPM Logfile: No Proxy?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -371,7 +538,7 @@
             "settings": {},
             "uuid": "0a201557-781e-42f0-8809-415d074d10ba"
         },
-        "14": {
+        "16": {
             "varname": "php_fpm_logfile_proxy",
             "caption": "PHP-FPM Logfile: Proxy",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -382,7 +549,29 @@
             },
             "uuid": "bbf103ec-87ac-4af6-8031-58b4dba5fbf2"
         },
-        "15": {
+        "17": {
+            "varname": "php_fpm_logfile_request_timeouts_critical",
+            "caption": "PHP-FPM Logfile: Request Timeouts Critical",
+            "description": "Number of terminated requests within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--request-timeouts-critical=20`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b1f6a8ad-a732-4381-816e-580df256aeca"
+        },
+        "18": {
+            "varname": "php_fpm_logfile_request_timeouts_warning",
+            "caption": "PHP-FPM Logfile: Request Timeouts Warning",
+            "description": "Number of terminated requests within `--lookback` that returns WARNING. 0 turns the threshold off. Example: `--request-timeouts-warning=1`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fdf1110d-3b6b-4cc1-a038-4c807f545b31"
+        },
+        "19": {
             "varname": "php_fpm_logfile_server_log",
             "caption": "PHP-FPM Logfile: Server Log",
             "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check reads the `error_log` directive of the PHP-FPM configuration and falls back to the common locations of the distributions. Example: `--server-log=systemd:php-fpm.service`.",
@@ -393,7 +582,51 @@
             },
             "uuid": "99493e9f-8b56-4f77-9a04-b2c5960bd44f"
         },
-        "16": {
+        "20": {
+            "varname": "php_fpm_logfile_slow_requests_critical",
+            "caption": "PHP-FPM Logfile: Slow Requests Critical",
+            "description": "Number of slow requests within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--slow-requests-critical=100`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "895a9515-c5c2-4a64-8770-69ea20e861e6"
+        },
+        "21": {
+            "varname": "php_fpm_logfile_slow_requests_warning",
+            "caption": "PHP-FPM Logfile: Slow Requests Warning",
+            "description": "Number of slow requests within `--lookback` that returns WARNING. 0 turns the threshold off. Example: `--slow-requests-warning=5`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "295485ef-a5dc-439d-826a-90870c02ec99"
+        },
+        "22": {
+            "varname": "php_fpm_logfile_spawn_pressure_critical",
+            "caption": "PHP-FPM Logfile: Spawn Pressure Critical",
+            "description": "Number of spawn pressure warnings within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--spawn-pressure-critical=50`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fce1c352-33a2-4048-a9f9-8ec8029b1952"
+        },
+        "23": {
+            "varname": "php_fpm_logfile_spawn_pressure_warning",
+            "caption": "PHP-FPM Logfile: Spawn Pressure Warning",
+            "description": "Number of spawn pressure warnings within `--lookback` that returns WARNING. A pool logs one of these per second while it is spawning in bursts, so this counts how many arrived rather than that any did. 0 turns the threshold off. Example: `--spawn-pressure-warning=30`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "768137a7-a524-41ea-93e6-2ccf613d8981"
+        },
+        "24": {
             "varname": "php_fpm_logfile_timeout",
             "caption": "PHP-FPM Logfile: Timeout",
             "description": "Network timeout in seconds.",
@@ -403,6 +636,19 @@
                 "visibility": "visible"
             },
             "uuid": "a063d9e3-f5fc-4cce-a89b-e581151eb97e"
+        },
+        "25": {
+            "varname": "php_fpm_logfile_warning_level",
+            "caption": "PHP-FPM Logfile: Warning Level",
+            "description": "Least severe PHP-FPM log level that returns WARNING. Each level includes everything more severe than itself, and a level that `--critical-level` already covers returns CRITICAL instead. Case-sensitive. `none` lets no level return WARNING, which leaves the events this check names as the only way to reach it. Example: `--warning-level=none`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "php_fpm_logfile_warning_level_list"
+            },
+            "uuid": "b4ddd585-115a-4bb7-a613-8ad7055685f2"
         }
     }
 }

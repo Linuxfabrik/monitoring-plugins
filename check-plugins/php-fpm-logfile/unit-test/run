@@ -50,9 +50,7 @@ CASES = [
         'params': [f'--server-log={fixture("rocky9-clean-start.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            'No alerts found',
-            'No errors found',
-            'No warnings found',
+            'No errors or warnings found',
             '1 startup detected',
             'No reloads detected',
             'No shutdowns detected',
@@ -90,7 +88,7 @@ CASES = [
         'assert-retc': STATE_CRIT,
         'assert-in': [
             '3 lines across 2 files',
-            '2 errors found',
+            '2 ERROR lines found',
             'FPM initialization failed',
         ],
     },
@@ -99,11 +97,11 @@ CASES = [
         'params': [f'--server-log={fixture("rocky9-config-rejected.txt")}'],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '1 alert found',
-            '2 errors found',
+            '1 ALERT line found',
+            '2 ERROR lines found',
             '[CRITICAL]',
-            'Alerts:',
-            'Errors:',
+            'Alert lines:',
+            'Error lines:',
             'user has not been defined',
         ],
     },
@@ -113,9 +111,11 @@ CASES = [
         'assert-retc': STATE_CRIT,
         'assert-in': [
             '2 worker crashes',
-            '2 request timeouts',
-            '3 slow requests',
             '1 pool saturation',
+            # A request that ran long is judged by how many of them arrived, and
+            # these are hours old by now.
+            '0 request timeouts in the last 10m (2 in the window read)',
+            '0 slow requests in the last 10m (3 in the window read)',
             '2 startups detected',
             '1 reload detected',
             '1 shutdown detected',
@@ -135,18 +135,18 @@ CASES = [
         'assert-retc': STATE_CRIT,
         'assert-in': [
             '2 worker crashes',
-            '2 request timeouts',
-            '3 slow requests',
             '1 pool saturation',
+            '0 request timeouts in the last 10m (2 in the window read)',
+            '0 slow requests in the last 10m (3 in the window read)',
             '2 startups detected',
             '1 reload detected',
             '1 shutdown detected',
         ],
     },
     {
-        'id': 'warn-emergency-restart',
+        'id': 'crit-emergency-restart',
         'params': [f'--server-log={fixture("rocky9-emergency-restart.txt")}'],
-        'assert-retc': STATE_WARN,
+        'assert-retc': STATE_CRIT,
         'assert-in': [
             '2 worker crashes',
             '1 emergency restart',
@@ -157,14 +157,41 @@ CASES = [
         ],
     },
     {
-        'id': 'warn-spawn-pressure',
+        # A pool logs one of these per second while it spawns in bursts, so a
+        # traffic peak leaves a run of them behind and then silence. Nine of them
+        # hours ago are a peak that is over, not something to wake up for - which
+        # is why they are counted rather than filtered away.
+        'id': 'ok-spawn-pressure-that-is-over',
         'params': [f'--server-log={fixture("rocky9-spawn-pressure.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0 spawn pressure warnings in the last 10m (9 in the window read)'
+        ],
+        'assert-not-in': ['pool saturation', 'Recommendations:'],
+    },
+    {
+        'id': 'warn-spawn-pressure-inside-the-window',
+        'params': [
+            f'--server-log={fixture("rocky9-spawn-pressure.txt")}',
+            '--lookback=31536000',
+            '--spawn-pressure-warning=9',
+        ],
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '9 spawn pressure warnings',
+            '9 spawn pressure warnings in the last',
             'raise `pm.start_servers`',
         ],
-        'assert-not-in': ['pool saturation'],
+    },
+    {
+        # The levels are the operator's call, and the named events are not.
+        'id': 'crit-events-survive-levels-turned-off',
+        'params': [
+            f'--server-log={fixture("rocky9-emergency-restart.txt")}',
+            '--critical-level=none',
+            '--warning-level=none',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 emergency restart'],
     },
     {
         'id': 'unknown-source-is-not-a-php-fpm-log',
@@ -183,13 +210,16 @@ CASES = [
         ],
     },
     {
-        'id': 'warn-ignore-drops-the-error-lines',
+        # Filtering the ptrace failures out takes the ERROR lines with them; the
+        # saturated pool the same log holds is untouched and keeps the check red.
+        'id': 'crit-ignore-drops-the-error-lines',
         'params': [
             f'--server-log={fixture("rocky9-busy-pool.txt")}',
             '--ignore=ptrace',
         ],
-        'assert-retc': STATE_WARN,
-        'assert-in': ['No errors found', '14 warnings found'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['9 WARNING lines found', '1 pool saturation'],
+        'assert-not-in': ['ERROR line'],
     },
     {
         'id': 'warn-match-narrows-down-to-the-saturation',
@@ -197,8 +227,8 @@ CASES = [
             f'--server-log={fixture("rocky9-busy-pool.txt")}',
             '--match=max_children',
         ],
-        'assert-retc': STATE_WARN,
-        'assert-in': ['1 warning found', '1 pool saturation'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 WARNING line found', '1 pool saturation'],
         'assert-not-in': ['slow request', 'worker crash'],
     },
     {
