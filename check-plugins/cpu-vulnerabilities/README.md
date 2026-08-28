@@ -124,16 +124,9 @@ Output on a virtual machine on an older Intel host, without a current microcode 
 
 ```text
 5 of 19 CPU vulnerabilities have no mitigation in effect: itlb_multihit, mds, mmio_stale_data, retbleed, spec_store_bypass.
-* itlb_multihit: KVM: Vulnerable
-* mds: Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
-* mmio_stale_data: Vulnerable: Clear CPU buffers attempted, no microcode; SMT Host state unknown
-* retbleed: Vulnerable
-* spec_store_bypass: Vulnerable
-Install the current microcode package, rebuild the initial ramdisk and reboot, run a current kernel, and check whether the kernel command line switches mitigations off (`mitigations=off`, `nopti`, `nospectre_v2` and the like). On a virtual machine the hypervisor decides which CPU features and which microcode the guest gets to see, so the same list has to be worked through there.
-2 CPU vulnerabilities the kernel could not decide on:
-* gather_data_sampling: Unknown: Dependent on hypervisor status
-* srbds: Unknown: Dependent on hypervisor status
-The kernel cannot decide this on its own. A guest sees only what its hypervisor hands through, so run this check on the hypervisor as well.
+2 CPU vulnerabilities the kernel could not decide on: gather_data_sampling, srbds.
+Install the current microcode package, rebuild the initial ramdisk and reboot, run a current kernel, and check whether the kernel command line switches mitigations off (`mitigations=off`, `nopti`, `nospectre_v2` and the like).
+On a virtual machine the guest sees only the CPU features and the microcode its hypervisor hands through, so run this check on the hypervisor as well.
 ```
 
 The table below the summary lists every vulnerability with the kernel's own words, which is where the residual markers inside an applied mitigation become visible:

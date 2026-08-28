@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026082801'
 
 DESCRIPTION = """Reports which of the CPU vulnerabilities the kernel knows about are left
 without a mitigation on this host. The kernel publishes its own verdict per vulnerability,
@@ -98,19 +98,19 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_SEVERITY = 'warn'
 DEFAULT_UNKNOWN_SEVERITY = 'ok'
 
-# What to do about a vulnerability nothing mitigates. Named here so the same words reach
-# the plugin output and the README.
+# What to do about the vulnerabilities the check reports. Named here so the same words
+# reach the plugin output and the README. The hypervisor hint stands on its own, because
+# it is the way out of a missing mitigation and of a missing verdict alike, and saying it
+# once per case would repeat it in the common output that shows both.
+HYPERVISOR = (
+    'On a virtual machine the guest sees only the CPU features and the microcode its '
+    'hypervisor hands through, so run this check on the hypervisor as well.'
+)
+
 REMEDIATION = (
     'Install the current microcode package, rebuild the initial ramdisk and reboot, run '
     'a current kernel, and check whether the kernel command line switches mitigations '
-    'off (`mitigations=off`, `nopti`, `nospectre_v2` and the like). On a virtual machine '
-    'the hypervisor decides which CPU features and which microcode the guest gets to '
-    'see, so the same list has to be worked through there.'
-)
-
-NO_VERDICT = (
-    'The kernel cannot decide this on its own. A guest sees only what its hypervisor '
-    'hands through, so run this check on the hypervisor as well.'
+    'off (`mitigations=off`, `nopti`, `nospectre_v2` and the like).'
 )
 
 UNKNOWN_WORDING = (
@@ -391,10 +391,10 @@ def main():
             )
         if vulnerable:
             msg += f'\n{REMEDIATION}'
-        if undecided:
-            msg += f'\n{NO_VERDICT}'
         if unrecognized:
             msg += f'\n{UNKNOWN_WORDING}'
+        if vulnerable or undecided:
+            msg += f'\n{HYPERVISOR}'
     perfdata += lib.base.get_perfdata('checked', len(table_data), uom=None, _min=0)
     perfdata += lib.base.get_perfdata('mitigated', counts[MITIGATED], uom=None, _min=0)
     perfdata += lib.base.get_perfdata(
