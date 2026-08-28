@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026082802'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, requests that ran into
@@ -41,7 +41,9 @@ that merely contains the word "error" does not trip the count.
 The log is read either from a file, from a systemd unit (`systemd:`) or from a
 container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is
 taken from the `error_log` directive of the PHP-FPM configuration, with the common
-locations of the distributions probed when that yields nothing.
+locations of the distributions probed when that yields nothing. The most recent
+rotated file is read along with the live one, so the window does not end where
+logrotate last ran.
 Note that PHP-FPM discards everything its workers write unless
 `catch_workers_output = yes` is set, so an error log that only ever shows master
 events is the default behaviour rather than a quiet application.
@@ -55,6 +57,11 @@ DEFAULT_TIMEOUT = 8
 
 ACK_RETENTION_DAYS = 30
 MAXLINES = 30000  # maximum log lines to consider from the end of the source
+# Rotated predecessors of the log file to read along with it. The distributions
+# rotate this log daily, so without one the window would end at the last
+# rotation and an event from before it would stop being reported the moment
+# logrotate runs. One covers a daily rotation with room to spare.
+ROTATED_FILES = 1
 
 # PHP-FPM configuration files that carry the global `error_log` directive. The
 # directive is global-only, so the pool files in `php-fpm.d/` never override it
@@ -510,6 +517,7 @@ def main():
             server_log,
             allowed_roots=allowed_roots,
             max_lines=MAXLINES,
+            rotated=ROTATED_FILES,
             timeout=args.TIMEOUT,
         )
     )
@@ -633,15 +641,15 @@ def main():
         )
 
     # build the message
-    # The window is named with the number of lines it holds, because everything
-    # below counts within it: on a log that was rotated an hour ago, a run that
-    # reports no startup at all is telling the truth about one line, and saying
-    # so beats leaving the admin to work that out from the file size.
+    # The window is named with the number of lines it holds and how many files
+    # they came from, because everything below counts within it: right after
+    # logrotate the live file holds a single line, and a run that reports no
+    # startup at all is telling the truth about the window rather than about the
+    # day.
+    files = 1 + len(result['rotated'])
     window = f'{len(result["lines"])} {lib.txt.pluralize("line", len(result["lines"]))}'
-    if len(rotations) == 1:
-        window += ', rotated once in this window'
-    elif rotations:
-        window += f', rotated {len(rotations)} times in this window'
+    if files > 1:
+        window += f' across {files} files'
     if source_size is not None:
         facts.append(
             f'Source: {source_label} '

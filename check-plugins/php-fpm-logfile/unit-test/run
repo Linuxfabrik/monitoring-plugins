@@ -73,9 +73,25 @@ CASES = [
         'params': [f'--server-log={fixture("rocky9-just-rotated.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            '1 line, rotated once in this window',
+            '1 line',
             'No startups detected',
             "'php_fpm_log_rotations'=1",
+        ],
+    },
+    {
+        # The rotated predecessor holds the two errors and the live file holds
+        # only the re-opened marker, so a check reading the live file alone
+        # would report a healthy PHP-FPM an hour after it failed to start.
+        # Exactly one predecessor on purpose: git stores no modification times,
+        # so a fresh clone stamps every fixture with the checkout time and the
+        # order of several of them would be whatever the filesystem said.
+        'id': 'crit-reads-across-the-rotation',
+        'params': [f'--config-root={config_root("just-rotated")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '3 lines across 2 files',
+            '2 errors found',
+            'FPM initialization failed',
         ],
     },
     {

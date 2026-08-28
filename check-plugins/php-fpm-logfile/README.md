@@ -3,13 +3,13 @@
 
 ## Overview
 
-Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Alerts CRITICAL on `ALERT` and `ERROR` lines, and WARNING on `WARNING` lines; the levels PHP-FPM itself puts at the head of every line decide the state, so a message that merely contains the word "error" does not trip the count. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.
+Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Alerts CRITICAL on `ALERT` and `ERROR` lines, and WARNING on `WARNING` lines; the levels PHP-FPM itself puts at the head of every line decide the state, so a message that merely contains the word "error" does not trip the count. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.
 
 **Important Notes:**
 
 * **The error log holds master events only, unless workers are told to speak up.** Without `catch_workers_output = yes` in the pool configuration, PHP-FPM redirects the workers' standard output and error to `/dev/null`, so a fatal error in the application never reaches this log. Turn the setting on to see them, and expect them wrapped in a `WARNING` line of the form `[pool www] child 1234 said into stderr: "…"`.
 * **The application's own error log is a different file.** The RHEL family ships `php_admin_value[error_log] = /var/log/php-fpm/www-error.log` in the default pool, which sends PHP's own messages there in PHP's own format instead of into the file this check reads. Point the generic [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile.md) check at that file if you want the application's errors monitored too.
-* **The window ends at the last rotation.** The check reads the live log file only. logrotate moves the old file aside (`error.log-20260828`, then `.gz`) and PHP-FPM starts a fresh one, so an event from before the rotation is no longer reported from that moment on, and an unacknowledged one stops alerting. Where that matters, watch the rotated files with the generic [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile.md) check as well, or shorten the check interval so an event is seen while it is still in the live file.
+* **The window spans the last rotation.** logrotate moves the old file aside (`error.log.1`, `error.log-20260828`, then `.gz`) and PHP-FPM starts a fresh one, so a check reading the live file alone would report a healthy PHP-FPM an hour after it failed to start. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the summary says how many files the window spans. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
 * **A reload counts as a startup as well.** PHP-FPM reloads by re-executing its master process, so a reload shows up under both counters.
 * The check reads a window of the log on every run and reports what that window holds, rather than only what is new. The summary names how many lines that window holds, because everything else is counted within it: right after logrotate the window is a single line, and a run reporting no startup at all is then telling the truth about that one line rather than about the day. That is what makes the startup, reload and shutdown counts meaningful, and it means an event keeps being reported until it leaves the window or the service is acknowledged (see `--icinga-callback`).
 * Reading the error log needs root or sudo. The RHEL family installs it as `root:root` mode `0600`.
@@ -21,7 +21,7 @@ Scans the PHP-FPM error log for the events an administrator has to act on: rejec
 * Determines the log file automatically from the `error_log` directive in `/etc/php-fpm.conf`, `/etc/php/*/fpm/php-fpm.conf` or `/usr/local/etc/php-fpm.conf`. The directive is global-only in PHP-FPM, so the pool files are not read.
 * Falls back to probing `/var/log/php-fpm/error.log`, `/var/log/php-fpm.log`, `/var/log/php*-fpm.log` and `/usr/local/var/log/php-fpm.log` when the configuration yields nothing.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`.
-* Reads at most the last 30000 lines of the source, and reports how many lines it actually saw and how often the log was rotated within them.
+* Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw and across how many files.
 * Lines can be narrowed down with `--match` and filtered out with `--ignore`, both Python regular expressions.
 
 
@@ -64,11 +64,12 @@ the word "error" does not trip the count. The log is read either from a file,
 from a systemd unit (`systemd:`) or from a container
 (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is
 taken from the `error_log` directive of the PHP-FPM configuration, with the
-common locations of the distributions probed when that yields nothing. Note
-that PHP-FPM discards everything its workers write unless
-`catch_workers_output = yes` is set, so an error log that only ever shows
-master events is the default behaviour rather than a quiet application.
-Requires root or sudo.
+common locations of the distributions probed when that yields nothing. The
+most recent rotated file is read along with the live one, so the window does
+not end where logrotate last ran. Note that PHP-FPM discards everything its
+workers write unless `catch_workers_output = yes` is set, so an error log that
+only ever shows master events is the default behaviour rather than a quiet
+application. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -246,7 +247,7 @@ PHP-FPM sends the standard output and error of its workers to `/dev/null` unless
 
 ### Every counter reads zero right after the nightly logrotate
 
-The distributions rotate this log daily, and PHP-FPM writes a single `error log file re-opened` line into the fresh file. Until something else happens, that one line is the whole window, which is why the summary reports no startup, no reload and no shutdown. The `Source:` fact says so outright, as in `(size: 56.0B, 1 line, rotated once in this window)`, so a freshly rotated log is not mistaken for a silent PHP-FPM. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether PHP-FPM is running at all; this check reports on what the log says.
+The distributions rotate this log daily, and PHP-FPM writes a single `error log file re-opened` line into the fresh file. The check reads the rotated predecessor along with it, so the window normally reaches back beyond that point and the `Source:` fact says across how many files, as in `(size: 56.0B, 3 lines across 2 files)`. A window that really is one line means the predecessor is gone or unreadable, not that PHP-FPM is silent. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether PHP-FPM is running at all; this check reports on what the log says.
 
 ### `does not look like a PHP-FPM error log`
 

@@ -143,6 +143,23 @@ CASES = [
         ],
     },
     {
+        # logrotate moved the older half of the log aside; without reading it the
+        # startup would have disappeared from the report the moment it did.
+        # Exactly one predecessor on purpose: git stores no modification times,
+        # so a fresh clone stamps every fixture with the checkout time and the
+        # order of several of them would be whatever the filesystem said.
+        'id': 'crit-reads-across-the-rotation',
+        'fixture': 'rotated/mysqld.err',
+        'extra': [],
+        'retc': STATE_CRIT,
+        'assert_in': [
+            '5 lines across 2 files',
+            '1 startup detected',
+            '1 error found',
+            '2 warnings found',
+        ],
+    },
+    {
         'id': 'ok-match-drops-everything',
         'fixture': 'sample-error.txt',
         'extra': ['--match', 'nothing-in-this-log-matches-this'],

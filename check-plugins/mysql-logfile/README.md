@@ -9,7 +9,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Severity is detected from MySQL/MariaDB's bracketed log tags (`[ERROR]`, `[Warning]`); lines that only mention the words "error" / "warning" elsewhere are not counted.
-* **The window ends at the last rotation.** The check reads the live log file only. logrotate moves the old file aside and MySQL/MariaDB starts a fresh one, so an event from before the rotation is no longer reported from that moment on, and an unacknowledged one stops alerting. Where that matters, watch the rotated files with the generic [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile.md) check as well, or shorten the check interval so an event is seen while it is still in the live file.
+* **The window spans the last rotation.** logrotate moves the old file aside and MySQL/MariaDB starts a fresh one, so a check reading the live file alone would lose every error from before it the moment the rotation runs. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the summary says how many files the window spans. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too. The `performance_schema.error_log` path is not affected, since the table has no rotation of its own.
 * When reading from an on-disk log file, the check usually needs root/sudo (typical log files are owned by `mysql:mysql`, mode `0640`). The `performance_schema.error_log` path needs only SELECT on that table.
 * `--server-log` is confined to `/var/log` and `/var/lib/mysql`. The check runs as root via sudo, so it refuses a path that resolves outside those directories, which stops it from being turned into an arbitrary root file read. The data directory reported by the server is deliberately not trusted here, since an attacker controls which server the check connects to. To read a log stored elsewhere (for example a custom data directory), bind-mount that location under `/var/log` (a symlink is rejected); see the [Troubleshooting section](https://github.com/Linuxfabrik/monitoring-plugins#troubleshooting).
 * Depending on your site's policy, you may want to silence noisy patterns like `aborted connection` or `access denied for user` via `--ignore-pattern` / `--ignore-regex`.
@@ -63,13 +63,15 @@ fetches recent log lines from a container (`docker:`/`podman:`/`kubectl:`) or
 systemd unit (`systemd:`). The on-disk file path is taken from MySQL/MariaDB's
 `log_error` variable, with common fallback locations probed when that variable
 is empty. The discovered path is cached so the check still works briefly when
-the database is down. Severity is detected from the bracketed log tags
-(`[ERROR]`, `[Warning]`), which matches MySQL/MariaDB output and avoids false
-positives on lines that merely mention "error" or "warning". Recommendations
-are grouped under a single block at the end of the output. Reading the on-disk
-log file usually requires root/sudo (typical mysql logs are owned by
-`mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs
-SELECT on that table but no filesystem access.
+the database is down. The most recent rotated file is read along with the live
+one, so the window does not end where logrotate last ran. Severity is detected
+from the bracketed log tags (`[ERROR]`, `[Warning]`), which matches
+MySQL/MariaDB output and avoids false positives on lines that merely mention
+"error" or "warning". Recommendations are grouped under a single block at the
+end of the output. Reading the on-disk log file usually requires root/sudo
+(typical mysql logs are owned by `mysql:mysql` mode `0640`). The
+`performance_schema.error_log` path needs SELECT on that table but no
+filesystem access.
 
 options:
   -h, --help            show this help message and exit
