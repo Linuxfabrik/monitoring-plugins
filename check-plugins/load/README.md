@@ -14,13 +14,13 @@ Reports the average system load per CPU over the last 1, 5, and 15 minutes. Load
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/load> |
 | Nagios/Icinga Check Name              | `check_load` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `psutil` |
 
 

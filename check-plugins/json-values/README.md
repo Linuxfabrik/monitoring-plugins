@@ -19,13 +19,13 @@ Parses a JSON object from a local file, HTTP/HTTPS URL, or SMB share and extract
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/json-values> |
 | Nagios/Icinga Check Name              | `check_json_values` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `PySmbClient`, `smbprotocol` (only for SMB access) |
 
 

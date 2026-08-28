@@ -26,7 +26,7 @@ Monitors NodeBB user statistics via the admin API, including total user count, a
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

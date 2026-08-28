@@ -20,7 +20,7 @@ Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatte
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Notification Plugin Download          | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-host-mail> |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |

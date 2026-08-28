@@ -22,13 +22,13 @@ Checks the IPMI System Event Log (SEL) for entries and alerts when events are fo
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/ipmi-sel> |
 | Nagios/Icinga Check Name              | `check_ipmi_sel` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | `ipmitool` |
 
 

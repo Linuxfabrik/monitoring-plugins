@@ -24,7 +24,7 @@ Monitors OnlyOffice Document Server statistics and license usage via the HTTP AP
 | Check Interval Recommendation         | Every 30 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

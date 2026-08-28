@@ -24,13 +24,13 @@ Checks MySQL/MariaDB best-practice knobs that do not have a dedicated plugin: `i
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-perf-metrics> |
 | Nagios/Icinga Check Name              | `check_mysql_perf_metrics` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 
 

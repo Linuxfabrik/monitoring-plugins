@@ -30,7 +30,7 @@ Checks the lifecycle and health of Podman containers: the container status (runn
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | `podman` CLI |
 
 

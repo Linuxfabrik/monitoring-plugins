@@ -25,7 +25,7 @@ Checks the clock offset of chronyd in milliseconds compared to the configured NT
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

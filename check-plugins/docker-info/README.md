@@ -24,7 +24,7 @@ Displays system-wide Docker information including container counts (running, pau
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

@@ -26,7 +26,7 @@ Monitors NodeBB group statistics via the admin API, including group count and me
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

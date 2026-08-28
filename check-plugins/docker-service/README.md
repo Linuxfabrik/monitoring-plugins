@@ -32,7 +32,7 @@ Checks the health of Docker Swarm services: how many of the expected tasks (cont
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | `docker` CLI, Swarm manager node |
 
 

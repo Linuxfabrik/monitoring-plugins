@@ -28,7 +28,7 @@ Symbolic links are followed, the way the benchmark's own audit does. A configura
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nginx-security> |
 | Nagios/Icinga Check Name              | `check_nginx_security` |
 | Check Interval Recommendation         | Every day |
@@ -37,7 +37,6 @@ Symbolic links are followed, the way the benchmark's own audit does. A configura
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `nginx`; root or sudo |
 | 3rd Party Python modules              | `psutil` |
-| Perfdata compatible with Prometheus   | Yes |
 
 
 ## Help

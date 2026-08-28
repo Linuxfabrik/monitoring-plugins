@@ -29,7 +29,7 @@ Checks every disk of a Huawei OceanStor Pacific storage system via the REST API 
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 

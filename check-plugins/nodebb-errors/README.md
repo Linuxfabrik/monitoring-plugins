@@ -26,7 +26,7 @@ Retrieves recent server-side errors from NodeBB via the admin API. Alerts when e
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

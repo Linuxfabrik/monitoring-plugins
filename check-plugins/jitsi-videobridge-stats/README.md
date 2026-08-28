@@ -23,13 +23,13 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/jitsi-videobridge-stats> |
 | Nagios/Icinga Check Name              | `check_jitsi_videobridge_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-jitsi-videobridge-stats.db` |
 
 

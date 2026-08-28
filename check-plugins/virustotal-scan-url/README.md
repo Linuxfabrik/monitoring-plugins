@@ -22,13 +22,13 @@ Submits a URL to VirusTotal for analysis and checks the scan results. Alerts whe
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/virustotal-scan-url> |
 | Nagios/Icinga Check Name              | `check_virustotal_scan_url` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--token` and `--url` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | VirusTotal account and API key; Premium API if used in commercial products/services |
 
 

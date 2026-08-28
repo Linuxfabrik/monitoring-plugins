@@ -24,7 +24,7 @@ Queries the Name Service Switch (NSS) for entries in system databases such as gr
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

@@ -28,7 +28,7 @@ Checks the health and running status of all power supply units (PSUs) on a Huawe
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 

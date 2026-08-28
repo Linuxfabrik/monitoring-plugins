@@ -32,7 +32,7 @@ A virtual machine has three different memory sizes at the same time, and confusi
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-memory-usage> |
 | Nagios/Icinga Check Name              | `check_kvm_memory_usage` |
 | Check Interval Recommendation         | Every minute |

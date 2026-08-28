@@ -22,7 +22,7 @@ Monitors system memory usage and alerts when the overall usage percentage exceed
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/memory-usage> |
 | Nagios/Icinga Check Name              | `check_memory_usage` |
 | Check Interval Recommendation         | Every minute |

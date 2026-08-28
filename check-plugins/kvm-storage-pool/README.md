@@ -49,7 +49,7 @@ Anything libvirt adds to that list later is reported by name and treated as wort
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-storage-pool> |
 | Nagios/Icinga Check Name              | `check_kvm_storage_pool` |
 | Check Interval Recommendation         | Every 5 minutes |

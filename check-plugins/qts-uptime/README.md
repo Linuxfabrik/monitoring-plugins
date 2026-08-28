@@ -20,13 +20,13 @@ Reports how long a QNAP appliance running QTS has been running since the last bo
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-uptime> |
 | Nagios/Icinga Check Name              | `check_qts_uptime` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `xmltodict` |
 
 

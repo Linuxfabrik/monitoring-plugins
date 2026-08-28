@@ -34,7 +34,7 @@ Lists the OpenStack Cinder block storage volumes of a project and reports the st
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | An rc file with OpenStack credentials, readable by the user running the check |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 

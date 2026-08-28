@@ -27,7 +27,7 @@ Reports what on this host is still running the code it had before the last updat
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/needs-restarting> |
 | Nagios/Icinga Check Name              | `check_needs_restarting` |
 | Check Interval Recommendation         | Every hour |

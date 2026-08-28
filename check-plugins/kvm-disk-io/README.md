@@ -33,7 +33,7 @@ Reports how much a libvirt host's virtual machines read and write, and how long 
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-disk-io> |
 | Nagios/Icinga Check Name              | `check_kvm_disk_io` |
 | Check Interval Recommendation         | Every minute |

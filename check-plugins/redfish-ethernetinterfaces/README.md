@@ -24,13 +24,13 @@ Checks the state of all Ethernet interfaces in a Redfish-compatible server via t
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-ethernetinterfaces> |
 | Nagios/Icinga Check Name              | `check_redfish_ethernetinterfaces` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 

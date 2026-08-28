@@ -22,7 +22,7 @@ Checks the state of one or more Windows services. Accepts the case-insensitive s
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/service> |
 | Nagios/Icinga Check Name              | `check_service` |
 | Check Interval Recommendation         | Every minute |

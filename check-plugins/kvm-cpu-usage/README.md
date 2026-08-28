@@ -34,7 +34,7 @@ This is the number the guest operating system calls "steal time" and shows as `%
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-cpu-usage> |
 | Nagios/Icinga Check Name              | `check_kvm_cpu_usage` |
 | Check Interval Recommendation         | Every minute |

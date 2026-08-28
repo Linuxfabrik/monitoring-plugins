@@ -33,7 +33,7 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--command` and `--winrm-hostname` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pypsrp` (supports JEA). Alternative without JEA: `pywinrm`, `pywinrm[kerberos]`, `pywinrm[credssp]` |
 
 

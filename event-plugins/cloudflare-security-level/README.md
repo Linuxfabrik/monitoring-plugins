@@ -15,7 +15,7 @@ Changes the Cloudflare security level for one or more zones based on the current
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Event Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/event-plugins/cloudflare-security-level> |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |

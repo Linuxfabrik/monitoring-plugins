@@ -25,13 +25,13 @@ Monitors the health of a Nextcloud instance via its status endpoint (`/status.ph
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-status> |
 | Nagios/Icinga Check Name              | `check_nextcloud_status` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

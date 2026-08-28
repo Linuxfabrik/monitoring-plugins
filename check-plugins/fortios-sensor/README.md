@@ -23,7 +23,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed) on FortiGate a
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

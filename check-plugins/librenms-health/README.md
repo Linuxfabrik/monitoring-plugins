@@ -27,13 +27,13 @@ Retrieves hardware sensor information (temperature, humidity, voltage, power, st
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-health> |
 | Nagios/Icinga Check Name              | `check_librenms_health` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 
 

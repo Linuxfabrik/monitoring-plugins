@@ -55,13 +55,13 @@ Note the api_identifier and the api_secret. You will need both to configure this
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/whmcs-status> |
 | Nagios/Icinga Check Name              | `check_whmcs_status` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--identifier` and `--secret` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

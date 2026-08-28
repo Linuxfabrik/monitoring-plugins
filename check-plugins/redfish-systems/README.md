@@ -25,13 +25,13 @@ Checks the overall system health reported by a Redfish-compatible server via the
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-systems> |
 | Nagios/Icinga Check Name              | `check_redfish_systems` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
 
 

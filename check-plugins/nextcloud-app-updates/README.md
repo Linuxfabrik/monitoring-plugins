@@ -23,14 +23,14 @@ Checks a Nextcloud installation for available app updates from the configured ap
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-app-updates> |
 | Nagios/Icinga Check Name              | `check_nextcloud_app_updates` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help

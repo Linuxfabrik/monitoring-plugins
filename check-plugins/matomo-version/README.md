@@ -15,13 +15,13 @@ Checks the installed Matomo version against the endoflife.date API and alerts if
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/matomo-version> |
 | Nagios/Icinga Check Name              | `check_matomo_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 

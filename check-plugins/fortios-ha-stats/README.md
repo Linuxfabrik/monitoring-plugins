@@ -20,13 +20,13 @@ Monitors the high-availability cluster status on FortiGate appliances running Fo
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fortios-ha-stats> |
 | Nagios/Icinga Check Name              | `check_fortios_ha_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

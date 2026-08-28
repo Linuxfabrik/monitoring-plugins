@@ -28,7 +28,7 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists players 
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--hostname` and `--token` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

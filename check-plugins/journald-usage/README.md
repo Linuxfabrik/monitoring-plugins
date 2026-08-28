@@ -19,7 +19,7 @@ Checks the current disk usage of all systemd journal files (archived and active 
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-usage> |
 | Nagios/Icinga Check Name              | `check_journald_usage` |
 | Check Interval Recommendation         | Every minute |

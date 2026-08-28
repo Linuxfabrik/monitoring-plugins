@@ -23,13 +23,13 @@ Checks the age of the newest snapshot in a restic repository and alerts when the
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-snapshots> |
 | Nagios/Icinga Check Name              | `check_restic_snapshots` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--repo` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

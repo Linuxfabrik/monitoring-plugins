@@ -34,7 +34,7 @@ Checks the health and running status of the LUNs of a Huawei OceanStor Dorado st
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 

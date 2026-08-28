@@ -18,13 +18,13 @@ Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP-J
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-gc-status> |
 | Nagios/Icinga Check Name              | `check_wildfly_gc_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-wildfly-gc-status.db` |
 
 

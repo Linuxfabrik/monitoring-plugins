@@ -17,7 +17,7 @@ This plugin is part of the file plugin group, but reads kernel counters rather t
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-descriptors> |
 | Nagios/Icinga Check Name              | `check_file_descriptors` |
 | Check Interval Recommendation         | Every minute |

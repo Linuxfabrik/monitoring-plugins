@@ -32,7 +32,7 @@ The binary is probed automatically: `httpd` first, which covers the Red Hat and 
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/apache-httpd-security> |
 | Nagios/Icinga Check Name              | `check_apache_httpd_security` |
 | Check Interval Recommendation         | Every day |
@@ -41,7 +41,6 @@ The binary is probed automatically: `httpd` first, which covers the Red Hat and 
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `httpd` or `apachectl`; root or sudo |
 | 3rd Party Python modules              | `psutil` |
-| Perfdata compatible with Prometheus   | Yes |
 
 
 ## Help

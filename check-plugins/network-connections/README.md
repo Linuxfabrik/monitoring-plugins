@@ -39,7 +39,7 @@ Meaning of connection status `--conn-status` parameter:
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-connections> |
 | Nagios/Icinga Check Name              | `check_network_connections` |
 | Check Interval Recommendation         | Every minute |

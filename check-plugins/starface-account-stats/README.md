@@ -25,9 +25,9 @@ Reports account statistics of a Starface PBX, including ringing, active, availab
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-starface.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-starface.db` |
 
 
 ## Help

@@ -22,7 +22,7 @@ This plugin is part of the file plugin group. Selecting files with globs, readin
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-size> |
 | Nagios/Icinga Check Name              | `check_file_size` |
 | Check Interval Recommendation         | Every 15 minutes |

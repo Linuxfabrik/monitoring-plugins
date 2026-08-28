@@ -28,7 +28,7 @@ On Linux, also reports how many processes the whole system creates per second. A
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/procs> |
 | Nagios/Icinga Check Name              | `check_procs` |
 | Check Interval Recommendation         | Every minute |
@@ -36,7 +36,7 @@ On Linux, also reports how many processes the whole system creates per second. A
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-procs.db` (only when using `--warning-cpu-percent` or `--critical-cpu-percent`) |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-procs.db` (only when using `--warning-cpu-percent` or `--critical-cpu-percent`) |
 
 
 ## Help

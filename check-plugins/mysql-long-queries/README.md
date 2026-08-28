@@ -21,13 +21,13 @@ Checks for in-flight MySQL/MariaDB queries that have been running longer than `-
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-long-queries> |
 | Nagios/Icinga Check Name              | `check_mysql_long_queries` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | User with `PROCESS` privilege on `*.*` (e.g. `monitoring@127.0.0.1`). Without `PROCESS`, the plugin only sees its own connection. |
 | 3rd Party Python modules              | `pymysql` |
 

@@ -41,7 +41,7 @@ Here, the check raises critical for any channel with "temp" in its name on high 
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

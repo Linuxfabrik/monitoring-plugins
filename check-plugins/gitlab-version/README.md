@@ -27,7 +27,7 @@ Checks the installed GitLab version against the endoflife.date API and alerts if
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 

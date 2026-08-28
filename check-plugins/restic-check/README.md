@@ -20,13 +20,13 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/restic-check> |
 | Nagios/Icinga Check Name              | `check_restic_check` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--repo` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

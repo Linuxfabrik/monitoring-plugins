@@ -31,7 +31,7 @@ Executes a command on a remote host via SSH and evaluates the result. Returns ST
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--command` and `--hostname` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

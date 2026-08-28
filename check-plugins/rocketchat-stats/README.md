@@ -19,13 +19,13 @@ Monitors Rocket.Chat server statistics via the API, including total users, activ
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rocketchat-stats> |
 | Nagios/Icinga Check Name              | `check_rocketchat_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | Requires a user with strong password and `view-statistics` permission (only). |
 
 

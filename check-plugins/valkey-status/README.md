@@ -23,7 +23,7 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/valkey-status> |
 | Nagios/Icinga Check Name              | `check_valkey_status` |
 | Check Interval Recommendation         | Every minute |

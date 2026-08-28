@@ -22,7 +22,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/network-io> |
 | Nagios/Icinga Check Name              | `check_network_io` |
 | Check Interval Recommendation         | Every minute |
@@ -30,7 +30,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-network-io.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-network-io.db` |
 
 
 ## Help

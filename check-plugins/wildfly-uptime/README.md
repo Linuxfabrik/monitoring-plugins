@@ -18,13 +18,13 @@ Reports the uptime of a WildFly/JBoss AS server via its HTTP-JSON based manageme
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-uptime> |
 | Nagios/Icinga Check Name              | `check_wildfly_uptime` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

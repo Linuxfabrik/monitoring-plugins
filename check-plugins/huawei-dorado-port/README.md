@@ -37,7 +37,7 @@ Checks the health and link status of the front-end ports of a Huawei OceanStor D
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` (API session), `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado-port.db` (link error counters) |
 
 

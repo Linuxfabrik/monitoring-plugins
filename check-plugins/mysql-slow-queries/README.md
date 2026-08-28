@@ -24,15 +24,15 @@ Checks the rate of slow queries in MySQL/MariaDB (`Slow_queries` / `Questions`).
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-slow-queries> |
 | Nagios/Icinga Check Name              | `check_mysql_slow_queries` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-slow-queries.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-slow-queries.db` |
 
 
 ## Help

@@ -25,7 +25,7 @@ Monitors available Grassfish digital signage licenses via the Grassfish API. Ale
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--hostname` and `--token` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

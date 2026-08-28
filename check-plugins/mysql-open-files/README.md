@@ -20,13 +20,13 @@ Reports MySQL/MariaDB's current open-files count (`Open_files`, a server-wide st
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-open-files> |
 | Nagios/Icinga Check Name              | `check_mysql_open_files` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 
 

@@ -37,7 +37,7 @@ Highlights:
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | A running NUT `upsd` daemon, reachable on TCP 3493 from the host that runs the plugin. |
 
 

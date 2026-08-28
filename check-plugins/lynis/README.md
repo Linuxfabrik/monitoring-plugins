@@ -30,11 +30,11 @@ Runs a full security audit across the hosts of a subnet and reports each host's 
 |----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/lynis> |
 | Nagios/Icinga Check Name              | `check_lynis` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
-| Requires on the management host       | `ssh`, `lynis`, and `rsync` or `scp` |
+| Requirements                          | command-line tools `ssh`, `lynis`, and `rsync` or `scp` on the management host |
 
 
 ## Help

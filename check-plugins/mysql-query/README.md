@@ -24,13 +24,13 @@ A query returning one row with one column is checked as a single value (useful f
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-query> |
 | Nagios/Icinga Check Name              | `check_mysql_query` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 
 

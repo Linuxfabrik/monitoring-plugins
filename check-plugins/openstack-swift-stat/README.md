@@ -33,7 +33,7 @@ Checks OpenStack Swift object storage account statistics, including total contai
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | An rc file with OpenStack credentials, readable by the user running the check |
 
 

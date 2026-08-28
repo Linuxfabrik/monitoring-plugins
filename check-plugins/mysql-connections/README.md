@@ -22,13 +22,13 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-connections> |
 | Nagios/Icinga Check Name              | `check_mysql_connections` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-connections.db` |
 

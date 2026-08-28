@@ -23,14 +23,14 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-aria> |
 | Nagios/Icinga Check Name              | `check_mysql_aria` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Requirements                          | User with `SELECT` privilege (typically `GRANT SELECT ON *.*`), locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | User with `SELECT` privilege (typically `GRANT SELECT ON *.*`), locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-aria.db` |
 

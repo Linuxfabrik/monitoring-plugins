@@ -32,7 +32,7 @@ Checks how full the quotas of a Huawei OceanStor Pacific storage system are via 
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-pacific.db` |
 
 

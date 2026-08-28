@@ -22,13 +22,13 @@ Reports runtime facts of a Keycloak server via its HTTP API: uptime, the account
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/keycloak-stats> |
 | Nagios/Icinga Check Name              | `check_keycloak_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

@@ -26,7 +26,7 @@ Monitors a [Spring Boot Actuator](https://docs.spring.io/spring-boot/api/rest/ac
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

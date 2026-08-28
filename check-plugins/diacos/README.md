@@ -33,7 +33,7 @@ ID DIACOS is a coding software for accurate and fast invoicing in hospitals, all
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--login-name` and `--login-licence` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

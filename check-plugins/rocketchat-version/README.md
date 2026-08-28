@@ -20,15 +20,15 @@ Checks the installed Rocket.Chat version against the endoflife.date API and aler
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rocketchat-version> |
 | Nagios/Icinga Check Name              | `check_rocketchat_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | Requires a user with strong password and `view-statistics` permission (only). |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help

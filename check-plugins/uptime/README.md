@@ -23,7 +23,7 @@ Reports how long the system has been running since the last boot. Optionally dis
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-uptime.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-uptime.db` |
 
 
 ## Help

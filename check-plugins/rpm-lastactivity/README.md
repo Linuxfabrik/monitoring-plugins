@@ -13,7 +13,7 @@ Checks how long ago the last RPM package manager activity occurred (install, upd
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/rpm-lastactivity> |
 | Nagios/Icinga Check Name              | `check_rpm_lastactivity` |
 | Check Interval Recommendation         | Every day |

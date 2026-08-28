@@ -21,16 +21,16 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/qts-cpu-usage> |
 | Nagios/Icinga Check Name              | `check_qts_cpu_usage` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--password` and `--url` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `xmltodict` |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-qts-cpu-usage.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-qts-cpu-usage.db` |
 
 
 ## Help

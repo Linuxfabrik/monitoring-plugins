@@ -29,13 +29,13 @@ The check is meant as a trip-wire only: it surfaces the findings, not the full p
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-index-health> |
 | Nagios/Icinga Check Name              | `check_mysql_index_health` |
-| Check Interval Recommendation         | Once a day |
+| Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | User with `SELECT` privilege on `*.*` (the `sys` views inherit from `performance_schema`). Performance Schema enabled on the server (MySQL: default; MariaDB: requires `performance_schema = ON` in `my.cnf` plus a restart). |
 | 3rd Party Python modules              | `pymysql` |
 

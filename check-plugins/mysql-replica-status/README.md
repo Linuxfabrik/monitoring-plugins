@@ -21,14 +21,14 @@ Checks the replication status of a MySQL/MariaDB replica: I/O thread state, SQL 
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-replica-status> |
 | Nagios/Icinga Check Name              | `check_mysql_replica_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Requirements                          | User with `REPLICATION CLIENT` (or `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+), locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | User with `REPLICATION CLIENT` (or `SLAVE MONITOR` / `REPLICA MONITOR` on MariaDB 10.5+), locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 

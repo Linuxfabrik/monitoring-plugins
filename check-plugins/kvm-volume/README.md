@@ -26,7 +26,7 @@ Reports what the storage pools of a libvirt host actually hold: how much space t
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-volume> |
 | Nagios/Icinga Check Name              | `check_kvm_volume` |
 | Check Interval Recommendation         | Every hour |

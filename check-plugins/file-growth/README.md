@@ -28,15 +28,15 @@ Use it where a size threshold answers the wrong question. A log file that sits a
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/file-growth> |
 | Nagios/Icinga Check Name              | `check_file_growth` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
-| Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
 | 3rd Party Python modules              | optional: `PySmbClient`, `smbprotocol` |
+| Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-file-growth.db` |
 
 

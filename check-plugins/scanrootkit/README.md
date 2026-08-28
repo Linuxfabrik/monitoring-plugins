@@ -40,7 +40,7 @@ Scans the system for approximately 175 known rootkits by checking for their char
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/scanrootkit> |
 | Nagios/Icinga Check Name              | `check_scanrootkit` |
 | Check Interval Recommendation         | Every 15 minutes |

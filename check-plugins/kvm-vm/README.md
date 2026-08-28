@@ -27,7 +27,7 @@ Lists the virtual machines of a libvirt host and checks the state of each one, t
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-vm> |
 | Nagios/Icinga Check Name              | `check_kvm_vm` |
 | Check Interval Recommendation         | Every 15 minutes |

@@ -20,7 +20,7 @@ Sends service notifications via email for Icinga/Nagios. Generates an HTML-forma
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Notification Plugin Download          | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-mail> |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |

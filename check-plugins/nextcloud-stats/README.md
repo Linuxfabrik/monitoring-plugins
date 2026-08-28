@@ -27,13 +27,13 @@ Monitors Nextcloud usage statistics via the server info API, including active us
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nextcloud-stats> |
 | Nagios/Icinga Check Name              | `check_nextcloud_stats` |
 | Check Interval Recommendation         | Every 15 minutes |
 | Can be called without parameters      | No (`--password` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | Nextcloud App 'serverinfo' |
 
 

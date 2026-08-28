@@ -48,7 +48,7 @@ Monitors HAProxy performance and health via the stats endpoint. Reports frontend
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | HAProxy stats directive enabled (socket or HTTP) |
 
 

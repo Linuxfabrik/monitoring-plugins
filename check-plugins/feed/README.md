@@ -34,8 +34,8 @@ object ApiUser "linuxfabrik-check-api-user" {
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| 3rd Party Python modules              | `BeautifulSoup4` (Version 4) with Python module `lxml` |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| 3rd Party Python modules              | `beautifulsoup4` with Python module `lxml` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-feed.db` |
 
 

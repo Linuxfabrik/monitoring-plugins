@@ -25,14 +25,14 @@ Checks MySQL/MariaDB TLS/SSL posture: the current connection itself, the server'
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-tls> |
 | Nagios/Icinga Check Name              | `check_mysql_tls` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Requirements                          | User with `SELECT` privilege on `mysql.*` (or `*.*`), locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. For the local certificate expiry check, the user running the plugin must be able to read the files referenced by `ssl_cert` / `ssl_ca` (typically only true on the database host itself). |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | User with `SELECT` privilege on `mysql.*` (or `*.*`), locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. For the local certificate expiry check, the user running the plugin must be able to read the files referenced by `ssl_cert` / `ssl_ca` (typically only true on the database host itself). |
 | 3rd Party Python modules              | `pymysql`, optionally `cryptography` (for the local cert expiry check) |
 
 

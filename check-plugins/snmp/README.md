@@ -29,15 +29,15 @@ Queries SNMP OIDs defined in a CSV file and checks the returned values against o
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/snmp> |
 | Nagios/Icinga Check Name              | `check_snmp` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | No (`--hostname` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | `snmpget` from `net-snmp-utils` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-snmp.db` |
 
 
 ## Help

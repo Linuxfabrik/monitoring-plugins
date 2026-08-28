@@ -29,13 +29,13 @@ The check logic is derived from MySQLTuner, which alerts and recommends increasi
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-innodb-log-waits> |
 | Nagios/Icinga Check Name              | `check_mysql_innodb_log_waits` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-innodb-log-waits.db` |
 

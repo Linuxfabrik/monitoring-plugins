@@ -16,13 +16,13 @@ Fetches an XML document via HTTP(S) and checks for a matching string using XPath
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/xml> |
 | Nagios/Icinga Check Name              | `check_xml` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--url` and `--xpath` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `lxml` |
 
 

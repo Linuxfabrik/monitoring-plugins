@@ -104,7 +104,7 @@ Verified against real installations of httpd 2.2.15 (CentOS 6), 2.4.6 (CentOS 7)
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-apache-httpd-status.db` |
 
 

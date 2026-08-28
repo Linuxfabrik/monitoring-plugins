@@ -22,7 +22,7 @@ Reports XFS filesystem activity from `/proc/fs/xfs/stat` as per-second rates: re
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-fs-xfs-stats.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-fs-xfs-stats.db` |
 
 
 ## Help

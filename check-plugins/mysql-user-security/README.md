@@ -25,14 +25,14 @@ Checks MySQL/MariaDB user security: anonymous accounts, empty passwords, account
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-user-security> |
 | Nagios/Icinga Check Name              | `check_mysql_user_security` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Requirements                          | User with `SELECT` privilege on `mysql.*` (or `*.*`), locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Requirements                          | User with `SELECT` privilege on `mysql.*` (or `*.*`), locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 
 

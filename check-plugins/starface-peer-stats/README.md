@@ -25,9 +25,9 @@ Reports SIP peer statistics of a Starface PBX, including online/offline counts f
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | [Monitoring module for Starface PBX](https://wiki.fluxpunkt.de/display/FPW/Monitoring) |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-starface.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-starface.db` |
 
 
 ## Help

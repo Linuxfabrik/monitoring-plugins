@@ -20,13 +20,13 @@ Retrieves recent activity and usage statistics from a Metabase instance via its 
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/metabase-stats> |
 | Nagios/Icinga Check Name              | `check_metabase_stats` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | No (`--password` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-metabase-stats.db` |
 
 

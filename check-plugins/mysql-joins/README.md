@@ -22,13 +22,13 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_rang
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-joins> |
 | Nagios/Icinga Check Name              | `check_mysql_joins` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-joins.db` |
 

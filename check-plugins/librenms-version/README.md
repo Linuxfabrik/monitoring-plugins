@@ -19,13 +19,13 @@ Displays LibreNMS instance information including version, database schema, Pytho
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-version> |
 | Nagios/Icinga Check Name              | `check_librenms_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

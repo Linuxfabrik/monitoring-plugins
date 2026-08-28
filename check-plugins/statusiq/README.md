@@ -24,7 +24,7 @@ Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status p
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `beautifulsoup4` |
 
 

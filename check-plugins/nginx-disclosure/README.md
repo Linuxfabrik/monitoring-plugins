@@ -25,15 +25,14 @@ Two HTTP requests per run: one for the probe path, whose generated error page ca
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nginx-disclosure> |
 | Nagios/Icinga Check Name              | `check_nginx_disclosure` |
 | Check Interval Recommendation         | Every hour |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | The URL has to be reachable from the host running the check |
-| Perfdata compatible with Prometheus   | Yes |
 
 
 ## Help

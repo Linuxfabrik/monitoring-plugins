@@ -20,13 +20,13 @@ Monitors the SAP Concur Open status page (<https://open.concur.com>) for active 
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/sap-open-concur-com> |
 | Nagios/Icinga Check Name              | `check_sap_open_concur_com` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--datacenter` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

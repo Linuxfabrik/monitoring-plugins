@@ -135,13 +135,13 @@ On the subject of OPcache see also:
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/php-status> |
 | Nagios/Icinga Check Name              | `check_php_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | PHP monitoring script [monitoring.php](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/check-plugins/php-status/assets/monitoring.php) (optional, callable via HTTP(S)) |
 
 

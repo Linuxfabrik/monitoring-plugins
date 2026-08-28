@@ -26,15 +26,15 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/podman-stats> |
 | Nagios/Icinga Check Name              | `check_podman_stats` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Handles Periods                       | Yes |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-podman-stats.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-podman-stats.db` |
 
 
 ## Help

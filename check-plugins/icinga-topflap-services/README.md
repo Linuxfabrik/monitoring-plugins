@@ -29,13 +29,13 @@ Detects fast-flapping Icinga services by counting state changes per service with
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/icinga-topflap-services> |
 | Nagios/Icinga Check Name              | `check_icinga_topflap_services` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes (if `--pwfile` exists at the default path) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | Icinga DB, read access to `/icingaweb2/icingadb/history` |
 
 

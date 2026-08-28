@@ -31,15 +31,14 @@ server {
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/nginx-status> |
 | Nagios/Icinga Check Name              | `check_nginx_status` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | Enable `stub_status` |
-| Perfdata compatible with Prometheus   | Yes |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-nginx-status.db` |
 
 

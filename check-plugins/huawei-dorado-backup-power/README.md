@@ -27,9 +27,9 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/huawei-dorado-backup-power> |
 | Nagios/Icinga Check Name              | `check_huawei_dorado_backup_power` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No (`--device-id`, `--password`, `--url`, and `--username` are required) |
+| Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` |
 
 

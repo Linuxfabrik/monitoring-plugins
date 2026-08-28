@@ -35,7 +35,7 @@ object ApiUser "linuxfabrik-check-journald-query" {
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/journald-query> |
 | Nagios/Icinga Check Name              | `check_journald_query` |
 | Check Interval Recommendation         | Every minute |

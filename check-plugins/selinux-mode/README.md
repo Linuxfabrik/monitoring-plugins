@@ -13,7 +13,7 @@ Verifies that the current SELinux mode (enforcing, permissive, or disabled) matc
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/selinux-mode> |
 | Nagios/Icinga Check Name              | `check_selinux_mode` |
 | Check Interval Recommendation         | Every 15 minutes |

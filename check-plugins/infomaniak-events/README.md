@@ -42,13 +42,13 @@ Monitors the Infomaniak status page for open events and incidents. Alerts when a
 ## Fact Sheet
 
 | Fact | Value |
-|----|------|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/infomaniak-events> |
 | Nagios/Icinga Check Name              | `check_infomaniak_events` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

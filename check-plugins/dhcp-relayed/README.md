@@ -32,7 +32,7 @@ Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Send
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

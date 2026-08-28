@@ -35,7 +35,7 @@ Typical subjects are hardware support contracts, insurance policies, domain regi
 | Check Interval Recommendation         | Every 12 hours |
 | Can be called without parameters      | No (`--input` is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 
 
 ## Help

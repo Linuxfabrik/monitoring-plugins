@@ -33,7 +33,7 @@ Checks whether the local node participates in a Docker Swarm and whether the clu
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | `docker` CLI, Swarm mode |
 
 

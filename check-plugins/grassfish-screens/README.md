@@ -30,7 +30,7 @@ Checks if screens attached to Grassfish digital signage players are on or off vi
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | No (`--hostname` and `--token` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-grassfish-screens.db` |
 
 

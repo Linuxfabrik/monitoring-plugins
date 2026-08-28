@@ -21,13 +21,13 @@ Checks the expiration dates of certificates and CRLs stored in a XCA-managed MyS
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/xca-cert> |
 | Nagios/Icinga Check Name              | `check_xca_cert` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | User with SELECT privileges on the XCA database, locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
 

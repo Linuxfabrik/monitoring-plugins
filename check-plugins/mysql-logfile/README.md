@@ -27,7 +27,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-logfile> |
 | Nagios/Icinga Check Name              | `check_mysql_logfile` |
 | Check Interval Recommendation         | Every 5 minutes |
@@ -35,7 +35,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-logfile.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-logfile.db` |
 
 
 ## Help

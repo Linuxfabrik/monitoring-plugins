@@ -19,14 +19,14 @@ Checks the installed Postfix version against the endoflife.date API and alerts i
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/postfix-version> |
 | Nagios/Icinga Check Name              | `check_postfix_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-lib-version.db` |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
 ## Help

@@ -21,7 +21,7 @@ Checks Linux kernel parameters that affect MySQL/MariaDB stability and performan
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-system> |
 | Nagios/Icinga Check Name              | `check_mysql_system` |
 | Check Interval Recommendation         | Every 5 minutes |

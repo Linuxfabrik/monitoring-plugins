@@ -31,7 +31,7 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Handles Periods                       | Yes |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-docker-stats.db` |
 

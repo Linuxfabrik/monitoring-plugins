@@ -45,7 +45,7 @@ So on a normal machine on a bridge, `--warning-drops` is the threshold with some
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/kvm-network-io> |
 | Nagios/Icinga Check Name              | `check_kvm_network_io` |
 | Check Interval Recommendation         | Every minute |

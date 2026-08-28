@@ -24,13 +24,13 @@ Checks for unacknowledged alerts in LibreNMS and reports the most recent alert p
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/librenms-alerts> |
 | Nagios/Icinga Check Name              | `check_librenms_alerts` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | No (`--defaults-file` with valid MySQL/MariaDB credentials is required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
 
 

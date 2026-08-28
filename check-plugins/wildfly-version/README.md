@@ -22,14 +22,14 @@ Checks whether a newer version of WildFly is available by comparing the installe
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/wildfly-version> |
 | Nagios/Icinga Check Name              | `check_wildfly_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
+| Compiled for Windows                  | No (runs with Python interpreter) |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
 ## Help

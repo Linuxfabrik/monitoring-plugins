@@ -21,13 +21,13 @@ Monitors a Veeam Backup & Replication environment via the Veeam Enterprise Manag
 ## Fact Sheet
 
 | Fact | Value |
-|----|-----|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/veeam-status> |
 | Nagios/Icinga Check Name              | `check_veeam_status` |
 | Check Interval Recommendation         | Every 8 hours |
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | Veeam Enterprise License |
 
 

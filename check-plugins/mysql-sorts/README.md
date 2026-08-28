@@ -21,15 +21,15 @@ Checks how often MySQL/MariaDB sorts have to spill from memory to a temporary me
 ## Fact Sheet
 
 | Fact | Value |
-|----|---|
+|----|----|
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-sorts> |
 | Nagios/Icinga Check Name              | `check_mysql_sorts` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |
-| Uses SQLite DBs                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-sorts.db` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-sorts.db` |
 
 
 ## Help
