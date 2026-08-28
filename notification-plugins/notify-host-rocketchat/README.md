@@ -10,7 +10,7 @@ Sends host notifications using the Rocket.Chat API.
 
 | Fact | Value |
 |----|----|
-| Notification Plugin Download          | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-service-rocketchat> |
+| Notification Plugin Download          | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/notification-plugins/notify-host-rocketchat> |
 | Can be called without parameters      | No |
 | Compiled for Windows                  | No |
 

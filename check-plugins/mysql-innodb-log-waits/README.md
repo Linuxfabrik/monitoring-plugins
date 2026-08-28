@@ -37,6 +37,7 @@ The check logic is derived from MySQLTuner, which alerts and recommends increasi
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-innodb-log-waits.db` |
 
 
 ## Help

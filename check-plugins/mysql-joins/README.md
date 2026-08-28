@@ -30,6 +30,7 @@ Checks the rate of joins executed without indexes in MySQL/MariaDB (`Select_rang
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-joins.db` |
 
 
 ## Help

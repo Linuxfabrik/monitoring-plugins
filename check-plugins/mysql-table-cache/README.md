@@ -32,6 +32,7 @@ Checks the hit rate of the MySQL/MariaDB open table cache. A low hit rate means 
 | Compiled for Windows                  | No |
 | Requirements                          | User with no privileges, locked down to `127.0.0.1` - for example `monitoring\@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
 | 3rd Party Python modules              | `pymysql` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-table-cache.db` |
 
 
 ## Help

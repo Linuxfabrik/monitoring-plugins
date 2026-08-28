@@ -30,6 +30,7 @@ Checks the connection usage rate, the rate of aborted connections, and whether n
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-connections.db` |
 
 
 ## Help

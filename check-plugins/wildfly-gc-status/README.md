@@ -25,6 +25,7 @@ Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP-J
 | Can be called without parameters      | No (`--username` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-wildfly-gc-status.db` |
 
 
 ## Help

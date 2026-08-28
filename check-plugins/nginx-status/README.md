@@ -40,6 +40,7 @@ server {
 | Compiled for Windows                  | No |
 | Requirements                          | Enable `stub_status` |
 | Perfdata compatible with Prometheus   | Yes |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-nginx-status.db` |
 
 
 ## Help

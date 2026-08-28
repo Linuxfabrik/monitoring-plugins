@@ -30,6 +30,7 @@ Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports confere
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-jitsi-videobridge-stats.db` |
 
 
 ## Help

@@ -24,7 +24,7 @@ Monitors swap space usage as a percentage of total swap. On Linux, optionally li
 | Nagios/Icinga Check Name              | `check_swap_usage` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
-| Runs on                               | Linux |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 

@@ -107,6 +107,7 @@ The overall state is the worst of all pools. Perfdata labels are prefixed with t
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-php-fpm-status.db` |
 
 
 ## Help

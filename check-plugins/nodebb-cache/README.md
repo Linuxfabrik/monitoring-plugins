@@ -27,6 +27,7 @@ Monitors NodeBB cache usage via the admin API. Alerts when cache utilization exc
 | Can be called without parameters      | No (`--token` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-nodebb-cache.db` |
 
 
 ## Help

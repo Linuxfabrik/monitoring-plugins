@@ -30,6 +30,7 @@ Monitors a Redis server via the `INFO` command, reporting memory usage, fragment
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `redis-cli` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redis-status.db` |
 
 
 ## Help

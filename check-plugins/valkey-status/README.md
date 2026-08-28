@@ -31,6 +31,7 @@ Monitors a Valkey server via the `INFO` command and the `MEMORY DOCTOR` subcomma
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | command-line tool `valkey-cli` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-valkey-status.db` |
 
 
 ## Help

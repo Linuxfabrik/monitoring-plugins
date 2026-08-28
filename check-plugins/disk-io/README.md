@@ -37,7 +37,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
-| Compiled for Windows                  | No (runs with Python interpreter) |
+| Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
 | Handles Periods                       | Yes |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-disk-io.db` |

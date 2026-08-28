@@ -31,6 +31,7 @@ Checks the memory-access rate for the MySQL/MariaDB binary log cache. A low rate
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-mysql-binlog-cache.db` |
 
 
 ## Help
