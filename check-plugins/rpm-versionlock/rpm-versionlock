@@ -565,6 +565,9 @@ def get_dnf5_locks(root):
     DNF5_LOCKFILE_VERSION for the difference and for what was measured.
     """
     if tomllib is None:
+        lockfile = rooted(root, DNF5_LOCKFILE)
+        if lib.disk.file_exists(lockfile, allow_empty=True):
+            return [], [], [f'{lockfile} cannot be read, this needs Python 3.11 or newer']
         return [], [], []
 
     lockfile = rooted(root, DNF5_LOCKFILE)
