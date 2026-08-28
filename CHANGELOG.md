@@ -12,9 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Icinga Director:
 
-* Deb Updates and RPM Updates alert on every pending update and hold an ordinary one back for a week and a day. Long-unpatched hosts go WARNING; tick `Only Critical` for the old report
+* Deb Updates and RPM Updates alert on ordinary pending updates too, a week and a day after they show up; tick `Only Critical` for the old report
 * delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the certificate check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
-* Logfile, MySQL Logfile and Journald Query: `Ignore Pattern` / `Ignore Regex` become `Ignore`, move your patterns over. `Ignore` takes a regular expression, so escape any metacharacter a former `Ignore Pattern` contained. The old parameters still work on the command line but no longer have a field in the Director
+* Logfile, MySQL Logfile and Journald Query: `Ignore Pattern` / `Ignore Regex` become `Ignore`, which takes a regular expression, so escape any metacharacter when moving your patterns over
 * MySQL Database Metrics, Storage Engines and Table Indexes: `Ignore Schemas` / `Ignore Tables` become `Match` / `Ignore`, move your patterns over
 * the KVM Host Service Set drops the libvirtd unit check: tag your hypervisors `libvirtd` or `virtqemud`
 * the `rpm-updates` tag and its Service Set are gone: drop the tag, the check is in the Basic Service Sets now
@@ -73,14 +73,14 @@ Monitoring Plugins:
 * countdown: table output, Nagios ranges, and days left as performance data
 * cpu-usage: alerts on CPU steal, at 10% by default
 * dmesg: fewer false alarms on physical servers and in virtual machines
-* file-age, file-count, file-growth, file-size: the summary names the broken range in plain words
+* file-age, file-count, file-growth, file-size: the summary names the breached range in plain words
 * file-age, file-size: no longer run through sudo, so they see only what the monitoring user may read
 * kvm-vm: reports a machine that should start with the host and does not, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
-* mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too, where the check used to be skipped
-* mysql-innodb-log-waits: alerts when the redo log runs so full that InnoDB holds writing sessions back
-* mysql-perf-metrics: the `innodb_snapshot_isolation` advice warns that every connected application has to cope with the rollbacks it causes, and `--ignore-innodb-snapshot-isolation` turns the check off where an application cannot
+* mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too
+* mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
+* mysql-perf-metrics: `--ignore-innodb-snapshot-isolation` drops the advice where an application cannot cope with the rollbacks it causes
 * nextcloud-stats: also lists the five largest accounts, and runs longer on big instances ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
 * openstack-swift-stat: alerts on the container and account quotas
@@ -91,7 +91,7 @@ Icinga Director:
 * the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
-* the Needs Restarting service runs hourly instead of daily and waits four hours before alerting; its tag now reaches Debian hosts too, so tag them
+* the Needs Restarting service runs hourly and waits four hours before alerting; it covers Debian hosts now, so tag them
 * the NFS Server Service Set runs the export check
 
 Grafana:
@@ -114,13 +114,13 @@ Icinga Director:
 
 Build, CI/CD:
 
-* Drop packages for Ubuntu 20.04
+* the packages for Ubuntu 20.04 are gone
 
 ### Fixed
 
 Monitoring Plugins:
 
-* a command stuck on storage that has gone away no longer runs past the check's `--timeout`, on all plugins that run one
+* a command stuck on storage that has gone away no longer runs past the check's `--timeout`
 * about-me: recognises a KVM host running the modular libvirt daemons again
 * apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`
 * countdown: a malformed `--input` names the date it cannot read instead of a traceback
@@ -133,11 +133,10 @@ Monitoring Plugins:
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
-* kvm-vm: a machine that crashed or never started is reported instead of counted as switched off
-* kvm-vm: no longer fails on a machine name containing a space, and reports the machines without root
+* kvm-vm: a machine that crashed or never started is reported instead of counted as switched off, and a machine name containing a space no longer breaks the check
 * logfile, mysql-logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
 * mysql-logfile: reads the error log of a container again, which the images write to standard error
-* needs-restarting: says so when it could not ask a Debian host at all instead of calling it clean, and stops announcing a reboot where only services need restarting
+* needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
 * openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
 * path-rw-test: no longer runs forever when a path sits on a network filesystem that stopped answering
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
@@ -180,45 +179,45 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* apache-tomcat-version: check for an end-of-life or outdated Apache Tomcat ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
-* deb-versionlock: check alerting on packages APT holds back
-* docker-container, podman-container: check for unhealthy, unexpected-state, frequently restarting or too-young containers
-* docker-image, podman-image: check alerting on images older than a configurable age
-* docker-service: check alerting when a Docker Swarm service runs fewer tasks than expected
-* docker-swarm: check alerting on swarm membership, a down node, or lost manager quorum
-* huawei-dorado-alarm: check listing the current alarms
-* huawei-dorado-expboard: check alerting on a faulty expansion board
-* huawei-dorado-lun: check alerting on a faulty LUN, and on a thin LUN filling up
-* huawei-dorado-port: check alerting on a faulty or too slowly negotiated front-end port
-* huawei-dorado-sfp: check alerting on a faulty optical module, or one whose light levels leave its operating range
-* huawei-dorado-storagepool: check alerting on a faulty storage pool, and on one filling up
-* huawei-pacific-alarm: check listing the current alarms
-* huawei-pacific-disk: check alerting on a faulty disk, and on one running out of remaining life
-* huawei-pacific-fan: check alerting on a faulty fan
-* huawei-pacific-namespace: check alerting when a namespace cannot be reached or turned read-only
-* huawei-pacific-node: check alerting on a faulty cluster node and on an expired warranty
-* huawei-pacific-power: check alerting on a faulty power supply
-* huawei-pacific-quota: check alerting when a share fills up its quota
-* huawei-pacific-replicationpair: check alerting when a remote replication pair stops mirroring, and optionally when its last synchronization gets too old
-* huawei-pacific-service: check alerting when a service process on a cluster node is not running
-* huawei-pacific-storagepool: check alerting on a faulty storage pool, and on one filling up
-* huawei-pacific-system: check alerting on cluster capacity usage
-* icingaweb2-module-updates: check alerting when an Icinga Web 2 module installed from a tarball or a Git checkout is behind its latest GitHub release ([#124](https://github.com/Linuxfabrik/monitoring-plugins/issues/124))
-* kdump: check alerting when a kernel panic cannot be captured, or when a previous panic left a crash dump behind
-* librenms-validate: check alerting on the problems LibreNMS reports about its own installation ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
-* network-errors: check alerting on interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
-* nextcloud-app-updates: check alerting when a Nextcloud app update is pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
-* nextcloud-status: check alerting on a pending database upgrade or on maintenance mode ([#329](https://github.com/Linuxfabrik/monitoring-plugins/issues/329))
-* rpm-versionlock: check alerting on packages the RPM package manager holds back
-* wildfly-version: check alerting when WildFly is behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
-* wordpress-checksums: check verifying core and plugin files against the checksums wordpress.org publishes
-* wordpress-security-scan: check scanning a WordPress site for known vulnerabilities and exposed credentials
+* apache-tomcat-version: an end-of-life or outdated Apache Tomcat ([#126](https://github.com/Linuxfabrik/monitoring-plugins/issues/126))
+* deb-versionlock: packages APT holds back
+* docker-container, podman-container: unhealthy, unexpected-state, frequently restarting or too-young containers
+* docker-image, podman-image: images older than a configurable age
+* docker-service: a Docker Swarm service running fewer tasks than expected
+* docker-swarm: swarm membership, a down node, or lost manager quorum
+* huawei-dorado-alarm: the current alarms
+* huawei-dorado-expboard: a faulty expansion board
+* huawei-dorado-lun: a faulty LUN, and a thin LUN filling up
+* huawei-dorado-port: a faulty or too slowly negotiated front-end port
+* huawei-dorado-sfp: a faulty optical module, or one whose light levels leave its operating range
+* huawei-dorado-storagepool: a faulty storage pool, and one filling up
+* huawei-pacific-alarm: the current alarms
+* huawei-pacific-disk: a faulty disk, and one running out of remaining life
+* huawei-pacific-fan: a faulty fan
+* huawei-pacific-namespace: a namespace that cannot be reached, or turned read-only
+* huawei-pacific-node: a faulty cluster node, and an expired warranty
+* huawei-pacific-power: a faulty power supply
+* huawei-pacific-quota: a share filling up its quota
+* huawei-pacific-replicationpair: a remote replication pair that stopped mirroring, and optionally one whose last synchronization got too old
+* huawei-pacific-service: a service process on a cluster node that is not running
+* huawei-pacific-storagepool: a faulty storage pool, and one filling up
+* huawei-pacific-system: cluster capacity usage
+* icingaweb2-module-updates: an Icinga Web 2 module installed from a tarball or a Git checkout that is behind its latest GitHub release ([#124](https://github.com/Linuxfabrik/monitoring-plugins/issues/124))
+* kdump: a kernel panic that cannot be captured, and a crash dump a previous panic left behind
+* librenms-validate: the problems LibreNMS reports about its own installation ([#366](https://github.com/Linuxfabrik/monitoring-plugins/issues/366))
+* network-errors: interface receive and transmit errors ([#707](https://github.com/Linuxfabrik/monitoring-plugins/issues/707))
+* nextcloud-app-updates: a Nextcloud app update pending longer than a grace period ([#62](https://github.com/Linuxfabrik/monitoring-plugins/issues/62))
+* nextcloud-status: a pending database upgrade, or maintenance mode ([#329](https://github.com/Linuxfabrik/monitoring-plugins/issues/329))
+* rpm-versionlock: packages the RPM package manager holds back
+* wildfly-version: a WildFly behind the latest stable release ([#123](https://github.com/Linuxfabrik/monitoring-plugins/issues/123))
+* wordpress-checksums: core and plugin files that do not match the checksums wordpress.org publishes
+* wordpress-security-scan: known vulnerabilities and exposed credentials on a WordPress site
 
 Icinga Director:
 
-* `Icinga Web 2 Service Set` (host tag `icingaweb2`) for hosts running the Icinga Web 2 interface
-* `Lynis Service Set` (host tag `lynis`) for the host that runs the subnet security audits. Tag one host, not every host carrying the package
-* `OpenJDK Service Set` (host tag `openjdk`) for hosts running a Red Hat OpenJDK
+* `Icinga Web 2 Service Set`
+* `Lynis Service Set`: tag the one host that runs the subnet audits, not every host carrying the package
+* `OpenJDK Service Set`
 * host tag `metabase`, without a Service Set: the check needs credentials, so create the service from its template via an Apply rule
 
 Grafana:
@@ -227,29 +226,25 @@ Grafana:
 
 Assets:
 
-* bash completion for the plugins' command line options, installed by the packages and the one-liner installer
+* bash completion for the plugins' command line options
 
 ### Changed
 
 Monitoring Plugins:
 
 * all plugins: output shows `<`, `>` and `&` verbatim instead of escaped
-* cert: a `/24` scan finishes within the check timeout, and `--max-workers` bounds its parallelism
-* cpu-usage: no longer alerts on iowait, which is unreliable on multi-core systems, but keeps reporting and graphing it
+* cert: a `/24` scan finishes within the check timeout
+* cpu-usage: no longer alerts on iowait, but keeps reporting and graphing it
 * disk-usage: runs every minute instead of every 5 minutes
-* docker-info: reports every warning the daemon raises about itself, including the ones it only writes as a deprecation notice, and drops the registry address that Docker itself removed in version 24
-* docker-image, podman-image: the summary line counts the images that are too old and names the oldest one, instead of listing every affected image before the table
+* docker-info: reports every warning the daemon raises about itself, and drops the registry address Docker removed in version 24
 * huawei-dorado-\*: a faulty or dead component, an overheated parked disk and a HyperMetro pair that is not mirroring are CRITICAL instead of WARNING
 * huawei-dorado-\*: an empty hardware inventory reports UNKNOWN instead of "Everything is ok"
-* huawei-dorado-\*: `--device-id` is optional, the appliance reports its own at login
-* huawei-dorado-disk: no longer graphs the operating time
-* huawei-dorado-system: `--warning` and `--critical` accept Nagios ranges
 * mysql-innodb-log-waits: alerts only on real InnoDB log waits
 * php-status: warns when `post_max_size` is not larger than `upload_max_filesize`, which silently breaks file uploads ([#516](https://github.com/Linuxfabrik/monitoring-plugins/issues/516))
 * podman-info: the reported logging driver is the one containers log through, not the event logger
-* podman-stats: CPU usage is the load since the previous check run instead of the average since the container started, so a container that is busy now shows it. The first run after the update reports no CPU value yet
-* rhel-version: on Fedora, names fedora-version as the check to use instead of comparing the release against the Red Hat Enterprise Linux lifecycle
-* scanrootkit: detects the VoidLink rootkit framework, and reports the RingReaper io_uring agent as a possible finding
+* podman-stats: CPU usage is the load since the previous check run instead of the average since the container started; the first run after the update reports no CPU value yet
+* rhel-version: on Fedora, points to fedora-version instead of judging the release by the Red Hat Enterprise Linux lifecycle
+* scanrootkit: detects the VoidLink rootkit framework and the RingReaper io_uring agent
 * snmp: `--device` also accepts an absolute path ([#1308](https://github.com/Linuxfabrik/monitoring-plugins/issues/1308))
 * uptimerobot: reads UptimeRobot's own status page by default; a check pointed at another status page needs `--url`
 
@@ -264,18 +259,18 @@ Icinga Director:
 Monitoring Plugins:
 
 * six checks that aborted with a Python error on every run work again (borgbackup, file-ownership, getent, nextcloud-enterprise, rpm-lastactivity, scheduled-task)
-* all \*-version checks: name the file, binary or endpoint they read and the parameter that moves it when they find no version, instead of only stating that the software was not found
+* all \*-version checks: a missing version names the file, binary or endpoint they read and the parameter that moves it
 * a table whose cell reads like an HTML tag, `&lt;unknown&gt;` for example, keeps its columns aligned
 * about-me: a WordPress installation in the document root is detected when guessing Icinga Director tags, the repository of a package whose origin is unknown is readable, and the timer table no longer mixes the remaining time into the next elapse
 * cert: a subnet scan needs far less memory, and one that runs out of file descriptors reports UNKNOWN instead of OK
 * csv-values, json-values, strongswan-connections: non-UTF-8 input no longer crashes the check ([#256](https://github.com/Linuxfabrik/lib/issues/256))
-* deb-lastactivity, strongswan-connections: a host without APT packages or without a running strongSwan gets the sentence that says so, without a Python stack trace below it
+* deb-lastactivity, strongswan-connections: a host without APT packages or without a running strongSwan gets the sentence that says so, instead of a Python stack trace
 * dhcp-relayed, dmesg: a refused permission names what to do about it instead of only what failed
 * disk-io: no longer produces false CRITICAL alerts from I/O wait, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-smart: drives behind a hardware RAID controller and external USB drives are read again, `--ignore` matches, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
-* docker-container, docker-image: report on Docker only; on a host whose `docker` command is Podman they name the podman-* checks instead of reporting Podman's containers and images as Docker's
-* docker-service: says that swarm mode needs Docker on a Podman host, instead of passing Podman's usage text through
+* docker-container, docker-image: on a host whose `docker` command is Podman they name the podman-\* checks instead of reporting Podman's containers and images as Docker's
+* docker-service: says that swarm mode needs Docker on a Podman host
 * docker-stats: a container the daemon delivers no statistics for no longer takes the whole check to UNKNOWN
 * file-count: no longer reports "None" as the threshold when none was set
 * file-descriptors: a kernel that does not cap the number of file handles is reported as having no limit instead of "9.2E"
@@ -309,12 +304,7 @@ Grafana:
 
 Assets:
 
-* SELinux policy: loads on RHEL 10 as well, where it silently did nothing before
-
-Tools:
-
-* build-basket: switches that turn an option off, such as `--no-insecure`, end up in the Director basket
-* installer: a source install on a host with too-old system Python rebuilds cleanly
+* SELinux policy: loads on RHEL 10 too
 
 ### Security
 
@@ -352,24 +342,24 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * csv-values: is shipped as a Windows build again
-* lynis: check auditing the security hardening of hosts across a subnet over SSH (hardening index, warnings, suggestions)
-* redfish-ethernetinterfaces: check for a server's Ethernet interface health
-* redfish-firmwareinventory: check for a server's firmware component versions and health
-* redfish-managers: check for a server's management controller health (BMC, e.g. iLO or iDRAC)
-* redfish-memory: check for a server's memory module health
-* redfish-processors: check for a server's processor health
+* lynis: the security hardening of hosts across a subnet, over SSH
+* redfish-ethernetinterfaces: a server's Ethernet interface health
+* redfish-firmwareinventory: a server's firmware component versions and health
+* redfish-managers: a server's management controller health (BMC, e.g. iLO or iDRAC)
+* redfish-memory: a server's memory module health
+* redfish-processors: a server's processor health
 
 ### Changed
 
 Monitoring Plugins:
 
 * by-ssh: `--shell` is deprecated and ignored, and remote commands using pipes, globs or variables always work
-* cert: scans a whole subnet across many common ports, checks the full certificate chain, and thresholds also accept a percentage of the lifetime or a duration
+* cert: scans a whole subnet across many common ports, and checks the full certificate chain
 * ipmi-sensor: performance data is grouped by sensor type, which resets the existing IPMI graph history once ([#22](https://github.com/Linuxfabrik/monitoring-plugins/issues/22))
 * nextcloud-security-scan: reports a fresh rating right after a Nextcloud update instead of a stale one ([#118](https://github.com/Linuxfabrik/monitoring-plugins/issues/118))
-* php-status: OPcache alerting warns at 95% and flags cache thrashing, a full interned strings buffer no longer warns, and the raw hits and misses counters are gone from the performance data
+* php-status: OPcache alerting warns at 95% and flags cache thrashing, and a full interned strings buffer no longer warns
 * redfish-\*: frequent checks no longer flood a management controller's session table or audit log, and a slow or flaky request is retried before the check fails
-* redfish-sensors: also reports chassis-wide power consumption, reads fan speed whether reported in RPM or percent, and falls back to the legacy Thermal and Power endpoints
+* redfish-sensors: also reports chassis-wide power consumption, and reads fan speed whether reported in RPM or percent
 * redfish-storage: also checks volumes (logical drives), not just physical drives and controllers
 * swap-usage: a host without any swap is OK by default instead of UNKNOWN ([#1142](https://github.com/Linuxfabrik/monitoring-plugins/issues/1142))
 
@@ -383,18 +373,14 @@ Monitoring Plugins:
 
 * several plugins that run system commands no longer report UNKNOWN when the command only writes a harmless warning to stderr, while a genuine command failure is reported as WARN (deb-lastactivity, disk-smart, getent, journald-query, journald-usage, kubectl-get-pods, ntp-chronyd, ntp-ntpd, ntp-systemd-timesyncd, redis-status, restic-snapshots, restic-stats, rpm-lastactivity, safenet-hsm-state, valkey-status)
 * on Windows, multi-line output is no longer shown with a blank line between every line in IcingaWeb, and umlauts from system commands are no longer garbled ([#681](https://github.com/Linuxfabrik/monitoring-plugins/issues/681))
-* about-me: no longer crashes when detecting installed software on a host
-* apache-httpd-version: adapted to the new endoflife.date URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
+* about-me: no longer crashes when detecting installed software
+* apache-httpd-version: works again after endoflife.date moved its URL ([PR #1224](https://github.com/Linuxfabrik/monitoring-plugins/pull/1224), thanks to [Salman Mohammadi](https://github.com/salmanxmoha))
 * by-ssh: a failed connection no longer echoes the full command line, which can contain the `--password` value
 * redfish-sensors: no longer raises false warnings for sensors that report a placeholder min/max range ([#1211](https://github.com/Linuxfabrik/monitoring-plugins/issues/1211))
 
 Icinga Director:
 
 * the shipped Service and Host templates no longer pin checks to the master zone, so checks deploy correctly in distributed setups, while the agentless `-no-agent` checks still run from the master ([#721](https://github.com/Linuxfabrik/monitoring-plugins/issues/721))
-
-Tools:
-
-* installer: a source install cleans up a sudoers drop-in left under an earlier name, so sudo no longer warns about a duplicate `Cmnd_Alias`
 
 ### Security
 
