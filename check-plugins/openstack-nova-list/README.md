@@ -20,7 +20,8 @@ Lists the OpenStack Nova compute instances (virtual servers) of a project and re
 * Lists every instance of the project, following the pagination of the Compute API so that clouds with more than a thousand instances are covered too
 * Maps every Nova server status to a state, counts the instances per status, and reports the most recent status change across all of them
 * `--match` and `--ignore` filter by instance name, `--match-zone`, `--match-vm-state` and `--match-host` (each with an `--ignore-` counterpart) by availability zone, VM state and compute host
-* `--brief` hides the instances that are fine, `--lengthy` adds the id, the availability zone, the addresses, the creation date and the task Nova is currently running on the instance
+* `--brief` hides the instances that are fine, `--lengthy` adds the id, the host id, the availability zone, the addresses, the creation date and the task Nova is currently running on the instance
+* The id and the host id are shortened to ten characters, the way a short commit hash stands in for the full one
 * A column that no instance filled in is left out of the table, so the compute host does not take up space on a project that is not allowed to see it
 
 
@@ -191,17 +192,17 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-nova-li
 Output:
 
 ```text
-7 instances checked: 1 ERROR, 1 BUILD, 1 RESCUE, 1 VERIFY_RESIZE, 1 ACTIVE, 1 PASSWORD, 1 SHUTOFF. Last status change 2026-08-25 09:00:00 UTC (8h 9m ago).
+7 instances checked: 1 ERROR, 1 BUILD, 1 RESCUE, 1 VERIFY_RESIZE, 1 ACTIVE, 1 PASSWORD, 1 SHUTOFF. Last status change 2026-08-25 09:00:00 UTC (2D 12h ago).
 
 Name       ! Updated (UTC)                    ! Status
 -----------+----------------------------------+------------------------
-resized01  ! 2026-08-24 10:00:00 (1D 7h ago)  ! VERIFY_RESIZE [WARNING]
-batch01    ! 2026-07-20 08:00:00 (1M 6D ago)  ! SHUTOFF
-broken01   ! 2026-08-25 07:00:00 (10h 9m ago) ! RESCUE [WARNING]
-pwchange01 ! 2026-08-25 08:00:00 (9h 9m ago)  ! PASSWORD
-db01       ! 2026-08-01 09:00:00 (3W 3D ago)  ! ERROR [CRITICAL]
-new01      ! 2026-08-25 09:00:00 (8h 9m ago)  ! BUILD [WARNING]
-web01      ! 2026-07-13 14:29:16 (1M 1W ago)  ! ACTIVE
+batch01    ! 2026-07-20 08:00:00 (1M 1W ago)  ! SHUTOFF
+broken01   ! 2026-08-25 07:00:00 (2D 14h ago) ! RESCUE [WARNING]
+db01       ! 2026-08-01 09:00:00 (3W 5D ago)  ! ERROR [CRITICAL]
+new01      ! 2026-08-25 09:00:00 (2D 12h ago) ! BUILD [WARNING]
+pwchange01 ! 2026-08-25 08:00:00 (2D 13h ago) ! PASSWORD
+resized01  ! 2026-08-24 10:00:00 (3D 11h ago) ! VERIFY_RESIZE [WARNING]
+web01      ! 2026-07-13 14:29:16 (1M 2W ago)  ! ACTIVE
 ```
 
 Only the instances that need attention, with every column:
@@ -213,15 +214,17 @@ Only the instances that need attention, with every column:
 Output:
 
 ```text
-7 instances checked: 1 ERROR, 1 BUILD, 1 RESCUE, 1 VERIFY_RESIZE, 1 ACTIVE, 1 PASSWORD, 1 SHUTOFF. Last status change 2026-08-25 09:00:00 UTC (8h 33m ago).
+7 instances checked: 1 ERROR, 1 BUILD, 1 RESCUE, 1 VERIFY_RESIZE, 1 ACTIVE, 1 PASSWORD, 1 SHUTOFF. Last status change 2026-08-25 09:00:00 UTC (2D 12h ago).
 
-Name      ! ID                                   ! Zone   ! Addresses  ! Created (UTC)                    ! Updated (UTC)                     ! Task     ! Status
-----------+--------------------------------------+--------+------------+----------------------------------+-----------------------------------+----------+------------------------
-resized01 ! bbbbbbbb-0000-4000-8000-000000000005 ! zone-a ! 192.0.2.15 ! 2026-07-01 10:00:00 (1M 3W ago)  ! 2026-08-24 10:00:00 (1D 7h ago)   !          ! VERIFY_RESIZE [WARNING]
-broken01  ! bbbbbbbb-0000-4000-8000-000000000007 ! zone-b ! 192.0.2.17 ! 2026-07-01 10:00:00 (1M 3W ago)  ! 2026-08-25 07:00:00 (10h 33m ago) !          ! RESCUE [WARNING]
-db01      ! bbbbbbbb-0000-4000-8000-000000000002 ! zone-a ! 192.0.2.12 ! 2026-07-13 14:30:00 (1M 1W ago)  ! 2026-08-01 09:00:00 (3W 3D ago)   !          ! ERROR [CRITICAL]
-new01     ! bbbbbbbb-0000-4000-8000-000000000004 ! zone-b !            ! 2026-08-25 09:00:00 (8h 33m ago) ! 2026-08-25 09:00:00 (8h 33m ago)  ! spawning ! BUILD [WARNING]
+Name      ! ID         ! Host ID    ! Zone   ! Addresses  ! Created (UTC)                    ! Updated (UTC)                    ! Task     ! Status
+----------+------------+------------+--------+------------+----------------------------------+----------------------------------+----------+------------------------
+broken01  ! bbbbbbb7-0 ! 4fd724d424 ! zone-b ! 192.0.2.17 ! 2026-07-01 10:00:00 (1M 3W ago)  ! 2026-08-25 07:00:00 (2D 14h ago) !          ! RESCUE [WARNING]
+db01      ! bbbbbbb2-0 ! 4fd724d424 ! zone-a ! 192.0.2.12 ! 2026-07-13 14:30:00 (1M 2W ago)  ! 2026-08-01 09:00:00 (3W 5D ago)  !          ! ERROR [CRITICAL]
+new01     ! bbbbbbb4-0 !            ! zone-b !            ! 2026-08-25 09:00:00 (2D 12h ago) ! 2026-08-25 09:00:00 (2D 12h ago) ! spawning ! BUILD [WARNING]
+resized01 ! bbbbbbb5-0 ! 4fd724d424 ! zone-a ! 192.0.2.15 ! 2026-07-01 10:00:00 (1M 3W ago)  ! 2026-08-24 10:00:00 (3D 11h ago) !          ! VERIFY_RESIZE [WARNING]
 ```
+
+The Host ID column is the compute host the instance sits on, obfuscated by Nova into a hash over the project and the host name. It needs no administrative rights, unlike the Host column, so on an ordinary project account it is the only thing that says which instances share a compute host and would therefore go down together. An instance that has not been scheduled onto a host yet has no host id, which is why the cell of `new01` is empty above.
 
 The Task column names what Nova is doing to the instance at this moment. It is the one thing the Status column does not already imply: with no task running, the status determines the VM state exactly, which is why there is no separate VM state column. On a quiet cloud the column is empty for every instance and drops out of the table by itself.
 

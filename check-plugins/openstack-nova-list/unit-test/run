@@ -124,8 +124,44 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['192.0.2.11', 'Created (UTC)', 'Addresses', 'Zone'],
         # Nothing is happening to these instances, so the Task column carries
-        # nothing and drops out. The compute host is admin-only and absent.
-        'assert-not-in': ['Task', 'Host'],
+        # nothing and drops out. That the admin-only compute host is absent is
+        # pinned down by `unknown-match-host-without-admin-rights`, and cannot
+        # be asserted on here, because the Host ID header contains that word.
+        'assert-not-in': ['Task'],
+    },
+    {
+        # The host id is the only placement signal a project without
+        # administrative rights gets, and what it is good for is saying that
+        # two instances share a compute host: web01 and web02 do, db01 does
+        # not, so a host going down would take the two web instances together.
+        'id': 'ok-lengthy-shows-the-host-id',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Host ID', '4fd724d424', '3c256a9e48'],
+    },
+    {
+        # Both opaque identifiers are cut down, so the columns that follow them
+        # stay on the screen.
+        'id': 'ok-lengthy-shortens-the-identifiers',
+        'test': 'stdout/three-instances-active,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['aaaaaaa1-0'],
+        'assert-not-in': [
+            'aaaaaaa1-0000-4000-8000-000000000001',
+            '4fd724d4242f482fc5e9783cbe73f52ecd3b24de95a3459a0072b21b',
+        ],
+    },
+    {
+        # Nova hands out an empty host id for an instance that is not scheduled
+        # onto a compute host yet, which has to stay an empty cell instead of
+        # borrowing the hash of the row above.
+        'id': 'crit-lengthy-leaves-the-host-id-of-a-building-instance-empty',
+        'test': 'stdout/mixed-statuses,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'new01\s+!\s+bbbbbbb4-0\s+!\s+!\s+zone-b',
     },
     {
         # A running task is the only thing the status does not already say.

@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082506'
+__version__ = '2026082801'
 
 DESCRIPTION = """Lists the OpenStack Nova compute instances (virtual servers) of a project and
 reports the status of every one of them. Alerts when an instance sits in a status that needs
@@ -97,6 +97,14 @@ FILTER_FIELDS = {
 # status. So this is the field that says something the status does not, and it
 # drops out of the table by itself on a quiet cloud.
 TASK_STATE_KEY = 'OS-EXT-STS:task_state'
+
+# How much of an opaque identifier the table shows, the way a short commit hash
+# stands in for the full one. The instance ID is a UUID, and `hostId` is a
+# SHA-224 over the project ID and the compute host, so ten characters still
+# tell apart the handful of compute hosts and instances a single project holds,
+# while the full values push the columns that follow off the screen. Verified
+# against nova/utils.py:generate_hostid().
+SHORT_ID_LENGTH = 10
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 50  # minutes; a Keystone token commonly lives 60
@@ -545,7 +553,14 @@ def main():
         item = {
             'addresses': get_addresses(server),
             'host': server.get(FILTER_FIELDS['host'][0]) or '',
-            'id': server.get('id', ''),
+            # Which compute host an instance sits on, obfuscated by Nova into a
+            # hash over the project and the host. Unlike the compute host it
+            # needs no administrative rights, so this is the only placement
+            # signal an ordinary project account gets, and it is what says that
+            # two instances share a host and would fall over together. Empty
+            # while an instance is not scheduled yet.
+            'host_id': (server.get('hostId') or '')[:SHORT_ID_LENGTH],
+            'id': server.get('id', '')[:SHORT_ID_LENGTH],
             'name': name,
             'status': f'{status}{lib.base.state2str(server_state, prefix=" ")}',
             'task': server.get(TASK_STATE_KEY) or '',
@@ -618,6 +633,7 @@ def main():
                 'name',
                 'id',
                 'host',
+                'host_id',
                 'zone',
                 'addresses',
                 'created',
@@ -629,6 +645,7 @@ def main():
                 'Name',
                 'ID',
                 'Host',
+                'Host ID',
                 'Zone',
                 'Addresses',
                 'Created (UTC)',

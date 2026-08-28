@@ -78,7 +78,7 @@ Monitoring Plugins:
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
 * nextcloud-stats: also lists the five largest accounts, and runs longer on big instances ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
-* openstack-nova-list: a password reset or a rescue image no longer alerts CRITICAL
+* openstack-nova-list: reports the compute host, and a password reset or a rescue image no longer alerts CRITICAL
 * openstack-swift-stat: alerts on the container and account quotas
 * procs: reports the fork rate (Linux only)
 
