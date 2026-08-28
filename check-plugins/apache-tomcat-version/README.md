@@ -29,8 +29,8 @@ Checks the installed Apache Tomcat version against the endoflife.date API and al
 | Nagios/Icinga Check Name              | `check_apache_tomcat_version` |
 | Check Interval Recommendation         | Every day |
 | Can be called without parameters      | Yes |
-| Runs on                               | Linux |
-| Compiled for Windows                  | No |
+| Runs on                               | Cross-platform |
+| Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-lib-version.db` |
 
 
