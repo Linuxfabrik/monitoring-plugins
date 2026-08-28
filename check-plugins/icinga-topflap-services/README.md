@@ -60,8 +60,13 @@ options:
                        service within the lookback period. Supports Nagios
                        ranges. Default: 19
   --insecure           This option explicitly allows insecure SSL connections.
-  --lookback LOOKBACK  Time window in seconds to consider for state change
-                       counting. Default: 14400
+  --lookback LOOKBACK  State changes are counted within this window. Time
+                       window in seconds to look back over, ending at the
+                       moment of the run. Only what falls within it is
+                       counted, so what is reported is how often something
+                       happened lately rather than a total that keeps growing
+                       for as long as the source is kept. Example:
+                       `--lookback=7200`. Default: 14400 (seconds)
   --no-proxy           Do not use a proxy, not even one the environment names.
                        Overrides `--proxy`.
   --password PASSWORD  Icinga Web 2 password. Takes precedence over the value

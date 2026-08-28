@@ -27,7 +27,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026082801'
 
 DESCRIPTION = """Detects fast-flapping Icinga services by counting state changes per service within a
 configurable lookback interval. Queries the Icinga DB event history and alerts when
@@ -86,8 +86,10 @@ def parse_args():
 
     parser.add_argument(
         '--lookback',
-        help='Time window in seconds to consider for state change counting. '
-        'Default: %(default)s',
+        help='State changes are counted within this window. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=7200`. '
+        'Default: %(default)s (seconds)',
         dest='LOOKBACK',
         type=int,
         default=DEFAULT_LOOKBACK,
