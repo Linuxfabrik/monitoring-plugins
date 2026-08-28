@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026082801'
 
 DESCRIPTION = """Audits MySQL/MariaDB configuration knobs that have a measurable impact
 on performance or correctness but no metric of their own. Highlights settings that
@@ -36,11 +36,21 @@ What gets checked:
   monitoring queries pay a noticeable CPU cost for this.
 - `concurrent_insert`: when set to `NEVER` / `0`, MyISAM tables can no longer serve
   SELECTs in parallel with INSERTs. `AUTO` is the modern default.
-- `innodb_snapshot_isolation` (MariaDB only): under `REPEATABLE-READ`, OFF lets a
-  transaction see writes other transactions commit during its lifetime, breaking the
-  stable-snapshot guarantee the name `REPEATABLE-READ` implies. ON makes the
-  snapshot stable. Default flipped to ON in MariaDB 11.8; before that, the admin had
-  to opt in. Other isolation levels and non-MariaDB servers skip this check.
+- `innodb_snapshot_isolation` (MariaDB only, MySQL has no equivalent): under
+  `REPEATABLE-READ`, `OFF` lets a transaction see writes other transactions commit
+  during its lifetime, breaking the stable-snapshot guarantee the name
+  `REPEATABLE-READ` implies. `ON` makes the snapshot stable. The variable exists
+  since MariaDB 10.6.18 / 10.11.8 and defaults to `ON` since 11.6.2, but only holds
+  its promise from 10.6.26 / 10.11.17 / 11.4.11 / 11.8.7 / 12.3.2 on: older builds
+  still lose updates under contention. Switching it on is not free: a conflicting
+  transaction is aborted with error 1020 `Record has changed since last read in
+  table` and rolled back, so every application talking to this server has to retry
+  that transaction the way it would after a deadlock. Few
+  frameworks do, which is why upstream kept the permissive default for years. A
+  single application that cannot cope opts out for itself with
+  `SET SESSION innodb_snapshot_isolation = OFF`; where even that is out of reach,
+  `--ignore-innodb-snapshot-isolation` silences the check. Other isolation levels
+  and non-MariaDB servers skip this check.
 - `innodb_flush_neighbors`: HDD wins from grouping seek-adjacent dirty-page flushes,
   SSD/NVMe pays in extra writes for no latency benefit, so the right value depends on
   the storage class.
@@ -133,6 +143,7 @@ REMOVED_VARS_MYSQL = [
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_IGNORE_INNODB_SNAPSHOT_ISOLATION = False
 DEFAULT_STORAGE_TYPE = 'auto'
 DEFAULT_TIMEOUT = 3
 
@@ -179,6 +190,19 @@ def parse_args():
         help=lib.args.help('--defaults-group') + ' Default: %(default)s',
         dest='DEFAULTS_GROUP',
         default=DEFAULT_DEFAULTS_GROUP,
+    )
+
+    parser.add_argument(
+        '--ignore-innodb-snapshot-isolation',
+        help='Suppress the warning about `innodb_snapshot_isolation` being '
+        '`OFF` under `REPEATABLE-READ`. Use it where an application '
+        'connecting to this server cannot retry a transaction that was '
+        'rolled back with error 1020, so the admin has no way to turn the '
+        'variable on. '
+        'Default: %(default)s',
+        dest='IGNORE_INNODB_SNAPSHOT_ISOLATION',
+        default=DEFAULT_IGNORE_INNODB_SNAPSHOT_ISOLATION,
+        action='store_true',
     )
 
     parser.add_argument(
@@ -453,13 +477,24 @@ def main():
                 _max=2,
             )
 
-    # innodb_snapshot_isolation (MariaDB 11.x): with the variable OFF and
-    # the global isolation level set to REPEATABLE-READ, transactions can
-    # see other transactions' commits during their lifetime. mysqltuner
-    # only flags this combination; other isolation levels and servers
-    # without the variable (MySQL, older MariaDB) skip silently.
+    # innodb_snapshot_isolation: with the variable OFF and the global
+    # isolation level set to REPEATABLE-READ, transactions can see other
+    # transactions' commits during their lifetime. mysqltuner only flags
+    # this combination; other isolation levels and servers without the
+    # variable (MySQL, MariaDB before 10.6.18 / 10.11.8) skip silently.
+    # Turning it ON is an application-visible change, not just a server
+    # tuning knob: InnoDB then aborts a conflicting transaction with
+    # DB_RECORD_CHANGED, which reaches the client as error 1020
+    # (ER_CHECKREAD, "Record has changed since last read in table") after a
+    # full rollback, exactly like a deadlock. Upstream itself states that
+    # the permissive default only survived for backward compatibility with
+    # such applications (MDEV-26642, storage/innobase/lock/lock0lock.cc and
+    # handler/ha_innodb.cc). Error 1020 reproduced on MariaDB 11.4.12.
+    # Hence the warning below names the risk, and
+    # --ignore-innodb-snapshot-isolation exists for hosts whose
+    # applications leave the admin no choice.
     snapshot_iso = myvar.get('innodb_snapshot_isolation')
-    if snapshot_iso is not None:
+    if snapshot_iso is not None and not args.IGNORE_INNODB_SNAPSHOT_ISOLATION:
         transaction_iso = (
             myvar.get('transaction_isolation') or myvar.get('tx_isolation') or ''
         )
@@ -472,8 +507,11 @@ def main():
             )
             recommendations.append(
                 'Set `innodb_snapshot_isolation = ON` so `REPEATABLE-READ` '
-                'transactions get a stable snapshot independent of concurrent '
-                'commits'
+                'transactions get a stable snapshot. Attention: check your '
+                'applications first, they have to retry a transaction rolled '
+                'back with error 1020, and it only works from MariaDB '
+                '10.6.26 / 10.11.17 / 11.4.11 / 11.8.7 / 12.3.2 on. Use '
+                '`--ignore-innodb-snapshot-isolation` where they cannot'
             )
         else:
             facts.append(

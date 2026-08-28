@@ -137,8 +137,8 @@ def _check_image(test, containerfile):
         # Up to and including 11.4 the default is OFF; combined with the
         # also-default `transaction_isolation=REPEATABLE-READ`, the
         # plugin mirrors mysqltuner's badprint and goes WARN. MariaDB
-        # 11.8 flipped the default to ON, so the WARN no longer fires
-        # there. MySQL never had the variable and stays OK on every LTS.
+        # 11.6.2 flipped the default to ON, so the WARN no longer fires
+        # on 11.8. MySQL never had the variable and stays OK on every LTS.
         warns_on_snapshot = containerfile in (
             'mariadb-v106',
             'mariadb-v1011',
@@ -149,6 +149,25 @@ def _check_image(test, containerfile):
             test.assertIn(
                 '`innodb_snapshot_isolation` is `OFF` with `REPEATABLE-READ`',
                 combined,
+            )
+            # An admin whose application cannot retry a transaction that
+            # was rolled back with error 1020 has no way to turn the
+            # variable on, so the check has to be switchable.
+            ignored = subprocess.run(
+                [
+                    'python3',
+                    '../mysql-perf-metrics',
+                    f'--defaults-file={defaults_file}',
+                    '--storage-type=skip',
+                    '--ignore-innodb-snapshot-isolation',
+                ],
+                cwd=HERE,
+                capture_output=True,
+                text=True,
+            )
+            test.assertEqual(ignored.returncode, STATE_OK)
+            test.assertNotIn(
+                'innodb_snapshot_isolation', ignored.stdout + ignored.stderr
             )
         else:
             test.assertEqual(result.returncode, STATE_OK)

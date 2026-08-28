@@ -77,6 +77,7 @@ Monitoring Plugins:
 * kvm-vm: reports a machine that should start with the host and does not, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
+* mysql-perf-metrics: the `innodb_snapshot_isolation` advice warns that every connected application has to cope with the rollbacks it causes, and `--ignore-innodb-snapshot-isolation` turns the check off where an application cannot
 * nextcloud-stats: also lists the five largest accounts, and runs longer on big instances ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
 * openstack-swift-stat: alerts on the container and account quotas
