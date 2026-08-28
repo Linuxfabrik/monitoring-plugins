@@ -1,0 +1,1437 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import datetime
+import os
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.logmatch
+import lib.logsource
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082801'
+
+DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
+has to act on: children that died on a signal, a server that ran out of workers, processes
+it failed to fork, backends a reverse proxy could not reach, and stapling switched on for a
+certificate it cannot work for. Startups, restarts and shutdowns are counted alongside
+them, so a server that keeps restarting is visible.
+What Apache logged about one request and one client - a denied access, a password that did
+not match, a request line it refused to parse - is counted within `--lookback` and judged
+by how many of them arrived, not by the fact that they did: one is a bot or a bad link,
+hundreds within ten minutes is somebody walking the site or guessing passwords. Those
+lines are counted there and nowhere else, so the background noise every internet-facing
+server produces does not keep the check permanently yellow.
+What is left is what Apache said about itself, and that is counted by the level it wrote
+at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns
+WARNING, and `--critical-level` and `--warning-level` move that split. The events named
+above raise their own state either way, because Apache logs some of them at `notice`. A
+message that merely contains the word "error" never counts, and a `LogLevel` below `warn`
+hides a line from this check just as it hides it from the file.
+The log is read either from a file, from a systemd unit (`systemd:`) or from a container
+(`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the
+`ErrorLog` directive of the main configuration file, with the common locations of the
+distributions probed when that yields nothing. The most recent rotated file is read along
+with the live one, so the window does not end where logrotate last ran.
+Note that a server which fails to start writes to its standard error instead of into the
+error log, so a rejected configuration or an address already in use shows up only when the
+unit is read (`--server-log=systemd:httpd.service`).
+Requires root or sudo."""
+
+# What `--critical-level` and `--warning-level` accept on top of the levels
+# themselves: no level at all raises that state, which leaves the named events as
+# the only way to reach it.
+LEVEL_NONE = 'none'
+
+DEFAULT_AUTH_FAILURES_CRITICAL = 500
+DEFAULT_AUTH_FAILURES_WARNING = 50
+DEFAULT_CLIENT_DENIALS_CRITICAL = 1000
+DEFAULT_CLIENT_DENIALS_WARNING = 100
+DEFAULT_CRITICAL_LEVEL = 'crit'
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_LOOKBACK = 600  # seconds
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_PROXY_FAILURES_CRITICAL = 100
+DEFAULT_PROXY_FAILURES_WARNING = 10
+DEFAULT_REQUEST_ERRORS_CRITICAL = 1000
+DEFAULT_REQUEST_ERRORS_WARNING = 100
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARNING_LEVEL = 'error'
+
+ACK_RETENTION_DAYS = 30
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
+# Rotated predecessors of the log file to read along with it. The distributions
+# rotate this log daily or weekly, so without one the window would end at the
+# last rotation and an event from before it would stop being reported the moment
+# logrotate runs. One covers a daily rotation with room to spare.
+ROTATED_FILES = 1
+
+# The main server configuration of the distributions. Only these fixed locations
+# are read, and only the `ErrorLog` outside of a `<VirtualHost>` counts, so
+# neither an included file nor a virtual host can steer the check somewhere else:
+# the RHEL family ships `ErrorLog logs/ssl_error_log` inside the virtual host of
+# `conf.d/ssl.conf`, and the Debian family ships one inside every site in
+# `sites-enabled/`. An `ErrorLog` that only an included file sets is therefore
+# not found, and the probe below takes over.
+CONFIG_FILES = (
+    '/etc/httpd/conf/httpd.conf',
+    '/etc/apache2/apache2.conf',
+    '/etc/apache2/httpd.conf',
+    '/usr/local/apache2/conf/httpd.conf',
+)
+
+# The Debian family keeps the log directory out of the configuration and in a
+# shell snippet its init script and its logrotate configuration source, so
+# `ErrorLog ${APACHE_LOG_DIR}/error.log` only resolves with this file at hand.
+ENVVARS_FILES = ('/etc/apache2/envvars',)
+
+# Directives are matched case-insensitively, the way Apache itself compares them.
+# A `<VirtualHost>` is the only section that can carry an `ErrorLog` of its own;
+# every other one (`<IfModule>` for example) passes it on to the main server, so
+# only this section is skipped.
+CONFIG_COMMENT_REGEX = re.compile(r'^\s*#')
+DIRECTIVE_REGEX = re.compile(r'^\s*(ErrorLog|ServerRoot)\s+(.+?)\s*$', re.IGNORECASE)
+VIRTUALHOST_REGEX = re.compile(r'^\s*<\s*(/?)\s*VirtualHost\b', re.IGNORECASE)
+# `export NAME=value` and a bare `NAME=value`, which is what a shell snippet
+# holds. Anything else in it (conditionals, sourced files) is out of reach and
+# leaves the variable unset, which is what a shell does with it as well.
+ENVVAR_REGEX = re.compile(r'^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$')
+VARIABLE_REGEX = re.compile(
+    r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)'
+)
+
+# What Apache accepts instead of a path. `syslog` optionally names a facility
+# (`syslog:local7`), and a value starting with a pipe hands the log to a program,
+# `rotatelogs` for example. Neither is a file this check can open.
+SYSLOG_TARGET = 'syslog'
+PIPE_TARGET = 'pipe'
+
+# Where the distributions keep the error log when the configuration does not say.
+# The last entry is the path a source build compiles in.
+LOG_FILE_CANDIDATES = (
+    '/var/log/httpd/error_log',
+    '/var/log/apache2/error.log',
+    '/var/log/apache2/error_log',
+    '/var/log/httpd/error.log',
+    '/usr/local/apache2/logs/error_log',
+)
+
+# Apache writes `[Fri Aug 28 17:11:44.101220 2026] [mpm_event:notice] [pid 1835:tid
+# 1835] AH00489: message`, and `ErrorLogFormat` lets an administrator rearrange
+# that head. The level is therefore looked for wherever it stands rather than at
+# a fixed offset, which also carries the lines through unchanged when the source
+# is a unit and journalctl puts its own timestamp and unit name in front of them.
+# Verified against httpd 2.4.37 on Rocky 8, 2.4.62 on Rocky 9 and 2.4.68 on
+# Debian 12.
+LEVEL_REGEX = re.compile(
+    r'\[(?:[^\[\]\s:]+:)?'
+    r'(emerg|alert|crit|error|warn|notice|info|debug|trace[1-8])\]'
+)
+
+# The timestamp Apache puts in front of a line, `[Fri Aug 28 17:12:07.128496
+# 2026]`, in the local time of the host and in English regardless of the locale,
+# because Apache formats it in the C locale. Python parses it in the C locale as
+# well, as nothing here calls `setlocale()`.
+TIMESTAMP_REGEX = re.compile(
+    r'\[(\w{3} \w{3} [ \d]\d \d{2}:\d{2}:\d{2})(?:\.\d+)? (\d{4})\]'
+)
+TIMESTAMP_FORMAT = '%a %b %d %H:%M:%S %Y'
+
+# Apache leaves its own timestamp out as soon as the log goes through syslog,
+# which is what a server logging into the journal does: the line then starts at
+# `[ssl:error] [pid ...]`. What stands in front of it there is journalctl's
+# timestamp, and reading that one is `lib.logsource.timestamp()`'s job.
+# Every message Apache logs carries a unique code since 2.4, and the lines it
+# writes while starting up carry nothing else: neither timestamp nor level, so
+# `AH00558: httpd: Could not reliably determine the server's fully qualified
+# domain name` stands bare in the log of every host without a `ServerName`. A
+# line is therefore Apache's if it holds a level or a code.
+CODE_REGEX = re.compile(r'\bAH\d{5}\b')
+
+# The levels that say something is wrong, worst first. `notice` and everything
+# below it is what a healthy server writes on every start, so those are read but
+# not counted: alerting on them would alert on `resuming normal operations`.
+#
+# Which of them raise which state is left to `--critical-level` and
+# `--warning-level`, because Apache's `error` is not the word an administrator
+# reads into it. Most of what arrives at that level is about one request and one
+# client rather than about the server: `AH01630: client denied by server
+# configuration` for every bot that probes a path the configuration protects,
+# `AH01276: Cannot serve directory`, and `AH01071: Got error 'PHP message: ...'`
+# for every notice a PHP application prints. Getting somebody out of bed at 02:00
+# for those teaches them to ignore the check, so `error` warns by default and
+# only `crit` and above alerts. What is genuinely about the server and still
+# logged below `crit` is named in EVENTS and raises its own state regardless of
+# where these two thresholds sit.
+LEVELS = (
+    {'level': 'emerg', 'perfdata': 'apache_httpd_emerg_lines'},
+    {'level': 'alert', 'perfdata': 'apache_httpd_alert_lines'},
+    {'level': 'crit', 'perfdata': 'apache_httpd_crit_lines'},
+    {'level': 'error', 'perfdata': 'apache_httpd_error_lines'},
+    {'level': 'warn', 'perfdata': 'apache_httpd_warn_lines'},
+)
+LEVEL_CHOICES = [item['level'] for item in LEVELS] + [LEVEL_NONE]
+
+# The events worth naming on their own, because the level alone does not say what
+# happened - and because Apache logs some of them below `warn`, where nothing but
+# the message itself makes them visible. Everything else Apache writes is covered
+# by the per-level counts above. Each entry carries the state the situation
+# deserves on its own, which is then taken next to the state the level asks for.
+#
+# Every code below was read off the httpd `2.4.x` branch, which is what the
+# distributions ship, rather than off `trunk`, where a message can carry a code
+# and a wording it does not have in any release yet. Message and level of all of
+# them are the same in `2.4.37` (the oldest release an enterprise distribution
+# still ships) as in the current branch, and the ones that decide a state were
+# reproduced on httpd 2.4.37, 2.4.62 and 2.4.68.
+EVENTS = (
+    {
+        'key': 'child_crashes',
+        'label': 'child crash',
+        'suffix': 'es',
+        'perfdata': 'apache_httpd_child_crashes',
+        # AH00051 and AH00052 report a child that died on a signal. Apache logs
+        # them at `notice`, so without naming them here a segfaulting module
+        # would leave the check green. It writes neither for SIGTERM, SIGHUP,
+        # SIGKILL nor for its own graceful-shutdown signal, so every line that
+        # does appear is a child that went down on a fault or was killed from
+        # outside. AH00050 and AH00060 are the same thing hitting the parent.
+        'regex': re.compile(r'\bAH(?:00050|00051|00052|00060)\b'),
+        'state': STATE_WARN,
+        'recommendation': (
+            'Children died on a signal Apache did not send them; look for a core'
+            ' dump, a faulty module, or the OOM killer in the kernel log'
+        ),
+    },
+    {
+        'key': 'worker_saturations',
+        'label': 'worker saturation',
+        'perfdata': 'apache_httpd_worker_saturations',
+        # `server reached MaxRequestWorkers setting` for the three MPMs of the
+        # Unix family, plus `scoreboard is full, not at MaxRequestWorkers`, which
+        # is the same wall reached through a ServerLimit that is too low. Apache
+        # logs each of them once per generation, so the count says how often the
+        # situation returned after a restart rather than how many requests waited.
+        'regex': re.compile(r'\bAH(?:00161|00286|00484|00288|03490)\b'),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'The server ran out of workers; raise `MaxRequestWorkers` (and'
+            ' `ServerLimit` with it) or shorten the requests, otherwise clients'
+            ' wait in the listen queue'
+        ),
+    },
+    {
+        'key': 'worker_pressure',
+        'label': 'worker pressure warning',
+        'perfdata': 'apache_httpd_worker_pressure',
+        # `server is within MinSpareThreads of MaxRequestWorkers`, the leading
+        # indicator of the saturation above. Its prefork counterpart, `server
+        # seems busy`, is logged at `info` and therefore invisible at the default
+        # `LogLevel warn`; it is left out rather than promised and never seen.
+        # The event MPM only learned to say this after 2.4.37, so a RHEL 8 host
+        # reaches its limit without the warning ahead of it. Its worker MPM
+        # counterpart is as old as the branch.
+        'regex': re.compile(r'\bAH(?:00287|10159)\b'),
+        'state': STATE_WARN,
+        'recommendation': (
+            'The server came within `MinSpareThreads` of `MaxRequestWorkers`;'
+            ' raise the limit before the next traffic peak reaches it'
+        ),
+    },
+    {
+        'key': 'fork_failures',
+        'label': 'fork failure',
+        'perfdata': 'apache_httpd_fork_failures',
+        # `fork: Unable to fork new process` for the three MPMs, and the alert
+        # Apache raises when a shortage kept every child from coming up.
+        'regex': re.compile(r'\bAH(?:00159|00283|00481|02324|02325)\b'),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'Apache could not fork a process; check the memory of the host and'
+            ' the process and file-descriptor limits of the service unit'
+        ),
+    },
+    {
+        'key': 'stapling_failures',
+        'label': 'stapling failure',
+        'perfdata': 'apache_httpd_stapling_failures',
+        # `SSLUseStapling on` for a certificate stapling cannot be set up for.
+        # Apache says so once per certificate on every start and then serves TLS
+        # without stapling, which is why the level alone leaves an administrator
+        # looking for a certificate problem that is not one. Since Let's Encrypt
+        # stopped publishing OCSP responders this reaches every host that kept
+        # the directive on. All four reasons `ssl_stapling_init_cert()` can fail
+        # are here - no OCSP URI in the certificate (AH02218, and AH02814 where
+        # another virtual host already parsed it), no issuer certificate to ask
+        # about (AH02217), and a request that could not be built (AH02815) -
+        # together with the line its caller writes per certificate (AH02604).
+        # What the module logs about a responder that answered badly is left
+        # out: that is a working setup with a failing responder, and a different
+        # problem with a different fix.
+        'regex': re.compile(r'\bAH(?:02217|02218|02604|02814|02815)\b'),
+        'state': STATE_WARN,
+        'recommendation': (
+            'Stapling is switched on for a certificate whose issuer publishes no'
+            ' OCSP responder, so it does nothing; turn `SSLUseStapling off` for'
+            ' that host, or point `SSLStaplingForceURL` at a responder that'
+            ' answers for it'
+        ),
+    },
+    {
+        'key': 'startup_failures',
+        'label': 'startup failure',
+        'perfdata': 'apache_httpd_startup_failures',
+        # A rejected configuration, a port already taken, and a log Apache could
+        # not open. These reach the standard error instead of the error log, so
+        # they show up only when the source is the unit or the container - which
+        # is exactly why they are named: there the check is the one thing that
+        # sees why the server is gone. The last alternative is matched by its
+        # text because no release carries a code for it: the whole `2.4.x`
+        # branch logs that line without one, and only `trunk` has since given
+        # it one.
+        'regex': re.compile(
+            r'\bAH(?:00015|00072|00526)\b|no listening sockets available'
+        ),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'Apache refused to start; `apachectl configtest` names a rejected'
+            ' directive, and a port that is already taken names the process'
+            ' holding it in `ss --listening --processes`'
+        ),
+    },
+)
+
+# What Apache writes once per rejected request rather than once per problem: an
+# access somebody is not allowed, and a password that did not match. One of them
+# is a misconfigured link or a bot, and no reason to get anybody out of bed;
+# hundreds of them in ten minutes is somebody walking the site or guessing
+# passwords. They are therefore counted against a rate rather than reported line
+# by line, and they are kept out of the per-level counts above, so the background
+# noise every internet-facing server produces leaves the check green.
+#
+# `mod_auth_digest` carries no message codes at all and is not matched; it is
+# also not what a site set up today uses.
+#
+# The last entry catches everything else Apache logged about one request, which
+# is what the two named ones are a special case of. A reverse proxy on the open
+# internet collects those all day: a client that sends one host name in SNI and
+# another in the `Host` header, a scanner posting `/cgi-bin/.%2e/.%2e/bin/sh`,
+# a request line Apache refuses to parse. Naming each code would be an endless
+# list, so the scope decides instead of the code.
+RATE_EVENTS = (
+    {
+        'key': 'client_denials',
+        'label': 'client denial',
+        'perfdata': 'apache_httpd_client_denials',
+        # `client denied by server configuration` from mod_authz_core and from
+        # the deprecated mod_access_compat.
+        'regex': re.compile(r'\bAH(?:01630|01797)\b'),
+        'critical': 'CLIENT_DENIALS_CRITICAL',
+        'warning': 'CLIENT_DENIALS_WARNING',
+        'recommendation': (
+            'Clients are being denied access in bulk; the paths in the log say'
+            ' whether somebody is walking the site, and `fail2ban` or the'
+            ' firewall is where that is answered'
+        ),
+    },
+    {
+        'key': 'auth_failures',
+        'label': 'authentication failure',
+        'perfdata': 'apache_httpd_auth_failures',
+        # `authentication failure ... Password Mismatch` and `user ... not found`
+        # from mod_auth_basic and mod_auth_form.
+        'regex': re.compile(r'\bAH(?:01617|01618|01807|01808)\b'),
+        'critical': 'AUTH_FAILURES_CRITICAL',
+        'warning': 'AUTH_FAILURES_WARNING',
+        'recommendation': (
+            'Passwords are failing in bulk, which is what a guessing run looks'
+            ' like; the user names in the log say whether real accounts are'
+            ' being targeted'
+        ),
+    },
+    {
+        'key': 'proxy_failures',
+        'label': 'proxy failure',
+        'perfdata': 'apache_httpd_proxy_failures',
+        # Everything `mod_proxy` and its protocol modules log when they cannot
+        # reach a backend or lose its reply: a refused connection over TCP
+        # (AH00939, AH00957), through a CONNECT proxy (AH00958) or over a Unix
+        # socket (AH02454), the same from the AJP, FastCGI, SCGI, uwsgi,
+        # WebSocket and HTTP modules (AH00896, AH01079, AH00866, AH10101,
+        # AH02452, AH01114), a worker taken out of the pool over it (AH00940,
+        # AH00959), and a reply that broke off (AH00860, AH00898, AH01102,
+        # AH01110). Counted as a rate rather than reported one by one, because
+        # one of these is a backend being restarted - a `systemctl reload
+        # php-fpm` leaves exactly one line - while a backend that is really gone
+        # writes one per request. `mod_proxy_ftp` is left out: its EPSV and PASV
+        # failures are about an FTP data channel and a firewall, not about a
+        # backend of the web server. So is `AH10404`, which Apache itself logs
+        # at `warn` and which the level count picks up.
+        'regex': re.compile(
+            r'\bAH(?:00860|00866|00896|00898|00939|00940|00957|00958|00959'
+            r'|01079|01102|01110|01114|02452|02454|10101)\b'
+        ),
+        'critical': 'PROXY_FAILURES_CRITICAL',
+        'warning': 'PROXY_FAILURES_WARNING',
+        'recommendation': (
+            'Backends behind the reverse proxy could not be reached; check that'
+            ' they are running and that Apache may open the connection to them,'
+            ' and whether the count matches the times one of them was restarted'
+        ),
+    },
+    {
+        'key': 'request_errors',
+        'label': 'request error',
+        'perfdata': 'apache_httpd_request_errors',
+        # Matched by scope rather than by a pattern, see SCOPE_REGEX.
+        'regex': None,
+        'critical': 'REQUEST_ERRORS_CRITICAL',
+        'warning': 'REQUEST_ERRORS_WARNING',
+        'recommendation': (
+            'Requests are failing in bulk; the paths and host names in the log'
+            ' say whether that is a scanner, a client sending a host name the'
+            ' server has no matching site for, or an application behind the'
+            ' server that stopped answering'
+        ),
+    },
+)
+
+# Apache prints this in front of the message whenever the line is about one
+# request, and never otherwise: `[client 198.51.100.7:4000]`, or `[remote ...]`
+# when the peer is a backend rather than a browser. It is not a heuristic but the
+# boundary in Apache's own logging API - `ap_log_rerror()` has a request and adds
+# the field, `ap_log_error()` has none and cannot. A line carrying it says
+# something went wrong with that one request, which is worth a rate and not an
+# alert of its own.
+SCOPE_REGEX = re.compile(r'\[(?:client|remote) [^\]]*\]')
+
+# The levels at which a request-scoped line is counted as a rate instead of by
+# its level. `crit` and above stay level-driven whatever their scope: across the
+# whole of Apache only a couple of dozen request-scoped messages are logged that
+# high, and they are broken LDAP, Lua and FastCGI backends rather than anything a
+# client can provoke.
+SCOPED_LEVELS = ('error', 'warn')
+
+# The rate event that takes the request-scoped lines no named one claimed.
+SCOPE_FALLBACK_KEY = 'request_errors'
+
+# Lifecycle markers, counted but never alerting on. A restart re-reads the
+# configuration and logs `resuming normal operations` a second time, so it shows
+# up as a restart and as a startup.
+LIFECYCLE = (
+    {
+        'key': 'startups',
+        'label': 'startup',
+        'perfdata': 'apache_httpd_startups',
+        # `<version> configured -- resuming normal operations`, per MPM.
+        'regex': re.compile(r'\bAH(?:00163|00292|00489)\b'),
+        'verb': 'detected',
+    },
+    {
+        'key': 'restarts',
+        'label': 'restart',
+        'perfdata': 'apache_httpd_restarts',
+        # `Doing graceful restart` and `SIGHUP received.  Attempting to restart`,
+        # per MPM. logrotate reloads Apache to make it reopen the file, so the
+        # nightly rotation shows up here.
+        'regex': re.compile(r'\bAH(?:00171|00173|00297|00298|00493|00494)\b'),
+        'verb': 'detected',
+    },
+    {
+        'key': 'shutdowns',
+        'label': 'shutdown',
+        'perfdata': 'apache_httpd_shutdowns',
+        # `caught SIGTERM, shutting down` and `caught SIGWINCH, shutting down
+        # gracefully`, per MPM. The RHEL family stops the service with SIGWINCH,
+        # so both are needed to see an ordinary `systemctl stop`.
+        'regex': re.compile(r'\bAH(?:00169|00170|00295|00296|00491|00492)\b'),
+        'verb': 'detected',
+    },
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--auth-failures-critical',
+        help='Number of authentication failures within `--lookback` that '
+        'returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--auth-failures-critical=200`. '
+        'Default: %(default)s',
+        dest='AUTH_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_AUTH_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--auth-failures-warning',
+        help='Number of authentication failures within `--lookback` that '
+        'returns WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--auth-failures-warning=20`. '
+        'Default: %(default)s',
+        dest='AUTH_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_AUTH_FAILURES_WARNING,
+    )
+
+    parser.add_argument(
+        '--client-denials-critical',
+        help='Number of denied requests within `--lookback` that returns '
+        'CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--client-denials-critical=500`. '
+        'Default: %(default)s',
+        dest='CLIENT_DENIALS_CRITICAL',
+        type=int,
+        default=DEFAULT_CLIENT_DENIALS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--client-denials-warning',
+        help='Number of denied requests within `--lookback` that returns '
+        'WARNING. '
+        '0 turns the threshold off. '
+        'Example: `--client-denials-warning=50`. '
+        'Default: %(default)s',
+        dest='CLIENT_DENIALS_WARNING',
+        type=int,
+        default=DEFAULT_CLIENT_DENIALS_WARNING,
+    )
+
+    # Developer-only hook, like `--test` on the plugins that inject command
+    # output: it prefixes every path the check opens, so the fixture tests can
+    # stand a directory tree in for the host's file system. Deliberately not
+    # named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '--critical-level',
+        help='Least severe Apache log level that returns CRITICAL. '
+        'Each level includes everything more severe than itself, so `error` '
+        'covers `crit`, `alert` and `emerg` as well. '
+        'Case-sensitive. '
+        '`none` lets no level return CRITICAL, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--critical-level=error`. '
+        'Default: %(default)s',
+        dest='CRITICAL_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_CRITICAL_LEVEL,
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='ah01630'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Denied requests, failed passwords and failed requests are counted '
+        'within this window rather than reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=3600`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='\\[ssl:'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--proxy-failures-critical',
+        help='Number of unreachable backends within `--lookback` that returns '
+        'CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--proxy-failures-critical=50`. '
+        'Default: %(default)s',
+        dest='PROXY_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_PROXY_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--proxy-failures-warning',
+        help='Number of unreachable backends within `--lookback` that returns '
+        'WARNING. '
+        'One of them is a backend being restarted, so this counts how many '
+        'arrived rather than that any did. '
+        '0 turns the threshold off. '
+        'Example: `--proxy-failures-warning=1`. '
+        'Default: %(default)s',
+        dest='PROXY_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_PROXY_FAILURES_WARNING,
+    )
+
+    parser.add_argument(
+        '--request-errors-critical',
+        help='Number of failed requests within `--lookback` that returns '
+        'CRITICAL. '
+        'Counts what Apache logged about one request and one client, denied '
+        'requests and failed passwords excluded, as those have counters of '
+        'their own. '
+        '0 turns the threshold off. '
+        'Example: `--request-errors-critical=500`. '
+        'Default: %(default)s',
+        dest='REQUEST_ERRORS_CRITICAL',
+        type=int,
+        default=DEFAULT_REQUEST_ERRORS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--request-errors-warning',
+        help='Number of failed requests within `--lookback` that returns '
+        'WARNING. '
+        'Counts what Apache logged about one request and one client, denied '
+        'requests and failed passwords excluded, as those have counters of '
+        'their own. '
+        '0 turns the threshold off. '
+        'Example: `--request-errors-warning=50`. '
+        'Default: %(default)s',
+        dest='REQUEST_ERRORS_WARNING',
+        type=int,
+        default=DEFAULT_REQUEST_ERRORS_WARNING,
+    )
+
+    parser.add_argument(
+        '--server-log',
+        help='Log source to read from. '
+        'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
+        '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'If omitted, the check reads the `ErrorLog` directive of the main '
+        'Apache configuration file and falls back to the common locations of '
+        'the distributions. '
+        'Example: `--server-log=systemd:httpd.service`.',
+        dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-level',
+        help='Least severe Apache log level that returns WARNING. '
+        'Each level includes everything more severe than itself, and a level '
+        'that `--critical-level` already covers returns CRITICAL instead. '
+        'Case-sensitive. '
+        '`none` lets no level return WARNING, which leaves the events this '
+        'check names as the only way to reach it. '
+        'Example: `--warning-level=warn`. '
+        'Default: %(default)s',
+        dest='WARNING_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_WARNING_LEVEL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def parse_timestamp(log_line):
+    """Return the moment Apache stamped a line with, or None when it carries none.
+
+    Only Apache's own timestamp; `lib.logsource.timestamp()` falls back to the one
+    the transport prefixed. A line without either is not an error:
+    `ErrorLogFormat` can leave it out, a log going through syslog has none, and
+    the lines Apache writes while starting up never carry one.
+    """
+    match = TIMESTAMP_REGEX.search(log_line)
+    if not match:
+        return None
+    try:
+        return datetime.datetime.strptime(
+            f'{match.group(1)} {match.group(2)}', TIMESTAMP_FORMAT
+        )
+    except ValueError:
+        return None
+
+
+def get_level_states(critical_level, warning_level):
+    """Map every counted level to the state it raises.
+
+    A level raises a state when it is at least as severe as the level the
+    parameter names, and CRITICAL wins wherever both would apply.
+    """
+    ranks = {item['level']: rank for rank, item in enumerate(LEVELS)}
+    states = {}
+    for level, rank in ranks.items():
+        if critical_level != LEVEL_NONE and rank <= ranks[critical_level]:
+            states[level] = STATE_CRIT
+        elif warning_level != LEVEL_NONE and rank <= ranks[warning_level]:
+            states[level] = STATE_WARN
+        else:
+            states[level] = STATE_OK
+    return states
+
+
+def unquote(value):
+    """Strip one pair of surrounding quotes, which is what Apache does with a value."""
+    if len(value) > 1 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1]
+    return value
+
+
+def get_env_vars(config_root=''):
+    """Read the shell snippet the Debian family keeps its log directory in.
+
+    Values are expanded against what the file has defined so far, and a variable
+    it never defines expands to nothing, the way a shell expands an unset one.
+    """
+    env = {}
+    for candidate in ENVVARS_FILES:
+        success, content = lib.disk.read_file(f'{config_root}{candidate}')
+        if not success or not content:
+            continue
+        for line in content.splitlines():
+            if CONFIG_COMMENT_REGEX.match(line):
+                continue
+            match = ENVVAR_REGEX.match(line)
+            if not match:
+                continue
+            env[match.group(1)] = expand(unquote(match.group(2).strip()), env, '')
+    return env
+
+
+def expand(value, env, fallback=None):
+    """Replace `${NAME}` and `$NAME` with what `env` says, or with `fallback`.
+
+    Returns None when a variable is unknown and no fallback is given, so the
+    caller can fall back to probing rather than act on a half-resolved path.
+    """
+    unresolved = []
+
+    def substitute(match):
+        name = match.group(1) or match.group(2)
+        if name in env:
+            return env[name]
+        if fallback is None:
+            unresolved.append(name)
+            return ''
+        return fallback
+
+    expanded = VARIABLE_REGEX.sub(substitute, value)
+    return None if unresolved else expanded
+
+
+def parse_config(content):
+    """Return the `ServerRoot` and the main server's `ErrorLog` of a configuration.
+
+    Both are the last one the file sets, which is the one Apache uses as well.
+    An `ErrorLog` inside a `<VirtualHost>` belongs to that host alone and is
+    skipped, so the log of the TLS virtual host the distributions ship is not
+    mistaken for the server-wide one.
+    """
+    error_log = None
+    server_root = None
+    in_virtualhost = False
+    for line in content.splitlines():
+        section = VIRTUALHOST_REGEX.match(line)
+        if section:
+            in_virtualhost = not section.group(1)
+            continue
+        if in_virtualhost or CONFIG_COMMENT_REGEX.match(line):
+            continue
+        match = DIRECTIVE_REGEX.match(line)
+        if not match:
+            continue
+        directive, value = match.group(1).lower(), unquote(match.group(2))
+        if directive == 'errorlog':
+            error_log = value
+        else:
+            server_root = value
+    return server_root, error_log
+
+
+def get_configured_log_file(config_root=''):
+    """Return the `ErrorLog` the Apache configuration names, or None.
+
+    The values `syslog` and a piped logger are handed back as markers rather than
+    as paths, because the caller has to report them instead of opening them. Only
+    the fixed configuration locations of the distributions are read, so nothing
+    the log itself contains can steer the check to another file.
+    """
+    env = get_env_vars(config_root)
+    for candidate in CONFIG_FILES:
+        for filename in lib.disk.glob(f'{config_root}{candidate}'):
+            success, content = lib.disk.read_file(filename)
+            if not success or not content:
+                continue
+            server_root, error_log = parse_config(content)
+            if not error_log:
+                continue
+            error_log = expand(error_log, env)
+            if not error_log:
+                # A variable this check cannot resolve leaves a path that would
+                # point somewhere else entirely, so probing gets further.
+                continue
+            if error_log.startswith('|'):
+                return PIPE_TARGET
+            if error_log.lower() == SYSLOG_TARGET or error_log.lower().startswith(
+                f'{SYSLOG_TARGET}:'
+            ):
+                return SYSLOG_TARGET
+            if not error_log.startswith('/'):
+                # Apache resolves a relative path against `ServerRoot`, and where
+                # the configuration does not set one, against the directory it
+                # was compiled with. On the distributions that leave the
+                # directive out, that directory is the one holding the
+                # configuration file.
+                root = expand(server_root, env) if server_root else None
+                if not root:
+                    root = os.path.dirname(filename[len(config_root) :])
+                error_log = os.path.join(root, error_log)
+            return f'{config_root}{error_log}'
+    return None
+
+
+def get_log_file_real_path(config_root=''):
+    """Probe the locations the distributions keep the Apache error log in."""
+    for candidate in LOG_FILE_CANDIDATES:
+        for filename in lib.disk.glob(f'{config_root}{candidate}'):
+            if lib.disk.file_exists(filename, allow_empty=True):
+                return filename
+    return None
+
+
+def shorten(items, head=5, tail=5):
+    """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
+    if len(items) > head + tail:
+        return [*items[:head], '...', *items[-tail:]]
+    return items
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # fetch data
+    # `source_size` is set only for plain on-disk files, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container.
+    source_size = None
+    server_log = args.SERVER_LOG
+    if not server_log:
+        server_log = get_configured_log_file(
+            args.CONFIG_ROOT
+        ) or get_log_file_real_path(args.CONFIG_ROOT)
+    if not server_log:
+        lib.base.cu(
+            'Found no Apache error log. Set `ErrorLog` in the main Apache '
+            "configuration file, or name the log with the check's "
+            '`--server-log` parameter.'
+        )
+    if server_log == SYSLOG_TARGET:
+        lib.base.cu(
+            '`ErrorLog` hands the log to syslog, so it is not a file this check '
+            'can open. Point `--server-log` at the systemd unit '
+            '(`--server-log=systemd:httpd.service`) or at the file the syslog '
+            'daemon writes.'
+        )
+    if server_log == PIPE_TARGET:
+        lib.base.cu(
+            '`ErrorLog` pipes the log into a program, so it is not a file this '
+            'check can open. Name the file that program writes with '
+            '`--server-log`, or point the parameter at the systemd unit '
+            '(`--server-log=systemd:httpd.service`).'
+        )
+
+    kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+    if kind == lib.logsource.KIND_FILE:
+        # Report a path that is not a regular file before reading it, so the
+        # admin hears about a directory or a device rather than about an I/O
+        # error further down.
+        log_stat = lib.disk.stat(target)
+        if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
+            lib.base.oao(
+                f'Logging seems to be configured, but `{target}` does not seem to'
+                f' be an existing regular file. Check the path and file'
+                f' permissions, or provide the `--server-log` parameter.',
+                STATE_WARN,
+            )
+        source_size = log_stat.st_size
+        if source_size == 0:
+            # An empty log file is a deterministic "no events observed" state,
+            # not an unknown one - typical right after logrotate fires.
+            lib.base.oao(
+                f'Log file `{target}` is empty. Assuming log-rotation.',
+                STATE_OK,
+            )
+
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system
+    # log directory. The path the Apache configuration reports is deliberately
+    # not trusted beyond that: a configuration file an unprivileged user may edit
+    # could otherwise point the check at any file on the host. The plugin's own
+    # unit-test/ directory is allowed so the fixture tests work; it does not
+    # exist next to the flat, root-owned plugin in production. Bind-mount a
+    # custom log directory under /var/log to include it (see the README).
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    # No position is kept on purpose: this check reports on a window of the log,
+    # counting startups, restarts and shutdowns next to the problems, so every
+    # run has to see the whole window rather than only what is new.
+    result = lib.base.coe(
+        lib.logsource.read(
+            server_log,
+            allowed_roots=allowed_roots,
+            max_lines=MAXLINES,
+            rotated=ROTATED_FILES,
+            timeout=args.TIMEOUT,
+        )
+    )
+    source_label = f'`{result["label"]}`'
+
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of paths fire.
+    recommendations = []
+    level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
+    levels = {item['level']: [] for item in LEVELS}
+    found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in RATE_EVENTS})
+    found.update({item['key']: [] for item in LIFECYCLE})
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
+    considered_cnt = 0
+    recognized_cnt = 0
+    unrecognized_cnt = 0
+    suppressed_cnt = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # Persisted acknowledgements are only needed when the callback is in use.
+    # Each unique combination of filters gets its own state database, so two
+    # services watching the same error log for different things do not share what
+    # has been acknowledged. Only the filters actually set take part in the
+    # identifier, so adding a filter later does not orphan the state of a service
+    # that does not use it.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = {'server_log': server_log}
+        for name, value in (('ignore_regex', args.IGNORE), ('match', args.MATCH)):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'apache-httpd-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        # Drop acknowledgements older than the retention: by that age the line has
+        # left the window this check reads and can no longer re-appear.
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
+
+    # analyze data
+    for log_line in result['lines']:
+        haystack = log_line.lower()
+        if any(item.search(haystack) for item in compiled_ignore):
+            continue
+        # `--match` (include) is applied first, then `--ignore` (exclude), so a
+        # line hit by `--ignore` is dropped even if it also matches `--match`.
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        considered_cnt += 1
+        # Drop a line an operator has already taken on. The whole log line is
+        # keyed, timestamp included, so the very same message logged again later
+        # is a new event and alerts again.
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
+            continue
+        level_match = LEVEL_REGEX.search(log_line)
+        hits = [event for event in EVENTS if event['regex'].search(log_line)]
+        if not level_match and not CODE_REGEX.search(log_line) and not hits:
+            # Not a line Apache wrote. Counted rather than dropped silently,
+            # because a log full of them means the check is pointed at the wrong
+            # file. An event counts as Apache's as well, because the one line it
+            # writes about listening sockets carries neither level nor code.
+            unrecognized_cnt += 1
+            continue
+        recognized_cnt += 1
+        rate_hits = [
+            event
+            for event in RATE_EVENTS
+            if event['regex'] and event['regex'].search(log_line)
+        ]
+        level = level_match.group(1) if level_match else None
+        # Everything else Apache logged about one request goes to the rate
+        # counter the named ones are a special case of, rather than to its level.
+        if not rate_hits and level in SCOPED_LEVELS and SCOPE_REGEX.search(log_line):
+            rate_hits = [
+                event for event in RATE_EVENTS if event['key'] == SCOPE_FALLBACK_KEY
+            ]
+        for event in rate_hits:
+            found[event['key']].append(log_line)
+        # A line a rate event owns is judged by how often it arrives and is
+        # therefore left out of the per-level counts; counting it in both places
+        # would put every internet-facing server permanently into WARNING for
+        # the bots that probe it.
+        if not rate_hits and level in levels:
+            levels[level].append(log_line)
+        for event in hits:
+            found[event['key']].append(log_line)
+        for item in LIFECYCLE:
+            if item['regex'].search(log_line):
+                found[item['key']].append(log_line)
+
+    # `--match` narrowed the run down to nothing, so this run looked at no line at
+    # all rather than at a quiet log. Only reachable when the operator set a
+    # filter, so a log that simply has nothing to report stays OK.
+    if compiled_match and result['lines'] and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(result["lines"])} '
+            f'{lib.txt.pluralize("line", len(result["lines"]))} of '
+            f'{result["label"]}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # Every line Apache writes carries its level or its message code, so a window
+    # without a single one is not a quiet Apache but a source that holds something
+    # else, the access log for example. Saying so beats reporting the green state
+    # a check would otherwise keep on the wrong file forever.
+    if unrecognized_cnt and not recognized_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'None of the {unrecognized_cnt} '
+            f'{lib.txt.pluralize("line", unrecognized_cnt)} read from '
+            f'{result["label"]} carries an Apache log level or message code, so '
+            f'this does not look like an Apache error log. Check `--server-log` '
+            f'and the `ErrorLog` directive of the Apache configuration.',
+            STATE_UNKNOWN,
+        )
+
+    # build the message
+    # The window is named with the number of lines it holds and how many files
+    # they came from, because everything below counts within it: right after
+    # logrotate the live file holds the restart alone, and a run that reports no
+    # startup at all is telling the truth about the window rather than about the
+    # day.
+    files = 1 + len(result['rotated'])
+    window = f'{len(result["lines"])} {lib.txt.pluralize("line", len(result["lines"]))}'
+    if files > 1:
+        window += f' across {files} files'
+    if source_size is not None:
+        facts.append(
+            f'Source: {source_label} '
+            f'(size: {lib.human.bytes2human(source_size)}, {window})'
+        )
+    else:
+        facts.append(f'Source: {source_label} ({window})')
+
+    # The counted events. Their state comes from how many of them arrived within
+    # the rate window, not from the fact that they arrived at all. Their facts
+    # are collected before the level counts are rendered, because a run that has
+    # something to say about them is not the quiet one the literal below claims.
+    rate_counts = {}
+    rate_facts = []
+    for event in RATE_EVENTS:
+        hits = found[event['key']]
+        recent, undated = lib.logsource.count_within(
+            hits, rate_since, parse_line=parse_timestamp
+        )
+        rate_counts[event['key']] = recent
+        if not hits:
+            continue
+        rate_state = lib.base.get_state(
+            recent,
+            getattr(args, event['warning']) or None,
+            getattr(args, event['critical']) or None,
+        )
+        state = lib.base.get_worst(state, rate_state)
+        fact = (
+            f'{recent} '
+            f'{lib.txt.pluralize(event["label"], recent)} in the last'
+            f' {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(rate_state, prefix=" ")}'
+        )
+        if len(hits) != recent:
+            fact += f' ({len(hits)} in the window read)'
+        if undated:
+            fact += f', {undated} of them without a timestamp and therefore not counted'
+        rate_facts.append(fact)
+        if rate_state != STATE_OK:
+            recommendations.append(event['recommendation'])
+
+    counts = {}
+    for item in LEVELS:
+        lines = levels[item['level']]
+        counts[item['level']] = len(lines)
+        if not lines:
+            continue
+        level_state = level_states[item['level']]
+        state = lib.base.get_worst(state, level_state)
+        facts.append(
+            f'{len(lines)} {item["level"]} '
+            f'{lib.txt.pluralize("line", len(lines))} found'
+            f'{lib.base.state2str(level_state, prefix=" ")}'
+            f' (last: {lines[-1]})'
+        )
+    if not any(counts.values()) and not rate_facts:
+        # Naming all five levels one by one would bury the one sentence a healthy
+        # host is supposed to be.
+        facts.append('No errors or warnings found')
+
+    # Name the events the level counts above already carry, so the summary says
+    # what happened and not only how bad it was, and raise the state for those
+    # Apache logs below `warn`. Quiet events stay out of the line, which keeps a
+    # healthy host down to a single sentence.
+    named = []
+    for event in EVENTS:
+        hits = found[event['key']]
+        if not hits:
+            continue
+        state = lib.base.get_worst(state, event['state'])
+        named.append(
+            f'{len(hits)} '
+            f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
+        )
+        recommendations.append(event['recommendation'])
+    if named:
+        # Not "among them": Apache logs a child crash at `notice`, so a named
+        # event is not necessarily one of the lines a level counted above.
+        facts.append('Found ' + ', '.join(named))
+
+    facts.extend(rate_facts)
+
+    for item in LIFECYCLE:
+        lines = found[item['key']]
+        if lines:
+            facts.append(
+                f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
+                f' {item["verb"]} (last: {lines[-1]})'
+            )
+        else:
+            facts.append(f'No {lib.txt.pluralize(item["label"], 0)} {item["verb"]}')
+
+    # A few lines without a level and without a message code are normal where
+    # something else logs into the same file; a majority of them means the source
+    # is mostly something else.
+    if unrecognized_cnt:
+        facts.append(
+            f'{unrecognized_cnt} {lib.txt.pluralize("line", unrecognized_cnt)}'
+            f' not written by Apache'
+        )
+        # Only worth saying for a file, which holds Apache's lines and nothing
+        # else. A unit and a container mix in what systemd and the engine say
+        # about the service, so a majority of foreign lines is normal there.
+        if unrecognized_cnt > recognized_cnt and kind == lib.logsource.KIND_FILE:
+            recommendations.append(
+                'Most lines carry neither an Apache log level nor a message code;'
+                ' check that the source is the error log and not the access log'
+            )
+
+    sections.append('. '.join(facts) + '.')
+
+    for item in LEVELS:
+        lines = levels[item['level']]
+        if lines:
+            sections.append(
+                f'{item["level"].capitalize()} lines:\n'
+                + '\n'.join(f'* {line}' for line in shorten(lines))
+            )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
+    if source_size is not None:
+        perfdata += lib.base.get_perfdata(
+            'apache_httpd_logfile_size',
+            source_size,
+            uom='B',
+            _min=0,
+        )
+    # The problem counters alert from their first hit on, hence a threshold of
+    # `'0'` ("outside 0..0") rather than `1`. A level counter carries the
+    # threshold of the state it actually raises, so the graph shows the line the
+    # check follows and a level left quiet by `--critical-level` and
+    # `--warning-level` draws none.
+    for item in LEVELS:
+        level_state = level_states[item['level']]
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'],
+            counts[item['level']],
+            uom=None,
+            warn='0' if level_state == STATE_WARN else None,
+            crit='0' if level_state == STATE_CRIT else None,
+            _min=0,
+        )
+    for event in EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            len(found[event['key']]),
+            uom=None,
+            warn='0' if event['state'] == STATE_WARN else None,
+            crit='0' if event['state'] == STATE_CRIT else None,
+            _min=0,
+        )
+    # The rate counters trend what the state follows: how many arrived within the
+    # window, not how many the log holds.
+    for event in RATE_EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            rate_counts[event['key']],
+            uom=None,
+            warn=getattr(args, event['warning']) or None,
+            crit=getattr(args, event['critical']) or None,
+            _min=0,
+        )
+    for item in LIFECYCLE:
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'], len(found[item['key']]), uom=None, _min=0
+        )
+
+    # Ask the monitoring server about the acknowledgement. Where the service is
+    # acknowledged, persist the lines currently being reported so an unchanged
+    # error log does not raise them again on the following runs.
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            # Both the lines a level flagged and the lines an event flagged, and
+            # the same line can be both, so they are deduplicated on the way in.
+            # The counted events stay out: what alerts there is the arrival rate
+            # and not one line, so silencing the lines already read would not
+            # keep the next run from alerting on the ones arriving meanwhile.
+            reported = {}
+            for item in LEVELS:
+                reported.update(dict.fromkeys(levels[item['level']]))
+            for event in EVENTS:
+                reported.update(dict.fromkeys(found[event['key']]))
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in reported
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

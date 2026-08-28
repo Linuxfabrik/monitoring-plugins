@@ -1,0 +1,696 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the apache-httpd-logfile check plugin.
+
+Every fixture under `fixtures/` was written by a real Apache (2.4.62 on Rocky 9,
+2.4.37 on Rocky 8 and 2.4.68 on Debian 12, driven into the situation the file is
+named after), and the trees under `config/` mirror what the RHEL and the Debian
+family install, down to the `logs` symlink of the former and the envvars file of
+the latter. That keeps the tests honest about the log format instead of
+confirming the plugin's own reading of it.
+
+The two tests about arrival rates write their own log, because a fixture with a
+fixed timestamp would be inside the rate window on the day it was taken and
+outside it forever after.
+
+Reading a systemd unit or a container log is left to the library and is not
+covered here; the journal fixture is a file holding what `journalctl` printed.
+"""
+
+import datetime
+import importlib.machinery
+import importlib.util
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+import lib.logsource
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'apache-httpd-logfile')
+
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    loader = importlib.machinery.SourceFileLoader('apache_httpd_logfile', PLUGIN)
+    spec = importlib.util.spec_from_loader('apache_httpd_logfile', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+apache_httpd_logfile = _load_plugin_module()
+
+
+def fixture(name):
+    return os.path.join(HERE, 'fixtures', name)
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+# One denial as Apache writes it, with the timestamp left open so a test can
+# place the line inside or outside the rate window.
+DENIAL_LINE = (
+    '[{timestamp}] [authz_core:error] [pid 2338:tid 2392]'
+    ' [client 198.51.100.7:58204] AH01630: client denied by server'
+    ' configuration: /var/www/html/.htaccess'
+)
+APACHE_TIMESTAMP_FORMAT = '%a %b %d %H:%M:%S.%f %Y'
+
+
+CASES = [
+    {
+        'id': 'ok-clean-start',
+        'params': [f'--server-log={fixture("rocky9-clean-start.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No errors or warnings found',
+            '1 startup detected',
+            'No restarts detected',
+            '1 shutdown detected',
+        ],
+        'assert-not-in': ['Recommendations:', '[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # The Debian family writes the same lines under a different product name
+        # and a different path, so the same assertions have to hold.
+        'id': 'ok-clean-start-on-debian',
+        'params': [f'--server-log={fixture("deb12-clean-start.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['No errors or warnings found', '1 startup detected'],
+    },
+    {
+        'id': 'ok-empty-log-assumes-rotation',
+        'params': [f'--server-log={fixture("empty.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['is empty. Assuming log-rotation.'],
+    },
+    {
+        # Apache logs a child that died on a signal at `notice` and a saturated
+        # server at `error`, so neither the level alone nor the state alone says
+        # what happened.
+        'id': 'crit-busy-server-names-every-event',
+        'params': [f'--server-log={fixture("rocky9-busy-server.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 child crash',
+            '1 worker saturation',
+            # An unreachable backend is a rate, not a single event: these two are
+            # a backend that was restarted, and they are hours old by now.
+            '0 proxy failures in the last 10m (2 in the window read)',
+            '2 startups detected',
+            '1 restart detected',
+            '1 shutdown detected',
+            'Recommendations:',
+            "'apache_httpd_child_crashes'=1",
+        ],
+    },
+    {
+        # Apache has not reworded any of these messages between the oldest
+        # release an enterprise distribution still ships and the current one, so
+        # the same run captured from httpd 2.4.37 has to yield the same counts.
+        'id': 'crit-busy-server-on-httpd-2437',
+        'params': [f'--server-log={fixture("rocky8-busy-server.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 child crash',
+            '1 worker saturation',
+            '0 proxy failures in the last 10m (2 in the window read)',
+            '2 startups detected',
+            '1 restart detected',
+            '1 shutdown detected',
+        ],
+    },
+    {
+        # A run that only produced `error` lines about the server itself is
+        # somebody's afternoon, not somebody's night, so it stops at WARNING
+        # until `--critical-level` says otherwise.
+        'id': 'warn-error-lines-alone-do-not-page',
+        'params': [f'--server-log={fixture("rocky9-stapling.txt")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['4 error lines found', '[WARNING]'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-critical-level-covers-error',
+        'params': [
+            f'--server-log={fixture("rocky9-stapling.txt")}',
+            '--critical-level=error',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['4 error lines found', '[CRITICAL]'],
+    },
+    {
+        # Turning both levels off leaves the named events, which is the whole
+        # point of them: stapling that cannot work is still reported.
+        'id': 'warn-events-survive-levels-turned-off',
+        'params': [
+            f'--server-log={fixture("rocky9-stapling.txt")}',
+            '--critical-level=none',
+            '--warning-level=none',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['4 stapling failures', 'turn `SSLUseStapling off`'],
+    },
+    {
+        'id': 'ok-levels-turned-off-entirely',
+        'params': [
+            f'--server-log={fixture("rocky9-scanner-noise.txt")}',
+            '--critical-level=none',
+            '--warning-level=none',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['2 warn lines found'],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # The rotated predecessor holds the only error and the live file holds
+        # only the restart logrotate triggered, so a check reading the live file
+        # alone would not see it at all. Exactly one predecessor on purpose: git
+        # stores no modification times, so a fresh clone stamps every fixture
+        # with the checkout time and the order of several of them would be
+        # whatever the filesystem said.
+        'id': 'ok-reads-across-the-rotation',
+        'params': [f'--config-root={config_root("just-rotated")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '9 lines across 2 files',
+            '(1 in the window read)',
+        ],
+    },
+    {
+        # `AH01276 Cannot serve directory` is about one request, so it is counted
+        # against the rate and not by its level - the whole reason a reverse
+        # proxy on the open internet is not permanently yellow.
+        'id': 'ok-a-single-failed-request-is-not-an-alert',
+        'params': [f'--config-root={config_root("just-rotated")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['0 request errors in the last 10m'],
+        'assert-not-in': ['error line found'],
+    },
+    {
+        # Scanner traffic: five requests Apache refused, all of them carrying a
+        # client and none of them saying anything about the server. Apache 2.4.62
+        # calls this AH10244 where 2.4.37 called it AH00126, which is why the
+        # scope decides here and not a list of codes.
+        'id': 'ok-scanner-noise-is-counted-not-reported',
+        'params': [f'--server-log={fixture("rocky9-scanner-noise.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '(5 in the window read)',
+            "'apache_httpd_request_errors'=0;100;1000;0",
+        ],
+        'assert-not-in': ['error line found', 'invalid URI path'],
+    },
+    {
+        'id': 'crit-scanner-noise-above-the-threshold',
+        'params': [
+            f'--server-log={fixture("rocky9-scanner-noise.txt")}',
+            '--lookback=31536000',
+            '--request-errors-critical=5',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['5 request errors in the last', 'Requests are failing in bulk'],
+    },
+    {
+        # Nothing of a failed start reaches the error log, so this is what the
+        # check sees when it is pointed at the unit instead.
+        'id': 'crit-failed-start-seen-through-the-unit',
+        'params': [f'--server-log={fixture("rocky9-failed-start.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '4 startup failures',
+            'Apache refused to start',
+            'No startups detected',
+        ],
+    },
+    {
+        # journalctl puts its own timestamp, host and unit in front of every
+        # line, and systemd writes lines of its own in between. Neither may keep
+        # the rejected configuration from being recognized.
+        'id': 'crit-rejected-configuration-in-the-journal',
+        'params': [f'--server-log={fixture("rocky9-journal-config-rejected.txt")}'],
+        'assert-retc': STATE_CRIT,
+        # The lines systemd wrote in between are counted as what they are.
+        # Reading them out of a file the way this test does is also what makes
+        # the advice about the wrong source appear here; against the unit itself
+        # the check knows that foreign lines are normal and keeps it back.
+        'assert-in': [
+            '1 startup failure',
+            'Apache refused to start',
+            '17 lines not written by Apache',
+        ],
+    },
+    {
+        # Denied requests and failed passwords are counted on their own and kept
+        # out of the level counts, so a scanned server is not permanently yellow.
+        'id': 'ok-denials-and-auth-failures-are-not-counted-by-level',
+        'params': [
+            f'--server-log={fixture("rocky9-scanned.txt")}',
+            '--client-denials-warning=0',
+            '--client-denials-critical=0',
+            '--auth-failures-warning=0',
+            '--auth-failures-critical=0',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '4 in the window read',
+            '2 in the window read',
+            "'apache_httpd_error_lines'=0",
+        ],
+    },
+    {
+        'id': 'unknown-source-is-an-access-log',
+        'params': [f'--server-log={fixture("apache-access-log.txt")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['does not look like an Apache error log'],
+    },
+    {
+        # Filtering the proxy lines out takes the proxy failures with them; the
+        # saturation the same log holds is untouched and keeps the check red.
+        'id': 'crit-ignore-drops-the-proxy-lines',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--ignore=ah00957',
+            '--ignore=ah01114',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 worker saturation'],
+        'assert-not-in': ['proxy failure'],
+    },
+    {
+        # A backend that is really gone writes one of these per request, which is
+        # what separates it from the single line a `systemctl reload php-fpm`
+        # leaves behind. The FastCGI socket failure the fixture holds is the one
+        # a reverse proxy in front of PHP-FPM produces.
+        'id': 'warn-a-backend-that-is-really-gone',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--lookback=31536000',
+            '--proxy-failures-warning=2',
+            '--critical-level=none',
+            '--warning-level=none',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '2 proxy failures in the last',
+            'Backends behind the reverse proxy',
+        ],
+    },
+    {
+        'id': 'crit-match-narrows-down-to-the-saturation',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--match=maxrequestworkers',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['1 error line found', '1 worker saturation'],
+        'assert-not-in': ['child crash', 'proxy failure'],
+    },
+    {
+        'id': 'ok-match-drops-everything',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--match=nothing-in-this-log-matches-this',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked: `--match` dropped all 17 lines'],
+    },
+    {
+        'id': 'unknown-match-drops-everything-with-severity',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--match=nothing-in-this-log-matches-this',
+            '--no-match-severity=unknown',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Nothing checked'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--ignore=[unterminated',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--ignore'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'params': [
+            f'--server-log={fixture("rocky9-busy-server.txt")}',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['worker saturation'],
+    },
+    {
+        # `ErrorLog "logs/error_log"` resolves against `ServerRoot`, and the RHEL
+        # family points that directory at /var/log/httpd with a symlink.
+        'id': 'crit-log-path-from-the-redhat-configuration',
+        'params': [f'--config-root={config_root("rhel")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['/etc/httpd/logs/error_log', '1 worker saturation'],
+        # The TLS virtual host of the same file names a log of its own, which
+        # belongs to that host and not to the server.
+        'assert-not-in': ['ssl_error_log'],
+    },
+    {
+        'id': 'ok-log-path-from-the-debian-configuration',
+        'params': [f'--config-root={config_root("debian")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/log/apache2/error.log', '1 startup detected'],
+    },
+    {
+        'id': 'ok-log-path-probed-without-a-configuration',
+        'params': [f'--config-root={config_root("probe-only")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/log/httpd/error_log', '1 startup detected'],
+    },
+    {
+        # The only ErrorLog in the file belongs to a virtual host, so the probe
+        # has to take over rather than the check reading that host's log.
+        'id': 'ok-virtual-host-log-is-not-the-server-log',
+        'params': [f'--config-root={config_root("vhost-only")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['/var/log/httpd/error_log'],
+        'assert-not-in': ['ssl_error_log'],
+    },
+    {
+        'id': 'unknown-error-log-goes-to-syslog',
+        'params': [f'--config-root={config_root("syslog")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['syslog', '--server-log=systemd:httpd.service'],
+    },
+    {
+        'id': 'unknown-error-log-goes-into-a-pipe',
+        'params': [f'--config-root={config_root("piped")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['pipes the log into a program'],
+    },
+    {
+        'id': 'unknown-no-log-found-at-all',
+        'params': [f'--config-root={config_root("no-such-tree")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no Apache error log'],
+    },
+    {
+        'id': 'warn-source-is-a-directory',
+        'params': [f'--server-log={os.path.join(HERE, "fixtures")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['does not seem to be an existing regular file'],
+    },
+    {
+        'id': 'unknown-callback-without-credentials',
+        'params': [
+            f'--server-log={fixture("rocky9-clean-start.txt")}',
+            '--icinga-callback',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--icinga-callback` requires'],
+    },
+    {
+        # Nothing to acknowledge means no call to the monitoring server, so an
+        # unreachable one must not turn a healthy check into a failure.
+        'id': 'ok-callback-is-not-reached-on-a-clean-log',
+        'params': [
+            f'--server-log={fixture("rocky9-clean-start.txt")}',
+            '--icinga-callback',
+            '--icinga-url=https://monitoring.example.invalid:5665',
+            '--icinga-username=username',
+            '--icinga-password=linuxfabrik',
+            '--icinga-service-name=host!service',
+            '--timeout=1',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['acknowledgement'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _run(params):
+    result = subprocess.run(
+        [PLUGIN, *params],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode, result.stdout + result.stderr
+
+
+def _check_case(test, case):
+    returncode, combined = _run(case['params'])
+    test.assertEqual(
+        returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {returncode}.\nOutput: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+class TestArrivalRate(unittest.TestCase):
+    """A burst of denied requests alerts, the same burst an hour ago does not.
+
+    The log is written here rather than taken from `fixtures/`, because a
+    timestamp stored in the repository sits inside the rate window on the day it
+    was captured and outside it on every day after. It goes below `unit-test/`,
+    which is where the plugin allows itself to read outside /var/log.
+    """
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='burst-', dir=HERE)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _write_denials(self, count, minutes_ago):
+        path = os.path.join(self.scratch_dir, 'error_log')
+        first = datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago)
+        with open(path, 'w', encoding='utf-8') as handle:
+            for index in range(count):
+                logged_at = first + datetime.timedelta(seconds=index)
+                handle.write(
+                    DENIAL_LINE.format(
+                        timestamp=logged_at.strftime(APACHE_TIMESTAMP_FORMAT)
+                    )
+                    + '\n'
+                )
+        return path
+
+    def test_burst_within_the_window_warns(self):
+        path = self._write_denials(count=120, minutes_ago=5)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('120 client denials in the last 10m', combined)
+        self.assertIn('walking the site', combined)
+
+    def test_burst_within_the_window_crits_above_the_threshold(self):
+        path = self._write_denials(count=120, minutes_ago=5)
+        returncode, combined = _run(
+            [f'--server-log={path}', '--client-denials-critical=100']
+        )
+        self.assertEqual(returncode, STATE_CRIT, combined)
+
+    def test_the_same_burst_an_hour_ago_is_quiet(self):
+        path = self._write_denials(count=120, minutes_ago=60)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('0 client denials in the last 10m', combined)
+        self.assertIn('(120 in the window read)', combined)
+
+    def test_a_wider_window_sees_the_older_burst(self):
+        path = self._write_denials(count=120, minutes_ago=60)
+        returncode, combined = _run([f'--server-log={path}', '--lookback=7200'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('120 client denials in the last 2h', combined)
+
+
+class TestConfigParsing(unittest.TestCase):
+    """The configuration reader, against the trees the distributions install."""
+
+    def test_redhat_resolves_against_serverroot(self):
+        root = config_root('rhel')
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_file(root),
+            f'{root}/etc/httpd/logs/error_log',
+        )
+
+    def test_debian_resolves_the_envvars_variable(self):
+        root = config_root('debian')
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_file(root),
+            f'{root}/var/log/apache2/error.log',
+        )
+
+    def test_an_unset_shell_variable_expands_to_nothing(self):
+        # `$SUFFIX` is a plain shell variable the envvars file sets in a
+        # conditional this check does not evaluate, and it is empty on an
+        # ordinary host.
+        env = apache_httpd_logfile.get_env_vars(config_root('debian'))
+        self.assertEqual(env['APACHE_LOG_DIR'], '/var/log/apache2')
+
+    def test_a_virtual_host_errorlog_is_not_the_server_log(self):
+        self.assertIsNone(
+            apache_httpd_logfile.get_configured_log_file(config_root('vhost-only'))
+        )
+
+    def test_syslog_and_a_pipe_are_reported_rather_than_opened(self):
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_file(config_root('syslog')),
+            apache_httpd_logfile.SYSLOG_TARGET,
+        )
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_file(config_root('piped')),
+            apache_httpd_logfile.PIPE_TARGET,
+        )
+
+    def test_a_commented_out_directive_does_not_count(self):
+        server_root, error_log = apache_httpd_logfile.parse_config(
+            '# ErrorLog "logs/commented_out"\nErrorLog "logs/error_log"\n'
+        )
+        self.assertIsNone(server_root)
+        self.assertEqual(error_log, 'logs/error_log')
+
+    def test_a_variable_nothing_defines_gives_up(self):
+        self.assertIsNone(apache_httpd_logfile.expand('${NOWHERE}/error.log', {}))
+
+
+class TestLineReading(unittest.TestCase):
+    """The two things every line is measured against: its level and its time."""
+
+    def test_the_level_is_found_wherever_the_format_puts_it(self):
+        for line, level in (
+            (
+                '[Fri Aug 28 17:11:44.101220 2026] [core:notice] [pid 1] AH1: x',
+                'notice',
+            ),
+            ('[core:error] [pid 1] AH1: x', 'error'),
+            # journalctl prefixes every line with its own timestamp and the unit
+            ('2026-08-28T17:16:18+0000 host httpd[20]: [ssl:warn] AH1: x', 'warn'),
+            # `ErrorLogFormat` without `%m` leaves the module out
+            ('[Fri Aug 28 17:11:44.101220 2026] [emerg] [pid 1] AH1: x', 'emerg'),
+        ):
+            match = apache_httpd_logfile.LEVEL_REGEX.search(line)
+            self.assertIsNotNone(match, line)
+            self.assertEqual(match.group(1), level, line)
+
+    def test_the_transport_timestamp_is_read_where_apache_wrote_none(self):
+        # A server logging through syslog leaves its own timestamp out, so what
+        # is left is journalctl's. Reading that one is the library's job; this
+        # only makes sure the check asks it to.
+        line = (
+            '2026-08-28T17:16:18+0200 host httpd[20]: [ssl:error] [pid 20]'
+            ' AH02032: Hostname a provided via SNI'
+        )
+        self.assertIsNone(apache_httpd_logfile.parse_timestamp(line))
+        # Compared against the same moment converted to whatever the local clock
+        # is, so the test says the same thing in every timezone.
+        expected = (
+            datetime.datetime(
+                2026,
+                8,
+                28,
+                17,
+                16,
+                18,
+                tzinfo=datetime.timezone(datetime.timedelta(hours=2)),
+            )
+            .astimezone()
+            .replace(tzinfo=None)
+        )
+        self.assertEqual(
+            lib.logsource.timestamp(
+                line, parse_line=apache_httpd_logfile.parse_timestamp
+            ),
+            expected,
+        )
+
+    def test_a_startup_line_carries_neither_level_nor_timestamp(self):
+        line = (
+            "AH00558: httpd: Could not reliably determine the server's fully"
+            ' qualified domain name'
+        )
+        self.assertIsNone(apache_httpd_logfile.LEVEL_REGEX.search(line))
+        self.assertIsNone(apache_httpd_logfile.parse_timestamp(line))
+        self.assertIsNotNone(apache_httpd_logfile.CODE_REGEX.search(line))
+
+    def test_the_timestamp_is_read_with_and_without_a_padded_day(self):
+        self.assertEqual(
+            apache_httpd_logfile.parse_timestamp(
+                '[Fri Aug 28 17:11:44.101220 2026] [core:notice] AH1: x'
+            ),
+            datetime.datetime(2026, 8, 28, 17, 11, 44),
+        )
+        self.assertEqual(
+            apache_httpd_logfile.parse_timestamp(
+                '[Sat Aug  8 07:01:02.000001 2026] [core:notice] AH1: x'
+            ),
+            datetime.datetime(2026, 8, 8, 7, 1, 2),
+        )
+
+    def test_levels_map_to_the_states_the_parameters_ask_for(self):
+        states = apache_httpd_logfile.get_level_states('crit', 'error')
+        self.assertEqual(states['emerg'], STATE_CRIT)
+        self.assertEqual(states['crit'], STATE_CRIT)
+        self.assertEqual(states['error'], STATE_WARN)
+        self.assertEqual(states['warn'], STATE_OK)
+        states = apache_httpd_logfile.get_level_states('none', 'none')
+        self.assertEqual(set(states.values()), {STATE_OK})
+
+
+class TestPathConfinement(unittest.TestCase):
+    """A `--server-log` that resolves outside /var/log (here a scratch file in
+    the temp directory) is refused, so a plugin running under sudo cannot be
+    turned into an arbitrary file read (GHSA-f54c-p5vg-mr5c)."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='apache-httpd-logfile-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'error_log')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write(
+                '[Fri Aug 28 17:11:44.101220 2026] [core:notice] [pid 1:tid 1]'
+                ' AH00094: secret\n'
+            )
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_server_log_outside_allowed_roots_is_refused(self):
+        returncode, combined = _run([f'--server-log={self.scratch_file}'])
+        self.assertEqual(returncode, STATE_UNKNOWN, combined)
+        self.assertIn('Refusing to read', combined)
+        self.assertNotIn('secret', combined)
+
+
+if __name__ == '__main__':
+    unittest.main()
