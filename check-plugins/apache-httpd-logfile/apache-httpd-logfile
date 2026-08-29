@@ -24,11 +24,12 @@ import lib.disk
 import lib.human
 import lib.logmatch
 import lib.logsource
+import lib.net
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026082901'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal, a server that ran out of workers, processes
@@ -62,20 +63,31 @@ Requires root or sudo."""
 # the only way to reach it.
 LEVEL_NONE = 'none'
 
-DEFAULT_AUTH_FAILURES_CRITICAL = 500
-DEFAULT_AUTH_FAILURES_WARNING = 50
-DEFAULT_CLIENT_DENIALS_CRITICAL = 1000
-DEFAULT_CLIENT_DENIALS_WARNING = 100
+# The rates a host collects from the internet are judged by how many arrived,
+# not by the fact that they did, and the defaults below assume an intrusion
+# prevention system in front of this check: one that reads the same log, counts
+# what a single source fails within ten minutes, and blocks that source once it
+# passes a handful of them. Five per source in ten minutes is what such a system
+# commonly allows, and six is the first number above it, so these thresholds
+# report what gets past the blocking rather than what it is already handling.
+# The window they are counted in is `--lookback`, whose default is those same ten
+# minutes. A host without such a system collects far more and wants them raised;
+# the README says by how much.
+DEFAULT_AUTH_FAILURES_CRITICAL = 60
+DEFAULT_AUTH_FAILURES_WARNING = 6
+DEFAULT_CLIENT_DENIALS_CRITICAL = 60
+DEFAULT_CLIENT_DENIALS_WARNING = 6
 DEFAULT_CRITICAL_LEVEL = 'crit'
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
 DEFAULT_LOOKBACK = 600  # seconds
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
+DEFAULT_PER_SOURCE = True
 DEFAULT_PROXY_FAILURES_CRITICAL = 100
 DEFAULT_PROXY_FAILURES_WARNING = 10
-DEFAULT_REQUEST_ERRORS_CRITICAL = 1000
-DEFAULT_REQUEST_ERRORS_WARNING = 100
+DEFAULT_REQUEST_ERRORS_CRITICAL = 60
+DEFAULT_REQUEST_ERRORS_WARNING = 6
 DEFAULT_TIMEOUT = 8
 DEFAULT_WARNING_LEVEL = 'error'
 
@@ -142,10 +154,13 @@ LOG_FILE_CANDIDATES = (
 # that head. The level is therefore looked for wherever it stands rather than at
 # a fixed offset, which also carries the lines through unchanged when the source
 # is a unit and journalctl puts its own timestamp and unit name in front of them.
+# The module in front of the level can be empty (`[:error]`), which is what
+# Apache writes for a message that reaches it without one - the standard error
+# of a CGI script and what `mod_security` logs both arrive that way.
 # Verified against httpd 2.4.37 on Rocky 8, 2.4.62 on Rocky 9 and 2.4.68 on
 # Debian 12.
 LEVEL_REGEX = re.compile(
-    r'\[(?:[^\[\]\s:]+:)?'
+    r'\[(?:[^\[\]\s:]*:)?'
     r'(emerg|alert|crit|error|warn|notice|info|debug|trace[1-8])\]'
 )
 
@@ -351,8 +366,8 @@ RATE_EVENTS = (
         'warning': 'CLIENT_DENIALS_WARNING',
         'recommendation': (
             'Clients are being denied access in bulk; the paths in the log say'
-            ' whether somebody is walking the site, and `fail2ban` or the'
-            ' firewall is where that is answered'
+            ' whether somebody is walking the site, and an intrusion prevention'
+            ' system or the firewall is where that is answered'
         ),
     },
     {
@@ -360,8 +375,15 @@ RATE_EVENTS = (
         'label': 'authentication failure',
         'perfdata': 'apache_httpd_auth_failures',
         # `authentication failure ... Password Mismatch` and `user ... not found`
-        # from mod_auth_basic and mod_auth_form.
-        'regex': re.compile(r'\bAH(?:01617|01618|01807|01808)\b'),
+        # from mod_auth_basic and mod_auth_form (AH01617, AH01618, AH01807,
+        # AH01808), a client offering a scheme the server does not accept
+        # (AH01614), and a user who authenticated and is still not allowed in
+        # (AH01631, `mod_authz_core`). The last two belong here rather than in
+        # the generic request counter, because all five are somebody working on
+        # a login. What `mod_authz_dbm` and `mod_authz_owner` log about the same
+        # situation carries codes of its own and is rare enough to leave to the
+        # generic counter.
+        'regex': re.compile(r'\bAH(?:01614|01617|01618|01631|01807|01808)\b'),
         'critical': 'AUTH_FAILURES_CRITICAL',
         'warning': 'AUTH_FAILURES_WARNING',
         'recommendation': (
@@ -374,6 +396,11 @@ RATE_EVENTS = (
         'key': 'proxy_failures',
         'label': 'proxy failure',
         'perfdata': 'apache_httpd_proxy_failures',
+        # Judged by the total rather than per peer: this counter is about
+        # backends that could not be reached, and whether that was one backend
+        # ten times or ten backends once, what matters is how many requests fell
+        # through. The peer of such a line is the backend anyway, not a client.
+        'per_source': False,
         # Everything `mod_proxy` and its protocol modules log when they cannot
         # reach a backend or lose its reply: a refused connection over TCP
         # (AH00939, AH00957), through a CONNECT proxy (AH00958) or over a Unix
@@ -425,6 +452,14 @@ RATE_EVENTS = (
 # something went wrong with that one request, which is worth a rate and not an
 # alert of its own.
 SCOPE_REGEX = re.compile(r'\[(?:client|remote) [^\]]*\]')
+
+# Where the peer of a request-scoped line stands. Apache builds the field as
+# `[%s %s:%d]` in `ap_log_error_core()` of `server/log.c` - the kind, the
+# address and the port joined by a colon. An older version writes the address
+# without a port, and another puts an IPv6 address in brackets of its own, so
+# the field is taken as it stands and `get_source()` decides what of it is the
+# address.
+CLIENT_REGEX = re.compile(r'\[(?:client|remote) (\[[^\]]+\](?::\d+)?|[^\]\s]+)\]')
 
 # The levels at which a request-scoped line is counted as a rate instead of by
 # its level. `crit` and above stay level-driven whatever their scope: across the
@@ -523,7 +558,7 @@ def parse_args():
         help='Number of denied requests within `--lookback` that returns '
         'CRITICAL. '
         '0 turns the threshold off. '
-        'Example: `--client-denials-critical=500`. '
+        'Example: `--client-denials-critical=200`. '
         'Default: %(default)s',
         dest='CLIENT_DENIALS_CRITICAL',
         type=int,
@@ -665,6 +700,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--no-per-source',
+        help=lib.args.help('--no-per-source'),
+        dest='PER_SOURCE',
+        action='store_false',
+        default=DEFAULT_PER_SOURCE,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -679,6 +722,14 @@ def parse_args():
         dest='NO_PROXY',
         action='store_true',
         default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--per-source',
+        help=lib.args.help('--per-source') + ' Default: %(default)s',
+        dest='PER_SOURCE',
+        action='store_true',
+        default=DEFAULT_PER_SOURCE,
     )
 
     parser.add_argument(
@@ -723,7 +774,7 @@ def parse_args():
         'requests and failed passwords excluded, as those have counters of '
         'their own. '
         '0 turns the threshold off. '
-        'Example: `--request-errors-critical=500`. '
+        'Example: `--request-errors-critical=200`. '
         'Default: %(default)s',
         dest='REQUEST_ERRORS_CRITICAL',
         type=int,
@@ -782,6 +833,31 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_source(log_line):
+    """Return the peer of a request-scoped line, or None where it names none.
+
+    Only a line Apache logged about one request carries the field, which is the
+    same boundary the rate counters rest on: a line about the server itself has
+    no peer to attribute it to and is judged by its level instead.
+
+    The port behind the address is taken off, and only where there is one: an
+    IPv6 address is written with a colon between every group, so cutting at the
+    last one unasked turns `2001:db8::1:2` into `2001:db8::1` and counts one
+    client as two. Whether the whole field already is an address is what decides,
+    and the brackets a version puts around an IPv6 address come off with it.
+    """
+    match = CLIENT_REGEX.search(log_line)
+    if not match:
+        return None
+    field = match.group(1)
+    address = lib.net.normalize_address(field)
+    if address:
+        return address
+    if field.startswith('[') and ']' in field:
+        return lib.net.normalize_address(field[1 : field.index(']')])
+    return lib.net.normalize_address(field.rsplit(':', 1)[0])
 
 
 def parse_timestamp(log_line):
@@ -1193,22 +1269,57 @@ def main():
         )
 
     # build the message
-    # The window is named with the number of lines it holds and how many files
-    # they came from, because everything below counts within it: right after
-    # logrotate the live file holds the restart alone, and a run that reports no
-    # startup at all is telling the truth about the window rather than about the
-    # day.
-    files = 1 + len(result['rotated'])
-    window = f'{len(result["lines"])} {lib.txt.pluralize("line", len(result["lines"]))}'
-    if files > 1:
-        window += f' across {files} files'
-    if source_size is not None:
-        facts.append(
-            f'Source: {source_label} '
-            f'(size: {lib.human.bytes2human(source_size)}, {window})'
+    # What was read, and where from. The size stands next to the live file
+    # rather than next to the line count, because it describes that one file and
+    # nothing else - right after logrotate a 34 KiB file said to hold 30000
+    # lines reads like a miscount, when almost all of them came from the rotated
+    # predecessor. Naming the predecessor says where they did come from.
+    # The count matters because everything below is counted within it: a run
+    # that reports no startup at all is telling the truth about the window rather
+    # than about the day.
+    # And where the window stopped at the cap this check reads rather than at
+    # the start of the log, it says so, because a busy host then reports on the
+    # last few hours rather than on the day.
+    # Which stretch of time those lines cover, because the count alone does not
+    # say whether the window is an hour or a week: on a busy host the cap is
+    # reached within hours, on a quiet one the same 30000 lines reach back
+    # months, and every count below has to be read against that. Taken from the
+    # first and the last line that carry a time, so a source that stamps none
+    # simply leaves it out.
+    covered = ''
+    window_from = window_to = None
+    for line in result['lines']:
+        window_from = lib.logsource.timestamp(line, parse_timestamp)
+        if window_from is not None:
+            break
+    for line in reversed(result['lines']):
+        window_to = lib.logsource.timestamp(line, parse_timestamp)
+        if window_to is not None:
+            break
+    if window_from is not None and window_to is not None:
+        # Ordered rather than taken as they stand: a file can hold lines written
+        # with a UTC offset next to lines written without one - a container
+        # entrypoint and the server it starts do exactly that - and the first
+        # line is then not necessarily the earlier one.
+        window_from, window_to = sorted((window_from, window_to))
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f', covering {window_from:%Y-%m-%d %H:%M}'
+            f'..{window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)})'
         )
-    else:
-        facts.append(f'Source: {source_label} ({window})')
+    line_cnt = len(result['lines'])
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if result['truncated']:
+        lines_read = f'the most recent {lines_read}'
+    sources = source_label
+    if source_size is not None:
+        sources += f' (size: {lib.human.bytes2human(source_size)})'
+    for predecessor in result['rotated']:
+        sources += f' + `{predecessor}`'
+    source_fact = f'Read {lines_read} from {sources}{covered}'
 
     # The counted events. Their state comes from how many of them arrived within
     # the rate window, not from the fact that they arrived at all. Their facts
@@ -1218,28 +1329,56 @@ def main():
     rate_facts = []
     for event in RATE_EVENTS:
         hits = found[event['key']]
-        recent, undated = lib.logsource.count_within(
-            hits, rate_since, parse_line=parse_timestamp
+        # Counted per client where the lines name one, because that is what
+        # makes the number mean something: a handful of denied requests from one
+        # address within the window is somebody working on this server, the same
+        # number spread over as many addresses is the open network going past.
+        # The state follows the busiest single client, which is the quantity an
+        # intrusion prevention system counts before it blocks one, so the
+        # thresholds compare against the same thing. `--no-per-source` goes back
+        # to judging everything that arrived.
+        window = lib.logsource.count_within(
+            hits,
+            rate_since,
+            parse_line=parse_timestamp,
+            # A counter that is not about who caused the lines judges the
+            # total: a backend that failed and a server that ran out of slots
+            # are one situation however many peers were on the other end.
+            key=get_source
+            if args.PER_SOURCE and event.get('per_source', True)
+            else None,
         )
-        rate_counts[event['key']] = recent
+        rate_counts[event['key']] = window['count']
         if not hits:
             continue
         rate_state = lib.base.get_state(
-            recent,
+            window['count'],
             getattr(args, event['warning']) or None,
             getattr(args, event['critical']) or None,
         )
         state = lib.base.get_worst(state, rate_state)
-        fact = (
-            f'{recent} '
-            f'{lib.txt.pluralize(event["label"], recent)} in the last'
-            f' {lib.human.seconds2human(args.LOOKBACK)}'
+        fact = f'{window["count"]} {lib.txt.pluralize(event["label"], window["count"])}'
+        if window['busiest']:
+            fact += f' from {window["busiest"]}'
+        fact += (
+            f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(rate_state, prefix=" ")}'
         )
-        if len(hits) != recent:
-            fact += f' ({len(hits)} in the window read)'
-        if undated:
-            fact += f', {undated} of them without a timestamp and therefore not counted'
+        extras = []
+        if window['total'] != window['count']:
+            extras.append(
+                f'{window["total"]} in total from {window["sources"]}'
+                f' {lib.txt.pluralize("address", window["sources"], "es")}'
+            )
+        if len(hits) != window['total']:
+            extras.append(f'{len(hits)} in the window read')
+        if extras:
+            fact += ' (' + ', '.join(extras) + ')'
+        if window['undated']:
+            fact += (
+                f', {window["undated"]} of them without a timestamp and therefore'
+                f' not counted'
+            )
         rate_facts.append(fact)
         if rate_state != STATE_OK:
             recommendations.append(event['recommendation'])
@@ -1312,6 +1451,10 @@ def main():
                 ' check that the source is the error log and not the access log'
             )
 
+    # Where the lines came from goes last: an administrator reads the summary
+    # left to right and wants the verdict first, not the provenance of it.
+    facts.append(source_fact)
+
     sections.append('. '.join(facts) + '.')
 
     for item in LEVELS:
@@ -1361,8 +1504,8 @@ def main():
             crit='0' if event['state'] == STATE_CRIT else None,
             _min=0,
         )
-    # The rate counters trend what the state follows: how many arrived within the
-    # window, not how many the log holds.
+    # The rate counters trend what the state follows: how many the busiest
+    # single client produced within the window, not how many the log holds.
     for event in RATE_EVENTS:
         perfdata += lib.base.get_perfdata(
             event['perfdata'],

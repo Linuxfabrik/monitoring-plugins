@@ -9,7 +9,12 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 
 * See [additional notes for all mysql monitoring plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * Severity is detected from MySQL/MariaDB's bracketed log tags (`[ERROR]`, `[Warning]`); lines that only mention the words "error" / "warning" elsewhere are not counted.
-* **The window spans the last rotation.** logrotate moves the old file aside and MySQL/MariaDB starts a fresh one, so a check reading the live file alone would lose every error from before it the moment the rotation runs. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the summary says how many files the window spans. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too. The `performance_schema.error_log` path is not affected, since the table has no rotation of its own.
+* **A login the server turned away is counted, not reported.** `Access denied for user 'root'@'198.51.100.7'` is the one line in this log that is about somebody working on the server rather than about the server being unwell, so it is judged by how often it arrives within `--lookback` and per source address. It is deliberately kept out of the error and warning counts: MariaDB writes it as `[Warning]`, and counting it there would leave the check yellow for every mistyped password.
+* **The two servers have to be told to write that line.** MariaDB writes it at `log_warnings = 2`, which is its default, so nothing has to be done there. MySQL keeps it at `log_error_verbosity = 3` while its default is `2`, so on MySQL the line is missing until somebody raises it. Where the check reached the server it reads that setting and says so as the first thing in its output, without raising a state for it.
+* **The rate thresholds assume an intrusion prevention system in front of this check.** A host reachable from the internet collects failed logins and probes around the clock, and the answer to those is a system that reads the same log, counts what a single source fails within a few minutes and blocks it. Such a system commonly lets five failures per source through before it steps in, so the defaults here sit just above that: what this check reports is what got past the blocking, not what the blocking is already handling. The window is `--lookback`, ten minutes by default, which is the same window those systems count in. On a host without one, the counters see every attempt of every source and the defaults are far too tight - raise them until they sit clear of what the host collects on a quiet day, and keep the ratio rather than the absolute number: a threshold is useful when it is a multiple of the normal rate, not when it is a fraction of it. `0` switches a threshold off entirely.
+* **A client does not get to choose which source it is counted under.** Parts of the lines this check reads are the client's own text - the account it asked for, the identification string it sent - and a client that writes an address into them would otherwise move its own lines into somebody else's count, or spread them out to stay below a threshold. The address is therefore taken from where the server writes the peer and nowhere else, and the two spellings of one client (`198.51.100.7` and `::ffff:198.51.100.7`) are counted as the one client they are.
+* **A rate is counted per source address, not as a total.** Six failures from one address within the window is somebody working on this host; six failures spread over six addresses is the open network going past, and only the first is worth reporting. What the state follows is therefore the busiest single source, which is also the quantity an intrusion prevention system counts before it blocks one - so the thresholds compare against the same thing that system does. The summary names that source and, where they differ, the total and how many addresses it came from. Lines that name no source are counted together as one, so a burst of unattributable lines still reports. `--no-per-source` goes back to judging everything that arrived, for a log that reaches this check through something that rewrites or drops the address of the peer. Counters that are not about who caused them - a backend that could not be reached, connections refused for want of slots - always judge the total, because the address on such a line says nothing about the cause.
+* **The window spans the last rotation.** logrotate moves the old file aside and MySQL/MariaDB starts a fresh one, so a check reading the live file alone would lose every error from before it the moment the rotation runs. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the first fact names the files it read. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too. The `performance_schema.error_log` path is not affected, since the table has no rotation of its own.
 * When reading from an on-disk log file, the check usually needs root/sudo (typical log files are owned by `mysql:mysql`, mode `0640`). The `performance_schema.error_log` path needs only SELECT on that table.
 * `--server-log` is confined to `/var/log` and `/var/lib/mysql`. The check runs as root via sudo, so it refuses a path that resolves outside those directories, which stops it from being turned into an arbitrary root file read. The data directory reported by the server is deliberately not trusted here, since an attacker controls which server the check connects to. To read a log stored elsewhere (for example a custom data directory), bind-mount that location under `/var/log` (a symlink is rejected); see the [Troubleshooting section](https://github.com/Linuxfabrik/monitoring-plugins#troubleshooting).
 * Depending on your site's policy, you may want to silence noisy patterns like `aborted connection` or `access denied for user` via `--ignore-pattern` / `--ignore-regex`.
@@ -20,6 +25,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 * On MySQL 8.0.22+, the plugin prefers `performance_schema.error_log` when the table exists and is visible to this user. Works over the network without shell access to the log file.
 * Otherwise it determines the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER`, or `systemd:UNITNAME`.
+* Reads `log_error_verbosity` (MySQL) and `log_warnings` (MariaDB) along with the log location, to tell whether the server writes the logins it turns away at all.
 * Caches the on-disk log file location in a local SQLite database so the check can still work briefly when the database is down.
 * Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression).
 * Logic is taken from [MySQLTuner script](https://github.com/major/MySQLTuner-perl):log_file_recommendations(), verified in sync with v2.8.41.
@@ -42,18 +48,22 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 ## Help
 
 ```text
-usage: mysql-logfile [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
+usage: mysql-logfile [-h] [-V]
+                     [--access-denied-critical ACCESS_DENIED_CRITICAL]
+                     [--access-denied-warning ACCESS_DENIED_WARNING]
+                     [--always-ok] [--cache-expire CACHE_EXPIRE]
                      [--defaults-file DEFAULTS_FILE]
                      [--defaults-group DEFAULTS_GROUP] [-H HOSTNAME]
                      [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
                      [--icinga-service-name ICINGA_SERVICE_NAME]
                      [--icinga-url ICINGA_URL]
                      [--icinga-username ICINGA_USERNAME] [--insecure]
-                     [--no-insecure] [--ignore IGNORE] [--match MATCH]
+                     [--no-insecure] [--ignore IGNORE] [--lookback LOOKBACK]
+                     [--match MATCH]
                      [--no-match-severity {ok,warn,crit,unknown}]
-                     [--no-perfdata] [--no-proxy] [--proxy PROXY]
-                     [--port PORT] [--server-log SERVER_LOG]
-                     [--timeout TIMEOUT]
+                     [--no-per-source] [--no-perfdata] [--no-proxy]
+                     [--proxy PROXY] [--per-source] [--port PORT]
+                     [--server-log SERVER_LOG] [--timeout TIMEOUT]
 
 Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the
@@ -76,6 +86,18 @@ filesystem access.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --access-denied-critical ACCESS_DENIED_CRITICAL
+                        Number of logins the server turned away within
+                        `--lookback` that returns CRITICAL. 0 turns the
+                        threshold off. Example: `--access-denied-
+                        critical=200`. Default: 60
+  --access-denied-warning ACCESS_DENIED_WARNING
+                        Number of logins the server turned away within
+                        `--lookback` that returns WARNING. Counted per source
+                        address, so a run against one account from one host
+                        reaches it while the same number of typos across a
+                        fleet does not. 0 turns the threshold off. Example:
+                        `--access-denied-warning=1`. Default: 6
   --always-ok           Always returns OK.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
@@ -123,6 +145,14 @@ options:
                         matching, so write the pattern in lowercase (or use
                         the `(?i)` flag). Can be specified multiple times.
                         Example: `--ignore='(?i)linuxfabrik'`.
+  --lookback LOOKBACK   Logins the server turned away are counted within this
+                        window rather than reported one by one. Time window in
+                        seconds to look back over, ending at the moment of the
+                        run. Only what falls within it is counted, so what is
+                        reported is how often something happened lately rather
+                        than a total that keeps growing for as long as the
+                        source is kept. Example: `--lookback=3600`. Default:
+                        600 (seconds)
   --match MATCH         Only consider a log line matching this Python regular
                         expression. The log line is lowercased before
                         matching, so write the pattern in lowercase (or use
@@ -134,6 +164,11 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-per-source       Judge a rate by everything that arrived within the
+                        window, whatever source the lines name. Use this where
+                        the log reaches this check through something that
+                        rewrites or drops the address of the peer, or where
+                        every source is as interesting as the next.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -154,6 +189,15 @@ options:
                         because a command-line argument is visible to every
                         user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
+  --per-source          Judge a rate by the busiest single source address
+                        rather than by everything that arrived. A handful of
+                        failures from one address within the window is
+                        somebody working on this host; the same number spread
+                        over as many addresses is the background of an open
+                        network going past, and only the first is worth
+                        reporting. Lines that name no source are counted
+                        together as one, so a burst of those still reports.
+                        Default: True
   --port PORT           MySQL/MariaDB port number. Default: 3306
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
@@ -185,7 +229,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/
 Output:
 
 ```text
-Source: `/var/log/mariadb/mariadb.log` (size: 5.8KiB < 32.0MiB). 2 errors found [CRITICAL] (last: 220503 11:21:43 [ERROR] Aborting). 1 warning found [WARNING] (last: 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.). 2 startups detected (last: 220503 11:24:54). 4 shutdowns detected (last: 220503 11:21:48).
+2 errors found [CRITICAL] (last: 220503 11:21:43 [ERROR] Aborting). 1 warning found [WARNING] (last: 220502 14:59:58 [Warning] Plugin 'FEEDBACK' is disabled.). 2 startups detected (last: 220503 11:24:54). 4 shutdowns detected (last: 220503 11:21:48). Read 61 lines from `/var/log/mariadb/mariadb.log` (size: 5.8KiB < 32.0MiB).
 
 Errors:
 * 220503 11:21:43 [ERROR] /usr/libexec/mysqld: unknown variable 'myvar2=myvalue2'
@@ -213,7 +257,9 @@ Recommendations:
 ## States
 
 * CRIT if the log contains `[ERROR]`-tagged lines.
-* WARN if the log contains `[Warning]`-tagged lines.
+* WARN if the log contains `[Warning]`-tagged lines. A login the server turned away is not one of them, however MariaDB tags it; those are counted below instead.
+* WARN or CRIT if more logins were turned away within `--lookback` than `--access-denied-warning` / `--access-denied-critical` allow, counted per source address. A single mistyped password never alerts.
+* A `log_error_verbosity` or `log_warnings` too low for the server to write a denied login at all is reported as the first thing in the output and never alerts, because it says what the rest of the output is worth rather than that something is wrong.
 * WARN if a log file is configured but does not exist.
 * WARN if an on-disk log file is `>= 32 MiB` (mysqltuner's cutoff; treat as a hint to set up log rotation).
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -223,6 +269,7 @@ Recommendations:
 
 | Name | Type | Description |
 |----|----|----|
+| mysql_access_denied | Number | Number of logins the server turned away, from the busiest single source, within the lookback window. |
 | mysql_error_lines | Number | Number of error lines found in the log. |
 | mysql_logfile_size | Bytes | Log file size. |
 | mysql_shutdowns | Number | Number of shutdown events found in the log. |

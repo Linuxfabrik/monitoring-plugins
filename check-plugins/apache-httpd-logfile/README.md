@@ -10,11 +10,14 @@ Scans the Apache HTTP Server error log for the events an administrator has to ac
 * **A server that never started is invisible in the error log.** Apache writes a rejected configuration, a port it could not bind and a log it could not open to its standard error and then gives up, so none of it reaches the file. Under systemd that output lands in the journal. Point the check at the unit (`--server-log=systemd:httpd.service`) to see those, and use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether Apache is running at all. The other direction holds as well: everything a running Apache logs goes into the file and not into the journal, so a check reading the unit reports no startups, no restarts and no shutdowns however healthy the server is. Reading the unit and reading the file answer different questions, and a host that matters is worth both as two services.
 * **Apache's error log holds two different kinds of line, and this check treats them differently.** Apache adds a `[client 198.51.100.7:4000]` field whenever the line is about one request, and never otherwise - that is not a guess but the boundary in its own logging API. A line carrying that field says something went wrong with one request: a bot denied access to a protected path, a scanner posting `/cgi-bin/.%2e/.%2e/bin/sh`, a client sending one host name in SNI and another in the `Host` header. Those are counted within `--lookback` and reported as a rate, because one of them is worth nothing and hundreds of them within ten minutes are worth knowing about. A line without that field is Apache talking about itself, and that one is judged by its level. Deliberately independent of the message code, because the code moves: the same scanner request is `AH00126` on httpd 2.4.37 and `AH10244` on 2.4.62, while both are a `[core:error]` about one client.
 * **What is genuinely the server's fault keeps its own state, even when it arrives per request.** A child that died on a signal, a server out of workers and a start Apache refused all raise their own state, whatever their scope and whatever their level; the named events take precedence over the rate.
+* **A client does not get to choose which source it is counted under.** Parts of the lines this check reads are the client's own text - the account it asked for, the identification string it sent - and a client that writes an address into them would otherwise move its own lines into somebody else's count, or spread them out to stay below a threshold. The address is therefore taken from where the server writes the peer and nowhere else, and the two spellings of one client (`198.51.100.7` and `::ffff:198.51.100.7`) are counted as the one client they are.
+* **A rate is counted per source address, not as a total.** Six failures from one address within the window is somebody working on this host; six failures spread over six addresses is the open network going past, and only the first is worth reporting. What the state follows is therefore the busiest single source, which is also the quantity an intrusion prevention system counts before it blocks one - so the thresholds compare against the same thing that system does. The summary names that source and, where they differ, the total and how many addresses it came from. Lines that name no source are counted together as one, so a burst of unattributable lines still reports. `--no-per-source` goes back to judging everything that arrived, for a log that reaches this check through something that rewrites or drops the address of the peer. Counters that are not about who caused them - a backend that could not be reached, connections refused for want of slots - always judge the total, because the address on such a line says nothing about the cause.
+* **The rate thresholds assume an intrusion prevention system in front of this check.** A host reachable from the internet collects failed logins and probes around the clock, and the answer to those is a system that reads the same log, counts what a single source fails within a few minutes and blocks it. Such a system commonly lets five failures per source through before it steps in, so the defaults here sit just above that: what this check reports is what got past the blocking, not what the blocking is already handling. The window is `--lookback`, ten minutes by default, which is the same window those systems count in. On a host without one, the counters see every attempt of every source and the defaults are far too tight - raise them until they sit clear of what the host collects on a quiet day, and keep the ratio rather than the absolute number: a threshold is useful when it is a multiple of the normal rate, not when it is a fraction of it. `0` switches a threshold off entirely.
 * **An unreachable backend is counted, not reported.** A `systemctl reload php-fpm` leaves exactly one `AH02454: attempt to connect to Unix domain socket ... failed` behind, and a backend that is really gone writes one per request. Six of them across four days is a handful of reloads and must not page anybody; thirty within a minute is an outage. They are therefore judged by `--proxy-failures-warning` and `--proxy-failures-critical` over `--lookback`. Whether the site answers at all is the job of an HTTP check, not of a log check.
 * **Only `crit` and above ignore the scope split.** Across the whole of Apache barely two dozen request-scoped messages are logged that high, and they are a broken LDAP, Lua or FastCGI backend rather than anything a client can provoke. A request-scoped `emerg`, `alert` or `crit` line therefore still alerts by its level.
 * **The error log is not the access log.** `ErrorLog` and `CustomLog` are two different files in two different formats, and only the first one is what this check reads. Watch the access log with the generic [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile.md) check, or the server's own state with [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status.md).
 * **A virtual host writes its own log.** The RHEL family ships `ErrorLog logs/ssl_error_log` inside the TLS virtual host of `conf.d/ssl.conf`, and the Debian family ships one inside every site under `sites-enabled/`. Those belong to that host and are not read here; only the `ErrorLog` outside any `<VirtualHost>` in the main configuration file counts. Name a virtual host's log with `--server-log` to watch it as a service of its own.
-* **The window spans the last rotation.** logrotate moves the old file aside (`error_log-20260828` on the RHEL family, `error.log.1` on the Debian family, then `.gz`) and reloads Apache, which opens a fresh one. A check reading the live file alone would report a healthy server an hour after it broke. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the summary says how many files the window spans. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
+* **The window spans the last rotation.** logrotate moves the old file aside (`error_log-20260828` on the RHEL family, `error.log.1` on the Debian family, then `.gz`) and reloads Apache, which opens a fresh one. A check reading the live file alone would report a healthy server an hour after it broke. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the first fact names the files it read. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
 * **A restart counts as a startup as well.** Apache logs `resuming normal operations` after every restart and every graceful reload, so both counters move. The nightly logrotate reloads Apache and therefore shows up as a restart.
 * **Apache reports a saturated server once per generation.** `AH00484: server reached MaxRequestWorkers setting` is written once and then suppressed until the next restart, so the counter says how often the situation returned rather than how many requests waited for a worker. [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status.md) is what shows how close to the limit the server runs on an ordinary day.
 * The check reads a window of the log on every run and reports what that window holds, rather than only what is new. The summary names how many lines that window holds, because everything else is counted within it: right after logrotate the window is the restart alone, and a run reporting no startup at all is then telling the truth about that handful of lines rather than about the day. It also means an event keeps being reported until it leaves the window or the service is acknowledged (see `--icinga-callback`). The counted events are the exception: their state follows `--lookback` and falls back on its own as the burst ages out.
@@ -27,7 +30,7 @@ Scans the Apache HTTP Server error log for the events an administrator has to ac
 * Determines the log file automatically from the `ErrorLog` directive in `/etc/httpd/conf/httpd.conf`, `/etc/apache2/apache2.conf`, `/etc/apache2/httpd.conf` or `/usr/local/apache2/conf/httpd.conf`. A relative path is resolved against `ServerRoot`, and `${APACHE_LOG_DIR}` and the other variables of the Debian family are resolved against `/etc/apache2/envvars`.
 * Falls back to probing `/var/log/httpd/error_log`, `/var/log/apache2/error.log`, `/var/log/apache2/error_log`, `/var/log/httpd/error.log` and `/usr/local/apache2/logs/error_log` when the configuration yields nothing, which is also what happens when only an included file sets `ErrorLog`.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`.
-* Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw and across how many files.
+* Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Recognizes a line by the level Apache puts in it (`[core:error]`) or by the message code every Apache message carries (`AH00484`), wherever the configured `ErrorLogFormat` places them.
 * Lines can be narrowed down with `--match` and filtered out with `--ignore`, both Python regular expressions.
 
@@ -64,7 +67,8 @@ usage: apache-httpd-logfile [-h] [-V] [--always-ok]
                             [--lookback LOOKBACK] [--match MATCH]
                             [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
-                            [--no-perfdata] [--no-proxy] [--proxy PROXY]
+                            [--no-per-source] [--no-perfdata] [--no-proxy]
+                            [--per-source] [--proxy PROXY]
                             [--proxy-failures-critical PROXY_FAILURES_CRITICAL]
                             [--proxy-failures-warning PROXY_FAILURES_WARNING]
                             [--request-errors-critical REQUEST_ERRORS_CRITICAL]
@@ -108,19 +112,19 @@ options:
   --auth-failures-critical AUTH_FAILURES_CRITICAL
                         Number of authentication failures within `--lookback`
                         that returns CRITICAL. 0 turns the threshold off.
-                        Example: `--auth-failures-critical=200`. Default: 500
+                        Example: `--auth-failures-critical=200`. Default: 60
   --auth-failures-warning AUTH_FAILURES_WARNING
                         Number of authentication failures within `--lookback`
                         that returns WARNING. 0 turns the threshold off.
-                        Example: `--auth-failures-warning=20`. Default: 50
+                        Example: `--auth-failures-warning=20`. Default: 6
   --client-denials-critical CLIENT_DENIALS_CRITICAL
                         Number of denied requests within `--lookback` that
                         returns CRITICAL. 0 turns the threshold off. Example:
-                        `--client-denials-critical=500`. Default: 1000
+                        `--client-denials-critical=200`. Default: 60
   --client-denials-warning CLIENT_DENIALS_WARNING
                         Number of denied requests within `--lookback` that
                         returns WARNING. 0 turns the threshold off. Example:
-                        `--client-denials-warning=50`. Default: 100
+                        `--client-denials-warning=50`. Default: 6
   --critical-level {emerg,alert,crit,error,warn,none}
                         Least severe Apache log level that returns CRITICAL.
                         Each level includes everything more severe than
@@ -182,6 +186,11 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
+  --no-per-source       Judge a rate by everything that arrived within the
+                        window, whatever source the lines name. Use this where
+                        the log reaches this check through something that
+                        rewrites or drops the address of the peer, or where
+                        every source is as interesting as the next.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -191,6 +200,15 @@ options:
                         network connection this check opens. Do not use a
                         proxy, not even one the environment names. Overrides
                         `--proxy`.
+  --per-source          Judge a rate by the busiest single source address
+                        rather than by everything that arrived. A handful of
+                        failures from one address within the window is
+                        somebody working on this host; the same number spread
+                        over as many addresses is the background of an open
+                        network going past, and only the first is worth
+                        reporting. Lines that name no source are counted
+                        together as one, so a burst of those still reports.
+                        Default: True
   --proxy PROXY         Applies to the connection to the monitoring server
                         that `--icinga-callback` makes, which is the only
                         network connection this check opens. Proxy to reach
@@ -220,14 +238,14 @@ options:
                         request and one client, denied requests and failed
                         passwords excluded, as those have counters of their
                         own. 0 turns the threshold off. Example: `--request-
-                        errors-critical=500`. Default: 1000
+                        errors-critical=200`. Default: 60
   --request-errors-warning REQUEST_ERRORS_WARNING
                         Number of failed requests within `--lookback` that
                         returns WARNING. Counts what Apache logged about one
                         request and one client, denied requests and failed
                         passwords excluded, as those have counters of their
                         own. 0 turns the threshold off. Example: `--request-
-                        errors-warning=50`. Default: 100
+                        errors-warning=50`. Default: 6
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
                         `docker:CONTAINER`, `podman:CONTAINER`,
@@ -289,13 +307,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-logf
 Output of a healthy host:
 
 ```text
-Source: `/var/log/httpd/error_log` (size: 815.0B, 6 lines). No errors or warnings found. 1 startup detected (last: [Fri Aug 28 17:12:25.860583 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). No restarts detected. 1 shutdown detected (last: [Fri Aug 28 17:12:28.865860 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00491: caught SIGTERM, shutting down).
+No errors or warnings found. 1 startup detected (last: [Fri Aug 28 17:12:25.860583 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). No restarts detected. 1 shutdown detected (last: [Fri Aug 28 17:12:28.865860 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00491: caught SIGTERM, shutting down). Read 6 lines from `/var/log/httpd/error_log` (size: 815.0B), covering 2026-08-28 17:12..2026-08-28 17:12 (3s).
 ```
 
 Output of a host that ran out of workers, lost a child to a segfault and could not reach its backend:
 
 ```text
-Source: `/var/log/httpd/error_log` (size: 2.4KiB, 17 lines). 3 error lines found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash, 1 worker saturation, 2 proxy failures. 0 client denials in the last 10m (1 in the window read). 0 request errors in the last 10m (1 in the window read). 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down).
+3 error lines found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash, 1 worker saturation, 2 proxy failures. 0 client denials in the last 10m (1 in the window read). 0 request errors in the last 10m (1 in the window read). 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down). Read 17 lines from `/var/log/httpd/error_log` (size: 2.4KiB), covering 2026-08-28 17:11..2026-08-28 17:12 (24s).
 
 Error lines:
 * [Fri Aug 28 17:11:47.108528 2026] [mpm_event:error] [pid 1835:tid 1835] AH00484: server reached MaxRequestWorkers setting, consider raising the MaxRequestWorkers setting
@@ -311,10 +329,10 @@ Recommendations:
 Output of a host somebody is walking:
 
 ```text
-Source: `/var/log/httpd/error_log` (size: 25.0KiB, 147 lines). 147 client denials in the last 10m [WARNING]. No startups detected. No restarts detected. No shutdowns detected.
+147 client denials in the last 10m [WARNING]. No startups detected. No restarts detected. No shutdowns detected. Read 147 lines from `/var/log/httpd/error_log` (size: 25.0KiB), covering 2026-08-28 16:55..2026-08-28 17:12 (17m).
 
 Recommendations:
-* Clients are being denied access in bulk; the paths in the log say whether somebody is walking the site, and `fail2ban` or the firewall is where that is answered
+* Clients are being denied access in bulk; the paths in the log say whether somebody is walking the site, and an intrusion prevention system or the firewall is where that is answered
 ```
 
 ## States

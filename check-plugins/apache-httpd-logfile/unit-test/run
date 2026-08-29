@@ -70,7 +70,7 @@ def config_root(name):
 # place the line inside or outside the rate window.
 DENIAL_LINE = (
     '[{timestamp}] [authz_core:error] [pid 2338:tid 2392]'
-    ' [client 198.51.100.7:58204] AH01630: client denied by server'
+    ' [client {peer}:58204] AH01630: client denied by server'
     ' configuration: /var/www/html/.htaccess'
 )
 APACHE_TIMESTAMP_FORMAT = '%a %b %d %H:%M:%S.%f %Y'
@@ -192,7 +192,9 @@ CASES = [
         'params': [f'--config-root={config_root("just-rotated")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            '9 lines across 2 files',
+            'Read 9 lines from ',
+            # the predecessor is named, so the fact says where they came from
+            'error_log-20260828`',
             '(1 in the window read)',
         ],
     },
@@ -216,7 +218,7 @@ CASES = [
         'assert-retc': STATE_OK,
         'assert-in': [
             '(5 in the window read)',
-            "'apache_httpd_request_errors'=0;100;1000;0",
+            "'apache_httpd_request_errors'=0;6;60;0",
         ],
         'assert-not-in': ['error line found', 'invalid URI path'],
     },
@@ -228,7 +230,10 @@ CASES = [
             '--request-errors-critical=5',
         ],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['5 request errors in the last', 'Requests are failing in bulk'],
+        'assert-in': [
+            '5 request errors from 127.0.0.1 in the last',
+            'Requests are failing in bulk',
+        ],
     },
     {
         # Nothing of a failed start reaches the error log, so this is what the
@@ -493,7 +498,8 @@ class TestArrivalRate(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.scratch_dir, ignore_errors=True)
 
-    def _write_denials(self, count, minutes_ago):
+    def _write_denials(self, count, minutes_ago, peers=1):
+        """Write `count` denied requests, spread evenly over `peers` clients."""
         path = os.path.join(self.scratch_dir, 'error_log')
         first = datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago)
         with open(path, 'w', encoding='utf-8') as handle:
@@ -501,38 +507,55 @@ class TestArrivalRate(unittest.TestCase):
                 logged_at = first + datetime.timedelta(seconds=index)
                 handle.write(
                     DENIAL_LINE.format(
-                        timestamp=logged_at.strftime(APACHE_TIMESTAMP_FORMAT)
+                        timestamp=logged_at.strftime(APACHE_TIMESTAMP_FORMAT),
+                        peer=f'198.51.100.{7 + index % peers}',
                     )
                     + '\n'
                 )
         return path
 
     def test_burst_within_the_window_warns(self):
-        path = self._write_denials(count=120, minutes_ago=5)
+        path = self._write_denials(count=20, minutes_ago=5)
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_WARN, combined)
-        self.assertIn('120 client denials in the last 10m', combined)
+        self.assertIn('20 client denials from 198.51.100.7 in the last 10m', combined)
         self.assertIn('walking the site', combined)
 
     def test_burst_within_the_window_crits_above_the_threshold(self):
-        path = self._write_denials(count=120, minutes_ago=5)
+        path = self._write_denials(count=20, minutes_ago=5)
         returncode, combined = _run(
-            [f'--server-log={path}', '--client-denials-critical=100']
+            [f'--server-log={path}', '--client-denials-critical=10']
         )
         self.assertEqual(returncode, STATE_CRIT, combined)
 
+    def test_the_same_burst_spread_over_many_clients_is_quiet(self):
+        # Twenty denials, but no client got past two of them. That is the open
+        # network going past, and what an intrusion prevention system answers
+        # long before this check would have anything to say.
+        path = self._write_denials(count=20, minutes_ago=5, peers=10)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('2 client denials from 198.51.100.', combined)
+        self.assertIn('(20 in total from 10 addresses)', combined)
+
+    def test_the_total_is_what_no_per_source_judges(self):
+        path = self._write_denials(count=20, minutes_ago=5, peers=10)
+        returncode, combined = _run([f'--server-log={path}', '--no-per-source'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('20 client denials in the last 10m', combined)
+
     def test_the_same_burst_an_hour_ago_is_quiet(self):
-        path = self._write_denials(count=120, minutes_ago=60)
+        path = self._write_denials(count=20, minutes_ago=60)
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_OK, combined)
         self.assertIn('0 client denials in the last 10m', combined)
-        self.assertIn('(120 in the window read)', combined)
+        self.assertIn('(20 in the window read)', combined)
 
     def test_a_wider_window_sees_the_older_burst(self):
-        path = self._write_denials(count=120, minutes_ago=60)
+        path = self._write_denials(count=20, minutes_ago=60)
         returncode, combined = _run([f'--server-log={path}', '--lookback=7200'])
         self.assertEqual(returncode, STATE_WARN, combined)
-        self.assertIn('120 client denials in the last 2h', combined)
+        self.assertIn('20 client denials from 198.51.100.7 in the last 2h', combined)
 
 
 class TestConfigParsing(unittest.TestCase):
@@ -595,6 +618,10 @@ class TestLineReading(unittest.TestCase):
                 'notice',
             ),
             ('[core:error] [pid 1] AH1: x', 'error'),
+            # Apache writes no module name where the message reached it without
+            # one, which is what the standard error of a CGI script and what
+            # `mod_security` logs both look like.
+            ('[Fri Aug 28 17:11:44.101220 2026] [:error] [pid 3790] x', 'error'),
             # journalctl prefixes every line with its own timestamp and the unit
             ('2026-08-28T17:16:18+0000 host httpd[20]: [ssl:warn] AH1: x', 'warn'),
             # `ErrorLogFormat` without `%m` leaves the module out
@@ -666,6 +693,32 @@ class TestLineReading(unittest.TestCase):
         self.assertEqual(states['warn'], STATE_OK)
         states = apache_httpd_logfile.get_level_states('none', 'none')
         self.assertEqual(set(states.values()), {STATE_OK})
+
+
+class TestSourceAddress(unittest.TestCase):
+    """Which client a request-scoped line is counted under."""
+
+    def test_the_port_comes_off_and_the_address_does_not(self):
+        for field, expected in (
+            ('198.51.100.7:58204', '198.51.100.7'),
+            # An IPv6 address has a colon between every group, so cutting at the
+            # last one unasked would turn one client into two.
+            ('2001:db8::80da:af6b:8b2c', '2001:db8::80da:af6b:8b2c'),
+            ('[2001:db8::80da:af6b:8b2c]:51548', '2001:db8::80da:af6b:8b2c'),
+            ('::ffff:198.51.100.7:58204', '198.51.100.7'),
+        ):
+            line = (
+                f'[Fri Aug 28 17:11:44.101220 2026] [authz_core:error]'
+                f' [pid 2338:tid 2392] [client {field}] AH01630: client denied'
+            )
+            self.assertEqual(apache_httpd_logfile.get_source(line), expected, field)
+
+    def test_a_line_about_the_server_has_no_client(self):
+        line = (
+            '[Fri Aug 28 17:11:47.108528 2026] [mpm_event:error] [pid 1835]'
+            ' AH00484: server reached MaxRequestWorkers setting'
+        )
+        self.assertIsNone(apache_httpd_logfile.get_source(line))
 
 
 class TestPathConfinement(unittest.TestCase):

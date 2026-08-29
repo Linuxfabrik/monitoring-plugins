@@ -11,7 +11,9 @@
 """See the check's README for more details."""
 
 import argparse
+import datetime
 import os
+import re
 import stat
 import sys
 
@@ -24,12 +26,13 @@ import lib.disk
 import lib.human
 import lib.logmatch
 import lib.logsource
+import lib.net
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082803'
+__version__ = '2026082901'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -52,15 +55,37 @@ SELECT on that table but no filesystem access."""
 DEFAULT_CACHE_EXPIRE = 5 * 24 * 60  # in minutes (= 5 days)
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_ACCESS_DENIED_CRITICAL = 60
+DEFAULT_ACCESS_DENIED_WARNING = 6
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_LOOKBACK = 600  # seconds
 DEFAULT_NO_PROXY = False
+DEFAULT_PER_SOURCE = True
 DEFAULT_HOSTNAME = '127.0.0.1'
 DEFAULT_PORT = '3306'
 DEFAULT_TIMEOUT = 3
 
 LOGFILE_BIG_THRESHOLD = 32 * 1024 * 1024  # 32 MiB - matches mysqltuner's cutoff
+
+# A login the server turned away: `Access denied for user 'root'@'198.51.100.7'
+# (using password: YES)`. It is the one line in this log that says somebody is
+# working on the server rather than that the server is unwell, so it is counted
+# against a rate rather than reported one by one, and it is kept out of the
+# error and warning counts below - MariaDB writes it as `[Warning]`, and without
+# this a single mistyped password would leave the check yellow.
+# The host it names is what the rate is counted per. It is whatever the server
+# resolved the peer to, an address or a name, and it is taken as it stands.
+# Verified against MariaDB 11.8 and MySQL 8.4.
+ACCESS_DENIED_REGEX = re.compile(r"Access denied for user '[^']*'@'(?P<source>[^']*)'")
+
+# What the two servers have to be told before they write that line at all.
+# MariaDB writes it at `log_warnings` 2, which is its default. MySQL keeps it at
+# the third verbosity level and its default is the second, so on MySQL the line
+# is missing until somebody raises it. Measured on MariaDB 11.8 and MySQL 8.4.
+MINIMUM_LOG_ERROR_VERBOSITY = 3
+MINIMUM_LOG_WARNINGS = 2
 ACK_RETENTION_DAYS = 30
 MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # Rotated predecessors of the log file to read along with it. Without one the
@@ -82,6 +107,32 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--access-denied-critical',
+        help='Number of logins the server turned away within `--lookback` that '
+        'returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--access-denied-critical=200`. '
+        'Default: %(default)s',
+        dest='ACCESS_DENIED_CRITICAL',
+        type=int,
+        default=DEFAULT_ACCESS_DENIED_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--access-denied-warning',
+        help='Number of logins the server turned away within `--lookback` that '
+        'returns WARNING. '
+        'Counted per source address, so a run against one account from one host '
+        'reaches it while the same number of typos across a fleet does not. '
+        '0 turns the threshold off. '
+        'Example: `--access-denied-warning=1`. '
+        'Default: %(default)s',
+        dest='ACCESS_DENIED_WARNING',
+        type=int,
+        default=DEFAULT_ACCESS_DENIED_WARNING,
     )
 
     parser.add_argument(
@@ -203,6 +254,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--lookback',
+        help='Logins the server turned away are counted within this window '
+        'rather than reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=3600`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
         '--match',
         help='Only consider a log line matching this Python regular expression. '
         'The log line is lowercased before matching, so write the pattern in '
@@ -221,6 +284,14 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-per-source',
+        help=lib.args.help('--no-per-source'),
+        dest='PER_SOURCE',
+        action='store_false',
+        default=DEFAULT_PER_SOURCE,
     )
 
     parser.add_argument(
@@ -246,6 +317,14 @@ def parse_args():
         + lib.args.help('--proxy'),
         dest='PROXY',
         default=None,
+    )
+
+    parser.add_argument(
+        '--per-source',
+        help=lib.args.help('--per-source') + ' Default: %(default)s',
+        dest='PER_SOURCE',
+        action='store_true',
+        default=DEFAULT_PER_SOURCE,
     )
 
     parser.add_argument(
@@ -286,7 +365,9 @@ def get_vars(conn):
         show global variables
         where variable_name like 'datadir'
             or variable_name like 'hostname'
-            or variable_name like 'log_error';
+            or variable_name like 'log_error'
+            or variable_name like 'log_error_verbosity'
+            or variable_name like 'log_warnings';
           """
     return lib.base.coe(lib.db_mysql.select(conn, sql))
 
@@ -359,6 +440,22 @@ def read_pfs_error_log(conn):
     return '\n'.join(lines)
 
 
+def get_source(log_line):
+    """Return the host a denied login came from, or None where the line names none.
+
+    The server writes whatever it resolved the peer to, so this is an address on
+    one host and a name (`localhost`) on the next. An address is brought into one
+    form, because the same client otherwise counts twice when the server writes
+    it as `::ffff:198.51.100.7` here and as `198.51.100.7` there; a name is kept
+    as it stands, which is all that can be done with it and enough to group by.
+    """
+    match = ACCESS_DENIED_REGEX.search(log_line)
+    if not match:
+        return None
+    source = match.group('source')
+    return lib.net.normalize_address(source) or source or None
+
+
 def shorten(items, head=5, tail=5):
     """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
     if len(items) > head + tail:
@@ -411,9 +508,11 @@ def main():
     # 32 MiB cutoff check and a perfdata series).
     source_label = None
     source_size = None
-    # How many files the reported window spans. Only an on-disk log has rotated
-    # predecessors to read along with it; the structured table does not.
-    source_files = 1
+    # The rotated predecessors read along with the live file, and whether the
+    # window stopped at the cap this check reads rather than at the start of the
+    # log. Only an on-disk log has either; the structured table does not.
+    source_rotated = []
+    source_truncated = False
     logfile = None
     log_error = None
     myvar = {}
@@ -528,7 +627,8 @@ def main():
             )
         )
         logfile = '\n'.join(result['lines'])
-        source_files = 1 + len(result['rotated'])
+        source_rotated = result['rotated']
+        source_truncated = result['truncated']
         source_label = f'`{log_error}`'
 
     # init some vars
@@ -540,6 +640,8 @@ def main():
     # which combinations of paths fire.
     recommendations = []
     last_errs, last_warns, last_shutdowns, last_starts = [], [], [], []
+    last_denied = []
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
     considered_cnt = 0
     suppressed_cnt = 0
     compiled_ignore = [
@@ -594,6 +696,13 @@ def main():
         if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
             suppressed_cnt += 1
             continue
+        # A login the server turned away is judged by how often it arrives and
+        # is therefore counted here and nowhere else. Counting it in the level
+        # counts as well would leave the check yellow for a single mistyped
+        # password, because MariaDB writes the line as `[Warning]`.
+        if ACCESS_DENIED_REGEX.search(log_line):
+            last_denied.append(log_line)
+            continue
         # MySQL/MariaDB tag the severity in brackets like `[ERROR]` / `[Warning]`.
         # Match the bracketed form so words like "errors" inside table names or
         # paths do not falsely trip the count (mysqltuner uses the same regex).
@@ -623,34 +732,69 @@ def main():
 
     # build the message
 
-    # The window is named with the number of lines it holds, because everything
-    # below counts within it: on a log that was rotated an hour ago, a run that
-    # reports no startup at all is telling the truth about a handful of lines,
-    # and saying so beats leaving the admin to work that out from the file size.
-    window = f'{len(log_lines)} {lib.txt.pluralize("line", len(log_lines))}'
-    if source_files > 1:
-        window += f' across {source_files} files'
+    # What was read, and where from. The size stands next to the live file
+    # rather than next to the line count, because it describes that one file and
+    # nothing else - on a log rotated an hour ago a small file said to hold tens
+    # of thousands of lines reads like a miscount, when almost all of them came
+    # from the rotated predecessor. Naming the predecessor says where they did
+    # come from. The count matters because everything below is counted within
+    # it: a run that reports no startup at all is telling the truth about a
+    # handful of lines rather than about the day. And where the window stopped
+    # at the cap this check reads rather than at the start of the log, it says
+    # so.
+    # Which stretch of time those lines cover, because the count alone does not
+    # say whether the window is an hour or a week: on a busy host the cap is
+    # reached within hours, on a quiet one the same 30000 lines reach back
+    # months, and every count below has to be read against that. Taken from the
+    # first and the last line that carry a time, so a source that stamps none
+    # simply leaves it out.
+    covered = ''
+    window_from = window_to = None
+    for line in log_lines:
+        window_from = lib.logsource.timestamp(line)
+        if window_from is not None:
+            break
+    for line in reversed(log_lines):
+        window_to = lib.logsource.timestamp(line)
+        if window_to is not None:
+            break
+    if window_from is not None and window_to is not None:
+        # Ordered rather than taken as they stand: a file can hold lines written
+        # with a UTC offset next to lines written without one - a container
+        # entrypoint and the server it starts do exactly that - and the first
+        # line is then not necessarily the earlier one.
+        window_from, window_to = sorted((window_from, window_to))
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f', covering {window_from:%Y-%m-%d %H:%M}'
+            f'..{window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)})'
+        )
+    line_cnt = len(log_lines)
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if source_truncated:
+        lines_read = f'the most recent {lines_read}'
+    threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
+    oversized = source_size is not None and source_size >= LOGFILE_BIG_THRESHOLD
+    sources = source_label
     if source_size is not None:
-        size_human = lib.human.bytes2human(source_size)
-        threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
-        if source_size >= LOGFILE_BIG_THRESHOLD:
-            state = lib.base.get_worst(state, STATE_WARN)
-            facts.append(
-                f'Source: {source_label} (size: {size_human} >'
-                f' {threshold_human}, {window})'
-                f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
-            )
-            recommendations.append(
-                f'Log file is > {threshold_human}; analyse why or set up log'
-                f' rotation (e.g. logrotate)'
-            )
-        else:
-            facts.append(
-                f'Source: {source_label} '
-                f'(size: {size_human} < {threshold_human}, {window})'
-            )
-    else:
-        facts.append(f'Source: {source_label} ({window})')
+        sources += (
+            f' (size: {lib.human.bytes2human(source_size)} '
+            f'{">" if oversized else "<"} {threshold_human})'
+        )
+    for predecessor in source_rotated:
+        sources += f' + `{predecessor}`'
+    fact = f'Read {lines_read} from {sources}{covered}'
+    if oversized:
+        state = lib.base.get_worst(state, STATE_WARN)
+        fact += lib.base.state2str(STATE_WARN, prefix=' ')
+        recommendations.append(
+            f'Log file is > {threshold_human}; analyse why or set up log'
+            f' rotation (e.g. logrotate)'
+        )
+    source_fact = fact
 
     n_err = len(last_errs)
     if n_err:
@@ -680,6 +824,52 @@ def main():
     else:
         facts.append('No warnings found')
 
+    # What the server turned away, counted per source: a run against one account
+    # from one host reaches the threshold while the same number of typos across a
+    # fleet does not. This is the one line in the log that is about somebody
+    # working on the server rather than about the server itself, which is why it
+    # is judged by a rate and not by its level.
+    denied_window = lib.logsource.count_within(
+        last_denied,
+        rate_since,
+        key=get_source if args.PER_SOURCE else None,
+    )
+    if last_denied:
+        denied_state = lib.base.get_state(
+            denied_window['count'],
+            args.ACCESS_DENIED_WARNING or None,
+            args.ACCESS_DENIED_CRITICAL or None,
+        )
+        state = lib.base.get_worst(state, denied_state)
+        fact = (
+            f'{denied_window["count"]} denied '
+            f'{lib.txt.pluralize("login", denied_window["count"])}'
+        )
+        if denied_window['busiest']:
+            fact += f' from {denied_window["busiest"]}'
+        fact += (
+            f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(denied_state, prefix=" ")}'
+        )
+        extras = []
+        if denied_window['total'] != denied_window['count']:
+            extras.append(
+                f'{denied_window["total"]} in total from {denied_window["sources"]}'
+                f' {lib.txt.pluralize("address", denied_window["sources"], "es")}'
+            )
+        if len(last_denied) != denied_window['total']:
+            extras.append(f'{len(last_denied)} in the window read')
+        if extras:
+            fact += ' (' + ', '.join(extras) + ')'
+        facts.append(fact)
+        if denied_state != STATE_OK:
+            recommendations.append(
+                'Logins are being turned away in bulk, which is what a guessing'
+                ' run against a database account looks like; the accounts and'
+                ' hosts in the log say whether that is it or an application'
+                ' still using credentials that were changed'
+            )
+
     n_start = len(last_starts)
     if n_start:
         facts.append(
@@ -698,6 +888,41 @@ def main():
     else:
         facts.append('No shutdowns detected')
 
+    # A server told to keep quiet writes no denied login at all, so a report
+    # without any says nothing about the host. It goes first, ahead of the
+    # verdict, because it decides what the verdict is worth, and it raises no
+    # state of its own: the setting is a decision somebody took, and the check
+    # only says what follows from it. Only reachable where the check reached the
+    # server and could ask it.
+    verbosity = myvar.get('log_error_verbosity')
+    warnings_level = myvar.get('log_warnings')
+    if verbosity is not None and int(verbosity) < MINIMUM_LOG_ERROR_VERBOSITY:
+        facts.insert(
+            0,
+            f'The server runs at `log_error_verbosity {verbosity}` and writes a'
+            f' denied login only from {MINIMUM_LOG_ERROR_VERBOSITY} on, so it'
+            f' logs none of them',
+        )
+        recommendations.append(
+            f'Set `log_error_verbosity = {MINIMUM_LOG_ERROR_VERBOSITY}` to have'
+            f' the server log the logins it turns away'
+        )
+    elif warnings_level is not None and int(warnings_level) < MINIMUM_LOG_WARNINGS:
+        facts.insert(
+            0,
+            f'The server runs at `log_warnings {warnings_level}` and writes a'
+            f' denied login only from {MINIMUM_LOG_WARNINGS} on, so it logs none'
+            f' of them',
+        )
+        recommendations.append(
+            f'Set `log_warnings = {MINIMUM_LOG_WARNINGS}` to have the server log'
+            f' the logins it turns away'
+        )
+
+    # Where the lines came from goes last: an administrator reads the summary
+    # left to right and wants the verdict first, not the provenance of it.
+    facts.append(source_fact)
+
     sections.append('. '.join(facts) + '.')
 
     if last_errs:
@@ -707,6 +932,10 @@ def main():
     if last_warns:
         sections.append(
             'Warnings:\n' + '\n'.join(f'* {line}' for line in shorten(last_warns))
+        )
+    if last_denied:
+        sections.append(
+            'Denied logins:\n' + '\n'.join(f'* {line}' for line in shorten(last_denied))
         )
     if last_starts:
         sections.append(
@@ -742,6 +971,16 @@ def main():
     )
     perfdata += lib.base.get_perfdata(
         'mysql_warning_lines', n_warn, uom=None, warn='0', _min=0
+    )
+    # The rate counter trends what the state follows: how many the busiest single
+    # source produced within the window, not how many the log holds.
+    perfdata += lib.base.get_perfdata(
+        'mysql_access_denied',
+        denied_window['count'],
+        uom=None,
+        warn=args.ACCESS_DENIED_WARNING or None,
+        crit=args.ACCESS_DENIED_CRITICAL or None,
+        _min=0,
     )
     perfdata += lib.base.get_perfdata('mysql_startups', n_start, uom=None, _min=0)
     perfdata += lib.base.get_perfdata('mysql_shutdowns', n_shut, uom=None, _min=0)

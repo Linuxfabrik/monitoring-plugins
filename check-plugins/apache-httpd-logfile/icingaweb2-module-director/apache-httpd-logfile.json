@@ -55,11 +55,17 @@
                 "--no-match-severity": {
                     "value": "$apache_httpd_logfile_no_match_severity$"
                 },
+                "--no-per-source": {
+                    "set_if": "$apache_httpd_logfile_no_per_source$"
+                },
                 "--no-perfdata": {
                     "set_if": "$apache_httpd_logfile_no_perfdata$"
                 },
                 "--no-proxy": {
                     "set_if": "$apache_httpd_logfile_no_proxy$"
+                },
+                "--per-source": {
+                    "set_if": "$apache_httpd_logfile_per_source$"
                 },
                 "--proxy": {
                     "value": "$apache_httpd_logfile_proxy$"
@@ -223,6 +229,16 @@
                     "datafield_id": 27,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 28,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 29,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -278,10 +294,10 @@
             "vars": {
                 "criticality": "C",
                 "apache_httpd_logfile_always_ok": false,
-                "apache_httpd_logfile_auth_failures_critical": 500,
-                "apache_httpd_logfile_auth_failures_warning": 50,
-                "apache_httpd_logfile_client_denials_critical": 1000,
-                "apache_httpd_logfile_client_denials_warning": 100,
+                "apache_httpd_logfile_auth_failures_critical": 60,
+                "apache_httpd_logfile_auth_failures_warning": 6,
+                "apache_httpd_logfile_client_denials_critical": 60,
+                "apache_httpd_logfile_client_denials_warning": 6,
                 "apache_httpd_logfile_critical_level": "crit",
                 "apache_httpd_logfile_icinga_callback": false,
                 "apache_httpd_logfile_ignore": [],
@@ -291,10 +307,11 @@
                 "apache_httpd_logfile_no_match_severity": "ok",
                 "apache_httpd_logfile_no_perfdata": false,
                 "apache_httpd_logfile_no_proxy": false,
+                "apache_httpd_logfile_per_source": true,
                 "apache_httpd_logfile_proxy_failures_critical": 100,
                 "apache_httpd_logfile_proxy_failures_warning": 10,
-                "apache_httpd_logfile_request_errors_critical": 1000,
-                "apache_httpd_logfile_request_errors_warning": 100,
+                "apache_httpd_logfile_request_errors_critical": 60,
+                "apache_httpd_logfile_request_errors_warning": 6,
                 "apache_httpd_logfile_timeout": 8,
                 "apache_httpd_logfile_warning_level": "error"
             },
@@ -457,7 +474,7 @@
         "4": {
             "varname": "apache_httpd_logfile_client_denials_critical",
             "caption": "Apache httpd Logfile: Client Denials Critical",
-            "description": "Number of denied requests within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--client-denials-critical=500`.",
+            "description": "Number of denied requests within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--client-denials-critical=200`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -607,6 +624,15 @@
             "uuid": "579473b5-18a6-462e-975a-a320d353c25d"
         },
         "18": {
+            "varname": "apache_httpd_logfile_no_per_source",
+            "caption": "Apache httpd Logfile: No Per Source?",
+            "description": "Judge a rate by everything that arrived within the window, whatever source the lines name. Use this where the log reaches this check through something that rewrites or drops the address of the peer, or where every source is as interesting as the next.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "02526e26-ef40-415b-9b4b-c8b049076a03"
+        },
+        "19": {
             "varname": "apache_httpd_logfile_no_perfdata",
             "caption": "Apache httpd Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -615,7 +641,7 @@
             "settings": {},
             "uuid": "5efcba01-3c69-45af-8dd5-d9e3c714f326"
         },
-        "19": {
+        "20": {
             "varname": "apache_httpd_logfile_no_proxy",
             "caption": "Apache httpd Logfile: No Proxy?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -624,7 +650,16 @@
             "settings": {},
             "uuid": "ed77e704-0d0e-45c2-878f-3d7b6ceabbb1"
         },
-        "20": {
+        "21": {
+            "varname": "apache_httpd_logfile_per_source",
+            "caption": "Apache httpd Logfile: Per Source?",
+            "description": "Judge a rate by the busiest single source address rather than by everything that arrived. A handful of failures from one address within the window is somebody working on this host; the same number spread over as many addresses is the background of an open network going past, and only the first is worth reporting. Lines that name no source are counted together as one, so a burst of those still reports.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "1af5187c-eb08-42a4-87bf-a68e3b01ab15"
+        },
+        "22": {
             "varname": "apache_httpd_logfile_proxy",
             "caption": "Apache httpd Logfile: Proxy",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -635,7 +670,7 @@
             },
             "uuid": "7a785f61-5511-44e4-81d4-da760ce4aefe"
         },
-        "21": {
+        "23": {
             "varname": "apache_httpd_logfile_proxy_failures_critical",
             "caption": "Apache httpd Logfile: Proxy Failures Critical",
             "description": "Number of unreachable backends within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--proxy-failures-critical=50`.",
@@ -646,7 +681,7 @@
             },
             "uuid": "4b2c1551-3a0d-4022-b8ae-58c1baa81140"
         },
-        "22": {
+        "24": {
             "varname": "apache_httpd_logfile_proxy_failures_warning",
             "caption": "Apache httpd Logfile: Proxy Failures Warning",
             "description": "Number of unreachable backends within `--lookback` that returns WARNING. One of them is a backend being restarted, so this counts how many arrived rather than that any did. 0 turns the threshold off. Example: `--proxy-failures-warning=1`.",
@@ -657,10 +692,10 @@
             },
             "uuid": "c24f7e2d-4e23-4dc7-8872-e762403dd709"
         },
-        "23": {
+        "25": {
             "varname": "apache_httpd_logfile_request_errors_critical",
             "caption": "Apache httpd Logfile: Request Errors Critical",
-            "description": "Number of failed requests within `--lookback` that returns CRITICAL. Counts what Apache logged about one request and one client, denied requests and failed passwords excluded, as those have counters of their own. 0 turns the threshold off. Example: `--request-errors-critical=500`.",
+            "description": "Number of failed requests within `--lookback` that returns CRITICAL. Counts what Apache logged about one request and one client, denied requests and failed passwords excluded, as those have counters of their own. 0 turns the threshold off. Example: `--request-errors-critical=200`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -668,7 +703,7 @@
             },
             "uuid": "62d8813b-1781-40cd-91ef-5429921da616"
         },
-        "24": {
+        "26": {
             "varname": "apache_httpd_logfile_request_errors_warning",
             "caption": "Apache httpd Logfile: Request Errors Warning",
             "description": "Number of failed requests within `--lookback` that returns WARNING. Counts what Apache logged about one request and one client, denied requests and failed passwords excluded, as those have counters of their own. 0 turns the threshold off. Example: `--request-errors-warning=50`.",
@@ -679,7 +714,7 @@
             },
             "uuid": "9b2136a5-b6c3-4527-80fd-a7c96c2cf502"
         },
-        "25": {
+        "27": {
             "varname": "apache_httpd_logfile_server_log",
             "caption": "Apache httpd Logfile: Server Log",
             "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check reads the `ErrorLog` directive of the main Apache configuration file and falls back to the common locations of the distributions. Example: `--server-log=systemd:httpd.service`.",
@@ -690,7 +725,7 @@
             },
             "uuid": "3a82abc7-ac17-4071-8b0a-376fcfa779d6"
         },
-        "26": {
+        "28": {
             "varname": "apache_httpd_logfile_timeout",
             "caption": "Apache httpd Logfile: Timeout",
             "description": "Network timeout in seconds.",
@@ -701,7 +736,7 @@
             },
             "uuid": "79d94090-5c1b-493d-b0dc-ec02ad20f79d"
         },
-        "27": {
+        "29": {
             "varname": "apache_httpd_logfile_warning_level",
             "caption": "Apache httpd Logfile: Warning Level",
             "description": "Least severe Apache log level that returns WARNING. Each level includes everything more severe than itself, and a level that `--critical-level` already covers returns CRITICAL instead. Case-sensitive. `none` lets no level return WARNING, which leaves the events this check names as the only way to reach it. Example: `--warning-level=warn`.",

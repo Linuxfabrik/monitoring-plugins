@@ -28,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082803'
+__version__ = '2026082901'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, requests that ran into
@@ -866,22 +866,57 @@ def main():
         )
 
     # build the message
-    # The window is named with the number of lines it holds and how many files
-    # they came from, because everything below counts within it: right after
-    # logrotate the live file holds a single line, and a run that reports no
-    # startup at all is telling the truth about the window rather than about the
-    # day.
-    files = 1 + len(result['rotated'])
-    window = f'{len(result["lines"])} {lib.txt.pluralize("line", len(result["lines"]))}'
-    if files > 1:
-        window += f' across {files} files'
-    if source_size is not None:
-        facts.append(
-            f'Source: {source_label} '
-            f'(size: {lib.human.bytes2human(source_size)}, {window})'
+    # What was read, and where from. The size stands next to the live file
+    # rather than next to the line count, because it describes that one file and
+    # nothing else - right after logrotate a 34 KiB file said to hold 30000
+    # lines reads like a miscount, when almost all of them came from the rotated
+    # predecessor. Naming the predecessor says where they did come from.
+    # The count matters because everything below is counted within it: a run
+    # that reports no startup at all is telling the truth about the window rather
+    # than about the day.
+    # And where the window stopped at the cap this check reads rather than at
+    # the start of the log, it says so, because a busy host then reports on the
+    # last few hours rather than on the day.
+    # Which stretch of time those lines cover, because the count alone does not
+    # say whether the window is an hour or a week: on a busy host the cap is
+    # reached within hours, on a quiet one the same 30000 lines reach back
+    # months, and every count below has to be read against that. Taken from the
+    # first and the last line that carry a time, so a source that stamps none
+    # simply leaves it out.
+    covered = ''
+    window_from = window_to = None
+    for line in result['lines']:
+        window_from = lib.logsource.timestamp(line, parse_timestamp)
+        if window_from is not None:
+            break
+    for line in reversed(result['lines']):
+        window_to = lib.logsource.timestamp(line, parse_timestamp)
+        if window_to is not None:
+            break
+    if window_from is not None and window_to is not None:
+        # Ordered rather than taken as they stand: a file can hold lines written
+        # with a UTC offset next to lines written without one - a container
+        # entrypoint and the server it starts do exactly that - and the first
+        # line is then not necessarily the earlier one.
+        window_from, window_to = sorted((window_from, window_to))
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f', covering {window_from:%Y-%m-%d %H:%M}'
+            f'..{window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)})'
         )
-    else:
-        facts.append(f'Source: {source_label} ({window})')
+    line_cnt = len(result['lines'])
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if result['truncated']:
+        lines_read = f'the most recent {lines_read}'
+    sources = source_label
+    if source_size is not None:
+        sources += f' (size: {lib.human.bytes2human(source_size)})'
+    for predecessor in result['rotated']:
+        sources += f' + `{predecessor}`'
+    source_fact = f'Read {lines_read} from {sources}{covered}'
 
     # The counted events. Their state comes from how many of them arrived within
     # the rate window, not from the fact that they arrived at all. Their facts
@@ -891,28 +926,34 @@ def main():
     rate_facts = []
     for event in RATE_EVENTS:
         hits = found[event['key']]
-        recent, undated = lib.logsource.count_within(
+        # No `key` here: PHP-FPM names the pool and the script of a request in
+        # its error log but never the client, so there is no source to count per
+        # and the number to judge by is everything that arrived.
+        window = lib.logsource.count_within(
             hits, rate_since, parse_line=parse_timestamp
         )
-        rate_counts[event['key']] = recent
+        rate_counts[event['key']] = window['count']
         if not hits:
             continue
         rate_state = lib.base.get_state(
-            recent,
+            window['count'],
             getattr(args, event['warning']) or None,
             getattr(args, event['critical']) or None,
         )
         state = lib.base.get_worst(state, rate_state)
         fact = (
-            f'{recent} '
-            f'{lib.txt.pluralize(event["label"], recent)} in the last'
+            f'{window["count"]} '
+            f'{lib.txt.pluralize(event["label"], window["count"])} in the last'
             f' {lib.human.seconds2human(args.LOOKBACK)}'
             f'{lib.base.state2str(rate_state, prefix=" ")}'
         )
-        if len(hits) != recent:
+        if len(hits) != window['count']:
             fact += f' ({len(hits)} in the window read)'
-        if undated:
-            fact += f', {undated} of them without a timestamp and therefore not counted'
+        if window['undated']:
+            fact += (
+                f', {window["undated"]} of them without a timestamp and therefore'
+                f' not counted'
+            )
         rate_facts.append(fact)
         if rate_state != STATE_OK:
             recommendations.append(event['recommendation'])
@@ -978,6 +1019,10 @@ def main():
                 ' the PHP-FPM error log and not the pool `slowlog`, the access'
                 ' log or the log of the application itself'
             )
+
+    # Where the lines came from goes last: an administrator reads the summary
+    # left to right and wants the verdict first, not the provenance of it.
+    facts.append(source_fact)
 
     sections.append('. '.join(facts) + '.')
 

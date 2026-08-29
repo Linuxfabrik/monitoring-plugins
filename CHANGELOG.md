@@ -88,6 +88,7 @@ Monitoring Plugins:
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
 * mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
+* mysql-logfile: denied logins are counted per source over a time window instead of counting as warnings, so a mistyped password no longer alerts
 * mysql-perf-metrics: `--ignore-innodb-snapshot-isolation` silences the `innodb_snapshot_isolation` warning where the variable cannot be turned on
 * nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
@@ -107,6 +108,7 @@ Grafana:
 * apache-httpd-status: re-import, the metric names changed
 * cpu-usage: re-import, it has panels for steal time and per-core utilization
 * kvm-vm: import, the check ships one now
+* mysql-logfile: re-import, it has a panel for the denied logins
 * procs: re-import, it has a panel for the fork rate
 
 ### Removed
