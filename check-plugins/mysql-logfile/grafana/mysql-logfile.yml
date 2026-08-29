@@ -245,7 +245,7 @@ spec:
         value: mysql_startups
 
 
-  - title: MySQL Logfile - Denied Logins
+  - title: MySQL Logfile - Denied Logins and Aborted Connections
     type: timeseries
     gridPos:
       h: 8
@@ -311,6 +311,35 @@ spec:
         key: metric
         operator: '='
         value: mysql_access_denied
+    - alias: mysql_aborted_connections
+      refId: mysql_aborted_connections
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: mysql_aborted_connections
 
   - title: MySQL Logfile - Size
     type: timeseries

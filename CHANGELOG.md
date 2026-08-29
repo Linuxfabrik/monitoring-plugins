@@ -22,6 +22,7 @@ Icinga Director:
 * delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the certificate check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * Logfile, MySQL Logfile and Journald Query: `Ignore Pattern` / `Ignore Regex` become `Ignore`, which takes a regular expression, so escape any metacharacter when moving your patterns over
 * MySQL Database Metrics, Storage Engines and Table Indexes: `Ignore Schemas` / `Ignore Tables` become `Match` / `Ignore`, move your patterns over
+* MySQL Logfile: `Server Log` holds a list now, so re-enter the value wherever one is set
 * the KVM Host Service Set drops the libvirtd unit check: tag your hypervisors `libvirtd` or `virtqemud`
 * the `rpm-updates` tag and its Service Set are gone: drop the tag, the check is in the Basic Service Sets now
 
@@ -88,7 +89,10 @@ Monitoring Plugins:
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
 * mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
+* mysql-logfile: a connection a client dropped is counted per host over a time window instead of counting as a warning, so an application that never closes cleanly no longer alerts
 * mysql-logfile: denied logins are counted per source over a time window instead of counting as warnings, so a mistyped password no longer alerts
+* mysql-logfile: reads several logs as one window, reads the journal of the database unit along with the error log, works on a server that logs to the journal alone, and alerts when a log it was told to read cannot be read
+* mysql-logfile: the summary starts with the stretch of time it covers, names only what happened, and lists the logs it read in a section of its own
 * mysql-perf-metrics: `--ignore-innodb-snapshot-isolation` silences the `innodb_snapshot_isolation` warning where the variable cannot be turned on
 * nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
@@ -108,7 +112,7 @@ Grafana:
 * apache-httpd-status: re-import, the metric names changed
 * cpu-usage: re-import, it has panels for steal time and per-core utilization
 * kvm-vm: import, the check ships one now
-* mysql-logfile: re-import, it has a panel for the denied logins
+* mysql-logfile: re-import, it has a panel for the denied logins and the aborted connections
 * procs: re-import, it has a panel for the fork rate
 
 ### Removed

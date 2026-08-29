@@ -59,10 +59,8 @@ CASES = [
         'extra': [],
         'retc': STATE_OK,
         'assert_in': [
-            'No errors found',
-            'No warnings found',
+            'No errors or warnings found',
             '1 startup detected',
-            'No shutdowns detected',
         ],
         'assert_not_in': [
             'Recommendations:',
@@ -74,11 +72,14 @@ CASES = [
         'extra': [],
         'retc': STATE_WARN,
         'assert_in': [
-            '1 warning found',
+            '1 warning line found',
             '[WARNING]',
-            'Recommendations:',
-            'Check the warning in',
+            'Warning lines:',
         ],
+        # A plain level count gets no recommendation: the lines are listed, and
+        # "check the warnings" is what that listing is for. Only the named
+        # situations say what to do about them.
+        'assert_not_in': ['Recommendations:'],
     },
     {
         'id': 'crit-one-error-one-warning',
@@ -86,15 +87,13 @@ CASES = [
         'extra': [],
         'retc': STATE_CRIT,
         'assert_in': [
-            '1 error found',
-            '2 warnings found',
+            '1 error line found',
+            '2 warning lines found',
             '[CRITICAL]',
-            'Errors:',
-            'Warnings:',
-            'Recommendations:',
-            'Check the error in',
-            'Check the warnings in',
+            'Error lines:',
+            'Warning lines:',
         ],
+        'assert_not_in': ['Recommendations:'],
     },
     {
         'id': 'ok-tracks-startups-and-shutdowns',
@@ -102,12 +101,9 @@ CASES = [
         'extra': [],
         'retc': STATE_OK,
         'assert_in': [
-            'No errors found',
-            'No warnings found',
+            'No errors or warnings found',
             '3 startups detected',
             '2 shutdowns detected',
-            'Startups:',
-            'Shutdowns:',
         ],
     },
     {
@@ -116,8 +112,7 @@ CASES = [
         'extra': [],
         'retc': STATE_OK,
         'assert_in': [
-            'No errors found',
-            'No warnings found',
+            'No errors or warnings found',
         ],
         # The fixture contains the words "errors" / "warnings" in [Note] lines.
         # Old substring-match would have flagged them; the bracket-tag match
@@ -132,14 +127,14 @@ CASES = [
         'fixture': 'sample-warning.txt',
         'extra': ['--ignore-pattern', 'self signed'],
         'retc': STATE_OK,
-        'assert_in': ['No warnings found'],
+        'assert_in': ['No errors or warnings found'],
     },
     {
         'id': 'warn-ignore-regex-suppresses-warning',
         'fixture': 'sample-error.txt',
         'extra': ['--ignore-regex', r'sha256_password'],
         'retc': STATE_CRIT,  # error still present
-        'assert_in': ['1 warning found'],  # one of two warnings was filtered
+        'assert_in': ['1 warning line found'],  # one of two warnings was filtered
     },
     {
         # The counters of offending lines alert from their first hit on, so their
@@ -172,8 +167,8 @@ CASES = [
             # the predecessor is named, so the fact says where they came from
             'mysqld.err.1`',
             '1 startup detected',
-            '1 error found',
-            '2 warnings found',
+            '1 error line found',
+            '2 warning lines found',
         ],
     },
     {
@@ -187,7 +182,7 @@ CASES = [
         'assert_in': [
             '4 denied logins from localhost in the last',
             '(7 in total from 2 addresses)',
-            'No warnings found',
+            'No errors or warnings found',
         ],
     },
     {
@@ -284,6 +279,80 @@ def _make_test(case):
 for _case in CASES:
     _method = 'test_' + _case['id'].replace('-', '_')
     setattr(TestCheck, _method, _make_test(_case))
+
+
+class TestAbortedConnections(unittest.TestCase):
+    """A client that went away without saying goodbye, which is not an incident."""
+
+    def test_they_are_counted_by_rate_rather_than_as_warnings(self):
+        # MariaDB writes them as `[Warning]`, and every application that lets a
+        # connection fall out of scope produces them all day. Counting them by
+        # their level would leave the check yellow on a healthy host forever.
+        cmd = [PLUGIN, f'--server-log={fixture("mariadb-aborted-connections.txt")}']
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_OK, combined)
+        self.assertIn('No errors or warnings found', combined)
+        self.assertIn('0 aborted connections in the last 10m', combined)
+        self.assertIn('(4 in the window read)', combined)
+        self.assertIn("'mysql_aborted_connections'=0;20;200;0", combined)
+        # Nothing to act on, so the lines stay out of the output.
+        self.assertNotIn('Aborted connections:', combined)
+
+    def test_a_burst_alerts_and_names_the_host_it_came_from(self):
+        cmd = [
+            PLUGIN,
+            f'--server-log={fixture("mariadb-aborted-connections.txt")}',
+            '--lookback=31536000',
+            '--aborted-connections-warning=2',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_WARN, combined)
+        self.assertIn('from localhost', combined)
+        self.assertIn('Aborted connections:', combined)
+
+
+class TestSeveralSources(unittest.TestCase):
+    """A host running two instances has two error logs, and one check for both."""
+
+    def test_two_logs_are_read_as_one_window(self):
+        cmd = [
+            PLUGIN,
+            f'--server-log={fixture("sample-ok.txt")}',
+            f'--server-log={fixture("sample-error.txt")}',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_CRIT, combined)
+        self.assertIn('from 2 sources', combined)
+        self.assertIn('sample-ok.txt', combined)
+        self.assertIn('sample-error.txt', combined)
+
+    def test_the_same_log_named_twice_is_read_once(self):
+        # Counting every line twice would double every count built on it.
+        cmd = [PLUGIN, f'--server-log={fixture("sample-error.txt")}']
+        once = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        twice = subprocess.run(
+            [*cmd, f'--server-log={fixture("sample-error.txt")}'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(once.stdout, twice.stdout)
+
+    def test_a_source_that_could_not_be_read_is_a_hole_in_the_window(self):
+        # The run goes on with what it has, and says what is missing from it
+        # rather than reporting the state of the half that worked.
+        cmd = [
+            PLUGIN,
+            f'--server-log={fixture("sample-ok.txt")}',
+            '--server-log=/var/log/there-is-no-such-file.log',
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        combined = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_WARN, combined)
+        self.assertIn('there-is-no-such-file.log', combined)
 
 
 class TestIcingaCallback(unittest.TestCase):

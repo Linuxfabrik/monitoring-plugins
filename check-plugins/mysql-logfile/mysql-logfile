@@ -32,7 +32,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -40,13 +40,20 @@ shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log
 reads the on-disk log file, or fetches recent log lines from a container
 (`docker:`/`podman:`/`kubectl:`) or systemd unit (`systemd:`).
 The on-disk file path is taken from MySQL/MariaDB's `log_error` variable, with
-common fallback locations probed when that variable is empty. The discovered path
-is cached so the check still works briefly when the database is down. The most
-recent rotated file is read along with the live one, so the window does not end
+common fallback locations probed when that variable is empty, and the journal of the
+database unit is read along with it, because a server that fails to start writes why to
+its standard error and never reaches the error log. What both hold is counted once. The
+discovered path is cached so the check still works briefly when the database is down. The
+most recent rotated file is read along with the live one, so the window does not end
 where logrotate last ran.
 Severity is detected from the bracketed log tags (`[ERROR]`, `[Warning]`), which
 matches MySQL/MariaDB output and avoids false positives on lines that merely
-mention "error" or "warning". Recommendations are grouped under a single block at
+mention "error" or "warning". Two of those lines are counted by how often they
+arrive within `--lookback` instead, per client host, because they are written in
+ones and twos on a host where nothing is wrong and only say something in bulk: a
+login the server turned away, and a connection a client dropped without saying
+goodbye. Counting either by its level would leave the check permanently yellow on
+an ordinary application server. Recommendations are grouped under a single block at
 the end of the output.
 Reading the on-disk log file usually requires root/sudo (typical mysql logs are
 owned by `mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs
@@ -55,6 +62,8 @@ SELECT on that table but no filesystem access."""
 DEFAULT_CACHE_EXPIRE = 5 * 24 * 60  # in minutes (= 5 days)
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
+DEFAULT_ABORTED_CONNECTIONS_CRITICAL = 200
+DEFAULT_ABORTED_CONNECTIONS_WARNING = 20
 DEFAULT_ACCESS_DENIED_CRITICAL = 60
 DEFAULT_ACCESS_DENIED_WARNING = 6
 DEFAULT_ICINGA_CALLBACK = False
@@ -80,6 +89,16 @@ LOGFILE_BIG_THRESHOLD = 32 * 1024 * 1024  # 32 MiB - matches mysqltuner's cutoff
 # Verified against MariaDB 11.8 and MySQL 8.4.
 ACCESS_DENIED_REGEX = re.compile(r"Access denied for user '[^']*'@'(?P<source>[^']*)'")
 
+# A client that went away without saying goodbye. The server writes one of these
+# for every connection that ends without `COM_QUIT`, which every application that
+# lets its connections fall out of scope produces all day - a batch job, a PHP
+# request, a monitoring check. It is a `[Warning]` on MariaDB, so counting it by
+# its level leaves the check permanently yellow on a host where nothing is wrong;
+# a burst of them, on the other hand, is a network or an application falling over.
+ABORTED_CONNECTION_REGEX = re.compile(
+    r"Aborted connection \d+ to db: '[^']*' user: '[^']*' host: '(?P<source>[^']*)'"
+)
+
 # What the two servers have to be told before they write that line at all.
 # MariaDB writes it at `log_warnings` 2, which is its default. MySQL keeps it at
 # the third verbosity level and its default is the second, so on MySQL the line
@@ -92,6 +111,23 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # window would end at the last rotation, and an event from before it would stop
 # being reported the moment logrotate runs.
 ROTATED_FILES = 1
+
+# The unit the distributions run the database server as. Only the fixed locations systemd
+# reads unit files from are looked at, and only for the names the distributions
+# use, so nothing a log or a configuration file holds can point the check at
+# another unit.
+UNIT_CANDIDATES = ('mariadb.service', 'mysqld.service', 'mysql.service')
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+
+# How long a path may be in the summary before it is abbreviated for display.
+# The paths the distributions use fit within it untouched; a host serving a
+# dozen sites names a dozen logs in one directory, and there the directory is
+# the part that says nothing.
+SOURCE_PATH_MAX_LEN = 32
 
 
 def parse_args():
@@ -107,6 +143,34 @@ def parse_args():
         '--version',
         action='version',
         version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--aborted-connections-critical',
+        help='Number of connections the clients dropped within `--lookback` '
+        'that returns CRITICAL. '
+        'Counted per client host, so one application falling over reaches it '
+        'while the same number spread over a fleet does not. '
+        '0 turns the threshold off. '
+        'Example: `--aborted-connections-critical=500`. '
+        'Default: %(default)s',
+        dest='ABORTED_CONNECTIONS_CRITICAL',
+        type=int,
+        default=DEFAULT_ABORTED_CONNECTIONS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--aborted-connections-warning',
+        help='Number of connections the clients dropped within `--lookback` '
+        'that returns WARNING. '
+        'Counted per client host, so one application falling over reaches it '
+        'while the same number spread over a fleet does not. '
+        '0 turns the threshold off. '
+        'Example: `--aborted-connections-warning=50`. '
+        'Default: %(default)s',
+        dest='ABORTED_CONNECTIONS_WARNING',
+        type=int,
+        default=DEFAULT_ABORTED_CONNECTIONS_WARNING,
     )
 
     parser.add_argument(
@@ -340,8 +404,14 @@ def parse_args():
         help='Log source to read from. '
         'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
         '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'Can be specified multiple times, and everything named is then read as '
+        'one window; a source named twice is read once. '
         'If omitted, the check first probes `performance_schema.error_log` '
-        '(MySQL 8.0.22+) and then falls back to the file from `log_error`.',
+        '(MySQL 8.0.22+) and then falls back to the file from `log_error`, read '
+        'along with the journal of the database unit; what the two share is '
+        'counted once.',
+        action='append',
+        default=None,
         dest='SERVER_LOG',
     )
 
@@ -441,7 +511,7 @@ def read_pfs_error_log(conn):
 
 
 def get_source(log_line):
-    """Return the host a denied login came from, or None where the line names none.
+    """Return the host a line names as the peer, or None where it names none.
 
     The server writes whatever it resolved the peer to, so this is an address on
     one host and a name (`localhost`) on the next. An address is brought into one
@@ -449,11 +519,73 @@ def get_source(log_line):
     it as `::ffff:198.51.100.7` here and as `198.51.100.7` there; a name is kept
     as it stands, which is all that can be done with it and enough to group by.
     """
-    match = ACCESS_DENIED_REGEX.search(log_line)
+    match = ACCESS_DENIED_REGEX.search(log_line) or ABORTED_CONNECTION_REGEX.search(
+        log_line
+    )
     if not match:
         return None
     source = match.group('source')
     return lib.net.normalize_address(source) or source or None
+
+
+def get_units(config_root=''):
+    """Return the the database server units this host has a unit file for.
+
+    A unit file two names point at is one unit: the MariaDB package ships
+    `mysqld.service` and `mysql.service` as symlinks to `mariadb.service`, and
+    reading that journal three times would count every line three times.
+    """
+    found = []
+    seen = set()
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
+                if not lib.disk.file_exists(filename, allow_empty=True):
+                    continue
+                identity = os.path.realpath(filename)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                found.append(os.path.basename(filename))
+    return found
+
+
+def dedup_key(line):
+    """Identify the event in a line, whichever transport delivered it.
+
+    The error log and the journal of the unit are both read, and the server
+    writes its own timestamp into either, so what follows the syslog prefix the
+    journal adds is the line the file holds.
+    """
+    written_at = lib.logsource.timestamp(line)
+    return (
+        written_at.replace(microsecond=0) if written_at else None,
+        lib.logsource.strip_syslog_prefix(line),
+    )
+
+
+def describe_source(source, size=None):
+    """Name one source the way the summary reports it, with what was read along.
+
+    A file's size comes with the verdict the cutoff below reaches on it, because
+    that is the one number in the fact the admin has to act on.
+    """
+    described = f'`{source["label"]}`'
+    if size is not None:
+        threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
+        comparison = '>' if size >= LOGFILE_BIG_THRESHOLD else '<'
+        described += (
+            f' (size: {lib.human.bytes2human(size)} {comparison} {threshold_human})'
+        )
+    for predecessor in source['rotated']:
+        described += f' + `{predecessor}`'
+        # Its size is looked up here rather than passed in, because a rotated
+        # file is not a source the caller named: the reader found it. It stays
+        # out of the size the performance data trends, which is the live file.
+        predecessor_stat = lib.disk.stat(predecessor)
+        if predecessor_stat is not None:
+            described += f' (size: {lib.human.bytes2human(predecessor_stat.st_size)})'
+    return described
 
 
 def shorten(items, head=5, tail=5):
@@ -503,23 +635,27 @@ def main():
         )
 
     # fetch data
-    # `source_label` always describes what the admin sees ("Source: ..."),
-    # `source_size` is set only for plain on-disk files (so we can emit the
-    # 32 MiB cutoff check and a perfdata series).
-    source_label = None
-    source_size = None
-    # The rotated predecessors read along with the live file, and whether the
-    # window stopped at the cap this check reads rather than at the start of the
-    # log. Only an on-disk log has either; the structured table does not.
-    source_rotated = []
+    # A size is known for plain on-disk files only (so we can emit the 32 MiB
+    # cutoff check and a perfdata series), keyed by the source it belongs to.
+    # Where several files are read, the series is what they add up to.
+    sizes = {}
+    # Every source that was read, each with the rotated predecessors read along
+    # with it, in the shape the summary spells them out in. The structured table
+    # has neither a size nor a predecessor and stands here on its own.
+    read_sources = []
+    # What the read had to say about itself, and what it could not read at all.
+    # The structured table has neither, which is why both start out empty rather
+    # than being taken off the result of a read that did not happen.
+    read_notice = ''
+    read_failed = []
+    read_duplicates = 0
     source_truncated = False
     logfile = None
     log_error = None
+    server_logs = args.SERVER_LOG or []
     myvar = {}
 
-    if args.SERVER_LOG:
-        log_error = args.SERVER_LOG
-    else:
+    if not server_logs:
         mysql_connection = {
             'defaults_file': args.DEFAULTS_FILE,
             'defaults_group': args.DEFAULTS_GROUP,
@@ -537,7 +673,9 @@ def main():
                 if pfs_text is not None:
                     logfile = pfs_text
                     log_error = 'performance_schema.error_log'
-                    source_label = '`performance_schema.error_log`'
+                    read_sources = [
+                        {'label': 'performance_schema.error_log', 'rotated': []}
+                    ]
             lib.db_mysql.close(conn)
         if log_error is None:
             # DB unreachable or PFS not available: use the file path from the
@@ -554,10 +692,23 @@ def main():
                     myvar.get('hostname', ''),
                     myvar.get('datadir', ''),
                 )
-        if not log_error:
+        if logfile is None:
+            # The unit alongside the file, not instead of it: a server that
+            # failed to start wrote why to its standard error and never reached
+            # the error log. What both carry is counted once. The structured
+            # table above answers for itself and needs neither.
+            #
+            # And where `log_error` names no file at all, the unit is the whole
+            # answer rather than a reason to give up: a server left at its
+            # default writes to its standard error, which under systemd is the
+            # journal, and in a container it is all there is.
+            server_logs = [log_error] if log_error else []
+            server_logs += [f'systemd:{unit}' for unit in get_units()]
+        if not server_logs and logfile is None:
             lib.base.cu(
-                'No log file set (set `log_error` in MySQL/MariaDB config or '
-                "use the check's `--server-log` parameter)."
+                'No log file set and no database unit on this host (set '
+                '`log_error` in the MySQL/MariaDB configuration, or use the '
+                "check's `--server-log` parameter)."
             )
 
     # Cache the discovered on-disk path so the next run still has it when the
@@ -572,34 +723,43 @@ def main():
 
     # read log content (unless PFS already provided it)
     if logfile is None:
-        if log_error == 'stderr':
+        if 'stderr' in server_logs:
             lib.base.cu("log_error is set to STDERR, so this check can't read stderr.")
-        kind, _, target = lib.base.coe(lib.logsource.parse(log_error))
-        if kind == lib.logsource.KIND_FILE:
+        resolved = []
+        for server_log in server_logs:
+            kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+            if kind != lib.logsource.KIND_FILE:
+                resolved.append(server_log)
+                continue
             if not os.path.isabs(target):
-                log_error = os.path.join(myvar.get('datadir', ''), target)
+                server_log = os.path.join(myvar.get('datadir', ''), target)
+            resolved.append(server_log)
             # Report a path that is not a regular file before reading it, so the
             # admin hears about a directory or a device rather than about an I/O
-            # error further down.
-            log_stat = lib.disk.stat(log_error)
+            # error further down. With one source that is the whole answer; with
+            # several it is one source of many and the run goes on.
+            log_stat = lib.disk.stat(server_log)
             if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
-                lib.base.oao(
-                    f'Logging seems to be configured, but `{log_error}` does'
-                    f' not seem to be an existing regular file. Check the path'
-                    f' and file permissions, or provide the `--server-log`'
-                    f' parameter.',
-                    STATE_WARN,
-                )
-            source_size = log_stat.st_size
-            if source_size == 0:
-                # An empty log file is a deterministic "no errors / warnings
-                # observed" state, not an unknown one - typical right after
-                # logrotate fires. Both the auto-detected and the explicit
-                # --server-log code paths land here.
-                lib.base.oao(
-                    f'Log file `{log_error}` is empty. Assuming log-rotation.',
-                    STATE_OK,
-                )
+                if len(server_logs) == 1:
+                    lib.base.oao(
+                        f'Logging seems to be configured, but `{server_log}`'
+                        f' does not seem to be an existing regular file. Check'
+                        f' the path and file permissions, or provide the'
+                        f' `--server-log` parameter.',
+                        STATE_WARN,
+                    )
+                continue
+            sizes[server_log] = log_stat.st_size
+        server_logs = resolved
+        if len(server_logs) == 1 and sizes.get(server_logs[0]) == 0:
+            # An empty log file is a deterministic "no errors / warnings
+            # observed" state, not an unknown one - typical right after
+            # logrotate fires. Both the auto-detected and the explicit
+            # --server-log code paths land here.
+            lib.base.oao(
+                f'Log file `{server_logs[0]}` is empty. Assuming log-rotation.',
+                STATE_OK,
+            )
         # The plugin runs as root via sudo, so restrict an on-disk log to the
         # system log directory and the default MySQL data directory. The datadir
         # reported by the server is deliberately NOT trusted here, because an
@@ -618,18 +778,23 @@ def main():
         # log, counting startups and shutdowns next to errors and warnings, so
         # every run has to see the whole window rather than only what is new.
         result = lib.base.coe(
-            lib.logsource.read(
-                log_error,
+            lib.logsource.read_many(
+                server_logs,
                 allowed_roots=allowed_roots,
+                dedup_key=dedup_key,
                 max_lines=MAXLINES,
                 rotated=ROTATED_FILES,
                 timeout=args.TIMEOUT,
             )
         )
         logfile = '\n'.join(result['lines'])
-        source_rotated = result['rotated']
+        read_sources = result['sources']
+        read_notice = result['notice']
+        read_failed = result['failed']
+        read_duplicates = result['duplicates']
         source_truncated = result['truncated']
-        source_label = f'`{log_error}`'
+    # What to call the whole of what was read, for the messages that have to name
+    # it before the summary below spells every source out.
 
     # init some vars
     state = STATE_OK
@@ -641,6 +806,8 @@ def main():
     recommendations = []
     last_errs, last_warns, last_shutdowns, last_starts = [], [], [], []
     last_denied = []
+    last_aborted = []
+    aborted_state = STATE_OK
     rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
     considered_cnt = 0
     suppressed_cnt = 0
@@ -703,6 +870,12 @@ def main():
         if ACCESS_DENIED_REGEX.search(log_line):
             last_denied.append(log_line)
             continue
+        # The same for a connection the client dropped: on MariaDB it is a
+        # `[Warning]` too, and an application that never closes cleanly writes
+        # hundreds of them a day without anything being wrong.
+        if ABORTED_CONNECTION_REGEX.search(log_line):
+            last_aborted.append(log_line)
+            continue
         # MySQL/MariaDB tag the severity in brackets like `[ERROR]` / `[Warning]`.
         # Match the bracketed form so words like "errors" inside table names or
         # paths do not falsely trip the count (mysqltuner uses the same regex).
@@ -714,6 +887,17 @@ def main():
             last_shutdowns.append(log_line)
         if 'ready for connections' in log_line:
             last_starts.append(log_line)
+
+    # Everything collected is put back into the order it was written in. The
+    # sources are read one after the other, so a line from the file sits before a
+    # newer one from the journal however late it was written, and "the last one"
+    # would name something days old.
+    last_errs = lib.logsource.sort_by_time(last_errs)
+    last_warns = lib.logsource.sort_by_time(last_warns)
+    last_denied = lib.logsource.sort_by_time(last_denied)
+    last_aborted = lib.logsource.sort_by_time(last_aborted)
+    last_starts = lib.logsource.sort_by_time(last_starts)
+    last_shutdowns = lib.logsource.sort_by_time(last_shutdowns)
 
     log_lines = logfile.splitlines()
 
@@ -746,29 +930,18 @@ def main():
     # say whether the window is an hour or a week: on a busy host the cap is
     # reached within hours, on a quiet one the same 30000 lines reach back
     # months, and every count below has to be read against that. Taken from the
-    # first and the last line that carry a time, so a source that stamps none
-    # simply leaves it out.
+    # ends of each source rather than from the ends of everything read: the
+    # sources arrive one after the other, so the newest line of the first one
+    # sits in the middle. A source that stamps no line simply leaves it out.
     covered = ''
-    window_from = window_to = None
-    for line in log_lines:
-        window_from = lib.logsource.timestamp(line)
-        if window_from is not None:
-            break
-    for line in reversed(log_lines):
-        window_to = lib.logsource.timestamp(line)
-        if window_to is not None:
-            break
+    window_from, window_to = lib.logsource.covered_window(
+        [item['lines'] for item in read_sources]
+    )
     if window_from is not None and window_to is not None:
-        # Ordered rather than taken as they stand: a file can hold lines written
-        # with a UTC offset next to lines written without one - a container
-        # entrypoint and the server it starts do exactly that - and the first
-        # line is then not necessarily the earlier one.
-        window_from, window_to = sorted((window_from, window_to))
         span = int((window_to - window_from).total_seconds())
         covered = (
-            f', covering {window_from:%Y-%m-%d %H:%M}'
-            f'..{window_to:%Y-%m-%d %H:%M}'
-            f' ({lib.human.seconds2human(span)})'
+            f'{window_from:%Y-%m-%d %H:%M} .. {window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)}): '
         )
     line_cnt = len(log_lines)
     lines_read = (
@@ -777,52 +950,70 @@ def main():
     if source_truncated:
         lines_read = f'the most recent {lines_read}'
     threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
-    oversized = source_size is not None and source_size >= LOGFILE_BIG_THRESHOLD
-    sources = source_label
-    if source_size is not None:
-        sources += (
-            f' (size: {lib.human.bytes2human(source_size)} '
-            f'{">" if oversized else "<"} {threshold_human})'
+    oversized = any(size >= LOGFILE_BIG_THRESHOLD for size in sizes.values())
+    # Every source by name, with its own size and its own rotated predecessor,
+    # because a run that read three files and found nothing in two of them has
+    # said something different from a run that read one.
+    # The sources get a section of their own, the way the lines behind every
+    # count do: naming them in the summary would bury the verdict under a
+    # paragraph of paths, and the summary line is what a monitoring server shows
+    # in a list. The paths are not abbreviated there: a bullet has the room, and
+    # that is where an administrator copies them from.
+    described = [
+        describe_source(item, sizes.get(item['label'])) for item in read_sources
+    ]
+    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+
+    if read_duplicates:
+        # Named rather than silently dropped: an administrator who sees two
+        # sources read and one count has to be able to tell that the check knows
+        # they hold the same events.
+        shared = read_duplicates
+        source_fact_tail = (
+            f', {lib.human.number2human(shared)} '
+            f'{lib.txt.pluralize("line", shared)} they share counted once'
         )
-    for predecessor in source_rotated:
-        sources += f' + `{predecessor}`'
-    fact = f'Read {lines_read} from {sources}{covered}'
+    else:
+        source_fact_tail = ''
+    source_heading = f'Read {lines_read} from {sources}{source_fact_tail}:'
     if oversized:
+        # The size is a fact about the host, not about this run, so it belongs in
+        # the summary even though the sizes themselves are listed further down.
         state = lib.base.get_worst(state, STATE_WARN)
-        fact += lib.base.state2str(STATE_WARN, prefix=' ')
+        facts.append(
+            f'A log file is larger than {threshold_human}'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
+        )
         recommendations.append(
             f'Log file is > {threshold_human}; analyse why or set up log'
             f' rotation (e.g. logrotate)'
         )
-    source_fact = fact
 
+    # The lines behind these two counts are listed further down, so there is no
+    # recommendation to make here: "check the errors" is what the listing is for.
+    # Only the named situations below say what to do about them.
     n_err = len(last_errs)
     if n_err:
         state = lib.base.get_worst(state, STATE_CRIT)
         facts.append(
-            f'{n_err} {lib.txt.pluralize("error", n_err)} found'
+            f'{n_err} error {lib.txt.pluralize("line", n_err)} found'
             f'{lib.base.state2str(STATE_CRIT, prefix=" ")}'
             f' (last: {last_errs[-1]})'
         )
-        recommendations.append(
-            f'Check the {lib.txt.pluralize("error", n_err)} in {source_label}'
-        )
-    else:
-        facts.append('No errors found')
 
     n_warn = len(last_warns)
     if n_warn:
         state = lib.base.get_worst(state, STATE_WARN)
         facts.append(
-            f'{n_warn} {lib.txt.pluralize("warning", n_warn)} found'
+            f'{n_warn} warning {lib.txt.pluralize("line", n_warn)} found'
             f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
             f' (last: {last_warns[-1]})'
         )
-        recommendations.append(
-            f'Check the {lib.txt.pluralize("warning", n_warn)} in {source_label}'
-        )
-    else:
-        facts.append('No warnings found')
+
+    if not n_err and not n_warn:
+        # Naming both levels one by one would bury the one sentence a healthy
+        # host is supposed to be.
+        facts.append('No errors or warnings found')
 
     # What the server turned away, counted per source: a run against one account
     # from one host reaches the threshold while the same number of typos across a
@@ -870,14 +1061,59 @@ def main():
                 ' still using credentials that were changed'
             )
 
+    # What the clients dropped, counted the same way and for the same reason: a
+    # connection that ends without `COM_QUIT` is normal in ones and twos and says
+    # an application or a network is falling over when it arrives in bulk.
+    aborted_window = lib.logsource.count_within(
+        last_aborted,
+        rate_since,
+        key=get_source if args.PER_SOURCE else None,
+    )
+    if last_aborted:
+        aborted_state = lib.base.get_state(
+            aborted_window['count'],
+            args.ABORTED_CONNECTIONS_WARNING or None,
+            args.ABORTED_CONNECTIONS_CRITICAL or None,
+        )
+        state = lib.base.get_worst(state, aborted_state)
+        fact = (
+            f'{aborted_window["count"]} aborted '
+            f'{lib.txt.pluralize("connection", aborted_window["count"])}'
+        )
+        if aborted_window['busiest']:
+            fact += f' from {aborted_window["busiest"]}'
+        fact += (
+            f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(aborted_state, prefix=" ")}'
+        )
+        extras = []
+        if aborted_window['total'] != aborted_window['count']:
+            extras.append(
+                f'{aborted_window["total"]} in total from '
+                f'{aborted_window["sources"]}'
+                f' {lib.txt.pluralize("host", aborted_window["sources"])}'
+            )
+        if len(last_aborted) != aborted_window['total']:
+            extras.append(f'{len(last_aborted)} in the window read')
+        if extras:
+            fact += ' (' + ', '.join(extras) + ')'
+        facts.append(fact)
+        if aborted_state != STATE_OK:
+            recommendations.append(
+                'Connections are being dropped in bulk; the client hosts in the'
+                ' log say whether one application is falling over, a network is'
+                ' losing packets, or a connector needs its timeouts and'
+                ' `max_allowed_packet` looked at'
+            )
+
+    # A counter at zero says nothing the performance data does not, and a
+    # sentence about it would only push the verdict further right.
     n_start = len(last_starts)
     if n_start:
         facts.append(
             f'{n_start} {lib.txt.pluralize("startup", n_start)} detected'
             f' (last: {last_starts[-1]})'
         )
-    else:
-        facts.append('No startups detected')
 
     n_shut = len(last_shutdowns)
     if n_shut:
@@ -885,8 +1121,6 @@ def main():
             f'{n_shut} {lib.txt.pluralize("shutdown", n_shut)} detected'
             f' (last: {last_shutdowns[-1]})'
         )
-    else:
-        facts.append('No shutdowns detected')
 
     # A server told to keep quiet writes no denied login at all, so a report
     # without any says nothing about the host. It goes first, ahead of the
@@ -919,32 +1153,57 @@ def main():
             f' the logins it turns away'
         )
 
-    # Where the lines came from goes last: an administrator reads the summary
-    # left to right and wants the verdict first, not the provenance of it.
-    facts.append(source_fact)
+    if read_notice:
+        facts.append(read_notice.rstrip('.'))
 
-    sections.append('. '.join(facts) + '.')
+    # A source that could not be read at all leaves a hole in the window: with a
+    # second source still delivering, the run goes on, but reporting the state of
+    # what happened to work would hide that nothing is watching the rest.
+    if read_failed:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            '; '.join(item.rstrip('.') for item in read_failed)
+            + lib.base.state2str(STATE_WARN, prefix=' ')
+        )
+        recommendations.append(
+            'Check the log sources this check was told to read; '
+            'one of them could not be read at all'
+        )
 
+    # The window the summary reports on comes first, because every count in it
+    # is a count within that window and reads differently against an hour than
+    # against a week.
+    sections.append(covered + '. '.join(facts) + '.')
+
+    # The lines behind the counts, under the headings the rest of the family
+    # uses. A startup and a shutdown get none: the fact above names the last of
+    # each, and listing them again is a list of things that went right.
     if last_errs:
         sections.append(
-            'Errors:\n' + '\n'.join(f'* {line}' for line in shorten(last_errs))
+            'Error lines:\n' + '\n'.join(f'* {line}' for line in shorten(last_errs))
         )
     if last_warns:
         sections.append(
-            'Warnings:\n' + '\n'.join(f'* {line}' for line in shorten(last_warns))
+            'Warning lines:\n' + '\n'.join(f'* {line}' for line in shorten(last_warns))
         )
     if last_denied:
         sections.append(
             'Denied logins:\n' + '\n'.join(f'* {line}' for line in shorten(last_denied))
         )
-    if last_starts:
+    if last_aborted and aborted_state != STATE_OK:
+        # Only once the rate says something: a handful of them is what every
+        # application that lets a connection fall out of scope produces, and
+        # listing ten of those under a green check is noise.
         sections.append(
-            'Startups:\n' + '\n'.join(f'* {line}' for line in shorten(last_starts))
+            'Aborted connections:\n'
+            + '\n'.join(f'* {line}' for line in shorten(last_aborted))
         )
-    if last_shutdowns:
-        sections.append(
-            'Shutdowns:\n' + '\n'.join(f'* {line}' for line in shorten(last_shutdowns))
-        )
+
+    # What was read, last of the sections: the verdict and the lines behind it
+    # come first, the provenance after them.
+    sections.append(
+        source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
+    )
 
     if recommendations:
         sections.append(
@@ -955,10 +1214,10 @@ def main():
 
     # perfdata
     perfdata = ''
-    if source_size is not None:
+    if sizes:
         perfdata += lib.base.get_perfdata(
             'mysql_logfile_size',
-            source_size,
+            sum(sizes.values()),
             uom='B',
             warn=LOGFILE_BIG_THRESHOLD,
             _min=0,
@@ -980,6 +1239,14 @@ def main():
         uom=None,
         warn=args.ACCESS_DENIED_WARNING or None,
         crit=args.ACCESS_DENIED_CRITICAL or None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'mysql_aborted_connections',
+        aborted_window['count'],
+        uom=None,
+        warn=args.ABORTED_CONNECTIONS_WARNING or None,
+        crit=args.ABORTED_CONNECTIONS_CRITICAL or None,
         _min=0,
     )
     perfdata += lib.base.get_perfdata('mysql_startups', n_start, uom=None, _min=0)

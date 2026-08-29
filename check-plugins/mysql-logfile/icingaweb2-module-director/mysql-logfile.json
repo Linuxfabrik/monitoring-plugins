@@ -2,6 +2,12 @@
     "Command": {
         "cmd-check-mysql-logfile": {
             "arguments": {
+                "--aborted-connections-critical": {
+                    "value": "$mysql_logfile_aborted_connections_critical$"
+                },
+                "--aborted-connections-warning": {
+                    "value": "$mysql_logfile_aborted_connections_warning$"
+                },
                 "--access-denied-critical": {
                     "value": "$mysql_logfile_access_denied_critical$"
                 },
@@ -77,7 +83,8 @@
                     "value": "$mysql_logfile_port$"
                 },
                 "--server-log": {
-                    "value": "$mysql_logfile_server_log$"
+                    "value": "$mysql_logfile_server_log$",
+                    "repeat_key": true
                 },
                 "--timeout": {
                     "value": "$mysql_logfile_timeout$"
@@ -215,6 +222,16 @@
                     "datafield_id": 26,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 27,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 28,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -258,7 +275,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table (reachable over the network, no shell access to the log file needed). Otherwise it reads the on-disk log file, or fetches recent log lines from a container (`docker:`/`podman:`/`kubectl:`) or systemd unit (`systemd:`). The on-disk file path is taken from MySQL/MariaDB's `log_error` variable, with common fallback locations probed when that variable is empty. The discovered path is cached so the check still works briefly when the database is down. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Severity is detected from the bracketed log tags (`[ERROR]`, `[Warning]`), which matches MySQL/MariaDB output and avoids false positives on lines that merely mention \"error\" or \"warning\". Recommendations are grouped under a single block at the end of the output. Reading the on-disk log file usually requires root/sudo (typical mysql logs are owned by `mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs SELECT on that table but no filesystem access.",
+            "notes": "Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table (reachable over the network, no shell access to the log file needed). Otherwise it reads the on-disk log file, or fetches recent log lines from a container (`docker:`/`podman:`/`kubectl:`) or systemd unit (`systemd:`). The on-disk file path is taken from MySQL/MariaDB's `log_error` variable, with common fallback locations probed when that variable is empty, and the journal of the database unit is read along with it, because a server that fails to start writes why to its standard error and never reaches the error log. What both hold is counted once. The discovered path is cached so the check still works briefly when the database is down. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Severity is detected from the bracketed log tags (`[ERROR]`, `[Warning]`), which matches MySQL/MariaDB output and avoids false positives on lines that merely mention \"error\" or \"warning\". Two of those lines are counted by how often they arrive within `--lookback` instead, per client host, because they are written in ones and twos on a host where nothing is wrong and only say something in bulk: a login the server turned away, and a connection a client dropped without saying goodbye. Counting either by its level would leave the check permanently yellow on an ordinary application server. Recommendations are grouped under a single block at the end of the output. Reading the on-disk log file usually requires root/sudo (typical mysql logs are owned by `mysql:mysql` mode `0640`). The `performance_schema.error_log` path needs SELECT on that table but no filesystem access.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-logfile/",
             "object_name": "tpl-service-mysql-logfile",
             "object_type": "template",
@@ -269,6 +286,8 @@
             "use_var_overrides": null,
             "vars": {
                 "criticality": "C",
+                "mysql_logfile_aborted_connections_critical": 200,
+                "mysql_logfile_aborted_connections_warning": 20,
                 "mysql_logfile_access_denied_critical": 60,
                 "mysql_logfile_access_denied_warning": 6,
                 "mysql_logfile_always_ok": false,
@@ -286,8 +305,8 @@
                 "mysql_logfile_no_proxy": false,
                 "mysql_logfile_per_source": true,
                 "mysql_logfile_port": "3306",
-                "mysql_logfile_timeout": 3,
-                "mysql_logfile_server_log": "/var/log/mariadb/mariadb.log"
+                "mysql_logfile_server_log": "/var/log/mariadb/mariadb.log",
+                "mysql_logfile_timeout": 3
             },
             "volatile": null,
             "zone": null,
@@ -329,6 +348,28 @@
     },
     "Datafield": {
         "1": {
+            "varname": "mysql_logfile_aborted_connections_critical",
+            "caption": "MySQL Logfile: Aborted Connections Critical",
+            "description": "Number of connections the clients dropped within `--lookback` that returns CRITICAL. Counted per client host, so one application falling over reaches it while the same number spread over a fleet does not. 0 turns the threshold off. Example: `--aborted-connections-critical=500`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "32482c87-1dbc-4cd0-831f-a95d4f74d01f"
+        },
+        "2": {
+            "varname": "mysql_logfile_aborted_connections_warning",
+            "caption": "MySQL Logfile: Aborted Connections Warning",
+            "description": "Number of connections the clients dropped within `--lookback` that returns WARNING. Counted per client host, so one application falling over reaches it while the same number spread over a fleet does not. 0 turns the threshold off. Example: `--aborted-connections-warning=50`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f03e9592-00b4-41a6-a75f-4e6d4fb9b6f5"
+        },
+        "3": {
             "varname": "mysql_logfile_access_denied_critical",
             "caption": "MySQL Logfile: Access Denied Critical",
             "description": "Number of logins the server turned away within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--access-denied-critical=200`.",
@@ -339,7 +380,7 @@
             },
             "uuid": "5a9be243-ed66-41ec-8f22-635c01eb23cb"
         },
-        "2": {
+        "4": {
             "varname": "mysql_logfile_access_denied_warning",
             "caption": "MySQL Logfile: Access Denied Warning",
             "description": "Number of logins the server turned away within `--lookback` that returns WARNING. Counted per source address, so a run against one account from one host reaches it while the same number of typos across a fleet does not. 0 turns the threshold off. Example: `--access-denied-warning=1`.",
@@ -350,7 +391,7 @@
             },
             "uuid": "c032f864-2e96-4eaf-a358-d1e344cad3dd"
         },
-        "3": {
+        "5": {
             "varname": "mysql_logfile_always_ok",
             "caption": "MySQL Logfile: Always OK?",
             "description": "Always returns OK.",
@@ -359,7 +400,7 @@
             "settings": {},
             "uuid": "5e63e133-8dbc-4eec-981e-8447414d30bc"
         },
-        "4": {
+        "6": {
             "varname": "mysql_logfile_cache_expire",
             "caption": "MySQL Logfile: Cache Expire",
             "description": "The amount of time after which the credential/data cache expires, in minutes.",
@@ -370,7 +411,7 @@
             },
             "uuid": "cb5bfba2-8cce-4e8f-8268-b5e9b8de7f5f"
         },
-        "5": {
+        "7": {
             "varname": "mysql_logfile_defaults_file",
             "caption": "MySQL Logfile: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -381,7 +422,7 @@
             },
             "uuid": "6d3a5f0e-7aeb-4a5b-9b65-a5cbf595a8e0"
         },
-        "6": {
+        "8": {
             "varname": "mysql_logfile_defaults_group",
             "caption": "MySQL Logfile: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -392,7 +433,7 @@
             },
             "uuid": "a1835a71-e192-4350-96c6-ed97c1ec3f31"
         },
-        "7": {
+        "9": {
             "varname": "mysql_logfile_hostname",
             "caption": "MySQL Logfile: Hostname",
             "description": "MySQL/MariaDB hostname or IP address.",
@@ -403,7 +444,7 @@
             },
             "uuid": "78fec2c7-6200-47be-ae54-013c1b9cdc59"
         },
-        "8": {
+        "10": {
             "varname": "mysql_logfile_icinga_callback",
             "caption": "MySQL Logfile: Icinga Callback?",
             "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
@@ -412,7 +453,7 @@
             "settings": {},
             "uuid": "2298be1a-7ef5-4106-bfed-1939bccf25fa"
         },
-        "9": {
+        "11": {
             "varname": "mysql_logfile_icinga_password",
             "caption": "MySQL Logfile: Icinga Password",
             "description": "Monitoring server API password.",
@@ -423,7 +464,7 @@
             },
             "uuid": "cd34c5c1-87d7-4d5e-8329-62b089893b37"
         },
-        "10": {
+        "12": {
             "varname": "mysql_logfile_icinga_service_name",
             "caption": "MySQL Logfile: Icinga Service Name",
             "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
@@ -434,7 +475,7 @@
             },
             "uuid": "990a59f6-abca-4a50-be50-92706437e7c3"
         },
-        "11": {
+        "13": {
             "varname": "mysql_logfile_icinga_url",
             "caption": "MySQL Logfile: Icinga URL",
             "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
@@ -445,7 +486,7 @@
             },
             "uuid": "5d476017-b0b5-42cb-bf56-3d6d73f052bb"
         },
-        "12": {
+        "14": {
             "varname": "mysql_logfile_icinga_username",
             "caption": "MySQL Logfile: Icinga Username",
             "description": "Monitoring server API username.",
@@ -456,7 +497,7 @@
             },
             "uuid": "d6510ee3-c692-49b6-b3b6-3e61713c1f1f"
         },
-        "13": {
+        "15": {
             "varname": "mysql_logfile_insecure",
             "caption": "MySQL Logfile: Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. This option explicitly allows insecure SSL connections.",
@@ -465,7 +506,7 @@
             "settings": {},
             "uuid": "ebd2176c-2102-437d-b6c3-1be8a0775aad"
         },
-        "14": {
+        "16": {
             "varname": "mysql_logfile_no_insecure",
             "caption": "MySQL Logfile: No Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -474,7 +515,7 @@
             "settings": {},
             "uuid": "74335c0b-a0ec-4c5a-9f25-d432d2edef89"
         },
-        "15": {
+        "17": {
             "varname": "mysql_logfile_ignore",
             "caption": "MySQL Logfile: Ignore",
             "description": "Ignore a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
@@ -485,7 +526,7 @@
             },
             "uuid": "e2ffffd8-1847-47e8-8f89-d284c92baf15"
         },
-        "16": {
+        "18": {
             "varname": "mysql_logfile_lookback",
             "caption": "MySQL Logfile: Lookback",
             "description": "Logins the server turned away are counted within this window rather than reported one by one. Time window in seconds to look back over, ending at the moment of the run. Only what falls within it is counted, so what is reported is how often something happened lately rather than a total that keeps growing for as long as the source is kept. Example: `--lookback=3600`.",
@@ -496,7 +537,7 @@
             },
             "uuid": "ed646c1e-f15a-4c4a-a0e1-ead7f18f02ab"
         },
-        "17": {
+        "19": {
             "varname": "mysql_logfile_match",
             "caption": "MySQL Logfile: Match",
             "description": "Only consider a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='innodb'`.",
@@ -507,7 +548,7 @@
             },
             "uuid": "6758938b-df16-4d4c-8335-09377f1d89d2"
         },
-        "18": {
+        "20": {
             "varname": "mysql_logfile_no_match_severity",
             "caption": "MySQL Logfile: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -520,7 +561,7 @@
             },
             "uuid": "ae701871-6717-4d99-b516-002a8e7e4452"
         },
-        "19": {
+        "21": {
             "varname": "mysql_logfile_no_per_source",
             "caption": "MySQL Logfile: No Per Source?",
             "description": "Judge a rate by everything that arrived within the window, whatever source the lines name. Use this where the log reaches this check through something that rewrites or drops the address of the peer, or where every source is as interesting as the next.",
@@ -529,7 +570,7 @@
             "settings": {},
             "uuid": "3315a9d9-4fba-4cdc-b6d5-99f2dd51bcec"
         },
-        "20": {
+        "22": {
             "varname": "mysql_logfile_no_perfdata",
             "caption": "MySQL Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -538,7 +579,7 @@
             "settings": {},
             "uuid": "412891b4-a266-4965-9d4a-51770621f99b"
         },
-        "21": {
+        "23": {
             "varname": "mysql_logfile_no_proxy",
             "caption": "MySQL Logfile: No Proxy?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -547,7 +588,7 @@
             "settings": {},
             "uuid": "58988fd2-3778-41f0-9840-6ca011fdc633"
         },
-        "22": {
+        "24": {
             "varname": "mysql_logfile_proxy",
             "caption": "MySQL Logfile: Proxy",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -558,7 +599,7 @@
             },
             "uuid": "a2897d76-cf02-4d73-991a-ea0c814c700a"
         },
-        "23": {
+        "25": {
             "varname": "mysql_logfile_per_source",
             "caption": "MySQL Logfile: Per Source?",
             "description": "Judge a rate by the busiest single source address rather than by everything that arrived. A handful of failures from one address within the window is somebody working on this host; the same number spread over as many addresses is the background of an open network going past, and only the first is worth reporting. Lines that name no source are counted together as one, so a burst of those still reports.",
@@ -567,7 +608,7 @@
             "settings": {},
             "uuid": "c965756f-7855-433b-9ec3-7ccecaa90447"
         },
-        "24": {
+        "26": {
             "varname": "mysql_logfile_port",
             "caption": "MySQL Logfile: Port",
             "description": "MySQL/MariaDB port number.",
@@ -578,18 +619,18 @@
             },
             "uuid": "3b721c59-1a25-48a4-9ebe-70d27be7f341"
         },
-        "25": {
+        "27": {
             "varname": "mysql_logfile_server_log",
             "caption": "MySQL Logfile: Server Log",
-            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check first probes `performance_schema.error_log` (MySQL 8.0.22+) and then falls back to the file from `log_error`.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. Can be specified multiple times, and everything named is then read as one window; a source named twice is read once. If omitted, the check first probes `performance_schema.error_log` (MySQL 8.0.22+) and then falls back to the file from `log_error`, read along with the journal of the database unit; what the two share is counted once.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "e700457c-57c2-4934-ae9b-dd76d24a66db"
         },
-        "26": {
+        "28": {
             "varname": "mysql_logfile_timeout",
             "caption": "MySQL Logfile: Timeout",
             "description": "Network timeout in seconds.",
