@@ -1,0 +1,1662 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import datetime
+import os
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.logmatch
+import lib.logsource
+import lib.net
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082901'
+
+DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
+on both sides of the server. Outbound: mail that could not be delivered, a relay host that
+cannot be reached, credentials it will not take, a TLS handshake that fails, and a mail
+system that refused to start. Inbound: what a client provoked - a login it got wrong, a
+recipient the server refused, a conversation that ended in the middle.
+The inbound lines are counted within `--lookback` and judged by how many of them arrived,
+per source address: one is a bot or a typo, dozens within ten minutes is somebody working
+on this host. Every server that answers on port 25 collects these all day, so counting them
+by rate is what keeps the check from being permanently yellow.
+Deliveries that were deferred or bounced are counted the same way, because a single one is
+a mailbox that is full and a burst of them is the relay being down.
+What is left is counted by the word Postfix puts in front of the message: `panic` and
+`fatal` return CRITICAL, `error` and `warning` return WARNING, which `--critical-level` and
+`--warning-level` move. The events named above carry their own state and are counted there
+and nowhere else.
+The log is read either from a file, from a systemd unit (`systemd:`) or from a container
+(`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything
+named is then read as one window. Without it the check takes `maillog_file` from the Postfix
+configuration where it is set, falls back to the mail log of the distribution, and reads the
+journal of the Postfix unit along with it; what both hold is counted once. The most recent
+rotated file is read along with the live one, so the window does not end where logrotate
+last ran.
+Requires root or sudo."""
+
+# What a client provokes is judged by how many arrived, and the defaults assume
+# an intrusion prevention system in front of this check: one that reads the same
+# log, counts what a single source fails within ten minutes, and blocks it once
+# it passes a handful. Five per source in ten minutes is what such a system
+# commonly allows and six is the first number above it, so these thresholds
+# report what gets past the blocking rather than what it is already handling.
+# A server that answers the whole internet without one collects far more and
+# wants them raised; the README says by how much.
+DEFAULT_ABORTED_CONNECTIONS_CRITICAL = 2000
+DEFAULT_ABORTED_CONNECTIONS_WARNING = 200
+DEFAULT_AUTH_FAILURES_CRITICAL = 60
+DEFAULT_AUTH_FAILURES_WARNING = 6
+DEFAULT_BOUNCED_CRITICAL = 200
+DEFAULT_BOUNCED_WARNING = 20
+DEFAULT_CRITICAL_LEVEL = 'fatal'
+DEFAULT_DEFERRED_CRITICAL = 200
+DEFAULT_DEFERRED_WARNING = 20
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_LOOKBACK = 600  # seconds
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_PER_SOURCE = True
+DEFAULT_REJECTS_CRITICAL = 60
+DEFAULT_REJECTS_WARNING = 6
+DEFAULT_RELAY_FAILURES_CRITICAL = 200
+DEFAULT_RELAY_FAILURES_WARNING = 20
+DEFAULT_TLS_FAILURES_CRITICAL = 200
+DEFAULT_TLS_FAILURES_WARNING = 20
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARNING_LEVEL = 'warning'
+
+ACK_RETENTION_DAYS = 30
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
+# Rotated predecessors of the log file to read along with it. The distributions
+# rotate this log daily or weekly, so without one the window would end at the
+# last rotation and an event from before it would stop being reported the moment
+# logrotate runs. One covers a daily rotation with room to spare.
+ROTATED_FILES = 1
+
+# How long a path may be in a sentence before it is abbreviated for display. The
+# paths the distributions use fit within it untouched.
+SOURCE_PATH_MAX_LEN = 32
+
+# Where the distributions have the syslog daemon write what Postfix logs. Only
+# used where the configuration names no `maillog_file` of its own, which is the
+# normal case: Postfix logs through syslog unless it is told otherwise.
+LOG_FILE_CANDIDATES = (
+    '/var/log/maillog',
+    '/var/log/mail.log',
+)
+
+# The unit the distributions run Postfix as. `postfix@-.service` is the instance
+# of the default configuration, which is what a host with several instances runs.
+UNIT_CANDIDATES = ('postfix.service', 'postfix@-.service')
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+
+# The main configuration of Postfix. Only this fixed location is read, and
+# nothing but `maillog_file` is taken out of it, so nothing a log holds can point
+# the check at another file.
+CONFIG_FILES = ('/etc/postfix/main.cf',)
+CONFIG_COMMENT_REGEX = re.compile(r'^\s*#')
+MAILLOG_FILE_REGEX = re.compile(r'^\s*maillog_file\s*=\s*(\S+)')
+
+# What the journal calls Postfix. A host running several instances writes them
+# under a name of its own (`postfix-incoming/smtpd`), and every daemon appends
+# its own name (`postfix/smtpd`, `postfix/qmgr`, `postfix/postfix-script`), which
+# is why this matches a prefix rather than a fixed word. Used to tell Postfix's
+# lines from those of everything else that logs to the mail facility - a Dovecot,
+# an OpenDKIM, an amavisd - which is the normal content of these files and no
+# reason to say anything.
+IDENTIFIERS_REGEX = re.compile(r'^postfix[\w-]*(?:/[\w.-]+)*$')
+
+# The word Postfix puts in front of a message, which is its severity. Anchored
+# behind the daemon name rather than searched for anywhere, so a bounce quoting a
+# remote server's "warning" is not read as one of ours.
+LEVEL_REGEX = re.compile(r'\]?:\s+(panic|fatal|error|warning):\s')
+
+# Postfix's levels from the loudest to the quietest, for `--critical-level` and
+# `--warning-level`.
+LEVELS = (
+    {'level': 'panic', 'perfdata': 'postfix_panic_lines'},
+    {'level': 'fatal', 'perfdata': 'postfix_fatal_lines'},
+    {'level': 'error', 'perfdata': 'postfix_error_lines'},
+    {'level': 'warning', 'perfdata': 'postfix_warning_lines'},
+)
+LEVEL_NONE = 'none'
+LEVEL_CHOICES = [item['level'] for item in LEVELS] + [LEVEL_NONE]
+
+# The peer of a line, which is what makes a rate mean something: six failed
+# logins from one address in ten minutes is somebody working on this host, six
+# from six addresses is the internet going past.
+#
+# Postfix writes the peer in square brackets behind the name it resolved it to
+# (`from unknown[198.51.100.7]`, `from mail.example.com[198.51.100.7]:34012`),
+# and postscreen writes it without a name (`from [198.51.100.7]:34012`). Anchored
+# on the `from` in front of it, which keeps `relay=[198.51.100.9]:587` - the
+# host we deliver to, not one that came to us - out of the count.
+SOURCE_REGEX = re.compile(
+    rf'\bfrom\s+\S*\[({lib.net.IPV4_REGEX}|{lib.net.IPV6_REGEX})\]'
+)
+# The one message that names the peer without a `from` in front of it: a failed
+# login, where Postfix opens the message with the client it resolved
+# (`warning: unknown[198.51.100.7]: SASL LOGIN authentication failed`). Anchored
+# at the head of the message the way fail2ban anchors its `<HOST>` there, so
+# `relay=mail.example.org[198.51.100.20]:25` further along a delivery line - the
+# host we handed the message to - is not read as a peer.
+SOURCE_HEAD_REGEX = re.compile(
+    rf'^(?:\w+: )?(?:warning: )?[^\[\s]*'
+    rf'\[({lib.net.IPV4_REGEX}|{lib.net.IPV6_REGEX})\](?::\d+)?:'
+)
+
+
+# The events worth naming on their own, because the level alone does not say what
+# happened: Postfix logs a relay it cannot reach, a certificate it will not
+# accept and a password the relay refuses all as `warning`, and a mail system
+# that will not start as `fatal`. Each entry carries the state the situation
+# deserves and one recommendation.
+#
+# Every message below was reproduced on Postfix 3.5.25 (Rocky 9) and 3.10.13
+# (Debian 13): a relay that refused the connection, one that rejected the
+# credentials, one that spoke no TLS, a domain that does not resolve, and a
+# `queue_directory` that does not exist.
+EVENTS = (
+    {
+        'key': 'startup_failures',
+        'label': 'startup failure',
+        'perfdata': 'postfix_startup_failures',
+        # The mail system did not come up. `postfix-script` says so when it
+        # refuses to start at all, and the master says it when it dies on a
+        # value it cannot use. Both are the one situation where no mail moves in
+        # either direction.
+        'regex': re.compile(
+            r'postfix(?:-script)?(?:/postfix-script)?\[\d+\]: fatal:'
+            r'|postfix/master\[\d+\]: fatal:'
+            r'|the Postfix mail system is not running'
+            r'|fatal: (?:chdir|open lock file|bad string length|unknown service)'
+        ),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'The mail system did not start; `postfix check` names what it'
+            ' refuses, and nothing leaves this host until it does'
+        ),
+    },
+    {
+        'key': 'relay_auth_failures',
+        'label': 'refused credential',
+        'perfdata': 'postfix_relay_auth_failures',
+        # The relay took the connection and refused the login. Unlike a
+        # connection that did not come off, this one never fixes itself on the
+        # next attempt: mail stays in the queue until somebody corrects the
+        # credentials, which is why it is reported from the first line on.
+        'regex': re.compile(
+            r'SASL authentication failed; (?:cannot authenticate to server'
+            r'|server \S+ said)'
+            r'|warning: SASL authentication failure'
+            r'|no mechanism available'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'The relay refused the credentials this host offered; check'
+            ' `smtp_sasl_password_maps` and whether the account still exists'
+        ),
+    },
+    {
+        'key': 'queue_problems',
+        'label': 'queue problem',
+        'perfdata': 'postfix_queue_problems',
+        # The queue itself is in trouble: a file it could not write, a message it
+        # could not requeue, a directory it cannot use. Mail is being lost or
+        # stuck for a reason that is on this host.
+        'regex': re.compile(
+            r'queue file write error'
+            r'|error writing \S+: queue file size limit exceeded'
+            r'|Cannot access the Postfix queue'
+            r'|unable to (?:create|rename|remove) queue file'
+            r'|premature end-of-input on \S+ while reading (?:message|envelope)'
+        ),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'The queue could not be written; check the free space and the'
+            ' inodes under the `queue_directory` and its ownership'
+        ),
+    },
+)
+
+# What a client provokes and what a delivery does. Both are counted within
+# `--lookback` rather than reported one by one: a single rejected recipient is a
+# typo, a single deferral is a mailbox that is full, and the same thing by the
+# hundred is what an administrator has to know about.
+#
+# `per_source` says whether the address in the line means anything for the count.
+# It does for what a client sent us; it does not for a delivery of ours, where
+# the address in the line is the host we delivered to.
+RATE_EVENTS = (
+    {
+        'key': 'auth_failures',
+        'label': 'failed login',
+        'perfdata': 'postfix_auth_failures',
+        # An SMTP client that got the credentials wrong. The line an intrusion
+        # prevention system counts, and the reason this check counts per source.
+        # The mechanism is written the way the client asked for it, so `LOGIN`,
+        # `login` and `Plain` all occur - fail2ban's corpus carries all three.
+        # Two endings are not a credential that was wrong and are left out, the
+        # way fail2ban leaves them out: a mechanism the server does not offer,
+        # and an authentication server that went away mid-question.
+        'regex': re.compile(
+            r'SASL [\w-]+ authentication failed'
+            r'(?!: (?:Invalid authentication mechanism'
+            r'|Connection lost to authentication server))',
+            re.IGNORECASE,
+        ),
+        'critical': 'AUTH_FAILURES_CRITICAL',
+        'warning': 'AUTH_FAILURES_WARNING',
+        'per_source': True,
+        'recommendation': (
+            'Logins are failing in bulk, which is what a run against a mailbox'
+            ' looks like; the addresses and the `sasl_username` in the log say'
+            ' whether one account is being worked on'
+        ),
+    },
+    {
+        'key': 'rejects',
+        'label': 'rejected message',
+        'perfdata': 'postfix_rejects',
+        # What the server turned away: a recipient it does not carry, a relay it
+        # will not be, a sender that did not check out, a client on a blocklist.
+        # The bread and butter of an internet-facing server, hence a rate.
+        'regex': re.compile(r'(?:NOQUEUE: )?(?:milter-)?reject(?:_warning)?: '),
+        'critical': 'REJECTS_CRITICAL',
+        'warning': 'REJECTS_WARNING',
+        'per_source': True,
+        'recommendation': (
+            'Messages are being turned away in bulk; the reason behind the'
+            ' status code in the log says whether that is a blocklist doing its'
+            ' work, a sender of ours that is not allowed to relay, or a'
+            ' restriction that is too tight'
+        ),
+    },
+    {
+        'key': 'aborted_connections',
+        'label': 'aborted connection',
+        'perfdata': 'postfix_aborted_connections',
+        # Conversations that ended in the middle, and clients that did not speak
+        # SMTP. This is what an internet-facing server collects by the thousand
+        # and what nobody should be woken for, but a jump in it is a scan
+        # starting, so it is counted with a loud threshold rather than dropped.
+        # `after DATA` and `after AUTH` are left out, the way fail2ban leaves
+        # them out of the same catalog: a client that dropped while handing the
+        # message over had a network problem rather than bad intentions, and one
+        # that dropped after AUTH is already counted by the failed login it
+        # produced. `auth=0/N` in a disconnect is the same failure seen from the
+        # other end - the connection asked to authenticate N times and got
+        # nowhere - and is counted here where the server logged no SASL line.
+        'regex': re.compile(
+            r'lost connection after (?!DATA|AUTH)'
+            r'|improper command pipelining after (?!DATA|AUTH)'
+            r'|too many errors after'
+            r'|non-SMTP command from'
+            r'|PREGREET \d+ after'
+            r'|HANGUP after'
+            r'|COMMAND (?:TIME|COUNT|LENGTH) LIMIT'
+            r'|disconnect from \S+ .*\bauth=0/[1-9]'
+            r'|Message delivery request rate limit exceeded'
+            r'|Connection rate limit exceeded'
+        ),
+        'critical': 'ABORTED_CONNECTIONS_CRITICAL',
+        'warning': 'ABORTED_CONNECTIONS_WARNING',
+        'per_source': True,
+        'recommendation': (
+            'Connections are ending before a message was handed over, which is'
+            ' what a port scan and a broken client both look like; the addresses'
+            ' in the log say which of the two it is'
+        ),
+    },
+    {
+        'key': 'relay_failures',
+        'label': 'unreachable next hop',
+        'perfdata': 'postfix_relay_failures',
+        # One of these on its own is not a failure anybody has to hear about: a
+        # host without an IPv6 route logs `Network is unreachable` for the AAAA
+        # record of its relay and delivers over IPv4 in the same second, and
+        # every message it sends produces the pair again. Measured on a
+        # production host: 35 of them over four days, every message delivered.
+        # A relay that is really down produces them by the dozen within one
+        # queue run, which is what the threshold is set for, and the deferrals
+        # behind it say the same thing from the other side.
+        'regex': re.compile(
+            r'connect to \S+\[[^\]]+\](?::\d+)?: (?:Connection refused'
+            r'|Connection timed out|No route to host|Network is unreachable'
+            r'|Connection reset by peer)'
+            r'|Host or domain name not found'
+            r'|mail transport unavailable'
+            r'|mail for \S+ loops back to myself'
+        ),
+        'critical': 'RELAY_FAILURES_CRITICAL',
+        'warning': 'RELAY_FAILURES_WARNING',
+        'per_source': False,
+        'recommendation': (
+            'The next hop could not be reached, and often enough that it is not'
+            ' one address family being tried in vain; check `relayhost`, whether'
+            ' the port is open from this host, and whether the name resolves'
+        ),
+    },
+    {
+        'key': 'tls_failures',
+        'label': 'TLS failure',
+        'perfdata': 'postfix_tls_failures',
+        # A handshake that did not come off, a certificate that did not verify,
+        # and a peer that offered no TLS where this host requires it. Counted
+        # rather than reported one by one: a single one is one remote server
+        # having a bad day, and on a server that answers the internet that
+        # happens all day.
+        'regex': re.compile(
+            r'TLS library problem'
+            r'|SSL_connect error'
+            r'|Cannot start TLS'
+            r'|TLS is required, but was not offered'
+            r'|certificate verification failed'
+            r'|cannot load .* certificate'
+        ),
+        'critical': 'TLS_FAILURES_CRITICAL',
+        'warning': 'TLS_FAILURES_WARNING',
+        'per_source': False,
+        'recommendation': (
+            'TLS connections are not coming off; `posttls-finger` against the'
+            ' peer says whether it is the certificate, the protocol version or'
+            ' the cipher list'
+        ),
+    },
+    {
+        'key': 'deferred',
+        'label': 'deferred deliver',
+        'suffix': 'y,ies',
+        'perfdata': 'postfix_deferred',
+        # Mail that is still in the queue and will be tried again. One is a
+        # mailbox that is full; a burst of them is the next hop being down, and
+        # every message this host wants to send is sitting still.
+        'regex': re.compile(r'status=deferred'),
+        'critical': 'DEFERRED_CRITICAL',
+        'warning': 'DEFERRED_WARNING',
+        'per_source': False,
+        'recommendation': (
+            'Deliveries are being deferred in bulk; the reason in brackets says'
+            ' whether the next hop is down, refuses the credentials or throttles'
+            ' this host, and `mailq` says how much is waiting'
+        ),
+    },
+    {
+        'key': 'bounced',
+        'label': 'bounced deliver',
+        'suffix': 'y,ies',
+        'perfdata': 'postfix_bounced',
+        # Mail that was given up on. Where this host only sends its own mail,
+        # every one of these is a message nobody will ever read.
+        'regex': re.compile(r'status=bounced'),
+        'critical': 'BOUNCED_CRITICAL',
+        'warning': 'BOUNCED_WARNING',
+        'per_source': False,
+        'recommendation': (
+            'Deliveries are being given up on; the reason in brackets says'
+            ' whether the address is wrong, the domain does not resolve or the'
+            ' far side refuses this host'
+        ),
+    },
+)
+
+# Lifecycle markers, counted but never alerting on. Postfix logs two lines per
+# start and per reload - one from the script that was called and one from the
+# master it talked to - so the second of a pair is collapsed rather than counted
+# twice, the way `is_repeated_line()` does it.
+LIFECYCLE = (
+    {
+        'key': 'startups',
+        'label': 'startup',
+        'perfdata': 'postfix_startups',
+        'regex': re.compile(
+            r'starting the Postfix mail system|daemon started -- version'
+        ),
+        'verb': 'detected',
+        'collapse': True,
+        'rate': False,
+    },
+    {
+        'key': 'reloads',
+        'label': 'reload',
+        'perfdata': 'postfix_reloads',
+        'regex': re.compile(r'refreshing the Postfix mail system|reload -- version'),
+        'verb': 'detected',
+        'collapse': True,
+        'rate': False,
+    },
+    {
+        'key': 'shutdowns',
+        'label': 'shutdown',
+        'perfdata': 'postfix_shutdowns',
+        'regex': re.compile(r'stopping the Postfix mail system|terminating on signal'),
+        'verb': 'detected',
+        'collapse': True,
+        'rate': False,
+    },
+    {
+        'key': 'deliveries',
+        'label': 'deliver',
+        'suffix': 'y,ies',
+        'perfdata': 'postfix_deliveries',
+        # The one number that says what the service is being used for. Counted
+        # within `--lookback` like the rates, because a total over the whole
+        # window would say more about how long the window is than about the host.
+        'regex': re.compile(r'status=sent'),
+        'verb': 'detected',
+        'collapse': False,
+        'rate': True,
+    },
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--aborted-connections-critical',
+        help='Number of conversations that ended before a message was handed '
+        'over within `--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--aborted-connections-critical=5000`. '
+        'Default: %(default)s',
+        dest='ABORTED_CONNECTIONS_CRITICAL',
+        type=int,
+        default=DEFAULT_ABORTED_CONNECTIONS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--aborted-connections-warning',
+        help='Number of conversations that ended before a message was handed '
+        'over within `--lookback` that returns WARNING. '
+        'Every server answering on port 25 collects these all day, so this is '
+        'meant to catch a scan starting and not the background noise. '
+        '0 turns the threshold off. '
+        'Example: `--aborted-connections-warning=500`. '
+        'Default: %(default)s',
+        dest='ABORTED_CONNECTIONS_WARNING',
+        type=int,
+        default=DEFAULT_ABORTED_CONNECTIONS_WARNING,
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--auth-failures-critical',
+        help='Number of failed SMTP logins within `--lookback` that returns '
+        'CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--auth-failures-critical=200`. '
+        'Default: %(default)s',
+        dest='AUTH_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_AUTH_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--auth-failures-warning',
+        help='Number of failed SMTP logins within `--lookback` that returns '
+        'WARNING. '
+        'Counted per source address, so a run against one mailbox from one host '
+        'reaches it while the same number of typos across a fleet does not. '
+        '0 turns the threshold off. '
+        'Example: `--auth-failures-warning=5`. '
+        'Default: %(default)s',
+        dest='AUTH_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_AUTH_FAILURES_WARNING,
+    )
+
+    parser.add_argument(
+        '--bounced-critical',
+        help='Number of deliveries given up on within `--lookback` that returns '
+        'CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--bounced-critical=500`. '
+        'Default: %(default)s',
+        dest='BOUNCED_CRITICAL',
+        type=int,
+        default=DEFAULT_BOUNCED_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--bounced-warning',
+        help='Number of deliveries given up on within `--lookback` that returns '
+        'WARNING. '
+        'On a host that only sends its own mail, every one of them is a message '
+        'nobody will read; a server receiving from the internet bounces all day '
+        'and wants this raised. '
+        '0 turns the threshold off. '
+        'Example: `--bounced-warning=1`. '
+        'Default: %(default)s',
+        dest='BOUNCED_WARNING',
+        type=int,
+        default=DEFAULT_BOUNCED_WARNING,
+    )
+
+    # Developer-only hook, like `--test` on the plugins that inject command
+    # output: it prefixes every path the check opens, so the fixture tests can
+    # stand a directory tree in for the host's file system. Deliberately not
+    # named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '--critical-level',
+        help='Level from which a line returns CRITICAL, the levels above it '
+        'included. '
+        '`none` turns the level counts off and leaves the named events. '
+        'Example: `--critical-level=error`. '
+        'Default: %(default)s',
+        dest='CRITICAL_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_CRITICAL_LEVEL,
+    )
+
+    parser.add_argument(
+        '--deferred-critical',
+        help='Number of deliveries put back into the queue within `--lookback` '
+        'that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--deferred-critical=500`. '
+        'Default: %(default)s',
+        dest='DEFERRED_CRITICAL',
+        type=int,
+        default=DEFAULT_DEFERRED_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--deferred-warning',
+        help='Number of deliveries put back into the queue within `--lookback` '
+        'that returns WARNING. '
+        'A single one is a mailbox that is full; a burst of them is the next '
+        'hop being down. '
+        '0 turns the threshold off. '
+        'Example: `--deferred-warning=5`. '
+        'Default: %(default)s',
+        dest='DEFERRED_WARNING',
+        type=int,
+        default=DEFAULT_DEFERRED_WARNING,
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='status=bounced'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Failed logins, rejected messages, aborted connections, deferred '
+        'and bounced deliveries are counted within this window rather than '
+        'reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=3600`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='postfix/smtpd'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-per-source',
+        help=lib.args.help('--no-per-source'),
+        dest='PER_SOURCE',
+        action='store_false',
+        default=DEFAULT_PER_SOURCE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--per-source',
+        help=lib.args.help('--per-source') + ' Default: %(default)s',
+        dest='PER_SOURCE',
+        action='store_true',
+        default=DEFAULT_PER_SOURCE,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--relay-failures-critical',
+        help='Number of failed connections to the next hop within `--lookback` '
+        'that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--relay-failures-critical=500`. '
+        'Default: %(default)s',
+        dest='RELAY_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_RELAY_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--relay-failures-warning',
+        help='Number of failed connections to the next hop within `--lookback` '
+        'that returns WARNING. '
+        'A host without an IPv6 route logs one for the AAAA record of its relay '
+        'and delivers over IPv4 in the same second, so a single one is not a '
+        'failure; a relay that is really down produces them by the dozen. '
+        '0 turns the threshold off. '
+        'Example: `--relay-failures-warning=5`. '
+        'Default: %(default)s',
+        dest='RELAY_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_RELAY_FAILURES_WARNING,
+    )
+
+    parser.add_argument(
+        '--rejects-critical',
+        help='Number of messages the server turned away within `--lookback` '
+        'that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--rejects-critical=200`. '
+        'Default: %(default)s',
+        dest='REJECTS_CRITICAL',
+        type=int,
+        default=DEFAULT_REJECTS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--rejects-warning',
+        help='Number of messages the server turned away within `--lookback` '
+        'that returns WARNING. '
+        'Counted per source address. A server that answers the internet turns '
+        'mail away all day and wants this raised. '
+        '0 turns the threshold off. '
+        'Example: `--rejects-warning=50`. '
+        'Default: %(default)s',
+        dest='REJECTS_WARNING',
+        type=int,
+        default=DEFAULT_REJECTS_WARNING,
+    )
+
+    parser.add_argument(
+        '--server-log',
+        help='Log source to read from. '
+        'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
+        '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'Can be specified multiple times, and everything named is then read as '
+        'one window; a source named twice is read once. '
+        'If omitted, the check takes `maillog_file` from the Postfix '
+        'configuration where it is set, falls back to the mail log of the '
+        'distribution, and reads the journal of the Postfix unit along with it; '
+        'what the two share is counted once. '
+        'Example: `--server-log=systemd:postfix.service`.',
+        action='append',
+        default=None,
+        dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--tls-failures-critical',
+        help='Number of TLS connections that did not come off within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--tls-failures-critical=500`. '
+        'Default: %(default)s',
+        dest='TLS_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_TLS_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--tls-failures-warning',
+        help='Number of TLS connections that did not come off within '
+        '`--lookback` that returns WARNING. '
+        'A single one is one remote server having a bad day; a server that '
+        'answers the internet collects those all day. '
+        '0 turns the threshold off. '
+        'Example: `--tls-failures-warning=5`. '
+        'Default: %(default)s',
+        dest='TLS_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_TLS_FAILURES_WARNING,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--warning-level',
+        help='Level from which a line returns WARNING, up to the level '
+        '`--critical-level` names. '
+        '`none` turns the level counts off and leaves the named events. '
+        'Example: `--warning-level=error`. '
+        'Default: %(default)s',
+        dest='WARNING_LEVEL',
+        choices=LEVEL_CHOICES,
+        default=DEFAULT_WARNING_LEVEL,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_source(log_line):
+    """Return the peer address a line names, or None where it names none.
+
+    Postfix writes the peer in square brackets behind the name it resolved it
+    to, and always behind the word `from`, which is what this is anchored on: a
+    line naming both a client and a relay (`relay=[198.51.100.9]:587`) then
+    counts against the client it came from and not against the host we handed
+    the message to.
+
+    None where Postfix had nothing to resolve - a line about a delivery of ours
+    or about the mail system itself. Those share one bucket, so the count they
+    produce is the total they always were rather than something wrong.
+    """
+    for match in SOURCE_REGEX.finditer(log_line):
+        address = lib.net.normalize_address(match.group(1))
+        if address:
+            return address
+    match = SOURCE_HEAD_REGEX.match(lib.logsource.strip_syslog_prefix(log_line))
+    if match:
+        return lib.net.normalize_address(match.group(1)) or None
+    return None
+
+
+def get_configured_log_file(config_root=''):
+    """Return the `maillog_file` the Postfix configuration names, or None.
+
+    Postfix 3.4 and later can write its own log file instead of handing the
+    lines to syslog, and a host set up that way has nothing in the mail log of
+    the distribution. Only `main.cf` is read, and only that one parameter.
+    """
+    for candidate in CONFIG_FILES:
+        success, content = lib.disk.read_file(f'{config_root}{candidate}')
+        if not success or not content:
+            continue
+        found = None
+        for line in content.splitlines():
+            if CONFIG_COMMENT_REGEX.match(line):
+                continue
+            match = MAILLOG_FILE_REGEX.match(line)
+            if match:
+                # The last assignment wins, which is how Postfix reads main.cf.
+                found = match.group(1)
+        if found:
+            return f'{config_root}{found}'
+    return None
+
+
+def get_log_file_real_path(config_root=''):
+    """Probe the files the distributions let the mail facility write to."""
+    for candidate in LOG_FILE_CANDIDATES:
+        for filename in lib.disk.glob(f'{config_root}{candidate}'):
+            if lib.disk.file_exists(filename, allow_empty=True):
+                return filename
+    return None
+
+
+def get_units(config_root=''):
+    """Return the Postfix units this host has a unit file for.
+
+    A unit file two names point at is one unit, so the journal is not read twice
+    for a host whose package ships an alias.
+    """
+    found = []
+    seen = set()
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
+                if not lib.disk.file_exists(filename, allow_empty=True):
+                    continue
+                identity = os.path.realpath(filename)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                found.append(os.path.basename(filename))
+    return found
+
+
+def get_level_states(critical_level, warning_level):
+    """Map every level to the state it returns, from the two parameters.
+
+    The levels are ordered from the loudest to the quietest, and a level returns
+    the state of the first threshold it reaches: everything from
+    `--critical-level` up is CRITICAL, everything from `--warning-level` up to
+    it is WARNING, the rest is counted and says nothing.
+    """
+    order = [item['level'] for item in LEVELS]
+    states = dict.fromkeys(order, STATE_OK)
+    for name, state in ((warning_level, STATE_WARN), (critical_level, STATE_CRIT)):
+        if name == LEVEL_NONE:
+            continue
+        for level in order[: order.index(name) + 1]:
+            states[level] = state
+    return states
+
+
+def is_repeated_line(previous, current, previous_index, current_index):
+    """Tell whether two lines report the same moment of the same event.
+
+    Postfix logs a start and a reload twice - once from the script that was
+    called and once from the master it talked to - and the two carry the same
+    timestamp, which is what identifies them as one event even where something
+    else logged in between. Where the source stamps no line at all, standing
+    next to each other in the log has to do.
+    """
+    previous_at = lib.logsource.timestamp(previous)
+    current_at = lib.logsource.timestamp(current)
+    if previous_at is not None and current_at is not None:
+        # Compared to the second, because a syslog daemon writing sub-second
+        # precision stamps the two lines microseconds apart.
+        return previous_at.replace(microsecond=0) == current_at.replace(microsecond=0)
+    return current_index == previous_index + 1
+
+
+def dedup_key(line):
+    """Identify the event in a line, whichever transport delivered it.
+
+    The file and the journal of the unit are both read, and on a host whose
+    syslog daemon feeds off the journal every line is in both. The message is
+    the same in either, only the prefix in front of it differs, and the second
+    it was written in tells two identical messages apart.
+    """
+    written_at = lib.logsource.timestamp(line)
+    return (
+        written_at.replace(microsecond=0) if written_at else None,
+        lib.logsource.strip_syslog_prefix(line),
+    )
+
+
+def describe_source(source, size=None):
+    """Name one source the way the summary reports it, with what was read along.
+
+    The path is given in full: this goes into a listing of its own, which has
+    the room, and it is where an administrator copies the path from.
+    """
+    described = f'`{source["label"]}`'
+    if size is not None:
+        described += f' (size: {lib.human.bytes2human(size)})'
+    for predecessor in source['rotated']:
+        described += f' + `{predecessor}`'
+        # Its size is looked up here rather than passed in, because a rotated
+        # file is not a source the caller named: the reader found it. It stays
+        # out of the size the performance data trends, which is the live file.
+        predecessor_stat = lib.disk.stat(predecessor)
+        if predecessor_stat is not None:
+            described += f' (size: {lib.human.bytes2human(predecessor_stat.st_size)})'
+    return described
+
+
+def shorten(items, head=5, tail=5):
+    """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
+    if len(items) > head + tail:
+        return [*items[:head], '...', *items[-tail:]]
+    return items
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.SERVER_LOG is None:
+        args.SERVER_LOG = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # fetch data
+    server_logs = args.SERVER_LOG
+    if not server_logs:
+        # The file and the unit, not one or the other: the file holds what
+        # Postfix logged while it was running, the journal holds what the master
+        # said when it refused to start - and where the mail system is not
+        # running, the journal is the only one of the two that says why. What
+        # both carry, which is every line on a host whose syslog daemon feeds
+        # off the journal, is counted once.
+        found_log = get_configured_log_file(args.CONFIG_ROOT) or (
+            get_log_file_real_path(args.CONFIG_ROOT)
+        )
+        server_logs = [found_log] if found_log else []
+        server_logs += [f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)]
+    if not server_logs:
+        lib.base.cu(
+            'Found no log to read: this host has neither one of the usual mail '
+            "log files nor a Postfix unit. Name the log with the check's "
+            '`--server-log` parameter.'
+        )
+
+    # A size is known for plain on-disk files only, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container. Where
+    # several files are read, the series is what they add up to.
+    sizes = {}
+    for server_log in server_logs:
+        kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+        if kind != lib.logsource.KIND_FILE:
+            continue
+        # Report a path that is not a regular file before reading it, so the
+        # admin hears about a directory or a device rather than about an I/O
+        # error further down. With one source that is the whole answer; with
+        # several it is one source of many and the run goes on.
+        log_stat = lib.disk.stat(target)
+        if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
+            if len(server_logs) == 1:
+                lib.base.oao(
+                    f'`{target}` does not seem to be an existing regular file.'
+                    f' Check the path and file permissions, or provide the'
+                    f' `--server-log` parameter.',
+                    STATE_WARN,
+                )
+            continue
+        sizes[server_log] = log_stat.st_size
+    if len(server_logs) == 1 and sizes.get(server_logs[0]) == 0:
+        # An empty log file is a deterministic "no events observed" state,
+        # not an unknown one - typical right after logrotate fires.
+        lib.base.oao(
+            f'Log file `{server_logs[0]}` is empty. Assuming log-rotation.',
+            STATE_OK,
+        )
+
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system
+    # log directory. The path the Postfix configuration reports is deliberately
+    # not trusted beyond that. The plugin's own unit-test/ directory is allowed
+    # so the fixture tests work; it does not exist next to the flat, root-owned
+    # plugin in production. Bind-mount a custom log directory under /var/log to
+    # include it (see the README).
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    # No position is kept on purpose: this check reports on a window of the log,
+    # counting startups and deliveries next to the problems, so every run has to
+    # see the whole window rather than only what is new.
+    result = lib.base.coe(
+        lib.logsource.read_many(
+            server_logs,
+            allowed_roots=allowed_roots,
+            dedup_key=dedup_key,
+            max_lines=MAXLINES,
+            rotated=ROTATED_FILES,
+            timeout=args.TIMEOUT,
+        )
+    )
+    # What to call the whole of what was read, for the messages that have to
+    # name it before the listing below spells every source out. Abbreviated
+    # here, because this one shares a line with a sentence.
+    source_label = (
+        '`'
+        + lib.disk.shorten_path(
+            result['sources'][0]['label'], max_len=SOURCE_PATH_MAX_LEN, truncate=False
+        )
+        + '`'
+        if len(result['sources']) == 1
+        else f'the {len(result["sources"])} sources read'
+    )
+
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of paths fire.
+    recommendations = []
+    level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
+    levels = {item['level']: [] for item in LEVELS}
+    found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in RATE_EVENTS})
+    found.update({item['key']: [] for item in LIFECYCLE})
+    # The index of the line each lifecycle marker last matched, so two lines that
+    # belong to the same event can be told from two events, see is_repeated_line().
+    last_index = {item['key']: None for item in LIFECYCLE}
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
+    considered_cnt = 0
+    evaluated_cnt = 0
+    recognized_cnt = 0
+    suppressed_cnt = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # Persisted acknowledgements are only needed when the callback is in use.
+    # Each unique combination of filters gets its own state database, so two
+    # services watching the same log for different things do not share what has
+    # been acknowledged.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        # Only what the operator set takes part in the identifier, so a host that
+        # gains a second source keeps the acknowledgements it already has.
+        instance_payload = {}
+        for name, value in (
+            ('ignore_regex', args.IGNORE),
+            ('match', args.MATCH),
+            ('server_log', args.SERVER_LOG),
+        ):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'postfix-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        # Drop acknowledgements older than the retention: by that age the line has
+        # left the window this check reads and can no longer re-appear.
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
+
+    # analyze data
+    for index, log_line in enumerate(result['lines']):
+        haystack = log_line.lower()
+        if any(item.search(haystack) for item in compiled_ignore):
+            continue
+        # `--match` (include) is applied first, then `--ignore` (exclude), so a
+        # line hit by `--ignore` is dropped even if it also matches `--match`.
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        considered_cnt += 1
+        # Drop a line an operator has already taken on. The whole log line is
+        # keyed, timestamp included, so the very same message logged again later
+        # is a new event and alerts again.
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
+            continue
+        evaluated_cnt += 1
+        # Everything below counts lines Postfix wrote. A mail log holds what the
+        # whole mail facility receives - a Dovecot, an OpenDKIM, an amavisd - and
+        # the wording of the catalog is not unique enough to survive that, so a
+        # line another program put there is dropped here rather than measured
+        # against it. A line carrying no identifier at all is taken as Postfix's:
+        # that is what a container logging its standard output looks like.
+        identifier = lib.logsource.syslog_identifier(log_line)
+        if identifier is not None and not IDENTIFIERS_REGEX.match(identifier):
+            continue
+        rate_hits = [event for event in RATE_EVENTS if event['regex'].search(log_line)]
+        for event in rate_hits:
+            found[event['key']].append(log_line)
+        # A delivery line says how much mail is affected and goes to the rate; the
+        # line naming the cause goes to the event. Postfix writes both - a
+        # `connect to ...: Connection refused` and then a `status=deferred` for
+        # every message behind it - so a line the rate claimed is not offered to
+        # the events as well, and neither count doubles the other.
+        hits = []
+        if not rate_hits:
+            hits = [event for event in EVENTS if event['regex'].search(log_line)]
+            for event in hits:
+                found[event['key']].append(log_line)
+        matched = bool(rate_hits or hits)
+        for item in LIFECYCLE:
+            if not item['regex'].search(log_line):
+                continue
+            matched = True
+            lines = found[item['key']]
+            if (
+                item['collapse']
+                and lines
+                and is_repeated_line(
+                    lines[-1], log_line, last_index[item['key']], index
+                )
+            ):
+                # The master answering the script that called it, not a second
+                # start.
+                last_index[item['key']] = index
+                continue
+            lines.append(log_line)
+            last_index[item['key']] = index
+        # A line one of the catalogs owns is left out of the per-level counts. A
+        # rate event is judged by how often it arrives, and counting it by its
+        # level too would leave every internet-facing server permanently yellow
+        # for the mail it turns away. A named event carries its own state and
+        # says what happened, which the level cannot.
+        level_match = LEVEL_REGEX.search(log_line)
+        if not rate_hits and not hits and level_match:
+            levels[level_match.group(1)].append(log_line)
+        # A line is Postfix's when the transport says so. Where the source
+        # carries no identifier at all - a container logging Postfix's standard
+        # output - recognizing one of the messages above has to do instead, and
+        # a window where neither holds is a source that belongs to something
+        # else.
+        if identifier is not None or matched or level_match:
+            recognized_cnt += 1
+
+    # Everything collected is put back into the order it was written in. The
+    # sources are read one after the other, so a line from the file sits before
+    # a newer one from the journal however late it was written, and "the last
+    # one" would name something days old.
+    for key, lines in found.items():
+        found[key] = lib.logsource.sort_by_time(lines)
+    for level, lines in levels.items():
+        levels[level] = lib.logsource.sort_by_time(lines)
+
+    # `--match` narrowed the run down to nothing, so this run looked at no line at
+    # all rather than at a quiet log. Only reachable when the operator set a
+    # filter, so a log that simply has nothing to report stays OK.
+    if compiled_match and result['lines'] and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(result["lines"])} '
+            f'{lib.txt.pluralize("line", len(result["lines"]))} of '
+            f'{source_label}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # Postfix names itself in every line it writes, so a window without a single
+    # one of them is a source that holds something else - the mail log of another
+    # server, or a log of the application that hands its mail over. Saying so
+    # beats reporting the green state a check would otherwise keep on the wrong
+    # source forever.
+    if evaluated_cnt and not recognized_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'None of the {evaluated_cnt} '
+            f'{lib.txt.pluralize("line", evaluated_cnt)} read from '
+            f'{source_label} was written by Postfix, so this does not look like '
+            f'its log. Postfix logs to the `MAIL` syslog facility unless '
+            f'`maillog_file` says otherwise; point `--server-log` at the file '
+            f'that facility ends up in, or at the unit in the journal '
+            f'(`--server-log=systemd:postfix.service`).',
+            STATE_UNKNOWN,
+        )
+
+    # build the message
+    # What was read, and where from. The count matters because everything below
+    # is counted within it: a run that reports no delivery at all is telling the
+    # truth about the window rather than about the day. Where the window stopped
+    # at the cap this check reads rather than at the start of the log, it says
+    # so, because a busy server then reports on the last few hours.
+    # The stretch of time it covers is named for the same reason: on a busy
+    # server the cap is reached within hours, on a quiet one the same 30000 lines
+    # reach back months. Taken from the ends of each source rather than from the
+    # ends of everything read: the sources arrive one after the other, so the
+    # newest line of the first one sits in the middle.
+    covered = ''
+    window_from, window_to = lib.logsource.covered_window(
+        [item['lines'] for item in result['sources']]
+    )
+    if window_from is not None and window_to is not None:
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f'{window_from:%Y-%m-%d %H:%M} .. {window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)}): '
+        )
+    line_cnt = len(result['lines'])
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if result['truncated']:
+        lines_read = f'the most recent {lines_read}'
+    # The sources get a section of their own, the way the lines behind every
+    # count do: naming them in the summary would bury the verdict under a
+    # paragraph of paths, and the summary line is what a monitoring server shows
+    # in a list. The paths are not abbreviated there: a bullet has the room, and
+    # that is where an administrator copies them from.
+    described = [
+        describe_source(item, sizes.get(item['label'])) for item in result['sources']
+    ]
+    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+
+    if result['duplicates']:
+        # Named rather than silently dropped: an administrator who sees two
+        # sources read and one count has to be able to tell that the check knows
+        # they hold the same events.
+        shared = result['duplicates']
+        source_fact_tail = (
+            f', {lib.human.number2human(shared)} '
+            f'{lib.txt.pluralize("line", shared)} they share counted once'
+        )
+    else:
+        source_fact_tail = ''
+    source_heading = f'Read {lines_read} from {sources}{source_fact_tail}:'
+
+    # The lines Postfix wrote about itself, counted by the word it put in front
+    # of them.
+    counts = {}
+    for item in LEVELS:
+        lines = levels[item['level']]
+        counts[item['level']] = len(lines)
+        if not lines:
+            continue
+        level_state = level_states[item['level']]
+        state = lib.base.get_worst(state, level_state)
+        facts.append(
+            f'{len(lines)} {item["level"]} '
+            f'{lib.txt.pluralize("line", len(lines))} found'
+            f'{lib.base.state2str(level_state, prefix=" ")}'
+            f' (last: {lines[-1]})'
+        )
+
+    # The named events, whose state comes from the situation itself. Quiet ones
+    # stay out of the line, which keeps a healthy host down to a single sentence.
+    named = []
+    for event in EVENTS:
+        hits = found[event['key']]
+        if not hits:
+            continue
+        state = lib.base.get_worst(state, event['state'])
+        named.append(
+            f'{len(hits)} '
+            f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
+            f'{lib.base.state2str(event["state"], prefix=" ")}'
+        )
+        recommendations.append(event['recommendation'])
+    if named:
+        facts.append('Found ' + ', '.join(named))
+
+    # The counted events. Their state comes from how many of them arrived within
+    # the rate window, not from the fact that they arrived at all.
+    rate_counts = {}
+    rate_facts = []
+    for event in RATE_EVENTS:
+        hits = found[event['key']]
+        # Counted per peer where the lines name one, because that is what makes
+        # the number mean something: a handful of failed logins from one address
+        # within the window is somebody working on this host, the same number
+        # spread over as many addresses is the open network going past. The
+        # state follows the busiest single source, which is the quantity an
+        # intrusion prevention system counts before it blocks one, so the
+        # thresholds compare against the same thing. `--no-per-source` goes back
+        # to judging everything that arrived.
+        window = lib.logsource.count_within(
+            hits,
+            rate_since,
+            # A delivery of ours names the host we handed the message to, not
+            # somebody who came to us, so those are judged by the total: a relay
+            # that is down is one situation however many recipients are waiting.
+            key=get_source
+            if args.PER_SOURCE and event.get('per_source', True)
+            else None,
+        )
+        rate_counts[event['key']] = window['count']
+        if not hits:
+            continue
+        rate_state = lib.base.get_state(
+            window['count'],
+            getattr(args, event['warning']) or None,
+            getattr(args, event['critical']) or None,
+        )
+        state = lib.base.get_worst(state, rate_state)
+        fact = (
+            f'{window["count"]} '
+            f'{lib.txt.pluralize(event["label"], window["count"], event.get("suffix", "s"))}'
+        )
+        if window['busiest']:
+            fact += f' from {window["busiest"]}'
+        fact += (
+            f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(rate_state, prefix=" ")}'
+        )
+        extras = []
+        if window['total'] != window['count']:
+            extras.append(
+                f'{window["total"]} in total from {window["sources"]}'
+                f' {lib.txt.pluralize("address", window["sources"], "es")}'
+            )
+        if len(hits) != window['total']:
+            extras.append(f'{len(hits)} in the window read')
+        if extras:
+            fact += ' (' + ', '.join(extras) + ')'
+        if window['undated']:
+            fact += (
+                f', {window["undated"]} of them without a timestamp and therefore'
+                f' not counted'
+            )
+        rate_facts.append(fact)
+        if rate_state != STATE_OK:
+            recommendations.append(event['recommendation'])
+    facts.extend(rate_facts)
+
+    if not any(counts.values()) and not named and not rate_facts:
+        # Naming every quiet counter one by one would bury the one sentence a
+        # healthy host is supposed to be.
+        facts.append('No problems found')
+
+    lifecycle_counts = {}
+    for item in LIFECYCLE:
+        lines = found[item['key']]
+        count = len(lines)
+        within = ''
+        if item['rate']:
+            count = lib.logsource.count_within(lines, rate_since)['total']
+            within = f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
+        lifecycle_counts[item['key']] = count
+        if not lines:
+            # Nothing happened, which is what the counter in the performance data
+            # says; a sentence about it would only push the verdict further right.
+            continue
+        fact = (
+            f'{count} '
+            f'{lib.txt.pluralize(item["label"], count, item.get("suffix", "s"))}'
+        )
+        fact += within or f' {item["verb"]}'
+        if len(lines) != count:
+            fact += f' ({len(lines)} in the window read)'
+        facts.append(f'{fact} (last: {lines[-1]})')
+
+    if result['notice']:
+        facts.append(result['notice'].rstrip('.'))
+
+    # A source that could not be read at all leaves a hole in the window: with a
+    # second source still delivering, the run goes on, but reporting the state of
+    # what happened to work would hide that nothing is watching the rest.
+    if result['failed']:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            '; '.join(item.rstrip('.') for item in result['failed'])
+            + lib.base.state2str(STATE_WARN, prefix=' ')
+        )
+        recommendations.append(
+            'Check the log sources this check was told to read; '
+            'one of them could not be read at all'
+        )
+
+    # The window the summary reports on comes first, because every count in it
+    # is a count within that window and reads differently against an hour than
+    # against a week.
+    sections.append(covered + '. '.join(facts) + '.')
+
+    for item in LEVELS:
+        lines = levels[item['level']]
+        if lines:
+            sections.append(
+                f'{item["level"].capitalize()} lines:\n'
+                + '\n'.join(f'* {line}' for line in shorten(lines))
+            )
+
+    for event in EVENTS:
+        lines = found[event['key']]
+        if lines:
+            label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
+            # Not `capitalize()`: it lowercases the rest of the word, and `TLS`
+            # is an acronym.
+            sections.append(
+                f'{label[0].upper() + label[1:]}:\n'
+                + '\n'.join(f'* {line}' for line in shorten(lines))
+            )
+
+    # What was read, last of the sections: the verdict and the lines behind it
+    # come first, the provenance after them.
+    sections.append(
+        source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
+    )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
+    if sizes:
+        perfdata += lib.base.get_perfdata(
+            'postfix_logfile_size',
+            sum(sizes.values()),
+            uom='B',
+            _min=0,
+        )
+    for item in LEVELS:
+        level_state = level_states[item['level']]
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'],
+            counts[item['level']],
+            uom=None,
+            # The problem counters alert from their first hit on, hence a
+            # threshold of `'0'` ("outside 0..0") rather than `1`.
+            warn='0' if level_state == STATE_WARN else None,
+            crit='0' if level_state == STATE_CRIT else None,
+            _min=0,
+        )
+    for event in EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            len(found[event['key']]),
+            uom=None,
+            warn='0' if event['state'] == STATE_WARN else None,
+            crit='0' if event['state'] == STATE_CRIT else None,
+            _min=0,
+        )
+    # The rate counters trend what the state follows: how many the busiest single
+    # source produced within the window, not how many the log holds.
+    for event in RATE_EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            rate_counts[event['key']],
+            uom=None,
+            warn=getattr(args, event['warning']) or None,
+            crit=getattr(args, event['critical']) or None,
+            _min=0,
+        )
+    for item in LIFECYCLE:
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'], lifecycle_counts[item['key']], uom=None, _min=0
+        )
+
+    # Ask the monitoring server about the acknowledgement. Where the service is
+    # acknowledged, persist the lines currently being reported so an unchanged
+    # log does not raise them again on the following runs.
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            # Only the lines a level count or a named event flagged. The counted
+            # events stay out: what alerts there is the arrival rate and not one
+            # line, so silencing the lines already read would not keep the next
+            # run from alerting on the ones arriving meanwhile.
+            reported = {}
+            for item in LEVELS:
+                if level_states[item['level']] != STATE_OK:
+                    reported.update(dict.fromkeys(levels[item['level']]))
+            for event in EVENTS:
+                reported.update(dict.fromkeys(found[event['key']]))
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in reported
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

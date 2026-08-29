@@ -1,0 +1,466 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the postfix-logfile check plugin.
+
+The `*-busy-server` fixtures were written by a real Postfix driven into the
+situations they hold: 3.5.25 on Rocky 9 and 3.10.13 on Debian 13, each read back
+through the syslog daemon its distribution ships, so both timestamp formats are
+covered by real files. What was provoked there: a local delivery, a domain that
+does not resolve, a relay that refuses the connection, one that speaks no TLS,
+one that refuses the credentials, a client that pipelines and hangs up, and a
+`queue_directory` that does not exist.
+
+The inbound fixture is written by hand from the same line shapes, with
+documentation addresses, because driving a login failure needs a SASL backend
+that a container does not have.
+
+The fixtures are re-stamped before they are read, because a timestamp stored in
+the repository sits inside the rate window on the day it was captured and outside
+it on every day after.
+"""
+
+import atexit
+import calendar
+import datetime
+import importlib.machinery
+import importlib.util
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+import lib.logsource
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'postfix-logfile')
+
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    loader = importlib.machinery.SourceFileLoader('postfix_logfile', PLUGIN)
+    spec = importlib.util.spec_from_loader('postfix_logfile', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+postfix_logfile = _load_plugin_module()
+
+# The log has to be read from below `unit-test/`, which is where the plugin
+# allows itself to read outside /var/log.
+SCRATCH = tempfile.mkdtemp(prefix='postfix-logfile-', dir=HERE)
+atexit.register(shutil.rmtree, SCRATCH, True)
+
+# The head of a line as the two syslog daemons of the distributions write it.
+TRADITIONAL_TIMESTAMP_REGEX = re.compile(r'^\w{3} {1,2}\d{1,2} \d{2}:\d{2}:\d{2} ')
+ISO_TIMESTAMP_REGEX = re.compile(
+    r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})? '
+)
+
+# One failed login as Postfix writes it, with the timestamp left open so a test
+# can place the line inside or outside the rate window.
+FAILURE_LINE = (
+    '{timestamp} mail postfix/smtpd[2201]: warning: unknown[{peer}]:'
+    ' SASL LOGIN authentication failed: Password:'
+)
+
+
+def _stamp(moment):
+    """Render a moment the way a syslog daemon of the RHEL family writes it.
+
+    The month name comes from a table rather than from `%b`, so the fixture does
+    not change with the locale the tests happen to run in.
+    """
+    month = calendar.month_abbr[moment.month]
+    return f'{month} {moment.day:2d} {moment:%H:%M:%S}'
+
+
+def aged(name, minutes_ago=180):
+    """Copy a fixture, moving its lines so the first of them is `minutes_ago` old.
+
+    The whole block is shifted by one offset, so the lines keep the spacing
+    Postfix wrote them with - the script and the master reporting one start
+    within the same second stay within the same second - and each line keeps the
+    timestamp format its syslog daemon used.
+    """
+    with open(os.path.join(HERE, 'fixtures', name), encoding='utf-8') as handle:
+        lines = handle.read().splitlines()
+    moments = [lib.logsource.timestamp(line) for line in lines]
+    known = [moment for moment in moments if moment is not None]
+    shift = (
+        datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago) - known[0]
+        if known
+        else datetime.timedelta()
+    )
+    # The age is part of the name, because the same fixture is aged to two
+    # different moments in the same run and one scratch file cannot hold both.
+    stem, extension = os.path.splitext(name)
+    path = os.path.join(SCRATCH, f'{stem}-{minutes_ago}{extension}')
+    with open(path, 'w', encoding='utf-8') as handle:
+        for line, moment in zip(lines, moments):
+            if moment is None:
+                handle.write(line + '\n')
+                continue
+            iso = ISO_TIMESTAMP_REGEX.match(line)
+            body = (iso or TRADITIONAL_TIMESTAMP_REGEX.match(line)).group(0)
+            moved = moment + shift
+            head = f'{moved:%Y-%m-%dT%H:%M:%S.%f}' if iso else _stamp(moved)
+            handle.write(f'{head} {line[len(body) :]}\n')
+    return path
+
+
+def fixture(name):
+    return os.path.join(HERE, 'fixtures', name)
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+# The summary abbreviates a long path where it shares a line with a sentence, and
+# a fixture tree below this repository is always long enough for that, so such a
+# path is asserted by its basename rather than in full.
+CASES = [
+    {
+        # The Rocky 9 run: a relay that refused the connection, one that spoke no
+        # TLS, one that refused the credentials, and a queue directory that does
+        # not exist.
+        'id': 'crit-rocky9-busy-server',
+        'params': [f'--server-log={aged("rocky9-busy-server.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '2 startup failures [CRITICAL]',
+            '1 refused credential [WARNING]',
+            # A connection to the next hop that did not come off is counted, not
+            # reported: a host without an IPv6 route logs one for the AAAA
+            # record of its relay and delivers over IPv4 in the same second.
+            '0 unreachable next hops in the last 10m (3 in the window read)',
+            '0 TLS failures in the last 10m (3 in the window read)',
+            'chdir(/var/spool/postfix-nonexistent)',
+            '3 startups detected',
+            '2 shutdowns detected',
+            "'postfix_startup_failures'=2;;0;0",
+        ],
+    },
+    {
+        # The same situations on the Debian family, where the syslog daemon
+        # writes an ISO 8601 moment.
+        'id': 'ok-debian13-busy-server',
+        'params': [f'--server-log={aged("debian13-busy-server.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0 unreachable next hops in the last 10m (3 in the window read)',
+            '0 bounced deliveries in the last 10m (1 in the window read)',
+            '2 startups detected',
+        ],
+    },
+    {
+        # A rate that stays under its threshold says nothing but how much the
+        # window holds.
+        'id': 'ok-inbound-noise-is-counted-not-reported',
+        'params': [f'--server-log={aged("rocky9-inbound-attack.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0 failed logins in the last 10m (6 in the window read)',
+            '0 rejected messages in the last 10m (2 in the window read)',
+            '0 aborted connections in the last 10m (5 in the window read)',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # The same fixture judged over a window that holds all of it: six failed
+        # logins from one address reach the threshold, and the address is named.
+        'id': 'warn-a-run-against-one-mailbox',
+        'params': [
+            f'--server-log={aged("rocky9-inbound-attack.txt")}',
+            '--lookback=31536000',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '6 failed logins from 198.51.100.7 in the last 1Y [WARNING]',
+            'Logins are failing in bulk',
+        ],
+    },
+    {
+        # Counting them host-wide instead: the same six, plus what the other two
+        # addresses did, judged as one number.
+        'id': 'warn-without-per-source-the-whole-window-counts',
+        'params': [
+            f'--server-log={aged("rocky9-inbound-attack.txt")}',
+            '--lookback=31536000',
+            '--no-per-source',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['6 failed logins in the last 1Y [WARNING]'],
+        'assert-not-in': ['from 198.51.100.7'],
+    },
+    {
+        'id': 'ok-empty-log-is-a-rotation',
+        'params': [f'--server-log={fixture("empty.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['is empty. Assuming log-rotation.'],
+    },
+    {
+        'id': 'unknown-source-is-not-a-mail-log',
+        'params': [f'--server-log={fixture("apache-access-log.txt")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'was written by Postfix',
+            '--server-log=systemd:postfix.service',
+        ],
+    },
+    {
+        # A named event and the rate it produces are two counts of two different
+        # lines: the `connect to ...` that says what is wrong, and the
+        # `status=deferred` that says how much mail it holds up.
+        'id': 'crit-a-line-is-counted-once',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--lookback=31536000',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            # The `connect to ...` line says what is wrong, the `status=deferred`
+            # lines behind it say how much mail it holds up, and neither doubles
+            # the other.
+            '3 unreachable next hops in the last 1Y',
+            '3 deferred deliveries in the last 1Y',
+            "'postfix_relay_failures'=3;20;200;0",
+            "'postfix_deferred'=3;20;200;0",
+        ],
+    },
+    {
+        'id': 'ok-ignore-drops-the-startup-failure',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--ignore=postfix-nonexistent',
+            '--ignore=connect to',
+            '--ignore=sasl',
+            '--ignore=tls',
+            '--ignore=ssl',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['startup failure', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-match-narrows-the-run-down-to-nothing',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--match=nothing matches this',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked: `--match` dropped all'],
+    },
+    {
+        'id': 'crit-match-narrowing-to-nothing-can-be-told-to-alert',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--match=nothing matches this',
+            '--no-match-severity=crit',
+        ],
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-always-ok-masks-the-failed-start',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['startup failure'],
+    },
+    {
+        # Two logs read as one window, and what both hold counted once.
+        'id': 'crit-two-logs-are-read-as-one-window',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            f'--server-log={aged("rocky9-inbound-attack.txt")}',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'from 2 sources',
+            'rocky9-busy-server',
+            'rocky9-inbound-attack',
+        ],
+    },
+    {
+        # One source of two could not be read at all. The run goes on with what
+        # it has and says that the other one is a hole in the window.
+        'id': 'warn-a-source-that-could-not-be-read',
+        'params': [
+            f'--server-log={aged("rocky9-inbound-attack.txt")}',
+            '--server-log=/var/log/there-is-no-such-file.log',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['there-is-no-such-file.log'],
+    },
+    {
+        'id': 'unknown-callback-without-its-companions',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--icinga-callback',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--icinga-callback` requires'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _run(params):
+    result = subprocess.run(
+        [PLUGIN, *params],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode, result.stdout + result.stderr
+
+
+def _check_case(test, case):
+    returncode, combined = _run(case['params'])
+    test.assertEqual(
+        returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {returncode}.\nOutput: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+class TestArrivalRate(unittest.TestCase):
+    """A burst of failed logins alerts, the same burst an hour ago does not."""
+
+    def _write(self, name, moments, peer='198.51.100.7'):
+        path = os.path.join(SCRATCH, name)
+        with open(path, 'w', encoding='utf-8') as handle:
+            for moment in moments:
+                handle.write(
+                    FAILURE_LINE.format(timestamp=_stamp(moment), peer=peer) + '\n'
+                )
+        return path
+
+    def test_a_burst_inside_the_window_alerts(self):
+        now = datetime.datetime.now()
+        moments = [now - datetime.timedelta(seconds=30 * i) for i in range(6)]
+        returncode, combined = _run(
+            [f'--server-log={self._write("burst.log", moments)}']
+        )
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('6 failed logins from 198.51.100.7', combined)
+
+    def test_the_same_burst_an_hour_ago_does_not(self):
+        now = datetime.datetime.now() - datetime.timedelta(hours=1)
+        moments = [now - datetime.timedelta(seconds=30 * i) for i in range(6)]
+        returncode, combined = _run([f'--server-log={self._write("old.log", moments)}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn(
+            '0 failed logins in the last 10m (6 in the window read)', combined
+        )
+
+    def test_the_same_burst_spread_over_six_addresses_does_not(self):
+        # Six failures from six addresses is the open network going past, and
+        # this is the difference `--per-source` makes.
+        now = datetime.datetime.now()
+        path = os.path.join(SCRATCH, 'spread.log')
+        with open(path, 'w', encoding='utf-8') as handle:
+            for index in range(6):
+                handle.write(
+                    FAILURE_LINE.format(
+                        timestamp=_stamp(now - datetime.timedelta(seconds=30 * index)),
+                        peer=f'198.51.100.{index + 10}',
+                    )
+                    + '\n'
+                )
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('6 in total from 6 addresses', combined)
+
+
+class TestSourceExtraction(unittest.TestCase):
+    """Which address a line names, which is what a rate is counted per."""
+
+    def test_the_peer_of_a_failed_login(self):
+        # Postfix opens that message with the client it resolved, without a
+        # `from` in front of it.
+        self.assertEqual(
+            postfix_logfile.get_source(
+                'Aug 29 09:12:03 mail postfix/smtpd[2201]: warning:'
+                ' unknown[198.51.100.7]: SASL LOGIN authentication failed: Password:'
+            ),
+            '198.51.100.7',
+        )
+
+    def test_the_peer_of_a_rejected_recipient(self):
+        self.assertEqual(
+            postfix_logfile.get_source(
+                'Aug 29 09:13:00 mail postfix/smtpd[2204]: NOQUEUE: reject: RCPT'
+                ' from unknown[198.51.100.9]: 554 5.7.1 <victim@elsewhere.example>:'
+                ' Relay access denied'
+            ),
+            '198.51.100.9',
+        )
+
+    def test_the_host_we_delivered_to_is_not_a_peer(self):
+        # `relay=` names where the message went, not where it came from.
+        self.assertIsNone(
+            postfix_logfile.get_source(
+                'Aug 29 09:15:00 mail postfix/smtp[2220]: 3F2A14804001:'
+                ' to=<user@example.org>, relay=mail.example.org[198.51.100.20]:25,'
+                ' delay=0.4, dsn=2.0.0, status=sent (250 2.0.0 Ok: queued)'
+            )
+        )
+
+    def test_postscreen_names_the_peer_without_a_name(self):
+        self.assertEqual(
+            postfix_logfile.get_source(
+                'Aug 29 09:14:10 mail postfix/postscreen[2210]: PREGREET 14 after'
+                ' 0.08 from [198.51.100.11]:59415: EHLO ylmf-pc'
+            ),
+            '198.51.100.11',
+        )
+
+
+class TestLevelStates(unittest.TestCase):
+    """What `--critical-level` and `--warning-level` do to the level counts."""
+
+    def test_the_defaults(self):
+        states = postfix_logfile.get_level_states('fatal', 'warning')
+        self.assertEqual(states['panic'], STATE_CRIT)
+        self.assertEqual(states['fatal'], STATE_CRIT)
+        self.assertEqual(states['error'], STATE_WARN)
+        self.assertEqual(states['warning'], STATE_WARN)
+
+    def test_turning_the_levels_off_leaves_the_named_events(self):
+        states = postfix_logfile.get_level_states('none', 'none')
+        self.assertEqual(set(states.values()), {STATE_OK})
+
+
+if __name__ == '__main__':
+    unittest.main()
