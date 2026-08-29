@@ -133,6 +133,7 @@ Monitoring Plugins:
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
+* xml: a host without the `lxml` module gets the sentence that says so and an UNKNOWN, instead of a Python stack trace and a WARNING
 
 Icinga Director:
 

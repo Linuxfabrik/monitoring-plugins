@@ -124,6 +124,7 @@ Everything is ok. "exchange information" found in result "Provide real-time curr
 * WARN if the XPath expression returns an empty result.
 * WARN if the expected string is not found in the XPath result.
 * UNKNOWN on XML parsing errors, wrong namespace syntax, XPath errors, or text search within non-text tags.
+* UNKNOWN when the `lxml` Python module is not installed.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
