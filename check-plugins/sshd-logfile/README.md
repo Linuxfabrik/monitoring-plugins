@@ -312,13 +312,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sshd-logfile/
 Output of a healthy host:
 
 ```text
-No failed logins and nothing else worth reporting found. 1 startup detected (last: Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.). No restarts detected. 1 shutdown detected (last: Aug 28 19:25:50 host sshd[231]: Received signal 15; terminating.). 1 successful login found (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 198.51.100.7 port 54876 ssh2). Read 9 lines from `/var/log/secure` (size: 909.0B), covering 2026-08-28 19:25..2026-08-28 19:25 (47s).
+No failed logins and nothing else worth reporting found. 1 startup detected (last: Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.). No restarts detected. 1 shutdown detected (last: Aug 28 19:25:50 host sshd[231]: Received signal 15; terminating.). 1 successful login in the last 10m (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 198.51.100.7 port 54876 ssh2). Read 9 lines from `/var/log/secure` (size: 909.0B), covering 2026-08-28 19:25..2026-08-28 19:25 (47s).
 ```
 
 Output of a host whose sshd could not take its port, and whose users cannot get in with their keys:
 
 ```text
-Found 3 startup failures [CRITICAL], 1 refused key file [WARNING]. 0 authentication failures in the last 10m (5 in the window read). 0 invalid-user attempts in the last 10m (1 in the window read). 0 access denials in the last 10m (1 in the window read). 6 startups detected (last: Aug 28 19:25:52 host sshd[367]: Server listening on 0.0.0.0 port 22.). 4 restarts detected (last: Aug 28 19:25:48 host sshd[231]: Received SIGHUP; restarting.). 2 shutdowns detected (last: Aug 28 19:25:54 host sshd[367]: Received signal 15; terminating.). 1 successful login found (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 198.51.100.7 port 54876 ssh2). Read 73 lines from `/var/log/secure` (size: 7.4KiB), covering 2026-08-28 19:25..2026-08-28 19:25 (51s).
+Found 3 startup failures [CRITICAL], 1 refused key file [WARNING]. 0 authentication failures in the last 10m (5 in the window read). 0 invalid-user attempts in the last 10m (1 in the window read). 0 access denials in the last 10m (1 in the window read). 6 startups detected (last: Aug 28 19:25:52 host sshd[367]: Server listening on 0.0.0.0 port 22.). 4 restarts detected (last: Aug 28 19:25:48 host sshd[231]: Received SIGHUP; restarting.). 2 shutdowns detected (last: Aug 28 19:25:54 host sshd[367]: Received signal 15; terminating.). 1 successful login in the last 10m (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 198.51.100.7 port 54876 ssh2). Read 73 lines from `/var/log/secure` (size: 7.4KiB), covering 2026-08-28 19:25..2026-08-28 19:25 (51s).
 
 Startup failures:
 * Aug 28 19:25:53 host sshd[371]: error: Bind to port 22 on 0.0.0.0 failed: Address already in use.
@@ -336,7 +336,7 @@ Recommendations:
 Output of a host somebody is guessing passwords on:
 
 ```text
-147 authentication failures in the last 10m [WARNING]. 173 invalid-user attempts in the last 10m. No startups detected. No restarts detected. No shutdowns detected. No successful logins found. Read the most recent 30K lines from `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828`, covering 2026-08-28 01:33..2026-08-29 07:53 (1D 6h).
+147 authentication failures in the last 10m [WARNING]. 173 invalid-user attempts in the last 10m. No startups detected. No restarts detected. No shutdowns detected. No successful logins in the last 10m. Read the most recent 30K lines from `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828`, covering 2026-08-28 01:33..2026-08-29 07:53 (1D 6h).
 
 Recommendations:
 * Authentications are failing in bulk for accounts that exist, which is what a guessing run against known user names looks like; the names and addresses in the log say whether it is that or an automation still using a password that was changed
@@ -355,6 +355,7 @@ Recommendations:
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
 * OK with `--no-match-severity` at its default when `--match` dropped every line; set it to `warn`, `crit` or `unknown` to have a filter that matches nothing reported instead.
 * A `LogLevel` below `INFO` is reported as the first thing in the output and never alerts, because it says what the rest of the output is worth rather than that something is wrong.
+* Successful logins are counted within `--lookback` rather than over the whole window, so the number says how much the server is used rather than how far back the lines it read reach. Startups, restarts and shutdowns are counted over the whole window instead: they are rare enough that how many the window holds is the useful answer, and on a quiet host the window reaches back weeks where ten minutes would always read zero. None of the four ever alerts.
 * The size of the log file is reported and trended but never alerted on. An unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage.md) check.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -371,7 +372,7 @@ Recommendations:
 | sshd_invalid_users | Number | Number of connections that named an account which does not exist, within the lookback window. |
 | sshd_key_file_refusals | Number | Number of key files sshd ignored for their ownership or their mode. |
 | sshd_logfile_size | Bytes | Log file size. |
-| sshd_logins | Number | Number of successful logins found in the log. |
+| sshd_logins | Number | Number of successful logins within the lookback window. |
 | sshd_restarts | Number | Number of restarts found in the log. |
 | sshd_revoked_keys | Number | Number of revoked keys that were offered. |
 | sshd_root_login_refusals | Number | Number of root logins that authenticated and were stopped by `PermitRootLogin`. |

@@ -511,6 +511,7 @@ LIFECYCLE = (
         # is_repeated_line().
         'regex': re.compile(r'Server listening on \S+ port \d+'),
         'collapse': True,
+        'rate': False,
         'verb': 'detected',
     },
     {
@@ -522,6 +523,7 @@ LIFECYCLE = (
         # is counted above as well, so a restart shows up as both.
         'regex': re.compile(r'Received SIGHUP; restarting'),
         'collapse': False,
+        'rate': False,
         'verb': 'detected',
     },
     {
@@ -531,6 +533,7 @@ LIFECYCLE = (
         # `Received signal 15; terminating.`, an ordinary `systemctl stop`.
         'regex': re.compile(r'Received signal \d+; terminating'),
         'collapse': False,
+        'rate': False,
         'verb': 'detected',
     },
     {
@@ -539,9 +542,18 @@ LIFECYCLE = (
         'perfdata': 'sshd_logins',
         # `Accepted publickey for alice from 198.51.100.7 port 40000 ssh2: ...`.
         # Counted so the graph shows what the server is actually used for, next
-        # to the failures below which say what is being tried on it.
+        # to the failures which say what is being tried on it.
+        #
+        # Counted within `--lookback` rather than over the whole window, unlike
+        # the three above: a server people work on writes thousands of these, and
+        # the number would then say how far back the 30000 lines reach rather
+        # than how much the server is used - it falls when the log gets busier.
+        # The others stay: a start is rare enough that how many the window holds
+        # is the useful answer, and on a quiet host the window reaches back weeks
+        # where ten minutes would always read zero.
         'regex': re.compile(r'Accepted \S+ for \S+ from '),
         'collapse': False,
+        'rate': True,
         'verb': 'found',
     },
 )
@@ -1386,15 +1398,26 @@ def main():
         # healthy host is supposed to be.
         facts.append('No failed logins and nothing else worth reporting found')
 
+    lifecycle_counts = {}
     for item in LIFECYCLE:
         lines = found[item['key']]
-        if lines:
-            facts.append(
-                f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
-                f' {item["verb"]} (last: {lines[-1]})'
-            )
-        else:
+        count = len(lines)
+        within = ''
+        if item['rate']:
+            count = lib.logsource.count_within(lines, rate_since)['total']
+            within = f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
+        lifecycle_counts[item['key']] = count
+        if not lines:
             facts.append(f'No {lib.txt.pluralize(item["label"], 0)} {item["verb"]}')
+            continue
+        # A counter over the whole window reads as `2 restarts detected`, one
+        # over `--lookback` as `0 successful logins in the last 10m`, where the
+        # window says what the verb otherwise would.
+        fact = f'{count} {lib.txt.pluralize(item["label"], count)}'
+        fact += within or f' {item["verb"]}'
+        if len(lines) != count:
+            fact += f' ({len(lines)} in the window read)'
+        facts.append(f'{fact} (last: {lines[-1]})')
 
     # A `LogLevel` below `INFO` keeps sshd from writing what this check counts,
     # so a quiet report would say nothing about the host. It goes first, ahead of
@@ -1471,7 +1494,7 @@ def main():
         )
     for item in LIFECYCLE:
         perfdata += lib.base.get_perfdata(
-            item['perfdata'], len(found[item['key']]), uom=None, _min=0
+            item['perfdata'], lifecycle_counts[item['key']], uom=None, _min=0
         )
 
     # Ask the monitoring server about the acknowledgement. Where the service is
