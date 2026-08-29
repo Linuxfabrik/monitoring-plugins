@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Checks the device-mapper multipath maps on this host: how many of the
 paths to each LUN are usable, which of them the path checker has declared dead, and
@@ -163,6 +163,18 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the percentage of the expected paths that are usable, '
+        'compared as a Nagios range. '
+        'Supports Nagios ranges. '
+        'Example: `--critical=1:` alerts only once a map has no usable path left. '
+        'Default: %(default)s (critical when half of the paths or more are gone).',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
         '--expected-paths',
         help='Expected number of paths per multipath map. '
         'A LUN in a fabric normally has the same number of paths as every other one, so '
@@ -175,18 +187,6 @@ def parse_args():
         dest='EXPECTED_PATHS',
         type=int,
         default=DEFAULT_EXPECTED_PATHS,
-    )
-
-    parser.add_argument(
-        '-c',
-        '--critical',
-        help='CRIT threshold for the percentage of the expected paths that are usable, '
-        'compared as a Nagios range. '
-        'Supports Nagios ranges. '
-        'Example: `--critical=1:` alerts only once a map has no usable path left. '
-        'Default: %(default)s (critical when half of the paths or more are gone).',
-        dest='CRIT',
-        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(

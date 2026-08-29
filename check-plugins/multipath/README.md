@@ -54,8 +54,9 @@ Every path carries two states at once, and the check takes both. The *checker* s
 ## Help
 
 ```text
-usage: multipath [-h] [-V] [--always-ok] [--expected-paths EXPECTED_PATHS]
-                 [-c CRIT] [--ignore IGNORE] [--lengthy] [--map MAP]
+usage: multipath [-h] [-V] [--always-ok] [-c CRIT]
+                 [--expected-paths EXPECTED_PATHS] [--ignore IGNORE]
+                 [--lengthy] [--map MAP]
                  [--marginal-severity {ok,warn,crit,unknown}]
                  [--no-maps-severity {ok,warn,crit,unknown}]
                  [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
@@ -78,6 +79,12 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
+  -c, --critical CRIT   CRIT threshold for the percentage of the expected
+                        paths that are usable, compared as a Nagios range.
+                        Supports Nagios ranges. Example: `--critical=1:`
+                        alerts only once a map has no usable path left.
+                        Default: 50: (critical when half of the paths or more
+                        are gone).
   --expected-paths EXPECTED_PATHS
                         Expected number of paths per multipath map. A LUN in a
                         fabric normally has the same number of paths as every
@@ -88,12 +95,6 @@ options:
                         Example: `--expected-paths=4` on a host with two HBAs
                         and two controllers. Default: None, which grades every
                         map against the paths it currently holds.
-  -c, --critical CRIT   CRIT threshold for the percentage of the expected
-                        paths that are usable, compared as a Nagios range.
-                        Supports Nagios ranges. Example: `--critical=1:`
-                        alerts only once a map has no usable path left.
-                        Default: 50: (critical when half of the paths or more
-                        are gone).
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.
