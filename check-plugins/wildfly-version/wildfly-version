@@ -24,7 +24,7 @@ import lib.wildfly
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks if a newer version of WildFly is available by comparing the installed
 version, queried from the HTTP management API, against the latest release on the GitHub
@@ -33,7 +33,7 @@ releases API. Alerts when the installed version is outdated."""
 DEFAULT_CACHE_EXPIRE = 24  # hours
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
-DEFAULT_TIMEOUT = 3
+DEFAULT_TIMEOUT = 8
 DEFAULT_URL = 'http://localhost:9990'
 DEFAULT_USERNAME = 'wildfly-monitoring'
 
@@ -243,11 +243,17 @@ def main():
     perfdata = lib.base.get_perfdata(
         'wildfly-version',
         lib.version.version2float(installed_version),
+        uom=None,
         _min=0,
     )
 
+    # analyze data
+    up_to_date = lib.version.version(installed_version) >= lib.version.version(
+        latest_version
+    )
+
     # build the message
-    if lib.version.version(installed_version) >= lib.version.version(latest_version):
+    if up_to_date:
         lib.base.oao(
             f'WildFly v{installed_version} is up to date',
             STATE_OK,

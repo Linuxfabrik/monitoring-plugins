@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
@@ -145,15 +145,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--include-unmapped',
-        help='Also check LUNs that are not mapped to any host. Those are not serving '
-        'anything, so they are left out by default.',
-        dest='INCLUDE_UNMAPPED',
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
         '--ignore',
         help='Skip LUNs. '
         + lib.args.help('--ignore-regex')
@@ -163,6 +154,15 @@ def parse_args():
         dest='IGNORE',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--include-unmapped',
+        help='Also check LUNs that are not mapped to any host. Those are not serving '
+        'anything, so they are left out by default.',
+        dest='INCLUDE_UNMAPPED',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(

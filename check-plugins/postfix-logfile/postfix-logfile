@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082903'
+__version__ = '2026082904'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -769,6 +769,32 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--rejects-critical',
+        help='Number of messages the server turned away within `--lookback` '
+        'that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--rejects-critical=200`. '
+        'Default: %(default)s',
+        dest='REJECTS_CRITICAL',
+        type=int,
+        default=DEFAULT_REJECTS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--rejects-warning',
+        help='Number of messages the server turned away within `--lookback` '
+        'that returns WARNING. '
+        'Counted per source address. A server that answers the internet turns '
+        'mail away all day and wants this raised. '
+        '0 turns the threshold off. '
+        'Example: `--rejects-warning=50`. '
+        'Default: %(default)s',
+        dest='REJECTS_WARNING',
+        type=int,
+        default=DEFAULT_REJECTS_WARNING,
+    )
+
+    parser.add_argument(
         '--relay-failures-critical',
         help='Number of failed connections to the next hop within `--lookback` '
         'that returns CRITICAL. '
@@ -796,32 +822,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--rejects-critical',
-        help='Number of messages the server turned away within `--lookback` '
-        'that returns CRITICAL. '
-        '0 turns the threshold off. '
-        'Example: `--rejects-critical=200`. '
-        'Default: %(default)s',
-        dest='REJECTS_CRITICAL',
-        type=int,
-        default=DEFAULT_REJECTS_CRITICAL,
-    )
-
-    parser.add_argument(
-        '--rejects-warning',
-        help='Number of messages the server turned away within `--lookback` '
-        'that returns WARNING. '
-        'Counted per source address. A server that answers the internet turns '
-        'mail away all day and wants this raised. '
-        '0 turns the threshold off. '
-        'Example: `--rejects-warning=50`. '
-        'Default: %(default)s',
-        dest='REJECTS_WARNING',
-        type=int,
-        default=DEFAULT_REJECTS_WARNING,
-    )
-
-    parser.add_argument(
         '--server-log',
         help='Log source to read from. '
         'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
@@ -836,6 +836,14 @@ def parse_args():
         action='append',
         default=None,
         dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -862,14 +870,6 @@ def parse_args():
         dest='TLS_FAILURES_WARNING',
         type=int,
         default=DEFAULT_TLS_FAILURES_WARNING,
-    )
-
-    parser.add_argument(
-        '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
-        dest='TIMEOUT',
-        type=int,
-        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(

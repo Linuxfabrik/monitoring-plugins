@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082602'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the device-mapper multipath maps on this host: how many of the
 paths to each LUN are usable, which of them the path checker has declared dead, and
@@ -30,9 +30,9 @@ whether a map has run out of paths altogether and is queueing the I/O that reach
 The number of usable paths is compared against an expected count as a percentage, so a
 LUN that lost one of its paths warns long before the last one goes and the storage
 disappears. Every map is graded against the number of paths it currently holds, which
-cannot catch a path that disappeared from the map entirely; --count states how many paths
-a LUN on this host is supposed to have and closes that gap, and --map pins a single map
-that has a different number.
+cannot catch a path that disappeared from the map entirely; --expected-paths states how
+many paths a LUN on this host is supposed to have and closes that gap, and --map pins a
+single map that has a different number.
 Alerts when a map is running on fewer usable paths than expected, and when it has none
 left.
 Supports extended reporting via --lengthy."""
@@ -89,7 +89,7 @@ DM_MAP_SUSPENDED = 'suspend'
 # of the normal path groups while it flaps, so the map runs on less than it looks like.
 MARGINAL = 'marginal'
 
-DEFAULT_COUNT = None
+DEFAULT_EXPECTED_PATHS = None
 DEFAULT_CRIT = '50:'
 DEFAULT_LENGTHY = False
 DEFAULT_MARGINAL_SEVERITY = 'warn'
@@ -163,18 +163,18 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--count',
+        '--expected-paths',
         help='Expected number of paths per multipath map. '
         'A LUN in a fabric normally has the same number of paths as every other one, so '
         'one value covers the whole host and catches a path that disappeared from a map '
         'entirely, which comparing a map against itself cannot. '
         '`--map` pins a single map that has a different number. '
-        'Example: `--count=4` on a host with two HBAs and two controllers. '
+        'Example: `--expected-paths=4` on a host with two HBAs and two controllers. '
         'Default: %(default)s, which grades every map against the paths it currently '
         'holds.',
-        dest='COUNT',
+        dest='EXPECTED_PATHS',
         type=int,
-        default=DEFAULT_COUNT,
+        default=DEFAULT_EXPECTED_PATHS,
     )
 
     parser.add_argument(
@@ -210,7 +210,7 @@ def parse_args():
         help='Check this multipath map and, optionally, the number of paths it is '
         'expected to have, written as `name=count`. '
         'The name is the alias where the host uses one, and the WWID otherwise. '
-        'Without `=count` the map is graded against `--count`, and against its own '
+        'Without `=count` the map is graded against `--expected-paths`, and against its own '
         'number of paths where that is not given either. '
         'Can be specified multiple times; if given at least once, only the named maps '
         'are checked. '
@@ -418,10 +418,10 @@ def analyze(mpath, expected_paths, args):
     """Work out how one map is doing and how bad that is."""
     name = mpath.get('name') or mpath.get('uuid') or '?'
     paths, usable, dead, marginal = analyze_paths(mpath)
-    # A pinned count for this map wins, then the host-wide `--count`, and only where
-    # neither is given is the map graded against the paths it currently holds.
+    # A pinned count for this map wins, then the host-wide `--expected-paths`, and only
+    # where neither is given is the map graded against the paths it currently holds.
     if expected_paths is None:
-        expected_paths = args.COUNT
+        expected_paths = args.EXPECTED_PATHS
     expected = expected_paths if expected_paths is not None else len(paths)
     # A map without any path at all would divide by zero here. It has already lost
     # everything, so it is graded as nothing being left rather than as nothing to grade.

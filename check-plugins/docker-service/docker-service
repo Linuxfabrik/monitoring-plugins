@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026082903'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -549,10 +549,16 @@ def main():
         )
     if msg_body:
         msg += msg_body + '\n'
-    perfdata += lib.base.get_perfdata('services_checked', checked, _min=0)
-    perfdata += lib.base.get_perfdata('services_degraded', services_degraded, _min=0)
-    perfdata += lib.base.get_perfdata('tasks_running', tasks_running_total, _min=0)
-    perfdata += lib.base.get_perfdata('tasks_expected', tasks_expected_total, _min=0)
+    perfdata += lib.base.get_perfdata('services_checked', checked, uom=None, _min=0)
+    perfdata += lib.base.get_perfdata(
+        'services_degraded', services_degraded, uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'tasks_running', tasks_running_total, uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'tasks_expected', tasks_expected_total, uom=None, _min=0
+    )
 
     # build table output
     if args.LENGTHY:

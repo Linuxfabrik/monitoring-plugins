@@ -5,8 +5,8 @@
                 "--always-ok": {
                     "set_if": "$multipath_always_ok$"
                 },
-                "--count": {
-                    "value": "$multipath_count$"
+                "--expected-paths": {
+                    "value": "$multipath_expected_paths$"
                 },
                 "--critical": {
                     "value": "$multipath_critical$"
@@ -146,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the number of paths it currently holds, which cannot catch a path that disappeared from the map entirely; --count states how many paths a LUN on this host is supposed to have and closes that gap, and --map pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via --lengthy.",
+            "notes": "Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the number of paths it currently holds, which cannot catch a path that disappeared from the map entirely; --expected-paths states how many paths a LUN on this host is supposed to have and closes that gap, and --map pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via --lengthy.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/multipath/",
             "object_name": "tpl-service-multipath",
             "object_type": "template",
@@ -280,15 +280,15 @@
             "uuid": "3571e54e-d282-46e3-8c15-369423b0dcca"
         },
         "2": {
-            "varname": "multipath_count",
-            "caption": "Multipath: Count",
-            "description": "Expected number of paths per multipath map. A LUN in a fabric normally has the same number of paths as every other one, so one value covers the whole host and catches a path that disappeared from a map entirely, which comparing a map against itself cannot. `--map` pins a single map that has a different number. Example: `--count=4` on a host with two HBAs and two controllers.",
+            "varname": "multipath_expected_paths",
+            "caption": "Multipath: Expected Paths",
+            "description": "Expected number of paths per multipath map. A LUN in a fabric normally has the same number of paths as every other one, so one value covers the whole host and catches a path that disappeared from a map entirely, which comparing a map against itself cannot. `--map` pins a single map that has a different number. Example: `--expected-paths=4` on a host with two HBAs and two controllers.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
-            "uuid": "1cbe9d4b-6c83-4379-8f27-4500a5fe2255"
+            "uuid": "622510c3-82fb-485a-b09c-5dadf457a53e"
         },
         "3": {
             "varname": "multipath_critical",
@@ -324,7 +324,7 @@
         "6": {
             "varname": "multipath_map",
             "caption": "Multipath: Map",
-            "description": "Check this multipath map and, optionally, the number of paths it is expected to have, written as `name=count`. The name is the alias where the host uses one, and the WWID otherwise. Without `=count` the map is graded against `--count`, and against its own number of paths where that is not given either. Can be specified multiple times; if given at least once, only the named maps are checked. Example: `--map=mpatha=4` alerts when the `mpatha` map does not have its four paths, even after one of them disappeared from the map entirely. Example: `--map=mpathb` checks `mpathb` against the paths it currently has.",
+            "description": "Check this multipath map and, optionally, the number of paths it is expected to have, written as `name=count`. The name is the alias where the host uses one, and the WWID otherwise. Without `=count` the map is graded against `--expected-paths`, and against its own number of paths where that is not given either. Can be specified multiple times; if given at least once, only the named maps are checked. Example: `--map=mpatha=4` alerts when the `mpatha` map does not have its four paths, even after one of them disappeared from the map entirely. Example: `--map=mpathb` checks `mpathb` against the paths it currently has.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

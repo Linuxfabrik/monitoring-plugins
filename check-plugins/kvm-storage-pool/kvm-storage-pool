@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082505'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the storage pools a libvirt host keeps its virtual machines on. Reports the
 storage behind them and the pools themselves in two tables: one per store, with how full
@@ -412,6 +412,9 @@ def main():
             store = os.path.commonpath(paths)
         else:
             store = ', '.join(names)
+        # The store is named by a path or by the pools sitting on it, so it carries
+        # slashes, commas and spaces. A perfdata label keeps neither of them.
+        store_label = re.sub(r'\W+', '_', store).strip('_')
         usage = round(allocation / capacity * 100, 1)
         usage_state = lib.base.get_state(usage, args.WARN, args.CRIT, _operator='range')
         # How full a store is is judged once, here, and not once per pool on it: two
@@ -438,7 +441,7 @@ def main():
             }
         )
         perfdata += lib.base.get_perfdata(
-            f'{store}-usage',
+            f'{store_label}_usage',
             usage,
             uom='%',
             warn=args.WARN,
@@ -447,21 +450,21 @@ def main():
             _max=100,
         )
         perfdata += lib.base.get_perfdata(
-            f'{store}-allocation',
+            f'{store_label}_allocation',
             allocation,
             uom='B',
             _min=0,
             _max=capacity,
         )
         perfdata += lib.base.get_perfdata(
-            f'{store}-available',
+            f'{store_label}_available',
             available,
             uom='B',
             _min=0,
             _max=capacity,
         )
         perfdata += lib.base.get_perfdata(
-            f'{store}-capacity',
+            f'{store_label}_capacity',
             capacity,
             uom='B',
             _min=0,

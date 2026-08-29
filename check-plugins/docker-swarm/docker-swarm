@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active, pending,
@@ -370,13 +370,17 @@ def main():
         msg += f'\n{" ".join(warning.split())}'
 
     if has_inventory:
-        perfdata += lib.base.get_perfdata('nodes_total', nodes_total, _min=0)
-        perfdata += lib.base.get_perfdata('nodes_ready', nodes_ready, _min=0)
-        perfdata += lib.base.get_perfdata('nodes_down', nodes_down, _min=0)
-        perfdata += lib.base.get_perfdata('nodes_pending', nodes_pending, _min=0)
-        perfdata += lib.base.get_perfdata('managers_total', managers_total, _min=0)
+        perfdata += lib.base.get_perfdata('nodes_total', nodes_total, uom=None, _min=0)
+        perfdata += lib.base.get_perfdata('nodes_ready', nodes_ready, uom=None, _min=0)
+        perfdata += lib.base.get_perfdata('nodes_down', nodes_down, uom=None, _min=0)
         perfdata += lib.base.get_perfdata(
-            'managers_reachable', managers_reachable, _min=0
+            'nodes_pending', nodes_pending, uom=None, _min=0
+        )
+        perfdata += lib.base.get_perfdata(
+            'managers_total', managers_total, uom=None, _min=0
+        )
+        perfdata += lib.base.get_perfdata(
+            'managers_reachable', managers_reachable, uom=None, _min=0
         )
 
     # build table output

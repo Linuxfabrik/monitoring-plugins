@@ -35,7 +35,7 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                          reports `dm_st: suspend` while all of its paths are healthy
 #   one-path-removed       one path device deleted from the system. multipathd drops it
 #                          from the map, so the map reports one path and looks complete.
-#                          This is the case only `--count` or `--map=name=count` can
+#                          This is the case only `--expected-paths` or `--map=name=count` can
 #                          catch
 #   no-maps                every path of every map deleted. multipathd flushes a map whose
 #                          last path is gone, so the answer is an empty map list rather
@@ -139,23 +139,23 @@ TESTS = [
     {
         'id': 'warn-a-vanished-path-is-caught-against-the-host-wide-count',
         'test': 'stdout/one-path-removed,,0',
-        'params': '--count=2',
+        'params': '--expected-paths=2',
         'assert-retc': STATE_WARN,
         'assert-in': ['runs on 1 of 2 paths.', "'paths_expected'=2"],
     },
     {
         'id': 'warn-the-host-wide-count-covers-every-map',
         'test': 'stdout/two-maps-healthy,,0',
-        'params': '--count=4',
+        'params': '--expected-paths=4',
         'assert-retc': STATE_WARN,
         'assert-in': ['mpatha runs on 2 of 4 paths', 'mpathb runs on 2 of 4 paths'],
     },
     {
         'id': 'ok-a-pinned-map-overrides-the-host-wide-count',
         'test': 'stdout/two-maps-healthy,,0',
-        # --map names mpatha and pins it at its real width, so the host-wide --count
+        # --map names mpatha and pins it at its real width, so the host-wide --expected-paths
         # neither applies to it nor drags in the map nobody named
-        'params': '--count=4 --map=mpatha=2',
+        'params': '--expected-paths=4 --map=mpatha=2',
         'assert-retc': STATE_OK,
         'assert-in': ['1 multipath map, 2 of 2 paths usable.'],
         'assert-not-in': ['mpathb'],

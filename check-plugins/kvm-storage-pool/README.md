@@ -57,8 +57,6 @@ Anything libvirt adds to that list later is reported by name and treated as wort
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | command-line tool `virsh` (package `libvirt-client` on RHEL and SUSE, `libvirt-clients` on Debian and Ubuntu) |
-| Handles Periods                       | No |
-| Uses State File                       | No |
 
 
 ## Help
@@ -254,10 +252,10 @@ Both thresholds accept [Nagios ranges](../THRESHOLDS.md), so `--warning=@0:1` al
 | pool_inaccessible | Number | Pools running whose storage cannot be reached. |
 | pool_inactive | Number | Pools that are not running. |
 | pool_running | Number | Pools running normally. |
-| &lt;store&gt;-allocation | Bytes | Storage taken on that store. |
-| &lt;store&gt;-available | Bytes | Storage still free on that store. |
-| &lt;store&gt;-capacity | Bytes | Size of that store. |
-| &lt;store&gt;-usage | Percentage | Share of that store that is taken. This is the value the thresholds judge. |
+| &lt;store&gt;_allocation | Bytes | Storage taken on that store. |
+| &lt;store&gt;_available | Bytes | Storage still free on that store. |
+| &lt;store&gt;_capacity | Bytes | Size of that store. |
+| &lt;store&gt;_usage | Percentage | Share of that store that is taken. This is the value the thresholds judge. |
 
 The last four are emitted **once per store, not once per pool**, and are named after the store rather than after the pools on it, the same way `check_disk_usage` names a filesystem. Pools sharing storage report the same figures to the byte, so a metric per pool would draw one line several times over and let a dashboard add one filesystem up as if it were several.
 

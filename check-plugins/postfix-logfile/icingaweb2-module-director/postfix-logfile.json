@@ -82,30 +82,30 @@
                 "--proxy": {
                     "value": "$postfix_logfile_proxy$"
                 },
-                "--relay-failures-critical": {
-                    "value": "$postfix_logfile_relay_failures_critical$"
-                },
-                "--relay-failures-warning": {
-                    "value": "$postfix_logfile_relay_failures_warning$"
-                },
                 "--rejects-critical": {
                     "value": "$postfix_logfile_rejects_critical$"
                 },
                 "--rejects-warning": {
                     "value": "$postfix_logfile_rejects_warning$"
                 },
+                "--relay-failures-critical": {
+                    "value": "$postfix_logfile_relay_failures_critical$"
+                },
+                "--relay-failures-warning": {
+                    "value": "$postfix_logfile_relay_failures_warning$"
+                },
                 "--server-log": {
                     "value": "$postfix_logfile_server_log$",
                     "repeat_key": true
+                },
+                "--timeout": {
+                    "value": "$postfix_logfile_timeout$"
                 },
                 "--tls-failures-critical": {
                     "value": "$postfix_logfile_tls_failures_critical$"
                 },
                 "--tls-failures-warning": {
                     "value": "$postfix_logfile_tls_failures_warning$"
-                },
-                "--timeout": {
-                    "value": "$postfix_logfile_timeout$"
                 },
                 "--warning-level": {
                     "value": "$postfix_logfile_warning_level$"
@@ -361,14 +361,14 @@
                 "postfix_logfile_no_perfdata": false,
                 "postfix_logfile_no_proxy": false,
                 "postfix_logfile_per_source": true,
-                "postfix_logfile_relay_failures_critical": 200,
-                "postfix_logfile_relay_failures_warning": 20,
                 "postfix_logfile_rejects_critical": 60,
                 "postfix_logfile_rejects_warning": 6,
+                "postfix_logfile_relay_failures_critical": 200,
+                "postfix_logfile_relay_failures_warning": 20,
                 "postfix_logfile_server_log": [],
+                "postfix_logfile_timeout": 8,
                 "postfix_logfile_tls_failures_critical": 200,
                 "postfix_logfile_tls_failures_warning": 20,
-                "postfix_logfile_timeout": 8,
                 "postfix_logfile_warning_level": "warning"
             },
             "volatile": null,
@@ -759,28 +759,6 @@
             "uuid": "01603acf-a313-40cb-a091-88ee3e02f1d6"
         },
         "27": {
-            "varname": "postfix_logfile_relay_failures_critical",
-            "caption": "Postfix Logfile: Relay Failures Critical",
-            "description": "Number of failed connections to the next hop within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--relay-failures-critical=500`.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "7678c3e6-ae35-4748-a495-6a4b74509405"
-        },
-        "28": {
-            "varname": "postfix_logfile_relay_failures_warning",
-            "caption": "Postfix Logfile: Relay Failures Warning",
-            "description": "Number of failed connections to the next hop within `--lookback` that returns WARNING. A host without an IPv6 route logs one for the AAAA record of its relay and delivers over IPv4 in the same second, so a single one is not a failure; a relay that is really down produces them by the dozen. 0 turns the threshold off. Example: `--relay-failures-warning=5`.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "cf23623d-6a8f-4bd0-9563-10d468346600"
-        },
-        "29": {
             "varname": "postfix_logfile_rejects_critical",
             "caption": "Postfix Logfile: Rejects Critical",
             "description": "Number of messages the server turned away within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--rejects-critical=200`.",
@@ -791,7 +769,7 @@
             },
             "uuid": "09888df9-73e8-439d-ac12-607c84ebd680"
         },
-        "30": {
+        "28": {
             "varname": "postfix_logfile_rejects_warning",
             "caption": "Postfix Logfile: Rejects Warning",
             "description": "Number of messages the server turned away within `--lookback` that returns WARNING. Counted per source address. A server that answers the internet turns mail away all day and wants this raised. 0 turns the threshold off. Example: `--rejects-warning=50`.",
@@ -801,6 +779,28 @@
                 "visibility": "visible"
             },
             "uuid": "e03f28ac-155b-4d15-888f-3d9fabf511a3"
+        },
+        "29": {
+            "varname": "postfix_logfile_relay_failures_critical",
+            "caption": "Postfix Logfile: Relay Failures Critical",
+            "description": "Number of failed connections to the next hop within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--relay-failures-critical=500`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7678c3e6-ae35-4748-a495-6a4b74509405"
+        },
+        "30": {
+            "varname": "postfix_logfile_relay_failures_warning",
+            "caption": "Postfix Logfile: Relay Failures Warning",
+            "description": "Number of failed connections to the next hop within `--lookback` that returns WARNING. A host without an IPv6 route logs one for the AAAA record of its relay and delivers over IPv4 in the same second, so a single one is not a failure; a relay that is really down produces them by the dozen. 0 turns the threshold off. Example: `--relay-failures-warning=5`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "cf23623d-6a8f-4bd0-9563-10d468346600"
         },
         "31": {
             "varname": "postfix_logfile_server_log",
@@ -814,6 +814,17 @@
             "uuid": "b1cc71a8-88dc-40b3-91ff-8e7eced8e781"
         },
         "32": {
+            "varname": "postfix_logfile_timeout",
+            "caption": "Postfix Logfile: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c29642b0-620f-44f5-a63f-7da491ddc190"
+        },
+        "33": {
             "varname": "postfix_logfile_tls_failures_critical",
             "caption": "Postfix Logfile: Tls Failures Critical",
             "description": "Number of TLS connections that did not come off within `--lookback` that returns CRITICAL. 0 turns the threshold off. Example: `--tls-failures-critical=500`.",
@@ -824,7 +835,7 @@
             },
             "uuid": "2c1ba4f1-c10a-4db4-aaf2-579a95071a0e"
         },
-        "33": {
+        "34": {
             "varname": "postfix_logfile_tls_failures_warning",
             "caption": "Postfix Logfile: Tls Failures Warning",
             "description": "Number of TLS connections that did not come off within `--lookback` that returns WARNING. A single one is one remote server having a bad day; a server that answers the internet collects those all day. 0 turns the threshold off. Example: `--tls-failures-warning=5`.",
@@ -834,17 +845,6 @@
                 "visibility": "visible"
             },
             "uuid": "f32c4265-4fb4-4288-bb2e-7a626aec2032"
-        },
-        "34": {
-            "varname": "postfix_logfile_timeout",
-            "caption": "Postfix Logfile: Timeout",
-            "description": "Network timeout in seconds.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "c29642b0-620f-44f5-a63f-7da491ddc190"
         },
         "35": {
             "varname": "postfix_logfile_warning_level",

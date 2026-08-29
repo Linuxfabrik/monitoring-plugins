@@ -32,7 +32,7 @@ if lib.base.WINDOWS:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081001'
+__version__ = '2026082901'
 
 DESCRIPTION = """Monitors network interface errors per interface and alerts on receive and transmit
 errors. On Linux it additionally shows the receive and transmit error breakdown (the
@@ -301,11 +301,13 @@ def main():
             perfdata += lib.base.get_perfdata(
                 f'{safe_name}_{metric}_per_second',
                 round(iface_rates[metric], 4),
+                uom=None,
                 _min=0,
             )
         perfdata += lib.base.get_perfdata(
             f'{safe_name}_errors_per_second',
             round(total_rate, 4),
+            uom=None,
             warn=args.WARN,
             crit=args.CRIT,
             _min=0,

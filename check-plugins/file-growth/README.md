@@ -88,7 +88,7 @@ options:
                         according to
                         https://docs.python.org/3/library/glob.html. Recursive
                         globs can cause high memory usage. Mutually exclusive
-                        with `-u` / `--url`. Example: `--filename /tmp/*.log`.
+                        with `-u` / `--url`. Example: `--filename=/tmp/*.log`.
   --lengthy             Extended reporting.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
@@ -104,8 +104,8 @@ options:
                         files. Default: None
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         URL of the file to check, starting with `smb://`.
-                        Mutually exclusive with `--filename`. Example: `--url
-                        smb://server/share/path`.
+                        Mutually exclusive with `--filename`. Example:
+                        `--url=smb://server/share/path`.
   --username USERNAME   Username for SMB authentication.
   -w, --warning WARN    WARN threshold for the rate of change per second, in
                         human-readable format (base is always 1024; valid

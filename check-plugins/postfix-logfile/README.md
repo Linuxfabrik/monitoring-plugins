@@ -72,14 +72,13 @@ usage: postfix-logfile [-h] [-V]
                        [--no-match-severity {ok,warn,crit,unknown}]
                        [--no-per-source] [--no-perfdata] [--no-proxy]
                        [--per-source] [--proxy PROXY]
-                       [--relay-failures-critical RELAY_FAILURES_CRITICAL]
-                       [--relay-failures-warning RELAY_FAILURES_WARNING]
                        [--rejects-critical REJECTS_CRITICAL]
                        [--rejects-warning REJECTS_WARNING]
-                       [--server-log SERVER_LOG]
+                       [--relay-failures-critical RELAY_FAILURES_CRITICAL]
+                       [--relay-failures-warning RELAY_FAILURES_WARNING]
+                       [--server-log SERVER_LOG] [--timeout TIMEOUT]
                        [--tls-failures-critical TLS_FAILURES_CRITICAL]
                        [--tls-failures-warning TLS_FAILURES_WARNING]
-                       [--timeout TIMEOUT]
                        [--warning-level {panic,fatal,error,warning,none}]
 
 Scans the Postfix mail log for the events an administrator has to act on, on
@@ -254,6 +253,18 @@ options:
                         because a command-line argument is visible to every
                         user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
+  --rejects-critical REJECTS_CRITICAL
+                        Number of messages the server turned away within
+                        `--lookback` that returns CRITICAL. 0 turns the
+                        threshold off. Example: `--rejects-critical=200`.
+                        Default: 60
+  --rejects-warning REJECTS_WARNING
+                        Number of messages the server turned away within
+                        `--lookback` that returns WARNING. Counted per source
+                        address. A server that answers the internet turns mail
+                        away all day and wants this raised. 0 turns the
+                        threshold off. Example: `--rejects-warning=50`.
+                        Default: 6
   --relay-failures-critical RELAY_FAILURES_CRITICAL
                         Number of failed connections to the next hop within
                         `--lookback` that returns CRITICAL. 0 turns the
@@ -267,18 +278,6 @@ options:
                         one is not a failure; a relay that is really down
                         produces them by the dozen. 0 turns the threshold off.
                         Example: `--relay-failures-warning=5`. Default: 20
-  --rejects-critical REJECTS_CRITICAL
-                        Number of messages the server turned away within
-                        `--lookback` that returns CRITICAL. 0 turns the
-                        threshold off. Example: `--rejects-critical=200`.
-                        Default: 60
-  --rejects-warning REJECTS_WARNING
-                        Number of messages the server turned away within
-                        `--lookback` that returns WARNING. Counted per source
-                        address. A server that answers the internet turns mail
-                        away all day and wants this raised. 0 turns the
-                        threshold off. Example: `--rejects-warning=50`.
-                        Default: 6
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
                         `docker:CONTAINER`, `podman:CONTAINER`,
@@ -291,6 +290,7 @@ options:
                         journal of the Postfix unit along with it; what the
                         two share is counted once. Example: `--server-
                         log=systemd:postfix.service`.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --tls-failures-critical TLS_FAILURES_CRITICAL
                         Number of TLS connections that did not come off within
                         `--lookback` that returns CRITICAL. 0 turns the
@@ -303,7 +303,6 @@ options:
                         the internet collects those all day. 0 turns the
                         threshold off. Example: `--tls-failures-warning=5`.
                         Default: 20
-  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --warning-level {panic,fatal,error,warning,none}
                         Level from which a line returns WARNING, up to the
                         level `--critical-level` names. `none` turns the level

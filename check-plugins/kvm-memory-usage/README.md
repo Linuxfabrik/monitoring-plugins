@@ -40,8 +40,6 @@ A virtual machine has three different memory sizes at the same time, and confusi
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | command-line tool `virsh` (package `libvirt-client` on RHEL and SUSE, `libvirt-clients` on Debian and Ubuntu) |
-| Handles Periods                       | No |
-| Uses State File                       | No |
 
 
 ## Help

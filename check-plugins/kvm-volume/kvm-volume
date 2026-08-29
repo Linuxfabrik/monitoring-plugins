@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082503'
+__version__ = '2026082901'
 
 DESCRIPTION = """Reports what the storage pools of a libvirt host actually hold: how much space
 their volumes have been promised, how much of it they occupy today, and how far the
@@ -426,6 +426,9 @@ def main():
             if all(path.startswith('/') for path in paths)
             else ', '.join(names)
         )
+        # The store is named by a path or by the pools sitting on it, so it carries
+        # slashes, commas and spaces. A perfdata label keeps neither of them.
+        store_label = re.sub(r'\W+', '_', store).strip('_')
         subscription = round(promised / capacity * 100, 1)
         usage_state = lib.base.get_state(
             subscription, args.WARN, args.CRIT, _operator='range'
@@ -455,7 +458,7 @@ def main():
         # Named after the store itself, the way `kvm-storage-pool` names the same
         # filesystem (`/-usage`), so the two checks graph one store under one name.
         perfdata += lib.base.get_perfdata(
-            f'{store}-subscription',
+            f'{store_label}_subscription',
             subscription,
             uom='%',
             warn=args.WARN,

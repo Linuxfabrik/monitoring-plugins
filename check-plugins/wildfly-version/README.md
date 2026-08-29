@@ -77,7 +77,7 @@ options:
                         rather than here, because a command-line argument is
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --url URL             WildFly management API URL. Default:
                         http://localhost:9990
   --username USERNAME   WildFly management API username. Default: wildfly-

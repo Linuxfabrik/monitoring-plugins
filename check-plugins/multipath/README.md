@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the number of paths it currently holds, which cannot catch a path that disappeared from the map entirely; `--count` states how many paths a LUN on this host is supposed to have and closes that gap, and `--map` pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via `--lengthy`.
+Checks the device-mapper multipath maps on this host: how many of the paths to each LUN are usable, which of them the path checker has declared dead, and whether a map has run out of paths altogether and is queueing the I/O that reaches it. The number of usable paths is compared against an expected count as a percentage, so a LUN that lost one of its paths warns long before the last one goes and the storage disappears. Every map is graded against the number of paths it currently holds, which cannot catch a path that disappeared from the map entirely; `--expected-paths` states how many paths a LUN on this host is supposed to have and closes that gap, and `--map` pins a single map that has a different number. Alerts when a map is running on fewer usable paths than expected, and when it has none left. Supports extended reporting via `--lengthy`.
 
 **What multipathd reports per path:**
 
@@ -24,7 +24,7 @@ Every path carries two states at once, and the check takes both. The *checker* s
 
 * **The commands in the output name this host's paths.** Where the check reports dead paths, the `multipathd reinstate path` it suggests carries their real device names, not an example, so it can be copied without checking it against the machine first.
 * **Needs no root and no `sudo`.** multipathd allows every local user to read its state and refuses only the commands that change something, so the check reads the same answer as `root` while it cannot touch a single path. There is no sudoers file to deploy for it. This is why the check asks the daemon instead of running `multipath -ll`, which does insist on being root.
-* **A path that disappears entirely is invisible by default.** multipathd drops a path device that is gone from the system out of the map, and the map then reports one path fewer and looks complete. Only an expectation catches that. In a fabric every LUN normally has the same number of paths, so one `--count=4` covers the whole host; `--map=mpathz=2` pins the odd one out. Without either, the check compares each map against itself and can only see a path that is present and dead.
+* **A path that disappears entirely is invisible by default.** multipathd drops a path device that is gone from the system out of the map, and the map then reports one path fewer and looks complete. Only an expectation catches that. In a fabric every LUN normally has the same number of paths, so one `--expected-paths=4` covers the whole host; `--map=mpathz=2` pins the odd one out. Without either, the check compares each map against itself and can only see a path that is present and dead.
 * **A map without any path is not the end of the story yet.** With `no_path_retry` configured, device-mapper holds the I/O that reaches such a map instead of failing it, and the check reports how much of that grace is left in its very first line (`holding its I/O for another 52 sec`), because that number decides how much time there is. Once it runs out, every read and write fails and the file systems on top go read-only. A map already at that point is reported as failing its I/O.
 * **A map whose last path is gone stops being listed at all.** multipathd flushes it rather than keeping it around with zero paths, so a host that suddenly reports no maps has either never had multipathed storage or just lost all of it. That is why the check reports WARN when it finds no map. Lower it with `--no-maps-severity=ok`, and pin the maps you expect with `--map` where the difference matters.
 * **The `paths` field in multipathd's own output is not the number of paths.** It counts the usable ones only. The check derives the total from the path groups itself, so `2/4` really means two of four.
@@ -54,8 +54,8 @@ Every path carries two states at once, and the check takes both. The *checker* s
 ## Help
 
 ```text
-usage: multipath [-h] [-V] [--always-ok] [--count COUNT] [-c CRIT]
-                 [--ignore IGNORE] [--lengthy] [--map MAP]
+usage: multipath [-h] [-V] [--always-ok] [--expected-paths EXPECTED_PATHS]
+                 [-c CRIT] [--ignore IGNORE] [--lengthy] [--map MAP]
                  [--marginal-severity {ok,warn,crit,unknown}]
                  [--no-maps-severity {ok,warn,crit,unknown}]
                  [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
@@ -68,25 +68,26 @@ reaches it. The number of usable paths is compared against an expected count
 as a percentage, so a LUN that lost one of its paths warns long before the
 last one goes and the storage disappears. Every map is graded against the
 number of paths it currently holds, which cannot catch a path that disappeared
-from the map entirely; --count states how many paths a LUN on this host is
-supposed to have and closes that gap, and --map pins a single map that has a
-different number. Alerts when a map is running on fewer usable paths than
-expected, and when it has none left. Supports extended reporting via
+from the map entirely; --expected-paths states how many paths a LUN on this
+host is supposed to have and closes that gap, and --map pins a single map that
+has a different number. Alerts when a map is running on fewer usable paths
+than expected, and when it has none left. Supports extended reporting via
 --lengthy.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --count COUNT         Expected number of paths per multipath map. A LUN in a
+  --expected-paths EXPECTED_PATHS
+                        Expected number of paths per multipath map. A LUN in a
                         fabric normally has the same number of paths as every
                         other one, so one value covers the whole host and
                         catches a path that disappeared from a map entirely,
                         which comparing a map against itself cannot. `--map`
                         pins a single map that has a different number.
-                        Example: `--count=4` on a host with two HBAs and two
-                        controllers. Default: None, which grades every map
-                        against the paths it currently holds.
+                        Example: `--expected-paths=4` on a host with two HBAs
+                        and two controllers. Default: None, which grades every
+                        map against the paths it currently holds.
   -c, --critical CRIT   CRIT threshold for the percentage of the expected
                         paths that are usable, compared as a Nagios range.
                         Supports Nagios ranges. Example: `--critical=1:`
@@ -101,14 +102,15 @@ options:
                         of paths it is expected to have, written as
                         `name=count`. The name is the alias where the host
                         uses one, and the WWID otherwise. Without `=count` the
-                        map is graded against `--count`, and against its own
-                        number of paths where that is not given either. Can be
-                        specified multiple times; if given at least once, only
-                        the named maps are checked. Example: `--map=mpatha=4`
-                        alerts when the `mpatha` map does not have its four
-                        paths, even after one of them disappeared from the map
-                        entirely. Example: `--map=mpathb` checks `mpathb`
-                        against the paths it currently has. Default: None
+                        map is graded against `--expected-paths`, and against
+                        its own number of paths where that is not given
+                        either. Can be specified multiple times; if given at
+                        least once, only the named maps are checked. Example:
+                        `--map=mpatha=4` alerts when the `mpatha` map does not
+                        have its four paths, even after one of them
+                        disappeared from the map entirely. Example:
+                        `--map=mpathb` checks `mpathb` against the paths it
+                        currently has. Default: None
   --marginal-severity {ok,warn,crit,unknown}
                         State to report for a path multipathd has declared
                         marginal, which means it went up and down often enough
@@ -185,13 +187,13 @@ mpathb ! 2/2             ! 2 usable
 State how many paths a LUN on this host is supposed to have, which is the only way a path that vanished from a map is caught:
 
 ```bash
-./multipath --count=4
+./multipath --expected-paths=4
 ```
 
-Where a single LUN is wired differently from the rest, pin that one and leave `--count` for the others:
+Where a single LUN is wired differently from the rest, pin that one and leave `--expected-paths` for the others:
 
 ```bash
-./multipath --count=4 --map=mpathz=2
+./multipath --expected-paths=4 --map=mpathz=2
 ```
 
 Note that naming a map with `--map` also restricts the run to the named maps, so pin all of them or none.
@@ -227,7 +229,7 @@ Leave a single map out, for example one belonging to a LUN that is being decommi
 ## States
 
 * OK if every checked map is running on all the paths it is expected to have.
-* WARN if a map has fewer usable paths than expected, as a percentage compared against `--warning` (default `100:`, so one missing path is enough). The expectation is the `--map` pin for that map, otherwise `--count`, otherwise the number of paths the map currently holds.
+* WARN if a map has fewer usable paths than expected, as a percentage compared against `--warning` (default `100:`, so one missing path is enough). The expectation is the `--map` pin for that map, otherwise `--expected-paths`, otherwise the number of paths the map currently holds.
 * CRIT if a map is down to half of its expected paths or fewer, compared against `--critical` (default `50:`). A map without any usable path is therefore always CRIT.
 * CRIT if a map is suspended at the device-mapper level, whatever its paths report.
 * CRIT if a map named with `--map` is not among the maps multipathd holds.

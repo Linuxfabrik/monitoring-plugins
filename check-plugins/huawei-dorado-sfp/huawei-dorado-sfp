@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
 Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
@@ -173,19 +173,19 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--link-down-severity',
-        help=lib.args.help('--link-down-severity') + ' Default: %(default)s',
-        dest='LINK_DOWN_SEVERITY',
-        choices=['ok', 'warn', 'crit', 'unknown'],
-        default=DEFAULT_LINK_DOWN_SEVERITY,
-    )
-
-    parser.add_argument(
         '--lengthy',
         help=lib.args.help('--lengthy'),
         dest='LENGTHY',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--link-down-severity',
+        help=lib.args.help('--link-down-severity') + ' Default: %(default)s',
+        dest='LINK_DOWN_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_LINK_DOWN_SEVERITY,
     )
 
     parser.add_argument(
@@ -287,6 +287,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--tx-power-critical',
         help='CRIT threshold for the transmit power of a module, as a Nagios range in '
         'dBm. '
@@ -303,14 +311,6 @@ def parse_args():
         'Example: `--tx-power-warning=-8:2`',
         dest='TX_POWER_WARN',
         default=DEFAULT_TX_POWER_WARN,
-    )
-
-    parser.add_argument(
-        '--timeout',
-        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
-        dest='TIMEOUT',
-        type=int,
-        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(

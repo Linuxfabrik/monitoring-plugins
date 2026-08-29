@@ -45,7 +45,7 @@ usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--cache-expire CACHE_EXPIRE] [-c CRIT]
                          [--device-id DEVICE_ID]
                          [--device-threshold-severity {ok,warn,crit,unknown}]
-                         [--include-unmapped] [--ignore IGNORE] [--insecure]
+                         [--ignore IGNORE] [--include-unmapped] [--insecure]
                          [--lengthy] [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--performance]
@@ -90,9 +90,6 @@ options:
                         on when a LUN is full instead of each having their own
                         opinion. A LUN whose threshold is switched off is not
                         affected. Default: warn
-  --include-unmapped    Also check LUNs that are not mapped to any host. Those
-                        are not serving anything, so they are left out by
-                        default.
   --ignore IGNORE       Skip LUNs. Any item matching this Python regex will be
                         ignored. Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match. The
@@ -100,6 +97,9 @@ options:
                         `re.match`) and is matched against the LUN identifier,
                         the LUN name and the name of its storage pool, so
                         prefix with `.*` to match anywhere. Default: None
+  --include-unmapped    Also check LUNs that are not mapped to any host. Those
+                        are not serving anything, so they are left out by
+                        default.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.

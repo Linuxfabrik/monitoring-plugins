@@ -34,8 +34,6 @@ Reports what the storage pools of a libvirt host actually hold: how much space t
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | command-line tool `virsh` (package `libvirt-client` on RHEL and SUSE, `libvirt-clients` on Debian and Ubuntu) |
-| Handles Periods                       | No |
-| Uses State File                       | No |
 
 
 ## Help
@@ -203,8 +201,8 @@ Both thresholds accept [Nagios ranges](../THRESHOLDS.md).
 | volumes | Number | Volumes in all checked pools. |
 | &lt;pool&gt;_allocated | Bytes | Space this pool's volumes occupy today. |
 | &lt;pool&gt;_promised | Bytes | Space this pool's volumes have been promised. |
-| &lt;store&gt;-subscription | Percentage | What the pools on one filesystem have promised between them, in percent of what it holds. Above 100 they have promised more than there is. This is the value the thresholds judge. Named after the store, not after a pool, so a dashboard cannot add one filesystem up several times. |
 | &lt;pool&gt;_volumes | Number | Volumes in this pool. |
+| &lt;store&gt;_subscription | Percentage | What the pools on one filesystem have promised between them, in percent of what it holds. Above 100 they have promised more than there is. This is the value the thresholds judge. Named after the store, not after a pool, so a dashboard cannot add one filesystem up several times. |
 
 
 ## Troubleshooting

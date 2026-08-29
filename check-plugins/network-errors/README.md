@@ -35,7 +35,7 @@ The receive and transmit error types are not symmetric, because the underlying h
 | Nagios/Icinga Check Name              | `check_network_errors` |
 | Check Interval Recommendation         | Every minute |
 | Can be called without parameters      | Yes |
-| Runs on                               | Cross-platform (error types broken down on Linux via `/proc/net/dev`; receive/transmit error totals on Windows via `psutil`) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` (Windows only) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-network-errors.db` |

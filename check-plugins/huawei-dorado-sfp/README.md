@@ -39,17 +39,18 @@ Checks the health, link status and optical power of the optical modules (SFP) of
 ```text
 usage: huawei-dorado-sfp [-h] [-V] [--always-ok] [--brief]
                          [--cache-expire CACHE_EXPIRE] [--device-id DEVICE_ID]
-                         [--ignore IGNORE] [--insecure]
+                         [--ignore IGNORE] [--insecure] [--lengthy]
                          [--link-down-severity {ok,warn,crit,unknown}]
-                         [--lengthy] [--match MATCH] [--no-insecure]
+                         [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
                          [--password-file PASSWORD_FILE] [--proxy PROXY]
                          [--rx-power-critical RX_POWER_CRIT]
                          [--rx-power-warning RX_POWER_WARN] [--scope SCOPE]
+                         [--timeout TIMEOUT]
                          [--tx-power-critical TX_POWER_CRIT]
-                         [--tx-power-warning TX_POWER_WARN]
-                         [--timeout TIMEOUT] -u URL --username USERNAME [-v]
+                         [--tx-power-warning TX_POWER_WARN] -u URL
+                         --username USERNAME [-v]
 
 Checks the health, link status and optical power of the optical modules (SFP)
 of a Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint).
@@ -86,12 +87,12 @@ options:
                         anywhere. Default: None
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --link-down-severity {ok,warn,crit,unknown}
                         State to report for a port whose link is down. A port
                         that is simply not cabled reports the same thing,
                         which is why this defaults to not alerting. Default:
                         ok
-  --lengthy             Extended reporting.
   --match MATCH         Limit to optical modules. Filter by this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -151,6 +152,7 @@ options:
                         Nagios range in dBm. Example: `--rx-power-
                         warning=-12:-1`
   --scope SCOPE         Huawei OceanStor Dorado API scope.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --tx-power-critical TX_POWER_CRIT
                         CRIT threshold for the transmit power of a module, as
                         a Nagios range in dBm. Defaults to the operating range
@@ -160,7 +162,6 @@ options:
                         WARN threshold for the transmit power of a module, as
                         a Nagios range in dBm. Example: `--tx-power-
                         warning=-8:2`
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
   -v, --verbose         Makes this plugin verbose during the operation. Useful
