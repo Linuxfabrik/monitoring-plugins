@@ -138,9 +138,19 @@ dmypy.json
 /icingaweb2-module-director-basket.json*
 /packaged
 
+# The scratch directories a unit test writes its own log into, next to the tests
+# so the plugin is allowed to read them. They are removed when the run ends and
+# stay behind only where one was killed, which is exactly when they would
+# otherwise be committed by accident.
+check-plugins/*/unit-test/burst-*/
+check-plugins/*/unit-test/*-logfile-*/
+
 # A unit-test fixture tree that stands in for a host's file system collides with
-# two patterns above: `var/`, which comes from the Python template where it means
-# a build directory, and `*.log`. These re-includes come last so they win, and
-# the directory has to be re-included before its contents can be.
+# three patterns above: `var/`, which comes from the Python template where it
+# means a build directory, `*.log`, and `lib/`, which the systemd unit
+# directories of a host run through. These re-includes come last so they win, and
+# a directory has to be re-included before its contents can be.
 !check-plugins/*/unit-test/config/*/var/
 !check-plugins/*/unit-test/config/*/var/**
+!check-plugins/*/unit-test/config/*/**/lib/
+!check-plugins/*/unit-test/config/*/**/lib/**

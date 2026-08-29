@@ -1,0 +1,710 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the sshd-logfile check plugin.
+
+Every fixture under `fixtures/` was written by a real sshd driven into the
+situation the file is named after: OpenSSH 8.0p1 on Rocky 8, 9.9p1 on Rocky 9 and
+10.0p2 on Debian 13, read back through the syslog daemon and the configuration
+each of them ships. The two syslog timestamp formats are therefore both covered
+by real files rather than by hand-written ones: the RHEL family writes `Aug 28
+19:25:03`, the Debian family writes an ISO 8601 moment.
+
+The fixtures are re-stamped before they are read, because a timestamp stored in
+the repository sits inside the rate window on the day it was captured and outside
+it on every day after. What the check reports is therefore stable whenever the
+tests run, and a burst can be placed inside or outside the window on purpose.
+
+Reading a systemd unit or a container log is left to the library and is not
+covered here; the journal fixture is a file holding what `journalctl` printed.
+"""
+
+import atexit
+import calendar
+import datetime
+import importlib.machinery
+import importlib.util
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+import lib.logsource
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'sshd-logfile')
+
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    loader = importlib.machinery.SourceFileLoader('sshd_logfile', PLUGIN)
+    spec = importlib.util.spec_from_loader('sshd_logfile', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+sshd_logfile = _load_plugin_module()
+
+# The log has to be read from below `unit-test/`, which is where the plugin
+# allows itself to read outside /var/log.
+SCRATCH = tempfile.mkdtemp(prefix='sshd-logfile-', dir=HERE)
+atexit.register(shutil.rmtree, SCRATCH, True)
+
+# The head of a line as the two syslog daemons of the distributions write it.
+TRADITIONAL_TIMESTAMP_REGEX = re.compile(r'^\w{3} {1,2}\d{1,2} \d{2}:\d{2}:\d{2} ')
+ISO_TIMESTAMP_REGEX = re.compile(
+    r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})? '
+)
+
+# One failed password as sshd writes it, with the timestamp left open so a test
+# can place the line inside or outside the rate window.
+FAILURE_LINE = (
+    '{timestamp} host sshd-session[240]: Failed password for alice from'
+    ' {peer} port 45402 ssh2'
+)
+
+
+def _stamp(moment):
+    """Render a moment the way a syslog daemon of the RHEL family writes it.
+
+    The month name comes from a table rather than from `%b`, so the fixture does
+    not change with the locale the tests happen to run in.
+    """
+    month = calendar.month_abbr[moment.month]
+    return f'{month} {moment.day:2d} {moment:%H:%M:%S}'
+
+
+def aged(name, minutes_ago=180):
+    """Copy a fixture, moving its lines so the first of them is `minutes_ago` old.
+
+    The whole block is shifted by one offset, so the lines keep the spacing sshd
+    wrote them with - two listening addresses stamped within the same second stay
+    within the same second - and each line keeps the timestamp format its syslog
+    daemon used. A fixture read as it stands would sit inside the rate window on
+    the day it was captured and outside it on every day after.
+    """
+    with open(os.path.join(HERE, 'fixtures', name), encoding='utf-8') as handle:
+        lines = handle.read().splitlines()
+    moments = [lib.logsource.timestamp(line) for line in lines]
+    known = [moment for moment in moments if moment is not None]
+    shift = (
+        datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago) - known[0]
+        if known
+        else datetime.timedelta()
+    )
+    path = os.path.join(SCRATCH, name)
+    with open(path, 'w', encoding='utf-8') as handle:
+        for line, moment in zip(lines, moments):
+            if moment is None:
+                handle.write(line + '\n')
+                continue
+            iso = ISO_TIMESTAMP_REGEX.match(line)
+            body = (iso or TRADITIONAL_TIMESTAMP_REGEX.match(line)).group(0)
+            moved = moment + shift
+            head = f'{moved:%Y-%m-%dT%H:%M:%S.%f}' if iso else _stamp(moved)
+            handle.write(f'{head} {line[len(body) :]}\n')
+    return path
+
+
+def fixture(name):
+    return os.path.join(HERE, 'fixtures', name)
+
+
+def config_root(name):
+    return os.path.join(HERE, 'config', name)
+
+
+CASES = [
+    {
+        'id': 'ok-clean-start',
+        'params': [f'--server-log={aged("rocky9-clean-start.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No failed logins and nothing else worth reporting found',
+            '1 startup detected',
+            'No restarts detected',
+            '1 shutdown detected',
+            '1 successful login found',
+            "'sshd_logins'=1;;;0",
+        ],
+        'assert-not-in': ['Recommendations:', '[WARNING]', '[CRITICAL]'],
+    },
+    {
+        'id': 'ok-empty-log-is-a-rotation',
+        'params': [f'--server-log={fixture("empty.txt")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['is empty. Assuming log-rotation.'],
+    },
+    {
+        'id': 'crit-rocky9-busy-server',
+        'params': [f'--server-log={aged("rocky9-busy-server.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '3 startup failures [CRITICAL]',
+            '1 refused key file [WARNING]',
+            'Address already in use',
+            'bad ownership or modes',
+            # everything a client provoked stays quiet, because it is counted by
+            # the rate and this log is three hours old
+            '0 authentication failures in the last 10m (5 in the window read)',
+            '0 invalid-user attempts in the last 10m (1 in the window read)',
+            '0 access denials in the last 10m (1 in the window read)',
+            '6 startups detected',
+            '4 restarts detected',
+        ],
+    },
+    {
+        'id': 'crit-rocky8-busy-server',
+        # OpenSSH 8.0, which logs as `sshd` alone and words a scanner walking
+        # away as `error: kex_exchange_identification`.
+        'params': [f'--server-log={aged("rocky8-busy-server.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '3 startup failures [CRITICAL]',
+            '0 aborted connections in the last 10m (11 in the window read)',
+            '0 access denials in the last 10m (2 in the window read)',
+            '6 startups detected',
+        ],
+    },
+    {
+        'id': 'crit-debian13-busy-server',
+        # OpenSSH 10.0 behind a syslog daemon writing ISO 8601 timestamps.
+        'params': [f'--server-log={aged("debian13-busy-server.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '3 startup failures [CRITICAL]',
+            '1 session crash [WARNING]',
+            'killed by signal 11',
+            '6 startups detected',
+        ],
+    },
+    {
+        'id': 'crit-revoked-key-and-refused-root-login',
+        'params': [f'--server-log={aged("rocky9-security-events.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 revoked key [CRITICAL]',
+            # logged twice per attempt, once with a ` [preauth]` suffix
+            '1 refused root login [WARNING]',
+            'find out who still holds it',
+            'retire the password or the key',
+        ],
+    },
+    {
+        'id': 'crit-journal-shows-what-the-file-never-sees',
+        # A host key it could not read, the configuration it rejected and the
+        # exit that followed reach the standard error only, so they are in the
+        # journal of the unit and in no syslog file.
+        'params': [f'--server-log={aged("rocky9-journal-broken-start.txt")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '2 startup failures [CRITICAL]',
+            '1 host key problem [WARNING]',
+            'no hostkeys available',
+            'bad configuration options',
+            'ssh-keygen -A',
+        ],
+    },
+    {
+        # Below `INFO` sshd writes neither a failed nor an accepted login, so the
+        # quiet report below it would say nothing about the host. Said first,
+        # and without a state of its own.
+        'id': 'ok-a-log-level-below-info-is-said-first',
+        'params': [f'--config-root={config_root("quiet-loglevel")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'sshd logs at `LogLevel ERROR`, below `INFO`',
+            'Set `LogLevel INFO` in the sshd configuration',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
+    },
+    {
+        # The drop-in directory stands above the `LogLevel ERROR` of the main
+        # file, and sshd takes the first value it obtains.
+        'id': 'ok-a-drop-in-wins-over-the-main-configuration',
+        'params': [f'--config-root={config_root("loglevel-include")}'],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['LogLevel'],
+    },
+    {
+        'id': 'unknown-source-holds-no-sshd-line',
+        'params': [f'--server-log={aged("not-an-sshd-log.txt")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'was written by sshd, so either this is not the log it writes into',
+            'AUTHPRIV',
+        ],
+    },
+    {
+        'id': 'unknown-no-log-and-no-unit-on-this-host',
+        'params': [f'--config-root={config_root("nothing")}'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Found no log to read'],
+    },
+    {
+        'id': 'unknown-callback-without-its-companions',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            '--icinga-callback',
+        ],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['`--icinga-callback` requires'],
+    },
+    {
+        'id': 'ok-ignore-drops-the-startup-failure',
+        'params': [
+            f'--server-log={aged("rocky9-security-events.txt")}',
+            '--ignore=revoked',
+            '--ignore=root login refused',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['revoked key', 'refused root login'],
+    },
+    {
+        'id': 'ok-match-narrows-the-run-down-to-nothing',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            '--match=nothing matches this',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked: `--match` dropped all 9 lines'],
+    },
+    {
+        'id': 'crit-match-narrowing-to-nothing-can-be-told-to-alert',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            '--match=nothing matches this',
+            '--no-match-severity=crit',
+        ],
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-always-ok-swallows-the-failed-start',
+        'params': [
+            f'--server-log={aged("rocky9-busy-server.txt")}',
+            '--always-ok',
+        ],
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-no-perfdata-drops-the-series',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            '--no-perfdata',
+        ],
+        'assert-retc': STATE_OK,
+        'assert-not-in': ["'sshd_logins'"],
+    },
+    {
+        'id': 'warn-a-directory-is-not-a-log',
+        'params': [f'--server-log={config_root("rhel")}'],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['does not seem to be an existing regular file'],
+    },
+    {
+        'id': 'ok-the-rotated-predecessor-is-read-along',
+        'params': [f'--config-root={config_root("just-rotated")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Read 26 lines from ', 'secure-20260828`'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    pass
+
+
+def _run(params):
+    result = subprocess.run(
+        [PLUGIN, *params],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode, result.stdout + result.stderr
+
+
+def _check_case(test, case):
+    returncode, combined = _run(case['params'])
+    test.assertEqual(
+        returncode,
+        case['assert-retc'],
+        f'expected retc {case["assert-retc"]}, got {returncode}.\nOutput: {combined}',
+    )
+    for needle in case.get('assert-in', []):
+        test.assertIn(needle, combined, f'{needle!r} not in output:\n{combined}')
+    for needle in case.get('assert-not-in', []):
+        test.assertNotIn(
+            needle, combined, f'{needle!r} unexpectedly in output:\n{combined}'
+        )
+
+
+lib.lftest.attach_each(TestCheck, CASES, _check_case, id_func=lambda it: it['id'])
+
+
+class TestArrivalRate(unittest.TestCase):
+    """A burst of failed passwords alerts, the same burst an hour ago does not."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='burst-', dir=HERE)
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def _write_failures(self, count, minutes_ago, peers=1):
+        """Write `count` failed passwords, spread evenly over `peers` addresses."""
+        path = os.path.join(self.scratch_dir, 'secure')
+        first = datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago)
+        with open(path, 'w', encoding='utf-8') as handle:
+            for index in range(count):
+                logged_at = first + datetime.timedelta(seconds=index)
+                handle.write(
+                    FAILURE_LINE.format(
+                        timestamp=_stamp(logged_at),
+                        peer=f'198.51.100.{7 + index % peers}',
+                    )
+                    + '\n'
+                )
+        return path
+
+    def test_burst_within_the_window_warns(self):
+        path = self._write_failures(count=20, minutes_ago=5)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn(
+            '20 authentication failures from 198.51.100.7 in the last 10m', combined
+        )
+        self.assertIn('guessing run', combined)
+
+    def test_burst_within_the_window_crits_above_the_threshold(self):
+        path = self._write_failures(count=20, minutes_ago=5)
+        returncode, combined = _run(
+            [f'--server-log={path}', '--auth-failures-critical=10']
+        )
+        self.assertEqual(returncode, STATE_CRIT, combined)
+
+    def test_a_threshold_of_zero_turns_the_counter_off(self):
+        path = self._write_failures(count=20, minutes_ago=5)
+        returncode, combined = _run(
+            [
+                f'--server-log={path}',
+                '--auth-failures-warning=0',
+                '--auth-failures-critical=0',
+            ]
+        )
+        self.assertEqual(returncode, STATE_OK, combined)
+
+    def test_the_same_burst_spread_over_many_addresses_is_quiet(self):
+        # Twenty failures, but no address got past two of them. That is the open
+        # network going past, and what an intrusion prevention system blocks
+        # long before this check would have anything to say.
+        path = self._write_failures(count=20, minutes_ago=5, peers=10)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('2 authentication failures from 198.51.100.', combined)
+        self.assertIn('(20 in total from 10 addresses)', combined)
+
+    def test_the_total_is_what_no_per_source_judges(self):
+        path = self._write_failures(count=20, minutes_ago=5, peers=10)
+        returncode, combined = _run([f'--server-log={path}', '--no-per-source'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn('20 authentication failures in the last 10m', combined)
+        self.assertNotIn('in total from', combined)
+
+    def test_the_same_burst_an_hour_ago_is_quiet(self):
+        path = self._write_failures(count=20, minutes_ago=60)
+        returncode, combined = _run([f'--server-log={path}'])
+        self.assertEqual(returncode, STATE_OK, combined)
+        self.assertIn('0 authentication failures in the last 10m', combined)
+        self.assertIn('(20 in the window read)', combined)
+
+    def test_a_wider_window_sees_the_older_burst(self):
+        path = self._write_failures(count=20, minutes_ago=60)
+        returncode, combined = _run([f'--server-log={path}', '--lookback=7200'])
+        self.assertEqual(returncode, STATE_WARN, combined)
+        self.assertIn(
+            '20 authentication failures from 198.51.100.7 in the last 2h', combined
+        )
+
+
+class TestSourceDetection(unittest.TestCase):
+    """Where the check looks when `--server-log` says nothing."""
+
+    def test_the_redhat_family_keeps_it_in_var_log_secure(self):
+        root = config_root('rhel')
+        self.assertEqual(
+            sshd_logfile.get_log_file_real_path(root), f'{root}/var/log/secure'
+        )
+
+    def test_the_debian_family_keeps_it_in_var_log_auth_log(self):
+        root = config_root('debian')
+        self.assertEqual(
+            sshd_logfile.get_log_file_real_path(root), f'{root}/var/log/auth.log'
+        )
+
+    def test_a_host_without_a_syslog_daemon_falls_back_to_the_unit(self):
+        # Both names the distributions use, and both directories systemd reads.
+        self.assertIsNone(sshd_logfile.get_log_file_real_path(config_root('unit-rhel')))
+        self.assertEqual(
+            sshd_logfile.get_unit(config_root('unit-rhel')), 'sshd.service'
+        )
+        self.assertEqual(
+            sshd_logfile.get_unit(config_root('unit-debian')), 'ssh.service'
+        )
+
+    def test_a_host_with_neither_is_reported_rather_than_guessed_at(self):
+        root = config_root('nothing')
+        self.assertIsNone(sshd_logfile.get_log_file_real_path(root))
+        self.assertIsNone(sshd_logfile.get_unit(root))
+
+
+class TestSourceAddress(unittest.TestCase):
+    """Which address a line is counted under, and who gets to decide that."""
+
+    def test_the_shapes_sshd_writes_the_peer_in(self):
+        for line, expected in (
+            (
+                'Aug 28 19:25:07 h sshd-session[2]: Failed password for alice'
+                ' from 198.51.100.7 port 54882 ssh2',
+                '198.51.100.7',
+            ),
+            (
+                'Aug 28 19:25:07 h sshd-session[2]: error: PAM: Authentication'
+                ' failure for alice from 198.51.100.7',
+                '198.51.100.7',
+            ),
+            (
+                'Aug 28 19:25:42 h sshd[3]: drop connection #1 from'
+                ' [198.51.100.7]:41728 on [192.0.2.1]:22 past Maxstartups',
+                '198.51.100.7',
+            ),
+            (
+                'Aug 28 19:24:00 h sshd[4]: Timeout before authentication for'
+                ' connection from 198.51.100.7 to 192.0.2.1, pid = 260',
+                '198.51.100.7',
+            ),
+            (
+                'Aug 28 19:28:27 h sshd-session[5]: ROOT LOGIN REFUSED FROM'
+                ' 198.51.100.7 port 36544',
+                '198.51.100.7',
+            ),
+            (
+                'Aug 28 19:28:36 h sshd-session[6]: Unable to negotiate with'
+                ' 2001:DB8::42 port 53420: no matching key exchange method found',
+                '2001:db8::42',
+            ),
+        ):
+            self.assertEqual(sshd_logfile.get_source(line), expected, line)
+
+    def test_the_two_spellings_of_one_client_are_one_source(self):
+        # A dual-stack listener writes both, and counting them apart would split
+        # a burst across two buckets.
+        plain = (
+            'Aug 28 19:25:07 h sshd-session[2]: error: PAM: Authentication'
+            ' failure for alice from 198.51.100.7'
+        )
+        mapped = plain.replace('198.51.100.7', '::ffff:198.51.100.7')
+        self.assertEqual(sshd_logfile.get_source(mapped), '198.51.100.7')
+        self.assertEqual(
+            sshd_logfile.get_source(mapped), sshd_logfile.get_source(plain)
+        )
+
+    def test_the_clock_of_the_line_is_not_an_address(self):
+        line = 'Aug 28 19:25:07 h sshd-session[2]: Connection closed by 19:25:07'
+        self.assertIsNone(sshd_logfile.get_source(line))
+
+    def test_a_client_cannot_choose_the_source_it_is_counted_under(self):
+        # Parts of these lines are the client's own text - the account it asked
+        # for, the identification string it sent - so a client that writes
+        # `from <address> port <n> ssh2` into them would otherwise move its own
+        # lines into somebody else's bucket, or spread them out to stay below a
+        # threshold. Injected in front of the real address and behind it.
+        with open(fixture('sshd-injected-source.txt'), encoding='utf-8') as handle:
+            lines = [line for line in handle.read().splitlines() if line.strip()]
+        self.assertEqual(len(lines), 7)
+        for line in lines:
+            self.assertEqual(sshd_logfile.get_source(line), '198.51.100.7', line)
+
+
+class TestLogLevel(unittest.TestCase):
+    """What sshd was told to log, which decides what there is to read."""
+
+    def test_a_level_somebody_turned_down(self):
+        self.assertEqual(
+            sshd_logfile.get_log_level(config_root('quiet-loglevel')), 'ERROR'
+        )
+
+    def test_the_first_value_wins_and_a_drop_in_stands_above_the_file(self):
+        # `Include /etc/ssh/sshd_config.d/*.conf` is the first directive of the
+        # configurations the distributions ship, so a drop-in beats the
+        # `LogLevel ERROR` further down in the same file.
+        self.assertEqual(
+            sshd_logfile.get_log_level(config_root('loglevel-include')), 'VERBOSE'
+        )
+
+    def test_a_match_block_is_not_the_server_wide_setting(self):
+        # The `Match Address` block of that same fixture sets `QUIET`, which
+        # applies per connection and must not be read as the server's setting.
+        self.assertNotEqual(
+            sshd_logfile.get_log_level(config_root('loglevel-include')), 'QUIET'
+        )
+
+    def test_a_host_whose_configuration_names_none(self):
+        # sshd then logs at its own default, which is `INFO`, and there is
+        # nothing to say.
+        self.assertIsNone(sshd_logfile.get_log_level(config_root('unit-rhel')))
+        self.assertIsNone(sshd_logfile.get_log_level(config_root('nothing')))
+
+
+class TestLineReading(unittest.TestCase):
+    """The distinctions the counters rest on, each against a real line."""
+
+    def _hits(self, group, key, line):
+        for event in group:
+            if event['key'] == key:
+                return bool(event['regex'].search(line))
+        raise AssertionError(f'no event named {key}')
+
+    def test_a_failure_for_an_account_that_exists_is_not_an_invalid_user(self):
+        line = (
+            'Aug 28 19:25:07 host sshd-session[262]: Failed password for alice'
+            ' from 127.0.0.1 port 54882 ssh2'
+        )
+        self.assertTrue(self._hits(sshd_logfile.RATE_EVENTS, 'auth_failures', line))
+        self.assertFalse(self._hits(sshd_logfile.RATE_EVENTS, 'invalid_users', line))
+
+    def test_a_failure_for_an_account_that_does_not_exist_counts_once(self):
+        # sshd writes one `Invalid user` per connection and one `Failed password
+        # for invalid user` per attempt, so only the first is counted.
+        announcement = (
+            'Aug 28 19:25:14 host sshd-session[269]: Invalid user nosuchuser'
+            ' from 127.0.0.1 port 53918'
+        )
+        attempt = (
+            'Aug 28 19:25:16 host sshd-session[269]: Failed password for invalid'
+            ' user nosuchuser from 127.0.0.1 port 53918 ssh2'
+        )
+        self.assertTrue(
+            self._hits(sshd_logfile.RATE_EVENTS, 'invalid_users', announcement)
+        )
+        self.assertFalse(self._hits(sshd_logfile.RATE_EVENTS, 'invalid_users', attempt))
+        self.assertFalse(self._hits(sshd_logfile.RATE_EVENTS, 'auth_failures', attempt))
+
+    def test_a_penalty_drop_is_not_a_maxstartups_drop(self):
+        # `PerSourcePenalties` keeping a known-bad source away is the server
+        # working as intended; being at `MaxStartups` turns away whoever is next.
+        penalty = (
+            'Aug 28 19:24:00 host sshd[229]: drop connection #0 from'
+            ' [127.0.0.1]:50864 on [127.0.0.1]:22 penalty: exceeded LoginGraceTime'
+        )
+        throttle = (
+            'Aug 28 19:25:42 host sshd[231]: drop connection #1 from'
+            ' [127.0.0.1]:41728 on [127.0.0.1]:22 past Maxstartups'
+        )
+        self.assertTrue(
+            self._hits(sshd_logfile.RATE_EVENTS, 'aborted_connections', penalty)
+        )
+        self.assertFalse(
+            self._hits(sshd_logfile.RATE_EVENTS, 'throttled_connections', penalty)
+        )
+        self.assertTrue(
+            self._hits(sshd_logfile.RATE_EVENTS, 'throttled_connections', throttle)
+        )
+
+    def test_the_preauth_echo_of_a_refused_root_login_is_not_a_second_one(self):
+        # Both lines are the message, so both match; what keeps the attempt from
+        # counting twice is that the second is recognized as the echo of the
+        # first. Matching only the one without the suffix would lose the older
+        # wording, which carries no port and ends where the address ends.
+        monitor = (
+            'Aug 28 19:28:27 host sshd-session[212]: ROOT LOGIN REFUSED FROM'
+            ' 127.0.0.1 port 36544'
+        )
+        echo = f'{monitor} [preauth]'
+        older = 'Jan  5 01:31:41 www sshd[1643]: ROOT LOGIN REFUSED FROM 127.0.0.1'
+        for line in (monitor, echo, older):
+            self.assertTrue(
+                self._hits(sshd_logfile.EVENTS, 'root_login_refusals', line), line
+            )
+        self.assertTrue(sshd_logfile.is_preauth_echo(monitor, echo))
+        self.assertFalse(sshd_logfile.is_preauth_echo(monitor, older))
+
+    def test_another_program_saying_the_same_thing_is_not_counted(self):
+        # `killed by signal` is not sshd's alone, and the journal of a unit as
+        # well as a shared authentication log carry other programs' lines.
+        foreign = (
+            'Aug 28 19:48:02 host systemd[1]: foo.service: Main process 261'
+            ' killed by signal 11'
+        )
+        self.assertIsNotNone(sshd_logfile.PROGRAM_REGEX.search(foreign))
+        self.assertIsNone(sshd_logfile.IDENTIFIER_REGEX.search(foreign))
+        # A line without any program header is taken as sshd's, which is what a
+        # container logging its standard error looks like.
+        bare = 'Server listening on 0.0.0.0 port 22.'
+        self.assertIsNone(sshd_logfile.PROGRAM_REGEX.search(bare))
+
+    def test_the_identifier_covers_the_split_daemon(self):
+        for identifier in ('sshd', 'sshd-session', 'sshd-auth'):
+            line = f'Aug 28 19:25:03 host {identifier}[231]: whatever it said'
+            self.assertIsNotNone(sshd_logfile.IDENTIFIER_REGEX.search(line), identifier)
+        # Everything else that logs to the same facility is not sshd's.
+        for line in (
+            'Aug 28 19:25:05 host unix_chkpwd[264]: password check failed',
+            'Aug 28 19:25:41 host su: pam_unix(su-l:session): session opened',
+            'Aug 28 19:25:41 host sudo: alice : TTY=pts/0 ; COMMAND=/bin/ls',
+        ):
+            self.assertIsNone(sshd_logfile.IDENTIFIER_REGEX.search(line), line)
+
+    def test_two_listening_addresses_are_one_start(self):
+        first = 'Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.'
+        second = 'Aug 28 19:25:03 host sshd[231]: Server listening on :: port 22.'
+        later = 'Aug 28 19:25:33 host sshd[231]: Server listening on 0.0.0.0 port 22.'
+        self.assertTrue(sshd_logfile.is_repeated_line(first, second, 0, 1))
+        self.assertFalse(sshd_logfile.is_repeated_line(second, later, 1, 9))
+
+    def test_a_source_without_timestamps_falls_back_to_neighbourhood(self):
+        first = 'Server listening on 0.0.0.0 port 22.'
+        second = 'Server listening on :: port 22.'
+        self.assertTrue(sshd_logfile.is_repeated_line(first, second, 0, 1))
+        self.assertFalse(sshd_logfile.is_repeated_line(first, second, 0, 5))
+
+
+class TestPathConfinement(unittest.TestCase):
+    """A `--server-log` that resolves outside /var/log (here a scratch file in
+    the temp directory) is refused, so a plugin running under sudo cannot be
+    turned into an arbitrary file read (GHSA-f54c-p5vg-mr5c)."""
+
+    def setUp(self):
+        self.scratch_dir = tempfile.mkdtemp(prefix='sshd-logfile-confine-')
+        self.scratch_file = os.path.join(self.scratch_dir, 'secure')
+        with open(self.scratch_file, 'w', encoding='utf-8') as handle:
+            handle.write('Aug 28 19:25:03 host sshd[231]: secret\n')
+
+    def tearDown(self):
+        shutil.rmtree(self.scratch_dir, ignore_errors=True)
+
+    def test_server_log_outside_allowed_roots_is_refused(self):
+        returncode, combined = _run([f'--server-log={self.scratch_file}'])
+        self.assertEqual(returncode, STATE_UNKNOWN, combined)
+        self.assertIn('Refusing to read', combined)
+        self.assertNotIn('secret', combined)
+
+
+if __name__ == '__main__':
+    unittest.main()

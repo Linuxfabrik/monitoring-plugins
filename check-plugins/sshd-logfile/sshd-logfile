@@ -1,0 +1,1531 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import datetime
+import os
+import re
+import stat
+import sys
+
+import lib.args
+import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
+import lib.logmatch
+import lib.logsource
+import lib.net
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026082901'
+
+DESCRIPTION = """Scans the log of the OpenSSH server for the events an administrator has to
+act on: a server that refused to start, a host key it could not load, a key file it refused
+because of how it looks on disk, a key somebody revoked and is still using, a session that
+died on a signal, and a root login that only `PermitRootLogin` stopped - which means the
+credentials for it were valid. Startups, restarts, shutdowns and successful logins are
+counted alongside them, so a server that keeps restarting is visible.
+Everything a client can provoke - a password that did not match, a login for an account that
+does not exist, a connection that ended before authentication, a connection the server
+refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how
+many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within
+ten minutes is somebody guessing passwords. Every host that answers on port 22 collects
+these all day, so counting them by rate is what keeps the check from being permanently
+yellow, and counting them per source address is what tells one determined client from the
+open network going past.
+sshd writes no severity into its lines, so what is reported is what this check recognizes;
+anything else it wrote is read but not counted.
+The log is read either from a file, from a systemd unit (`systemd:`) or from a container
+(`docker:`/`podman:`/`kubectl:`). Without `--server-log` the check takes the first of the
+usual authentication logs of the distributions that exists, and falls back to the journal of
+the sshd unit where there is none. The most recent rotated file is read along with the live
+one, so the window does not end where logrotate last ran.
+Note that sshd logs to its standard error until it has loaded its host keys, so a rejected
+configuration, a host key it could not read and the "no hostkeys available" it exits with
+never reach the syslog file. They show up only when the unit is read
+(`--server-log=systemd:sshd.service`).
+Requires root or sudo."""
+
+# The rates a host collects from the internet are judged by how many arrived,
+# not by the fact that they did, and the defaults below assume an intrusion
+# prevention system in front of this check: one that reads the same log, counts
+# what a single source fails within ten minutes, and blocks that source once it
+# passes a handful of them. Five per source in ten minutes is what such a system
+# commonly allows, and six is the first number above it, so these thresholds
+# report what gets past the blocking rather than what it is already handling.
+# The window they are counted in is `--lookback`, whose default is those same ten
+# minutes. A host without such a system collects far more and wants them raised;
+# the README says by how much.
+DEFAULT_ABORTED_CONNECTIONS_CRITICAL = 2000
+DEFAULT_ABORTED_CONNECTIONS_WARNING = 200
+DEFAULT_ACCESS_DENIALS_CRITICAL = 60
+DEFAULT_ACCESS_DENIALS_WARNING = 6
+DEFAULT_AUTH_FAILURES_CRITICAL = 60
+DEFAULT_AUTH_FAILURES_WARNING = 6
+DEFAULT_ICINGA_CALLBACK = False
+DEFAULT_INSECURE = True
+DEFAULT_INVALID_USERS_CRITICAL = 60
+DEFAULT_INVALID_USERS_WARNING = 6
+DEFAULT_LOOKBACK = 600  # seconds
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_PER_SOURCE = True
+DEFAULT_THROTTLED_CONNECTIONS_CRITICAL = 10
+DEFAULT_THROTTLED_CONNECTIONS_WARNING = 1
+DEFAULT_TIMEOUT = 8
+
+ACK_RETENTION_DAYS = 30
+MAXLINES = 30000  # maximum log lines to consider from the end of the source
+# Rotated predecessors of the log file to read along with it. The distributions
+# rotate this log daily or weekly, so without one the window would end at the
+# last rotation and an event from before it would stop being reported the moment
+# logrotate runs. One covers a daily rotation with room to spare.
+ROTATED_FILES = 1
+
+# Where the distributions keep what the `AUTHPRIV` syslog facility receives, and
+# with it what sshd logs. The file is preferred over the journal because it holds
+# sshd's lines whatever unit they were written under, which is what a host with a
+# socket-activated sshd needs: there every connection is handled by an instance
+# of its own (`sshd@0-...service`), and the journal of `sshd.service` holds none
+# of them. A host without a syslog daemon has neither file, and the unit below
+# takes over.
+LOG_FILE_CANDIDATES = (
+    '/var/log/secure',
+    '/var/log/auth.log',
+)
+
+# The unit the distributions run sshd as: `sshd.service` on the RHEL family,
+# `ssh.service` on the Debian family. Which one is installed is read off the
+# unit file rather than asked of systemd, so the answer costs no process and the
+# fixture tests can stand a directory tree in for it.
+UNIT_CANDIDATES = ('sshd.service', 'ssh.service')
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+
+# The main configuration of sshd, and the drop-in mechanism the distributions
+# put in front of it. Only this fixed location is read, so nothing a log holds
+# can point the check at another file, and nothing but the `LogLevel` word is
+# taken out of what it finds.
+CONFIG_FILES = ('/etc/ssh/sshd_config',)
+
+# sshd takes the first value it obtains for a keyword and ignores every later
+# one, `Include` files being read at the point the directive stands. Everything
+# from the first `Match` on is conditional on the connection, so it is not the
+# server-wide setting and is not read here.
+CONFIG_COMMENT_REGEX = re.compile(r'^\s*#')
+INCLUDE_REGEX = re.compile(r'^\s*Include\s+(.+?)\s*$', re.IGNORECASE)
+LOG_LEVEL_REGEX = re.compile(r'^\s*LogLevel\s+(\S+)', re.IGNORECASE)
+MATCH_REGEX = re.compile(r'^\s*Match\s', re.IGNORECASE)
+# sshd refuses a configuration that nests includes deeper than this.
+MAX_INCLUDE_DEPTH = 16
+
+# What sshd accepts for `LogLevel`, from the quietest to the loudest, and the
+# quietest one at which it still writes what this check counts. Below `INFO` it
+# logs neither a failed authentication nor an accepted one, so the check would
+# report a quiet host whatever happens on it. `INFO` is the default, so this only
+# ever fires where somebody turned it down.
+LOG_LEVELS = (
+    'QUIET',
+    'FATAL',
+    'ERROR',
+    'INFO',
+    'VERBOSE',
+    'DEBUG',
+    'DEBUG1',
+    'DEBUG2',
+    'DEBUG3',
+)
+MINIMUM_LOG_LEVEL = 'INFO'
+
+# The syslog identifier sshd writes under. OpenSSH 9.8 split the daemon, so the
+# process that handles a connection - and with it everything about
+# authentication - logs as `sshd-session`, and the one that only checks
+# credentials as `sshd-auth`. A check that looks for `sshd` alone sees none of
+# that on a current host. Measured on 2026-08-28: Rocky 8 writes `sshd`,
+# Rocky 9 and Fedora 44 write `sshd` and `sshd-session`, Debian 13 writes `ssh`
+# as well.
+# Used to tell sshd's lines from those of everything else that logs to the same
+# facility (`sudo`, `su`, `crond`, `unix_chkpwd`), which is the normal content of
+# these files and no reason to say anything.
+IDENTIFIER_REGEX = re.compile(r'(?:^|\s)sshd(?:-session|-auth)?(?:\[\d+\])?:\s')
+
+# Any program naming itself and its process at the head of a line, which is what
+# a syslog daemon and journalctl both write. A line carrying one of these that is
+# not sshd's is somebody else's and is not counted, so `systemd[1]: ... killed by
+# signal 11` about another unit cannot be read as a session of sshd's that died.
+# A line carrying none at all is taken as sshd's: that is what a container
+# logging sshd's standard error looks like, and there is nothing else in it.
+PROGRAM_REGEX = re.compile(r'(?:^|\s)[A-Za-z][A-Za-z0-9_.-]*\[\d+\]:\s')
+
+# The peer of a line, which is what makes a rate mean something: six failures
+# from one address in ten minutes is somebody working on this host, six failures
+# from six addresses is the internet going past.
+#
+# Anchored in the words sshd writes around the address rather than searched for
+# anywhere in the line, which is the discipline fail2ban keeps with its `<HOST>`
+# tag: the shape of an address matches a lot that is not one, the clock at the
+# head of every syslog line included. sshd writes the peer either behind `from`,
+# `by`, `with` or `FROM`, or immediately in front of the port - between them
+# those cover every message this check counts. Where it writes two addresses,
+# the peer is the first (`drop connection ... from [peer] on [local]`,
+# `Timeout ... from peer to local`), which is what a left-to-right search finds.
+# The port behind the address is the stronger anchor of the two, because sshd
+# writes it for the peer and for nothing else, so it is tried first and only the
+# keywords are left to the formats that carry no port.
+SOURCE_PORT_REGEX = re.compile(rf'({lib.net.ADDRESS_REGEX})\s+port\s+\d+')
+SOURCE_KEYWORD_REGEX = re.compile(
+    rf'(?:\bfrom|\bby|\bwith|\bFROM)\s+({lib.net.ADDRESS_REGEX})'
+)
+# Where `auth_log()` stops writing the connection and starts writing what was
+# offered - the key type and its fingerprint, or what the module had to say.
+# Nothing behind it names the peer, and everything behind it can hold what the
+# client sent, so the search stops here.
+SOURCE_TAIL_REGEX = re.compile(r'\sssh\d*:\s')
+
+# The events worth naming on their own. sshd writes no severity into a line - the
+# `error:` and `fatal:` prefixes it does write say how the message was logged and
+# not how bad the situation is, so an internet-facing host collects `error:
+# kex_exchange_identification: Connection closed by remote host` by the thousand
+# and RHEL 8 logs a scanner that walked away as `fatal: Timeout before
+# authentication`. What is worth an alert is therefore named here one by one,
+# and everything else sshd wrote is read but not counted.
+#
+# Every message below was read off `auth.c`, `auth2*.c`, `misc.c`, `monitor.c`
+# and `sshd.c` of openssh-portable and reproduced on OpenSSH 8.0p1 (Rocky 8),
+# 9.9p1 (Rocky 9) and 10.0p2 (Debian 13). Each entry carries the state the
+# situation deserves.
+EVENTS = (
+    {
+        'key': 'startup_failures',
+        'label': 'startup failure',
+        'perfdata': 'sshd_startup_failures',
+        # A port already taken, an address it could not bind at all, a rejected
+        # configuration file, a re-exec that failed after SIGHUP, and the
+        # privilege separation directory it insists on. Only the first two reach
+        # the syslog file: sshd logs to its standard error until it has loaded
+        # its host keys, so the others show up when the unit or the container is
+        # read, which is exactly why they are named - there the check is the one
+        # thing that sees why the server is gone.
+        'regex': re.compile(
+            r'Cannot bind any address'
+            r'|Bind to port \S+ on .* failed'
+            r'|no hostkeys available -- exiting'
+            r'|RESTART FAILED'
+            r'|terminating, \d+ bad configuration option'
+            r'|Missing privilege separation directory'
+            r'|Privilege separation user \S+ does not exist'
+            r'|Too many listen sockets'
+        ),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'sshd could not start or could not take all its addresses;'
+            ' `sshd -t` names a rejected directive, and a port that is already'
+            ' taken names the process holding it in `ss --listening --processes`'
+        ),
+    },
+    {
+        'key': 'host_key_problems',
+        'label': 'host key problem',
+        'perfdata': 'sshd_host_key_problems',
+        # A host key sshd could not read, could not protect in memory, or whose
+        # public half does not belong to it, and a host certificate that does not
+        # go with any of them. Losing one key type still leaves the server
+        # running, and clients that only have that one stop getting in, which is
+        # why this is worth its own line rather than only the exit it causes when
+        # the last key goes.
+        'regex': re.compile(
+            r'Unable to load host key'
+            r'|Unable to shield host key'
+            r'|does not match private key'
+            r'|No matching private key for certificate'
+            r'|Certificate file is not a certificate'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'A host key could not be used; check the files `HostKey` names, that'
+            ' they are owned by root and not readable by anybody else, and'
+            ' regenerate a broken one with `ssh-keygen -A`'
+        ),
+    },
+    {
+        'key': 'revoked_keys',
+        'label': 'revoked key',
+        'perfdata': 'sshd_revoked_keys',
+        # Somebody authenticated with a key that was taken out of service. The
+        # first is a user key listed in `RevokedKeys`, the second a host key of a
+        # `HostbasedAuthentication` peer. Either way a key that was withdrawn is
+        # still in use, and whoever holds it does not know or does not care.
+        'regex': re.compile(r'revoked by file|revoked key for \S+ attempted'),
+        'state': STATE_CRIT,
+        'recommendation': (
+            'A revoked key was offered; find out who still holds it and where'
+            ' the copy came from, and check whether the same key gets in'
+            ' anywhere the revocation list does not reach'
+        ),
+    },
+    {
+        'key': 'root_login_refusals',
+        'label': 'refused root login',
+        'perfdata': 'sshd_root_login_refusals',
+        # sshd checks `PermitRootLogin` only once the credentials have already
+        # been accepted, so this line means somebody held a password or a key
+        # that is valid for root and only the directive stopped them. It is
+        # logged twice per attempt, once by the privileged process and once by
+        # the one before it, whose copy carries a ` [preauth]` suffix, so the
+        # echo is collapsed rather than counted, see is_preauth_echo(). Matched
+        # without the port, which the older wording leaves out entirely.
+        'regex': re.compile(r'ROOT LOGIN REFUSED FROM'),
+        'collapse_preauth': True,
+        'state': STATE_WARN,
+        'recommendation': (
+            'Credentials that are valid for root were used and only'
+            ' `PermitRootLogin` stopped the login; find out whose they are, and'
+            ' retire the password or the key rather than relying on the directive'
+        ),
+    },
+    {
+        'key': 'key_file_refusals',
+        'label': 'refused key file',
+        'perfdata': 'sshd_key_file_refusals',
+        # `StrictModes` refusing an `authorized_keys`, a `known_hosts` or one of
+        # the directories above them because somebody other than the owner may
+        # write it. The user then falls back to a password or is locked out
+        # entirely, and nothing on their side says why, so this is among the most
+        # useful lines the log holds.
+        'regex': re.compile(
+            r'Authentication refused'
+            r'|bad ownership or modes'
+            r'|bad owner or modes'
+            r'|is not a regular file'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'sshd ignored a key file because of its ownership or its mode; the'
+            ' home directory and `.ssh` may not be group- or world-writable, and'
+            ' `chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys` is what the'
+            ' file itself needs'
+        ),
+    },
+    {
+        'key': 'child_crashes',
+        'label': 'session crash',
+        'suffix': 'es',
+        'perfdata': 'sshd_child_crashes',
+        # A process handling one connection that died on a fault or was killed
+        # from outside, and one that ended in a way sshd could not explain. The
+        # listener only learned to say this when OpenSSH 9.8 split it from the
+        # session process, so a host below that reports nothing here and a
+        # crashing session goes unseen there.
+        'regex': re.compile(
+            r'killed by signal|terminated abnormally, status=|unpriv child crash'
+        ),
+        'state': STATE_WARN,
+        'recommendation': (
+            'A session process died on a signal; look for a core dump, a PAM'
+            ' module that was updated underneath it, or the OOM killer in the'
+            ' kernel log'
+        ),
+    },
+)
+
+# What a client can provoke, which is what every host answering on port 22
+# collects all day. One of these is a typo, a stale automation or a bot, and no
+# reason to get anybody out of bed; hundreds of them in ten minutes is somebody
+# guessing passwords or walking the port. They are therefore counted against a
+# rate rather than reported line by line, which is what keeps the background
+# noise of the internet from leaving the check permanently yellow.
+RATE_EVENTS = (
+    {
+        'key': 'auth_failures',
+        'label': 'authentication failure',
+        'perfdata': 'sshd_auth_failures',
+        # A failed authentication for an account that exists. sshd words the
+        # same line as `Failed password for invalid user bob` where it does not,
+        # and those are counted as invalid users below instead: an attempt
+        # against a real account is the one worth the lower threshold.
+        #
+        # The second alternative is the one an account that exists produces on
+        # the Debian family, where a password goes through PAM as
+        # keyboard-interactive: `auth_log()` raises a failed attempt to the level
+        # that gets logged only for the `password` method, for an account that
+        # does not exist, or once half of `MaxAuthTries` is used up, so the
+        # `Failed keyboard-interactive/pam` line is missing entirely and
+        # `error: PAM: Authentication failure for alice from ...` is all there
+        # is. Measured on OpenSSH 10.0p2. PAM words an account that does not
+        # exist as `illegal user`, which is excluded here for the same reason as
+        # above, and the `pam_unix(sshd:auth)` line the module itself writes is
+        # matched nowhere, so an attempt counts once whichever path it took.
+        # `Failed publickey` is left out for an account that exists: an agent
+        # offers every key it holds and sshd logs each one it did not want, so a
+        # colleague with three keys writes two of these on every successful
+        # login. fail2ban leaves them out for the same reason and calls the
+        # setting `publickey = nofail`. For an account that does not exist they
+        # are counted below either way, by the `Invalid user` line.
+        'regex': re.compile(
+            r'Failed (?!publickey)\S+ for (?!invalid user)'
+            r'|PAM: .*? for (?!illegal user)\S+ from '
+        ),
+        'critical': 'AUTH_FAILURES_CRITICAL',
+        'warning': 'AUTH_FAILURES_WARNING',
+        'recommendation': (
+            'Authentications are failing in bulk for accounts that exist, which'
+            ' is what a guessing run against known user names looks like; the'
+            ' names and addresses in the log say whether it is that or an'
+            ' automation still using a password that was changed'
+        ),
+    },
+    {
+        'key': 'invalid_users',
+        'label': 'invalid-user attempt',
+        'perfdata': 'sshd_invalid_users',
+        # `Invalid user bob from 198.51.100.7 port 40000`, written once per
+        # connection that names an account which does not exist. The `Failed
+        # password for invalid user` line of the same connection is deliberately
+        # not matched, so a bot trying three passwords counts as one attempt and
+        # not as four.
+        'regex': re.compile(r'Invalid user \S+ from '),
+        'critical': 'INVALID_USERS_CRITICAL',
+        'warning': 'INVALID_USERS_WARNING',
+        'recommendation': (
+            'Logins are being attempted for accounts that do not exist, which is'
+            ' what a scanner working through a name list looks like; an'
+            ' intrusion prevention system or the firewall is where that is'
+            ' answered, and a look at the names says whether the list is generic'
+            ' or made for this host'
+        ),
+    },
+    {
+        'key': 'access_denials',
+        'label': 'access denial',
+        'perfdata': 'sshd_access_denials',
+        # An account that exists and that policy turned away: `AllowUsers`,
+        # `DenyUsers`, the group lists, a shell that is missing or not
+        # executable, a locked account, and the account check of PAM, which is
+        # where an expired password or an expired account lands. Counted rather
+        # than alerted on one by one, because a `DenyUsers root` on an
+        # internet-facing host makes this a busy counter, while the same line is
+        # a locked-out colleague on a host nobody else reaches.
+        'regex': re.compile(r'not allowed because|Access denied for user \S+ by PAM'),
+        'critical': 'ACCESS_DENIALS_CRITICAL',
+        'warning': 'ACCESS_DENIALS_WARNING',
+        'recommendation': (
+            'Accounts that exist are being turned away by policy; the log names'
+            ' the reason per line, and `AllowUsers`, `DenyUsers`, the group'
+            ' lists and the login shell of the account are where that is decided'
+        ),
+    },
+    {
+        'key': 'throttled_connections',
+        'label': 'throttled connection',
+        'perfdata': 'sshd_throttled_connections',
+        # Judged by the total rather than per peer: whoever gets turned away is
+        # whoever happened to connect next, so the address on the line says
+        # nothing about the cause. What matters is how many were turned away.
+        'per_source': False,
+        # Connections sshd refused because too many were waiting to authenticate.
+        # Unlike everything else here this hits whoever connects next, an
+        # administrator included, which is why the threshold sits at one. What
+        # `PerSourcePenalties` drops is deliberately not counted here but with
+        # the aborted connections below: that is the server keeping a source it
+        # already knows away from itself, and working as intended.
+        'regex': re.compile(
+            r'drop connection #\d+ from (?!.*penalty:)'
+            r'|MaxStartups throttling'
+            r'|Maxstartups logging rate-limited'
+        ),
+        'critical': 'THROTTLED_CONNECTIONS_CRITICAL',
+        'warning': 'THROTTLED_CONNECTIONS_WARNING',
+        'recommendation': (
+            'sshd turned connections away because it was at `MaxStartups`, so'
+            ' whoever connects next is turned away too; raise the limit if the'
+            ' load is real, and look for the source flooding the port if it is'
+            ' not'
+        ),
+    },
+    {
+        'key': 'aborted_connections',
+        'label': 'aborted connection',
+        'perfdata': 'sshd_aborted_connections',
+        # Connections that ended before anybody authenticated: a peer that hung
+        # up, a scanner speaking something other than SSH, a client and a server
+        # with no algorithm in common, somebody who never sent anything until the
+        # login grace ran out, and a source `PerSourcePenalties` is keeping away.
+        # This is what an internet-facing host produces by the thousand and what
+        # nobody should be woken for, but a jump in it is a scan starting, so it
+        # is counted with a loud threshold rather than dropped. An intrusion
+        # prevention system does not block on these in its default configuration
+        # either, which is why they keep a threshold of their own.
+        'regex': re.compile(
+            r'Connection closed by \S+(?: port|\s*\[preauth\]|\s*$)'
+            r'|Connection (?:closed|reset) by (?:authenticating|invalid) user'
+            r'|Disconnecting(?: from)? (?:authenticating|invalid) user'
+            r'|Connection reset by \S+ port'
+            r'|kex_exchange_identification'
+            r'|banner exchange'
+            r'|Unable to negotiate with'
+            r'|Bad (?:remote )?protocol version identification'
+            r'|Timeout before authentication'
+            r'|maximum authentication attempts exceeded'
+            r'|Disconnecting: Too many authentication failures'
+            r'|Received disconnect from .*?:\s*(?:3|14):'
+            r'|drop connection #\d+ from .*penalty:'
+            r'|penalty of \S+ seconds for'
+            r'|PerSourcePenalties logging rate-limited'
+        ),
+        'critical': 'ABORTED_CONNECTIONS_CRITICAL',
+        'warning': 'ABORTED_CONNECTIONS_WARNING',
+        'recommendation': (
+            'Connections are ending before authentication in bulk, which is what'
+            ' a port scan or a broken client looks like; the addresses in the log'
+            ' say which of the two, and a client that never gets past the'
+            ' negotiation names the algorithm it is missing'
+        ),
+    },
+)
+
+# Lifecycle markers, counted but never alerting on. A successful login is one of
+# them: it says the server is doing its job, and how much of it.
+LIFECYCLE = (
+    {
+        'key': 'startups',
+        'label': 'startup',
+        'perfdata': 'sshd_startups',
+        # `Server listening on 0.0.0.0 port 22.`, which sshd writes once per
+        # address it took. A dual-stack host therefore logs two of them per
+        # start, so lines that belong to the same start are collapsed, see
+        # is_repeated_line().
+        'regex': re.compile(r'Server listening on \S+ port \d+'),
+        'collapse': True,
+        'verb': 'detected',
+    },
+    {
+        'key': 'restarts',
+        'label': 'restart',
+        'perfdata': 'sshd_restarts',
+        # `Received SIGHUP; restarting.`, which is what a `systemctl reload ssh`
+        # and a re-read of the configuration look like. The startup that follows
+        # is counted above as well, so a restart shows up as both.
+        'regex': re.compile(r'Received SIGHUP; restarting'),
+        'collapse': False,
+        'verb': 'detected',
+    },
+    {
+        'key': 'shutdowns',
+        'label': 'shutdown',
+        'perfdata': 'sshd_shutdowns',
+        # `Received signal 15; terminating.`, an ordinary `systemctl stop`.
+        'regex': re.compile(r'Received signal \d+; terminating'),
+        'collapse': False,
+        'verb': 'detected',
+    },
+    {
+        'key': 'logins',
+        'label': 'successful login',
+        'perfdata': 'sshd_logins',
+        # `Accepted publickey for alice from 198.51.100.7 port 40000 ssh2: ...`.
+        # Counted so the graph shows what the server is actually used for, next
+        # to the failures below which say what is being tried on it.
+        'regex': re.compile(r'Accepted \S+ for \S+ from '),
+        'collapse': False,
+        'verb': 'found',
+    },
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--aborted-connections-critical',
+        help='Number of connections that ended before authentication within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--aborted-connections-critical=5000`. '
+        'Default: %(default)s',
+        dest='ABORTED_CONNECTIONS_CRITICAL',
+        type=int,
+        default=DEFAULT_ABORTED_CONNECTIONS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--aborted-connections-warning',
+        help='Number of connections that ended before authentication within '
+        '`--lookback` that returns WARNING. '
+        'Every host answering on the SSH port collects these all day, so this '
+        'is meant to catch a scan starting and not the background noise. '
+        '0 turns the threshold off. '
+        'Example: `--aborted-connections-warning=500`. '
+        'Default: %(default)s',
+        dest='ABORTED_CONNECTIONS_WARNING',
+        type=int,
+        default=DEFAULT_ABORTED_CONNECTIONS_WARNING,
+    )
+
+    parser.add_argument(
+        '--access-denials-critical',
+        help='Number of accounts turned away by policy within `--lookback` that '
+        'returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--access-denials-critical=200`. '
+        'Default: %(default)s',
+        dest='ACCESS_DENIALS_CRITICAL',
+        type=int,
+        default=DEFAULT_ACCESS_DENIALS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--access-denials-warning',
+        help='Number of accounts turned away by policy within `--lookback` that '
+        'returns WARNING. '
+        'Counts the accounts that exist and that `AllowUsers`, `DenyUsers`, the '
+        'group lists, a missing login shell or a locked password refused. '
+        '0 turns the threshold off. '
+        'Example: `--access-denials-warning=1`. '
+        'Default: %(default)s',
+        dest='ACCESS_DENIALS_WARNING',
+        type=int,
+        default=DEFAULT_ACCESS_DENIALS_WARNING,
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--auth-failures-critical',
+        help='Number of failed authentications for accounts that exist within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--auth-failures-critical=200`. '
+        'Default: %(default)s',
+        dest='AUTH_FAILURES_CRITICAL',
+        type=int,
+        default=DEFAULT_AUTH_FAILURES_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--auth-failures-warning',
+        help='Number of failed authentications for accounts that exist within '
+        '`--lookback` that returns WARNING. '
+        'Attempts for accounts that do not exist are counted by '
+        '`--invalid-users-warning` instead. '
+        '0 turns the threshold off. '
+        'Example: `--auth-failures-warning=5`. '
+        'Default: %(default)s',
+        dest='AUTH_FAILURES_WARNING',
+        type=int,
+        default=DEFAULT_AUTH_FAILURES_WARNING,
+    )
+
+    # Developer-only hook, like `--test` on the plugins that inject command
+    # output: it prefixes every path the check opens, so the fixture tests can
+    # stand a directory tree in for the host's file system. Deliberately not
+    # named `--test-...`, because argparse would then resolve a bare `--test`
+    # into it.
+    parser.add_argument(
+        '--config-root',
+        help=argparse.SUPPRESS,
+        dest='CONFIG_ROOT',
+        default='',
+    )
+
+    parser.add_argument(
+        '--icinga-callback',
+        help=lib.args.help('--icinga-callback') + ' Default: %(default)s',
+        dest='ICINGA_CALLBACK',
+        action='store_true',
+        default=DEFAULT_ICINGA_CALLBACK,
+    )
+
+    parser.add_argument(
+        '--icinga-password',
+        help=lib.args.help('--icinga-password'),
+        dest='ICINGA_PASSWORD',
+    )
+
+    parser.add_argument(
+        '--icinga-service-name',
+        help=lib.args.help('--icinga-service-name'),
+        dest='ICINGA_SERVICE_NAME',
+    )
+
+    parser.add_argument(
+        '--icinga-url',
+        help=lib.args.help('--icinga-url'),
+        dest='ICINGA_URL',
+    )
+
+    parser.add_argument(
+        '--icinga-username',
+        help=lib.args.help('--icinga-username'),
+        dest='ICINGA_USERNAME',
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Ignore a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        "Example: `--ignore='invalid user'`.",
+        action='append',
+        default=None,
+        dest='IGNORE',
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--invalid-users-critical',
+        help='Number of logins attempted for accounts that do not exist within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--invalid-users-critical=500`. '
+        'Default: %(default)s',
+        dest='INVALID_USERS_CRITICAL',
+        type=int,
+        default=DEFAULT_INVALID_USERS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--invalid-users-warning',
+        help='Number of logins attempted for accounts that do not exist within '
+        '`--lookback` that returns WARNING. '
+        'Counted once per connection, however many passwords it went through. '
+        '0 turns the threshold off. '
+        'Example: `--invalid-users-warning=50`. '
+        'Default: %(default)s',
+        dest='INVALID_USERS_WARNING',
+        type=int,
+        default=DEFAULT_INVALID_USERS_WARNING,
+    )
+
+    parser.add_argument(
+        '--lookback',
+        help='Failed authentications, invalid users, access denials, throttled '
+        'and aborted connections are counted within this window rather than '
+        'reported one by one. '
+        + lib.args.help('--lookback')
+        + ' Example: `--lookback=3600`. '
+        'Default: %(default)s (seconds)',
+        dest='LOOKBACK',
+        type=int,
+        default=DEFAULT_LOOKBACK,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Only consider a log line matching this Python regular expression. '
+        'The log line is lowercased before matching, so write the pattern in '
+        'lowercase (or use the `(?i)` flag). '
+        'Can be specified multiple times. '
+        + lib.args.MATCH_IGNORE_PRECEDENCE
+        + " Example: `--match='sshd-session'`.",
+        action='append',
+        default=None,
+        dest='MATCH',
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-per-source',
+        help=lib.args.help('--no-per-source'),
+        dest='PER_SOURCE',
+        action='store_false',
+        default=DEFAULT_PER_SOURCE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--per-source',
+        help=lib.args.help('--per-source') + ' Default: %(default)s',
+        dest='PER_SOURCE',
+        action='store_true',
+        default=DEFAULT_PER_SOURCE,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--server-log',
+        help='Log source to read from. '
+        'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
+        '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'If omitted, the check takes the first of the usual authentication logs '
+        'of the distributions that exists, and falls back to the journal of the '
+        'sshd unit where there is none. '
+        'Example: `--server-log=systemd:sshd.service`.',
+        dest='SERVER_LOG',
+    )
+
+    parser.add_argument(
+        '--throttled-connections-critical',
+        help='Number of connections refused for being past `MaxStartups` within '
+        '`--lookback` that returns CRITICAL. '
+        '0 turns the threshold off. '
+        'Example: `--throttled-connections-critical=50`. '
+        'Default: %(default)s',
+        dest='THROTTLED_CONNECTIONS_CRITICAL',
+        type=int,
+        default=DEFAULT_THROTTLED_CONNECTIONS_CRITICAL,
+    )
+
+    parser.add_argument(
+        '--throttled-connections-warning',
+        help='Number of connections refused for being past `MaxStartups` within '
+        '`--lookback` that returns WARNING. '
+        'These hit whoever connects next, an administrator included, which is '
+        'why one of them is already worth reporting. '
+        '0 turns the threshold off. '
+        'Example: `--throttled-connections-warning=5`. '
+        'Default: %(default)s',
+        dest='THROTTLED_CONNECTIONS_WARNING',
+        type=int,
+        default=DEFAULT_THROTTLED_CONNECTIONS_WARNING,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_source(log_line):
+    """Return the peer address a line names, or None where it names none.
+
+    Parts of these lines are the client's own text - the account it asked for,
+    the identification string it sent - and a client that writes `from 1.2.3.4
+    port 22 ssh2` into its account name gets that text logged verbatim. Whoever
+    is knocking could otherwise choose which address they are counted under:
+    their own, or an innocent one. fail2ban carries four such lines as injection
+    tests in its sample log, injecting both in front of the real address and
+    behind it, so neither the first address of a line nor the last one is the
+    answer.
+
+    Two rules hold against all four. The search stops where `auth_log()` stops
+    writing the connection and starts writing what was offered, which is the
+    ` ssh2: ` in front of a key type and its fingerprint - nothing behind that
+    names the peer, and everything behind it can hold what the client sent.
+    Within what is left, sshd writes ` port <n>` behind the peer and behind
+    nothing else, so the last address followed by a port is the peer; only where
+    the line carries no port at all does the word in front of the address have
+    to do.
+
+    None where sshd wrote a name instead of an address, which is what `UseDNS
+    yes` makes it do. Those lines then share one bucket, so the count they
+    produce is the total they always were rather than something wrong.
+    """
+    tail = SOURCE_TAIL_REGEX.search(log_line)
+    head = log_line[: tail.start()] if tail else log_line
+    for pattern in (SOURCE_PORT_REGEX, SOURCE_KEYWORD_REGEX):
+        found = None
+        for match in pattern.finditer(head):
+            address = lib.net.normalize_address(match.group(1))
+            if address:
+                found = address
+        if found:
+            return found
+    return None
+
+
+def get_log_level(config_root=''):
+    """Return the server-wide `LogLevel` of the sshd configuration, or None.
+
+    None where the configuration is unreadable or names none, which is the same
+    thing as far as this check is concerned: sshd then logs at its own default.
+    """
+    for candidate in CONFIG_FILES:
+        level = read_log_level(f'{config_root}{candidate}', config_root)
+        if level is not None:
+            return level
+    return None
+
+
+def read_log_level(filename, config_root='', depth=0):
+    """Read one configuration file and the files it includes, first value wins."""
+    if depth > MAX_INCLUDE_DEPTH:
+        return None
+    success, content = lib.disk.read_file(filename)
+    if not success or not content:
+        return None
+    for line in content.splitlines():
+        if CONFIG_COMMENT_REGEX.match(line):
+            continue
+        if MATCH_REGEX.match(line):
+            # Everything below belongs to a connection, not to the server.
+            break
+        match = LOG_LEVEL_REGEX.match(line)
+        if match:
+            return match.group(1).upper()
+        match = INCLUDE_REGEX.match(line)
+        if not match:
+            continue
+        for pattern in match.group(1).split():
+            if not pattern.startswith('/'):
+                # sshd resolves a relative include against the directory its
+                # main configuration file lives in.
+                pattern = os.path.join(
+                    os.path.dirname(filename[len(config_root) :]), pattern
+                )
+            for included in sorted(lib.disk.glob(f'{config_root}{pattern}')):
+                level = read_log_level(included, config_root, depth + 1)
+                if level is not None:
+                    return level
+    return None
+
+
+def get_log_file_real_path(config_root=''):
+    """Probe the files the distributions let the authentication facility write to."""
+    for candidate in LOG_FILE_CANDIDATES:
+        for filename in lib.disk.glob(f'{config_root}{candidate}'):
+            if lib.disk.file_exists(filename, allow_empty=True):
+                return filename
+    return None
+
+
+def get_unit(config_root=''):
+    """Return the sshd unit this host has a unit file for, or None.
+
+    Only the fixed locations systemd reads unit files from are looked at, and
+    only for the two names the distributions use, so nothing a log or a
+    configuration file holds can point the check at another unit.
+    """
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            if lib.disk.file_exists(
+                f'{config_root}{directory}/{candidate}', allow_empty=True
+            ):
+                return candidate
+    return None
+
+
+def is_preauth_echo(previous, current):
+    """Tell whether a line is the unprivileged process repeating the one before it.
+
+    sshd logs a few messages twice, once from the privileged process and once
+    from the one in front of it, whose copy carries a ` [preauth]` suffix and is
+    otherwise the same text. Counting both would report one attempt as two.
+    """
+    return previous.replace(' [preauth]', '') == current.replace(' [preauth]', '')
+
+
+def is_repeated_line(previous, current, previous_index, current_index):
+    """Tell whether two lines report the same moment of the same event.
+
+    sshd writes one line per listening address, so a dual-stack host logs a start
+    twice. The two carry the same timestamp, which is what identifies them as one
+    event even where something else logged in between - which happens, as these
+    files hold everything the authentication facility receives. Where the source
+    stamps no line at all, standing next to each other in the log has to do.
+    """
+    previous_at = lib.logsource.timestamp(previous)
+    current_at = lib.logsource.timestamp(current)
+    if previous_at is not None and current_at is not None:
+        # Compared to the second, because a syslog daemon writing sub-second
+        # precision stamps the two lines microseconds apart, and two starts
+        # within the same second do not happen.
+        return previous_at.replace(microsecond=0) == current_at.replace(microsecond=0)
+    return current_index == previous_index + 1
+
+
+def shorten(items, head=5, tail=5):
+    """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
+    if len(items) > head + tail:
+        return [*items[:head], '...', *items[-tail:]]
+    return items
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    if args.ICINGA_CALLBACK and not all(
+        (
+            args.ICINGA_URL,
+            args.ICINGA_PASSWORD,
+            args.ICINGA_USERNAME,
+            args.ICINGA_SERVICE_NAME,
+        )
+    ):
+        lib.base.cu(
+            '`--icinga-callback` requires `--icinga-url`, `--icinga-password`, '
+            '`--icinga-username` and `--icinga-service-name`.'
+        )
+
+    # fetch data
+    # `source_size` is set only for plain on-disk files, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container.
+    source_size = None
+    server_log = args.SERVER_LOG
+    if not server_log:
+        server_log = get_log_file_real_path(args.CONFIG_ROOT)
+    if not server_log:
+        unit = get_unit(args.CONFIG_ROOT)
+        server_log = f'systemd:{unit}' if unit else None
+    if not server_log:
+        lib.base.cu(
+            'Found no log to read: this host has none of the usual '
+            'authentication log files and no sshd unit either. Name the log '
+            "with the check's `--server-log` parameter."
+        )
+
+    kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+    if kind == lib.logsource.KIND_FILE:
+        # Report a path that is not a regular file before reading it, so the
+        # admin hears about a directory or a device rather than about an I/O
+        # error further down.
+        log_stat = lib.disk.stat(target)
+        if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
+            lib.base.oao(
+                f'`{target}` does not seem to be an existing regular file. Check'
+                f' the path and file permissions, or provide the `--server-log`'
+                f' parameter.',
+                STATE_WARN,
+            )
+        source_size = log_stat.st_size
+        if source_size == 0:
+            # An empty log file is a deterministic "no events observed" state,
+            # not an unknown one - typical right after logrotate fires.
+            lib.base.oao(
+                f'Log file `{target}` is empty. Assuming log-rotation.',
+                STATE_OK,
+            )
+
+    # The plugin runs as root via sudo, so restrict an on-disk log to the system
+    # log directory. The plugin's own unit-test/ directory is allowed so the
+    # fixture tests work; it does not exist next to the flat, root-owned plugin
+    # in production. Bind-mount a custom log directory under /var/log to include
+    # it (see the README).
+    allowed_roots = [
+        '/var/log',
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
+    # No position is kept on purpose: this check reports on a window of the log,
+    # counting startups, restarts and logins next to the problems, so every run
+    # has to see the whole window rather than only what is new.
+    result = lib.base.coe(
+        lib.logsource.read(
+            server_log,
+            allowed_roots=allowed_roots,
+            max_lines=MAXLINES,
+            rotated=ROTATED_FILES,
+            timeout=args.TIMEOUT,
+        )
+    )
+    source_label = f'`{result["label"]}`'
+
+    # init some vars
+    state = STATE_OK
+    sections = []
+    facts = []
+    # All recommendations from all WARN/CRIT paths land here and render once at
+    # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
+    # combinations of paths fire.
+    recommendations = []
+    found = {item['key']: [] for item in EVENTS}
+    found.update({item['key']: [] for item in RATE_EVENTS})
+    found.update({item['key']: [] for item in LIFECYCLE})
+    # The index of the line each lifecycle marker last matched, so two lines that
+    # belong to the same event can be told from two events, see is_repeated_line().
+    last_index = {item['key']: None for item in LIFECYCLE}
+    rate_since = datetime.datetime.now() - datetime.timedelta(seconds=args.LOOKBACK)
+    considered_cnt = 0
+    evaluated_cnt = 0
+    recognized_cnt = 0
+    suppressed_cnt = 0
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+
+    # Persisted acknowledgements are only needed when the callback is in use.
+    # Each unique combination of filters gets its own state database, so two
+    # services watching the same log for different things do not share what has
+    # been acknowledged. Only the filters actually set take part in the
+    # identifier, so adding a filter later does not orphan the state of a service
+    # that does not use it.
+    acked_fingerprints = set()
+    ack_conn = None
+    if args.ICINGA_CALLBACK:
+        instance_payload = {'server_log': server_log}
+        for name, value in (('ignore_regex', args.IGNORE), ('match', args.MATCH)):
+            if value:
+                instance_payload[name] = value
+        ack_conn = lib.base.coe(
+            lib.logmatch.connect(
+                'sshd-logfile', lib.logmatch.instance_id(instance_payload)
+            )
+        )
+        # Drop acknowledgements older than the retention: by that age the line has
+        # left the window this check reads and can no longer re-appear.
+        lib.base.coe(lib.logmatch.prune(ack_conn, retention=ACK_RETENTION_DAYS))
+        acked_fingerprints = lib.base.coe(lib.logmatch.suppressed(ack_conn))
+
+    # analyze data
+    for index, log_line in enumerate(result['lines']):
+        haystack = log_line.lower()
+        if any(item.search(haystack) for item in compiled_ignore):
+            continue
+        # `--match` (include) is applied first, then `--ignore` (exclude), so a
+        # line hit by `--ignore` is dropped even if it also matches `--match`.
+        if compiled_match and not any(item.search(haystack) for item in compiled_match):
+            continue
+        considered_cnt += 1
+        # Drop a line an operator has already taken on. The whole log line is
+        # keyed, timestamp included, so the very same message logged again later
+        # is a new event and alerts again.
+        if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
+            suppressed_cnt += 1
+            continue
+        evaluated_cnt += 1
+        # Everything below counts lines sshd wrote, so a line another program put
+        # into the same log is dropped here rather than measured against the
+        # catalog, whose wording is not unique enough to survive that.
+        identified = IDENTIFIER_REGEX.search(log_line)
+        if not identified and PROGRAM_REGEX.search(log_line):
+            continue
+        matched = False
+        for event in EVENTS:
+            if not event['regex'].search(log_line):
+                continue
+            matched = True
+            hits = found[event['key']]
+            if (
+                event.get('collapse_preauth')
+                and hits
+                and is_preauth_echo(hits[-1], log_line)
+            ):
+                continue
+            hits.append(log_line)
+        for event in RATE_EVENTS:
+            if event['regex'].search(log_line):
+                found[event['key']].append(log_line)
+                matched = True
+        for item in LIFECYCLE:
+            if not item['regex'].search(log_line):
+                continue
+            matched = True
+            lines = found[item['key']]
+            if (
+                item['collapse']
+                and lines
+                and is_repeated_line(
+                    lines[-1], log_line, last_index[item['key']], index
+                )
+            ):
+                # The second address of the same start, not a second start.
+                last_index[item['key']] = index
+                continue
+            lines.append(log_line)
+            last_index[item['key']] = index
+        # A line is sshd's when its syslog header says so. Where the source
+        # carries no header at all - a container logging sshd's standard error -
+        # recognizing one of the messages above has to do instead.
+        if identified or matched:
+            recognized_cnt += 1
+
+    # `--match` narrowed the run down to nothing, so this run looked at no line at
+    # all rather than at a quiet log. Only reachable when the operator set a
+    # filter, so a log that simply has nothing to report stays OK.
+    if compiled_match and result['lines'] and not considered_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'Nothing checked: `--match` dropped all {len(result["lines"])} '
+            f'{lib.txt.pluralize("line", len(result["lines"]))} of '
+            f'{result["label"]}.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # sshd names itself in every line it writes through syslog, so a window
+    # without a single one of them is a source that holds something else. Saying
+    # so beats reporting the green state a check would otherwise keep on the
+    # wrong source forever. A host nobody has logged into for as long as the
+    # window reaches back lands here as well, and the answer there is the same:
+    # name the source, and the check knows it is the right one.
+    if evaluated_cnt and not recognized_cnt:
+        if ack_conn is not None:
+            lib.db_sqlite.close(ack_conn)
+        lib.base.oao(
+            f'None of the {evaluated_cnt} '
+            f'{lib.txt.pluralize("line", evaluated_cnt)} read from '
+            f'{result["label"]} was written by sshd, so either this is not the '
+            f'log it writes into, or it has logged nothing for as long as this '
+            f'window reaches back. sshd logs to the `AUTHPRIV` syslog '
+            f'facility unless `SyslogFacility` says otherwise; point '
+            f'`--server-log` at the file that facility ends up in, or at the '
+            f'unit in the journal (`--server-log=systemd:sshd.service`).',
+            STATE_UNKNOWN,
+        )
+
+    # build the message
+    # What was read, and where from. The size stands next to the live file
+    # rather than next to the line count, because it describes that one file and
+    # nothing else - right after logrotate a 34 KiB file said to hold 30000
+    # lines reads like a miscount, when almost all of them came from the rotated
+    # predecessor. Naming the predecessor says where they did come from. The
+    # count matters because everything below is counted within it: a run that
+    # reports no login at all is telling the truth about the window rather than
+    # about the day. And where the window stopped at the cap this check reads
+    # rather than at the start of the log, it says so, because a busy host then
+    # reports on the last few hours rather than on the day.
+    # The stretch of time it covers is named for the same reason: on a busy host
+    # the cap is reached within hours, on a quiet one the same 30000 lines reach
+    # back months. Taken from the first and the last line that carry a time, so a
+    # source that stamps none simply leaves it out.
+    covered = ''
+    window_from = window_to = None
+    for line in result['lines']:
+        window_from = lib.logsource.timestamp(line)
+        if window_from is not None:
+            break
+    for line in reversed(result['lines']):
+        window_to = lib.logsource.timestamp(line)
+        if window_to is not None:
+            break
+    if window_from is not None and window_to is not None:
+        # Ordered rather than taken as they stand: a file can hold lines written
+        # with a UTC offset next to lines written without one - a container
+        # entrypoint and the server it starts do exactly that - and the first
+        # line is then not necessarily the earlier one.
+        window_from, window_to = sorted((window_from, window_to))
+        span = int((window_to - window_from).total_seconds())
+        covered = (
+            f', covering {window_from:%Y-%m-%d %H:%M}'
+            f'..{window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)})'
+        )
+    line_cnt = len(result['lines'])
+    lines_read = (
+        f'{lib.human.number2human(line_cnt)} {lib.txt.pluralize("line", line_cnt)}'
+    )
+    if result['truncated']:
+        lines_read = f'the most recent {lines_read}'
+    sources = source_label
+    if source_size is not None:
+        sources += f' (size: {lib.human.bytes2human(source_size)})'
+    for predecessor in result['rotated']:
+        sources += f' + `{predecessor}`'
+    source_fact = f'Read {lines_read} from {sources}{covered}'
+
+    # The named events, whose state comes from the situation itself. Quiet ones
+    # stay out of the line, which keeps a healthy host down to a single sentence.
+    named = []
+    for event in EVENTS:
+        hits = found[event['key']]
+        if not hits:
+            continue
+        state = lib.base.get_worst(state, event['state'])
+        named.append(
+            f'{len(hits)} '
+            f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
+            f'{lib.base.state2str(event["state"], prefix=" ")}'
+        )
+        recommendations.append(event['recommendation'])
+    if named:
+        facts.append('Found ' + ', '.join(named))
+
+    # The counted events. Their state comes from how many of them arrived within
+    # the rate window, not from the fact that they arrived at all.
+    rate_counts = {}
+    rate_facts = []
+    for event in RATE_EVENTS:
+        hits = found[event['key']]
+        # Counted per peer where the lines name one, because that is what makes
+        # the number mean something: a handful of failures from one address
+        # within the window is somebody working on this host, the same number
+        # spread over as many addresses is the open network going past. The
+        # state follows the busiest single source, which is the quantity an
+        # intrusion prevention system counts before it blocks one, so the
+        # thresholds compare against the same thing. `--no-per-source` goes back
+        # to judging everything that arrived.
+        window = lib.logsource.count_within(
+            hits,
+            rate_since,
+            # A counter that is not about who caused the lines judges the
+            # total: a backend that failed and a server that ran out of slots
+            # are one situation however many peers were on the other end.
+            key=get_source
+            if args.PER_SOURCE and event.get('per_source', True)
+            else None,
+        )
+        rate_counts[event['key']] = window['count']
+        if not hits:
+            continue
+        rate_state = lib.base.get_state(
+            window['count'],
+            getattr(args, event['warning']) or None,
+            getattr(args, event['critical']) or None,
+        )
+        state = lib.base.get_worst(state, rate_state)
+        fact = f'{window["count"]} {lib.txt.pluralize(event["label"], window["count"])}'
+        if window['busiest']:
+            fact += f' from {window["busiest"]}'
+        fact += (
+            f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
+            f'{lib.base.state2str(rate_state, prefix=" ")}'
+        )
+        extras = []
+        if window['total'] != window['count']:
+            extras.append(
+                f'{window["total"]} in total from {window["sources"]}'
+                f' {lib.txt.pluralize("address", window["sources"], "es")}'
+            )
+        if len(hits) != window['total']:
+            extras.append(f'{len(hits)} in the window read')
+        if extras:
+            fact += ' (' + ', '.join(extras) + ')'
+        if window['undated']:
+            fact += (
+                f', {window["undated"]} of them without a timestamp and therefore'
+                f' not counted'
+            )
+        rate_facts.append(fact)
+        if rate_state != STATE_OK:
+            recommendations.append(event['recommendation'])
+    facts.extend(rate_facts)
+
+    if not named and not rate_facts:
+        # Naming every quiet counter one by one would bury the one sentence a
+        # healthy host is supposed to be.
+        facts.append('No failed logins and nothing else worth reporting found')
+
+    for item in LIFECYCLE:
+        lines = found[item['key']]
+        if lines:
+            facts.append(
+                f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
+                f' {item["verb"]} (last: {lines[-1]})'
+            )
+        else:
+            facts.append(f'No {lib.txt.pluralize(item["label"], 0)} {item["verb"]}')
+
+    # A `LogLevel` below `INFO` keeps sshd from writing what this check counts,
+    # so a quiet report would say nothing about the host. It goes first, ahead of
+    # the verdict, because it decides what the verdict is worth. It raises no
+    # state of its own: turning the level down is a decision somebody took, and
+    # the check is not the place to argue with it - it only says what follows
+    # from it.
+    log_level = get_log_level(args.CONFIG_ROOT)
+    if log_level in LOG_LEVELS and LOG_LEVELS.index(log_level) < LOG_LEVELS.index(
+        MINIMUM_LOG_LEVEL
+    ):
+        facts.insert(
+            0,
+            f'sshd logs at `LogLevel {log_level}`, below `{MINIMUM_LOG_LEVEL}`, so'
+            f' it writes neither failed nor accepted logins and everything below'
+            f' counts what little is left',
+        )
+        recommendations.append(
+            f'Set `LogLevel {MINIMUM_LOG_LEVEL}` in the sshd configuration, which'
+            f' is its default, or this check has next to nothing to read'
+        )
+
+    # Where the lines came from goes last: an administrator reads the summary
+    # left to right and wants the verdict first, not the provenance of it.
+    facts.append(source_fact)
+
+    sections.append('. '.join(facts) + '.')
+
+    for event in EVENTS:
+        lines = found[event['key']]
+        if lines:
+            label = lib.txt.pluralize(event['label'], 2, event.get('suffix', 's'))
+            sections.append(
+                f'{label.capitalize()}:\n'
+                + '\n'.join(f'* {line}' for line in shorten(lines))
+            )
+
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
+        )
+
+    msg = '\n\n'.join(sections)
+
+    perfdata = ''
+    if source_size is not None:
+        perfdata += lib.base.get_perfdata(
+            'sshd_logfile_size',
+            source_size,
+            uom='B',
+            _min=0,
+        )
+    # The problem counters alert from their first hit on, hence a threshold of
+    # `'0'` ("outside 0..0") rather than `1`.
+    for event in EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            len(found[event['key']]),
+            uom=None,
+            warn='0' if event['state'] == STATE_WARN else None,
+            crit='0' if event['state'] == STATE_CRIT else None,
+            _min=0,
+        )
+    # The rate counters trend what the state follows: how many the busiest single
+    # source produced within the window, not how many the log holds.
+    for event in RATE_EVENTS:
+        perfdata += lib.base.get_perfdata(
+            event['perfdata'],
+            rate_counts[event['key']],
+            uom=None,
+            warn=getattr(args, event['warning']) or None,
+            crit=getattr(args, event['critical']) or None,
+            _min=0,
+        )
+    for item in LIFECYCLE:
+        perfdata += lib.base.get_perfdata(
+            item['perfdata'], len(found[item['key']]), uom=None, _min=0
+        )
+
+    # Ask the monitoring server about the acknowledgement. Where the service is
+    # acknowledged, persist the lines currently being reported so an unchanged
+    # log does not raise them again on the following runs.
+    if args.ICINGA_CALLBACK and state != STATE_OK:
+        acknowledged, note = lib.base.coe(
+            lib.logmatch.service_acknowledged(
+                args.ICINGA_URL,
+                args.ICINGA_USERNAME,
+                args.ICINGA_PASSWORD,
+                args.ICINGA_SERVICE_NAME,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+        if acknowledged:
+            # Only the lines a named event flagged. The counted events stay out:
+            # what alerts there is the arrival rate and not one line, so
+            # silencing the lines already read would not keep the next run from
+            # alerting on the ones arriving meanwhile.
+            reported = {}
+            for event in EVENTS:
+                reported.update(dict.fromkeys(found[event['key']]))
+            lib.base.coe(
+                lib.logmatch.acknowledge(
+                    ack_conn,
+                    [
+                        {'key': lib.logmatch.key(line), 'line': line}
+                        for line in reported
+                    ],
+                )
+            )
+            state = STATE_OK
+        if note:
+            msg += f'\n\n{note}'
+    if suppressed_cnt:
+        msg += (
+            f'\n\n{suppressed_cnt} acknowledged'
+            f' {lib.txt.pluralize("line", suppressed_cnt)} suppressed.'
+        )
+    if ack_conn is not None:
+        lib.db_sqlite.close(ack_conn)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

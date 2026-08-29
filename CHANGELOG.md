@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, the kernel's pressure stall information, the Apache httpd and PHP-FPM error logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags.
+**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, the kernel's pressure stall information, the Apache httpd, PHP-FPM and OpenSSH server logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags.
 
 ### Breaking Changes
 
@@ -60,6 +60,7 @@ Monitoring Plugins:
 * psi-io: work waiting for storage ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * psi-irq: CPUs busy servicing interrupts ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * psi-memory: work waiting for memory ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
+* sshd-logfile: failed and refused logins, revoked keys and a broken start in the log of the OpenSSH server
 
 Icinga Director:
 
