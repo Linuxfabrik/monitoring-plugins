@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082101'
+__version__ = '2026082901'
 
 DESCRIPTION = """Reports the packages that APT holds back at their installed version.
 A hold set to work around a broken update and then forgotten keeps a host on an
@@ -210,11 +210,6 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
-
-
-def rooted(root, path):
-    """Return `path` below the configuration root, for both absolute and relative paths."""
-    return os.path.join(root, path.lstrip('/'))
 
 
 def get_holds(args):
@@ -522,11 +517,11 @@ def get_pins(root):
     """
     entries = []
     refused = []
-    files = [rooted(root, APT_PREFERENCES)]
+    files = [lib.disk.under_root(root, APT_PREFERENCES)]
     files += [
         filename
         for filename in lib.disk.glob(
-            os.path.join(rooted(root, APT_PREFERENCES_DIR), '*')
+            os.path.join(lib.disk.under_root(root, APT_PREFERENCES_DIR), '*')
         )
         if apt_reads(filename)
     ]

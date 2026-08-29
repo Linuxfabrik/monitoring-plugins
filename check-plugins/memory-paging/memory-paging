@@ -22,7 +22,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Reports how much a host pages, as per-second rates measured between two runs: the
 traffic it moves to and from swap, and how often a process had to wait for the disk
@@ -202,20 +202,13 @@ def parse_args():
     return args
 
 
-def rooted(root, path):
-    """Return `path` below the configuration root, for both absolute and relative
-    paths.
-    """
-    return os.path.join(root, path.lstrip('/'))
-
-
 def read_vmstat(root):
     """Return the counters of /proc/vmstat as a name to value mapping.
 
     Files below /proc report a size of 0, so their presence has to be probed with
     `allow_empty=True`.
     """
-    path = rooted(root, VMSTAT_FILE)
+    path = lib.disk.under_root(root, VMSTAT_FILE)
     if not lib.disk.file_exists(path, allow_empty=True):
         return {}
     success, content = lib.disk.read_file(path)
@@ -241,7 +234,7 @@ def read_swaps(root):
     that line and nothing else. A device whose name carries a space is printed with
     the space escaped, so the name stays a single field.
     """
-    path = rooted(root, SWAPS_FILE)
+    path = lib.disk.under_root(root, SWAPS_FILE)
     if not lib.disk.file_exists(path, allow_empty=True):
         return []
     success, content = lib.disk.read_file(path)

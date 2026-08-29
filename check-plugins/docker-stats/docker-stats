@@ -17,6 +17,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.container
 import lib.db_sqlite
 import lib.lftest
 import lib.shell
@@ -24,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082901'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -171,25 +172,6 @@ def parse_args():
     return args
 
 
-def get_engine_error(stderr, stdout=''):
-    """Return `(message, state)` for a command that could not reach the container
-    engine. A refused permission is a problem of how this check is deployed, not of
-    the engine: the engine answers other callers just fine, this one is only not
-    allowed to ask, so the check cannot say anything and reports UNKNOWN. Everything
-    else, a socket that is not there or an engine that does not answer, is the
-    outage this check exists to report.
-    """
-    text = f'{stderr}\n{stdout}'.strip()
-    if 'permission denied' in text.lower():
-        return (
-            'No permission to talk to the container engine, so nothing can be said'
-            ' about it. Run the check as root, or deploy the sudoers file that ships'
-            f' with the plugins.\n{text}',
-            STATE_UNKNOWN,
-        )
-    return (text, STATE_CRIT)
-
-
 def get_cpu_from_db(conn, container, threshold):
     """Return the number of rows where cpu_usage >= threshold for a container."""
     result = lib.base.coe(
@@ -205,23 +187,6 @@ def get_cpu_from_db(conn, container, threshold):
         )
     )
     return int(result['cnt'])
-
-
-# A swarm task container is named `<service>.<slot or node id>.<task id>`, and the
-# task id is 25 base36 characters (swarmkit identity.NewID). Only that suffix is cut
-# off, so a container an admin named `backup.daily` keeps the name they gave it, and
-# two such containers do not collapse into one row.
-TASK_ID_REGEX = re.compile(r'\.[0-9a-z]{25}$')
-
-
-def shorten(name):
-    """
-    >>> shorten('traefik_traefik.2.1idw12p2yqpxutlzkcwign4at')
-    traefik_traefik.2
-    >>> shorten('backup.daily')
-    backup.daily
-    """
-    return TASK_ID_REGEX.sub('', name)
 
 
 def keep_container(name, match_patterns, ignore_patterns):
@@ -294,7 +259,7 @@ def main():
         )
         if retc != 0:
             lib.db_sqlite.close(conn)
-            lib.base.oao(*get_engine_error(stderr, stdout))
+            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
         try:
             host_cpus = int(json.loads(stdout).get('NCPU') or 0)
         except Exception:
@@ -319,7 +284,7 @@ def main():
 
     if retc != 0:
         lib.db_sqlite.close(conn)
-        lib.base.oao(*get_engine_error(stderr, stdout))
+        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
 
     # init some vars
     msg = ''
@@ -357,7 +322,7 @@ def main():
         name = container.get('Name', '')
         # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
         if not args.FULL_NAME:
-            name = shorten(name)
+            name = lib.container.strip_task_id(name)
         # a container name may carry characters that have no place in a metric name
         label = re.sub(r'\W+', '_', name)
 

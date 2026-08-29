@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import os
 import sys
 
 import lib.args
@@ -22,7 +21,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks how full the netfilter connection tracking table is, and how often
 the kernel had to give up on a connection. Every host running a firewall, NAT or a
@@ -242,13 +241,6 @@ def parse_args():
     return args
 
 
-def rooted(root, path):
-    """Return `path` below the configuration root, for both absolute and relative
-    paths.
-    """
-    return os.path.join(root, path.lstrip('/'))
-
-
 def read_number(root, path):
     """Return the single integer a /proc/sys file holds, or None if the file is not
     there or does not hold a number.
@@ -256,7 +248,7 @@ def read_number(root, path):
     Files below /proc report a size of 0, so their presence has to be probed with
     `allow_empty=True`.
     """
-    full_path = rooted(root, path)
+    full_path = lib.disk.under_root(root, path)
     if not lib.disk.file_exists(full_path, allow_empty=True):
         return None
     success, content = lib.disk.read_file(full_path)
@@ -347,7 +339,7 @@ def main():
             f'The connection tracking limit reads {ct_max}, which cannot be right. '
             f'Check {MAX_FILE}.'
         )
-    stat_path = rooted(root, STAT_FILE)
+    stat_path = lib.disk.under_root(root, STAT_FILE)
     raw_stat = ''
     if lib.disk.file_exists(stat_path, allow_empty=True):
         success, raw_stat = lib.disk.read_file(stat_path)

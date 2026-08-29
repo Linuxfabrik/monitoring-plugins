@@ -18,6 +18,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.container
 import lib.disk
 import lib.lftest
 import lib.shell
@@ -25,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082903'
+__version__ = '2026082904'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -213,18 +214,6 @@ def load_fixture(test_args, suffix):
     return (stdout, stderr)
 
 
-def strip_daemon_error(message):
-    """Reduce a Docker daemon error to the sentence an admin can act on. The CLI wraps
-    every daemon answer in "Error response from daemon:" and the swarm control plane adds
-    a gRPC status of its own, so the readable part sits behind two prefixes:
-    `Error response from daemon: rpc error: code = Unknown desc = The swarm does not have
-    a leader. ...`
-    """
-    message = ' '.join(message.split())
-    message = message.replace('Error response from daemon: ', '', 1)
-    return re.sub(r'^rpc error: code = \S+ desc = ', '', message)
-
-
 def get_engine_error(stderr, stdout=''):
     """Return `(message, state)` for a command that could not reach the swarm. Every
     such failure is UNKNOWN: without an answer this check cannot say anything about the
@@ -232,7 +221,7 @@ def get_engine_error(stderr, stdout=''):
     report. A refused permission additionally names what to do about it, since that is a
     problem of how this check is deployed rather than one of the swarm.
     """
-    text = strip_daemon_error(f'{stderr}\n{stdout}')
+    text = lib.container.strip_daemon_error(f'{stderr}\n{stdout}')
     # `docker` on a host carrying podman-docker is Podman, which knows neither swarm nor
     # the flags this check passes and answers with its own usage text. Saying so beats
     # handing the admin "unknown flag: --format" from a command they never typed. Same
@@ -243,14 +232,7 @@ def get_engine_error(stderr, stdout=''):
             ' Podman does not support swarm mode.',
             STATE_UNKNOWN,
         )
-    if 'permission denied' in text.lower():
-        return (
-            'No permission to talk to the container engine, so nothing can be said'
-            ' about it. Run the check as root, or deploy the sudoers file that ships'
-            f' with the plugins.\n{text}',
-            STATE_UNKNOWN,
-        )
-    return (text, STATE_UNKNOWN)
+    return lib.container.get_engine_error(text, fallback_state=STATE_UNKNOWN)
 
 
 def get_services(test_args):

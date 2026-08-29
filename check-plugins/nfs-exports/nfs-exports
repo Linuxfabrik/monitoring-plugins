@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082702'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks that an NFS server really exports what it is configured to export, and that
 every path it exports is there.
@@ -215,7 +215,7 @@ def get_configured(root):
     configured = {}
     origins = {}
     read = []
-    for path in [rooted(root, EXPORTS), *list_exports_d(root)]:
+    for path in [lib.disk.under_root(root, EXPORTS), *list_exports_d(root)]:
         if not lib.disk.file_exists(path, allow_empty=True):
             continue
         read.append(path)
@@ -332,7 +332,7 @@ def list_exports_d(root):
     with a dot never does, and the directory is walked in version order. Taken from
     `export_d_read()` in nfs-utils 2.9.2.
     """
-    directory = rooted(root, EXPORTS_D)
+    directory = lib.disk.under_root(root, EXPORTS_D)
     if not lib.disk.dir_exists(directory):
         return []
     names = [
@@ -374,13 +374,6 @@ def parse_exports(content):
             clients.append(word.split('(', 1)[0] or '*')
         entries.append((path, clients))
     return entries
-
-
-def rooted(root, path):
-    """Return `path` below the configuration root, for both absolute and relative
-    paths.
-    """
-    return os.path.join(root, path.lstrip('/'))
 
 
 def source_of(path, origins):
@@ -459,7 +452,7 @@ def main():
     # fetch data
     root = args.CONFIG_ROOT
     configured, origins, read = get_configured(root)
-    served, has_etab = get_served(rooted(root, args.ETAB))
+    served, has_etab = get_served(lib.disk.under_root(root, args.ETAB))
     if not read and not has_etab:
         lib.base.cu(
             f'This host has neither {EXPORTS} nor an export table at {args.ETAB}. '
@@ -504,7 +497,7 @@ def main():
     for path in selected:
         if path not in served:
             continue
-        target = rooted(root, path)
+        target = lib.disk.under_root(root, path)
         jobs.append((path, lambda target=target: os.path.isdir(target)))
     answers = lib.task.run_each(jobs, args.TIMEOUT)
 

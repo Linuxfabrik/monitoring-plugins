@@ -12,11 +12,11 @@
 
 import argparse
 import json
-import re
 import sys
 
 import lib.args
 import lib.base
+import lib.container
 import lib.disk
 import lib.lftest
 import lib.shell
@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026082903'
 
 DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active, pending,
@@ -114,25 +114,6 @@ def parse_args():
     return args
 
 
-def get_engine_error(stderr, stdout=''):
-    """Return `(message, state)` for a command that could not reach the container
-    engine. A refused permission is a problem of how this check is deployed, not of
-    the engine: the engine answers other callers just fine, this one is only not
-    allowed to ask, so the check cannot say anything and reports UNKNOWN. Everything
-    else, a socket that is not there or an engine that does not answer, is the
-    outage this check exists to report.
-    """
-    text = f'{stderr}\n{stdout}'.strip()
-    if 'permission denied' in text.lower():
-        return (
-            'No permission to talk to the container engine, so nothing can be said'
-            ' about it. Run the check as root, or deploy the sudoers file that ships'
-            f' with the plugins.\n{text}',
-            STATE_UNKNOWN,
-        )
-    return (text, STATE_CRIT)
-
-
 def load_fixture(test_args, suffix):
     """Read the unit-test fixtures for one of the plugin's data sources and return
     `(stdout, stderr)`. The base paths are `args.TEST[0]` and `args.TEST[1]`; `suffix`
@@ -173,7 +154,7 @@ def get_swarm_info(test_args):
         # a fixture that carries error output stands in for a command that failed
         retc = 1 if stderr else 0
     if retc != 0:
-        lib.base.oao(*get_engine_error(stderr, stdout))
+        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
     try:
         info = json.loads(stdout)
     except (json.JSONDecodeError, ValueError):
@@ -187,18 +168,6 @@ def get_swarm_info(test_args):
             ' Podman does not support swarm mode.'
         )
     return swarm
-
-
-def strip_daemon_error(message):
-    """Reduce a Docker daemon error to the sentence an admin can act on. The CLI wraps
-    every daemon answer in "Error response from daemon:" and the swarm control plane adds
-    a gRPC status of its own, so the readable part sits behind two prefixes:
-    `Error response from daemon: rpc error: code = Unknown desc = The swarm does not have
-    a leader. ...`
-    """
-    message = ' '.join(message.split())
-    message = message.replace('Error response from daemon: ', '', 1)
-    return re.sub(r'^rpc error: code = \S+ desc = ', '', message)
 
 
 def get_nodes(test_args):
@@ -218,11 +187,11 @@ def get_nodes(test_args):
             lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
         )
         if retc != 0:
-            return ([], strip_daemon_error(stderr or stdout))
+            return ([], lib.container.strip_daemon_error(stderr or stdout))
     else:
         stdout, stderr = load_fixture(test_args, '-nodes')
         if stderr:
-            return ([], strip_daemon_error(stderr))
+            return ([], lib.container.strip_daemon_error(stderr))
         if stdout is None:
             return ([], '')
     nodes = []
@@ -255,7 +224,7 @@ def main():
         )
     local_state = swarm.get('LocalNodeState', '')
     is_manager = bool(swarm.get('ControlAvailable', False))
-    swarm_error = strip_daemon_error(swarm.get('Error', '') or '')
+    swarm_error = lib.container.strip_daemon_error(swarm.get('Error', '') or '')
 
     # node- and manager-level data is only available on a manager whose local
     # swarm state is active; a worker only knows about itself

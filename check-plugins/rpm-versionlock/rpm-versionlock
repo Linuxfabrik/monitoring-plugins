@@ -32,7 +32,7 @@ except ImportError:
     tomllib = None
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026082901'
 
 DESCRIPTION = """Reports the packages that the RPM package manager holds back at a
 fixed version. A version lock set to work around a broken update and then forgotten
@@ -253,11 +253,6 @@ def parse_args():
     return args
 
 
-def rooted(root, path):
-    """Return `path` below the configuration root, for both absolute and relative paths."""
-    return os.path.join(root, path.lstrip('/'))
-
-
 def unique_paths(paths):
     """Drop the paths that lead to a file already in the list.
 
@@ -318,7 +313,9 @@ def plugins_enabled(root):
     configuration takes it with it and the entries in a lock list are not applied. It
     says nothing about dnf 5, which locks without a plugin - see get_dnf5_locks().
     """
-    for config in unique_paths([rooted(root, config) for config in MAIN_CONFIGS]):
+    for config in unique_paths(
+        [lib.disk.under_root(root, config) for config in MAIN_CONFIGS]
+    ):
         content = read_config_file(config)
         if not content:
             continue
@@ -355,9 +352,12 @@ def get_main_dirs(root, main_configs, option, defaults):
             continue
         if value:
             # a list option, so separated by commas or whitespace
-            return [rooted(root, item) for item in value.replace(',', ' ').split()]
+            return [
+                lib.disk.under_root(root, item)
+                for item in value.replace(',', ' ').split()
+            ]
         break
-    return [rooted(root, item) for item in defaults]
+    return [lib.disk.under_root(root, item) for item in defaults]
 
 
 def missing_locklist(path):
@@ -449,7 +449,7 @@ def get_locklists(root, main_configs):
     locklist = parser.get('main', 'locklist', fallback='')
     if not locklist:
         return [], [f'{", ".join(configs)}: it names no lock list']
-    path = rooted(root, locklist)
+    path = lib.disk.under_root(root, locklist)
     reason = missing_locklist(path)
     if reason:
         return [], [f'{locklist_origin}: {reason}']
@@ -651,7 +651,7 @@ def get_dnf5_locks(root):
     `unreadable` names the single entries it cannot use, and `unread` the file this
     check itself cannot read.
     """
-    lockfile = rooted(root, DNF5_LOCKFILE)
+    lockfile = lib.disk.under_root(root, DNF5_LOCKFILE)
     content = read_config_file(lockfile)
     if tomllib is None:
         if not content:
@@ -885,9 +885,11 @@ def main():
     # fetch data
     root = args.CONFIG_ROOT
     if not (
-        lib.disk.dir_exists(rooted(root, 'etc/dnf'))
-        or lib.disk.dir_exists(rooted(root, 'etc/yum.repos.d'))
-        or lib.disk.file_exists(rooted(root, 'etc/yum.conf'), allow_empty=True)
+        lib.disk.dir_exists(lib.disk.under_root(root, 'etc/dnf'))
+        or lib.disk.dir_exists(lib.disk.under_root(root, 'etc/yum.repos.d'))
+        or lib.disk.file_exists(
+            lib.disk.under_root(root, 'etc/yum.conf'), allow_empty=True
+        )
     ):
         lib.base.cu(
             'No RPM package manager configuration found. '
@@ -896,7 +898,7 @@ def main():
 
     # Where the plugin configuration and the repository files live is itself configurable,
     # and both options are read out of the main configuration, so it is resolved once.
-    main_configs = [rooted(root, config) for config in MAIN_CONFIGS]
+    main_configs = [lib.disk.under_root(root, config) for config in MAIN_CONFIGS]
 
     entries = []
     # Configurations the package manager gives up on, ones it reads without acting on

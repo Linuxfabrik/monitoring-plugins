@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks that every filesystem listed in /etc/fstab is really mounted.
 A filesystem that never came up is invisible to disk usage, inode and read-only checks,
@@ -148,13 +148,6 @@ def parse_args():
     return args
 
 
-def rooted(root, path):
-    """Return `path` below the configuration root, for both absolute and relative
-    paths.
-    """
-    return os.path.join(root, path.lstrip('/'))
-
-
 def unescape(field):
     """Turn the octal escape sequences of an fstab or mountinfo field back into the
     characters they stand for, so that a mount point containing a space is compared and
@@ -187,7 +180,7 @@ def resolve(root, mount_point):
     leaves the configuration root is returned unchanged, because below a fixture tree it
     would otherwise be resolved against the real filesystem.
     """
-    resolved = os.path.realpath(rooted(root, mount_point))
+    resolved = os.path.realpath(lib.disk.under_root(root, mount_point))
     if root in ('', '/'):
         return normalize(resolved)
     prefix = os.path.realpath(root)
@@ -278,14 +271,14 @@ def main():
 
     # fetch data
     root = args.CONFIG_ROOT
-    mountinfo_path = rooted(root, MOUNTINFO)
+    mountinfo_path = lib.disk.under_root(root, MOUNTINFO)
     if not lib.disk.file_exists(mountinfo_path, allow_empty=True):
         lib.base.cu(
             f'This host does not provide {MOUNTINFO}. '
             'This check belongs on a Linux host.'
         )
     mountinfo = lib.base.coe(lib.disk.read_file(mountinfo_path))
-    fstab_path = rooted(root, FSTAB)
+    fstab_path = lib.disk.under_root(root, FSTAB)
     has_fstab = lib.disk.file_exists(fstab_path, allow_empty=True)
     fstab = lib.base.coe(lib.disk.read_file(fstab_path)) if has_fstab else ''
 

@@ -18,6 +18,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.container
 import lib.human
 import lib.lftest
 import lib.shell
@@ -25,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026082901'
 
 DESCRIPTION = """Displays system-wide Podman information including container counts, image count,
 storage driver, logging driver, number of search registries, runtime version, available
@@ -106,25 +107,6 @@ def parse_args():
     return args
 
 
-def get_engine_error(stderr, stdout=''):
-    """Return `(message, state)` for a command that could not reach the container
-    engine. A refused permission is a problem of how this check is deployed, not of
-    the engine: the engine answers other callers just fine, this one is only not
-    allowed to ask, so the check cannot say anything and reports UNKNOWN. Everything
-    else, a socket that is not there or an engine that does not answer, is the
-    outage this check exists to report.
-    """
-    text = f'{stderr}\n{stdout}'.strip()
-    if 'permission denied' in text.lower():
-        return (
-            'No permission to talk to the container engine, so nothing can be said'
-            ' about it. Run the check as root, or deploy the sudoers file that ships'
-            f' with the plugins.\n{text}',
-            STATE_UNKNOWN,
-        )
-    return (text, STATE_CRIT)
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -157,7 +139,7 @@ def main():
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     if retc != 0:
-        lib.base.oao(*get_engine_error(stderr, stdout))
+        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
 
     try:
         result = json.loads(stdout)

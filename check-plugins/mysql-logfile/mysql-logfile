@@ -32,7 +32,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026082903'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -564,37 +564,6 @@ def dedup_key(line):
     )
 
 
-def describe_source(source, size=None):
-    """Name one source the way the summary reports it, with what was read along.
-
-    A file's size comes with the verdict the cutoff below reaches on it, because
-    that is the one number in the fact the admin has to act on.
-    """
-    described = f'`{source["label"]}`'
-    if size is not None:
-        threshold_human = lib.human.bytes2human(LOGFILE_BIG_THRESHOLD)
-        comparison = '>' if size >= LOGFILE_BIG_THRESHOLD else '<'
-        described += (
-            f' (size: {lib.human.bytes2human(size)} {comparison} {threshold_human})'
-        )
-    for predecessor in source['rotated']:
-        described += f' + `{predecessor}`'
-        # Its size is looked up here rather than passed in, because a rotated
-        # file is not a source the caller named: the reader found it. It stays
-        # out of the size the performance data trends, which is the live file.
-        predecessor_stat = lib.disk.stat(predecessor)
-        if predecessor_stat is not None:
-            described += f' (size: {lib.human.bytes2human(predecessor_stat.st_size)})'
-    return described
-
-
-def shorten(items, head=5, tail=5):
-    """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
-    if len(items) > head + tail:
-        return [*items[:head], '...', *items[-tail:]]
-    return items
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -960,7 +929,10 @@ def main():
     # in a list. The paths are not abbreviated there: a bullet has the room, and
     # that is where an administrator copies them from.
     described = [
-        describe_source(item, sizes.get(item['label'])) for item in read_sources
+        lib.logsource.describe(
+            item, sizes.get(item['label']), size_threshold=LOGFILE_BIG_THRESHOLD
+        )
+        for item in read_sources
     ]
     sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
 
@@ -1180,15 +1152,18 @@ def main():
     # each, and listing them again is a list of things that went right.
     if last_errs:
         sections.append(
-            'Error lines:\n' + '\n'.join(f'* {line}' for line in shorten(last_errs))
+            'Error lines:\n'
+            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_errs))
         )
     if last_warns:
         sections.append(
-            'Warning lines:\n' + '\n'.join(f'* {line}' for line in shorten(last_warns))
+            'Warning lines:\n'
+            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_warns))
         )
     if last_denied:
         sections.append(
-            'Denied logins:\n' + '\n'.join(f'* {line}' for line in shorten(last_denied))
+            'Denied logins:\n'
+            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_denied))
         )
     if last_aborted and aborted_state != STATE_OK:
         # Only once the rate says something: a handful of them is what every
@@ -1196,7 +1171,7 @@ def main():
         # listing ten of those under a green check is noise.
         sections.append(
             'Aborted connections:\n'
-            + '\n'.join(f'* {line}' for line in shorten(last_aborted))
+            + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(last_aborted))
         )
 
     # What was read, last of the sections: the verdict and the lines behind it
