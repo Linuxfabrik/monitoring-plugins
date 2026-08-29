@@ -63,10 +63,12 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --brief               Hide table rows for pairs that are mirroring and show
-                        only those that are not. Perfdata and alerting are
-                        unaffected: every pair still emits perfdata and still
-                        drives the overall check state. Default: False
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on. Worth setting on a
+                        cluster with many replication pairs.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

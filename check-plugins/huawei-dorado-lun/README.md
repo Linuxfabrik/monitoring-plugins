@@ -64,10 +64,12 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --brief               Hide table rows for LUNs that are ok and show only
-                        those in WARN/CRIT state. Perfdata and alerting are
-                        unaffected. Worth setting on an array with many LUNs.
-                        Default: False
+  --brief               Hide the rows that are within the thresholds and show
+                        only those in a WARN or CRIT state. Perfdata and
+                        alerting are unaffected: every item still emits
+                        performance data and still drives the overall check
+                        state, so this is safe to leave on. Worth setting on
+                        an array with many LUNs.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
@@ -90,7 +92,7 @@ options:
                         affected. Default: warn
   --include-unmapped    Also check LUNs that are not mapped to any host. Those
                         are not serving anything, so they are left out by
-                        default. Default: False
+                        default.
   --ignore IGNORE       Skip LUNs. Any item matching this Python regex will be
                         ignored. Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match. The

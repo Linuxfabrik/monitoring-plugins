@@ -68,7 +68,7 @@ options:
                         alerting are unaffected: every item still emits
                         performance data and still drives the overall check
                         state, so this is safe to leave on. Worth setting on
-                        an array with many optical modules. Default: False
+                        an array with many optical modules.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15

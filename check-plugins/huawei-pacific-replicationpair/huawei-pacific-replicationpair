@@ -25,13 +25,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the remote replication pairs of a Huawei OceanStor Pacific storage system
 via the REST API (/dsware/service/REPLICATIONPAIR endpoint). Alerts when a pair is faulty or has
 stopped mirroring, and optionally when its last synchronization is older than the given thresholds.
 Supports extended reporting via --lengthy and shorter output via --brief."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_CRIT = ''
 DEFAULT_INSECURE = True
@@ -84,13 +85,11 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help='Hide table rows for pairs that are mirroring and show only those that are '
-        'not. Perfdata and alerting are unaffected: every pair still emits perfdata and '
-        'still drives the overall check state. '
-        'Default: %(default)s',
+        help=lib.args.help('--brief')
+        + ' Worth setting on a cluster with many replication pairs.',
         dest='BRIEF',
         action='store_true',
-        default=False,
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(

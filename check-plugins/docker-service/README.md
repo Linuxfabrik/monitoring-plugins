@@ -72,7 +72,7 @@ options:
                         a two-replica service running on the same node while
                         another node sits idle. Off by default, because it
                         inspects the task placement of every checked service
-                        and adds one call per service. Default: False
+                        and adds one call per service.
   -c, --critical CRIT   CRIT threshold for the percentage of expected tasks
                         that are running, compared as a Nagios range. Default:
                         50: (crit when fewer than 50% of the expected tasks

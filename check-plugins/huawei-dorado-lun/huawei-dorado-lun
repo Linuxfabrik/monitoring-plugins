@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
@@ -36,6 +36,7 @@ via --performance."""
 # definition, so its usage is always 100% and says nothing about how full it is.
 ALLOCTYPE_THIN = 1
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
@@ -97,12 +98,10 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help='Hide table rows for LUNs that are ok and show only those in WARN/CRIT '
-        'state. Perfdata and alerting are unaffected. Worth setting on an array with '
-        'many LUNs. Default: %(default)s',
+        help=lib.args.help('--brief') + ' Worth setting on an array with many LUNs.',
         dest='BRIEF',
         action='store_true',
-        default=False,
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
@@ -148,7 +147,7 @@ def parse_args():
     parser.add_argument(
         '--include-unmapped',
         help='Also check LUNs that are not mapped to any host. Those are not serving '
-        'anything, so they are left out by default. Default: %(default)s',
+        'anything, so they are left out by default.',
         dest='INCLUDE_UNMAPPED',
         action='store_true',
         default=False,

@@ -23,13 +23,14 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the service processes of every node of a Huawei OceanStor Pacific storage
 system via the REST API (/cluster_service/service_processes endpoint). Alerts when a process is not
 running, and when a node of the cluster does not report its processes at all. Supports extended
 reporting via --lengthy and shorter output via --brief."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
@@ -72,13 +73,10 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help='Hide table rows for processes that are running and show only those that '
-        'are not. Perfdata and alerting are unaffected: every process still emits '
-        'perfdata and still drives the overall check state. '
-        'Default: %(default)s',
+        help=lib.args.help('--brief') + ' Worth setting on a cluster with many nodes.',
         dest='BRIEF',
         action='store_true',
-        default=False,
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(

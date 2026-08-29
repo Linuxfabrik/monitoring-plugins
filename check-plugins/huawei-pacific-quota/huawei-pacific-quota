@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Pacific storage system are via the
 REST API (/file_service/fs_quota endpoint). Walks all file systems and their dtrees and reports the
@@ -32,6 +32,7 @@ used space of every quota relative to its configured hard quota. Quotas without 
 skipped, because there is no limit to compare against. Alerts when the used space in percent reaches
 the warning or critical threshold. Supports extended reporting via --lengthy."""
 
+DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes
 DEFAULT_CRIT = '90'
 DEFAULT_INSECURE = True
@@ -89,13 +90,10 @@ def parse_args():
 
     parser.add_argument(
         '--brief',
-        help='Hide table rows for quotas within the thresholds and show only those in '
-        'WARN/CRIT state. Perfdata and alerting are unaffected: all quotas still emit '
-        'perfdata and still drive the overall check state. '
-        'Default: %(default)s',
+        help=lib.args.help('--brief') + ' Worth setting on a cluster with many quotas.',
         dest='BRIEF',
         action='store_true',
-        default=False,
+        default=DEFAULT_BRIEF,
     )
 
     parser.add_argument(
