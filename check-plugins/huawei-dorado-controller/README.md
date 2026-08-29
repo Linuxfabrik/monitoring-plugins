@@ -39,16 +39,16 @@ usage: huawei-dorado-controller [-h] [-V] [--always-ok]
                                 [--cache-expire CACHE_EXPIRE] [-c CRIT]
                                 [--critical-temperature CRIT_TEMPERATURE]
                                 [--device-id DEVICE_ID] [--ignore IGNORE]
-                                [--insecure] [--lengthy] [--no-insecure]
-                                [--match MATCH]
+                                [--insecure] [--lengthy] [--match MATCH]
+                                [--no-insecure]
                                 [--no-match-severity {ok,warn,crit,unknown}]
-                                [--no-perfdata] [--no-proxy] [--performance]
+                                [--no-perfdata] [--no-proxy]
                                 [--password PASSWORD]
                                 [--password-file PASSWORD_FILE]
-                                [--proxy PROXY] [--scope SCOPE]
-                                [--timeout TIMEOUT] -u URL --username USERNAME
-                                [-w WARN]
-                                [--warning-temperature WARN_TEMPERATURE] [-v]
+                                [--performance] [--proxy PROXY]
+                                [--scope SCOPE] [--timeout TIMEOUT] -u URL
+                                --username USERNAME [-v] [-w WARN]
+                                [--warning-temperature WARN_TEMPERATURE]
 
 Checks the health and running status of all controllers on a Huawei OceanStor
 Dorado storage system via the REST API (/controller endpoint). Alerts when any
@@ -87,11 +87,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to controllers. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -104,6 +99,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `UUID`, `LOCATION`, so prefix with
                         `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -113,9 +113,6 @@ options:
                         dropped.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
-  --performance         Additionally report the I/O counters of every
-                        controller. Costs one API request per object, so a
-                        large appliance may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
@@ -125,6 +122,9 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --performance         Additionally report the I/O counters of every
+                        controller. Costs one API request per object, so a
+                        large appliance may need a higher --timeout.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,
@@ -139,6 +139,14 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
   -w, --warning WARN    WARN threshold for CPU and memory usage, as a Nagios
                         range in percent. Off by default, because a controller
                         under load is doing its job; set it once you know what
@@ -148,14 +156,6 @@ options:
                         because a healthy operating temperature depends on the
                         controller model and on where the array stands.
                         Example: `--warning-temperature=45`
-  -v, --verbose         Makes this plugin verbose during the operation. Useful
-                        for debugging and seeing what is going on under the
-                        hood. Appends what every API request returned, so the
-                        appliance's own answers can be read while working out
-                        how it reports something. Session tokens are redacted.
-                        The output is as long as those answers are, so this is
-                        a debugging aid rather than something to leave
-                        switched on.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-controller/

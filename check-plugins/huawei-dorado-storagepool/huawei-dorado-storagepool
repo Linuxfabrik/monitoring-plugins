@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
@@ -215,16 +215,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--performance',
-        help='Additionally report the I/O counters of every storage pool. '
-        'Costs one API request per object, so a large appliance may need a '
-        'higher --timeout.',
-        dest='PERFORMANCE',
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
@@ -234,6 +224,16 @@ def parse_args():
         '--password-file',
         help=lib.args.help('--password-file'),
         dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--performance',
+        help='Additionally report the I/O counters of every storage pool. '
+        'Costs one API request per object, so a large appliance may need a '
+        'higher --timeout.',
+        dest='PERFORMANCE',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -281,6 +281,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + " Appends what every API request returned, so the appliance's own answers "
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for the used capacity of a pool, as a Nagios range in '
@@ -299,19 +312,6 @@ def parse_args():
         'Example: `--warning-overprovisioning=200`',
         dest='WARN_OVERPROVISIONING',
         default=DEFAULT_WARN_OVERPROVISIONING,
-    )
-
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        help=lib.args.help('--verbose')
-        + " Appends what every API request returned, so the appliance's own answers "
-        'can be read while working out how it reports something. Session tokens are '
-        'redacted. The output is as long as those answers are, so this is a debugging '
-        'aid rather than something to leave switched on.',
-        dest='VERBOSE',
-        action='store_true',
-        default=False,
     )
 
     args, _ = parser.parse_known_args()

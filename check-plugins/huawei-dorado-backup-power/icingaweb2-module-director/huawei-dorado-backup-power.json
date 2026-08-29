@@ -27,12 +27,12 @@
                 "--lengthy": {
                     "set_if": "$huawei_dorado_backup_power_lengthy$"
                 },
-                "--no-insecure": {
-                    "set_if": "$huawei_dorado_backup_power_no_insecure$"
-                },
                 "--match": {
                     "value": "$huawei_dorado_backup_power_match$",
                     "repeat_key": true
+                },
+                "--no-insecure": {
+                    "set_if": "$huawei_dorado_backup_power_no_insecure$"
                 },
                 "--no-match-severity": {
                     "value": "$huawei_dorado_backup_power_no_match_severity$"
@@ -64,14 +64,14 @@
                 "--username": {
                     "value": "$huawei_dorado_backup_power_username$"
                 },
+                "--verbose": {
+                    "set_if": "$huawei_dorado_backup_power_verbose$"
+                },
                 "--warning": {
                     "value": "$huawei_dorado_backup_power_warning$"
                 },
                 "--warning-voltage": {
                     "value": "$huawei_dorado_backup_power_warning_voltage$"
-                },
-                "--verbose": {
-                    "set_if": "$huawei_dorado_backup_power_verbose$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-dorado-backup-power",
@@ -259,9 +259,9 @@
                 "huawei_dorado_backup_power_no_proxy": false,
                 "huawei_dorado_backup_power_scope": "0",
                 "huawei_dorado_backup_power_timeout": 3,
+                "huawei_dorado_backup_power_verbose": false,
                 "huawei_dorado_backup_power_warning": "180:",
-                "huawei_dorado_backup_power_warning_voltage": "",
-                "huawei_dorado_backup_power_verbose": false
+                "huawei_dorado_backup_power_warning_voltage": ""
             },
             "volatile": null,
             "zone": null,
@@ -385,15 +385,6 @@
             "uuid": "2429a602-52f9-47bd-b984-817b39edf55f"
         },
         "9": {
-            "varname": "huawei_dorado_backup_power_no_insecure",
-            "caption": "Huawei Dorado Backup Power: No Insecure?",
-            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "fd473963-3dd7-4ea5-adfe-4c128689a321"
-        },
-        "10": {
             "varname": "huawei_dorado_backup_power_match",
             "caption": "Huawei Dorado Backup Power: Match",
             "description": "Limit to backup power modules. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `LOCATION`, so prefix with `.*` to match anywhere.",
@@ -403,6 +394,15 @@
                 "visibility": "visible"
             },
             "uuid": "a3dba72f-84d7-4101-a45c-d8b9ec082fcd"
+        },
+        "10": {
+            "varname": "huawei_dorado_backup_power_no_insecure",
+            "caption": "Huawei Dorado Backup Power: No Insecure?",
+            "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "fd473963-3dd7-4ea5-adfe-4c128689a321"
         },
         "11": {
             "varname": "huawei_dorado_backup_power_no_match_severity",
@@ -513,6 +513,15 @@
             "uuid": "de3960a1-bab0-4427-8766-bdd44dffaa45"
         },
         "21": {
+            "varname": "huawei_dorado_backup_power_verbose",
+            "caption": "Huawei Dorado Backup Power: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "8ca3c92d-ad63-4934-bcea-76b931c1eeed"
+        },
+        "22": {
             "varname": "huawei_dorado_backup_power_warning",
             "caption": "Huawei Dorado Backup Power: Warning",
             "description": "WARN threshold for the remaining life of a backup power module, as a Nagios range in days.",
@@ -523,7 +532,7 @@
             },
             "uuid": "c58d3af0-2982-4fee-9df0-33907488be66"
         },
-        "22": {
+        "23": {
             "varname": "huawei_dorado_backup_power_warning_voltage",
             "caption": "Huawei Dorado Backup Power: Warning Voltage",
             "description": "WARN threshold in volts. Supports Nagios ranges. Off by default, because the healthy range depends on the module and on how many cells it has; read the label or watch the graph first. Example: `--warning-voltage=15:17`",
@@ -533,15 +542,6 @@
                 "visibility": "visible"
             },
             "uuid": "b2e9bfa9-f130-4477-9e9f-ec6bc6cf7d1f"
-        },
-        "23": {
-            "varname": "huawei_dorado_backup_power_verbose",
-            "caption": "Huawei Dorado Backup Power: Verbose?",
-            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "8ca3c92d-ad63-4934-bcea-76b931c1eeed"
         }
     }
 }

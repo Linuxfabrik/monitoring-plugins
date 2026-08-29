@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Checks the remote replication pairs of a Huawei OceanStor Pacific storage system
 via the REST API (/dsware/service/REPLICATIONPAIR endpoint). Alerts when a pair is faulty or has
@@ -244,16 +244,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w',
-        '--warning',
-        help='WARN threshold for how long a pair has been without a complete copy at the '
-        'far end, as a Nagios range in seconds. Off by default, see --critical. '
-        'Example: `--warning=86400` for one day',
-        dest='WARN',
-        default=DEFAULT_WARN,
-    )
-
-    parser.add_argument(
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
@@ -264,6 +254,16 @@ def parse_args():
         dest='VERBOSE',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for how long a pair has been without a complete copy at the '
+        'far end, as a Nagios range in seconds. Off by default, see --critical. '
+        'Example: `--warning=86400` for one day',
+        dest='WARN',
+        default=DEFAULT_WARN,
     )
 
     args, _ = parser.parse_known_args()

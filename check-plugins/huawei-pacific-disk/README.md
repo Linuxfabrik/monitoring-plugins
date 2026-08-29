@@ -39,12 +39,12 @@ Checks every disk of a Huawei OceanStor Pacific storage system via the REST API 
 usage: huawei-pacific-disk [-h] [-V] [--always-ok] [--brief]
                            [--cache-expire CACHE_EXPIRE] [-c CRIT]
                            [--ignore IGNORE] [--insecure] [--lengthy]
-                           [--no-insecure] [--match MATCH]
+                           [--match MATCH] [--no-insecure]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--proxy PROXY]
                            [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                           --username USERNAME [-w WARN] [-v]
+                           --username USERNAME [-v] [-w WARN]
 
 Checks every disk of a Huawei OceanStor Pacific storage system via the REST
 API (/data_service/diskpool and /cluster/diskpool/queryNodeDiskInfo
@@ -77,11 +77,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to disks. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -95,6 +90,11 @@ options:
                         matched against the node name, the disk pool, the
                         serial number and the slot, so prefix with `.*` to
                         match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -127,8 +127,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
-  -w, --warning WARN    WARN threshold for the remaining life of a disk, as a
-                        Nagios range in days. Default: 180:
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -137,6 +135,8 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  -w, --warning WARN    WARN threshold for the remaining life of a disk, as a
+                        Nagios range in days. Default: 180:
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-disk/

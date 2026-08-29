@@ -36,8 +36,8 @@ Checks the status of all power supplies on a Huawei OceanStor Pacific storage sy
 ```text
 usage: huawei-pacific-power [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                            [--insecure] [--lengthy] [--no-insecure]
-                            [--match MATCH]
+                            [--insecure] [--lengthy] [--match MATCH]
+                            [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
                             [--no-perfdata] [--no-proxy] [--password PASSWORD]
                             [--password-file PASSWORD_FILE] [--proxy PROXY]
@@ -65,11 +65,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to power supplies. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -82,6 +77,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `frame_sn`, `name`, `node`, so prefix
                         with `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

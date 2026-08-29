@@ -48,11 +48,11 @@ usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--ignore IGNORE] [--include-unmapped] [--insecure]
                          [--lengthy] [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
-                         [--no-perfdata] [--no-proxy] [--performance]
-                         [--password PASSWORD] [--password-file PASSWORD_FILE]
+                         [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                         [--password-file PASSWORD_FILE] [--performance]
                          [--proxy PROXY] [--scope SCOPE] [--timeout TIMEOUT]
                          [--unmapped-severity {ok,warn,crit,unknown}] -u URL
-                         --username USERNAME [-w WARN] [-v]
+                         --username USERNAME [-v] [-w WARN]
 
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a
@@ -130,9 +130,6 @@ options:
                         dropped.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
-  --performance         Additionally report the I/O counters of every LUN.
-                        Costs one API request per object, so a large appliance
-                        may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
@@ -142,6 +139,9 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --performance         Additionally report the I/O counters of every LUN.
+                        Costs one API request per object, so a large appliance
+                        may need a higher --timeout.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,
@@ -164,11 +164,6 @@ options:
                         ok
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  -w, --warning WARN    WARN threshold for the used capacity of a thin LUN, as
-                        a Nagios range in percent. Off by default, because a
-                        thin LUN that is full is doing what it was created
-                        for; what runs out is the pool behind it. Example:
-                        `--warning=85`
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -177,6 +172,11 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  -w, --warning WARN    WARN threshold for the used capacity of a thin LUN, as
+                        a Nagios range in percent. Off by default, because a
+                        thin LUN that is full is doing what it was created
+                        for; what runs out is the pool behind it. Example:
+                        `--warning=85`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-lun/

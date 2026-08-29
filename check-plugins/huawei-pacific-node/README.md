@@ -35,14 +35,14 @@ Checks the health and running status of all cluster nodes on a Huawei OceanStor 
 ```text
 usage: huawei-pacific-node [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                           [--insecure] [--lengthy] [--no-insecure]
-                           [--match MATCH]
+                           [--insecure] [--lengthy] [--match MATCH]
+                           [--no-insecure]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--proxy PROXY]
                            [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                           --username USERNAME
-                           [--warranty-severity {ok,warn,crit,unknown}] [-v]
+                           --username USERNAME [-v]
+                           [--warranty-severity {ok,warn,crit,unknown}]
 
 Checks the health and running status of all cluster nodes on a Huawei
 OceanStor Pacific storage system via the REST API (/cluster/servers endpoint).
@@ -66,11 +66,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to cluster nodes. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -83,6 +78,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `name`, `management_ip`, so prefix
                         with `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -115,13 +115,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
-  --warranty-severity {ok,warn,crit,unknown}
-                        State to report for a node whose warranty has expired
-                        or is about to. This is a commercial fact rather than
-                        a fault, so it does not alert by default: a node out
-                        of warranty runs exactly as well as one in warranty,
-                        right up to the point where a part has to be replaced.
-                        Default: ok
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -130,6 +123,13 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  --warranty-severity {ok,warn,crit,unknown}
+                        State to report for a node whose warranty has expired
+                        or is about to. This is a commercial fact rather than
+                        a fault, so it does not alert by default: a node out
+                        of warranty runs exactly as well as one in warranty,
+                        right up to the point where a part has to be replaced.
+                        Default: ok
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-node/

@@ -52,13 +52,12 @@ usage: huawei-dorado-port [-h] [-V] [--always-ok] [--brief]
                           [--link-down-severity {ok,warn,crit,unknown}]
                           [--match MATCH] [--no-insecure]
                           [--no-match-severity {ok,warn,crit,unknown}]
-                          [--no-perfdata] [--no-proxy] [--performance]
-                          [--password PASSWORD]
-                          [--password-file PASSWORD_FILE] [--proxy PROXY]
-                          [--scope SCOPE]
+                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
+                          [--password-file PASSWORD_FILE] [--performance]
+                          [--proxy PROXY] [--scope SCOPE]
                           [--slow-port-severity {ok,warn,crit,unknown}]
-                          [--timeout TIMEOUT] -u URL --username USERNAME
-                          [--warning-errors WARN_ERRORS] [-v]
+                          [--timeout TIMEOUT] -u URL --username USERNAME [-v]
+                          [--warning-errors WARN_ERRORS]
 
 Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and
@@ -134,9 +133,6 @@ options:
                         dropped.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
-  --performance         Additionally report the I/O counters of every front-
-                        end port. Costs one API request per object, so a large
-                        appliance may need a higher --timeout.
   --password PASSWORD   Huawei OceanStor Dorado API password.
   --password-file PASSWORD_FILE
                         Path to a file holding the password, read from its
@@ -146,6 +142,9 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
+  --performance         Additionally report the I/O counters of every front-
+                        end port. Costs one API request per object, so a large
+                        appliance may need a higher --timeout.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,
@@ -167,14 +166,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  --warning-errors WARN_ERRORS
-                        WARN threshold for the link errors of a port, as a
-                        Nagios range in errors per second, summed over every
-                        error counter that port keeps. Off by default, because
-                        a link that drops the occasional frame is not worth
-                        alerting on; watch the graph first and set it once you
-                        know what your fabric normally sits at. A healthy link
-                        sits at 0. Example: `--warning-errors=1`
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -183,6 +174,14 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  --warning-errors WARN_ERRORS
+                        WARN threshold for the link errors of a port, as a
+                        Nagios range in errors per second, summed over every
+                        error counter that port keeps. Off by default, because
+                        a link that drops the occasional frame is not worth
+                        alerting on; watch the graph first and set it once you
+                        know what your fabric normally sits at. A healthy link
+                        sits at 0. Example: `--warning-errors=1`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-port/

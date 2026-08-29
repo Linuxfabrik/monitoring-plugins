@@ -40,16 +40,16 @@ usage: huawei-dorado-backup-power [-h] [-V] [--always-ok]
                                   [--cache-expire CACHE_EXPIRE] [-c CRIT]
                                   [--critical-voltage CRIT_VOLTAGE]
                                   [--device-id DEVICE_ID] [--ignore IGNORE]
-                                  [--insecure] [--lengthy] [--no-insecure]
-                                  [--match MATCH]
+                                  [--insecure] [--lengthy] [--match MATCH]
+                                  [--no-insecure]
                                   [--no-match-severity {ok,warn,crit,unknown}]
                                   [--no-perfdata] [--no-proxy]
                                   [--password PASSWORD]
                                   [--password-file PASSWORD_FILE]
                                   [--proxy PROXY] [--scope SCOPE]
                                   [--timeout TIMEOUT] -u URL
-                                  --username USERNAME [-w WARN]
-                                  [--warning-voltage WARN_VOLTAGE] [-v]
+                                  --username USERNAME [-v] [-w WARN]
+                                  [--warning-voltage WARN_VOLTAGE]
 
 Checks the health status of all backup power modules (BBU) on a Huawei
 OceanStor Dorado storage system via the REST API (/backup_power endpoint).
@@ -86,11 +86,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to backup power modules. Filter by this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -103,6 +98,11 @@ options:
                         regex is anchored at the start of the string (Python
                         `re.match`) and is matched against `UUID`, `LOCATION`,
                         so prefix with `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -135,14 +135,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  -w, --warning WARN    WARN threshold for the remaining life of a backup
-                        power module, as a Nagios range in days. Default: 180:
-  --warning-voltage WARN_VOLTAGE
-                        WARN threshold in volts. Supports Nagios ranges. Off
-                        by default, because the healthy range depends on the
-                        module and on how many cells it has; read the label or
-                        watch the graph first. Example: `--warning-
-                        voltage=15:17`
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -151,6 +143,14 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  -w, --warning WARN    WARN threshold for the remaining life of a backup
+                        power module, as a Nagios range in days. Default: 180:
+  --warning-voltage WARN_VOLTAGE
+                        WARN threshold in volts. Supports Nagios ranges. Off
+                        by default, because the healthy range depends on the
+                        module and on how many cells it has; read the label or
+                        watch the graph first. Example: `--warning-
+                        voltage=15:17`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-backup-power/

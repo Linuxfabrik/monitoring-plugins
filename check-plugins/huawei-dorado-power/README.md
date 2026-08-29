@@ -39,14 +39,14 @@ usage: huawei-dorado-power [-h] [-V] [--always-ok]
                            [--cache-expire CACHE_EXPIRE]
                            [--critical-temperature CRIT_TEMPERATURE]
                            [--device-id DEVICE_ID] [--ignore IGNORE]
-                           [--insecure] [--lengthy] [--no-insecure]
-                           [--match MATCH]
+                           [--insecure] [--lengthy] [--match MATCH]
+                           [--no-insecure]
                            [--no-match-severity {ok,warn,crit,unknown}]
                            [--no-perfdata] [--no-proxy] [--password PASSWORD]
                            [--password-file PASSWORD_FILE] [--proxy PROXY]
                            [--scope SCOPE] [--timeout TIMEOUT] -u URL
-                           --username USERNAME
-                           [--warning-temperature WARN_TEMPERATURE] [-v]
+                           --username USERNAME [-v]
+                           [--warning-temperature WARN_TEMPERATURE]
 
 Checks the health and running status of all power modules on a Huawei
 OceanStor Dorado storage system via the REST API (/power endpoint). Alerts
@@ -79,11 +79,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to power modules. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -96,6 +91,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `UUID`, `LOCATION`, so prefix with
                         `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -128,11 +128,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
-  --warning-temperature WARN_TEMPERATURE
-                        WARN threshold in degrees Celsius. Off by default,
-                        because a healthy operating temperature depends on the
-                        power module model and on where the array stands.
-                        Example: `--warning-temperature=45`
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -141,6 +136,11 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  --warning-temperature WARN_TEMPERATURE
+                        WARN threshold in degrees Celsius. Off by default,
+                        because a healthy operating temperature depends on the
+                        power module model and on where the array stands.
+                        Example: `--warning-temperature=45`
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-power/

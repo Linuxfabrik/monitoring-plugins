@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026082903'
 
 DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
@@ -226,16 +226,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--performance',
-        help='Additionally report the I/O counters of every LUN. '
-        'Costs one API request per object, so a large appliance may need a '
-        'higher --timeout.',
-        dest='PERFORMANCE',
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
@@ -245,6 +235,16 @@ def parse_args():
         '--password-file',
         help=lib.args.help('--password-file'),
         dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--performance',
+        help='Additionally report the I/O counters of every LUN. '
+        'Costs one API request per object, so a large appliance may need a '
+        'higher --timeout.',
+        dest='PERFORMANCE',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -304,16 +304,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '-w',
-        '--warning',
-        help='WARN threshold for the used capacity of a thin LUN, as a Nagios range in '
-        'percent. Off by default, because a thin LUN that is full is doing what it was '
-        'created for; what runs out is the pool behind it. Example: `--warning=85`',
-        dest='WARN',
-        default=DEFAULT_WARN,
-    )
-
-    parser.add_argument(
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
@@ -324,6 +314,16 @@ def parse_args():
         dest='VERBOSE',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the used capacity of a thin LUN, as a Nagios range in '
+        'percent. Off by default, because a thin LUN that is full is doing what it was '
+        'created for; what runs out is the pool behind it. Example: `--warning=85`',
+        dest='WARN',
+        default=DEFAULT_WARN,
     )
 
     args, _ = parser.parse_known_args()

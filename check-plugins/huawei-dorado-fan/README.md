@@ -36,7 +36,7 @@ Checks the health and running status of all fans on a Huawei OceanStor Dorado st
 ```text
 usage: huawei-dorado-fan [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
                          [--device-id DEVICE_ID] [--ignore IGNORE]
-                         [--insecure] [--no-insecure] [--match MATCH]
+                         [--insecure] [--match MATCH] [--no-insecure]
                          [--no-match-severity {ok,warn,crit,unknown}]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
                          [--password-file PASSWORD_FILE] [--proxy PROXY]
@@ -66,11 +66,6 @@ options:
                         so prefix with `.*` to match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to fans. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -83,6 +78,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `UUID`, `LOCATION`, so prefix with
                         `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

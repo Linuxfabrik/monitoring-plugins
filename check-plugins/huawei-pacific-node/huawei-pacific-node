@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the health and running status of all cluster nodes on a Huawei OceanStor
 Pacific storage system via the REST API (/cluster/servers endpoint). Alerts when any node is not
@@ -111,14 +111,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-insecure',
-        help=lib.args.help('--no-insecure'),
-        dest='INSECURE',
-        action='store_false',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--match',
         help='Limit to cluster nodes. '
         + lib.args.help('--match')
@@ -127,6 +119,14 @@ def parse_args():
         dest='MATCH',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
     )
 
     parser.add_argument(
@@ -210,18 +210,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--warranty-severity',
-        help='State to report for a node whose warranty has expired or is about to. '
-        'This is a commercial fact rather than a fault, so it does not alert by default: '
-        'a node out of warranty runs exactly as well as one in warranty, right up to the '
-        'point where a part has to be replaced. '
-        'Default: %(default)s',
-        dest='WARRANTY_SEVERITY',
-        choices=['ok', 'warn', 'crit', 'unknown'],
-        default=DEFAULT_WARRANTY_SEVERITY,
-    )
-
-    parser.add_argument(
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
@@ -232,6 +220,18 @@ def parse_args():
         dest='VERBOSE',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--warranty-severity',
+        help='State to report for a node whose warranty has expired or is about to. '
+        'This is a commercial fact rather than a fault, so it does not alert by default: '
+        'a node out of warranty runs exactly as well as one in warranty, right up to the '
+        'point where a part has to be replaced. '
+        'Default: %(default)s',
+        dest='WARRANTY_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_WARRANTY_SEVERITY,
     )
 
     args, _ = parser.parse_known_args()

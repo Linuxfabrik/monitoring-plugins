@@ -38,7 +38,7 @@ usage: huawei-dorado-hypermetrodomain [-h] [-V] [--always-ok]
                                       [--cache-expire CACHE_EXPIRE]
                                       [--device-id DEVICE_ID]
                                       [--ignore IGNORE] [--insecure]
-                                      [--no-insecure] [--match MATCH]
+                                      [--match MATCH] [--no-insecure]
                                       [--no-match-severity {ok,warn,crit,unknown}]
                                       [--no-perfdata] [--no-proxy]
                                       [--password PASSWORD]
@@ -71,11 +71,6 @@ options:
                         anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to HyperMetro domains. Filter by this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -88,6 +83,11 @@ options:
                         regex is anchored at the start of the string (Python
                         `re.match`) and is matched against `UUID`, `NAME`, so
                         prefix with `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

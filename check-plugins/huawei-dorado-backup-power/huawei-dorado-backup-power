@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
@@ -146,14 +146,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-insecure',
-        help=lib.args.help('--no-insecure'),
-        dest='INSECURE',
-        action='store_false',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--match',
         help='Limit to backup power modules. '
         + lib.args.help('--match')
@@ -162,6 +154,14 @@ def parse_args():
         dest='MATCH',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
     )
 
     parser.add_argument(
@@ -245,6 +245,19 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + " Appends what every API request returned, so the appliance's own answers "
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for the remaining life of a backup power module, as a Nagios '
@@ -261,19 +274,6 @@ def parse_args():
         'Example: `--warning-voltage=15:17`',
         dest='WARN_VOLTAGE',
         default=DEFAULT_WARN_VOLTAGE,
-    )
-
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        help=lib.args.help('--verbose')
-        + " Appends what every API request returned, so the appliance's own answers "
-        'can be read while working out how it reports something. Session tokens are '
-        'redacted. The output is as long as those answers are, so this is a debugging '
-        'aid rather than something to leave switched on.',
-        dest='VERBOSE',
-        action='store_true',
-        default=False,
     )
 
     args, _ = parser.parse_known_args()

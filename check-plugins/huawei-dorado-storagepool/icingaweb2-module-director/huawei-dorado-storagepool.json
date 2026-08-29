@@ -46,14 +46,14 @@
                 "--no-proxy": {
                     "set_if": "$huawei_dorado_storagepool_no_proxy$"
                 },
-                "--performance": {
-                    "set_if": "$huawei_dorado_storagepool_performance$"
-                },
                 "--password": {
                     "value": "$huawei_dorado_storagepool_password$"
                 },
                 "--password-file": {
                     "value": "$huawei_dorado_storagepool_password_file$"
+                },
+                "--performance": {
+                    "set_if": "$huawei_dorado_storagepool_performance$"
                 },
                 "--proxy": {
                     "value": "$huawei_dorado_storagepool_proxy$"
@@ -70,14 +70,14 @@
                 "--username": {
                     "value": "$huawei_dorado_storagepool_username$"
                 },
+                "--verbose": {
+                    "set_if": "$huawei_dorado_storagepool_verbose$"
+                },
                 "--warning": {
                     "value": "$huawei_dorado_storagepool_warning$"
                 },
                 "--warning-overprovisioning": {
                     "value": "$huawei_dorado_storagepool_warning_overprovisioning$"
-                },
-                "--verbose": {
-                    "set_if": "$huawei_dorado_storagepool_verbose$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/huawei-dorado-storagepool",
@@ -277,9 +277,9 @@
                 "huawei_dorado_storagepool_performance": false,
                 "huawei_dorado_storagepool_scope": "0",
                 "huawei_dorado_storagepool_timeout": 3,
+                "huawei_dorado_storagepool_verbose": false,
                 "huawei_dorado_storagepool_warning": "92",
-                "huawei_dorado_storagepool_warning_overprovisioning": "",
-                "huawei_dorado_storagepool_verbose": false
+                "huawei_dorado_storagepool_warning_overprovisioning": ""
             },
             "volatile": null,
             "zone": null,
@@ -498,15 +498,6 @@
             "uuid": "da63fd39-3951-4feb-818c-1f22fcb2489a"
         },
         "15": {
-            "varname": "huawei_dorado_storagepool_performance",
-            "caption": "Huawei Dorado Storagepool: Performance?",
-            "description": "Additionally report the I/O counters of every storage pool. Costs one API request per object, so a large appliance may need a higher --timeout.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "6a3968e4-48a3-41a2-9baa-e0b815556f70"
-        },
-        "16": {
             "varname": "huawei_dorado_storagepool_password",
             "caption": "Huawei Dorado Storagepool: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -517,7 +508,7 @@
             },
             "uuid": "4ff52cae-f899-40dd-a484-74eaf0528711"
         },
-        "17": {
+        "16": {
             "varname": "huawei_dorado_storagepool_password_file",
             "caption": "Huawei Dorado Storagepool: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -527,6 +518,15 @@
                 "visibility": "hidden"
             },
             "uuid": "270c09c0-d955-4183-bb3b-a54930ceda26"
+        },
+        "17": {
+            "varname": "huawei_dorado_storagepool_performance",
+            "caption": "Huawei Dorado Storagepool: Performance?",
+            "description": "Additionally report the I/O counters of every storage pool. Costs one API request per object, so a large appliance may need a higher --timeout.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6a3968e4-48a3-41a2-9baa-e0b815556f70"
         },
         "18": {
             "varname": "huawei_dorado_storagepool_proxy",
@@ -584,6 +584,15 @@
             "uuid": "94f72de3-5ec6-4a2e-9947-5bb9fb3cd369"
         },
         "23": {
+            "varname": "huawei_dorado_storagepool_verbose",
+            "caption": "Huawei Dorado Storagepool: Verbose?",
+            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "0b39e1d0-3e16-469c-b085-a71845beaf37"
+        },
+        "24": {
             "varname": "huawei_dorado_storagepool_warning",
             "caption": "Huawei Dorado Storagepool: Warning",
             "description": "WARN threshold for the used capacity of a pool, as a Nagios range in percent.",
@@ -594,7 +603,7 @@
             },
             "uuid": "be38ef2b-7a69-4723-a127-e7d120b66a0d"
         },
-        "24": {
+        "25": {
             "varname": "huawei_dorado_storagepool_warning_overprovisioning",
             "caption": "Huawei Dorado Storagepool: Warning Overprovisioning",
             "description": "WARN threshold for the overprovisioning of a pool, as a Nagios range in percent of its total capacity that is handed out to LUNs. Above 100 percent the pool is thin provisioned, which is what thin provisioning is for; what matters is how far the promise exceeds the disks behind it. Off by default. Example: `--warning-overprovisioning=200`",
@@ -604,15 +613,6 @@
                 "visibility": "visible"
             },
             "uuid": "22ff1522-8bd6-40a9-ae9c-5d4385255d3d"
-        },
-        "25": {
-            "varname": "huawei_dorado_storagepool_verbose",
-            "caption": "Huawei Dorado Storagepool: Verbose?",
-            "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "0b39e1d0-3e16-469c-b085-a71845beaf37"
         }
     }
 }

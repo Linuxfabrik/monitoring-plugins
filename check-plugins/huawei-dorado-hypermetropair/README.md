@@ -37,8 +37,8 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 usage: huawei-dorado-hypermetropair [-h] [-V] [--always-ok] [--brief]
                                     [--cache-expire CACHE_EXPIRE]
                                     [--device-id DEVICE_ID] [--ignore IGNORE]
-                                    [--insecure] [--lengthy] [--no-insecure]
-                                    [--match MATCH]
+                                    [--insecure] [--lengthy] [--match MATCH]
+                                    [--no-insecure]
                                     [--no-match-severity {ok,warn,crit,unknown}]
                                     [--no-perfdata] [--no-proxy]
                                     [--password PASSWORD]
@@ -79,11 +79,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to HyperMetro pairs. Filter by this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -97,6 +92,11 @@ options:
                         `re.match`) and is matched against `UUID`,
                         `LOCALOBJNAME`, `REMOTEOBJNAME`, so prefix with `.*`
                         to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok

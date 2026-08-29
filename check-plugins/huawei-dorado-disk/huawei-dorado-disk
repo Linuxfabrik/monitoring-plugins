@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
@@ -122,15 +122,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--critical-temperature',
-        help=lib.args.help('--critical-temperature')
-        + ' Off by default, because a healthy operating temperature depends on the drive '
-        'model and on where the array stands. Example: `--critical-temperature=50`',
-        dest='CRIT_TEMPERATURE',
-        default=DEFAULT_CRIT_TEMPERATURE,
-    )
-
-    parser.add_argument(
         '--critical-health-mark',
         help='CRIT threshold for the health score of a disk, as a Nagios range. '
         'The appliance scores a disk from 0 to 100, where 100 is a disk with nothing '
@@ -141,6 +132,15 @@ def parse_args():
         'Example: `--critical-health-mark=65:`',
         dest='CRIT_HEALTH_MARK',
         default=DEFAULT_CRIT_HEALTH_MARK,
+    )
+
+    parser.add_argument(
+        '--critical-temperature',
+        help=lib.args.help('--critical-temperature')
+        + ' Off by default, because a healthy operating temperature depends on the drive '
+        'model and on where the array stands. Example: `--critical-temperature=50`',
+        dest='CRIT_TEMPERATURE',
+        default=DEFAULT_CRIT_TEMPERATURE,
     )
 
     parser.add_argument(
@@ -190,14 +190,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-insecure',
-        help=lib.args.help('--no-insecure'),
-        dest='INSECURE',
-        action='store_false',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--match',
         help='Limit to disks. '
         + lib.args.help('--match')
@@ -206,6 +198,14 @@ def parse_args():
         dest='MATCH',
         action='append',
         default=None,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
     )
 
     parser.add_argument(
@@ -259,17 +259,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--unused-disk-severity',
-        help='State to report for a disk that sits in the chassis without belonging to a '
-        'pool. Worth raising on an array where every disk is meant to be in use, so a '
-        'disk that silently dropped out of its pool is noticed. '
-        'Default: %(default)s',
-        dest='UNUSED_DISK_SEVERITY',
-        choices=['ok', 'warn', 'crit', 'unknown'],
-        default=DEFAULT_UNUSED_DISK_SEVERITY,
-    )
-
-    parser.add_argument(
         '--test',
         help=lib.args.help('--test'),
         dest='TEST',
@@ -285,6 +274,17 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--unused-disk-severity',
+        help='State to report for a disk that sits in the chassis without belonging to a '
+        'pool. Worth raising on an array where every disk is meant to be in use, so a '
+        'disk that silently dropped out of its pool is noticed. '
+        'Default: %(default)s',
+        dest='UNUSED_DISK_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNUSED_DISK_SEVERITY,
+    )
+
+    parser.add_argument(
         '-u',
         '--url',
         help='Huawei OceanStor Dorado API URL.',
@@ -297,6 +297,19 @@ def parse_args():
         help='Huawei OceanStor Dorado API username.',
         dest='USERNAME',
         required=True,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + " Appends what every API request returned, so the appliance's own answers "
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -338,19 +351,6 @@ def parse_args():
         'Example: `--warning-wear=80`',
         dest='WARN_WEAR',
         default=DEFAULT_WARN_WEAR,
-    )
-
-    parser.add_argument(
-        '-v',
-        '--verbose',
-        help=lib.args.help('--verbose')
-        + " Appends what every API request returned, so the appliance's own answers "
-        'can be read while working out how it reports something. Session tokens are '
-        'redacted. The output is as long as those answers are, so this is a debugging '
-        'aid rather than something to leave switched on.',
-        dest='VERBOSE',
-        action='store_true',
-        default=False,
     )
 
     args, _ = parser.parse_known_args()

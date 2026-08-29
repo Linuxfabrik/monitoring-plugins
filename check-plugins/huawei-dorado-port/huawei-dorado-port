@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
@@ -269,16 +269,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--performance',
-        help='Additionally report the I/O counters of every front-end port. '
-        'Costs one API request per object, so a large appliance may need a '
-        'higher --timeout.',
-        dest='PERFORMANCE',
-        action='store_true',
-        default=False,
-    )
-
-    parser.add_argument(
         '--password',
         help='Huawei OceanStor Dorado API password.',
         dest='PASSWORD',
@@ -288,6 +278,16 @@ def parse_args():
         '--password-file',
         help=lib.args.help('--password-file'),
         dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--performance',
+        help='Additionally report the I/O counters of every front-end port. '
+        'Costs one API request per object, so a large appliance may need a '
+        'higher --timeout.',
+        dest='PERFORMANCE',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -347,18 +347,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--warning-errors',
-        help='WARN threshold for the link errors of a port, as a Nagios range in errors '
-        'per second, summed over every error counter that port keeps. '
-        'Off by default, because a link that drops the occasional frame is not worth '
-        'alerting on; watch the graph first and set it once you know what your fabric '
-        'normally sits at. A healthy link sits at 0. '
-        'Example: `--warning-errors=1`',
-        dest='WARN_ERRORS',
-        default=DEFAULT_WARN_ERRORS,
-    )
-
-    parser.add_argument(
         '-v',
         '--verbose',
         help=lib.args.help('--verbose')
@@ -369,6 +357,18 @@ def parse_args():
         dest='VERBOSE',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--warning-errors',
+        help='WARN threshold for the link errors of a port, as a Nagios range in errors '
+        'per second, summed over every error counter that port keeps. '
+        'Off by default, because a link that drops the occasional frame is not worth '
+        'alerting on; watch the graph first and set it once you know what your fabric '
+        'normally sits at. A healthy link sits at 0. '
+        'Example: `--warning-errors=1`',
+        dest='WARN_ERRORS',
+        default=DEFAULT_WARN_ERRORS,
     )
 
     args, _ = parser.parse_known_args()

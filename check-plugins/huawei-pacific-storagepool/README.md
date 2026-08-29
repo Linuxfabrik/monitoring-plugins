@@ -47,7 +47,7 @@ usage: huawei-pacific-storagepool [-h] [-V] [--always-ok]
                                   [--password-file PASSWORD_FILE]
                                   [--proxy PROXY] [--scope SCOPE]
                                   [--timeout TIMEOUT] -u URL
-                                  --username USERNAME [-w WARN] [-v]
+                                  --username USERNAME [-v] [-w WARN]
 
 Checks the status and capacity usage of all storage pools on a Huawei
 OceanStor Pacific storage system via the REST API (/data_service/storagepool
@@ -123,8 +123,6 @@ options:
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Pacific API URL.
   --username USERNAME   Huawei OceanStor Pacific API username.
-  -w, --warning WARN    WARN threshold for the used capacity of a pool, as a
-                        Nagios range in percent. Default: 92
   -v, --verbose         Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
                         hood. Appends what every API request returned, so the
@@ -133,6 +131,8 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
+  -w, --warning WARN    WARN threshold for the used capacity of a pool, as a
+                        Nagios range in percent. Default: 92
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-pacific-storagepool/

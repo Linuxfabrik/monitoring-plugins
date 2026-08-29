@@ -37,20 +37,20 @@ Checks the health and running status of all disks on a Huawei OceanStor Dorado s
 ```text
 usage: huawei-dorado-disk [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE] [-c CRIT]
-                          [--critical-temperature CRIT_TEMPERATURE]
                           [--critical-health-mark CRIT_HEALTH_MARK]
+                          [--critical-temperature CRIT_TEMPERATURE]
                           [--critical-wear CRIT_WEAR] [--device-id DEVICE_ID]
                           [--ignore IGNORE] [--insecure] [--lengthy]
-                          [--no-insecure] [--match MATCH]
+                          [--match MATCH] [--no-insecure]
                           [--no-match-severity {ok,warn,crit,unknown}]
                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                           [--password-file PASSWORD_FILE] [--proxy PROXY]
-                          [--scope SCOPE]
+                          [--scope SCOPE] [--timeout TIMEOUT]
                           [--unused-disk-severity {ok,warn,crit,unknown}]
-                          [--timeout TIMEOUT] -u URL --username USERNAME
-                          [-w WARN] [--warning-health-mark WARN_HEALTH_MARK]
+                          -u URL --username USERNAME [-v] [-w WARN]
+                          [--warning-health-mark WARN_HEALTH_MARK]
                           [--warning-temperature WARN_TEMPERATURE]
-                          [--warning-wear WARN_WEAR] [-v]
+                          [--warning-wear WARN_WEAR]
 
 Checks the health status of all disks on a Huawei OceanStor Dorado storage
 system via the REST API (/disk endpoint). Alerts when any disk reports a
@@ -73,11 +73,6 @@ options:
                         cache expires, in minutes. Default: 15
   -c, --critical CRIT   CRIT threshold for the remaining life of a disk, as a
                         Nagios range in days. Default: 30:
-  --critical-temperature CRIT_TEMPERATURE
-                        CRIT threshold in degrees Celsius. Off by default,
-                        because a healthy operating temperature depends on the
-                        drive model and on where the array stands. Example:
-                        `--critical-temperature=50`
   --critical-health-mark CRIT_HEALTH_MARK
                         CRIT threshold for the health score of a disk, as a
                         Nagios range. The appliance scores a disk from 0 to
@@ -87,6 +82,11 @@ options:
                         default, so an update cannot start alerting on a fleet
                         nobody has looked at yet. 65: is what field practice
                         suggests. Example: `--critical-health-mark=65:`
+  --critical-temperature CRIT_TEMPERATURE
+                        CRIT threshold in degrees Celsius. Off by default,
+                        because a healthy operating temperature depends on the
+                        drive model and on where the array stands. Example:
+                        `--critical-temperature=50`
   --critical-wear CRIT_WEAR
                         CRIT threshold for the wear of a disk, as a Nagios
                         range in percent of its service life used up. Spinning
@@ -105,11 +105,6 @@ options:
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to disks. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -122,6 +117,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `UUID`, `LOCATION`, so prefix with
                         `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -151,15 +151,23 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   --unused-disk-severity {ok,warn,crit,unknown}
                         State to report for a disk that sits in the chassis
                         without belonging to a pool. Worth raising on an array
                         where every disk is meant to be in use, so a disk that
                         silently dropped out of its pool is noticed. Default:
                         ok
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
+  -v, --verbose         Makes this plugin verbose during the operation. Useful
+                        for debugging and seeing what is going on under the
+                        hood. Appends what every API request returned, so the
+                        appliance's own answers can be read while working out
+                        how it reports something. Session tokens are redacted.
+                        The output is as long as those answers are, so this is
+                        a debugging aid rather than something to leave
+                        switched on.
   -w, --warning WARN    WARN threshold for the remaining life of a disk, as a
                         Nagios range in days. Default: 180:
   --warning-health-mark WARN_HEALTH_MARK
@@ -181,14 +189,6 @@ options:
                         range in percent of its service life used up. Spinning
                         media report -1 instead and are never compared. Off by
                         default. Example: `--warning-wear=80`
-  -v, --verbose         Makes this plugin verbose during the operation. Useful
-                        for debugging and seeing what is going on under the
-                        hood. Appends what every API request returned, so the
-                        appliance's own answers can be read while working out
-                        how it reports something. Session tokens are redacted.
-                        The output is as long as those answers are, so this is
-                        a debugging aid rather than something to leave
-                        switched on.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-disk/

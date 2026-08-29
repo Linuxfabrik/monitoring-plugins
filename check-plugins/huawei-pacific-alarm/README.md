@@ -36,7 +36,7 @@ Lists active (unrecovered) alarms on a Huawei OceanStor Pacific storage system v
 ```text
 usage: huawei-pacific-alarm [-h] [-V] [--always-ok]
                             [--cache-expire CACHE_EXPIRE] [--ignore IGNORE]
-                            [--insecure] [--no-insecure] [--match MATCH]
+                            [--insecure] [--match MATCH] [--no-insecure]
                             [--no-match-severity {ok,warn,crit,unknown}]
                             [--no-perfdata] [--no-proxy] [--password PASSWORD]
                             [--password-file PASSWORD_FILE] [--proxy PROXY]
@@ -64,11 +64,6 @@ options:
                         match anywhere.
   --insecure            This option explicitly allows insecure SSL
                         connections.
-  --no-insecure         Verify the TLS certificate against the system trust
-                        store, overriding the insecure default of this check.
-                        Use it once the endpoint presents a publicly trusted
-                        certificate, or once its CA has been added to the
-                        system trust store.
   --match MATCH         Limit to alarms. Filter by this Python regular
                         expression. Case-sensitive by default; use `(?i)` for
                         case-insensitive matching. Can be specified multiple
@@ -81,6 +76,11 @@ options:
                         at the start of the string (Python `re.match`) and is
                         matched against `alarm_id`, `alarm_name`,
                         `description`, so prefix with `.*` to match anywhere.
+  --no-insecure         Verify the TLS certificate against the system trust
+                        store, overriding the insecure default of this check.
+                        Use it once the endpoint presents a publicly trusted
+                        certificate, or once its CA has been added to the
+                        system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
