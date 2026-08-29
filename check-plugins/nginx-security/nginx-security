@@ -23,6 +23,7 @@ import lib.base
 import lib.lftest
 import lib.shell
 import lib.txt
+import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
@@ -33,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082001'
+__version__ = '2026082901'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
@@ -384,22 +385,6 @@ def parse_account_fixture(stdout):
     return result
 
 
-def uid_to_name(uid):
-    """Resolve a numeric user id, falling back to the number itself."""
-    try:
-        return pwd.getpwuid(uid).pw_name
-    except KeyError:
-        return str(uid)
-
-
-def gid_to_name(gid):
-    """Resolve a numeric group id, falling back to the number itself."""
-    try:
-        return grp.getgrgid(gid).gr_name
-    except KeyError:
-        return str(gid)
-
-
 def stat_path(path, stat_fixture):
     """Return owner, group, permission bits and kind of one path."""
     if stat_fixture is not None:
@@ -409,10 +394,10 @@ def stat_path(path, stat_fixture):
     except OSError:
         return None
     return {
-        'group': gid_to_name(info.st_gid),
+        'group': lib.user.get_gid_name(info.st_gid),
         'is_dir': stat.S_ISDIR(info.st_mode),
         'mode': stat.S_IMODE(info.st_mode),
-        'owner': uid_to_name(info.st_uid),
+        'owner': lib.user.get_uid_name(info.st_uid),
     }
 
 
@@ -437,28 +422,6 @@ def walk_config_tree(directory, stat_fixture):
     return sorted(paths)
 
 
-def get_uid_min(account_fixture):
-    """Return UID_MIN, the boundary between system and regular accounts."""
-    if account_fixture is not None:
-        return account_fixture['uid_min']
-    try:
-        with open('/etc/login.defs', encoding='utf-8') as handle:
-            for line in handle:
-                if line.startswith('UID_MIN'):
-                    return int(line.split()[1])
-    except (OSError, IndexError, ValueError):
-        pass
-    return DEFAULT_UID_MIN
-
-
-def own_mount_namespace():
-    """Return this process's mount namespace, or None where there is none."""
-    try:
-        return os.readlink('/proc/self/ns/mnt')
-    except OSError:
-        return None
-
-
 def get_worker_accounts(account_fixture):
     """Return the account names the running NGINX processes use.
 
@@ -469,7 +432,7 @@ def get_worker_accounts(account_fixture):
     """
     if account_fixture is not None:
         return account_fixture['processes']
-    namespace = own_mount_namespace()
+    namespace = lib.user.own_mount_namespace()
     accounts = []
     for proc in psutil.process_iter(['name', 'pid', 'username']):
         try:
@@ -505,7 +468,7 @@ def read_account(user, account_fixture):
         groups.append(grp.getgrgid(entry.pw_gid).gr_name)
     except KeyError:
         pass
-    shadow_state, shadow = read_shadow_password(user)
+    shadow_state, shadow = lib.user.get_shadow_password(user)
     return {
         'groups': sorted(set(groups)),
         'shadow': shadow,
@@ -513,40 +476,6 @@ def read_account(user, account_fixture):
         'shell': entry.pw_shell,
         'uid': entry.pw_uid,
     }
-
-
-def read_shadow_password(user):
-    """Return `(state, password)` for an account's shadow entry.
-
-    Read from the shadow database directly rather than through `passwd -S`,
-    whose output format differs between distributions. `state` tells the two
-    reasons for an absent value apart, because they mean different things to an
-    operator: `unreadable` is a missing privilege on this run, `missing` is an
-    account served by a directory service rather than by local files.
-    """
-    try:
-        with open('/etc/shadow', encoding='utf-8', errors='strict_or_latin1') as fh:
-            for line in fh:
-                fields = line.split(':')
-                if len(fields) > 1 and fields[0] == user:
-                    return ('found', fields[1])
-    except OSError:
-        return ('unreadable', None)
-    return ('missing', None)
-
-
-def read_interactive_shells():
-    """Return the shells the system itself lists as usable for logging in."""
-    shells = set()
-    try:
-        with open('/etc/shells', encoding='utf-8', errors='strict_or_latin1') as fh:
-            for line in fh:
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    shells.add(line)
-    except OSError:
-        pass
-    return shells
 
 
 def check_dynamic_modules(modules, severity_state):
@@ -877,11 +806,15 @@ def build_checks(data, severity_state):
     )
     config_dir = os.path.dirname(conf_path) if conf_path else None
 
-    uid_min = get_uid_min(account_fixture)
+    uid_min = (
+        account_fixture['uid_min']
+        if account_fixture is not None
+        else lib.user.get_uid_min()
+    )
     worker_accounts = get_worker_accounts(account_fixture)
     account = read_account(user, account_fixture) if user else None
     interactive_shells = (
-        set() if account_fixture is not None else (read_interactive_shells())
+        set() if account_fixture is not None else (lib.user.get_interactive_shells())
     )
     paths = walk_config_tree(config_dir, stat_fixture) if config_dir else []
 

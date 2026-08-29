@@ -118,6 +118,7 @@ Monitoring Plugins:
 
 * about-me: recognises a KVM host running the modular libvirt daemons again
 * all plugins: a command stuck on storage that has gone away no longer runs past the check's `--timeout`
+* apache-httpd-security, nginx-security: read a configuration file, `/etc/shadow` or `/etc/shells` that is not valid UTF-8 instead of going UNKNOWN over it
 * cert, nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update, and two runs at the same time no longer report each other's rows
 * disk-usage: `--fstype` and `--list-fstypes` work again on a host whose network filesystem stopped answering, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
