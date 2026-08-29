@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and link status of the optical modules (SFP) of a Huawei OceanStor Dorado storage system via the REST API (`/sfp` endpoint). Alerts when a module reports a non-normal health status, and optionally when its link is down. Reports the vendor, model, mode, working speed and what the module sits in.
+Checks the health, link status and optical power of the optical modules (SFP) of a Huawei OceanStor Dorado storage system via the REST API (`/sfp` endpoint). Alerts when a module reports a non-normal health status, when its receive or transmit power leaves the range the module itself reports as its operating range, and optionally when its link is down. A degrading transceiver or a dirty connector shows up as falling receive power long before the link drops. Reports the vendor, model, mode, working speed and what the module sits in. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 

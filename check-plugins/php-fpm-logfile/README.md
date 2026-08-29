@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Requests that ran long and a pool spawning workers in bursts are counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those lines are counted there and nowhere else, so a site with one heavy report page does not leave the check permanently yellow. What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and `ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and `--warning-level` move. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened. A message that merely contains the word "error" never counts. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing, and the journal of the PHP-FPM unit is read along with it, because a master that fails to start writes why to its standard error and never reaches the error log. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.
+Scans the PHP-FPM error log for the events an administrator has to act on: rejected configurations, worker crashes, requests that ran into `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit `pm.max_children`, and the emergency reload PHP-FPM performs after repeated worker failures. Startups, reloads and shutdowns are counted alongside them, so a pool that keeps restarting is visible. Alerts when one of those events shows up, when the lines a slow site provokes cross the rates the thresholds set, and when a line arrives at a level `--critical-level` or `--warning-level` covers. Requests that ran long and a pool spawning workers in bursts are counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one slow page is nobody's night, dozens within ten minutes say the pool is mis-sized. Those lines are counted there and nowhere else, so a site with one heavy report page does not leave the check permanently yellow. What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and `ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and `--warning-level` move. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened. A message that merely contains the word "error" never counts. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the file path is taken from the `error_log` directive of the PHP-FPM configuration, with the common locations of the distributions probed when that yields nothing, and the journal of the PHP-FPM unit is read along with it, because a master that fails to start writes why to its standard error and never reaches the error log. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that PHP-FPM discards everything its workers write unless `catch_workers_output = yes` is set, so an error log that only ever shows master events is the default behaviour rather than a quiet application. Requires root or sudo.
 
 **Important Notes:**
 
@@ -71,14 +71,17 @@ rejected configurations, worker crashes, requests that ran into
 `request_terminate_timeout` or `request_slowlog_timeout`, pools that hit
 `pm.max_children`, and the emergency reload PHP-FPM performs after repeated
 worker failures. Startups, reloads and shutdowns are counted alongside them,
-so a pool that keeps restarting is visible. Requests that ran long and a pool
-spawning workers in bursts are counted within `--lookback` and judged by how
-many of them arrived, not by the fact that they did: one slow page is nobody's
-night, dozens within ten minutes say the pool is mis-sized. Those lines are
-counted there and nowhere else, so a site with one heavy report page does not
-leave the check permanently yellow. What is left is counted by the level
-PHP-FPM writes at the head of the line: `ALERT` and `ERROR` return CRITICAL
-and `WARNING` returns WARNING, which `--critical-level` and `--warning-level`
+so a pool that keeps restarting is visible. Alerts when one of those events
+shows up, when the lines a slow site provokes cross the rates the thresholds
+set, and when a line arrives at a level `--critical-level` or
+`--warning-level` covers. Requests that ran long and a pool spawning workers
+in bursts are counted within `--lookback` and judged by how many of them
+arrived, not by the fact that they did: one slow page is nobody's night,
+dozens within ten minutes say the pool is mis-sized. Those lines are counted
+there and nowhere else, so a site with one heavy report page does not leave
+the check permanently yellow. What is left is counted by the level PHP-FPM
+writes at the head of the line: `ALERT` and `ERROR` return CRITICAL and
+`WARNING` returns WARNING, which `--critical-level` and `--warning-level`
 move. The events named above carry their own state and are counted there and
 nowhere else, because the level says nothing about what happened. A message
 that merely contains the word "error" never counts. The log is read either

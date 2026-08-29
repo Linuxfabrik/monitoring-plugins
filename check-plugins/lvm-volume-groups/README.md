@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports the LVM volume groups on this host, how many physical volumes each of them is built from, and how many of those it can no longer find. A volume group that is missing a physical volume carries volumes that are incomplete, and it refuses to activate them at the next boot unless that is asked for explicitly, so a reboot in this state comes back without them. The free space of a group is reported as well, and graded only where thresholds are given: a group with every extent handed out is a perfectly normal and often deliberate state, and alerting on it by default would put a permanent warning on most hosts. Set the thresholds where free space has to be kept for a thin pool or a snapshot to grow into. Alerts when a volume group is missing a physical volume, and when its free space is outside the thresholds, if any are given.
+Reports the LVM volume groups on this host, how many physical volumes each of them is built from, and how many of those it can no longer find. A volume group that is missing a physical volume carries volumes that are incomplete, and it refuses to activate them at the next boot unless that is asked for explicitly, so a reboot in this state comes back without them. The free space of a group is reported as well, and graded only where thresholds are given: a group with every extent handed out is a perfectly normal and often deliberate state, and alerting on it by default would put a permanent warning on most hosts. Set the thresholds where free space has to be kept for a thin pool or a snapshot to grow into. Alerts when a volume group is missing a physical volume, and when its free space is outside the thresholds, if any are given. Requires root or sudo.
 
 **Important Notes:**
 

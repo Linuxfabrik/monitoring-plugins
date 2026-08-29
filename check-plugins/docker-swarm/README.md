@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks whether the local node participates in a Docker Swarm and whether the cluster is healthy. On every node the local swarm state is verified (active, pending, inactive, locked, error). On a manager node the check additionally lists all cluster nodes, alerts on nodes that are down and verifies that the managers still form a quorum, so a lost or unreachable manager is caught before the control plane fails. Node availability (active, pause, drain) is reported for context but does not raise an alert, since draining a node is a deliberate operator action. Podman does not support swarm mode, so there is no Podman counterpart to this check. Requires root or sudo.
+Checks whether the local node participates in a Docker Swarm and whether the cluster is healthy. On every node the local swarm state is verified (active, pending, inactive, locked, error). On a manager node the check additionally lists all cluster nodes, alerts on nodes that are down and verifies that the managers still form a quorum, so a lost or unreachable manager is caught before the control plane fails. Node availability (active, pause, drain) is reported for context but does not raise an alert, since draining a node is a deliberate operator action. Podman does not support swarm mode, so there is no Podman counterpart to this check. Supports extended reporting via `--lengthy`. Requires root or sudo.
 
 **Important Notes:**
 
@@ -50,7 +50,8 @@ managers still form a quorum, so a lost or unreachable manager is caught
 before the control plane fails. Node availability (active, pause, drain) is
 reported for context but does not raise an alert, since draining a node is a
 deliberate operator action. Podman does not support swarm mode, so there is no
-Podman counterpart to this check. Requires root or sudo.
+Podman counterpart to this check. Supports extended reporting via --lengthy.
+Requires root or sudo.
 
 options:
   -h, --help     show this help message and exit

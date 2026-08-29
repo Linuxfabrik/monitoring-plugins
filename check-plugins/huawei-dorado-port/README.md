@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and link status of the front-end ports of a Huawei OceanStor Dorado storage system via the REST API (`/fc_port`, `/eth_port`, `/sas_port` and `/bond_port` endpoints). Alerts when a port reports a non-normal health status, when it negotiated a speed below the one it is configured or built for, and optionally when a link is down. Reports the port type, its location, its link state, its operating speed and the link error counters the appliance keeps, as per-second rates.
+Checks the health and link status of the front-end ports of a Huawei OceanStor Dorado storage system via the REST API (`/fc_port`, `/eth_port`, `/sas_port` and `/bond_port` endpoints). Alerts when a port reports a non-normal health status, when it negotiated a speed below the one it is configured or built for, and optionally when a link is down. Reports the link error counters the appliance keeps as per-second rates, together with the port type, its location, its link state and its operating speed. Supports reporting the I/O counters via `--performance`.
 
 **Important Notes:**
 

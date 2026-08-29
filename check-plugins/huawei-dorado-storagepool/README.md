@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health, running status and capacity usage of all storage pools on a Huawei OceanStor Dorado storage system via the REST API (`/storagepool` endpoint). Alerts when a pool reports a non-normal state, and when its used capacity reaches the warning or critical threshold. Reports used, free and total capacity, the disk domain each pool belongs to, and the data reduction ratio the pool achieves.
+Checks the health, running status and capacity usage of all storage pools on a Huawei OceanStor Dorado storage system via the REST API (`/storagepool` endpoint). Alerts when a pool reports a non-normal state, when its used capacity reaches the warning or critical threshold, and when it reaches the threshold the storage administrator configured on the appliance itself. Reports used, free and total capacity, the disk domain each pool belongs to, and the data reduction ratio the pool achieves. Supports extended reporting via `--lengthy`, and reporting the I/O counters via `--performance`.
 
 **Important Notes:**
 

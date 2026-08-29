@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the status of all power supplies on a Huawei OceanStor Pacific storage system via the REST API (`/hwm/power` endpoint). Alerts when any power supply reports a non-normal status.
+Checks the status of all power supplies on a Huawei OceanStor Pacific storage system via the REST API (`/hwm/power` endpoint). Alerts when any power supply reports a non-normal status. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports the product model, system version and cluster name of a Huawei OceanStor Pacific storage system via the REST API (`/cluster/product` and `/system_capacity` endpoints). Alerts when the used cluster capacity in percent reaches the warning or critical threshold.
+Reports the product model, system version and cluster name of a Huawei OceanStor Pacific storage system via the REST API (`/cluster/product`, `/system_capacity` and `/cluster/servers/count` endpoints). Alerts when the used cluster capacity in percent reaches the warning or critical threshold.
 
 **Important Notes:**
 

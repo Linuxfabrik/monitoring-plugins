@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health of Docker Swarm services: how many of the expected tasks (containers) of a service are actually running, and optionally whether those tasks are spread evenly across the swarm nodes. The number of running tasks is compared against an expected count as a percentage, so a service that lost some but not all of its tasks can warn before it goes fully down. Must be run on a swarm manager node, since only managers can list services. Podman does not support swarm mode, so there is no Podman counterpart to this check. Requires root or sudo.
+Checks the health of Docker Swarm services: how many of the expected tasks (containers) of a service are actually running, and optionally whether those tasks are spread evenly across the swarm nodes. The number of running tasks is compared against an expected count as a percentage, so a service that lost some but not all of its tasks can warn before it goes fully down. The expected count defaults to the service's own desired replica count, but can be pinned per service with `--service`, so scaling a service down by mistake is still caught against the count the service is supposed to run. With `--check-distribution` the check also warns when more tasks of a service sit on a single node than an even spread would place there, which surfaces a node that silently stopped taking work. Alerts when a service runs fewer of its expected tasks than the thresholds allow, and when a service named with `--service` does not exist in this swarm. Must be run on a swarm manager node, since only managers can list services. Podman does not support swarm mode, so there is no Podman counterpart to this check. Supports extended reporting via `--lengthy`. Requires root or sudo.
 
 **Important Notes:**
 
@@ -54,9 +54,12 @@ per service with --service, so scaling a service down by mistake is still
 caught against the count the service is supposed to run. With
 --check-distribution the check also warns when more tasks of a service sit on
 a single node than an even spread would place there, which surfaces a node
-that silently stopped taking work. Must be run on a swarm manager node, since
-only managers can list services. Podman does not support swarm mode, so there
-is no Podman counterpart to this check. Requires root or sudo.
+that silently stopped taking work. Alerts when a service runs fewer of its
+expected tasks than the thresholds allow, and when a service named with
+--service does not exist in this swarm. Must be run on a swarm manager node,
+since only managers can list services. Podman does not support swarm mode, so
+there is no Podman counterpart to this check. Supports extended reporting via
+--lengthy. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and running status of all cluster nodes on a Huawei OceanStor Pacific storage system via the REST API (`/cluster/servers` endpoint). Alerts when any node is not online or its OAM agent is not healthy.
+Checks the health and running status of all cluster nodes on a Huawei OceanStor Pacific storage system via the REST API (`/cluster/servers` endpoint). Alerts when any node is not online or its OAM agent is not healthy. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 

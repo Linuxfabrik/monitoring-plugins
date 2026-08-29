@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks whether a newer version of WildFly is available by comparing the installed version, queried from the WildFly HTTP management API, against the latest release from the GitHub releases API. The plugin supports both standalone mode and domain mode.
+Checks if a newer version of WildFly is available by comparing the installed version, queried from the HTTP management API, against the latest release on the GitHub releases API. Alerts when the installed version is outdated. The plugin supports both standalone mode and domain mode.
 
 **Important Notes:**
 

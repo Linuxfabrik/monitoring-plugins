@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the lifecycle and health of Docker containers: the container status (running, exited, paused, ...), the result of the container health check (healthy, unhealthy, starting), and the number of automatic restarts. Containers can be selected or excluded by name using regular expressions, and the presence of expected containers can be enforced. For per-container CPU and memory usage, use the docker-stats check. For Podman, use the podman-container check instead. Requires root or sudo.
+Checks the lifecycle and health of Docker containers: the container status (running, exited, paused, ...), the result of the container health check (healthy, unhealthy, starting), and the number of automatic restarts. Containers can be selected or excluded by name using regular expressions, and the presence of expected containers can be enforced. Alerts when a container reports itself unhealthy, when its status is not the one it is expected to have, and when its restart count or its uptime crosses the thresholds. For per-container CPU and memory usage, use the docker-stats check. For Podman, use the podman-container check instead. Requires root or sudo.
 
 **Important Notes:**
 
@@ -49,9 +49,11 @@ Checks the lifecycle and health of Docker containers: the container status
 (running, exited, paused, ...), the result of the container health check
 (healthy, unhealthy, starting), and the number of automatic restarts.
 Containers can be selected or excluded by name using regular expressions, and
-the presence of expected containers can be enforced. For per-container CPU and
-memory usage, use the docker-stats check. For Podman, use the podman-container
-check instead. Requires root or sudo.
+the presence of expected containers can be enforced. Alerts when a container
+reports itself unhealthy, when its status is not the one it is expected to
+have, and when its restart count or its uptime crosses the thresholds. For
+per-container CPU and memory usage, use the docker-stats check. For Podman,
+use the podman-container check instead. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

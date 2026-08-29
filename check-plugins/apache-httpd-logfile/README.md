@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the Apache HTTP Server error log for the events an administrator has to act on: children that died on a signal, a server that ran out of workers, processes it failed to fork, backends a reverse proxy could not reach, and stapling switched on for a certificate it cannot work for. Startups, restarts and shutdowns are counted alongside them, so a server that keeps restarting is visible. What Apache logged about one request and one client - a denied access, a password that did not match, a request line it refused to parse - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a bot or a bad link, hundreds within ten minutes is somebody walking the site or guessing passwords. Those lines are counted there and nowhere else, so the background noise every internet-facing server produces does not keep the check permanently yellow. What is left is what Apache said about itself, and that is counted by the level it wrote at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and `--warning-level` move that split. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened and Apache logs some of them at `notice` anyway. A message that merely contains the word "error" never counts, and a `LogLevel` below `warn` hides a line from this check just as it hides it from the file. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check follows the configuration from the main file through its `Include`/`IncludeOptional` files and reads the server's `ErrorLog` together with every `ErrorLog` a virtual host sets, so a host whose sites log to their own files is watched where the sites write and not only where the server does; where no configuration can be read, the common locations of the distributions are probed instead. The journal of the Apache unit is read along with them, because a server which fails to start writes to its standard error instead of into the error log, and a rejected configuration or an address already in use is in the journal only. What the sources hold in common is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.
+Scans the Apache HTTP Server error log for the events an administrator has to act on: children that died on a signal, a server that ran out of workers, processes it failed to fork, backends a reverse proxy could not reach, and stapling switched on for a certificate it cannot work for. Startups, restarts and shutdowns are counted alongside them, so a server that keeps restarting is visible. Alerts when one of those events shows up, when the lines one client provokes cross the rates the thresholds set, and when a line arrives at a level `--critical-level` or `--warning-level` covers. What Apache logged about one request and one client - a denied access, a password that did not match, a request line it refused to parse - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a bot or a bad link, hundreds within ten minutes is somebody walking the site or guessing passwords. Those lines are counted there and nowhere else, so the background noise every internet-facing server produces does not keep the check permanently yellow. What is left is what Apache said about itself, and that is counted by the level it wrote at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and `--warning-level` move that split. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened and Apache logs some of them at `notice` anyway. A message that merely contains the word "error" never counts, and a `LogLevel` below `warn` hides a line from this check just as it hides it from the file. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check follows the configuration from the main file through its `Include`/`IncludeOptional` files and reads the server's `ErrorLog` together with every `ErrorLog` a virtual host sets, so a host whose sites log to their own files is watched where the sites write and not only where the server does; where no configuration can be read, the common locations of the distributions are probed instead. The journal of the Apache unit is read along with them, because a server which fails to start writes to its standard error instead of into the error log, and a rejected configuration or an address already in use is in the journal only. What the sources hold in common is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.
 
 **Important Notes:**
 
@@ -84,30 +84,32 @@ act on: children that died on a signal, a server that ran out of workers,
 processes it failed to fork, backends a reverse proxy could not reach, and
 stapling switched on for a certificate it cannot work for. Startups, restarts
 and shutdowns are counted alongside them, so a server that keeps restarting is
-visible. What Apache logged about one request and one client - a denied
-access, a password that did not match, a request line it refused to parse - is
-counted within `--lookback` and judged by how many of them arrived, not by the
-fact that they did: one is a bot or a bad link, hundreds within ten minutes is
-somebody walking the site or guessing passwords. Those lines are counted there
-and nowhere else, so the background noise every internet-facing server
-produces does not keep the check permanently yellow. What is left is what
-Apache said about itself, and that is counted by the level it wrote at the
-head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns
-WARNING, and `--critical-level` and `--warning-level` move that split. The
-events named above carry their own state and are counted there and nowhere
-else, because the level says nothing about what happened and Apache logs some
-of them at `notice` anyway. A message that merely contains the word "error"
-never counts, and a `LogLevel` below `warn` hides a line from this check just
-as it hides it from the file. The log is read either from a file, from a
-systemd unit (`systemd:`) or from a container
-(`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times,
-and everything named is then read as one window. Without it the check follows
-the configuration from the main file through its `Include`/`IncludeOptional`
-files and reads the server's `ErrorLog` together with every `ErrorLog` a
-virtual host sets, so a host whose sites log to their own files is watched
-where the sites write and not only where the server does; where no
-configuration can be read, the common locations of the distributions are
-probed instead. The journal of the Apache unit is read along with them,
+visible. Alerts when one of those events shows up, when the lines one client
+provokes cross the rates the thresholds set, and when a line arrives at a
+level `--critical-level` or `--warning-level` covers. What Apache logged about
+one request and one client - a denied access, a password that did not match, a
+request line it refused to parse - is counted within `--lookback` and judged
+by how many of them arrived, not by the fact that they did: one is a bot or a
+bad link, hundreds within ten minutes is somebody walking the site or guessing
+passwords. Those lines are counted there and nowhere else, so the background
+noise every internet-facing server produces does not keep the check
+permanently yellow. What is left is what Apache said about itself, and that is
+counted by the level it wrote at the head of the line: `emerg`, `alert` and
+`crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and
+`--warning-level` move that split. The events named above carry their own
+state and are counted there and nowhere else, because the level says nothing
+about what happened and Apache logs some of them at `notice` anyway. A message
+that merely contains the word "error" never counts, and a `LogLevel` below
+`warn` hides a line from this check just as it hides it from the file. The log
+is read either from a file, from a systemd unit (`systemd:`) or from a
+container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given
+several times, and everything named is then read as one window. Without it the
+check follows the configuration from the main file through its
+`Include`/`IncludeOptional` files and reads the server's `ErrorLog` together
+with every `ErrorLog` a virtual host sets, so a host whose sites log to their
+own files is watched where the sites write and not only where the server does;
+where no configuration can be read, the common locations of the distributions
+are probed instead. The journal of the Apache unit is read along with them,
 because a server which fails to start writes to its standard error instead of
 into the error log, and a rejected configuration or an address already in use
 is in the journal only. What the sources hold in common is counted once. The

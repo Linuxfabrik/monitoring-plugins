@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks every disk of a Huawei OceanStor Pacific storage system via the REST API (`/data_service/diskpool` and `/cluster/diskpool/queryNodeDiskInfo` endpoints). Alerts when a disk is not healthy, and when its remaining life falls below the warning or critical threshold.
+Checks every disk of a Huawei OceanStor Pacific storage system via the REST API (`/data_service/diskpool` and `/cluster/diskpool/queryNodeDiskInfo` endpoints). Alerts when a disk is not healthy, and when its remaining life falls below the warning or critical threshold. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 

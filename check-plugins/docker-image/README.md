@@ -3,7 +3,7 @@
 
 ## Overview
 
-Lists the container images on a host and checks how old they are. Reports each image's repository tag, age and size, and alerts when an image is older than the configured thresholds, which is a sign that a rebuild or pull was missed. Images can be selected or excluded by name using regular expressions. For Podman, use the podman-image check instead. Requires root or sudo.
+Lists the container images on a host and checks how old they are. Reports each image's repository tag, age and size, and alerts when an image is older than the configured thresholds, which is a sign that a rebuild or pull was missed. Images can be selected or excluded by name using regular expressions. On a host with many images, `--brief` hides the rows within the thresholds so the table shows only the images that are too old. For Podman, use the `podman-image` check instead. Requires root or sudo.
 
 **Important Notes:**
 

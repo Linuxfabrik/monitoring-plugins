@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors the health of a Nextcloud instance via its status endpoint (`/status.php`), reporting whether the instance is installed, whether a pending database upgrade blocks it, and whether maintenance mode is active. Also reports the running version, the product name and the extended support flag.
+Monitors the health of a Nextcloud instance via its status endpoint (`/status.php`), reporting whether the instance is installed, whether a pending database upgrade blocks it, and whether maintenance mode is active. Also reports the running version, the product name and the extended support flag. The status endpoint bypasses the router and the maintenance gate, so it answers with HTTP 200 even while the instance serves nobody. A plain HTTP check cannot see that. This check therefore reads the flags out of the response instead of trusting the status code. Alerts when the instance reports that it is not installed, when a database upgrade is pending, while maintenance mode is on, and when the endpoint does not answer with a status document at all. Every severity except the one for an uninstalled instance is configurable.
 
 **Important Notes:**
 

@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the status of all fans on a Huawei OceanStor Pacific storage system via the REST API (`/hwm/fan` endpoint). Alerts when any fan reports a non-normal status.
+Checks the status of all fans on a Huawei OceanStor Pacific storage system via the REST API (`/hwm/fan` endpoint). Alerts when any fan reports a non-normal status. Supports extended reporting via `--lengthy`.
 
 **Important Notes:**
 

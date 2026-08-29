@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (`/lun` endpoint). Alerts when a LUN reports a non-normal state, and optionally when a thin LUN fills up. Reports the allocated and the configured capacity, the usage of a thin LUN and the storage pool each LUN lives in. Supports extended reporting via `--lengthy`, and reporting the I/O counters via `--performance`.
+Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (`/lun` endpoint). Alerts when a LUN reports a non-normal state, and optionally when a thin LUN fills up. Only LUNs mapped to a host are checked by default. Reports the allocated and the configured capacity, the usage of a thin LUN and the storage pool each LUN lives in. Supports extended reporting via `--lengthy`, and reporting the I/O counters via `--performance`.
 
 **Important Notes:**
 

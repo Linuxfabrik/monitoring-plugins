@@ -29,13 +29,16 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
 cannot be reached, credentials it will not take, a TLS handshake that fails, and a mail
 system that refused to start. Inbound: what a client provoked - a login it got wrong, a
 recipient the server refused, a conversation that ended in the middle.
+Alerts when one of those events shows up, when the lines one client provokes cross
+the rates the thresholds set, and when a line arrives at a level `--critical-level`
+or `--warning-level` covers.
 The inbound lines are counted within `--lookback` and judged by how many of them arrived,
 per source address: one is a bot or a typo, dozens within ten minutes is somebody working
 on this host. Every server that answers on port 25 collects these all day, so counting them

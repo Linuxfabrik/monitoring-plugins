@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the log of the OpenSSH server for the events an administrator has to act on: a server that refused to start, a host key it could not load, a key file it refused because of how it looks on disk, a key somebody revoked and is still using, a session that died on a signal, and a root login that only `PermitRootLogin` stopped - which means the credentials for it were valid. Startups, restarts, shutdowns and successful logins are counted alongside them, so a server that keeps restarting is visible. Everything a client can provoke - a password that did not match, a login for an account that does not exist, a connection that ended before authentication, a connection the server refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within ten minutes is somebody guessing passwords. Every host that answers on port 22 collects these all day, so counting them by rate is what keeps the check from being permanently yellow, and counting them per source address is what tells one determined client from the open network going past. sshd writes no severity into its lines, so what is reported is what this check recognizes; anything else it wrote is read but not counted. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check takes the first of the usual authentication logs of the distributions that exists and reads the journal of the sshd unit along with it, because sshd logs to its standard error until it has loaded its host keys: a rejected configuration, a host key it could not read and the "no hostkeys available" it exits with never reach the syslog file, and nothing a running sshd logs reaches the journal on a host that has a syslog daemon. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.
+Scans the log of the OpenSSH server for the events an administrator has to act on: a server that refused to start, a host key it could not load, a key file it refused because of how it looks on disk, a key somebody revoked and is still using, a session that died on a signal, and a root login that only `PermitRootLogin` stopped - which means the credentials for it were valid. Startups, restarts, shutdowns and successful logins are counted alongside them, so a server that keeps restarting is visible. Alerts when one of those events shows up, and when the lines one client provokes cross the rates the thresholds set. Everything a client can provoke - a password that did not match, a login for an account that does not exist, a connection that ended before authentication, a connection the server refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within ten minutes is somebody guessing passwords. Every host that answers on port 22 collects these all day, so counting them by rate is what keeps the check from being permanently yellow, and counting them per source address is what tells one determined client from the open network going past. sshd writes no severity into its lines, so what is reported is what this check recognizes; anything else it wrote is read but not counted. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check takes the first of the usual authentication logs of the distributions that exists and reads the journal of the sshd unit along with it, because sshd logs to its standard error until it has loaded its host keys: a rejected configuration, a host key it could not read and the "no hostkeys available" it exits with never reach the syslog file, and nothing a running sshd logs reaches the journal on a host that has a syslog daemon. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.
 
 **Important Notes:**
 
@@ -86,28 +86,30 @@ it refused because of how it looks on disk, a key somebody revoked and is
 still using, a session that died on a signal, and a root login that only
 `PermitRootLogin` stopped - which means the credentials for it were valid.
 Startups, restarts, shutdowns and successful logins are counted alongside
-them, so a server that keeps restarting is visible. Everything a client can
-provoke - a password that did not match, a login for an account that does not
-exist, a connection that ended before authentication, a connection the server
-refused because it was at `MaxStartups` - is counted within `--lookback` and
-judged by how many of them arrived, not by the fact that they did: one is a
-typo or a bot, hundreds within ten minutes is somebody guessing passwords.
-Every host that answers on port 22 collects these all day, so counting them by
-rate is what keeps the check from being permanently yellow, and counting them
-per source address is what tells one determined client from the open network
-going past. sshd writes no severity into its lines, so what is reported is
-what this check recognizes; anything else it wrote is read but not counted.
-The log is read either from a file, from a systemd unit (`systemd:`) or from a
-container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given
-several times, and everything named is then read as one window. Without it the
-check takes the first of the usual authentication logs of the distributions
-that exists and reads the journal of the sshd unit along with it, because sshd
-logs to its standard error until it has loaded its host keys: a rejected
-configuration, a host key it could not read and the "no hostkeys available" it
-exits with never reach the syslog file, and nothing a running sshd logs
-reaches the journal on a host that has a syslog daemon. What both hold is
-counted once. The most recent rotated file is read along with the live one, so
-the window does not end where logrotate last ran. Requires root or sudo.
+them, so a server that keeps restarting is visible. Alerts when one of those
+events shows up, and when the lines one client provokes cross the rates the
+thresholds set. Everything a client can provoke - a password that did not
+match, a login for an account that does not exist, a connection that ended
+before authentication, a connection the server refused because it was at
+`MaxStartups` - is counted within `--lookback` and judged by how many of them
+arrived, not by the fact that they did: one is a typo or a bot, hundreds
+within ten minutes is somebody guessing passwords. Every host that answers on
+port 22 collects these all day, so counting them by rate is what keeps the
+check from being permanently yellow, and counting them per source address is
+what tells one determined client from the open network going past. sshd writes
+no severity into its lines, so what is reported is what this check recognizes;
+anything else it wrote is read but not counted. The log is read either from a
+file, from a systemd unit (`systemd:`) or from a container
+(`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times,
+and everything named is then read as one window. Without it the check takes
+the first of the usual authentication logs of the distributions that exists
+and reads the journal of the sshd unit along with it, because sshd logs to its
+standard error until it has loaded its host keys: a rejected configuration, a
+host key it could not read and the "no hostkeys available" it exits with never
+reach the syslog file, and nothing a running sshd logs reaches the journal on
+a host that has a syslog daemon. What both hold is counted once. The most
+recent rotated file is read along with the live one, so the window does not
+end where logrotate last ran. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

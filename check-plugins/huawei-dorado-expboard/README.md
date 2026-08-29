@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and running status of all fans on a Huawei OceanStor Dorado storage system via the REST API (`/fan` endpoint). Alerts when any fan reports a non-normal health or running state. Reports the run level (low, normal, high) per fan.
+Checks the health and running status of all expansion boards on a Huawei OceanStor Dorado storage system via the REST API (`/expboard` endpoint). Alerts when any board reports a non-normal state.
 
 **Important Notes:**
 
