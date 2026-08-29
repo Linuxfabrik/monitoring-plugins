@@ -894,8 +894,16 @@ def main():
     acked_fingerprints = set()
     ack_conn = None
     if args.ICINGA_CALLBACK:
-        instance_payload = {'server_log': server_log}
-        for name, value in (('ignore_regex', args.IGNORE), ('match', args.MATCH)):
+        # Only what the operator set takes part in the identifier, so a host
+        # that gains a second source - a unit next to the file - keeps the
+        # acknowledgements it already has. `server_log` is in there when it was
+        # named, because two services then deliberately watch different logs.
+        instance_payload = {}
+        for name, value in (
+            ('ignore_regex', args.IGNORE),
+            ('match', args.MATCH),
+            ('server_log', args.SERVER_LOG),
+        ):
             if value:
                 instance_payload[name] = value
         ack_conn = lib.base.coe(
