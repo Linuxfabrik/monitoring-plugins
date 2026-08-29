@@ -20,9 +20,8 @@ Icinga Director:
 
 * Deb Updates and RPM Updates alert on ordinary pending updates too, a week and a day after they show up; tick `Only Critical` for the old report
 * delete the leftover `tpl-service-cert` whose check command is `cmd-check-url`, otherwise the certificate check reports on the wrong endpoint ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
-* Logfile, MySQL Logfile and Journald Query: `Ignore Pattern` / `Ignore Regex` become `Ignore`, which takes a regular expression, so escape any metacharacter when moving your patterns over
+* Logfile, MySQL Logfile and Journald Query: `Ignore Pattern` / `Ignore Regex` become `Ignore`, which takes a regular expression, so escape any metacharacter when moving your patterns over; in MySQL Logfile, `Server Log` holds a list now, so re-enter its value
 * MySQL Database Metrics, Storage Engines and Table Indexes: `Ignore Schemas` / `Ignore Tables` become `Match` / `Ignore`, move your patterns over
-* MySQL Logfile: `Server Log` holds a list now, so re-enter the value wherever one is set
 * the KVM Host Service Set drops the libvirtd unit check: tag your hypervisors `libvirtd` or `virtqemud`
 * the `rpm-updates` tag and its Service Set are gone: drop the tag, the check is in the Basic Service Sets now
 
@@ -65,38 +64,25 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* `libvirtd Service Set`
-* `LVM Service Set`
-* `MD RAID Service Set`
-* `Multipath Service Set`
-* `NFS Client Service Set`
-* `Sensors Service Set`
-* `smartmontools Service Set`
-* `virtqemud Service Set`
+* Service Sets to activate: `libvirtd`, `LVM`, `MD RAID`, `Multipath`, `NFS Client`, `Sensors`, `smartmontools`, `virtqemud`
 
 ### Changed
 
 Monitoring Plugins:
 
 * apache-httpd-status: worker usage counts every busy slot, and `ExtendedStatus Off` no longer blanks most metrics
-* cert: reaches a TLS endpoint through an HTTP proxy ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * countdown: table output, Nagios ranges, and days left as performance data
-* cpu-usage: alerts on CPU steal, at 10% by default
+* cpu-usage: alerts on CPU steal at 10% by default, and reports the right percentages on a host running virtual machines
 * dmesg: fewer false alarms on physical servers and in virtual machines
-* file-age, file-count, file-growth, file-size: the summary names the breached range in plain words
-* kvm-vm: reports a machine that should start with the host and does not, and no longer needs root
+* kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
 * mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
-* mysql-logfile: a connection a client dropped is counted per host over a time window instead of counting as a warning, so an application that never closes cleanly no longer alerts
-* mysql-logfile: denied logins are counted per source over a time window instead of counting as warnings, so a mistyped password no longer alerts
-* mysql-logfile: reads several logs as one window, reads the journal of the database unit along with the error log, works on a server that logs to the journal alone, and alerts when a log it was told to read cannot be read
-* mysql-logfile: the summary starts with the stretch of time it covers, names only what happened, and lists the logs it read in a section of its own
-* mysql-perf-metrics: `--ignore-innodb-snapshot-isolation` silences the `innodb_snapshot_isolation` warning where the variable cannot be turned on
+* mysql-logfile: counts aborted connections and denied logins per source over a time window instead of alerting on each, and reads the error log and the journal of the database unit as one window
 * nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
-* openstack-nova-list: alerts on an ACTIVE instance that is not running, reports the compute host, and a password reset or rescue image is no longer CRITICAL
-* openstack-swift-stat: alerts on the container and account quotas
+* openstack-nova-list: alerts on an ACTIVE instance that is not running and reports the compute host; a password reset or rescue image is no longer CRITICAL, and a slow cloud no longer kills the check
+* openstack-swift-stat: alerts on the container and account quotas, and a slow cloud no longer kills the check
 * procs: reports the fork rate (Linux only)
 
 Icinga Director:
@@ -105,15 +91,10 @@ Icinga Director:
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
 * the Needs Restarting service runs hourly and waits four hours before alerting; it covers Debian hosts now, so tag them
-* the NFS Server Service Set runs the export check
 
 Grafana:
 
-* apache-httpd-status: re-import, the metric names changed
-* cpu-usage: re-import, it has panels for steal time and per-core utilization
-* kvm-vm: import, the check ships one now
-* mysql-logfile: re-import, it has a panel for the denied logins and the aborted connections
-* procs: re-import, it has a panel for the fork rate
+* re-import the dashboards of apache-httpd-status, cpu-usage, disk-io, Icinga overview, keycloak-memory-usage, kvm-vm, load, memory-usage, mysql-logfile, network-io, php-status, ping, procs and swap-usage: panels and metric names changed, and series hidden from a panel no longer show up in its tooltip
 
 ### Removed
 
@@ -136,22 +117,16 @@ Monitoring Plugins:
 
 * about-me: recognises a KVM host running the modular libvirt daemons again
 * all plugins: a command stuck on storage that has gone away no longer runs past the check's `--timeout`
-* apache-httpd-disclosure, nextcloud-status, nginx-disclosure, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy`
-* countdown: a malformed `--input` names the date it cannot read instead of a traceback
-* cpu-usage: reports the right CPU percentages on a host running virtual machines
-* deb-updates, icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows
-* deb-updates: `--only-critical` no longer stays OK on a fresh security update
-* disk-usage: no longer runs forever when a network filesystem stops answering, `--fstype` and `--list-fstypes` work again on such a host, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
+* cert, nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* deb-updates: `--only-critical` no longer stays OK on a fresh security update, and two runs at the same time no longer report each other's rows
+* disk-usage: `--fstype` and `--list-fstypes` work again on a host whose network filesystem stopped answering, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * file-ownership: a `--filename` missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
+* icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
-* kvm-vm: a machine that crashed or never started is reported instead of counted as switched off, and a machine name containing a space no longer breaks the check
-* logfile, mysql-logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
-* mysql-logfile: reads the error log of a container again, which the images write to standard error
+* logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
 * needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
-* openstack-nova-list, openstack-swift-stat: no longer killed on a slow cloud, and use the domain the rc file names
-* path-rw-test: no longer runs forever when a path sits on a network filesystem that stopped answering
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
@@ -164,10 +139,6 @@ Icinga Director:
 Build, CI/CD:
 
 * the SELinux policy loads on RHEL 10 again
-
-Grafana:
-
-* Icinga overview, apache-httpd-status, cpu-usage, disk-io, keycloak-memory-usage, load, memory-usage, network-io, php-status, ping, procs, swap-usage: re-import, series hidden from a panel no longer show up in its tooltip
 
 
 ## [v7.0.0] - 2026-08-14
