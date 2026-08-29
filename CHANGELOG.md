@@ -121,6 +121,7 @@ Monitoring Plugins:
 * cert, nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update, and two runs at the same time no longer report each other's rows
 * disk-usage: `--fstype` and `--list-fstypes` work again on a host whose network filesystem stopped answering, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
+* docker-service, docker-swarm: the sudoers file lets them reach the Docker daemon
 * file-ownership: a `--filename` missing its `owner:group,` prefix names the expected format instead of crashing
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
@@ -253,8 +254,6 @@ Monitoring Plugins:
 * disk-io: no longer produces false CRITICAL alerts from I/O wait, in particular on ZFS and Proxmox ([#1371](https://github.com/Linuxfabrik/monitoring-plugins/issues/1371))
 * disk-smart: drives behind a hardware RAID controller and external USB drives are read again, `--ignore` matches, and a failing drive is no longer downgraded to WARNING ([#1388](https://github.com/Linuxfabrik/monitoring-plugins/issues/1388))
 * disk-usage: performance data carries the thresholds again, `(?-i:...)` patterns match, and the table is sorted by usage ([#1310](https://github.com/Linuxfabrik/monitoring-plugins/issues/1310))
-* docker-container, docker-image: on a host whose `docker` command is Podman they name the podman-\* checks instead of reporting Podman's containers and images as Docker's
-* docker-service: says that swarm mode needs Docker on a Podman host
 * docker-stats: a container the daemon delivers no statistics for no longer takes the whole check to UNKNOWN
 * file-count: no longer reports "None" as the threshold when none was set
 * file-descriptors: a kernel that does not cap the number of file handles is reported as having no limit instead of "9.2E"
