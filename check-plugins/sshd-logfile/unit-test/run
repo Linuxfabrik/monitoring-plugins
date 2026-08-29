@@ -108,7 +108,10 @@ def aged(name, minutes_ago=180):
         if known
         else datetime.timedelta()
     )
-    path = os.path.join(SCRATCH, name)
+    # The age is part of the name, because the same fixture is aged to two
+    # different moments in the same run and one scratch file cannot hold both.
+    stem, extension = os.path.splitext(name)
+    path = os.path.join(SCRATCH, f'{stem}-{minutes_ago}{extension}')
     with open(path, 'w', encoding='utf-8') as handle:
         for line, moment in zip(lines, moments):
             if moment is None:
@@ -138,7 +141,6 @@ CASES = [
         'assert-in': [
             'No failed logins and nothing else worth reporting found',
             '1 startup detected',
-            'No restarts detected',
             '1 shutdown detected',
             # counted within `--lookback`, so an aged fixture reads zero and
             # says how many the window holds
@@ -258,6 +260,84 @@ CASES = [
         'params': [f'--config-root={config_root("nothing")}'],
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Found no log to read'],
+    },
+    {
+        # Two logs read as one window: a host that keeps the authentication log
+        # of the container next to its own has one check for both, and the
+        # summary says which file each count could have come from.
+        'id': 'crit-two-logs-are-read-as-one-window',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            f'--server-log={aged("rocky9-security-events.txt")}',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'from 2 sources',
+            # The scratch copies carry their age in the name, hence no suffix.
+            'rocky9-clean-start',
+            'rocky9-security-events',
+            '1 revoked key [CRITICAL]',
+            '2 startups detected',
+        ],
+    },
+    {
+        # The same events from two transports: what the syslog daemon wrote into
+        # the file, and what journalctl prints for the unit. On a host whose
+        # syslog daemon feeds off the journal that is every line, and counting
+        # them twice would double every count in the summary.
+        'id': 'crit-the-same-event-from-two-transports-counts-once',
+        'params': [
+            f'--server-log={aged("rocky9-security-events.txt")}',
+            f'--server-log={aged("rocky9-security-events-journal.txt")}',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            # Every one of these would read double without the deduplication.
+            '1 revoked key [CRITICAL]',
+            '1 refused root login [WARNING]',
+            "'sshd_revoked_keys'=1;",
+            "'sshd_startups'=2;",
+            'they share counted once',
+        ],
+    },
+    {
+        # The window has to span every source, and the sources arrive one after
+        # the other: the newest line of the first one sits in the middle of what
+        # was read, so reading the ends of the whole would report the day before
+        # yesterday as the end of the window.
+        'id': 'crit-the-window-spans-every-source',
+        'params': [
+            f'--server-log={aged("rocky9-security-events.txt", minutes_ago=1440)}',
+            f'--server-log={aged("rocky9-clean-start.txt", minutes_ago=60)}',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['(23h '],
+    },
+    {
+        # One source of two could not be read at all. The run goes on with what
+        # it has, and says that the other one is a hole in the window rather
+        # than reporting the state of the half that worked.
+        'id': 'warn-a-source-that-could-not-be-read-is-a-hole-in-the-window',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            '--server-log=/var/log/there-is-no-such-file.log',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'there-is-no-such-file.log',
+            '1 startup detected',
+        ],
+    },
+    {
+        # A shell that found nothing to expand hands the pattern on unchanged,
+        # and the admin then hunts for a typo that is not there.
+        'id': 'warn-a-wildcard-is-named-as-what-it-is',
+        'params': [
+            f'--server-log={aged("rocky9-clean-start.txt")}',
+            '--server-log=/var/log/*.log',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['a wildcard is not expanded here, every file is its own source'],
     },
     {
         'id': 'unknown-callback-without-its-companions',

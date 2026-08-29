@@ -3,13 +3,13 @@
 
 ## Overview
 
-Scans the log of the OpenSSH server for the events an administrator has to act on: a server that refused to start, a host key it could not load, a key file it refused because of how it looks on disk, a key somebody revoked and is still using, a session that died on a signal, and a root login that only `PermitRootLogin` stopped - which means the credentials for it were valid. Startups, restarts, shutdowns and successful logins are counted alongside them, so a server that keeps restarting is visible. Everything a client can provoke - a password that did not match, a login for an account that does not exist, a connection that ended before authentication, a connection the server refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within ten minutes is somebody guessing passwords. Every host that answers on port 22 collects these all day, so counting them by rate is what keeps the check from being permanently yellow. sshd writes no severity into its lines, so what is reported is what this check recognizes; anything else it wrote is read but not counted. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the check takes the first of the usual authentication logs of the distributions that exists, and falls back to the journal of the sshd unit where there is none. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that sshd logs to its standard error until it has loaded its host keys, so a rejected configuration, a host key it could not read and the "no hostkeys available" it exits with never reach the syslog file. They show up only when the unit is read (`--server-log=systemd:sshd.service`). Requires root or sudo.
+Scans the log of the OpenSSH server for the events an administrator has to act on: a server that refused to start, a host key it could not load, a key file it refused because of how it looks on disk, a key somebody revoked and is still using, a session that died on a signal, and a root login that only `PermitRootLogin` stopped - which means the credentials for it were valid. Startups, restarts, shutdowns and successful logins are counted alongside them, so a server that keeps restarting is visible. Everything a client can provoke - a password that did not match, a login for an account that does not exist, a connection that ended before authentication, a connection the server refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within ten minutes is somebody guessing passwords. Every host that answers on port 22 collects these all day, so counting them by rate is what keeps the check from being permanently yellow, and counting them per source address is what tells one determined client from the open network going past. sshd writes no severity into its lines, so what is reported is what this check recognizes; anything else it wrote is read but not counted. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check takes the first of the usual authentication logs of the distributions that exists and reads the journal of the sshd unit along with it, because sshd logs to its standard error until it has loaded its host keys: a rejected configuration, a host key it could not read and the "no hostkeys available" it exits with never reach the syslog file, and nothing a running sshd logs reaches the journal on a host that has a syslog daemon. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.
 
 **Important Notes:**
 
 * **sshd writes no log level, so this check reports what it recognizes and nothing else.** MySQL writes `[ERROR]`, PHP-FPM writes `WARNING:` and Apache writes `[core:error]`; sshd writes neither. The `error:` and `fatal:` prefixes it does write say how a message was logged, not how bad the situation is: an internet-facing host collects `error: kex_exchange_identification: Connection closed by remote host` by the thousand, and OpenSSH 8.0 on the RHEL 8 family words a scanner that walked away as `fatal: Timeout before authentication`. Alerting on those prefixes would page somebody every night. What is worth an alert is therefore named one message at a time, and a line the check does not recognize is read and left uncounted.
-* **A server that never started is invisible in the syslog file.** sshd logs to its standard error until it has loaded its host keys, so a rejected configuration, a host key it could not read and `sshd: no hostkeys available -- exiting.` never reach `/var/log/secure` or `/var/log/auth.log`. Under systemd that output lands in the journal. Point the check at the unit (`--server-log=systemd:sshd.service`) to see those, and use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether sshd is running at all. An address it could not bind is the exception and does reach the file, because binding happens after the switch to syslog.
-* **The syslog file is the default because it sees every session, whatever unit handled it.** Where sshd is socket-activated with `Accept=yes` - which the RHEL family ships as `sshd.socket` and `sshd@.service`, disabled - every connection is handled by an instance of its own (`sshd@0-198.51.100.7:22-...service`), and the journal of `sshd.service` holds none of them. The file holds them all. The journal in turn holds what the file never sees, see above; on a host that matters, both are worth having as two services.
+* **A server that never started is invisible in the syslog file, which is why the journal is read too.** sshd logs to its standard error until it has loaded its host keys, so a rejected configuration, a host key it could not read and `sshd: no hostkeys available -- exiting.` never reach `/var/log/secure` or `/var/log/auth.log`; under systemd that output lands in the journal. The check therefore reads both by default and counts once what it finds in both. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether sshd is running at all. An address it could not bind is the exception and does reach the file, because binding happens after the switch to syslog.
+* **The syslog file carries the sessions, whatever unit handled them.** Where sshd is socket-activated with `Accept=yes` - which the RHEL family ships as `sshd.socket` and `sshd@.service`, disabled - every connection is handled by an instance of its own (`sshd@0-198.51.100.7:22-...service`), and the journal of `sshd.service` holds none of them. The file holds them all, which is why it is read first and the journal of the unit along with it.
 * **A refused root login means the credentials were valid.** sshd checks `PermitRootLogin` only after the password or the key has already been accepted, so `ROOT LOGIN REFUSED FROM` is not a failed attempt - it is a successful authentication that the directive stopped. Somebody or something holds working root credentials for this host. The line is written twice per attempt, once by the privileged process and once by the unprivileged one whose copy carries a ` [preauth]` suffix; the check counts the attempt once.
 * **sshd decides per attempt whether to log a failed authentication at all.** It logs one at the level that the default `LogLevel INFO` still writes only when the method was `password`, when the account does not exist, or once half of `MaxAuthTries` has been used up; anything else stays below that and never reaches the log. On the distributions that run a password through PAM as keyboard-interactive, a failed password for an account that exists therefore produces no `Failed ...` line at all, and `error: PAM: Authentication failure for <user> from <address>` is the only trace of it. This check counts that line as the failed authentication it is, and counts the `pam_unix(sshd:auth)` line the module itself writes nowhere, so an attempt counts once whichever path it took. A `LogLevel` below `INFO` hides these lines from this check just as it hides them from the file, so the check reads the sshd configuration and says so as the first thing in its output when it finds one. It raises no state for it: turning the level down is a decision somebody took, and the check only says what follows from it.
 * **A client does not get to choose which source it is counted under.** Parts of the lines this check reads are the client's own text - the account it asked for, the identification string it sent - and a client that writes an address into them would otherwise move its own lines into somebody else's count, or spread them out to stay below a threshold. The address is therefore taken from where the server writes the peer and nowhere else, and the two spellings of one client (`198.51.100.7` and `::ffff:198.51.100.7`) are counted as the one client they are.
@@ -19,7 +19,7 @@ Scans the log of the OpenSSH server for the events an administrator has to act o
 * **`PerSourcePenalties` drops are not `MaxStartups` drops.** Since OpenSSH 9.8 the server remembers a source that misbehaved and refuses it for a while, writing `drop connection #0 from [...] penalty: exceeded LoginGraceTime`. That is the server working as designed and is counted with the aborted connections, on a loud threshold. A drop without a `penalty:` reason means sshd was at `MaxStartups` and turned away whoever connected next, an administrator included, which is why a single one of those already reports.
 * **The authentication log holds more than sshd.** `sudo`, `su`, `crond` and `unix_chkpwd` write to the same syslog facility, and PAM writes its own lines under sshd's name (`pam_unix(sshd:auth): authentication failure`). None of them is counted; a PAM line about an attempt sshd already reported would count that attempt twice. A window that holds no sshd line at all is reported as UNKNOWN, because the source is then not the log sshd writes into.
 * **A session that crashes is only visible from OpenSSH 9.8 on.** The listener learned to report `session process ... killed by signal` when 9.8 split it from the session process. A host below that - the RHEL 8 and RHEL 9 families among them - logs nothing when a session dies on a fault, and the counter stays at zero there.
-* **The window spans the last rotation.** logrotate moves the old file aside (`secure-20260828` on the RHEL family, `auth.log.1` on the Debian family, then `.gz`) and the syslog daemon opens a fresh one. A check reading the live file alone would report a healthy server an hour after it broke. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the first fact names the files it read. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
+* **The window spans the last rotation.** logrotate moves the old file aside (`secure-20260828` on the RHEL family, `auth.log.1` on the Debian family, then `.gz`) and the syslog daemon opens a fresh one. A check reading the live file alone would report a healthy server an hour after it broke. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the last section names every file it read. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
 * **A start is one event even though sshd logs one line per address.** `Server listening on 0.0.0.0 port 22.` and `Server listening on :: port 22.` are written within the same second on every dual-stack host, and the check counts them as the one start they are. A restart moves both the restart and the startup counter, because sshd starts listening again after it re-reads its configuration.
 * **Reading a container log costs the timestamps.** The container engines stamp every line themselves and that stamp is stripped while reading, so a line sshd wrote through syslog keeps no time of its own. The counted events then report every line as undated and never reach their thresholds. `docker:`/`podman:`/`kubectl:` is therefore useful here for the named events and the lifecycle counters, not for the rates.
 * The check reads a window of the log on every run and reports what that window holds, rather than only what is new. The summary names how many lines that window holds, because everything else is counted within it: right after logrotate the window is a handful of lines, and a run reporting no login at all is then telling the truth about those rather than about the day. It also means an event keeps being reported until it leaves the window or the service is acknowledged (see `--icinga-callback`). The counted events are the exception: their state follows `--lookback` and falls back on its own as the burst ages out.
@@ -31,7 +31,8 @@ Scans the log of the OpenSSH server for the events an administrator has to act o
 
 * Takes the first of `/var/log/secure` and `/var/log/auth.log` that exists.
 * Falls back to `systemd:sshd.service`, or to `systemd:ssh.service` on the distributions that use that name, deciding by which of the two has a unit file below `/etc/systemd/system`, `/usr/lib/systemd/system` or `/lib/systemd/system`.
-* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`.
+* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`, which can be given several times; everything named is read as one window. A wildcard is not expanded, so name each file.
+* Reads the journal of the sshd unit along with the file where `--server-log` names nothing, and counts an event the two share once.
 * Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Reads the `LogLevel` of `/etc/ssh/sshd_config` and the files it includes, taking the first value as sshd does and ignoring what a `Match` block sets, to tell whether sshd is writing what this check counts.
 * Recognizes a line as sshd's by the syslog identifier it was written under, which is `sshd`, `sshd-session` or `sshd-auth` - OpenSSH 9.8 split the daemon, and everything about authentication is logged by `sshd-session` since.
@@ -97,15 +98,16 @@ per source address is what tells one determined client from the open network
 going past. sshd writes no severity into its lines, so what is reported is
 what this check recognizes; anything else it wrote is read but not counted.
 The log is read either from a file, from a systemd unit (`systemd:`) or from a
-container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the check
-takes the first of the usual authentication logs of the distributions that
-exists, and falls back to the journal of the sshd unit where there is none.
-The most recent rotated file is read along with the live one, so the window
-does not end where logrotate last ran. Note that sshd logs to its standard
-error until it has loaded its host keys, so a rejected configuration, a host
-key it could not read and the "no hostkeys available" it exits with never
-reach the syslog file. They show up only when the unit is read
-(`--server-log=systemd:sshd.service`). Requires root or sudo.
+container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given
+several times, and everything named is then read as one window. Without it the
+check takes the first of the usual authentication logs of the distributions
+that exists and reads the journal of the sshd unit along with it, because sshd
+logs to its standard error until it has loaded its host keys: a rejected
+configuration, a host key it could not read and the "no hostkeys available" it
+exits with never reach the syslog file, and nothing a running sshd logs
+reaches the journal on a host that has a syslog daemon. What both hold is
+counted once. The most recent rotated file is read along with the live one, so
+the window does not end where logrotate last ran. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -251,11 +253,14 @@ options:
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
                         `docker:CONTAINER`, `podman:CONTAINER`,
-                        `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted,
-                        the check takes the first of the usual authentication
-                        logs of the distributions that exists, and falls back
-                        to the journal of the sshd unit where there is none.
-                        Example: `--server-log=systemd:sshd.service`.
+                        `kubectl:CONTAINER` or `systemd:UNITNAME`. Can be
+                        specified multiple times, and everything named is then
+                        read as one window; a source named twice is read once.
+                        If omitted, the check takes the first of the usual
+                        authentication logs of the distributions that exists
+                        and reads the journal of the sshd unit along with it;
+                        what the two share is counted once. Example:
+                        `--server-log=systemd:sshd.service`.
   --throttled-connections-critical THROTTLED_CONNECTIONS_CRITICAL
                         Number of connections refused for being past
                         `MaxStartups` within `--lookback` that returns
@@ -312,13 +317,16 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sshd-logfile/
 Output of a healthy host:
 
 ```text
-No failed logins and nothing else worth reporting found. 1 startup detected (last: Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.). No restarts detected. 1 shutdown detected (last: Aug 28 19:25:50 host sshd[231]: Received signal 15; terminating.). 1 successful login in the last 10m (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 198.51.100.7 port 54876 ssh2). Read 9 lines from `/var/log/secure` (size: 909.0B), covering 2026-08-28 19:25..2026-08-28 19:25 (47s).
+2026-08-28 19:25 .. 2026-08-28 19:25 (47s): No failed logins and nothing else worth reporting found. 1 startup detected (last: Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.). 1 shutdown detected (last: Aug 28 19:25:50 host sshd[231]: Received signal 15; terminating.). 0 successful logins in the last 10m (1 in the window read) (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 127.0.0.1 port 54876 ssh2).
+
+Read 9 lines from 1 source:
+* `/var/log/secure` (size: 909.0B)|'sshd_logfile_size'=909B;;;0 'sshd_startup_failures'=0;;0;0 'sshd_host_key_problems'=0;0;;0 'sshd_revoked_keys'=0;;0;0 'sshd_root_login_refusals'=0;0;;0 'sshd_key_file_refusals'=0;0;;0 'sshd_child_crashes'=0;0;;0 'sshd_auth_failures'=0;6;60;0 'sshd_invalid_users'=0;6;60;0 'sshd_access_denials'=0;6;60;0 'sshd_throttled_connections'=0;1;10;0 'sshd_aborted_connections'=0;200;2000;0 'sshd_startups'=1;;;0 'sshd_restarts'=0;;;0 'sshd_shutdowns'=1;;;0 'sshd_logins'=0;;;0
 ```
 
 Output of a host whose sshd could not take its port, and whose users cannot get in with their keys:
 
 ```text
-Found 3 startup failures [CRITICAL], 1 refused key file [WARNING]. 0 authentication failures in the last 10m (5 in the window read). 0 invalid-user attempts in the last 10m (1 in the window read). 0 access denials in the last 10m (1 in the window read). 6 startups detected (last: Aug 28 19:25:52 host sshd[367]: Server listening on 0.0.0.0 port 22.). 4 restarts detected (last: Aug 28 19:25:48 host sshd[231]: Received SIGHUP; restarting.). 2 shutdowns detected (last: Aug 28 19:25:54 host sshd[367]: Received signal 15; terminating.). 1 successful login in the last 10m (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 198.51.100.7 port 54876 ssh2). Read 73 lines from `/var/log/secure` (size: 7.4KiB), covering 2026-08-28 19:25..2026-08-28 19:25 (51s).
+2026-08-28 19:25 .. 2026-08-28 19:25 (51s): Found 3 startup failures [CRITICAL], 1 refused key file [WARNING]. 0 authentication failures in the last 10m (5 in the window read). 0 invalid-user attempts in the last 10m (1 in the window read). 0 access denials in the last 10m (1 in the window read). 0 throttled connections in the last 10m (2 in the window read). 0 aborted connections in the last 10m (12 in the window read). 6 startups detected (last: Aug 28 19:25:52 host sshd[367]: Server listening on 0.0.0.0 port 22.). 4 restarts detected (last: Aug 28 19:25:48 host sshd[231]: Received SIGHUP; restarting.). 2 shutdowns detected (last: Aug 28 19:25:54 host sshd[367]: Received signal 15; terminating.). 0 successful logins in the last 10m (1 in the window read) (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 127.0.0.1 port 54876 ssh2).
 
 Startup failures:
 * Aug 28 19:25:53 host sshd[371]: error: Bind to port 22 on 0.0.0.0 failed: Address already in use.
@@ -328,15 +336,22 @@ Startup failures:
 Refused key files:
 * Aug 28 19:25:41 host sshd-session[329]: Authentication refused: bad ownership or modes for file /home/alice/.ssh/authorized_keys
 
+Read 73 lines from 1 source:
+* `/var/log/secure` (size: 7.4KiB)
+
 Recommendations:
 * sshd could not start or could not take all its addresses; `sshd -t` names a rejected directive, and a port that is already taken names the process holding it in `ss --listening --processes`
-* sshd ignored a key file because of its ownership or its mode; the home directory and `.ssh` may not be group- or world-writable, and `chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys` is what the file itself needs
+* sshd ignored a key file because of its ownership or its mode; the home directory and `.ssh` may not be group- or world-writable, and `chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys` is what the file itself needs|'sshd_logfile_size'=7542B;;;0 'sshd_startup_failures'=3;;0;0 'sshd_host_key_problems'=0;0;;0 'sshd_revoked_keys'=0;;0;0 'sshd_root_login_refusals'=0;0;;0 'sshd_key_file_refusals'=1;0;;0 'sshd_child_crashes'=0;0;;0 'sshd_auth_failures'=0;6;60;0 'sshd_invalid_users'=0;6;60;0 'sshd_access_denials'=0;6;60;0 'sshd_throttled_connections'=0;1;10;0 'sshd_aborted_connections'=0;200;2000;0 'sshd_startups'=6;;;0 'sshd_restarts'=4;;;0 'sshd_shutdowns'=2;;;0 'sshd_logins'=0;;;0
 ```
 
 Output of a host somebody is guessing passwords on:
 
 ```text
-147 authentication failures in the last 10m [WARNING]. 173 invalid-user attempts in the last 10m. No startups detected. No restarts detected. No shutdowns detected. No successful logins in the last 10m. Read the most recent 30K lines from `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828`, covering 2026-08-28 01:33..2026-08-29 07:53 (1D 6h).
+2026-08-28 01:33 .. 2026-08-29 07:53 (1D 6h): 147 authentication failures from 198.51.100.7 in the last 10m [WARNING] (2841 in the window read). 173 invalid-user attempts from 198.51.100.7 in the last 10m (3277 in the window read). 0 successful logins in the last 10m (4 in the window read) (last: Aug 29 07:44:11 host sshd-session[4711]: Accepted publickey for alice from 198.51.100.9 port 51234 ssh2: RSA SHA256:linuxfabrik).
+
+Read the most recent 30K lines from 2 sources:
+* `/var/log/secure` (size: 25.0KiB) + `/var/log/secure-20260828` (size: 1.2MiB)
+* `systemd:sshd.service`
 
 Recommendations:
 * Authentications are failing in bulk for accounts that exist, which is what a guessing run against known user names looks like; the names and addresses in the log say whether it is that or an automation still using a password that was changed
@@ -350,6 +365,7 @@ Recommendations:
 * WARN if the window holds a host key sshd could not load, a key file it refused for its ownership or its mode, a session process that died on a signal, or a root login that only `PermitRootLogin` stopped.
 * WARN or CRIT if more failed authentications, invalid users, access denials, throttled connections or aborted connections arrived within `--lookback` than `--auth-failures-warning` / `--auth-failures-critical`, `--invalid-users-warning` / `--invalid-users-critical`, `--access-denials-warning` / `--access-denials-critical`, `--throttled-connections-warning` / `--throttled-connections-critical` and `--aborted-connections-warning` / `--aborted-connections-critical` allow. A single one of any of them except a throttled connection never alerts.
 * WARN if the log file is configured but is not an existing regular file.
+* WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
 * UNKNOWN if not a single line in the window was written by sshd. The source is then something else, `SyslogFacility` sends sshd's lines to a file this check is not looking at, or nobody has connected to this host for as long as the window reaches back. Naming the source with `--server-log` settles the first two and is what to do in the third case as well.
 * UNKNOWN if the host keeps none of the usual authentication logs and has no sshd unit either, so there is nothing to read without `--server-log`.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.

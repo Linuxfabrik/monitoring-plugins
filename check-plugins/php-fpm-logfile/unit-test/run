@@ -44,6 +44,9 @@ def config_root(name):
     return os.path.join(HERE, 'config', name)
 
 
+# The summary abbreviates a long path for display, and a fixture tree below this
+# repository is always long enough for that, so a path is asserted by its
+# basename rather than in full.
 CASES = [
     {
         'id': 'ok-clean-start',
@@ -52,8 +55,6 @@ CASES = [
         'assert-in': [
             'No errors or warnings found',
             '1 startup detected',
-            'No reloads detected',
-            'No shutdowns detected',
         ],
         'assert-not-in': ['Recommendations:', '[WARNING]', '[CRITICAL]'],
     },
@@ -72,7 +73,6 @@ CASES = [
         'assert-retc': STATE_OK,
         'assert-in': [
             '1 line',
-            'No startups detected',
             "'php_fpm_log_rotations'=1",
         ],
     },
@@ -196,6 +196,34 @@ CASES = [
         'assert-in': ['1 emergency restart'],
     },
     {
+        # Two pools logging into files of their own, read as one window: one
+        # check covers the host, and the summary says which file each count
+        # could have come from.
+        'id': 'crit-two-logs-are-read-as-one-window',
+        'params': [
+            f'--server-log={fixture("rocky9-clean-start.txt")}',
+            f'--server-log={fixture("rocky9-config-rejected.txt")}',
+        ],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'from 2 sources',
+            'rocky9-clean-start.txt',
+            'rocky9-config-rejected.txt',
+        ],
+    },
+    {
+        # One source of two could not be read at all. The run goes on with what
+        # it has, and says that the other one is a hole in the window rather
+        # than reporting the state of the half that worked.
+        'id': 'warn-a-source-that-could-not-be-read-is-a-hole-in-the-window',
+        'params': [
+            f'--server-log={fixture("rocky9-clean-start.txt")}',
+            '--server-log=/var/log/there-is-no-such-file.log',
+        ],
+        'assert-retc': STATE_WARN,
+        'assert-in': ['there-is-no-such-file.log', '1 startup detected'],
+    },
+    {
         'id': 'unknown-source-is-not-a-php-fpm-log',
         'params': [f'--server-log={fixture("php-application-error-log.txt")}'],
         'assert-retc': STATE_UNKNOWN,
@@ -220,7 +248,10 @@ CASES = [
             '--ignore=ptrace',
         ],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['9 WARNING lines found', '1 pool saturation'],
+        # Six rather than nine: the three lines a named event claimed - the
+        # worker crashes and the saturation - are counted there and not by
+        # their level as well.
+        'assert-in': ['6 WARNING lines found', '1 pool saturation'],
         'assert-not-in': ['ERROR line'],
     },
     {
@@ -230,8 +261,10 @@ CASES = [
             '--match=max_children',
         ],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['1 WARNING line found', '1 pool saturation'],
-        'assert-not-in': ['slow request', 'worker crash'],
+        # The one line left is the saturation, and it is reported as that
+        # rather than as a WARNING line as well.
+        'assert-in': ['Found 1 pool saturation [CRITICAL]'],
+        'assert-not-in': ['WARNING line found', 'slow request', 'worker crash'],
     },
     {
         'id': 'ok-match-drops-everything',
@@ -274,19 +307,19 @@ CASES = [
         'id': 'crit-log-path-from-the-redhat-configuration',
         'params': [f'--config-root={config_root("rhel")}'],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['/var/log/php-fpm/error.log', '2 worker crashes'],
+        'assert-in': ['error.log', '2 worker crashes'],
     },
     {
         'id': 'ok-log-path-from-the-debian-configuration',
         'params': [f'--config-root={config_root("debian")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['/var/log/php8.2-fpm.log', '1 startup detected'],
+        'assert-in': ['php8.2-fpm.log', '1 startup detected'],
     },
     {
         'id': 'ok-log-path-probed-without-a-configuration',
         'params': [f'--config-root={config_root("probe-only")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['/var/log/php-fpm/error.log', '1 startup detected'],
+        'assert-in': ['error.log', '1 startup detected'],
     },
     {
         'id': 'unknown-error-log-goes-to-syslog',

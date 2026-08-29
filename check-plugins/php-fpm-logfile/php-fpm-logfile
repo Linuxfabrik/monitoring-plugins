@@ -28,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, requests that ran into
@@ -43,12 +43,16 @@ lines are counted there and nowhere else, so a site with one heavy report page d
 leave the check permanently yellow.
 What is left is counted by the level PHP-FPM writes at the head of the line: `ALERT` and
 `ERROR` return CRITICAL and `WARNING` returns WARNING, which `--critical-level` and
-`--warning-level` move. The events named above raise their own state either way. A
+`--warning-level` move. The events named above carry their own state and are counted there
+and nowhere else, because the level says nothing about what happened. A
 message that merely contains the word "error" never counts.
 The log is read either from a file, from a systemd unit (`systemd:`) or from a
-container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is
-taken from the `error_log` directive of the PHP-FPM configuration, with the common
-locations of the distributions probed when that yields nothing. The most recent
+container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times,
+and everything named is then read as one window. Without it the file path is taken from
+the `error_log` directive of the PHP-FPM configuration, with the common locations of the
+distributions probed when that yields nothing, and the journal of the PHP-FPM unit is read
+along with it, because a master that fails to start writes why to its standard error and
+never reaches the error log. What both hold is counted once. The most recent
 rotated file is read along with the live one, so the window does not end where
 logrotate last ran.
 Note that PHP-FPM discards everything its workers write unless
@@ -84,6 +88,23 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # logrotate runs. One covers a daily rotation with room to spare.
 ROTATED_FILES = 1
 
+# The unit the distributions run PHP-FPM as. Only the fixed locations systemd
+# reads unit files from are looked at, and only for the names the distributions
+# use, so nothing a log or a configuration file holds can point the check at
+# another unit.
+UNIT_CANDIDATES = ('php-fpm.service', 'php*-fpm.service')
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+
+# How long a path may be in the summary before it is abbreviated for display.
+# The paths the distributions use fit within it untouched; a host serving a
+# dozen sites names a dozen logs in one directory, and there the directory is
+# the part that says nothing.
+SOURCE_PATH_MAX_LEN = 32
+
 # PHP-FPM configuration files that carry the global `error_log` directive. The
 # directive is global-only, so the pool files in `php-fpm.d/` never override it
 # and are not read. The Debian family installs one tree per PHP version, hence
@@ -113,6 +134,11 @@ LOG_FILE_CANDIDATES = (
 # without going through the master writes the same line without the timestamp,
 # because PHP-FPM prints the time only in the master process. Both shapes carry
 # the level, so both are recognized (verified against php-fpm 8.0.30 on Rocky 9).
+# What the journal calls PHP-FPM, for telling its own lines from the ones
+# something else logged into the same place. The Debian family carries the
+# version in the name (`php8.2-fpm`), the RHEL family does not.
+IDENTIFIER_REGEX = re.compile(r'^php[\d.]*-?fpm$', re.IGNORECASE)
+
 LEVEL_REGEX = re.compile(
     r'\b(ALERT|ERROR|WARNING|NOTICE|DEBUG):\s*(.*)$',
 )
@@ -484,10 +510,15 @@ def parse_args():
         help='Log source to read from. '
         'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
         '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
+        'Can be specified multiple times, and everything named is then read as '
+        'one window; a source named twice is read once. '
         'If omitted, the check reads the `error_log` directive of the PHP-FPM '
-        'configuration and falls back to the common locations of the '
-        'distributions. '
+        'configuration, falls back to the common locations of the '
+        'distributions, and reads the journal of the PHP-FPM unit along with it; '
+        'what the two share is counted once. '
         'Example: `--server-log=systemd:php-fpm.service`.',
+        action='append',
+        default=None,
         dest='SERVER_LOG',
     )
 
@@ -639,6 +670,62 @@ def get_level_states(critical_level, warning_level):
     return states
 
 
+def get_units(config_root=''):
+    """Return the PHP-FPM units this host has a unit file for.
+
+    A unit file two names point at is one unit: the MariaDB package ships
+    `mysqld.service` and `mysql.service` as symlinks to `mariadb.service`, and
+    reading that journal three times would count every line three times.
+    """
+    found = []
+    seen = set()
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
+                if not lib.disk.file_exists(filename, allow_empty=True):
+                    continue
+                identity = os.path.realpath(filename)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                found.append(os.path.basename(filename))
+    return found
+
+
+def dedup_key(line):
+    """Identify the event in a line, whichever transport delivered it.
+
+    The error log and the journal of the unit are both read, and PHP-FPM writes
+    its own timestamp into either, so what follows the syslog prefix the journal
+    adds is the line the file holds.
+    """
+    written_at = lib.logsource.timestamp(line, parse_timestamp)
+    return (
+        written_at.replace(microsecond=0) if written_at else None,
+        lib.logsource.strip_syslog_prefix(line),
+    )
+
+
+def describe_source(source, size=None):
+    """Name one source the way the summary reports it, with what was read along.
+
+    The path is given in full: this goes into a listing of its own, which has
+    the room, and it is where an administrator copies the path from.
+    """
+    described = f'`{source["label"]}`'
+    if size is not None:
+        described += f' (size: {lib.human.bytes2human(size)})'
+    for predecessor in source['rotated']:
+        described += f' + `{predecessor}`'
+        # Its size is looked up here rather than passed in, because a rotated
+        # file is not a source the caller named: the reader found it. It stays
+        # out of the size the performance data trends, which is the live file.
+        predecessor_stat = lib.disk.stat(predecessor)
+        if predecessor_stat is not None:
+            described += f' (size: {lib.human.bytes2human(predecessor_stat.st_size)})'
+    return described
+
+
 def shorten(items, head=5, tail=5):
     """Collapse a list to head + ellipsis + tail when it is longer than head+tail."""
     if len(items) > head + tail:
@@ -660,6 +747,8 @@ def main():
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
+    if args.SERVER_LOG is None:
+        args.SERVER_LOG = []
 
     if args.ICINGA_CALLBACK and not all(
         (
@@ -675,21 +764,24 @@ def main():
         )
 
     # fetch data
-    # `source_size` is set only for plain on-disk files, so the size fact and its
-    # perfdata series stay out of the output for a unit or a container.
-    source_size = None
-    server_log = args.SERVER_LOG
-    if not server_log:
-        server_log = get_configured_log_file(
+    server_logs = args.SERVER_LOG
+    if not server_logs:
+        # The unit alongside the file, not instead of it: a master that failed to
+        # start wrote why to its standard error and never reached the error log,
+        # and a pool logging to syslog is in the journal only. What both carry is
+        # counted once.
+        found_log = get_configured_log_file(args.CONFIG_ROOT) or get_log_file_real_path(
             args.CONFIG_ROOT
-        ) or get_log_file_real_path(args.CONFIG_ROOT)
-    if not server_log:
+        )
+        server_logs = [found_log] if found_log else []
+        server_logs += [f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)]
+    if not server_logs:
         lib.base.cu(
             'Found no PHP-FPM error log. Set `error_log` in the PHP-FPM '
             "configuration, or name the log with the check's `--server-log` "
             'parameter.'
         )
-    if server_log == SYSLOG_TARGET:
+    if SYSLOG_TARGET in server_logs:
         lib.base.cu(
             '`error_log` is set to syslog, so the log is not a file this check '
             'can open. Point `--server-log` at the systemd unit '
@@ -697,27 +789,37 @@ def main():
             'daemon writes.'
         )
 
-    kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
-    if kind == lib.logsource.KIND_FILE:
+    # A size is known for plain on-disk files only, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container. Where
+    # several files are read, the series is what they add up to.
+    sizes = {}
+    for server_log in server_logs:
+        kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+        if kind != lib.logsource.KIND_FILE:
+            continue
         # Report a path that is not a regular file before reading it, so the
         # admin hears about a directory or a device rather than about an I/O
-        # error further down.
+        # error further down. With one source that is the whole answer; with
+        # several it is one source of many and the run goes on.
         log_stat = lib.disk.stat(target)
         if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
-            lib.base.oao(
-                f'Logging seems to be configured, but `{target}` does not seem to'
-                f' be an existing regular file. Check the path and file'
-                f' permissions, or provide the `--server-log` parameter.',
-                STATE_WARN,
-            )
-        source_size = log_stat.st_size
-        if source_size == 0:
-            # An empty log file is a deterministic "no events observed" state,
-            # not an unknown one - typical right after logrotate fires.
-            lib.base.oao(
-                f'Log file `{target}` is empty. Assuming log-rotation.',
-                STATE_OK,
-            )
+            if len(server_logs) == 1:
+                lib.base.oao(
+                    f'Logging seems to be configured, but `{target}` does not'
+                    f' seem to be an existing regular file. Check the path and'
+                    f' file permissions, or provide the `--server-log`'
+                    f' parameter.',
+                    STATE_WARN,
+                )
+            continue
+        sizes[server_log] = log_stat.st_size
+    if len(server_logs) == 1 and sizes.get(server_logs[0]) == 0:
+        # An empty log file is a deterministic "no events observed" state,
+        # not an unknown one - typical right after logrotate fires.
+        lib.base.oao(
+            f'Log file `{server_logs[0]}` is empty. Assuming log-rotation.',
+            STATE_OK,
+        )
 
     # The plugin runs as root via sudo, so restrict an on-disk log to the system
     # log directory. The path the PHP-FPM configuration reports is deliberately
@@ -734,15 +836,28 @@ def main():
     # counting startups, reloads and shutdowns next to the problems, so every run
     # has to see the whole window rather than only what is new.
     result = lib.base.coe(
-        lib.logsource.read(
-            server_log,
+        lib.logsource.read_many(
+            server_logs,
             allowed_roots=allowed_roots,
+            dedup_key=dedup_key,
             max_lines=MAXLINES,
             rotated=ROTATED_FILES,
             timeout=args.TIMEOUT,
         )
     )
-    source_label = f'`{result["label"]}`'
+    # What to call the whole of what was read, for the messages that have to
+    # name it before the summary below spells every source out.
+    # Abbreviated here, because this one shares a line with a sentence; the
+    # listing further down gives the path in full.
+    source_label = (
+        '`'
+        + lib.disk.shorten_path(
+            result['sources'][0]['label'], max_len=SOURCE_PATH_MAX_LEN, truncate=False
+        )
+        + '`'
+        if len(result['sources']) == 1
+        else f'the {len(result["sources"])} sources read'
+    )
 
     # init some vars
     state = STATE_OK
@@ -809,6 +924,16 @@ def main():
         if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
             suppressed_cnt += 1
             continue
+        identifier = lib.logsource.syslog_identifier(log_line)
+        if identifier is not None and not IDENTIFIER_REGEX.match(identifier):
+            # Somebody else writing into the same place: systemd's own
+            # bookkeeping about the unit ("Starting ...", "Started ..."), and
+            # the application's own messages, which PHP-FPM passes on under the
+            # application's identifier - the journal of a PHP-FPM unit serving
+            # Icinga Web is mostly `icingaweb2[1234]: PDOException ...`. Neither
+            # is PHP-FPM's line, and counting them as lines without a level
+            # would report the wrong source on a host where the source is right.
+            continue
         level_match = LEVEL_REGEX.search(log_line)
         if not level_match:
             # Not a line PHP-FPM wrote. Counted rather than dropped silently,
@@ -821,19 +946,31 @@ def main():
         rate_hits = [event for event in RATE_EVENTS if event['regex'].search(message)]
         for event in rate_hits:
             found[event['key']].append(log_line)
-        # A line a rate event owns is judged by how often it arrives and is
-        # therefore left out of the per-level counts; counting it in both places
-        # would leave a site with one slow report page permanently yellow.
-        if not rate_hits and level in levels:
+        hits = [event for event in EVENTS if event['regex'].search(message)]
+        for event in hits:
+            found[event['key']].append(log_line)
+        # A line one of the catalogs owns is left out of the per-level counts.
+        # A rate event is judged by how often it arrives, and counting it by its
+        # level too would leave a site with one slow report page permanently
+        # yellow. A named event carries its own state and says what happened,
+        # which the level cannot; reporting the same lines once by level and
+        # once by name says the same thing twice and doubles them in the graphs.
+        if not rate_hits and not hits and level in levels:
             levels[level].append(log_line)
-        for event in EVENTS:
-            if event['regex'].search(message):
-                found[event['key']].append(log_line)
         for item in LIFECYCLE:
             if item['regex'].search(message):
                 found[item['key']].append(log_line)
         if ROTATION_REGEX.search(message):
             rotations.append(log_line)
+
+    # Everything collected is put back into the order it was written in. The
+    # sources are read one after the other, so a line from the file sits before
+    # a newer one from the journal however late it was written, and "the last
+    # one" would name something days old.
+    for key, lines in found.items():
+        found[key] = lib.logsource.sort_by_time(lines, parse_timestamp)
+    for level, lines in levels.items():
+        levels[level] = lib.logsource.sort_by_time(lines, parse_timestamp)
 
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
@@ -844,7 +981,7 @@ def main():
         lib.base.oao(
             f'Nothing checked: `--match` dropped all {len(result["lines"])} '
             f'{lib.txt.pluralize("line", len(result["lines"]))} of '
-            f'{result["label"]}.',
+            f'{source_label}.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
         )
@@ -859,7 +996,7 @@ def main():
         lib.base.oao(
             f'None of the {unrecognized_cnt} '
             f'{lib.txt.pluralize("line", unrecognized_cnt)} read from '
-            f'{result["label"]} carries a PHP-FPM log level, so this does not '
+            f'{source_label} carries a PHP-FPM log level, so this does not '
             f'look like a PHP-FPM error log. Check `--server-log` and the '
             f'`error_log` directive of the PHP-FPM configuration.',
             STATE_UNKNOWN,
@@ -881,29 +1018,18 @@ def main():
     # say whether the window is an hour or a week: on a busy host the cap is
     # reached within hours, on a quiet one the same 30000 lines reach back
     # months, and every count below has to be read against that. Taken from the
-    # first and the last line that carry a time, so a source that stamps none
-    # simply leaves it out.
+    # ends of each source rather than from the ends of everything read: the
+    # sources arrive one after the other, so the newest line of the first one
+    # sits in the middle. A source that stamps no line simply leaves it out.
     covered = ''
-    window_from = window_to = None
-    for line in result['lines']:
-        window_from = lib.logsource.timestamp(line, parse_timestamp)
-        if window_from is not None:
-            break
-    for line in reversed(result['lines']):
-        window_to = lib.logsource.timestamp(line, parse_timestamp)
-        if window_to is not None:
-            break
+    window_from, window_to = lib.logsource.covered_window(
+        [item['lines'] for item in result['sources']], parse_timestamp
+    )
     if window_from is not None and window_to is not None:
-        # Ordered rather than taken as they stand: a file can hold lines written
-        # with a UTC offset next to lines written without one - a container
-        # entrypoint and the server it starts do exactly that - and the first
-        # line is then not necessarily the earlier one.
-        window_from, window_to = sorted((window_from, window_to))
         span = int((window_to - window_from).total_seconds())
         covered = (
-            f', covering {window_from:%Y-%m-%d %H:%M}'
-            f'..{window_to:%Y-%m-%d %H:%M}'
-            f' ({lib.human.seconds2human(span)})'
+            f'{window_from:%Y-%m-%d %H:%M} .. {window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)}): '
         )
     line_cnt = len(result['lines'])
     lines_read = (
@@ -911,12 +1037,32 @@ def main():
     )
     if result['truncated']:
         lines_read = f'the most recent {lines_read}'
-    sources = source_label
-    if source_size is not None:
-        sources += f' (size: {lib.human.bytes2human(source_size)})'
-    for predecessor in result['rotated']:
-        sources += f' + `{predecessor}`'
-    source_fact = f'Read {lines_read} from {sources}{covered}'
+    # Every source by name, with its own size and its own rotated predecessor,
+    # because a run that read three files and found nothing in two of them has
+    # said something different from a run that read one.
+    # The sources get a section of their own, the way the lines behind every
+    # count do: a reverse proxy serving a dozen sites reads a dozen logs, and
+    # naming them in the summary would bury the verdict under a paragraph of
+    # paths - and the summary line is what a monitoring server shows in a list.
+    # The paths are not abbreviated there: a bullet has the room, and that is
+    # where an administrator copies them from.
+    described = [
+        describe_source(item, sizes.get(item['label'])) for item in result['sources']
+    ]
+    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+
+    if result['duplicates']:
+        # Named rather than silently dropped: an administrator who sees two
+        # sources read and one count has to be able to tell that the check knows
+        # they hold the same events.
+        shared = result['duplicates']
+        source_fact_tail = (
+            f', {lib.human.number2human(shared)} '
+            f'{lib.txt.pluralize("line", shared)} they share counted once'
+        )
+    else:
+        source_fact_tail = ''
+    source_heading = f'Read {lines_read} from {sources}{source_fact_tail}:'
 
     # The counted events. Their state comes from how many of them arrived within
     # the rate window, not from the fact that they arrived at all. Their facts
@@ -989,6 +1135,7 @@ def main():
         named.append(
             f'{len(hits)} '
             f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
+            f'{lib.base.state2str(event["state"], prefix=" ")}'
         )
         recommendations.append(event['recommendation'])
     if named:
@@ -998,13 +1145,13 @@ def main():
 
     for item in LIFECYCLE:
         lines = found[item['key']]
+        # A counter at zero says nothing the performance data does not, and a
+        # sentence about it would only push the verdict further right.
         if lines:
             facts.append(
                 f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
                 f' {item["verb"]} (last: {lines[-1]})'
             )
-        else:
-            facts.append(f'No {lib.txt.pluralize(item["label"], 0)} {item["verb"]}')
 
     # A few lines without a level are normal where the application logs into the
     # same file; a majority of them means the source is mostly something else.
@@ -1020,11 +1167,27 @@ def main():
                 ' log or the log of the application itself'
             )
 
-    # Where the lines came from goes last: an administrator reads the summary
-    # left to right and wants the verdict first, not the provenance of it.
-    facts.append(source_fact)
+    if result['notice']:
+        facts.append(result['notice'].rstrip('.'))
 
-    sections.append('. '.join(facts) + '.')
+    # A source that could not be read at all leaves a hole in the window: with a
+    # second source still delivering, the run goes on, but reporting the state of
+    # what happened to work would hide that nothing is watching the rest.
+    if result['failed']:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            '; '.join(item.rstrip('.') for item in result['failed'])
+            + lib.base.state2str(STATE_WARN, prefix=' ')
+        )
+        recommendations.append(
+            'Check the log sources this check was told to read; '
+            'one of them could not be read at all'
+        )
+
+    # The window the summary reports on comes first, because every count in it
+    # is a count within that window and reads differently against an hour than
+    # against a week.
+    sections.append(covered + '. '.join(facts) + '.')
 
     for item in LEVELS:
         lines = levels[item['level']]
@@ -1034,6 +1197,12 @@ def main():
                 + '\n'.join(f'* {line}' for line in shorten(lines))
             )
 
+    # What was read, last of the sections: the verdict and the lines behind it
+    # come first, the provenance after them.
+    sections.append(
+        source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
+    )
+
     if recommendations:
         sections.append(
             'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
@@ -1042,10 +1211,10 @@ def main():
     msg = '\n\n'.join(sections)
 
     perfdata = ''
-    if source_size is not None:
+    if sizes:
         perfdata += lib.base.get_perfdata(
             'php_fpm_logfile_size',
-            source_size,
+            sum(sizes.values()),
             uom='B',
             _min=0,
         )

@@ -3,11 +3,13 @@
 
 ## Overview
 
-Scans the Apache HTTP Server error log for the events an administrator has to act on: children that died on a signal, a server that ran out of workers, processes it failed to fork, backends a reverse proxy could not reach, and stapling switched on for a certificate it cannot work for. Startups, restarts and shutdowns are counted alongside them, so a server that keeps restarting is visible. What Apache logged about one request and one client - a denied access, a password that did not match, a request line it refused to parse - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a bot or a bad link, hundreds within ten minutes is somebody walking the site or guessing passwords. Those lines are counted there and nowhere else, so the background noise every internet-facing server produces does not keep the check permanently yellow. What is left is what Apache said about itself, and that is counted by the level it wrote at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and `--warning-level` move that split. The events named above raise their own state either way, because Apache logs some of them at `notice`. A message that merely contains the word "error" never counts, and a `LogLevel` below `warn` hides a line from this check just as it hides it from the file. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the `ErrorLog` directive of the main configuration file, with the common locations of the distributions probed when that yields nothing. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that a server which fails to start writes to its standard error instead of into the error log, so a rejected configuration or an address already in use shows up only when the unit is read (`--server-log=systemd:httpd.service`). Requires root or sudo.
+Scans the Apache HTTP Server error log for the events an administrator has to act on: children that died on a signal, a server that ran out of workers, processes it failed to fork, backends a reverse proxy could not reach, and stapling switched on for a certificate it cannot work for. Startups, restarts and shutdowns are counted alongside them, so a server that keeps restarting is visible. What Apache logged about one request and one client - a denied access, a password that did not match, a request line it refused to parse - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a bot or a bad link, hundreds within ten minutes is somebody walking the site or guessing passwords. Those lines are counted there and nowhere else, so the background noise every internet-facing server produces does not keep the check permanently yellow. What is left is what Apache said about itself, and that is counted by the level it wrote at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns WARNING, and `--critical-level` and `--warning-level` move that split. The events named above carry their own state and are counted there and nowhere else, because the level says nothing about what happened and Apache logs some of them at `notice` anyway. A message that merely contains the word "error" never counts, and a `LogLevel` below `warn` hides a line from this check just as it hides it from the file. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check follows the configuration from the main file through its `Include`/`IncludeOptional` files and reads the server's `ErrorLog` together with every `ErrorLog` a virtual host sets, so a host whose sites log to their own files is watched where the sites write and not only where the server does; where no configuration can be read, the common locations of the distributions are probed instead. The journal of the Apache unit is read along with them, because a server which fails to start writes to its standard error instead of into the error log, and a rejected configuration or an address already in use is in the journal only. What the sources hold in common is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.
 
 **Important Notes:**
 
-* **A server that never started is invisible in the error log.** Apache writes a rejected configuration, a port it could not bind and a log it could not open to its standard error and then gives up, so none of it reaches the file. Under systemd that output lands in the journal. Point the check at the unit (`--server-log=systemd:httpd.service`) to see those, and use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether Apache is running at all. The other direction holds as well: everything a running Apache logs goes into the file and not into the journal, so a check reading the unit reports no startups, no restarts and no shutdowns however healthy the server is. Reading the unit and reading the file answer different questions, and a host that matters is worth both as two services.
+* **`ErrorLog syslog:` hides the lifecycle unless `LogLevel` is `notice`.** A log file carries Apache's `notice` lines whatever `LogLevel` says; syslog does not, so the default `warn` drops every start, restart and shutdown while errors still arrive. The check reports the combination when it finds it.
+* **A server that never started is invisible in the error log, which is why the journal is read too.** Apache writes a rejected configuration, a port it could not bind and a log it could not open to its standard error and then gives up, so none of it reaches the file; under systemd that output lands in the journal. Everything a running Apache logs goes the other way, into the file and not into the journal. The check therefore reads both by default and counts once what it finds in both, so one service answers both questions. Use [systemd-unit](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/systemd-unit.md) to know whether Apache is running at all.
+* **A line is counted once.** A named event (a child crash, a saturated server, stapling that cannot work) carries its own state and is counted as that event, not as an `error` line as well; the same holds for the rate-counted request lines. What the per-level counts hold are the lines no catalog claimed, which is what `--critical-level` and `--warning-level` act on.
 * **Apache's error log holds two different kinds of line, and this check treats them differently.** Apache adds a `[client 198.51.100.7:4000]` field whenever the line is about one request, and never otherwise - that is not a guess but the boundary in its own logging API. A line carrying that field says something went wrong with one request: a bot denied access to a protected path, a scanner posting `/cgi-bin/.%2e/.%2e/bin/sh`, a client sending one host name in SNI and another in the `Host` header. Those are counted within `--lookback` and reported as a rate, because one of them is worth nothing and hundreds of them within ten minutes are worth knowing about. A line without that field is Apache talking about itself, and that one is judged by its level. Deliberately independent of the message code, because the code moves: the same scanner request is `AH00126` on httpd 2.4.37 and `AH10244` on 2.4.62, while both are a `[core:error]` about one client.
 * **What is genuinely the server's fault keeps its own state, even when it arrives per request.** A child that died on a signal, a server out of workers and a start Apache refused all raise their own state, whatever their scope and whatever their level; the named events take precedence over the rate.
 * **A client does not get to choose which source it is counted under.** Parts of the lines this check reads are the client's own text - the account it asked for, the identification string it sent - and a client that writes an address into them would otherwise move its own lines into somebody else's count, or spread them out to stay below a threshold. The address is therefore taken from where the server writes the peer and nowhere else, and the two spellings of one client (`198.51.100.7` and `::ffff:198.51.100.7`) are counted as the one client they are.
@@ -16,8 +18,8 @@ Scans the Apache HTTP Server error log for the events an administrator has to ac
 * **An unreachable backend is counted, not reported.** A `systemctl reload php-fpm` leaves exactly one `AH02454: attempt to connect to Unix domain socket ... failed` behind, and a backend that is really gone writes one per request. Six of them across four days is a handful of reloads and must not page anybody; thirty within a minute is an outage. They are therefore judged by `--proxy-failures-warning` and `--proxy-failures-critical` over `--lookback`. Whether the site answers at all is the job of an HTTP check, not of a log check.
 * **Only `crit` and above ignore the scope split.** Across the whole of Apache barely two dozen request-scoped messages are logged that high, and they are a broken LDAP, Lua or FastCGI backend rather than anything a client can provoke. A request-scoped `emerg`, `alert` or `crit` line therefore still alerts by its level.
 * **The error log is not the access log.** `ErrorLog` and `CustomLog` are two different files in two different formats, and only the first one is what this check reads. Watch the access log with the generic [logfile](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile.md) check, or the server's own state with [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status.md).
-* **A virtual host writes its own log.** The RHEL family ships `ErrorLog logs/ssl_error_log` inside the TLS virtual host of `conf.d/ssl.conf`, and the Debian family ships one inside every site under `sites-enabled/`. Those belong to that host and are not read here; only the `ErrorLog` outside any `<VirtualHost>` in the main configuration file counts. Name a virtual host's log with `--server-log` to watch it as a service of its own.
-* **The window spans the last rotation.** logrotate moves the old file aside (`error_log-20260828` on the RHEL family, `error.log.1` on the Debian family, then `.gz`) and reloads Apache, which opens a fresh one. A check reading the live file alone would report a healthy server an hour after it broke. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the first fact names the files it read. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
+* **A virtual host writes its own log, and it is read too.** The RHEL family ships `ErrorLog logs/ssl_error_log` inside the TLS virtual host of `conf.d/ssl.conf`, the Debian family ships one inside every site under `sites-enabled/`, and a host serving several sites usually keeps a file per site. The check follows the configuration through its `Include`/`IncludeOptional` files and reads all of them next to the server's own log, because a server that writes almost nothing but its own lifecycle into the main log would otherwise look quiet while a site it serves is being walked. To watch one site as a service of its own instead, name its log with `--server-log`.
+* **The window spans the last rotation.** logrotate moves the old file aside (`error_log-20260828` on the RHEL family, `error.log.1` on the Debian family, then `.gz`) and reloads Apache, which opens a fresh one. A check reading the live file alone would report a healthy server an hour after it broke. The most recent rotated file is therefore read along with the live one, gzip, xz and bzip2 included, and the last section names every file it read. A rotator told to compress with something else, or to move its output to another directory, is out of reach; an event older than one rotation is too.
 * **A restart counts as a startup as well.** Apache logs `resuming normal operations` after every restart and every graceful reload, so both counters move. The nightly logrotate reloads Apache and therefore shows up as a restart.
 * **Apache reports a saturated server once per generation.** `AH00484: server reached MaxRequestWorkers setting` is written once and then suppressed until the next restart, so the counter says how often the situation returned rather than how many requests waited for a worker. [apache-httpd-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-status.md) is what shows how close to the limit the server runs on an ordinary day.
 * The check reads a window of the log on every run and reports what that window holds, rather than only what is new. The summary names how many lines that window holds, because everything else is counted within it: right after logrotate the window is the restart alone, and a run reporting no startup at all is then telling the truth about that handful of lines rather than about the day. It also means an event keeps being reported until it leaves the window or the service is acknowledged (see `--icinga-callback`). The counted events are the exception: their state follows `--lookback` and falls back on its own as the burst ages out.
@@ -27,9 +29,10 @@ Scans the Apache HTTP Server error log for the events an administrator has to ac
 
 **Data Collection:**
 
-* Determines the log file automatically from the `ErrorLog` directive in `/etc/httpd/conf/httpd.conf`, `/etc/apache2/apache2.conf`, `/etc/apache2/httpd.conf` or `/usr/local/apache2/conf/httpd.conf`. A relative path is resolved against `ServerRoot`, and `${APACHE_LOG_DIR}` and the other variables of the Debian family are resolved against `/etc/apache2/envvars`.
-* Falls back to probing `/var/log/httpd/error_log`, `/var/log/apache2/error.log`, `/var/log/apache2/error_log`, `/var/log/httpd/error.log` and `/usr/local/apache2/logs/error_log` when the configuration yields nothing, which is also what happens when only an included file sets `ErrorLog`.
-* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`.
+* Determines the log files automatically from the `ErrorLog` directives in `/etc/httpd/conf/httpd.conf`, `/etc/apache2/apache2.conf`, `/etc/apache2/httpd.conf` or `/usr/local/apache2/conf/httpd.conf` and everything those files pull in with `Include` or `IncludeOptional`, the server's own log and every virtual host's. A relative path is resolved against `ServerRoot` wherever the directive using it stands, and `${APACHE_LOG_DIR}` and the other variables of the Debian family are resolved against `/etc/apache2/envvars`.
+* Falls back to probing `/var/log/httpd/error_log`, `/var/log/apache2/error.log`, `/var/log/apache2/error_log`, `/var/log/httpd/error.log` and `/usr/local/apache2/logs/error_log` when no configuration could be read, and picks up what looks like a site's log (`<servername>-error.log`) next to it.
+* Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`, which can be given several times; everything named is read as one window. A wildcard is not expanded, so name each file.
+* Reads the journal of the Apache unit along with the files where `--server-log` names nothing, and counts an event they share once.
 * Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Recognizes a line by the level Apache puts in it (`[core:error]`) or by the message code every Apache message carries (`AH00484`), wherever the configured `ErrorLogFormat` places them.
 * Lines can be narrowed down with `--match` and filtered out with `--ignore`, both Python regular expressions.
@@ -91,19 +94,25 @@ produces does not keep the check permanently yellow. What is left is what
 Apache said about itself, and that is counted by the level it wrote at the
 head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns
 WARNING, and `--critical-level` and `--warning-level` move that split. The
-events named above raise their own state either way, because Apache logs some
-of them at `notice`. A message that merely contains the word "error" never
-counts, and a `LogLevel` below `warn` hides a line from this check just as it
-hides it from the file. The log is read either from a file, from a systemd
-unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`).
-Without `--server-log` the file path is taken from the `ErrorLog` directive of
-the main configuration file, with the common locations of the distributions
-probed when that yields nothing. The most recent rotated file is read along
-with the live one, so the window does not end where logrotate last ran. Note
-that a server which fails to start writes to its standard error instead of
-into the error log, so a rejected configuration or an address already in use
-shows up only when the unit is read (`--server-log=systemd:httpd.service`).
-Requires root or sudo.
+events named above carry their own state and are counted there and nowhere
+else, because the level says nothing about what happened and Apache logs some
+of them at `notice` anyway. A message that merely contains the word "error"
+never counts, and a `LogLevel` below `warn` hides a line from this check just
+as it hides it from the file. The log is read either from a file, from a
+systemd unit (`systemd:`) or from a container
+(`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times,
+and everything named is then read as one window. Without it the check follows
+the configuration from the main file through its `Include`/`IncludeOptional`
+files and reads the server's `ErrorLog` together with every `ErrorLog` a
+virtual host sets, so a host whose sites log to their own files is watched
+where the sites write and not only where the server does; where no
+configuration can be read, the common locations of the distributions are
+probed instead. The journal of the Apache unit is read along with them,
+because a server which fails to start writes to its standard error instead of
+into the error log, and a rejected configuration or an address already in use
+is in the journal only. What the sources hold in common is counted once. The
+most recent rotated file is read along with the live one, so the window does
+not end where logrotate last ran. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -249,11 +258,15 @@ options:
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
                         `docker:CONTAINER`, `podman:CONTAINER`,
-                        `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted,
-                        the check reads the `ErrorLog` directive of the main
-                        Apache configuration file and falls back to the common
-                        locations of the distributions. Example: `--server-
-                        log=systemd:httpd.service`.
+                        `kubectl:CONTAINER` or `systemd:UNITNAME`. Can be
+                        specified multiple times, and everything named is then
+                        read as one window; a source named twice is read once.
+                        If omitted, the check reads the `ErrorLog` of the main
+                        Apache configuration file and of every virtual host it
+                        configures, falls back to the common locations of the
+                        distributions, and reads the journal of the Apache
+                        unit along with them; what they share is counted once.
+                        Example: `--server-log=systemd:httpd.service`.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --warning-level {emerg,alert,crit,error,warn,none}
                         Least severe Apache log level that returns WARNING.
@@ -302,37 +315,43 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/apache-httpd-logf
 
 # Watch the log of one virtual host as a service of its own.
 ./apache-httpd-logfile --server-log=/var/log/httpd/shop_error_log
+
+# Read the server's log and one site's log as one window.
+./apache-httpd-logfile --server-log=/var/log/httpd/error_log --server-log=/var/log/httpd/shop_error_log
 ```
 
 Output of a healthy host:
 
 ```text
-No errors or warnings found. 1 startup detected (last: [Fri Aug 28 17:12:25.860583 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). No restarts detected. 1 shutdown detected (last: [Fri Aug 28 17:12:28.865860 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00491: caught SIGTERM, shutting down). Read 6 lines from `/var/log/httpd/error_log` (size: 815.0B), covering 2026-08-28 17:12..2026-08-28 17:12 (3s).
+2026-08-28 17:12 .. 2026-08-28 17:12 (3s): No errors or warnings found. 1 startup detected (last: [Fri Aug 28 17:12:25.860583 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:12:28.865860 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00491: caught SIGTERM, shutting down).
+
+Read 6 lines from 1 source:
+* `/var/log/httpd/error_log` (size: 815.0B)|'apache_httpd_logfile_size'=815B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=0;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=0;0;;0 'apache_httpd_worker_saturations'=0;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=1;;;0 'apache_httpd_restarts'=0;;;0 'apache_httpd_shutdowns'=1;;;0
 ```
 
 Output of a host that ran out of workers, lost a child to a segfault and could not reach its backend:
 
 ```text
-3 error lines found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash, 1 worker saturation, 2 proxy failures. 0 client denials in the last 10m (1 in the window read). 0 request errors in the last 10m (1 in the window read). 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down). Read 17 lines from `/var/log/httpd/error_log` (size: 2.4KiB), covering 2026-08-28 17:11..2026-08-28 17:12 (24s).
+2026-08-28 17:11 .. 2026-08-28 17:12 (27s): 1 error line found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash [WARNING], 1 worker saturation [CRITICAL]. 0 client denials in the last 10m (1 in the window read). 0 proxy failures in the last 10m (2 in the window read). 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down).
 
 Error lines:
-* [Fri Aug 28 17:11:47.108528 2026] [mpm_event:error] [pid 1835:tid 1835] AH00484: server reached MaxRequestWorkers setting, consider raising the MaxRequestWorkers setting
-* [Fri Aug 28 17:12:05.129900 2026] [proxy:error] [pid 1838:tid 1859] (111)Connection refused: AH00957: http: attempt to connect to 127.0.0.1:9999 (127.0.0.1:9999) failed
 * [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting
+
+Read 17 lines from 1 source:
+* `/var/log/httpd/error_log` (size: 2.4KiB)
 
 Recommendations:
 * Children died on a signal Apache did not send them; look for a core dump, a faulty module, or the OOM killer in the kernel log
-* The server ran out of workers; raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, otherwise clients wait in the listen queue
-* A backend behind the reverse proxy could not be reached; check that it is running and that Apache may open the connection to it
+* The server ran out of workers; raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, otherwise clients wait in the listen queue|'apache_httpd_logfile_size'=2451B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=1;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=1;0;;0 'apache_httpd_worker_saturations'=1;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=2;;;0 'apache_httpd_restarts'=1;;;0 'apache_httpd_shutdowns'=1;;;0
 ```
 
 Output of a host somebody is walking:
 
 ```text
-147 client denials in the last 10m [WARNING]. No startups detected. No restarts detected. No shutdowns detected. Read 147 lines from `/var/log/httpd/error_log` (size: 25.0KiB), covering 2026-08-28 16:55..2026-08-28 17:12 (17m).
+2026-08-28 17:34 .. 2026-08-28 17:34 (4s): 0 client denials in the last 10m (4 in the window read). 0 authentication failures in the last 10m (2 in the window read). 1 startup detected (last: [Fri Aug 28 17:34:38.859461 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:34:42.936750 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00491: caught SIGTERM, shutting down).
 
-Recommendations:
-* Clients are being denied access in bulk; the paths in the log say whether somebody is walking the site, and an intrusion prevention system or the firewall is where that is answered
+Read 12 lines from 1 source:
+* `/var/log/httpd/error_log` (size: 1.8KiB)|'apache_httpd_logfile_size'=1793B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=0;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=0;0;;0 'apache_httpd_worker_saturations'=0;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=1;;;0 'apache_httpd_restarts'=0;;;0 'apache_httpd_shutdowns'=1;;;0
 ```
 
 ## States
@@ -345,7 +364,8 @@ Recommendations:
 * WARN if OCSP stapling is switched on for a certificate it cannot be set up for. Apache says so once per certificate on every start and then serves TLS without stapling.
 * WARN if the log file is configured but is not an existing regular file.
 * UNKNOWN if not a single line in the window carries an Apache log level or message code. The source is then something else, the access log for example.
-* UNKNOWN if no log file could be determined at all, or if `ErrorLog` hands the log to syslog or pipes it into a program, neither of which is a file the check can open.
+* UNKNOWN if no log file could be determined at all, or if `ErrorLog` hands the log to syslog or pipes it into a program and no virtual host names a file either, neither of the two being a file the check can open. Where the virtual hosts do name files, those carry the run and the output says that the server's own log is missing from it.
+* WARN if a log this check was told to read could not be read at all. The run goes on with the other sources rather than reporting the state of the ones that happened to work.
 * OK if the log file is empty, which is what a log looks like right after logrotate ran.
 * OK with `--no-match-severity` at its default when `--match` dropped every line; set it to `warn`, `crit` or `unknown` to have a filter that matches nothing reported instead.
 * The size of the log file is reported and trended but never alerted on. Apache defines no cutoff of its own, and an unrotated log is the business of `logrotate` and of the [disk-usage](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/disk-usage.md) check.
@@ -406,7 +426,7 @@ Read the lines. If they carry a `[client ...]` field, Apache logged them about o
 
 1. Lower `--request-errors-warning` to have a smaller number of them reported. On a server nobody but the application talks to, `--request-errors-warning=1` is reasonable.
 2. Widen `--lookback` to judge over a longer stretch, for instance `--lookback=3600`.
-3. A line about the server itself is never affected by this and always counts by its level.
+3. A line about the server itself is never affected by this: it counts by its level, unless it is one of the named events, which carry their own state and are counted there and nowhere else.
 
 ### `proxy failures in the last ...` on a host where nothing is broken
 
@@ -422,7 +442,9 @@ Not one line in the window carried an Apache log level or an `AHnnnnn` message c
 
 ### `ErrorLog` hands the log to syslog, or pipes it into a program
 
-`ErrorLog syslog:local1` gives the messages to the syslog daemon, and `ErrorLog "|/usr/sbin/rotatelogs ..."` hands them to a program; in neither case is there a file this check can open. Point the check at the unit with `--server-log=systemd:httpd.service`, or at the file the syslog daemon or the rotator writes.
+`ErrorLog syslog:local1` gives the messages to the syslog daemon, and `ErrorLog "|/usr/sbin/rotatelogs ..."` hands them to a program; in neither case is there a file this check can open. Where the virtual hosts write into files of their own, those are read anyway and the output says that the server's own log is not part of the run. Where they do not, point the check at the unit with `--server-log=systemd:httpd.service`, or at the file the syslog daemon or the rotator writes.
+
+Logging to syslog also costs the lifecycle: Apache writes a `notice` line into a log file whatever `LogLevel` says, but through syslog the level applies, so the default `LogLevel warn` drops every start, restart and shutdown while errors still arrive. Measured on Rocky 9 (httpd 2.4.62, rsyslog 8.2510): with `LogLevel warn` a denied request (`AH01630`, level `error`) reaches the journal, while `AH00489`, `AH00493` and `AH00491` reach neither the journal nor the files rsyslog writes; with `LogLevel notice` all of them are there. The check says so when it finds that combination.
 
 ### `Refusing to read "…": resolved path is outside the allowed roots`
 

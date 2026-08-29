@@ -80,7 +80,8 @@
                     "value": "$sshd_logfile_proxy$"
                 },
                 "--server-log": {
-                    "value": "$sshd_logfile_server_log$"
+                    "value": "$sshd_logfile_server_log$",
+                    "repeat_key": true
                 },
                 "--throttled-connections-critical": {
                     "value": "$sshd_logfile_throttled_connections_critical$"
@@ -282,7 +283,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans the log of the OpenSSH server for the events an administrator has to act on: a server that refused to start, a host key it could not load, a key file it refused because of how it looks on disk, a key somebody revoked and is still using, a session that died on a signal, and a root login that only `PermitRootLogin` stopped - which means the credentials for it were valid. Startups, restarts, shutdowns and successful logins are counted alongside them, so a server that keeps restarting is visible. Everything a client can provoke - a password that did not match, a login for an account that does not exist, a connection that ended before authentication, a connection the server refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within ten minutes is somebody guessing passwords. Every host that answers on port 22 collects these all day, so counting them by rate is what keeps the check from being permanently yellow, and counting them per source address is what tells one determined client from the open network going past. sshd writes no severity into its lines, so what is reported is what this check recognizes; anything else it wrote is read but not counted. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). Without `--server-log` the check takes the first of the usual authentication logs of the distributions that exists, and falls back to the journal of the sshd unit where there is none. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Note that sshd logs to its standard error until it has loaded its host keys, so a rejected configuration, a host key it could not read and the \"no hostkeys available\" it exits with never reach the syslog file. They show up only when the unit is read (`--server-log=systemd:sshd.service`). Requires root or sudo.",
+            "notes": "Scans the log of the OpenSSH server for the events an administrator has to act on: a server that refused to start, a host key it could not load, a key file it refused because of how it looks on disk, a key somebody revoked and is still using, a session that died on a signal, and a root login that only `PermitRootLogin` stopped - which means the credentials for it were valid. Startups, restarts, shutdowns and successful logins are counted alongside them, so a server that keeps restarting is visible. Everything a client can provoke - a password that did not match, a login for an account that does not exist, a connection that ended before authentication, a connection the server refused because it was at `MaxStartups` - is counted within `--lookback` and judged by how many of them arrived, not by the fact that they did: one is a typo or a bot, hundreds within ten minutes is somebody guessing passwords. Every host that answers on port 22 collects these all day, so counting them by rate is what keeps the check from being permanently yellow, and counting them per source address is what tells one determined client from the open network going past. sshd writes no severity into its lines, so what is reported is what this check recognizes; anything else it wrote is read but not counted. The log is read either from a file, from a systemd unit (`systemd:`) or from a container (`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything named is then read as one window. Without it the check takes the first of the usual authentication logs of the distributions that exists and reads the journal of the sshd unit along with it, because sshd logs to its standard error until it has loaded its host keys: a rejected configuration, a host key it could not read and the \"no hostkeys available\" it exits with never reach the syslog file, and nothing a running sshd logs reaches the journal on a host that has a syslog daemon. What both hold is counted once. The most recent rotated file is read along with the live one, so the window does not end where logrotate last ran. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sshd-logfile/",
             "object_name": "tpl-service-sshd-logfile",
             "object_type": "template",
@@ -311,6 +312,7 @@
                 "sshd_logfile_no_perfdata": false,
                 "sshd_logfile_no_proxy": false,
                 "sshd_logfile_per_source": true,
+                "sshd_logfile_server_log": [],
                 "sshd_logfile_throttled_connections_critical": 10,
                 "sshd_logfile_throttled_connections_warning": 1,
                 "sshd_logfile_timeout": 8
@@ -618,8 +620,8 @@
         "26": {
             "varname": "sshd_logfile_server_log",
             "caption": "Sshd Logfile: Server Log",
-            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. If omitted, the check takes the first of the usual authentication logs of the distributions that exists, and falls back to the journal of the sshd unit where there is none. Example: `--server-log=systemd:sshd.service`.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "description": "Log source to read from. Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME`. Can be specified multiple times, and everything named is then read as one window; a source named twice is read once. If omitted, the check takes the first of the usual authentication logs of the distributions that exists and reads the journal of the sshd unit along with it; what the two share is counted once. Example: `--server-log=systemd:sshd.service`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
                 "visibility": "visible"

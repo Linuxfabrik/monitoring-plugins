@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026082902'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal, a server that ran out of workers, processes
@@ -45,17 +45,22 @@ server produces does not keep the check permanently yellow.
 What is left is what Apache said about itself, and that is counted by the level it wrote
 at the head of the line: `emerg`, `alert` and `crit` return CRITICAL, `error` returns
 WARNING, and `--critical-level` and `--warning-level` move that split. The events named
-above raise their own state either way, because Apache logs some of them at `notice`. A
+above carry their own state and are counted there and nowhere else, because the level says
+nothing about what happened and Apache logs some of them at `notice` anyway. A
 message that merely contains the word "error" never counts, and a `LogLevel` below `warn`
 hides a line from this check just as it hides it from the file.
 The log is read either from a file, from a systemd unit (`systemd:`) or from a container
-(`docker:`/`podman:`/`kubectl:`). Without `--server-log` the file path is taken from the
-`ErrorLog` directive of the main configuration file, with the common locations of the
-distributions probed when that yields nothing. The most recent rotated file is read along
-with the live one, so the window does not end where logrotate last ran.
-Note that a server which fails to start writes to its standard error instead of into the
-error log, so a rejected configuration or an address already in use shows up only when the
-unit is read (`--server-log=systemd:httpd.service`).
+(`docker:`/`podman:`/`kubectl:`). `--server-log` may be given several times, and everything
+named is then read as one window. Without it the check follows the configuration from the
+main file through its `Include`/`IncludeOptional` files and reads the server's `ErrorLog`
+together with every `ErrorLog` a virtual host sets, so a host whose sites log to their own
+files is watched where the sites write and not only where the server does; where no
+configuration can be read, the common locations of the distributions are probed instead.
+The journal of the Apache unit is read along with them, because a server which fails to
+start writes to its standard error instead of into the error log, and a rejected
+configuration or an address already in use is in the journal only. What the sources hold in
+common is counted once. The most recent rotated file is read along with the live one, so
+the window does not end where logrotate last ran.
 Requires root or sudo."""
 
 # What `--critical-level` and `--warning-level` accept on top of the levels
@@ -99,6 +104,32 @@ MAXLINES = 30000  # maximum log lines to consider from the end of the source
 # logrotate runs. One covers a daily rotation with room to spare.
 ROTATED_FILES = 1
 
+# The unit the distributions run the Apache HTTP Server as. Only the fixed locations systemd
+# reads unit files from are looked at, and only for the names the distributions
+# use, so nothing a log or a configuration file holds can point the check at
+# another unit.
+# The timestamp Apache puts at the head of a line in the error log, which it does
+# not write when the log goes to syslog: a bracket holding a year, as opposed to
+# the `[core:error]` that follows it.
+LEADING_DATE_REGEX = re.compile(r'^\[[^\]]*\d{4}\]\s*')
+
+# What the journal calls the server, for telling its own lines from the ones
+# something else logged into the same place.
+IDENTIFIERS = ('httpd', 'apache2')
+
+UNIT_CANDIDATES = ('httpd.service', 'apache2.service')
+UNIT_DIRECTORIES = (
+    '/etc/systemd/system',
+    '/usr/lib/systemd/system',
+    '/lib/systemd/system',
+)
+
+# How long a path may be in the summary before it is abbreviated for display.
+# The paths the distributions use fit within it untouched; a host serving a
+# dozen sites names a dozen logs in one directory, and there the directory is
+# the part that says nothing.
+SOURCE_PATH_MAX_LEN = 32
+
 # The main server configuration of the distributions. Only these fixed locations
 # are read, and only the `ErrorLog` outside of a `<VirtualHost>` counts, so
 # neither an included file nor a virtual host can steer the check somewhere else:
@@ -118,12 +149,18 @@ CONFIG_FILES = (
 # `ErrorLog ${APACHE_LOG_DIR}/error.log` only resolves with this file at hand.
 ENVVARS_FILES = ('/etc/apache2/envvars',)
 
+# Apache refuses a configuration that nests includes deeper than this.
+MAX_INCLUDE_DEPTH = 16
+
 # Directives are matched case-insensitively, the way Apache itself compares them.
 # A `<VirtualHost>` is the only section that can carry an `ErrorLog` of its own;
 # every other one (`<IfModule>` for example) passes it on to the main server, so
 # only this section is skipped.
 CONFIG_COMMENT_REGEX = re.compile(r'^\s*#')
-DIRECTIVE_REGEX = re.compile(r'^\s*(ErrorLog|ServerRoot)\s+(.+?)\s*$', re.IGNORECASE)
+DIRECTIVE_REGEX = re.compile(
+    r'^\s*(ErrorLog|LogLevel|ServerRoot|IncludeOptional|Include)\s+(.+?)\s*$',
+    re.IGNORECASE,
+)
 VIRTUALHOST_REGEX = re.compile(r'^\s*<\s*(/?)\s*VirtualHost\b', re.IGNORECASE)
 # `export NAME=value` and a bare `NAME=value`, which is what a shell snippet
 # holds. Anything else in it (conditionals, sourced files) is out of reach and
@@ -147,6 +184,19 @@ LOG_FILE_CANDIDATES = (
     '/var/log/apache2/error_log',
     '/var/log/httpd/error.log',
     '/usr/local/apache2/logs/error_log',
+)
+
+# What a virtual host's log is called where the configuration could not be read
+# and the probe above had to take over. `<servername>-error.log` next to the
+# server's own log is what our configuration management writes; a site set up by
+# hand commonly follows the same shape. Only these fixed directories are looked
+# in, so this stays as bounded as the list above - it is not a pattern anybody
+# can hand to the check.
+VHOST_LOG_CANDIDATES = (
+    '/var/log/httpd/*-error.log',
+    '/var/log/apache2/*-error.log',
+    '/var/log/apache2/*-error_log',
+    '/var/log/httpd/*-error_log',
 )
 
 # Apache writes `[Fri Aug 28 17:11:44.101220 2026] [mpm_event:notice] [pid 1835:tid
@@ -466,6 +516,20 @@ CLIENT_REGEX = re.compile(r'\[(?:client|remote) (\[[^\]]+\](?::\d+)?|[^\]\s]+)\]
 # whole of Apache only a couple of dozen request-scoped messages are logged that
 # high, and they are broken LDAP, Lua and FastCGI backends rather than anything a
 # client can provoke.
+# Apache's levels from the quietest to the most verbose, for deciding whether a
+# level lets `notice` through. `LogLevel` names the last one that is still
+# logged, so anything up to and including the configured one is written.
+LEVEL_LADDER = (
+    'emerg',
+    'alert',
+    'crit',
+    'error',
+    'warn',
+    'notice',
+    'info',
+    'debug',
+)
+
 SCOPED_LEVELS = ('error', 'warn')
 
 # The rate event that takes the request-scoped lines no named one claimed.
@@ -801,10 +865,15 @@ def parse_args():
         help='Log source to read from. '
         'Accepts a file path, `docker:CONTAINER`, `podman:CONTAINER`, '
         '`kubectl:CONTAINER` or `systemd:UNITNAME`. '
-        'If omitted, the check reads the `ErrorLog` directive of the main '
-        'Apache configuration file and falls back to the common locations of '
-        'the distributions. '
+        'Can be specified multiple times, and everything named is then read as '
+        'one window; a source named twice is read once. '
+        'If omitted, the check reads the `ErrorLog` of the main Apache '
+        'configuration file and of every virtual host it configures, falls back '
+        'to the common locations of the distributions, and reads the journal of '
+        'the Apache unit along with them; what they share is counted once. '
         'Example: `--server-log=systemd:httpd.service`.',
+        action='append',
+        default=None,
         dest='SERVER_LOG',
     )
 
@@ -947,83 +1016,254 @@ def expand(value, env, fallback=None):
 
 
 def parse_config(content):
-    """Return the `ServerRoot` and the main server's `ErrorLog` of a configuration.
+    """Return what one configuration file says, in the order it says it.
 
-    Both are the last one the file sets, which is the one Apache uses as well.
-    An `ErrorLog` inside a `<VirtualHost>` belongs to that host alone and is
-    skipped, so the log of the TLS virtual host the distributions ship is not
-    mistaken for the server-wide one.
+    A list of `(directive, value, in_virtualhost)`, so the caller can keep the
+    last `ServerRoot` and the last main-server `ErrorLog` the way Apache does,
+    collect the `ErrorLog` of every virtual host, and expand an `Include` at the
+    point it stands rather than after everything else.
     """
-    error_log = None
-    server_root = None
+    found = []
     in_virtualhost = False
     for line in content.splitlines():
         section = VIRTUALHOST_REGEX.match(line)
         if section:
             in_virtualhost = not section.group(1)
             continue
-        if in_virtualhost or CONFIG_COMMENT_REGEX.match(line):
+        if CONFIG_COMMENT_REGEX.match(line):
             continue
         match = DIRECTIVE_REGEX.match(line)
         if not match:
             continue
-        directive, value = match.group(1).lower(), unquote(match.group(2))
-        if directive == 'errorlog':
-            error_log = value
-        else:
-            server_root = value
-    return server_root, error_log
+        found.append((match.group(1).lower(), unquote(match.group(2)), in_virtualhost))
+    return found
 
 
-def get_configured_log_file(config_root=''):
-    """Return the `ErrorLog` the Apache configuration names, or None.
+def walk_config(filename, config_root, env, depth=0, server_root=None):
+    """Yield what a configuration file and the files it includes say, in order.
 
-    The values `syslog` and a piped logger are handed back as markers rather than
-    as paths, because the caller has to report them instead of opening them. Only
-    the fixed configuration locations of the distributions are read, so nothing
-    the log itself contains can steer the check to another file.
+    Apache reads an `Include` at the point the directive stands, so the caller
+    sees the directives in the order the server does and the last value of a
+    keyword is the one that counts. A pattern that matches nothing is not an
+    error - `IncludeOptional` is what every distribution uses for its drop-in
+    directories, and an empty one is the normal state of a fresh installation.
+
+    `ServerRoot` is what a relative path resolves against, and it keeps applying
+    inside the files that are included: a virtual host in a drop-in directory
+    writes `ErrorLog logs/site-error.log` and means the server's log directory,
+    not one below the drop-in directory. Where the configuration sets no
+    `ServerRoot` at all - the Debian family leaves it to the value the package
+    was compiled with - the directory holding the main configuration file is
+    that value.
+    """
+    if depth > MAX_INCLUDE_DEPTH:
+        return
+    success, content = lib.disk.read_file(filename)
+    if not success or not content:
+        return
+    if server_root is None:
+        server_root = os.path.dirname(filename[len(config_root) :])
+    for directive, value, in_virtualhost in parse_config(content):
+        if directive == 'serverroot' and not in_virtualhost:
+            server_root = expand(value, env) or server_root
+        if directive not in ('include', 'includeoptional'):
+            yield directive, value, in_virtualhost, filename, server_root
+            continue
+        for pattern in (expand(value, env) or '').split():
+            if not pattern.startswith('/'):
+                pattern = os.path.join(server_root, pattern)
+            for included in lib.disk.glob(f'{config_root}{pattern}'):
+                yield from walk_config(
+                    included, config_root, env, depth + 1, server_root
+                )
+
+
+def resolve_log(value, env, server_root, config_root):
+    """Turn the value of an `ErrorLog` into a path, or into what it is instead.
+
+    `syslog` and a piped logger come back as markers rather than as paths,
+    because the caller has to report them instead of opening them. None where a
+    variable this check cannot resolve would leave a path pointing somewhere
+    else entirely.
+    """
+    error_log = expand(value, env)
+    if not error_log:
+        return None
+    if error_log.startswith('|'):
+        return PIPE_TARGET
+    if error_log.lower() == SYSLOG_TARGET or error_log.lower().startswith(
+        f'{SYSLOG_TARGET}:'
+    ):
+        return SYSLOG_TARGET
+    if not error_log.startswith('/'):
+        error_log = os.path.join(server_root, error_log)
+    return f'{config_root}{error_log}'
+
+
+def get_configured_log_files(config_root=''):
+    """Return the main server's `ErrorLog` and the ones its virtual hosts name.
+
+    As a tuple of the two, because they are not interchangeable: the main log is
+    where the server writes about itself, a virtual host's is where the requests
+    to one site end up. A server that hosts several sites keeps a log per site
+    and writes almost nothing but its own lifecycle into the main one, so
+    reading that alone would report a quiet server while the sites it serves are
+    being walked - and where the main log goes somewhere this check cannot
+    follow, the sites are still worth reading. Which files those are is taken
+    from the configuration rather than from a pattern, so nothing but what Apache
+    itself was told to write is opened.
+
+    The values `syslog` and a piped logger come back as markers rather than as
+    paths, and only for the main server: a virtual host logging into either is
+    simply one this check cannot follow, and the run goes on with the others.
+
+    Only the fixed configuration locations of the distributions are read as a
+    starting point, so nothing the log itself contains can steer the check to
+    another file. What those files include is followed from there, which is what
+    finds the drop-in directories every distribution and our own configuration
+    management put the virtual hosts in.
     """
     env = get_env_vars(config_root)
     for candidate in CONFIG_FILES:
-        for filename in lib.disk.glob(f'{config_root}{candidate}'):
-            success, content = lib.disk.read_file(filename)
-            if not success or not content:
-                continue
-            server_root, error_log = parse_config(content)
-            if not error_log:
-                continue
-            error_log = expand(error_log, env)
-            if not error_log:
-                # A variable this check cannot resolve leaves a path that would
-                # point somewhere else entirely, so probing gets further.
-                continue
-            if error_log.startswith('|'):
-                return PIPE_TARGET
-            if error_log.lower() == SYSLOG_TARGET or error_log.lower().startswith(
-                f'{SYSLOG_TARGET}:'
+        for main in lib.disk.glob(f'{config_root}{candidate}'):
+            main_log = None
+            vhost_logs = []
+            seen = set()
+            for directive, value, in_virtualhost, _, root in walk_config(
+                main, config_root, env
             ):
-                return SYSLOG_TARGET
-            if not error_log.startswith('/'):
-                # Apache resolves a relative path against `ServerRoot`, and where
-                # the configuration does not set one, against the directory it
-                # was compiled with. On the distributions that leave the
-                # directive out, that directory is the one holding the
-                # configuration file.
-                root = expand(server_root, env) if server_root else None
-                if not root:
-                    root = os.path.dirname(filename[len(config_root) :])
-                error_log = os.path.join(root, error_log)
-            return f'{config_root}{error_log}'
+                if directive != 'errorlog':
+                    continue
+                resolved = resolve_log(value, env, root, config_root)
+                if not resolved:
+                    continue
+                if not in_virtualhost:
+                    # The last one the configuration sets is the one Apache uses.
+                    main_log = resolved
+                    continue
+                if resolved in (SYSLOG_TARGET, PIPE_TARGET):
+                    continue
+                # The virtual hosts the distributions ship point at the file the
+                # main server already writes, so the same path turns up twice.
+                identity = os.path.realpath(resolved)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                vhost_logs.append(resolved)
+            if not main_log and not vhost_logs:
+                continue
+            if main_log in (SYSLOG_TARGET, PIPE_TARGET) or not main_log:
+                return main_log, vhost_logs
+            seen_main = os.path.realpath(main_log)
+            return main_log, [
+                log for log in vhost_logs if os.path.realpath(log) != seen_main
+            ]
+    return None, []
+
+
+def get_log_level(config_root=''):
+    """Return the `LogLevel` the main server runs with, or None where it sets none.
+
+    Only the value outside every `<VirtualHost>` counts, because that is the one
+    the server logs its own lifecycle at.
+    """
+    env = get_env_vars(config_root)
+    for candidate in CONFIG_FILES:
+        for main in lib.disk.glob(f'{config_root}{candidate}'):
+            level = None
+            for directive, value, in_virtualhost, _, _ in walk_config(
+                main, config_root, env
+            ):
+                if directive == 'loglevel' and not in_virtualhost:
+                    # `LogLevel warn ssl:info` sets the default first and then
+                    # per module; the first word is the one that applies here.
+                    level = expand(value, env).split()[0].lower()
+            if level:
+                return level
     return None
 
 
-def get_log_file_real_path(config_root=''):
-    """Probe the locations the distributions keep the Apache error log in."""
-    for candidate in LOG_FILE_CANDIDATES:
+def get_log_file_real_paths(config_root=''):
+    """Probe the locations the distributions keep the Apache error log in.
+
+    The server's own log first, and next to it what looks like the log of a
+    virtual host, so a host whose configuration could not be read is still
+    watched where the sites write rather than only where the server does.
+    """
+    found = []
+    seen = set()
+    for candidate in LOG_FILE_CANDIDATES + VHOST_LOG_CANDIDATES:
         for filename in lib.disk.glob(f'{config_root}{candidate}'):
-            if lib.disk.file_exists(filename, allow_empty=True):
-                return filename
-    return None
+            if not lib.disk.file_exists(filename, allow_empty=True):
+                continue
+            identity = os.path.realpath(filename)
+            if identity in seen:
+                continue
+            seen.add(identity)
+            found.append(filename)
+        if found and candidate in LOG_FILE_CANDIDATES:
+            # The server's log is the first of the fixed names that exists; the
+            # rest of that list are the other distributions' spellings of it.
+            break
+    return found
+
+
+def get_units(config_root=''):
+    """Return the the Apache HTTP Server units this host has a unit file for.
+
+    A unit file two names point at is one unit: the MariaDB package ships
+    `mysqld.service` and `mysql.service` as symlinks to `mariadb.service`, and
+    reading that journal three times would count every line three times.
+    """
+    found = []
+    seen = set()
+    for candidate in UNIT_CANDIDATES:
+        for directory in UNIT_DIRECTORIES:
+            for filename in lib.disk.glob(f'{config_root}{directory}/{candidate}'):
+                if not lib.disk.file_exists(filename, allow_empty=True):
+                    continue
+                identity = os.path.realpath(filename)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                found.append(os.path.basename(filename))
+    return found
+
+
+def dedup_key(line):
+    """Identify the event in a line, whichever transport delivered it.
+
+    The error log and the journal of the unit are both read, and where
+    `ErrorLog` hands the log to syslog every line is in both. Apache writes the
+    same message either way; only what stands in front of it differs, a
+    bracketed timestamp in the file and the syslog prefix in the journal.
+    """
+    written_at = lib.logsource.timestamp(line, parse_timestamp)
+    body = LEADING_DATE_REGEX.sub('', lib.logsource.strip_syslog_prefix(line), count=1)
+    return (
+        written_at.replace(microsecond=0) if written_at else None,
+        body,
+    )
+
+
+def describe_source(source, size=None):
+    """Name one source the way the summary reports it, with what was read along.
+
+    The path is given in full: this goes into a listing of its own, which has
+    the room, and it is where an administrator copies the path from.
+    """
+    described = f'`{source["label"]}`'
+    if size is not None:
+        described += f' (size: {lib.human.bytes2human(size)})'
+    for predecessor in source['rotated']:
+        described += f' + `{predecessor}`'
+        # Its size is looked up here rather than passed in, because a rotated
+        # file is not a source the caller named: the reader found it. It stays
+        # out of the size the performance data trends, which is the live file.
+        predecessor_stat = lib.disk.stat(predecessor)
+        if predecessor_stat is not None:
+            described += f' (size: {lib.human.bytes2human(predecessor_stat.st_size)})'
+    return described
 
 
 def shorten(items, head=5, tail=5):
@@ -1047,6 +1287,8 @@ def main():
         args.IGNORE = []
     if args.MATCH is None:
         args.MATCH = []
+    if args.SERVER_LOG is None:
+        args.SERVER_LOG = []
 
     if args.ICINGA_CALLBACK and not all(
         (
@@ -1062,28 +1304,74 @@ def main():
         )
 
     # fetch data
-    # `source_size` is set only for plain on-disk files, so the size fact and its
-    # perfdata series stay out of the output for a unit or a container.
-    source_size = None
-    server_log = args.SERVER_LOG
-    if not server_log:
-        server_log = get_configured_log_file(
-            args.CONFIG_ROOT
-        ) or get_log_file_real_path(args.CONFIG_ROOT)
-    if not server_log:
+    server_logs = args.SERVER_LOG
+    # Where the server's own log went when it went somewhere this check cannot
+    # open. Only worth saying once the sites' logs carry the run, which is why it
+    # is a sentence in the summary rather than the abort further down.
+    main_log_notice = ''
+    main_log_recommendation = ''
+    if not server_logs:
+        main_log, vhost_logs = get_configured_log_files(args.CONFIG_ROOT)
+        if main_log is None:
+            # No `ErrorLog` outside the virtual hosts, or no configuration this
+            # check could read at all: Apache then writes where it was compiled
+            # to, which is where the probe looks. What else the probe finds is a
+            # site's log, and only of interest where the configuration named
+            # none - it knows the sites better than a file name does.
+            probed = get_log_file_real_paths(args.CONFIG_ROOT)
+            main_log = probed[0] if probed else None
+            vhost_logs = vhost_logs or probed[1:]
+        if main_log in (SYSLOG_TARGET, PIPE_TARGET) and vhost_logs:
+            # Named precisely, because the journal of the unit is read as well
+            # and the summary would otherwise contradict itself. What a server
+            # logging this way loses is its lifecycle: Apache writes a `notice`
+            # line into a log file whatever `LogLevel` says, but through syslog
+            # the level applies, so the default `warn` drops every start,
+            # restart and shutdown. Measured on Rocky 9 (httpd 2.4.62, rsyslog
+            # 8.2510): with `LogLevel warn` a denied request (AH01630, `error`)
+            # reaches the journal while AH00489, AH00493 and AH00491 reach
+            # neither the journal, nor rsyslog's files, nor a file of their own;
+            # with `LogLevel notice` they are all there.
+            target = 'syslog' if main_log == SYSLOG_TARGET else 'a program'
+            main_log_notice = (
+                f'`ErrorLog` hands the log the server writes about itself to '
+                f'{target}, so this run covers the sites and the unit but not '
+                f'that log'
+            )
+            level = get_log_level(args.CONFIG_ROOT) or 'warn'
+            if main_log == SYSLOG_TARGET and LEVEL_LADDER.index(
+                level if level in LEVEL_LADDER else 'warn'
+            ) < LEVEL_LADDER.index('notice'):
+                main_log_notice += (
+                    f' - and `LogLevel {level}` drops the `notice` lines there, '
+                    f'so no startup, restart or shutdown can be seen at all'
+                )
+                main_log_recommendation = (
+                    'Set `LogLevel notice` to see the server start, restart and '
+                    'stop: through syslog the level applies to those lines, '
+                    'where a log file would carry them whatever `LogLevel` says'
+                )
+            main_log = None
+        # The unit alongside the files, not instead of them: a server that failed
+        # to start wrote why to its standard error and never reached the error
+        # log, and where `ErrorLog` hands the log to syslog the journal is the
+        # only place the server's own lines are. What both carry is counted once.
+        server_logs = ([main_log] if main_log else []) + vhost_logs
+        server_logs += [f'systemd:{unit}' for unit in get_units(args.CONFIG_ROOT)]
+    if not server_logs:
         lib.base.cu(
             'Found no Apache error log. Set `ErrorLog` in the main Apache '
             "configuration file, or name the log with the check's "
             '`--server-log` parameter.'
         )
-    if server_log == SYSLOG_TARGET:
+    if server_logs == [SYSLOG_TARGET]:
         lib.base.cu(
             '`ErrorLog` hands the log to syslog, so it is not a file this check '
             'can open. Point `--server-log` at the systemd unit '
             '(`--server-log=systemd:httpd.service`) or at the file the syslog '
             'daemon writes.'
         )
-    if server_log == PIPE_TARGET:
+    if server_logs == [PIPE_TARGET]:
         lib.base.cu(
             '`ErrorLog` pipes the log into a program, so it is not a file this '
             'check can open. Name the file that program writes with '
@@ -1091,27 +1379,37 @@ def main():
             '(`--server-log=systemd:httpd.service`).'
         )
 
-    kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
-    if kind == lib.logsource.KIND_FILE:
+    # A size is known for plain on-disk files only, so the size fact and its
+    # perfdata series stay out of the output for a unit or a container. Where
+    # several files are read, the series is what they add up to.
+    sizes = {}
+    for server_log in server_logs:
+        kind, _, target = lib.base.coe(lib.logsource.parse(server_log))
+        if kind != lib.logsource.KIND_FILE:
+            continue
         # Report a path that is not a regular file before reading it, so the
         # admin hears about a directory or a device rather than about an I/O
-        # error further down.
+        # error further down. With one source that is the whole answer; with
+        # several it is one source of many and the run goes on.
         log_stat = lib.disk.stat(target)
         if log_stat is None or not stat.S_ISREG(log_stat.st_mode):
-            lib.base.oao(
-                f'Logging seems to be configured, but `{target}` does not seem to'
-                f' be an existing regular file. Check the path and file'
-                f' permissions, or provide the `--server-log` parameter.',
-                STATE_WARN,
-            )
-        source_size = log_stat.st_size
-        if source_size == 0:
-            # An empty log file is a deterministic "no events observed" state,
-            # not an unknown one - typical right after logrotate fires.
-            lib.base.oao(
-                f'Log file `{target}` is empty. Assuming log-rotation.',
-                STATE_OK,
-            )
+            if len(server_logs) == 1:
+                lib.base.oao(
+                    f'Logging seems to be configured, but `{target}` does not'
+                    f' seem to be an existing regular file. Check the path and'
+                    f' file permissions, or provide the `--server-log`'
+                    f' parameter.',
+                    STATE_WARN,
+                )
+            continue
+        sizes[server_log] = log_stat.st_size
+    if len(server_logs) == 1 and sizes.get(server_logs[0]) == 0:
+        # An empty log file is a deterministic "no events observed" state,
+        # not an unknown one - typical right after logrotate fires.
+        lib.base.oao(
+            f'Log file `{server_logs[0]}` is empty. Assuming log-rotation.',
+            STATE_OK,
+        )
 
     # The plugin runs as root via sudo, so restrict an on-disk log to the system
     # log directory. The path the Apache configuration reports is deliberately
@@ -1128,15 +1426,28 @@ def main():
     # counting startups, restarts and shutdowns next to the problems, so every
     # run has to see the whole window rather than only what is new.
     result = lib.base.coe(
-        lib.logsource.read(
-            server_log,
+        lib.logsource.read_many(
+            server_logs,
             allowed_roots=allowed_roots,
+            dedup_key=dedup_key,
             max_lines=MAXLINES,
             rotated=ROTATED_FILES,
             timeout=args.TIMEOUT,
         )
     )
-    source_label = f'`{result["label"]}`'
+    # What to call the whole of what was read, for the messages that have to
+    # name it before the summary below spells every source out.
+    # Abbreviated here, because this one shares a line with a sentence; the
+    # listing further down gives the path in full.
+    source_label = (
+        '`'
+        + lib.disk.shorten_path(
+            result['sources'][0]['label'], max_len=SOURCE_PATH_MAX_LEN, truncate=False
+        )
+        + '`'
+        if len(result['sources']) == 1
+        else f'the {len(result["sources"])} sources read'
+    )
 
     # init some vars
     state = STATE_OK
@@ -1146,6 +1457,8 @@ def main():
     # the end as a `Recommendations:\n* ...` bulleted block, regardless of which
     # combinations of paths fire.
     recommendations = []
+    if main_log_recommendation:
+        recommendations.append(main_log_recommendation)
     level_states = get_level_states(args.CRITICAL_LEVEL, args.WARNING_LEVEL)
     levels = {item['level']: [] for item in LEVELS}
     found = {item['key']: [] for item in EVENTS}
@@ -1202,13 +1515,30 @@ def main():
         if acked_fingerprints and lib.logmatch.key(log_line) in acked_fingerprints:
             suppressed_cnt += 1
             continue
+        identifier = lib.logsource.syslog_identifier(log_line)
+        if identifier is not None and identifier not in IDENTIFIERS:
+            # Somebody else writing into the same place: systemd's own
+            # bookkeeping about the unit ("Starting ...", "Started ..."), and
+            # whatever else a syslog daemon put into the file this check reads.
+            # It is not Apache's line, and counting it as one Apache did not
+            # write would put a permanent "lines not written by Apache" into the
+            # summary of every healthy host.
+            continue
         level_match = LEVEL_REGEX.search(log_line)
         hits = [event for event in EVENTS if event['regex'].search(log_line)]
-        if not level_match and not CODE_REGEX.search(log_line) and not hits:
+        if (
+            not level_match
+            and not CODE_REGEX.search(log_line)
+            and not hits
+            and identifier is None
+        ):
             # Not a line Apache wrote. Counted rather than dropped silently,
             # because a log full of them means the check is pointed at the wrong
             # file. An event counts as Apache's as well, because the one line it
-            # writes about listening sockets carries neither level nor code.
+            # writes about listening sockets carries neither level nor code, and
+            # so does a line the journal says Apache wrote: `Server configured,
+            # listening on: port 80` comes from the server through `mod_systemd`
+            # and carries neither either.
             unrecognized_cnt += 1
             continue
         recognized_cnt += 1
@@ -1226,17 +1556,29 @@ def main():
             ]
         for event in rate_hits:
             found[event['key']].append(log_line)
-        # A line a rate event owns is judged by how often it arrives and is
-        # therefore left out of the per-level counts; counting it in both places
-        # would put every internet-facing server permanently into WARNING for
-        # the bots that probe it.
-        if not rate_hits and level in levels:
+        # A line one of the catalogs owns is left out of the per-level counts.
+        # A rate event is judged by how often it arrives, and counting it by its
+        # level too would put every internet-facing server permanently into
+        # WARNING for the bots that probe it. A named event carries its own
+        # state and says what happened, which the level cannot; reporting the
+        # same eight lines once as "8 error lines" and once as "8 stapling
+        # failures" says the same thing twice and doubles them in the graphs.
+        if not rate_hits and not hits and level in levels:
             levels[level].append(log_line)
         for event in hits:
             found[event['key']].append(log_line)
         for item in LIFECYCLE:
             if item['regex'].search(log_line):
                 found[item['key']].append(log_line)
+
+    # Everything collected is put back into the order it was written in. The
+    # sources are read one after the other, so a line from a site's log sits
+    # before a newer one from the journal however late it was written, and "the
+    # last one" would name something days old.
+    for key, lines in found.items():
+        found[key] = lib.logsource.sort_by_time(lines, parse_timestamp)
+    for level, lines in levels.items():
+        levels[level] = lib.logsource.sort_by_time(lines, parse_timestamp)
 
     # `--match` narrowed the run down to nothing, so this run looked at no line at
     # all rather than at a quiet log. Only reachable when the operator set a
@@ -1247,7 +1589,7 @@ def main():
         lib.base.oao(
             f'Nothing checked: `--match` dropped all {len(result["lines"])} '
             f'{lib.txt.pluralize("line", len(result["lines"]))} of '
-            f'{result["label"]}.',
+            f'{source_label}.',
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
         )
@@ -1262,7 +1604,7 @@ def main():
         lib.base.oao(
             f'None of the {unrecognized_cnt} '
             f'{lib.txt.pluralize("line", unrecognized_cnt)} read from '
-            f'{result["label"]} carries an Apache log level or message code, so '
+            f'{source_label} carries an Apache log level or message code, so '
             f'this does not look like an Apache error log. Check `--server-log` '
             f'and the `ErrorLog` directive of the Apache configuration.',
             STATE_UNKNOWN,
@@ -1284,29 +1626,18 @@ def main():
     # say whether the window is an hour or a week: on a busy host the cap is
     # reached within hours, on a quiet one the same 30000 lines reach back
     # months, and every count below has to be read against that. Taken from the
-    # first and the last line that carry a time, so a source that stamps none
-    # simply leaves it out.
+    # ends of each source rather than from the ends of everything read: the
+    # sources arrive one after the other, so the newest line of the first one
+    # sits in the middle. A source that stamps no line simply leaves it out.
     covered = ''
-    window_from = window_to = None
-    for line in result['lines']:
-        window_from = lib.logsource.timestamp(line, parse_timestamp)
-        if window_from is not None:
-            break
-    for line in reversed(result['lines']):
-        window_to = lib.logsource.timestamp(line, parse_timestamp)
-        if window_to is not None:
-            break
+    window_from, window_to = lib.logsource.covered_window(
+        [item['lines'] for item in result['sources']], parse_timestamp
+    )
     if window_from is not None and window_to is not None:
-        # Ordered rather than taken as they stand: a file can hold lines written
-        # with a UTC offset next to lines written without one - a container
-        # entrypoint and the server it starts do exactly that - and the first
-        # line is then not necessarily the earlier one.
-        window_from, window_to = sorted((window_from, window_to))
         span = int((window_to - window_from).total_seconds())
         covered = (
-            f', covering {window_from:%Y-%m-%d %H:%M}'
-            f'..{window_to:%Y-%m-%d %H:%M}'
-            f' ({lib.human.seconds2human(span)})'
+            f'{window_from:%Y-%m-%d %H:%M} .. {window_to:%Y-%m-%d %H:%M}'
+            f' ({lib.human.seconds2human(span)}): '
         )
     line_cnt = len(result['lines'])
     lines_read = (
@@ -1314,12 +1645,29 @@ def main():
     )
     if result['truncated']:
         lines_read = f'the most recent {lines_read}'
-    sources = source_label
-    if source_size is not None:
-        sources += f' (size: {lib.human.bytes2human(source_size)})'
-    for predecessor in result['rotated']:
-        sources += f' + `{predecessor}`'
-    source_fact = f'Read {lines_read} from {sources}{covered}'
+    # The sources get a section of their own, the way the lines behind every
+    # count do: a reverse proxy serving a dozen sites reads a dozen logs, and
+    # naming them in the summary would bury the verdict under a paragraph of
+    # paths - and the summary line is what a monitoring server shows in a list.
+    # The paths are not abbreviated there: a bullet has the room, and that is
+    # where an administrator copies them from.
+    described = [
+        describe_source(item, sizes.get(item['label'])) for item in result['sources']
+    ]
+    sources = f'{len(described)} {lib.txt.pluralize("source", len(described))}'
+
+    if result['duplicates']:
+        # Named rather than silently dropped: an administrator who sees two
+        # sources read and one count has to be able to tell that the check knows
+        # they hold the same events.
+        shared = result['duplicates']
+        source_fact_tail = (
+            f', {lib.human.number2human(shared)} '
+            f'{lib.txt.pluralize("line", shared)} they share counted once'
+        )
+    else:
+        source_fact_tail = ''
+    source_heading = f'Read {lines_read} from {sources}{source_fact_tail}:'
 
     # The counted events. Their state comes from how many of them arrived within
     # the rate window, not from the fact that they arrived at all. Their facts
@@ -1415,24 +1763,25 @@ def main():
         named.append(
             f'{len(hits)} '
             f'{lib.txt.pluralize(event["label"], len(hits), event.get("suffix", "s"))}'
+            f'{lib.base.state2str(event["state"], prefix=" ")}'
         )
         recommendations.append(event['recommendation'])
     if named:
-        # Not "among them": Apache logs a child crash at `notice`, so a named
-        # event is not necessarily one of the lines a level counted above.
+        # Not "among them": a named event is counted here and nowhere else, so
+        # these are lines the per-level counts above do not hold.
         facts.append('Found ' + ', '.join(named))
 
     facts.extend(rate_facts)
 
     for item in LIFECYCLE:
         lines = found[item['key']]
+        # A counter at zero says nothing the performance data does not, and a
+        # sentence about it would only push the verdict further right.
         if lines:
             facts.append(
                 f'{len(lines)} {lib.txt.pluralize(item["label"], len(lines))}'
                 f' {item["verb"]} (last: {lines[-1]})'
             )
-        else:
-            facts.append(f'No {lib.txt.pluralize(item["label"], 0)} {item["verb"]}')
 
     # A few lines without a level and without a message code are normal where
     # something else logs into the same file; a majority of them means the source
@@ -1451,11 +1800,30 @@ def main():
                 ' check that the source is the error log and not the access log'
             )
 
-    # Where the lines came from goes last: an administrator reads the summary
-    # left to right and wants the verdict first, not the provenance of it.
-    facts.append(source_fact)
+    if main_log_notice:
+        facts.append(main_log_notice)
 
-    sections.append('. '.join(facts) + '.')
+    if result['notice']:
+        facts.append(result['notice'].rstrip('.'))
+
+    # A source that could not be read at all leaves a hole in the window: with a
+    # second source still delivering, the run goes on, but reporting the state of
+    # what happened to work would hide that nothing is watching the rest.
+    if result['failed']:
+        state = lib.base.get_worst(state, STATE_WARN)
+        facts.append(
+            '; '.join(item.rstrip('.') for item in result['failed'])
+            + lib.base.state2str(STATE_WARN, prefix=' ')
+        )
+        recommendations.append(
+            'Check the log sources this check was told to read; '
+            'one of them could not be read at all'
+        )
+
+    # The window the summary reports on comes first, because every count in it
+    # is a count within that window and reads differently against an hour than
+    # against a week.
+    sections.append(covered + '. '.join(facts) + '.')
 
     for item in LEVELS:
         lines = levels[item['level']]
@@ -1465,6 +1833,12 @@ def main():
                 + '\n'.join(f'* {line}' for line in shorten(lines))
             )
 
+    # What was read, last of the sections: the verdict and the lines behind it
+    # come first, the provenance after them.
+    sections.append(
+        source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
+    )
+
     if recommendations:
         sections.append(
             'Recommendations:\n' + '\n'.join(f'* {item}' for item in recommendations)
@@ -1473,10 +1847,10 @@ def main():
     msg = '\n\n'.join(sections)
 
     perfdata = ''
-    if source_size is not None:
+    if sizes:
         perfdata += lib.base.get_perfdata(
             'apache_httpd_logfile_size',
-            source_size,
+            sum(sizes.values()),
             uom='B',
             _min=0,
         )

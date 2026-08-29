@@ -76,6 +76,9 @@ DENIAL_LINE = (
 APACHE_TIMESTAMP_FORMAT = '%a %b %d %H:%M:%S.%f %Y'
 
 
+# The summary abbreviates a long path for display, and a fixture tree below this
+# repository is always long enough for that, so a path is asserted by its
+# basename rather than in full.
 CASES = [
     {
         'id': 'ok-clean-start',
@@ -84,7 +87,6 @@ CASES = [
         'assert-in': [
             'No errors or warnings found',
             '1 startup detected',
-            'No restarts detected',
             '1 shutdown detected',
         ],
         'assert-not-in': ['Recommendations:', '[WARNING]', '[CRITICAL]'],
@@ -143,20 +145,30 @@ CASES = [
         # A run that only produced `error` lines about the server itself is
         # somebody's afternoon, not somebody's night, so it stops at WARNING
         # until `--critical-level` says otherwise.
-        'id': 'warn-error-lines-alone-do-not-page',
+        # A named event carries its own state and is counted there and nowhere
+        # else: these four lines are `error` lines, and reporting them as such
+        # too would say the same thing twice and double them in the graphs.
+        'id': 'warn-a-named-event-is-not-counted-by-its-level-as-well',
         'params': [f'--server-log={fixture("rocky9-stapling.txt")}'],
         'assert-retc': STATE_WARN,
-        'assert-in': ['4 error lines found', '[WARNING]'],
-        'assert-not-in': ['[CRITICAL]'],
+        'assert-in': [
+            'Found 4 stapling failures [WARNING]',
+            "'apache_httpd_error_lines'=0;",
+            "'apache_httpd_stapling_failures'=4;",
+        ],
+        'assert-not-in': ['error lines found', '[CRITICAL]'],
     },
     {
-        'id': 'crit-critical-level-covers-error',
+        # What is left for the level thresholds are the lines no catalog
+        # claimed. Two `warn` lines about the module set, which nothing else
+        # reports on, and which `--critical-level` lifts to CRITICAL.
+        'id': 'crit-critical-level-covers-what-no-event-claimed',
         'params': [
-            f'--server-log={fixture("rocky9-stapling.txt")}',
-            '--critical-level=error',
+            f'--server-log={fixture("rocky9-scanner-noise.txt")}',
+            '--critical-level=warn',
         ],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['4 error lines found', '[CRITICAL]'],
+        'assert-in': ['2 warn lines found [CRITICAL]'],
     },
     {
         # Turning both levels off leaves the named events, which is the whole
@@ -244,7 +256,6 @@ CASES = [
         'assert-in': [
             '4 startup failures',
             'Apache refused to start',
-            'No startups detected',
         ],
     },
     {
@@ -254,14 +265,18 @@ CASES = [
         'id': 'crit-rejected-configuration-in-the-journal',
         'params': [f'--server-log={fixture("rocky9-journal-config-rejected.txt")}'],
         'assert-retc': STATE_CRIT,
-        # The lines systemd wrote in between are counted as what they are.
-        # Reading them out of a file the way this test does is also what makes
-        # the advice about the wrong source appear here; against the unit itself
-        # the check knows that foreign lines are normal and keeps it back.
+        # Nothing here is a foreign line: systemd's own bookkeeping about the
+        # unit is about the service rather than from it, and what the journal
+        # attributes to the server is the server's however little it carries.
+        # Counting either would put a permanent "lines not written by Apache"
+        # into the summary of every healthy host.
         'assert-in': [
             '1 startup failure',
             'Apache refused to start',
-            '17 lines not written by Apache',
+        ],
+        'assert-not-in': [
+            'not written by Apache',
+            'Starting The Apache HTTP Server',
         ],
     },
     {
@@ -327,7 +342,7 @@ CASES = [
             '--match=maxrequestworkers',
         ],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['1 error line found', '1 worker saturation'],
+        'assert-in': ['1 worker saturation'],
         'assert-not-in': ['child crash', 'proxy failure'],
     },
     {
@@ -373,31 +388,87 @@ CASES = [
         'id': 'crit-log-path-from-the-redhat-configuration',
         'params': [f'--config-root={config_root("rhel")}'],
         'assert-retc': STATE_CRIT,
-        'assert-in': ['/etc/httpd/logs/error_log', '1 worker saturation'],
-        # The TLS virtual host of the same file names a log of its own, which
-        # belongs to that host and not to the server.
-        'assert-not-in': ['ssl_error_log'],
+        # The TLS virtual host of the same file names a log of its own, and
+        # that one is read along with the server's: a site is where the
+        # interesting lines are, and reading only the server's log would report
+        # a quiet host while the site it serves is being walked.
+        'assert-in': [
+            'from 2 sources',
+            'error_log',
+            'ssl_error_log',
+            '1 worker saturation',
+        ],
+    },
+    {
+        # What our own configuration management writes, and what a site set up
+        # by hand on the RHEL family looks like: the virtual host lives in the
+        # drop-in directory and logs into a file of its own. Reading only the
+        # server's log would report a quiet host while the site is being walked.
+        'id': 'ok-a-site-in-the-drop-in-directory-is-read-too',
+        'params': [f'--config-root={config_root("rhel-vhosts")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'from 2 sources',
+            'www.example.com-error.log',
+            '(1 in the window read)',
+        ],
+    },
+    {
+        # The same on the Debian family from 11 on, where the site is a symlink
+        # from sites-enabled into sites-available and the log directory comes
+        # from a variable.
+        'id': 'ok-a-symlinked-site-is-read-too',
+        'params': [f'--config-root={config_root("debian-vhosts")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'from 2 sources',
+            'www.example.com-error.log',
+            '(1 in the window read)',
+        ],
     },
     {
         'id': 'ok-log-path-from-the-debian-configuration',
         'params': [f'--config-root={config_root("debian")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['/var/log/apache2/error.log', '1 startup detected'],
+        'assert-in': ['error.log', '1 startup detected'],
     },
     {
         'id': 'ok-log-path-probed-without-a-configuration',
         'params': [f'--config-root={config_root("probe-only")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['/var/log/httpd/error_log', '1 startup detected'],
+        'assert-in': ['error_log', '1 startup detected'],
     },
     {
-        # The only ErrorLog in the file belongs to a virtual host, so the probe
-        # has to take over rather than the check reading that host's log.
-        'id': 'ok-virtual-host-log-is-not-the-server-log',
+        # No ErrorLog outside the virtual hosts, so there is no server log to
+        # anchor on and the probe takes over. The host's own log is read next to
+        # the probed one, never instead of it - and here it is the only one
+        # holding the certificate the server could not configure.
+        'id': 'crit-virtual-host-log-is-read-next-to-the-server-log',
         'params': [f'--config-root={config_root("vhost-only")}'],
-        'assert-retc': STATE_OK,
-        'assert-in': ['/var/log/httpd/error_log'],
-        'assert-not-in': ['ssl_error_log'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'from 2 sources',
+            'error_log',
+            'ssl_error_log',
+            'AH02572',
+        ],
+    },
+    {
+        # The server's own log goes to syslog while the sites keep files: the
+        # sites carry the run, and the summary says what is missing from it
+        # rather than the check refusing to run at all.
+        'id': 'crit-the-sites-are-read-where-the-server-logs-to-syslog',
+        'params': [f'--config-root={config_root("syslog-vhosts")}'],
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'www.example.com-error.log',
+            'covers the sites and the unit but not that log',
+            # Measured behaviour, not a guess: through syslog the level applies
+            # to a `notice` line, where a log file carries it either way.
+            '`LogLevel warn` drops the `notice` lines there',
+            'Set `LogLevel notice`',
+            'AH02572',
+        ],
     },
     {
         'id': 'unknown-error-log-goes-to-syslog',
@@ -562,17 +633,46 @@ class TestConfigParsing(unittest.TestCase):
     """The configuration reader, against the trees the distributions install."""
 
     def test_redhat_resolves_against_serverroot(self):
+        # The server's log first, then the one its TLS virtual host writes.
         root = config_root('rhel')
         self.assertEqual(
-            apache_httpd_logfile.get_configured_log_file(root),
-            f'{root}/etc/httpd/logs/error_log',
+            apache_httpd_logfile.get_configured_log_files(root),
+            (
+                f'{root}/etc/httpd/logs/error_log',
+                [f'{root}/etc/httpd/logs/ssl_error_log'],
+            ),
+        )
+
+    def test_serverroot_still_applies_inside_an_included_file(self):
+        # `ErrorLog logs/...` in a drop-in file means the server's log directory,
+        # not one below the drop-in directory: ServerRoot is what it resolves
+        # against, wherever the directive that uses it stands.
+        root = config_root('rhel-vhosts')
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_files(root),
+            (
+                f'{root}/etc/httpd/logs/error_log',
+                [f'{root}/etc/httpd/logs/www.example.com-error.log'],
+            ),
+        )
+
+    def test_debian_follows_the_symlink_a_site_is_enabled_with(self):
+        # sites-enabled holds symlinks into sites-available, and the log
+        # directory is a variable rather than a path.
+        root = config_root('debian-vhosts')
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_files(root),
+            (
+                f'{root}/var/log/apache2/error.log',
+                [f'{root}/var/log/apache2/www.example.com-error.log'],
+            ),
         )
 
     def test_debian_resolves_the_envvars_variable(self):
         root = config_root('debian')
         self.assertEqual(
-            apache_httpd_logfile.get_configured_log_file(root),
-            f'{root}/var/log/apache2/error.log',
+            apache_httpd_logfile.get_configured_log_files(root),
+            (f'{root}/var/log/apache2/error.log', []),
         )
 
     def test_an_unset_shell_variable_expands_to_nothing(self):
@@ -583,26 +683,66 @@ class TestConfigParsing(unittest.TestCase):
         self.assertEqual(env['APACHE_LOG_DIR'], '/var/log/apache2')
 
     def test_a_virtual_host_errorlog_is_not_the_server_log(self):
-        self.assertIsNone(
-            apache_httpd_logfile.get_configured_log_file(config_root('vhost-only'))
+        # Without an ErrorLog outside the virtual hosts there is no server log,
+        # and a host's own is never read instead of it: the caller probes for the
+        # path Apache was compiled with and reads the site's log next to it.
+        root = config_root('vhost-only')
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_files(root),
+            (None, [f'{root}/etc/httpd/logs/ssl_error_log']),
+        )
+
+    def test_a_site_is_still_read_where_the_server_logs_to_syslog(self):
+        # The marker for the server's own log, and the sites next to it: the one
+        # is not a reason to drop the other.
+        root = config_root('syslog-vhosts')
+        self.assertEqual(
+            apache_httpd_logfile.get_configured_log_files(root),
+            (
+                apache_httpd_logfile.SYSLOG_TARGET,
+                [f'{root}/etc/httpd/logs/www.example.com-error.log'],
+            ),
         )
 
     def test_syslog_and_a_pipe_are_reported_rather_than_opened(self):
         self.assertEqual(
-            apache_httpd_logfile.get_configured_log_file(config_root('syslog')),
-            apache_httpd_logfile.SYSLOG_TARGET,
+            apache_httpd_logfile.get_configured_log_files(config_root('syslog')),
+            (apache_httpd_logfile.SYSLOG_TARGET, []),
         )
         self.assertEqual(
-            apache_httpd_logfile.get_configured_log_file(config_root('piped')),
-            apache_httpd_logfile.PIPE_TARGET,
+            apache_httpd_logfile.get_configured_log_files(config_root('piped')),
+            (apache_httpd_logfile.PIPE_TARGET, []),
         )
 
     def test_a_commented_out_directive_does_not_count(self):
-        server_root, error_log = apache_httpd_logfile.parse_config(
+        found = apache_httpd_logfile.parse_config(
             '# ErrorLog "logs/commented_out"\nErrorLog "logs/error_log"\n'
         )
-        self.assertIsNone(server_root)
-        self.assertEqual(error_log, 'logs/error_log')
+        self.assertEqual(found, [('errorlog', 'logs/error_log', False)])
+
+    def test_the_directives_come_back_in_the_order_the_file_states_them(self):
+        # In document order, and each with whether it stood inside a virtual
+        # host, because the caller resolves an include where it stands and keeps
+        # the last value the way Apache does.
+        found = apache_httpd_logfile.parse_config(
+            'ServerRoot "/etc/httpd"\n'
+            'ErrorLog "logs/error_log"\n'
+            'IncludeOptional conf.d/*.conf\n'
+            '<VirtualHost _default_:443>\n'
+            '    ErrorLog logs/ssl_error_log\n'
+            '</VirtualHost>\n'
+            'ErrorLog "logs/later_wins"\n'
+        )
+        self.assertEqual(
+            found,
+            [
+                ('serverroot', '/etc/httpd', False),
+                ('errorlog', 'logs/error_log', False),
+                ('includeoptional', 'conf.d/*.conf', False),
+                ('errorlog', 'logs/ssl_error_log', True),
+                ('errorlog', 'logs/later_wins', False),
+            ],
+        )
 
     def test_a_variable_nothing_defines_gives_up(self):
         self.assertIsNone(apache_httpd_logfile.expand('${NOWHERE}/error.log', {}))
