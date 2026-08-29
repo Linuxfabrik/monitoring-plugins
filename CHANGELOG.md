@@ -56,6 +56,7 @@ Monitoring Plugins:
 * openstack-cinder-list: the block storage volumes of a project
 * openstack-quota: the compute, block storage and network quotas of a project ([#489](https://github.com/Linuxfabrik/monitoring-plugins/issues/489))
 * php-fpm-logfile: worker crashes, request timeouts and saturated pools in the PHP-FPM error log
+* postfix-logfile: undelivered mail, unreachable relays, refused logins and a broken start in the Postfix mail log
 * psi-cpu: work waiting for a CPU ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * psi-io: work waiting for storage ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
 * psi-irq: CPUs busy servicing interrupts ([#746](https://github.com/Linuxfabrik/monitoring-plugins/issues/746))
