@@ -54,7 +54,7 @@ usage: dmesg [-h] [-V] [--always-ok] [--icinga-callback]
              [--icinga-password ICINGA_PASSWORD]
              [--icinga-service-name ICINGA_SERVICE_NAME]
              [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
-             [--ignore IGNORE] [--match MATCH] [--insecure] [--no-insecure]
+             [--ignore IGNORE] [--insecure] [--match MATCH] [--no-insecure]
              [--no-perfdata] [--no-proxy] [--proxy PROXY] [--timeout TIMEOUT]
 
 Checks the kernel ring buffer (dmesg) for messages at severity levels emerg,
@@ -95,6 +95,10 @@ options:
                         Specifying this parameter replaces the bundled default
                         ignore list. Example: `--ignore="^.* unhandled
                         (rd|wr)msr: "`.
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. This option
+                        explicitly allows insecure SSL connections.
   --match MATCH         Only consider a kernel message matching this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -102,10 +106,6 @@ options:
                         given, an item must match `--match` AND not match
                         `--ignore` to be reported (include first, exclude
                         second). Example: `--match='blk_update_request'`.
-  --insecure            Applies to the connection to the monitoring server
-                        that `--icinga-callback` makes, which is the only
-                        network connection this check opens. This option
-                        explicitly allows insecure SSL connections.
   --no-insecure         Applies to the connection to the monitoring server
                         that `--icinga-callback` makes, which is the only
                         network connection this check opens. Verify the TLS

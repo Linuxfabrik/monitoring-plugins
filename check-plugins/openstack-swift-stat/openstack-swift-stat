@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082505'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks OpenStack Swift object storage account statistics, including total container
 count, object count, and bytes used. Alerts when the free space left in a container with a quota
@@ -204,17 +204,6 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--warning-count',
-        help='WARN threshold for the remaining number of objects a container '
-        'may still take. '
-        'Only applies to containers that have an object count quota set. '
-        'Default: <= %(default)s',
-        dest='WARN_COUNT',
-        type=int,
-        default=DEFAULT_WARN_COUNT,
-    )
-
-    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for remaining free space, in GiB. '
@@ -223,6 +212,17 @@ def parse_args():
         dest='WARN',
         type=int,
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-count',
+        help='WARN threshold for the remaining number of objects a container '
+        'may still take. '
+        'Only applies to containers that have an object count quota set. '
+        'Default: <= %(default)s',
+        dest='WARN_COUNT',
+        type=int,
+        default=DEFAULT_WARN_COUNT,
     )
 
     args, _ = parser.parse_known_args()

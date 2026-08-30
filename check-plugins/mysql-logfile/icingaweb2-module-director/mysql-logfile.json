@@ -44,15 +44,12 @@
                 "--icinga-username": {
                     "value": "$mysql_logfile_icinga_username$"
                 },
-                "--insecure": {
-                    "set_if": "$mysql_logfile_insecure$"
-                },
-                "--no-insecure": {
-                    "set_if": "$mysql_logfile_no_insecure$"
-                },
                 "--ignore": {
                     "value": "$mysql_logfile_ignore$",
                     "repeat_key": true
+                },
+                "--insecure": {
+                    "set_if": "$mysql_logfile_insecure$"
                 },
                 "--lookback": {
                     "value": "$mysql_logfile_lookback$"
@@ -60,6 +57,9 @@
                 "--match": {
                     "value": "$mysql_logfile_match$",
                     "repeat_key": true
+                },
+                "--no-insecure": {
+                    "set_if": "$mysql_logfile_no_insecure$"
                 },
                 "--no-match-severity": {
                     "value": "$mysql_logfile_no_match_severity$"
@@ -73,14 +73,14 @@
                 "--no-proxy": {
                     "set_if": "$mysql_logfile_no_proxy$"
                 },
-                "--proxy": {
-                    "value": "$mysql_logfile_proxy$"
-                },
                 "--per-source": {
                     "set_if": "$mysql_logfile_per_source$"
                 },
                 "--port": {
                     "value": "$mysql_logfile_port$"
+                },
+                "--proxy": {
+                    "value": "$mysql_logfile_proxy$"
                 },
                 "--server-log": {
                     "value": "$mysql_logfile_server_log$",
@@ -296,8 +296,8 @@
                 "mysql_logfile_defaults_group": "client",
                 "mysql_logfile_hostname": "127.0.0.1",
                 "mysql_logfile_icinga_callback": false,
-                "mysql_logfile_insecure": true,
                 "mysql_logfile_ignore": [],
+                "mysql_logfile_insecure": true,
                 "mysql_logfile_lookback": 600,
                 "mysql_logfile_match": [],
                 "mysql_logfile_no_match_severity": "ok",
@@ -498,24 +498,6 @@
             "uuid": "d6510ee3-c692-49b6-b3b6-3e61713c1f1f"
         },
         "15": {
-            "varname": "mysql_logfile_insecure",
-            "caption": "MySQL Logfile: Insecure?",
-            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. This option explicitly allows insecure SSL connections.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "ebd2176c-2102-437d-b6c3-1be8a0775aad"
-        },
-        "16": {
-            "varname": "mysql_logfile_no_insecure",
-            "caption": "MySQL Logfile: No Insecure?",
-            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "74335c0b-a0ec-4c5a-9f25-d432d2edef89"
-        },
-        "17": {
             "varname": "mysql_logfile_ignore",
             "caption": "MySQL Logfile: Ignore",
             "description": "Ignore a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
@@ -526,7 +508,16 @@
             },
             "uuid": "e2ffffd8-1847-47e8-8f89-d284c92baf15"
         },
-        "18": {
+        "16": {
+            "varname": "mysql_logfile_insecure",
+            "caption": "MySQL Logfile: Insecure?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "ebd2176c-2102-437d-b6c3-1be8a0775aad"
+        },
+        "17": {
             "varname": "mysql_logfile_lookback",
             "caption": "MySQL Logfile: Lookback",
             "description": "Logins the server turned away are counted within this window rather than reported one by one. Time window in seconds to look back over, ending at the moment of the run. Only what falls within it is counted, so what is reported is how often something happened lately rather than a total that keeps growing for as long as the source is kept. Example: `--lookback=3600`.",
@@ -537,7 +528,7 @@
             },
             "uuid": "ed646c1e-f15a-4c4a-a0e1-ead7f18f02ab"
         },
-        "19": {
+        "18": {
             "varname": "mysql_logfile_match",
             "caption": "MySQL Logfile: Match",
             "description": "Only consider a log line matching this Python regular expression. The log line is lowercased before matching, so write the pattern in lowercase (or use the `(?i)` flag). Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='innodb'`.",
@@ -547,6 +538,15 @@
                 "visibility": "visible"
             },
             "uuid": "6758938b-df16-4d4c-8335-09377f1d89d2"
+        },
+        "19": {
+            "varname": "mysql_logfile_no_insecure",
+            "caption": "MySQL Logfile: No Insecure?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "74335c0b-a0ec-4c5a-9f25-d432d2edef89"
         },
         "20": {
             "varname": "mysql_logfile_no_match_severity",
@@ -589,17 +589,6 @@
             "uuid": "58988fd2-3778-41f0-9840-6ca011fdc633"
         },
         "24": {
-            "varname": "mysql_logfile_proxy",
-            "caption": "MySQL Logfile: Proxy",
-            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
-            "format": null,
-            "settings": {
-                "visibility": "visible"
-            },
-            "uuid": "a2897d76-cf02-4d73-991a-ea0c814c700a"
-        },
-        "25": {
             "varname": "mysql_logfile_per_source",
             "caption": "MySQL Logfile: Per Source?",
             "description": "Judge a rate by the busiest single source address rather than by everything that arrived. A handful of failures from one address within the window is somebody working on this host; the same number spread over as many addresses is the background of an open network going past, and only the first is worth reporting. Lines that name no source are counted together as one, so a burst of those still reports.",
@@ -608,7 +597,7 @@
             "settings": {},
             "uuid": "c965756f-7855-433b-9ec3-7ccecaa90447"
         },
-        "26": {
+        "25": {
             "varname": "mysql_logfile_port",
             "caption": "MySQL Logfile: Port",
             "description": "MySQL/MariaDB port number.",
@@ -618,6 +607,17 @@
                 "visibility": "visible"
             },
             "uuid": "3b721c59-1a25-48a4-9ebe-70d27be7f341"
+        },
+        "26": {
+            "varname": "mysql_logfile_proxy",
+            "caption": "MySQL Logfile: Proxy",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a2897d76-cf02-4d73-991a-ea0c814c700a"
         },
         "27": {
             "varname": "mysql_logfile_server_log",

@@ -62,12 +62,12 @@ usage: mysql-logfile [-h] [-V]
                      [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
                      [--icinga-service-name ICINGA_SERVICE_NAME]
                      [--icinga-url ICINGA_URL]
-                     [--icinga-username ICINGA_USERNAME] [--insecure]
-                     [--no-insecure] [--ignore IGNORE] [--lookback LOOKBACK]
-                     [--match MATCH]
+                     [--icinga-username ICINGA_USERNAME] [--ignore IGNORE]
+                     [--insecure] [--lookback LOOKBACK] [--match MATCH]
+                     [--no-insecure]
                      [--no-match-severity {ok,warn,crit,unknown}]
                      [--no-per-source] [--no-perfdata] [--no-proxy]
-                     [--proxy PROXY] [--per-source] [--port PORT]
+                     [--per-source] [--port PORT] [--proxy PROXY]
                      [--server-log SERVER_LOG] [--timeout TIMEOUT]
 
 Scans the MySQL/MariaDB error log for errors, warnings, startups and
@@ -158,20 +158,14 @@ options:
                         `https://monitoring.example.com:5665`.
   --icinga-username ICINGA_USERNAME
                         Monitoring server API username.
-  --insecure            Applies to the connection to the monitoring server
-                        that `--icinga-callback` makes. This option explicitly
-                        allows insecure SSL connections.
-  --no-insecure         Applies to the connection to the monitoring server
-                        that `--icinga-callback` makes. Verify the TLS
-                        certificate against the system trust store, overriding
-                        the insecure default of this check. Use it once the
-                        endpoint presents a publicly trusted certificate, or
-                        once its CA has been added to the system trust store.
   --ignore IGNORE       Ignore a log line matching this Python regular
                         expression. The log line is lowercased before
                         matching, so write the pattern in lowercase (or use
                         the `(?i)` flag). Can be specified multiple times.
                         Example: `--ignore='(?i)linuxfabrik'`.
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes. This option explicitly
+                        allows insecure SSL connections.
   --lookback LOOKBACK   Logins the server turned away are counted within this
                         window rather than reported one by one. Time window in
                         seconds to look back over, ending at the moment of the
@@ -188,6 +182,12 @@ options:
                         match `--match` AND not match `--ignore` to be
                         reported (include first, exclude second). Example:
                         `--match='innodb'`.
+  --no-insecure         Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes. Verify the TLS
+                        certificate against the system trust store, overriding
+                        the insecure default of this check. Use it once the
+                        endpoint presents a publicly trusted certificate, or
+                        once its CA has been added to the system trust store.
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
@@ -204,6 +204,16 @@ options:
                         that `--icinga-callback` makes. Do not use a proxy,
                         not even one the environment names. Overrides
                         `--proxy`.
+  --per-source          Judge a rate by the busiest single source address
+                        rather than by everything that arrived. A handful of
+                        failures from one address within the window is
+                        somebody working on this host; the same number spread
+                        over as many addresses is the background of an open
+                        network going past, and only the first is worth
+                        reporting. Lines that name no source are counted
+                        together as one, so a burst of those still reports.
+                        Default: True
+  --port PORT           MySQL/MariaDB port number. Default: 3306
   --proxy PROXY         Applies to the connection to the monitoring server
                         that `--icinga-callback` makes. Proxy to reach the
                         target through. The scheme defaults to `http` when
@@ -216,16 +226,6 @@ options:
                         because a command-line argument is visible to every
                         user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
-  --per-source          Judge a rate by the busiest single source address
-                        rather than by everything that arrived. A handful of
-                        failures from one address within the window is
-                        somebody working on this host; the same number spread
-                        over as many addresses is the background of an open
-                        network going past, and only the first is worth
-                        reporting. Lines that name no source are counted
-                        together as one, so a burst of those still reports.
-                        Default: True
-  --port PORT           MySQL/MariaDB port number. Default: 3306
   --server-log SERVER_LOG
                         Log source to read from. Accepts a file path,
                         `docker:CONTAINER`, `podman:CONTAINER`,

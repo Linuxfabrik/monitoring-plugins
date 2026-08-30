@@ -165,6 +165,15 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
+        + lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
         '--match',
         help='Only report an event whose MESSAGE field matches this Python regular '
         'expression. '
@@ -178,29 +187,20 @@ def parse_args():
     )
 
     parser.add_argument(
-        '--no-match-severity',
-        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
-        dest='NO_MATCH_SEVERITY',
-        choices=['ok', 'warn', 'crit', 'unknown'],
-        default=DEFAULT_NO_MATCH_SEVERITY,
-    )
-
-    parser.add_argument(
-        '--insecure',
-        help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
-        + lib.args.help('--insecure'),
-        dest='INSECURE',
-        action='store_true',
-        default=DEFAULT_INSECURE,
-    )
-
-    parser.add_argument(
         '--no-insecure',
         help='Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. '
         + lib.args.help('--no-insecure'),
         dest='INSECURE',
         action='store_false',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
     )
 
     parser.add_argument(

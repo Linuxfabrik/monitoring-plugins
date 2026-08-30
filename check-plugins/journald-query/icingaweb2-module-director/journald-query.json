@@ -30,18 +30,18 @@
                     "value": "$journald_query_ignore$",
                     "repeat_key": true
                 },
+                "--insecure": {
+                    "set_if": "$journald_query_insecure$"
+                },
                 "--match": {
                     "value": "$journald_query_match$",
                     "repeat_key": true
                 },
-                "--no-match-severity": {
-                    "value": "$journald_query_no_match_severity$"
-                },
-                "--insecure": {
-                    "set_if": "$journald_query_insecure$"
-                },
                 "--no-insecure": {
                     "set_if": "$journald_query_no_insecure$"
+                },
+                "--no-match-severity": {
+                    "value": "$journald_query_no_match_severity$"
                 },
                 "--no-perfdata": {
                     "set_if": "$journald_query_no_perfdata$"
@@ -242,9 +242,9 @@
                 "journald_query_always_ok": false,
                 "journald_query_icinga_callback": false,
                 "journald_query_ignore": [],
+                "journald_query_insecure": true,
                 "journald_query_match": [],
                 "journald_query_no_match_severity": "ok",
-                "journald_query_insecure": true,
                 "journald_query_no_perfdata": false,
                 "journald_query_no_proxy": false,
                 "journald_query_priority": "emerg..err",
@@ -408,6 +408,15 @@
             "uuid": "a7605c6c-dd26-4859-9b2e-12eac6957349"
         },
         "10": {
+            "varname": "journald_query_insecure",
+            "caption": "Journald Query: Insecure?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "7d905e4c-8461-4a4e-b98d-3dc3412562cf"
+        },
+        "11": {
             "varname": "journald_query_match",
             "caption": "Journald Query: Match",
             "description": "Only report an event whose MESSAGE field matches this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='(?i)out of memory'`.",
@@ -418,7 +427,16 @@
             },
             "uuid": "fc6c6893-3581-4063-bae6-5e868fb637b9"
         },
-        "11": {
+        "12": {
+            "varname": "journald_query_no_insecure",
+            "caption": "Journald Query: No Insecure?",
+            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c0c48247-d133-48de-925e-65e57a7d66d5"
+        },
+        "13": {
             "varname": "journald_query_no_match_severity",
             "caption": "Journald Query: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -430,24 +448,6 @@
                 "datalist": "journald_query_no_match_severity_list"
             },
             "uuid": "74b7ec4f-372b-4957-bb84-f8c9ba3929d6"
-        },
-        "12": {
-            "varname": "journald_query_insecure",
-            "caption": "Journald Query: Insecure?",
-            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "7d905e4c-8461-4a4e-b98d-3dc3412562cf"
-        },
-        "13": {
-            "varname": "journald_query_no_insecure",
-            "caption": "Journald Query: No Insecure?",
-            "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "c0c48247-d133-48de-925e-65e57a7d66d5"
         },
         "14": {
             "varname": "journald_query_no_perfdata",

@@ -46,8 +46,8 @@ usage: openstack-swift-stat [-h] [-V] [--always-ok] [--brief]
                             [--insecure] [--lengthy] [--match MATCH]
                             [--no-match-severity {ok,warn,crit,unknown}]
                             [--no-perfdata] [--no-proxy] [--proxy PROXY]
-                            [--rc-file RC_FILE] [--timeout TIMEOUT]
-                            [--warning-count WARN_COUNT] [-w WARN]
+                            [--rc-file RC_FILE] [--timeout TIMEOUT] [-w WARN]
+                            [--warning-count WARN_COUNT]
 
 Checks OpenStack Swift object storage account statistics, including total
 container count, object count, and bytes used. Alerts when the free space left
@@ -117,13 +117,13 @@ options:
                         /var/spool/icinga2/.openstack.cnf
   --timeout TIMEOUT     Network timeout in seconds. Applies to the whole run,
                         not to a single request. Default: 50 (seconds)
+  -w, --warning WARN    WARN threshold for remaining free space, in GiB. Only
+                        applies to containers that have a quota set. Default:
+                        <= 50
   --warning-count WARN_COUNT
                         WARN threshold for the remaining number of objects a
                         container may still take. Only applies to containers
                         that have an object count quota set. Default: <= 10000
-  -w, --warning WARN    WARN threshold for remaining free space, in GiB. Only
-                        applies to containers that have a quota set. Default:
-                        <= 50
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openstack-swift-stat/

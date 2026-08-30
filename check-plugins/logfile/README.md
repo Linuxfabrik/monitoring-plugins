@@ -55,7 +55,7 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
                [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
                [--icinga-service-name ICINGA_SERVICE_NAME]
                [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
-               [--ignore IGNORE] [--match MATCH] [--insecure] [--no-insecure]
+               [--ignore IGNORE] [--insecure] [--match MATCH] [--no-insecure]
                [--no-match-severity {ok,warn,crit,unknown}] [--no-perfdata]
                [--no-proxy] [--proxy PROXY] [--suppress-lines]
                [--timeout TIMEOUT] [-w WARN] [--warning-pattern WARN_PATTERN]
@@ -123,6 +123,10 @@ options:
                         Case-sensitive by default; use `(?i)` for case-
                         insensitive matching. Can be specified multiple times.
                         Example: `--ignore='(?i)linuxfabrik'`.
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. This option
+                        explicitly allows insecure SSL connections.
   --match MATCH         Only consider a line matching this Python regular
                         expression. Applied before the warning and critical
                         patterns decide the severity, so it narrows what is
@@ -133,10 +137,6 @@ options:
                         `--match` AND not match `--ignore` to be reported
                         (include first, exclude second). Example:
                         `--match='^\[prod\]'`.
-  --insecure            Applies to the connection to the monitoring server
-                        that `--icinga-callback` makes, which is the only
-                        network connection this check opens. This option
-                        explicitly allows insecure SSL connections.
   --no-insecure         Applies to the connection to the monitoring server
                         that `--icinga-callback` makes, which is the only
                         network connection this check opens. Verify the TLS

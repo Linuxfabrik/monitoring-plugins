@@ -54,12 +54,11 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
                       [--icinga-service-name ICINGA_SERVICE_NAME]
                       [--icinga-url ICINGA_URL]
                       [--icinga-username ICINGA_USERNAME]
-                      [--identifier IDENTIFIER] [--ignore IGNORE]
-                      [--match MATCH]
+                      [--identifier IDENTIFIER] [--ignore IGNORE] [--insecure]
+                      [--match MATCH] [--no-insecure]
                       [--no-match-severity {ok,warn,crit,unknown}]
-                      [--insecure] [--no-insecure] [--no-perfdata]
-                      [--no-proxy] [--priority PRIORITY] [--proxy PROXY]
-                      [--severity {warn,crit}] [--since SINCE]
+                      [--no-perfdata] [--no-proxy] [--priority PRIORITY]
+                      [--proxy PROXY] [--severity {warn,crit}] [--since SINCE]
                       [--timeout TIMEOUT] [--unit UNIT]
                       [--user-unit USER_UNIT]
 
@@ -104,6 +103,10 @@ options:
                         use `(?i)` for case-insensitive matching. Can be
                         specified multiple times. Example:
                         `--ignore='(?i)linuxfabrik'`.
+  --insecure            Applies to the connection to the monitoring server
+                        that `--icinga-callback` makes, which is the only
+                        network connection this check opens. This option
+                        explicitly allows insecure SSL connections.
   --match MATCH         Only report an event whose MESSAGE field matches this
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. Can be
@@ -112,13 +115,6 @@ options:
                         not match `--ignore` to be reported (include first,
                         exclude second). Example: `--match='(?i)out of
                         memory'`.
-  --no-match-severity {ok,warn,crit,unknown}
-                        State to report when no item matches the filters and
-                        nothing is checked. Default: ok
-  --insecure            Applies to the connection to the monitoring server
-                        that `--icinga-callback` makes, which is the only
-                        network connection this check opens. This option
-                        explicitly allows insecure SSL connections.
   --no-insecure         Applies to the connection to the monitoring server
                         that `--icinga-callback` makes, which is the only
                         network connection this check opens. Verify the TLS
@@ -126,6 +122,9 @@ options:
                         the insecure default of this check. Use it once the
                         endpoint presents a publicly trusted certificate, or
                         once its CA has been added to the system trust store.
+  --no-match-severity {ok,warn,crit,unknown}
+                        State to report when no item matches the filters and
+                        nothing is checked. Default: ok
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
