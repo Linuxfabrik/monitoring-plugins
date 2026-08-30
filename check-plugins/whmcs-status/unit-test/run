@@ -17,7 +17,9 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-BASE_PARAMS = '--identifier=linuxfabrik --secret=linuxfabrik'
+BASE_PARAMS = (
+    '--identifier=linuxfabrik --secret=linuxfabrik --url=https://whmcs.example.com'
+)
 
 
 TESTS = [
@@ -26,7 +28,12 @@ TESTS = [
         'test': 'stdout/four-messages,,0',
         'params': BASE_PARAMS,
         'assert-retc': STATE_WARN,
-        'assert-in': ['There are 4 messages, ordered by severity.'],
+        'assert-in': [
+            'There are 4 messages, ordered by severity.',
+            # `<br />` used to vanish without a replacement, gluing the two sentences
+            # together as "upgrade.You are currently".
+            'the next time you upgrade. You are currently using a default template',
+        ],
     },
     {
         'id': 'ok-one-message',
@@ -42,13 +49,74 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.'],
     },
+    # An answer without any health check must never read as an all-clear, whatever
+    # shape it arrives in. The first one is what the WHMCS API reference documents as
+    # its example response.
+    {
+        'id': 'unknown-no-health-checks',
+        'test': 'stdout/no-health-checks,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['holds no health check'],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        'id': 'unknown-empty-groups',
+        'test': 'stdout/empty-groups,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['holds no health check'],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        'id': 'unknown-checks-not-a-dict',
+        'test': 'stdout/checks-not-a-dict,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['holds no health check'],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    # Items WHMCS sends in a shape the plugin did not expect are reported, not fatal.
+    {
+        'id': 'warn-null-body',
+        'test': 'stdout/null-body,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['sensitiveDirsCheck'],
+    },
+    {
+        'id': 'warn-unknown-severity',
+        'test': 'stdout/unknown-severity,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        # An unrecognised severity is shown above the levels the plugin does know.
+        'assert-regex': r'\(emergency\).*\n.*\(info\)',
+    },
+    {
+        'id': 'warn-missing-type',
+        'test': 'stdout/missing-type,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['* This item carries no type.'],
+    },
+    {
+        'id': 'warn-html-entities',
+        'test': 'stdout/html-entities,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ["Set *Tom & Jerry's* mask. Review the documentation."],
+        # List items keep their sentence break without gaining a second period.
+        'assert-not-in': ['First item..', '&amp;', '&#039;'],
+    },
     {
         'id': 'unknown-api-error',
         'test': 'stdout/api-error,,0',
         'params': BASE_PARAMS,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': [
-            "Error: {'result': 'error', 'message': 'Something went wrong.'}",
+            'The WHMCS API refused the request: Something went wrong. Check the API '
+            'credentials, the actions the API role allows, and the API IP access '
+            'restriction.',
         ],
     },
 ]

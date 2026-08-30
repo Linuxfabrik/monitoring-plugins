@@ -3,9 +3,13 @@
 
 ## Overview
 
-Monitors the health status of a WHMCS (Web Host Manager Complete Solution) installation via the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/). Reports messages about module versions, license status, and system health indicators. Messages are sorted by severity.
+Monitors the health status of a WHMCS (Web Host Manager Complete Solution) installation via its system status API, the [GetHealthStatus API endpoint](https://developers.whmcs.com/api-reference/gethealthstatus/), which reports on the WHMCS version, the PHP and database environment, cron runs, file permissions and TLS. Alerts when WHMCS reports a check as more than a notice, and when it answers without any health checks at all. Messages are sorted by severity, worst first.
 
 **Important Notes:**
+
+WHMCS grants an API role only the actions it is configured for. A role without the `GetHealthStatus` action still authenticates, and WHMCS answers `success` with no health checks in it. The plugin reports that as UNKNOWN rather than as a healthy installation, because it has not seen a single check.
+
+The message bodies are HTML in WHMCS, including the links inside them. The plugin renders them as plain text, so a phrase such as "see our documentation" loses the address it pointed at. Look the check up on the System Health Status page of the WHMCS admin area to get the link.
 
 Configuring API access and creating an API user in WHMCS is a bit tedious. First, allow IP Addresses to connect to WHMCS:
 
@@ -50,6 +54,7 @@ Note the api_identifier and the api_secret. You will need both to configure this
 * Queries the WHMCS API at `<url>/includes/api.php` using the `GetHealthStatus` action
 * Authenticates via WHMCS API identifier and secret (`--identifier`, `--secret`)
 * Supports optional HTTP Basic Authentication (`--username`, `--password`)
+* Reports every check WHMCS grades above a notice, so an installation with nothing to report prints a single line
 
 
 ## Fact Sheet
@@ -59,7 +64,7 @@ Note the api_identifier and the api_secret. You will need both to configure this
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/whmcs-status> |
 | Nagios/Icinga Check Name              | `check_whmcs_status` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No (`--identifier` and `--secret` are required) |
+| Can be called without parameters      | No (`--identifier`, `--secret` and `--url` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 
@@ -70,11 +75,12 @@ Note the api_identifier and the api_secret. You will need both to configure this
 usage: whmcs-status [-h] [-V] [--always-ok] --identifier IDENTIFIER
                     [--insecure] [--no-perfdata] [--no-proxy] [-p PASSWORD]
                     [--proxy PROXY] --secret SECRET [--timeout TIMEOUT]
-                    [--url URL] [--username USERNAME]
+                    --url URL [--username USERNAME]
 
-Monitors the health status of a WHMCS installation via its system status API.
-Reports module versions, license status, and system health indicators. Alerts
-when the server reports an unhealthy state.
+Monitors the health status of a WHMCS installation via its system status API,
+which reports on the WHMCS version, the PHP and database environment, cron
+runs, file permissions and TLS. Alerts when WHMCS reports a check as more than
+a notice, and when it answers without any health checks at all.
 
 options:
   -h, --help            show this help message and exit
@@ -104,7 +110,9 @@ options:
                         `--proxy=http://proxy.example.com:3128`.
   --secret SECRET       WHMCS API secret.
   --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
-  --url URL             WHMCS API URL. Default: http://127.0.0.1:8080
+  --url URL             Base URL of the WHMCS installation, without the
+                        trailing `/includes/api.php`. Example:
+                        `--url=https://whmcs.example.com`
   --username USERNAME   HTTP Basic Auth username.
 
 Documentation:
@@ -125,15 +133,44 @@ There are 4 messages, ordered by severity.
 
 * WHMCS: Please upgrade to the latest version: 8.12.0 You can learn about performing an upgrade in our documentation. (error) [WARNING]
 * WHMCS: Module debugging is currently enabled. We recommend that you disable this when you finish debugging. Continuous use may degrade performance. For more information, see our documentation. (warning) [WARNING]
-* WHMCS: We have detected that your WHMCS installation is currently using the default template names for one or more of the active templates. If you have made any customisations, we strongly recommend creating a custom template directory to avoid losing your customisations the next time you upgrade.You are currently using a default template in the following locations: *Cart*. Please review our documentation on making a custom theme for help doing this. (warning) [WARNING]
+* WHMCS: We have detected that your WHMCS installation is currently using the default template names for one or more of the active templates. If you have made any customisations, we strongly recommend creating a custom template directory to avoid losing your customisations the next time you upgrade. You are currently using a default template in the following locations: *Cart*. Please review our documentation on making a custom theme for help doing this. (warning) [WARNING]
 * PHP: Your PHP version *8.1.31* is supported by WHMCS. Your PHP version does not receive regular updates but is the latest supported by WHMCS. (info)
+```
+
+An installation with nothing above a notice:
+
+```bash
+./whmcs-status --identifier=myidentifier --secret=linuxfabrik --url=https://whmcs.example.com
+```
+
+Output:
+
+```text
+Everything is ok.
 ```
 
 
 ## States
 
-* OK if no health check messages with severity greater than "info" are returned.
-* WARN if any health check message has severity "warning" or "error".
+* OK if WHMCS graded every one of its health checks as a notice, or as an "info" message.
+* WARN if any health check carries a severity other than "notice" and "info". WHMCS uses "warning" and "error" for those. A severity WHMCS introduces later is treated the same way and listed above the known ones, because the plugin cannot judge how bad it is.
+* UNKNOWN if the API refuses the request, if it answers with something other than JSON, or if it answers successfully but with no health check in it. The last case is what an API role without the `GetHealthStatus` action produces, and it is reported rather than passed off as a healthy installation.
+* `--always-ok` turns the WARN above into OK. It does not cover the UNKNOWN cases, which leave before a state is evaluated.
+
+
+## Troubleshooting
+
+### `The WHMCS API refused the request`
+
+WHMCS states the reason itself and the plugin passes it on. Three things produce this: the identifier and secret do not match an API credential, the admin user behind that credential lost its `API Access` permission, or the calling host is missing from *Setup > General Settings > Security > API IP Access Restriction*. The Overview above sets up all three.
+
+### `WHMCS answered, but the answer holds no health check`
+
+The credential authenticated, but the API role behind it does not allow the `GetHealthStatus` action, so WHMCS returns a successful but empty answer. Open `configapicredentials.php` in the admin area, edit the API role the credential uses, and grant `Servers > GetHealthStatus` as described in the Overview above.
+
+### The same message keeps the check at WARNING forever
+
+WHMCS reports things an operator can legitimately decide to live with, for example the use of default template names. The plugin has no filter for individual checks, so the way to silence one is to resolve it in WHMCS or to acknowledge the service.
 
 
 ## Perfdata / Metrics

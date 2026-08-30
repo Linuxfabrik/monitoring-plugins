@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * file-age, file-size: no longer run through sudo, so a path only root may read now fails: grant the monitoring user access to it
+* whmcs-status: `--url` is required now, because its old default named a port no WHMCS listens on: set it on every service that relied on the default
 
 Icinga Director:
 
@@ -94,6 +95,7 @@ Icinga Director:
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
 * the Needs Restarting service runs hourly and waits four hours before alerting; it covers Debian hosts now, so tag them
+* the WHMCS Status service checks every 15 minutes instead of every minute, as its documentation always said; re-import the basket
 
 Grafana:
 
@@ -137,6 +139,7 @@ Monitoring Plugins:
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
+* whmcs-status: no longer calls an installation healthy when WHMCS answered with no health check at all, and survives an unexpected answer
 * wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--always-ok` also covers a run that found no datasource
 * wordpress-security-scan: no longer reports "0 vulnerabilities" on a site it could not check for vulnerabilities
 * xml: a host without the `lxml` module gets the sentence that says so and an UNKNOWN, instead of a Python stack trace and a WARNING

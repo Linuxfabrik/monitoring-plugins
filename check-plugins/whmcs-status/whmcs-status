@@ -12,28 +12,38 @@
 
 import argparse
 import base64
-import json
+import html
+import re
 import sys
 
 import lib.args
 import lib.base
-import lib.human
 import lib.lftest
 import lib.txt
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026083002'
 
-DESCRIPTION = """Monitors the health status of a WHMCS installation via its system status API. Reports
-module versions, license status, and system health indicators.
-Alerts when the server reports an unhealthy state."""
+DESCRIPTION = """Monitors the health status of a WHMCS installation via its system status
+API, which reports on the WHMCS version, the PHP and database environment, cron runs,
+file permissions and TLS. Alerts when WHMCS reports a check as more than a notice, and
+when it answers without any health checks at all."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 8
-DEFAULT_URL = 'http://127.0.0.1:8080'
+
+# The bodies WHMCS returns are HTML. Block-level tags carry the line breaks; dropping
+# them without a replacement runs sentences together ("...upgrade.You are currently...").
+BLOCK_TAGS = re.compile(r'</?(?:br|div|h[1-6]|li|ol|p|ul)\s*/?>', re.IGNORECASE)
+LIST_ITEM_END = re.compile(r'</li\s*>', re.IGNORECASE)
+REPEATED_PERIOD = re.compile(r'\.(\s*\.)+')
+
+# WHMCS does not document the severity levels it can emit. These are the ones seen in
+# the wild; anything else is handled as unknown rather than dropped or fatal.
+SEVERITY_ORDER = {'error': 1, 'warning': 2, 'info': 3}
 
 
 def parse_args():
@@ -128,9 +138,11 @@ def parse_args():
 
     parser.add_argument(
         '--url',
-        help='WHMCS API URL. Default: %(default)s',
+        help='Base URL of the WHMCS installation, without the trailing '
+        '`/includes/api.php`. '
+        'Example: `--url=https://whmcs.example.com`',
         dest='URL',
-        default=DEFAULT_URL,
+        required=True,
     )
 
     parser.add_argument(
@@ -168,35 +180,72 @@ def get_data(args):
     )
 
 
-def get_failed_checks(checks):
-    """Just return all items having severityLevel > notice."""
+def body2text(body):
+    """Turn the HTML body of one health check into a single line of plain text."""
+    if not isinstance(body, str):
+        return ''
+    text = body.replace('<strong>', '*').replace('</strong>', '*')
+    # A list item is a sentence of its own, every other block tag is just a break.
+    text = LIST_ITEM_END.sub('. ', text)
+    text = BLOCK_TAGS.sub(' ', text)
+    text = lib.url.strip_tags(text)
+    # strip_tags() removes the tags but leaves the entities behind them.
+    text = html.unescape(text)
+    text = ' '.join(text.split())
+    # A list item that already ended in a period must not gain a second one.
+    return REPEATED_PERIOD.sub('.', text)
+
+
+def get_failed_checks(result):
+    """Return the health checks that are more than a notice, worst severity first.
+
+    Returns `(False, errormessage)` when the answer holds no health check at all. That is
+    not a healthy installation, it is an answer the plugin cannot read, and reporting it
+    as OK would state an all-clear nobody verified. WHMCS answers exactly like that when
+    the API role does not grant the `GetHealthStatus` action.
+    """
+    groups = result.get('checks')
+    groups = groups.values() if isinstance(groups, dict) else []
+
+    seen = 0
     failed_checks = []
-    for _, items in checks.get('checks', {}).items():
-        if items is None:
+    for items in groups:
+        # A group holding no check at all is `null`, which is the normal case.
+        if not isinstance(items, list):
             continue
         for item in items:
-            if item.get('severityLevel') == 'notice':
+            if not isinstance(item, dict):
+                continue
+            seen += 1
+            severity = str(item.get('severityLevel') or 'unknown')
+            if severity == 'notice':
                 continue
             failed_checks.append(
                 {
-                    'type': item.get('type'),
-                    'severityLevel': item.get('severityLevel'),
-                    'body': lib.url.strip_tags(
-                        item.get('body')
-                        .replace('<strong>', '*')
-                        .replace('</strong>', '*')
-                        .replace('<li>', ' ')
-                        .replace('</li>', '. ')
-                        .replace('<br>', ' '),
-                    ),
+                    'severity': severity,
+                    # Falling back to the check's own name keeps the item identifiable
+                    # even when WHMCS sends it without a body.
+                    'text': body2text(item.get('body'))
+                    or str(item.get('name') or 'no message'),
+                    'type': str(item.get('type') or ''),
                 }
             )
 
-    # define the order of severity levels
-    severity_order = {'error': 0, 'warning': 1, 'info': 2}
-    return sorted(
-        failed_checks,
-        key=lambda x: (severity_order[x['severityLevel']], x['type'], x['body']),
+    if not seen:
+        return (
+            False,
+            'WHMCS answered, but the answer holds no health check. Grant the '
+            '"GetHealthStatus" action to the API role this check authenticates with.',
+        )
+
+    return (
+        True,
+        sorted(
+            failed_checks,
+            # A severity WHMCS did not have when this was written sorts to the top: the
+            # plugin cannot judge how bad it is and must not bury it below the known ones.
+            key=lambda x: (SEVERITY_ORDER.get(x['severity'], 0), x['type'], x['text']),
+        ),
     )
 
 
@@ -213,11 +262,20 @@ def main():
     if args.TEST is None:
         result = lib.base.coe(get_data(args))
     else:
-        # do not call the command, put in test data
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        result = json.loads(stdout)
-    if result['result'] != 'success':
-        lib.base.cu(f'Error: {result}')
+        # do not call the API, put in test data
+        result = lib.lftest.test_json(args.TEST)
+    if result.get('result') != 'success':
+        # The API states the reason itself, and that is the sentence which helps: a wrong
+        # credential, an unauthorized action and a blocked source address all look alike
+        # from the outside. Some of those messages end in a period and some do not, so
+        # strip it and punctuate here instead of printing "went wrong.. Check ...".
+        reason = str(result.get('message') or 'no reason given').rstrip(' .')
+        # A refused request is the expected answer here, not a defect, so no stack trace.
+        lib.base.cu(
+            f'The WHMCS API refused the request: {reason}. Check the API credentials, '
+            f'the actions the API role allows, and the API IP access restriction.',
+            traceback=False,
+        )
 
     # init some vars
     msg = ''
@@ -225,13 +283,14 @@ def main():
     perfdata = ''
 
     # analyze data
-    result = get_failed_checks(result)
+    failed_checks = lib.base.coe(get_failed_checks(result))
 
     # build the message
-    for item in result:
-        msg += f'* {item["type"]}: {item["body"]}'
-        msg += f' ({item["severityLevel"]})'
-        if item['severityLevel'] != 'info':
+    for item in failed_checks:
+        prefix = f'{item["type"]}: ' if item['type'] else ''
+        msg += f'* {prefix}{item["text"]}'
+        msg += f' ({item["severity"]})'
+        if item['severity'] != 'info':
             state = STATE_WARN
             msg += lib.base.state2str(STATE_WARN, prefix=' ')
         msg += '\n'
@@ -239,10 +298,10 @@ def main():
     if msg:
         msg_header = (
             f'There '
-            f'{lib.txt.pluralize("", len(result), "is,are")} '
-            f'{len(result)} {lib.txt.pluralize("message", len(result))}'
+            f'{lib.txt.pluralize("", len(failed_checks), "is,are")} '
+            f'{len(failed_checks)} {lib.txt.pluralize("message", len(failed_checks))}'
         )
-        if len(result) > 1:
+        if len(failed_checks) > 1:
             msg_header = f'{msg_header}, ordered by severity'
         msg = f'{msg_header}.\n\n{msg}'
     else:
