@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083002'
+__version__ = '2026083001'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -59,15 +59,7 @@ DEFAULT_TOTAL_TIMEOUT = 1800
 DEFAULT_UNSCORED_SEVERITY = 'warn'
 DEFAULT_VERBOSE = False
 DEFAULT_WPSCAN_DETECTION_MODE = 'mixed'
-# `p` and `t` rather than `vp` and `vt`. The vulnerable-only choices make wpscan probe
-# for the slugs on its vulnerable list alone (`DB::Plugins.vulnerable_slugs` in
-# `app/controllers/enumeration/enum_methods.rb`) and then filter its output to the
-# vulnerable ones on top, so a component that is merely out of date is never looked for
-# and never reported. That is the component an administrator wants to hear about first,
-# because updating it is what keeps it off the vulnerable list. Measured against one
-# real site: `p,t` found 31 plugins and 5 themes in 262 s, `vp,vt` found 2 and 1 in
-# 628 s, so the narrower choice was slower as well.
-DEFAULT_WPSCAN_ENUMERATE = 'p,t,tt,cb,dbe,bf,u'
+DEFAULT_WPSCAN_ENUMERATE = 'vp,vt,tt,cb,dbe,bf,u'
 DEFAULT_WPSCAN_FOLLOW_REDIRECT = False
 DEFAULT_WPSCAN_IGNORE_MAIN_REDIRECT = False
 DEFAULT_WPSCAN_RANDOM_USER_AGENT = False
@@ -513,11 +505,8 @@ def parse_args():
         'from it, so it only lengthens the scan. '
         'Only one choice per group: `vp`, `p` and `ap` rule each other out, as do '
         '`vt`, `t` and `at`. '
-        '`ap` and `at` walk tens of thousands of locations and take correspondingly '
-        'long. '
-        '`vp` and `vt` are not the fast choice they look like: they probe for the '
-        'slugs on the vulnerable list, which is not the shorter list, and they hide '
-        'every component that is merely out of date. '
+        'The wider the choice, the longer the scan takes, since each one probes for '
+        'every location it knows: `ap` and `at` walk tens of thousands of them. '
         '`vp` and `vt` need vulnerability data and are downgraded to `p` and `t` when '
         'none is available. '
         '`bf` needs wpscan 4.0.0 or newer and is skipped on older releases. '

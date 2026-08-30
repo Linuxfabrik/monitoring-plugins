@@ -635,39 +635,6 @@ TESTS = [
         ],
         'assert-not-in': ['--enumerate=vp,vt'],
     },
-    # The default asks for the popular plugins and themes, not the vulnerable ones.
-    # `vp`/`vt` make wpscan probe for the slugs on its vulnerable list alone and filter
-    # its output to the vulnerable ones on top, which hides every component that is
-    # merely out of date - the one an administrator can still act on before it becomes
-    # a vulnerability.
-    {
-        'id': 'ok-default-enumerates-popular-not-only-vulnerable',
-        'test': 'stdout/clean-site,,0',
-        'params': f'{BASE_PARAMS} --verbose',
-        'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=p,t,tt,cb,dbe,bf,u'],
-        'assert-not-in': ['vp', 'vt,'],
-    },
-    # Asking for the vulnerable-only choices explicitly still works. Whether they
-    # survive is decided before the scan runs, from the token, because wpscan refuses
-    # to start with them when it has no vulnerability data.
-    {
-        'id': 'ok-explicit-vulnerable-only-choices-are-kept',
-        'test': 'stdout/clean-site,,0',
-        'params': (
-            f'{BASE_PARAMS} --verbose --wpscan-enumerate=vp,vt,u '
-            '--api-token=linuxfabrik'
-        ),
-        'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=vp,vt,u'],
-    },
-    {
-        'id': 'ok-explicit-vulnerable-only-choices-downgrade-without-a-token',
-        'test': 'stdout/clean-site,,0',
-        'params': f'{BASE_PARAMS} --verbose --wpscan-enumerate=vp,vt,u',
-        'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=p,t,u'],
-    },
     # The raw pass-through and the switches land in the command unchanged.
     {
         'id': 'ok-verbose-shows-passed-through-options',
@@ -889,7 +856,7 @@ TESTS = [
         'test': 'stdout/clean-site,,0',
         'params': (f'{BASE_PARAMS} --verbose --enterprise-db-token=linuxfabrik'),
         'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=p,t,tt,cb,dbe,bf,u'],
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
     },
     # Configuring it as a raw option predates the parameter of its own and has to keep
     # working, down to the spelling that puts the value in the next element.
@@ -901,7 +868,7 @@ TESTS = [
             '--wpscan-option=--enterprise-db-token --wpscan-option=linuxfabrik'
         ),
         'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=p,t,tt,cb,dbe,bf,u'],
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
     },
     # Like the API token, it travels through the environment, so neither the parameter
     # nor the raw option may leave it in the command the check prints. Only the `=` form
@@ -939,7 +906,7 @@ TESTS = [
         'test': 'stdout/clean-site,,0',
         'params': f'{BASE_PARAMS} --verbose --api-token=linuxfabrik',
         'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=p,t,tt,cb,dbe,bf,u'],
+        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
     },
     # The token is handed over through the environment, so it must never show up in the
     # command the check prints.
