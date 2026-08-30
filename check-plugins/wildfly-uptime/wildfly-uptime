@@ -20,7 +20,7 @@ import lib.wildfly
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Reports the uptime of a WildFly/JBoss AS server via its HTTP management API. Alerts
 when the uptime exceeds the configured thresholds (useful for detecting application
@@ -158,37 +158,6 @@ def parse_args():
     return args
 
 
-def check_uptime(args):
-    # /core-service/platform-mbean/type/runtime
-    data = {
-        'operation': 'read-resource',
-        'include-runtime': 'true',
-        'address': [{'core-service': 'platform-mbean'}, {'type': 'runtime'}],
-        'name': 'status',
-        'json': 1,
-    }
-    res = lib.wildfly.get_data(args, data)
-
-    CRIT = int(args.CRIT) * 24 * 60 * 60
-    WARN = int(args.WARN) * 24 * 60 * 60
-    uptime = res['uptime'] / 1000
-
-    msg = f'Up {lib.human.seconds2human(uptime)}'
-    perfdata = lib.base.get_perfdata(
-        'uptime',
-        uptime,
-        uom='s',
-        warn=WARN,
-        crit=CRIT,
-        _min=0,
-    )
-    state = lib.base.get_state(uptime, WARN, CRIT)
-    # over and out
-    lib.base.oao(
-        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
-    )
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -200,7 +169,39 @@ def main():
 
     # fetch data
     # https://docs.wildfly.org/23/Admin_Guide.html
-    return check_uptime(args)
+    # /core-service/platform-mbean/type/runtime
+    data = {
+        'operation': 'read-resource',
+        'include-runtime': 'true',
+        'address': [{'core-service': 'platform-mbean'}, {'type': 'runtime'}],
+        'name': 'status',
+        'json': 1,
+    }
+    res = lib.wildfly.get_data(args, data)
+
+    # init some vars
+    CRIT = int(args.CRIT) * 24 * 60 * 60
+    WARN = int(args.WARN) * 24 * 60 * 60
+
+    # analyze data
+    uptime = res['uptime'] / 1000
+    state = lib.base.get_state(uptime, WARN, CRIT)
+
+    # build the message
+    msg = f'Up {lib.human.seconds2human(uptime)}'
+    perfdata = lib.base.get_perfdata(
+        'uptime',
+        uptime,
+        uom='s',
+        warn=WARN,
+        crit=CRIT,
+        _min=0,
+    )
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
 
 
 if __name__ == '__main__':

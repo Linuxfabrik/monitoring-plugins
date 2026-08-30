@@ -19,7 +19,7 @@ import lib.wildfly
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks thread pool utilization on a WildFly/JBoss AS server via its HTTP management
 API. Reports current, peak, and daemon thread counts. Alerts when thread usage
@@ -157,7 +157,17 @@ def parse_args():
     return args
 
 
-def check_threading(args):
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://docs.wildfly.org/23/Admin_Guide.html
     data = {
         'operation': 'read-resource',
         'include-runtime': 'true',
@@ -167,13 +177,16 @@ def check_threading(args):
     }
     res = lib.wildfly.get_data(args, data)
 
+    # analyze data
     daemon_thread_count = int(res['daemon-thread-count'])
     thread_count = int(res['thread-count'])
     if daemon_thread_count != 0:
         thread_pct = round(float(daemon_thread_count) / float(thread_count) * 100, 1)
     else:
         thread_pct = 0
+    state = lib.base.get_state(thread_pct, args.WARN, args.CRIT)
 
+    # build the message
     msg = f'{thread_pct}% used ({daemon_thread_count}/{thread_count} threads)'
     perfdata = lib.base.get_perfdata(
         'thread-pct',
@@ -190,26 +203,11 @@ def check_threading(args):
         _min=0,
         _max=thread_count,
     )
-    state = lib.base.get_state(thread_pct, args.WARN, args.CRIT)
 
     # over and out
     lib.base.oao(
         msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
     )
-
-
-def main():
-    """The main function. This is where the magic happens."""
-
-    # parse the command line
-    try:
-        args = parse_args()
-    except SystemExit:
-        sys.exit(STATE_UNKNOWN)
-
-    # fetch data
-    # https://docs.wildfly.org/23/Admin_Guide.html
-    return check_threading(args)
 
 
 if __name__ == '__main__':

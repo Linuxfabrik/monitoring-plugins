@@ -20,7 +20,7 @@ import lib.wildfly
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks the deployment status of applications on a WildFly/JBoss AS server via its HTTP
 management API. Alerts when any deployment is not in the expected enabled state."""
@@ -151,7 +151,17 @@ def parse_args():
     return args
 
 
-def check_deployment_status(args):
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://docs.wildfly.org/23/Admin_Guide.html
     data = {
         'operation': 'read-attribute',
         # /deployment/*
@@ -161,12 +171,13 @@ def check_deployment_status(args):
     }
     res = lib.wildfly.get_data(args, data)
 
-    # build the message
+    # init some vars
     msg = '\n\n'
     perfdata = ''
     state = STATE_OK
     deployments = 0
 
+    # analyze data
     for result in res:
         deployment = {k: v for d in result.get('address') for k, v in d.items()}.get(
             'deployment'
@@ -205,6 +216,7 @@ def check_deployment_status(args):
         state = lib.base.get_worst(state, local_state)
         msg += f'* {deployment} is {result.get("result")}{lib.base.state2str(local_state, prefix=" ")}\n'
 
+    # build the message
     if state == STATE_OK:
         msg = (
             f'{deployments} {lib.txt.pluralize("Deployment", deployments)} checked, everything is ok.'
@@ -215,24 +227,11 @@ def check_deployment_status(args):
             f'{deployments} {lib.txt.pluralize("Deployment", deployments)} checked, there are errors.'
             + msg
         )
+
     # over and out
     lib.base.oao(
         msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
     )
-
-
-def main():
-    """The main function. This is where the magic happens."""
-
-    # parse the command line
-    try:
-        args = parse_args()
-    except SystemExit:
-        sys.exit(STATE_UNKNOWN)
-
-    # fetch data
-    # https://docs.wildfly.org/23/Admin_Guide.html
-    return check_deployment_status(args)
 
 
 if __name__ == '__main__':

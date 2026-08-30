@@ -19,7 +19,7 @@ import lib.wildfly
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks the overall server status of a WildFly/JBoss AS instance via its HTTP
 management API. Alerts when the server is not in "running" state."""
@@ -140,7 +140,17 @@ def parse_args():
     return args
 
 
-def check_server_status(args):
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    # https://docs.wildfly.org/23/Admin_Guide.html
     data = {
         'operation': 'read-attribute',
         'name': 'server-state',
@@ -148,7 +158,7 @@ def check_server_status(args):
     }
     res = lib.wildfly.get_data(args, data)
 
-    # build the message
+    # analyze data
     if res == 'running':
         state = STATE_OK
         retc = 0
@@ -158,6 +168,8 @@ def check_server_status(args):
     else:
         state = STATE_CRIT
         retc = 2
+
+    # build the message
     msg = f'Server status "{res}"{lib.base.state2str(state, prefix=" ")}, '
     perfdata = lib.base.get_perfdata(
         'server-state',
@@ -203,20 +215,6 @@ def check_server_status(args):
     lib.base.oao(
         msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
     )
-
-
-def main():
-    """The main function. This is where the magic happens."""
-
-    # parse the command line
-    try:
-        args = parse_args()
-    except SystemExit:
-        sys.exit(STATE_UNKNOWN)
-
-    # fetch data
-    # https://docs.wildfly.org/23/Admin_Guide.html
-    return check_server_status(args)
 
 
 if __name__ == '__main__':
