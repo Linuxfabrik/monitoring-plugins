@@ -494,13 +494,42 @@ TESTS = [
         'assert-in': ['the vulnerability database was unreachable'],
     },
     # A site with real findings must still report that the vulnerability class was never
-    # examined, otherwise "0 vulnerabilities" reads as a verified zero.
+    # examined, otherwise "0 vulnerabilities" reads as a verified zero. The `no-api-token`
+    # fixture has no findings at all, so it only covers the empty summary; the fixture
+    # below is the one that has something to report and therefore takes the other branch.
     {
         'id': 'ok-no-api-token-keeps-counting-other-findings',
         'test': 'stdout/no-api-token,,0',
         'params': f'{BASE_PARAMS} --no-vuln-data-severity=ok',
         'assert-retc': STATE_OK,
         'assert-in': ["'vuln_data_available'=0"],
+    },
+    {
+        'id': 'warn-findings-without-vuln-data-claim-no-vulnerability-count',
+        'test': 'stdout/core-outdated-no-api-token,,0',
+        # WARNING comes from the outdated core, not from the missing database, which
+        # `--no-vuln-data-severity=ok` takes out of the picture on purpose here
+        'params': f'{BASE_PARAMS} --no-vuln-data-severity=ok',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'vulnerabilities not checked, 0 exposures, 1 hardening finding',
+            "'vuln_data_available'=0",
+        ],
+        # the summary is what a notification carries, so the count must not appear
+        # there at all rather than appear as a zero
+        'assert-not-in': ['0 vulnerabilities'],
+    },
+    {
+        # the counterpart: with the database consulted, a zero is a verified zero and
+        # stays in the summary
+        'id': 'ok-findings-with-vuln-data-keep-the-count',
+        'test': 'stdout/many-findings,,0',
+        'params': BASE_PARAMS,
+        'assert-in': [
+            '0 vulnerabilities (0 critical)',
+            "'vuln_data_available'=1",
+        ],
+        'assert-not-in': ['vulnerabilities not checked'],
     },
     # A working token is reported only under --lengthy, so the default output of a clean
     # site stays a single verdict line.

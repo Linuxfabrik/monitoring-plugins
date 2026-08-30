@@ -479,6 +479,20 @@ No vulnerability data: no API token, the vulnerability database was not queried.
 Installed locally: 3 plugins, 3 themes. Detected by the scan: 2 plugins, 3 themes.
 ```
 
+The same on a site that does have something to report. The vulnerability count is left
+out of the summary rather than shown as a zero, because the first line is what a
+notification carries:
+
+```text
+vulnerabilities not checked, 0 exposures, 12 hardening findings on https://www.example.com.
+No vulnerability data. Output from wpscan: Unable to connect to the WPScan API: HTTP Error: https://wpscan.com/api/v4/status?version=4.1.0 (status: 401). Please check https://status.wpscan.com/ for service status.
+
+Component        ! Installed ! Finding                       ! State
+-----------------+-----------+-------------------------------+----------
+WordPress        ! 6.8.2     ! core version is outdated      ! [WARNING]
+code-snippets    ! 3.9.6     ! outdated, 3.10.1 is available ! [WARNING]
+```
+
 Alerting while no token is configured, instead of accepting the gap:
 
 ```bash

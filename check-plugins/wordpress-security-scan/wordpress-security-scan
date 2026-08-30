@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081203'
+__version__ = '2026083001'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -1724,10 +1724,20 @@ def main():
         # The literal every check with --match prints, so it stays recognizable.
         msg += f'Nothing checked. WordPress v{core_version} on {args.URL}.'
     elif findings:
+        if vuln_data_available:
+            counted = (
+                f'{counts["vulnerability"]} '
+                f'{lib.txt.pluralize("vulnerabilit", counts["vulnerability"], "y,ies")}'
+                f' ({vulnerabilities_critical} critical)'
+            )
+        else:
+            # Without the database the count can only ever be zero, and a zero in the
+            # first line is a verified zero to whoever reads it. The same all-clear is
+            # avoided below for a site with no findings at all; a site that has some
+            # must not state it either just because there is something else to report.
+            counted = 'vulnerabilities not checked'
         parts = [
-            f'{counts["vulnerability"]} '
-            f'{lib.txt.pluralize("vulnerabilit", counts["vulnerability"], "y,ies")}'
-            f' ({vulnerabilities_critical} critical)',
+            counted,
             f'{counts["exposure"]} {lib.txt.pluralize("exposure", counts["exposure"])}',
             f'{counts["hardening"]} hardening '
             f'{lib.txt.pluralize("finding", counts["hardening"])}',
