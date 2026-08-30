@@ -65,7 +65,6 @@ options:
                         and show only those in WARN/CRIT state. Perfdata and
                         alerting are unaffected: all filesystems still emit
                         perfdata and still drive the overall check state.
-                        Default: False
   -c, --critical CRIT   CRIT threshold in the form `<number>[unit][method]`.
                         Unit is one of `%|K|M|G|T|P` (default: `%`). `K` means
                         kibibyte etc. Method is one of `USED|FREE` (default:

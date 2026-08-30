@@ -145,7 +145,7 @@ options:
                         reports is remembered as already handled, so it no
                         longer raises an alert on the following runs. Requires
                         `--icinga-url`, `--icinga-username`, `--icinga-
-                        password` and `--icinga-service-name`. Default: False
+                        password` and `--icinga-service-name`.
   --icinga-password ICINGA_PASSWORD
                         Monitoring server API password.
   --icinga-service-name ICINGA_SERVICE_NAME

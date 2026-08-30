@@ -86,7 +86,7 @@ options:
                         http://localhost:80/health
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
-                        hood. Default: False
+                        hood.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/spring-boot-actuator-health/

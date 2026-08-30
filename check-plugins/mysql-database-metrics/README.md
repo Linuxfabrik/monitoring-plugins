@@ -90,7 +90,7 @@ options:
                         mute noisy temporary and backup tables that
                         legitimately differ from the schema-wide engine or
                         collation.
-  --lengthy             Extended reporting. Default: False
+  --lengthy             Extended reporting.
   --match MATCH         Only check tables whose name matches this Python
                         regular expression. Matched against the fully
                         qualified table identifier `schema.table`. A schema

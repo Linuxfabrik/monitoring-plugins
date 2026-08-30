@@ -65,7 +65,7 @@ options:
                         to collect a hardware inventory: the JSON is a single
                         object keyed by component type, so the output of
                         several Redfish checks can be merged into one
-                        inventory document with `jq --slurp`. Default: False
+                        inventory document with `jq --slurp`.
   --no-insecure         Verify the TLS certificate against the system trust
                         store, overriding the insecure default of this check.
                         Use it once the endpoint presents a publicly trusted
@@ -104,7 +104,6 @@ options:
                         trace survives a check that the monitoring server
                         terminates for exceeding its timeout, which is what
                         makes it useful against a slow management controller.
-                        Default: False
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-systems/

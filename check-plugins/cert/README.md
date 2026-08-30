@@ -207,7 +207,7 @@ options:
                         --source=url. Example: `https://www.example.com/`
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
-                        hood. Default: False
+                        hood.
   -w, --warning WARN    WARN threshold for the time remaining until the
                         certificate expires. Accepts a Nagios range in days
                         (`14:`), a percentage of the total validity period

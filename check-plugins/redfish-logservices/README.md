@@ -122,7 +122,6 @@ options:
                         trace survives a check that the monitoring server
                         terminates for exceeding its timeout, which is what
                         makes it useful against a slow management controller.
-                        Default: False
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-logservices/

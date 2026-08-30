@@ -164,7 +164,7 @@ options:
   --quotechar QUOTECHAR
                         CSV quotechar. Default: `"`.
   --skip-header         Treat the first row as header names, and skip this
-                        row. Default: False
+                        row.
   --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
   -u, --url URL         URL of the CSV file, either starting with "http://",
                         "https://" or "smb://". This is mutually exclusive

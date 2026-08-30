@@ -48,7 +48,7 @@ options:
   -V, --version         show program's version number and exit
   --all-namespaces      List pods across all namespaces. Namespace in current
                         context is ignored even if specified with
-                        `--namespace`. Default: False
+                        `--namespace`.
   --always-ok           Always returns OK.
   --kubeconfig KUBECONFIG
                         Path to the kubeconfig file. Default:

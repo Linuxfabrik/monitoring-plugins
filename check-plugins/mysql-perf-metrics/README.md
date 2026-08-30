@@ -109,8 +109,7 @@ options:
                         being `OFF` under `REPEATABLE-READ`. Use it where an
                         application connecting to this server cannot retry a
                         transaction that was rolled back with error 1020, so
-                        the admin has no way to turn the variable on. Default:
-                        False
+                        the admin has no way to turn the variable on.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

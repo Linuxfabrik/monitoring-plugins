@@ -83,7 +83,7 @@ options:
                         tables are managed by the application. Example:
                         `--ignore="\.tmp_"` to skip temporary tables
                         everywhere.
-  --lengthy             Extended reporting. Default: False
+  --lengthy             Extended reporting.
   --match MATCH         Only check tables whose name matches this Python
                         regular expression. Matched against the fully
                         qualified table identifier `schema.table`. Case-

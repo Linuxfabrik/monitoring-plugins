@@ -58,7 +58,6 @@ options:
   --always-ok           Always returns OK.
   --full                Also warn on assumptions (stated as "notice" in
                         GSmartControl), not just on actual SMART issues.
-                        Default: False
   --ignore IGNORE       Any item matching this Python regex will be ignored.
                         Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match.

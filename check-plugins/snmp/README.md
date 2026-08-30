@@ -82,9 +82,8 @@ options:
                         `--device switch-fs-s3900.csv`. Example: `--device
                         /etc/icinga2/snmp-devices/switch-fs-s3900.csv`.
                         Default: any-any-any.csv
-  --hide-ok             Suppress OIDs with OK state from output. Default:
-                        False
-  --hide-table          Suppress the table from output. Default: False
+  --hide-ok             Suppress OIDs with OK state from output.
+  --hide-table          Suppress the table from output.
   -H, --hostname HOSTNAME
                         SNMP appliance hostname or IP address.
   --mib MIB             MIB(s) to load, behaves like the `-m` option of

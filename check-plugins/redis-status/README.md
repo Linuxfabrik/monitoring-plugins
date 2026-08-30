@@ -60,18 +60,18 @@ options:
   -H, --hostname HOSTNAME
                         Redis server hostname. Default: 127.0.0.1
   --ignore-maxmemory0   Suppress the warning when Redis maxmemory is set to 0
-                        (unlimited). Default: False
+                        (unlimited).
   --ignore-overcommit   Suppress the warning when vm.overcommit_memory is not
-                        set to 1. Default: False
+                        set to 1.
   --ignore-somaxconn    Suppress the warning when net.core.somaxconn is lower
-                        than net.ipv4.tcp_max_syn_backlog. Default: False
+                        than net.ipv4.tcp_max_syn_backlog.
   --ignore-sync-partial-err
                         Suppress the warning about partial sync errors. Useful
                         for asynchronous replication setups where a small
                         number of "denied partial resync requests" is
-                        expected. Default: False
+                        expected.
   --ignore-thp          Suppress the warning about transparent huge pages
-                        being enabled. Default: False
+                        being enabled.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -85,7 +85,7 @@ options:
   --username USERNAME   Username for Redis server authentication.
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
-                        hood. Default: False
+                        hood.
   -w, --warning WARN    WARN threshold for memory usage as a percentage.
                         Default: >= 90
 

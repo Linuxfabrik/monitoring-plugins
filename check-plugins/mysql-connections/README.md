@@ -61,7 +61,6 @@ options:
                         client
   --ignore-name-resolution
                         Suppress the warning about active name resolution.
-                        Default: False
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is

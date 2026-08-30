@@ -64,7 +64,7 @@ options:
                         reports is remembered as already handled, so it no
                         longer raises an alert on the following runs. Requires
                         `--icinga-url`, `--icinga-username`, `--icinga-
-                        password` and `--icinga-service-name`. Default: False
+                        password` and `--icinga-service-name`.
   --icinga-password ICINGA_PASSWORD
                         Monitoring server API password.
   --icinga-service-name ICINGA_SERVICE_NAME
@@ -83,8 +83,7 @@ options:
                         in the future.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
-  --no-summary          Suppress the feed item summary in the output. Default:
-                        False
+  --no-summary          Suppress the feed item summary in the output.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
                         environment names (`http_proxy`, `https_proxy`,

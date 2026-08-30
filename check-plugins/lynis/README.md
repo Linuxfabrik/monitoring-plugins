@@ -200,7 +200,7 @@ options:
                         local user.
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
-                        hood. Default: False
+                        hood.
   -w, --warning WARN    WARN threshold for the per-host hardening index
                         (0-100). Supports Nagios ranges. The default alerts
                         when the index drops below 65. Default: 65:

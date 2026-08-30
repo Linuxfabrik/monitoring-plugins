@@ -57,7 +57,7 @@ options:
                         columns); `--brief` filters rows. The two are
                         orthogonal and can be combined. Perfdata and alerting
                         are unaffected: all scopes still emit perfdata and
-                        still drive the overall check state. Default: False
+                        still drive the overall check state.
   -c, --critical CRIT   CRIT threshold in percent. Default: >= 90
   -H, --hostname HOSTNAME
                         DNS name, IPv4, or IPv6 address of the DHCP server.

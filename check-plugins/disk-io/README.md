@@ -105,8 +105,7 @@ options:
                         SAN volumes or disks used directly by a database or
                         storage layer. Combine with `--match`, otherwise every
                         unmounted device shows up. Pseudo devices (loop, ram,
-                        zram, floppy, optical) are always excluded. Default:
-                        False
+                        zram, floppy, optical) are always excluded.
   --match MATCH         Only check disks whose path or mountpoint matches this
                         Python regular expression. Case-sensitive by default;
                         use `(?i)` for case-insensitive matching. The regex is

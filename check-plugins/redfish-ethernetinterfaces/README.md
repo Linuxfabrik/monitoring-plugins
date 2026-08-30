@@ -59,7 +59,7 @@ options:
   --always-ok           Always returns OK.
   --brief               Hide items that are OK and show only those in
                         WARN/CRIT state. Alerting is unaffected: all items
-                        still drive the overall check state. Default: False
+                        still drive the overall check state.
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 5
@@ -75,7 +75,7 @@ options:
                         object keyed by component type, so the output of
                         several Redfish checks can be merged into one
                         inventory document with `jq --slurp`. Ignores --brief,
-                        --match and --ignore. Default: False
+                        --match and --ignore.
   --match MATCH         Only check items whose name matches this Python
                         regular expression. Case-sensitive by default; use
                         `(?i)` for case-insensitive matching. Can be specified
@@ -121,7 +121,6 @@ options:
                         trace survives a check that the monitoring server
                         terminates for exceeding its timeout, which is what
                         makes it useful against a slow management controller.
-                        Default: False
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-ethernetinterfaces/

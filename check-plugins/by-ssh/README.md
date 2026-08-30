@@ -142,7 +142,7 @@ options:
                         SSH: Username. Default: root
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
-                        hood. Default: False
+                        hood.
   -w, --warning WARN    WARN threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
                         STDOUT is in range 10..20.
