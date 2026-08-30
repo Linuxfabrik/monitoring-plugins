@@ -15,7 +15,6 @@ import base64
 import concurrent.futures
 import errno
 import ipaddress
-import re
 import socket
 import ssl
 import sys
@@ -33,7 +32,6 @@ except ImportError:
 import lib.args
 import lib.base
 import lib.disk
-import lib.human
 import lib.net
 import lib.time
 import lib.txt
@@ -55,7 +53,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026083002'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -1194,38 +1192,6 @@ def _format_days_left(days_left):
     return f'{days_left}d left'
 
 
-# a single duration token like 3d, 12h, 2W, 1M, 1Y (units handled by lib.human)
-_DURATION_RE = re.compile(r'^\d+(\.\d+)?[YMWDdhms]$')
-
-
-def resolve_threshold(threshold, total_seconds):
-    """Normalize a --warning/--critical value into a Nagios range expressed in days, so the
-    existing day-based range comparison and the days perfdata keep working unchanged.
-
-    - empty stays empty (no threshold)
-    - `N%` is N percent of this certificate's total validity period, converted to days
-    - a single duration token (`3d`, `12h`, `2W`, `1M`) is that duration in days (via
-      lib.human, which knows the unit letters)
-    - anything else is already a Nagios range in days (`14:`, `@5:10`) and passes through
-
-    `%` and duration thresholds become a `<n>:` range, i.e. alert when fewer than `<n>`
-    days remain, matching the "less time left than the threshold" semantics.
-    """
-    threshold = threshold.strip()
-    if not threshold:
-        return ''
-    if threshold.endswith('%'):
-        try:
-            pct = float(threshold[:-1])
-        except ValueError:
-            return threshold
-        # `:g` drops trailing zeros, so 25% of 60 days reads "15:", not "15.000000:"
-        return f'{pct / 100.0 * total_seconds / 86400.0:g}:'
-    if _DURATION_RE.match(threshold):
-        return f'{lib.human.human2seconds(threshold) / 86400.0:g}:'
-    return threshold
-
-
 def _evaluate_item(item, args, now, severity_state):
     """Compute the per-item state, the parsed cert fields and the resolved day thresholds.
     Pure function so the same logic drives the URL, file and scan sources.
@@ -1235,8 +1201,8 @@ def _evaluate_item(item, args, now, severity_state):
     seconds_left = (cert['not_after'] - now).total_seconds()
     days_left = (cert['not_after'] - now).days  # floored, for display
 
-    warn = resolve_threshold(args.WARN, total_seconds)
-    crit = resolve_threshold(args.CRIT, total_seconds)
+    warn = lib.base.resolve_time_threshold(args.WARN, total_seconds)
+    crit = lib.base.resolve_time_threshold(args.CRIT, total_seconds)
     # compare in fractional days so sub-day thresholds (12h) work
     item_state = lib.base.get_state(
         seconds_left / 86400.0, warn, crit, _operator='range'
