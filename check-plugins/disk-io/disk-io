@@ -36,29 +36,30 @@ except ImportError:
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026083001'
 
-DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not
-short spikes. The check records per-disk read/write counters and then derives current (R1/W1)
-and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the
-maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds
---warning percent of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O
-is a signal to investigate, not an emergency you have to react to at night.
+DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes.
+The check records per-disk read/write counters and then derives current (R1/W1) and period
+averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum
+ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds
+--warning percent of RWmax. This bandwidth part only ever warns, never criticals:
+sustained I/O is a signal to investigate, not an emergency you have to react to at night.
 
-The check also reports per-disk I/O latency (await): the average time a read or write took to
-complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust
-against device parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD and
-RAID as well. Optional --await-warning and --await-critical thresholds alert on sustained
-latency; both are disabled by default. A critical latency threshold is the place to catch a
-disk that is effectively hung.
+The check also reports per-disk I/O latency (await): the average time a read or write took
+to complete over the period, in milliseconds. Unlike disk busy percentage, latency is
+robust against device parallelism, so it is a meaningful "is my storage slow" signal on
+NVMe, SSD and RAID as well. Optional --await-warning and --await-critical thresholds alert
+on sustained latency; both are disabled by default. A critical latency threshold is the
+place to catch a disk that is effectively hung.
 
-Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus disk
-busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted
-filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as
-multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the
-processes that generated the most I/O traffic (read/write totals) to help identify offenders.
+Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus
+disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on
+block devices with a mounted filesystem by default; use `--include-unmounted` to also
+include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's
+disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic
+(read/write totals) to help identify offenders.
 
-This check is cross-platform and works on Linux, Windows, and all psutil-supported systems.
-The check stores its short trend state locally in an SQLite DB to evaluate sustained load across
-runs."""
+This check is cross-platform and works on Linux, Windows, and all psutil-supported
+systems. The check stores its short trend state locally in an SQLite DB to evaluate
+sustained load across runs."""
 
 
 DEFAULT_CACHE_EXPIRE = 90

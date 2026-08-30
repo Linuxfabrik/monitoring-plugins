@@ -435,7 +435,7 @@ def recommend_force_renew(context, store, phrase):
     target = domain_arguments(context, store)
     return (
         f'{store["store"]}: {phrase} '
-        f'`{acme_cmd(context, "--renew", "--force", *target)}`.'
+        f'`{acme_cmd(context, "--renew", *target, "--force")}`.'
     )
 
 
@@ -492,6 +492,8 @@ def evaluate_store(store, args, context, now):
     conf = store['conf']
     recommendations = []
     notes = []
+    overdue = False
+    expiry_state = STATE_OK
     state = STATE_OK
     severity_state = lib.base.str2state(args.SEVERITY)
 
@@ -534,13 +536,6 @@ def evaluate_store(store, args, context, now):
         if seconds_left < 0:
             expiry_state = STATE_CRIT
         state = lib.base.get_worst(state, expiry_state)
-        if expiry_state != STATE_OK and not store['detached']:
-            phrase = (
-                'this certificate has expired, renew it now:'
-                if seconds_left < 0
-                else f'{format_days_left(days_left)} left, renew it now:'
-            )
-            recommendations.append(recommend_force_renew(context, store, phrase))
     elif not store['detached']:
         notes.append('no issued certificate in the store')
         state = lib.base.get_worst(state, severity_state)
@@ -561,6 +556,7 @@ def evaluate_store(store, args, context, now):
         if next_renew.isdigit():
             seconds_overdue = now - int(next_renew)
             if seconds_overdue > args.GRACE_RENEWAL:
+                overdue = True
                 notes.append('renewal overdue')
                 state = lib.base.get_worst(state, severity_state)
                 recommendations.append(
@@ -571,6 +567,17 @@ def evaluate_store(store, args, context, now):
                         f'{lib.time.epoch2iso(int(next_renew))} has not happened.',
                     )
                 )
+
+        # Forcing a renewal is the answer only where acme.sh does not consider one due
+        # yet. Where it does and the renewal is not happening anyway, `--force` changes
+        # nothing about why, so the diagnostic above is the only useful advice.
+        if expiry_state != STATE_OK and not overdue:
+            phrase = (
+                'this certificate has expired, renew it now:'
+                if days_left is not None and days_left < 0
+                else f'{format_days_left(days_left)} left, renew it now:'
+            )
+            recommendations.append(recommend_force_renew(context, store, phrase))
 
         if not conf.get('Le_CertCreateTime', ''):
             # `renew()` skips such an entry outright when it runs from cron, and a skip
@@ -586,11 +593,13 @@ def evaluate_store(store, args, context, now):
             )
 
         if real_cert and not lib.disk.file_exists(real_cert):
-            notes.append(f'not installed at {real_cert}')
+            notes.append('installed copy missing')
             state = lib.base.get_worst(state, severity_state)
             recommendations.append(recommend_install(context, store))
 
     row = {
+        '_crit': crit,
+        '_warn': warn,
         'ca': conf.get('Le_API', ''),
         'created': conf.get('Le_CertCreateTimeStr', ''),
         'days_left': format_days_left(days_left),
