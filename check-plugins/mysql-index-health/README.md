@@ -68,7 +68,8 @@ uptime crosses `--min-uptime-hours` (default 24h). This avoids the false-clean
 signal right after a restart and the false-positive "unused" signal that would
 fire before weekly or monthly jobs have had a chance to touch their indexes.
 Index housekeeping is never a wake-up-at-night finding, so the plugin only
-emits WARN (and the implicit OK), never CRIT.
+emits WARN (and the implicit OK), never CRIT. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit

@@ -64,15 +64,16 @@ usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
 Scans a logfile for matching patterns or regular expressions and alerts based
 on the number of matches found. Only the lines added since the previous run
 are scanned, and the whole file is rescanned whenever it was rotated,
-truncated or rewritten in place. Supports Icinga acknowledgement integration
-to suppress repeated alerts for known issues. Configurable alarm duration
-limits how long matches trigger alerts. `--filename` accepts time macros, so
-logfiles whose name contains the current date (`20260422.log`,
-`app-2026-04-22.log`, etc.) can be monitored directly. `{today}` /
-`{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601
-(`YYYY-MM-DD`) as fallback if the compact file does not exist. Read offset and
-pending matches carry over when the filename changes on the next day, no
-wrapper script needed. Requires root or sudo.
+truncated or rewritten in place. Optionally asks the monitoring server whether
+the service running this check is acknowledged, and suppresses repeated alerts
+for known issues where it is. Configurable alarm duration limits how long
+matches trigger alerts. `--filename` accepts time macros, so logfiles whose
+name contains the current date (`20260422.log`, `app-2026-04-22.log`, etc.)
+can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly:
+compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact
+file does not exist. Read offset and pending matches carry over when the
+filename changes on the next day, no wrapper script needed. Requires root or
+sudo.
 
 options:
   -h, --help            show this help message and exit

@@ -47,6 +47,7 @@ and queries scope statistics using PowerShell. On servers with thousands of
 scopes, --brief hides rows within the thresholds so the output only lists
 scopes in WARN/CRIT state. Alerts when the address pool usage of any scope
 exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
+Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit

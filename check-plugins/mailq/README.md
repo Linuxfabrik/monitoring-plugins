@@ -3,17 +3,21 @@
 
 ## Overview
 
-Checks the number of messages in the mail queue using the `mailq` command. Alerts when the queue length exceeds the configured thresholds. Tested with Postfix and Exim.
+Checks how long the oldest mail in the local mail queue has been waiting and alerts when it exceeds the configured duration thresholds. On hosts with Postfix, reads the queue via `postqueue -j` (JSON, with `arrival_time` as Unix epoch) for maximum accuracy. On Exim hosts, reads `mailq` (which is aliased to `exim -bp` by exim) and parses the age literal that exim prints next to each queued message. On other hosts, falls back to running `mailq` and parsing `Date:` lines from the output. A non-empty queue with 100 mails that are all a few minutes old is still OK, while a single mail stuck for more than an hour triggers a WARN, which matches how most admins actually want to be alerted on a mail queue.
 
 **Important Notes:**
 
-* Exim: By default, `exim -bq` (alias `mailq`) can be used only by an admin user. Set `queue_list_requires_admin` to false to allow any user to see the queue, or add the icinga user to the exim group (sometimes called `Debian-exim`)
+* The queue length itself never raises a state. It is reported in the message and as perfdata, so a queue that is draining normally stays quiet no matter how many mails pass through it
+* Exim: By default, `exim -bp` (alias `mailq`) can be used only by an admin user. Set `queue_list_requires_admin` to false to allow any user to see the queue, or add the monitoring user to the exim group (sometimes called `Debian-exim`)
+* Postfix writes a warning to stderr when the queue is read while the mail system is down. The check prepends that warning to its message and raises WARN, because a queue read that way may be incomplete
 
 **Data Collection:**
 
-* Executes the `mailq` command and parses its output to count queued messages
-* Supports different output formats: Postfix-style ("-- 2 Kbytes in 3 Requests."), Exim-style (line counting), and generic ("17 mails to deliver")
-* Also reports any error messages from `mailq` on stderr
+* Probes for the mail transfer agent in this order: `postqueue` (Postfix), `exim` / `exim4` (Exim), `mailq` (Sendmail-style). `--mta` overrides the detection
+* Postfix: runs `postqueue -j` and takes the age of each mail from its `arrival_time` epoch
+* Exim: runs `mailq` and reads the age literal exim prints in front of each entry (`17m`, `2h`, `1d12h`)
+* Sendmail and compatible: runs `mailq` and parses the `Date:` field of each entry
+* Also reports any error message the queue command writes to stderr
 
 
 ## Fact Sheet
@@ -24,8 +28,9 @@ Checks the number of messages in the mail queue using the `mailq` command. Alert
 | Nagios/Icinga Check Name              | `check_mailq` |
 | Check Interval Recommendation         | Every 5 minutes |
 | Can be called without parameters      | Yes |
-| Runs on                               | Cross-platform |
-| Compiled for Windows                  | No (runs with Python interpreter) |
+| Runs on                               | Linux |
+| Compiled for Windows                  | No |
+| Requirements                          | command-line tool `postqueue` (Postfix), `exim` / `exim4` (Exim) or `mailq` (Sendmail-style) |
 
 
 ## Help
@@ -80,22 +85,35 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mailq/
 ## Usage Examples
 
 ```bash
-./mailq --warning 2 --critical 250
+./mailq --warning=1h --critical=3D
 ```
 
 Output:
 
 ```text
-4 mails to deliver.
+Oldest mail has been in the queue for 17m, 3 mails queued in total.
+```
+
+A mail that has been stuck for four days:
+
+```text
+Oldest mail has been in the queue for 4D [CRITICAL], 2 mails queued in total.
+```
+
+An empty queue:
+
+```text
+Mail queue is empty.
 ```
 
 
 ## States
 
-* OK if the mail queue is empty or the number of messages is below `--warning` (default: 2).
-* WARN if `mailq` reports an error message on stderr.
-* WARN if the number of messages is >= `--warning` (default: 2).
-* CRIT if the number of messages is >= `--critical` (default: 250).
+* OK if the mail queue is empty, or if the oldest mail has been waiting less than `--warning`.
+* WARN if the age of the oldest mail is >= `--warning` (default: 1h).
+* WARN if the queue command reports an error message on stderr.
+* CRIT if the age of the oldest mail is >= `--critical` (default: 3D).
+* UNKNOWN if `--warning` or `--critical` is not a valid duration, or if no known MTA binary was found and `--mta` was not given.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -104,6 +122,7 @@ Output:
 | Name | Type | Description |
 |----|----|----|
 | mailq | Number | Number of messages currently in the mail queue. |
+| oldest_mail_age | Seconds | How long the oldest mail in the queue has been waiting. |
 
 
 ## Credits, License

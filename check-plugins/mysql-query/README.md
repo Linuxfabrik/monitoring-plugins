@@ -28,7 +28,7 @@ A query returning one row with one column is checked as a single value (useful f
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-query> |
 | Nagios/Icinga Check Name              | `check_mysql_query` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | No (at least one of `--warning-query` or `--critical-query` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `pymysql` |

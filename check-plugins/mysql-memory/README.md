@@ -52,7 +52,7 @@ processes on the host so admins can see when MySQL plus the rest of the system
 would exceed physical memory. Alerts when used or peak memory crosses the
 `--warning` / `--critical` thresholds, when peak + other-process memory
 exceeds physical RAM, and when MySQL would allocate more than 2 GiB on a
-32-bit system.
+32-bit system. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit

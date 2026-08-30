@@ -51,6 +51,7 @@ but the data source is `information_schema.processlist` so the check works on
 every MySQL/MariaDB release without requiring Performance Schema to be
 enabled. Without `PROCESS` privilege, the monitoring user only sees its own
 sessions; grant `PROCESS` on `*.*` to see queries across all sessions.
+Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit

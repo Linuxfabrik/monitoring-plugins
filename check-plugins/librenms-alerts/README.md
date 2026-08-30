@@ -57,8 +57,9 @@ options:
   --defaults-file DEFAULTS_FILE
                         Specifies a cnf file to read parameters like user,
                         host and password from (for MySQL/MariaDB cnf-style
-                        files). Example: `/var/spool/icinga2/.my.cnf`.
-                        Default: /var/spool/icinga2/.my.cnf
+                        files). Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
+                        /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:
                         client

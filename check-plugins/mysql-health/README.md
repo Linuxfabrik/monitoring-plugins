@@ -56,8 +56,8 @@ schema-modelling checks (mixed collations, naming conventions, foreign key
 hygiene) are not ported, so on a heavily-flagged server our score can sit 5 to
 15 points above mysqltuner's; the four direct mysqltuner checks (security,
 perf hit rates, replication lag, log sizing) do match. Useful as a top-level
-Icinga alert and Grafana KPI panel; the individual `mysql-*` plugins still own
-the detailed findings and fix advice.
+alert and Grafana KPI panel; the individual `mysql-*` plugins still own the
+detailed findings and fix advice.
 
 options:
   -h, --help            show this help message and exit

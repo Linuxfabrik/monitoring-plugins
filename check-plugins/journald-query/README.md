@@ -66,9 +66,10 @@ usage: journald-query [-h] [-V] [--always-ok] [--facility FACILITY]
 Queries the systemd journal using journalctl and alerts when matching entries
 are found. Supports all journalctl filtering options such as --unit,
 --priority, --facility, --identifier, and --grep. Useful for monitoring
-specific log patterns in real time. Optionally integrates with Icinga: when
-the service is acknowledged, the matching events are suppressed on following
-runs so they don't re-alert. Requires root or sudo.
+specific log patterns in real time. Optionally asks the monitoring server
+whether the service running this check is acknowledged: where it is, the
+matching events are suppressed on following runs so they don't re-alert.
+Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit

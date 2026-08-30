@@ -67,7 +67,8 @@ per-host result determines the overall state. Alerts when a host is below the
 hardening index threshold or reports a lynis warning, and when the scan
 audited no host at all, naming why the targets did not answer. Security
 posture is informational drift rather than a time-critical availability event,
-so by default only WARNING is raised.
+so by default only WARNING is raised. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit

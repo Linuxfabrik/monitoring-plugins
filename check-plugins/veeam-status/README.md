@@ -46,9 +46,12 @@ usage: veeam-status [-h] [-V] [--always-ok] [-c CRIT]
                     [--warning-vm-lastest-states WARNING_VM_LASTEST_STATES]
                     [--warnings-job-runs WARNINGS_JOB_RUNS]
 
-Monitors Veeam Backup & Replication via PowerShell, checking for failed VMs
-and jobs, jobs running longer than expected, and backup repository usage. Also
-reports backup infrastructure component status and recent job results.
+Monitors a Veeam Backup & Replication environment via the Veeam Enterprise
+Manager REST API, checking for failed VMs and jobs, jobs running longer than
+expected, and backup repository usage. Also reports backup infrastructure
+component status and recent job results. Alerts when a job run or a virtual
+machine failed, when a backup or replica job ran longer than expected, and
+when the usage of a backup repository crosses the thresholds.
 
 options:
   -h, --help            show this help message and exit

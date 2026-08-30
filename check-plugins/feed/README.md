@@ -50,10 +50,10 @@ usage: feed [-h] [-V] [--always-ok] [--icinga-callback]
             [--proxy PROXY] [--timeout TIMEOUT] [--url FEED_URL] [-w WARN]
 
 Monitors an RSS or Atom feed for new entries and alerts when new items appear
-within a configurable time window (default: 3 days). If Icinga callback is
-enabled, the alert is automatically cleared once the corresponding service is
-acknowledged in Icinga. After the time window expires, the alert clears
-regardless of acknowledgement status.
+within a configurable time window (default: 3 days). With the callback
+enabled, the alert is automatically cleared once the service running this
+check is acknowledged on the monitoring server. After the time window expires,
+the alert clears regardless of acknowledgement status.
 
 options:
   -h, --help            show this help message and exit

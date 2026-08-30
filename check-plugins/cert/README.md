@@ -85,7 +85,7 @@ other checks running on the same host (see --max-workers). The default source
 is `scan`, so without any parameter the plugin scans the default interface's
 subnet on a set of common data-center TLS ports (HTTPS, mail, LDAPS, AMQPS,
 MQTTS and common management interfaces); see --ports for the full default
-list.
+list. Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit

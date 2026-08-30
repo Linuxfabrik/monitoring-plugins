@@ -41,7 +41,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-logfile> |
 | Nagios/Icinga Check Name              | `check_mysql_logfile` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | No |
+| Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | 3rd Party Python modules              | `pymysql` |

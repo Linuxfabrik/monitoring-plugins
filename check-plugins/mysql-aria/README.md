@@ -27,7 +27,7 @@ Checks metrics of the Aria storage engine in MariaDB, including the page cache s
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/mysql-aria> |
 | Nagios/Icinga Check Name              | `check_mysql_aria` |
 | Check Interval Recommendation         | Every hour |
-| Can be called without parameters      | No |
+| Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Requirements                          | User with `SELECT` privilege (typically `GRANT SELECT ON *.*`), locked down to `127.0.0.1` - for example `monitoring@127.0.0.1`. Usernames in MySQL/MariaDB are limited to 16 chars in specific versions. |
@@ -42,8 +42,12 @@ usage: mysql-aria [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                   [--defaults-group DEFAULTS_GROUP] [--no-perfdata]
                   [--timeout TIMEOUT]
 
-Checks metrics of the Aria storage engine in MySQL/MariaDB, including the
-page-cache hit rate. Alerts when cache efficiency drops below optimal levels.
+Checks metrics of the Aria storage engine in MariaDB, including the page cache
+size relative to the total Aria index size and the page cache hit rate. Aria
+is the crash-safe, non-transactional storage engine MariaDB uses for its
+internal temporary tables; it is not shipped with MySQL or Percona Server.
+Alerts when the page cache is smaller than the Aria indexes and its hit rate
+is below 95% at the same time.
 
 options:
   -h, --help            show this help message and exit
@@ -51,8 +55,8 @@ options:
   --always-ok           Always returns OK.
   --defaults-file DEFAULTS_FILE
                         MySQL/MariaDB cnf file to read user, host and password
-                        from (instead of specifying them on the command line).
-                        Example: `/var/spool/icinga2/.my.cnf`. Default:
+                        from. Example: `--defaults-
+                        file=/var/spool/icinga2/.my.cnf`. Default:
                         /var/spool/icinga2/.my.cnf
   --defaults-group DEFAULTS_GROUP
                         Group/section to read from in the cnf file. Default:

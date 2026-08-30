@@ -55,7 +55,8 @@ KEY`. The second case is a documented hotspot for ROW-based replication: the
 replica has to materialise each row event against an internal hidden 6-byte
 index, which can degrade to a full table scan per row event. Alerts when
 either count crosses `--warning` / `--critical`. `--match` and `--ignore`
-narrow the scan down to a single schema or table.
+narrow the scan down to a single schema or table. Supports extended reporting
+via --lengthy.
 
 options:
   -h, --help            show this help message and exit
