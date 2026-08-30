@@ -1,0 +1,822 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import base64
+import datetime
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.human
+import lib.shell
+import lib.time
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+
+try:
+    from cryptography import x509
+except ImportError:
+    print('Python module "cryptography" is not installed.')
+    sys.exit(STATE_UNKNOWN)
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026083001'
+
+DESCRIPTION = """Reports the state of the certificates acme.sh manages, by reading its
+certificate store instead of its output. For every certificate it reports the time left
+until it expires, whether the renewal acme.sh scheduled for itself has come and gone, and
+whether the certificate the store installed for a web server is still in place. Alerts when
+a certificate is closer to expiry than the thresholds allow, when a renewal is overdue by
+more than the grace period, when a certificate was installed somewhere that no longer holds
+it, when an entry carries no issued certificate at all, and when a certificate that was
+detached from renewal is still the one a service has deployed. A renewal that keeps failing
+leaves no trace in the store other than a renewal date that stays in the past, which is what
+makes it visible here long before the certificate runs out. Every finding comes with the
+acme.sh command that resolves it, assembled from the paths and options the store records,
+and one command stands for every certificate it applies to. Certificates can be filtered by
+--match and --ignore. Requires read access to the acme.sh configuration directory, which
+usually means root or sudo."""
+
+DEFAULT_BRIEF = False
+DEFAULT_CRIT = '5:'
+DEFAULT_GRACE_RENEWAL = '2D'
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+# acme.sh installs itself into `$HOME/.acme.sh` and keeps its configuration there unless
+# `--config-home` moves it (`DEFAULT_INSTALL_HOME` in acme.sh).
+DEFAULT_PATH = '~/.acme.sh'
+DEFAULT_SEVERITY = 'warn'
+DEFAULT_WARN = '14:'
+
+VALID_SEVERITIES = ['ok', 'warn', 'crit', 'unknown']
+
+# acme.sh appends this to the directory name of a certificate whose key is elliptic curve,
+# so the RSA and the ECDSA certificate of one domain live side by side (`ECC_SUFFIX`).
+ECC_SUFFIX = '_ecc'
+
+# acme.sh wraps a few configuration values that may contain anything - a reload command
+# above all - in these markers with base64 in between (`_savedomainconf`).
+BASE64_START = '__ACME_BASE64__START_'
+BASE64_END = '__ACME_BASE64__END_'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief'),
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the time remaining until a certificate expires. '
+        'Accepts a Nagios range in days (`5:`), a percentage of the total validity '
+        'period (`10%%`, CRIT when less than 10%% of the lifetime is left), or a '
+        'duration with a unit (`3d`, `12h`, `2W`, `1M`; CRIT when less time than that '
+        'is left). '
+        'Examples: `5:` `10%%` `3d`. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--grace-renewal',
+        help='How long an overdue renewal is tolerated before it counts towards the '
+        'state. '
+        'Set this to cover the interval the acme.sh renewal job runs at, so a run that '
+        'has not happened yet is not reported as a failure. '
+        'Starts at the renewal time acme.sh recorded for the certificate. '
+        'A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period. '
+        'Example: `--grace-renewal=8D` for a job that runs weekly. '
+        'Default: %(default)s',
+        dest='GRACE_RENEWAL',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_RENEWAL,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=VALID_SEVERITIES,
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--path',
+        help='Directory acme.sh keeps its configuration in, the one it is called with '
+        'as `--config-home`. '
+        'The certificate store is read from the `CERT_HOME` recorded there, and from '
+        'this directory itself where that names none. '
+        'Example: `--path=/etc/acme.sh`. '
+        'Default: %(default)s',
+        dest='PATH',
+        default=DEFAULT_PATH,
+    )
+
+    parser.add_argument(
+        '--severity',
+        help='Severity assigned to a certificate whose renewal is overdue, whose '
+        'installed copy is missing, which carries no issued certificate, or which is '
+        'still deployed after having been detached from renewal. '
+        'Each of these keeps the certificate valid for the time being, which is why '
+        'they default to %(default)s; the expiry thresholds raise the state on their '
+        'own as the deadline comes closer. '
+        'Default: %(default)s',
+        dest='SEVERITY',
+        choices=VALID_SEVERITIES,
+        default=DEFAULT_SEVERITY,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the time remaining until a certificate expires. '
+        'Accepts a Nagios range in days (`14:`), a percentage of the total validity '
+        'period (`25%%`, WARN when less than 25%% of the lifetime is left), or a '
+        'duration with a unit (`10d`, `12h`, `2W`, `1M`; WARN when less time than that '
+        'is left). '
+        'Examples: `14:` `25%%` `10d`. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def decode_conf_value(value):
+    """Return a configuration value with the base64 wrapper acme.sh may put around it
+    taken off. A value that is not wrapped is returned as it is, and so is one whose
+    payload does not decode, because a half-decoded reload command in a printed
+    recommendation is worse than the raw value.
+    """
+    if not value.startswith(BASE64_START) or not value.endswith(BASE64_END):
+        return value
+    payload = value[len(BASE64_START) : -len(BASE64_END)]
+    try:
+        return lib.txt.to_text(
+            base64.b64decode(payload, validate=True),
+            errors='strict_or_latin1',
+        )
+    except Exception:
+        return value
+
+
+def get_cert_home(path):
+    """Return the directory the certificate stores live in.
+
+    acme.sh keeps them in the configuration directory itself and records a `CERT_HOME`
+    in `account.conf` only where `--cert-home` moved them elsewhere (`_initpath`). A
+    relative value is resolved below the configuration directory rather than below the
+    working directory of whoever runs this check, because a check that reads a
+    different store depending on where it was started answers about nothing.
+    """
+    account_conf = os.path.join(path, 'account.conf')
+    if not lib.disk.file_exists(account_conf, allow_empty=True):
+        return path
+    success, conf = lib.disk.read_env(account_conf)
+    if not success:
+        return path
+    cert_home = conf.get('CERT_HOME', '').strip()
+    if not cert_home:
+        return path
+    if not os.path.isabs(cert_home):
+        return lib.disk.under_root(path, cert_home)
+    return cert_home
+
+
+def is_store_dir(name):
+    """Tell whether acme.sh would look into a directory of this name.
+
+    It iterates `"$CERT_HOME"/*.*` and `"$CERT_HOME"/*:*` (`renewAll`), so a directory
+    whose name carries neither a dot nor a colon is not a certificate store to it. This
+    check reads the same set, so it never reports on something acme.sh will not touch.
+    """
+    return '.' in name or ':' in name
+
+
+def collect_stores(cert_home):
+    """Return one dict per certificate store found below `cert_home`.
+
+    A store is a directory named after the domain, with `_ecc` appended where the key is
+    elliptic curve. It holds `<domain>.conf` while acme.sh renews it, and
+    `<domain>.conf.removed` once `--remove` detached it, which leaves the certificate
+    files in place (`remove`).
+    """
+    stores = []
+    try:
+        entries = sorted(os.listdir(cert_home))
+    except OSError as e:
+        return (False, f'I/O error "{e.strerror}" while reading {cert_home}')
+
+    for name in entries:
+        directory = os.path.join(cert_home, name)
+        if not is_store_dir(name) or not lib.disk.dir_exists(directory):
+            continue
+        domain = name[: -len(ECC_SUFFIX)] if name.endswith(ECC_SUFFIX) else name
+        conf = os.path.join(directory, f'{domain}.conf')
+        removed_conf = f'{conf}.removed'
+
+        if lib.disk.file_exists(conf, allow_empty=True):
+            detached = False
+        elif lib.disk.file_exists(removed_conf, allow_empty=True):
+            conf = removed_conf
+            detached = True
+        else:
+            # neither renewed nor detached: acme.sh ignores it, and so do we
+            continue
+
+        success, values = lib.disk.read_env(conf)
+        if not success:
+            return (False, values)
+
+        stores.append(
+            {
+                'conf': {k: decode_conf_value(v) for k, v in values.items()},
+                'detached': detached,
+                'directory': directory,
+                'domain': domain,
+                'ecc': name.endswith(ECC_SUFFIX),
+                'store': name,
+            }
+        )
+    return (True, stores)
+
+
+def read_cert_dates(filename):
+    """Return `(not_before, not_after)` as epoch seconds for a PEM certificate file, or
+    `(None, None)` where the file is missing or holds no certificate.
+    """
+    if not lib.disk.file_exists(filename):
+        return (None, None)
+    success, raw = lib.disk.read_file(filename, binary=True)
+    if not success:
+        return (None, None)
+    try:
+        cert = x509.load_pem_x509_certificate(raw)
+        if hasattr(cert, 'not_valid_before_utc'):
+            not_before = cert.not_valid_before_utc
+            not_after = cert.not_valid_after_utc
+        else:
+            # cryptography below 42 offers only the properties that return a naive
+            # datetime. It is UTC by definition, and saying so is what keeps the
+            # conversion below from reading it as local time
+            not_before = cert.not_valid_before.replace(tzinfo=datetime.timezone.utc)
+            not_after = cert.not_valid_after.replace(tzinfo=datetime.timezone.utc)
+        return (int(not_before.timestamp()), int(not_after.timestamp()))
+    except Exception:
+        return (None, None)
+
+
+def read_cert_serial(filename):
+    """Return the serial number of a PEM certificate file, or None."""
+    if not lib.disk.file_exists(filename):
+        return None
+    success, raw = lib.disk.read_file(filename, binary=True)
+    if not success:
+        return None
+    try:
+        return x509.load_pem_x509_certificate(raw).serial_number
+    except Exception:
+        return None
+
+
+def get_acme_sh(path):
+    """Return the acme.sh command a recommendation is written with.
+
+    Where acme.sh keeps its configuration next to itself, which is what an installation
+    that was not given `--config-home` looks like, the script is right there. Otherwise
+    the shell alias acme.sh installs is the next best answer, and where that is not on
+    the path either the bare name is still the command an administrator recognizes.
+    """
+    local = os.path.join(path, 'acme.sh')
+    if lib.disk.file_exists(local):
+        return local
+    return lib.shell.which('acme.sh') or 'acme.sh'
+
+
+# The advice an administrator works through, in the order they would work through it:
+# find out what is wrong first, repair second, and retire what is not coming back last.
+# The label doubles as the grouping key, so one line stands for every certificate the
+# same command applies to instead of the same paragraph being repeated per domain.
+ACTION_DIAGNOSE = 'Check why the renewal is not happening'
+ACTION_FORCE_RENEW = 'Renew a certificate before it runs out'
+ACTION_INSTALL = 'Install the missing copy again'
+ACTION_REISSUE = 'Put a detached certificate back under renewal'
+ACTION_DETACH = 'Detach a domain that has been retired'
+
+ACTION_ORDER = [
+    ACTION_DIAGNOSE,
+    ACTION_FORCE_RENEW,
+    ACTION_INSTALL,
+    ACTION_REISSUE,
+    ACTION_DETACH,
+]
+
+DOMAIN_PLACEHOLDER = '$DOMAIN'
+
+
+def render_command(context, arguments, placeholder_for=None):
+    """Render an acme.sh command line for an administrator to run.
+
+    `arguments` are `(option, value)` pairs, where an option that takes no value carries
+    an empty option and the flag as its value.
+
+    Every value is quoted, because the domain names and paths interpolated here come
+    from directory names and configuration files rather than from this check.
+
+    With `placeholder_for`, that domain is replaced by `$DOMAIN` so one command can
+    stand for every certificate the same advice applies to. A value that needs quoting
+    is not templated, because a placeholder inside a quoted word is handed to acme.sh
+    verbatim instead of being expanded, and a command that silently addresses a
+    certificate called `$DOMAIN` is worse than a repeated one. Such a command is
+    returned as None, and the caller falls back to naming the domain.
+    """
+    parts = [('', context['acme_sh']), ('--config-home=', context['path'])]
+    parts.extend(arguments)
+    rendered = []
+    for option, value in parts:
+        quoted = lib.shell.quote_cli_value(value)
+        if placeholder_for and placeholder_for in value:
+            if quoted != value:
+                return None
+            quoted = value.replace(placeholder_for, DOMAIN_PLACEHOLDER)
+        rendered.append(option + quoted)
+    return ' '.join(rendered)
+
+
+def domain_arguments(store):
+    """The `--domain` and `--ecc` arguments that address one certificate store.
+
+    Without `--ecc` acme.sh addresses the RSA store of a domain, so leaving it off where
+    the store is the elliptic curve one silently acts on a different certificate, or on
+    none. Both spellings therefore group separately, and a host holding certificates of
+    both key types gets one line for each.
+    """
+    arguments = [('--domain=', store['domain'])]
+    if store['ecc']:
+        arguments.append(('', '--ecc'))
+    return arguments
+
+
+def action_diagnose(store):
+    """Running the renewal by hand is what tells a broken renewal apart from a retired
+    domain: the store records no failure of any kind, so the reason exists only in what
+    acme.sh prints while trying.
+    """
+    return (ACTION_DIAGNOSE, [('', '--renew'), *domain_arguments(store)])
+
+
+def action_detach(store):
+    """`--remove` takes a certificate out of the renewal list and leaves its files
+    behind. Until that happens, every run of the renewal job keeps failing on it.
+    """
+    return (ACTION_DETACH, [('', '--remove'), *domain_arguments(store)])
+
+
+def action_force_renew(store):
+    """Forcing a renewal is the answer only where acme.sh does not consider one due
+    yet, which is why this is not offered for a renewal that is already overdue.
+    """
+    return (
+        ACTION_FORCE_RENEW,
+        [('', '--renew'), *domain_arguments(store), ('', '--force')],
+    )
+
+
+def action_install(store):
+    """Rebuilt from the paths and the reload command acme.sh saved for this certificate,
+    so it puts the files back exactly where the service expects them and reloads
+    whatever was being reloaded before.
+    """
+    conf = store['conf']
+    arguments = [('', '--install-cert'), *domain_arguments(store)]
+    for option, key in (
+        ('--cert-file=', 'Le_RealCertPath'),
+        ('--key-file=', 'Le_RealKeyPath'),
+        ('--fullchain-file=', 'Le_RealFullChainPath'),
+        ('--ca-file=', 'Le_RealCACertPath'),
+        ('--reloadcmd=', 'Le_ReloadCmd'),
+    ):
+        value = conf.get(key, '')
+        if value:
+            arguments.append((option, value))
+    return (ACTION_INSTALL, arguments)
+
+
+def action_reissue(store):
+    """A detached store is renewed by nothing, so a certificate it still has installed
+    runs out on its date without a line in any log beforehand. Issuing it again is what
+    puts it back under renewal.
+    """
+    arguments = [('', '--issue'), *domain_arguments(store)]
+    webroot = store['conf'].get('Le_Webroot', '')
+    if webroot and not webroot.startswith('dns'):
+        arguments.append(('--webroot=', webroot))
+    keylength = store['conf'].get('Le_Keylength', '')
+    if keylength:
+        arguments.append(('--keylength=', keylength))
+    return (ACTION_REISSUE, arguments)
+
+
+def build_recommendations(context, actions):
+    """Reduce the advice collected across all certificates to one line per command.
+
+    The same fault on twenty domains is the same command twenty times over, which is a
+    screen of text saying one thing. Grouping by the command with the domain replaced by
+    a placeholder collapses those into a single line; the table above already names
+    which certificates it applies to. A group covering exactly one certificate names
+    that domain instead of the placeholder, so it can be run as it stands.
+    """
+    groups = {}
+    for label, arguments, domain in actions:
+        generic = render_command(context, arguments, placeholder_for=domain)
+        concrete = render_command(context, arguments)
+        # a command that cannot carry the placeholder gets a line of its own, keyed by
+        # itself, rather than being folded in with a different certificate's paths
+        key = (label, generic or concrete)
+        groups.setdefault(key, []).append(concrete)
+
+    recommendations = []
+    for label in ACTION_ORDER:
+        for (group_label, generic), concretes in groups.items():
+            if group_label != label:
+                continue
+            command = concretes[0] if len(concretes) == 1 else generic
+            recommendations.append(f'{label}: `{command}`')
+    return recommendations
+
+
+def format_days_left(days_left):
+    """Render the days-remaining counter the way an administrator reads it: a
+    certificate that is already past its `notAfter` expired N days ago, it does not have
+    minus N days left.
+    """
+    if days_left is None:
+        return 'n/a'
+    if days_left < 0:
+        return f'expired {-days_left}d ago'
+    if days_left == 0:
+        return 'expires today'
+    return f'{days_left}d'
+
+
+def format_overdue(seconds_overdue):
+    """Render how long a renewal has been overdue, or how long it still has."""
+    if seconds_overdue is None:
+        return 'n/a'
+    if seconds_overdue > 0:
+        return f'overdue {lib.human.seconds2human(seconds_overdue)}'
+    return f'in {lib.human.seconds2human(-seconds_overdue)}'
+
+
+def evaluate_store(store, args, now):
+    """Judge one certificate store and return its row, its state and the actions it
+    calls for.
+    """
+    conf = store['conf']
+    actions = []
+    notes = []
+    overdue = False
+    expiry_state = STATE_OK
+    state = STATE_OK
+    severity_state = lib.base.str2state(args.SEVERITY)
+
+    cert_file = os.path.join(store['directory'], f'{store["domain"]}.cer')
+    not_before, not_after = read_cert_dates(cert_file)
+    real_cert = conf.get('Le_RealCertPath', '')
+
+    if store['detached']:
+        # A detached store is not renewed by anything. That only matters where the
+        # certificate it holds is still the one a service has deployed, which is why
+        # the serial numbers are compared rather than just the presence of the file:
+        # the usual case is that a newer certificate has long overwritten it.
+        stale = False
+        if real_cert and lib.disk.file_exists(real_cert):
+            store_serial = read_cert_serial(cert_file)
+            stale = store_serial is not None and store_serial == read_cert_serial(
+                real_cert
+            )
+        if not stale:
+            return (None, STATE_OK, [])
+        notes.append('detached from renewal but still installed')
+        state = lib.base.get_worst(state, severity_state)
+        actions.append(action_reissue(store))
+
+    days_left = None
+    warn = args.WARN
+    crit = args.CRIT
+    if not_after is not None:
+        total_seconds = float(not_after - not_before)
+        seconds_left = not_after - now
+        days_left = int(seconds_left // 86400)
+        warn = lib.base.resolve_time_threshold(args.WARN, total_seconds)
+        crit = lib.base.resolve_time_threshold(args.CRIT, total_seconds)
+        expiry_state = lib.base.get_state(
+            seconds_left / 86400.0, warn, crit, _operator='range'
+        )
+        if seconds_left < 0:
+            expiry_state = STATE_CRIT
+        state = lib.base.get_worst(state, expiry_state)
+    elif not store['detached']:
+        notes.append('no issued certificate in the store')
+        state = lib.base.get_worst(state, severity_state)
+        actions.extend([action_diagnose(store), action_detach(store)])
+
+    seconds_overdue = None
+    if not store['detached']:
+        # acme.sh writes no failure of any kind into the store: a renewal that keeps
+        # failing leaves `Le_NextRenewTime` where it was, so a renewal time that stays
+        # in the past is the only trace it leaves behind.
+        next_renew = conf.get('Le_NextRenewTime', '')
+        if next_renew.isdigit():
+            seconds_overdue = now - int(next_renew)
+            if seconds_overdue > args.GRACE_RENEWAL:
+                overdue = True
+                notes.append('renewal overdue')
+                state = lib.base.get_worst(state, severity_state)
+                actions.extend([action_diagnose(store), action_detach(store)])
+
+        # Forcing a renewal is the answer only where acme.sh does not consider one due
+        # yet. Where it does and the renewal is not happening anyway, `--force` changes
+        # nothing about why, so the diagnostic above is the only useful advice.
+        if expiry_state != STATE_OK and not overdue:
+            actions.append(action_force_renew(store))
+
+        if not conf.get('Le_CertCreateTime', ''):
+            # `renew()` skips such an entry outright when it runs from cron, and a skip
+            # never fails the run, so this stays invisible in the renewal job forever
+            notes.append('never issued, skipped by the renewal job')
+            state = lib.base.get_worst(state, severity_state)
+            actions.extend([action_diagnose(store), action_detach(store)])
+
+        if real_cert and not lib.disk.file_exists(real_cert):
+            notes.append('orphaned')
+            state = lib.base.get_worst(state, severity_state)
+            actions.append(action_install(store))
+
+    row = {
+        '_crit': crit,
+        '_warn': warn,
+        'days_left': format_days_left(days_left),
+        'note': ', '.join(notes) or '-',
+        'renewal': format_overdue(seconds_overdue),
+        'sort_days': days_left if days_left is not None else -99999,
+        'state': lib.base.state2str(state, empty_ok=False),
+        'store': store['store'],
+        '_days_left': days_left,
+        '_state': state,
+    }
+    return (
+        row,
+        state,
+        [(label, arguments, store['domain']) for label, arguments in actions],
+    )
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+
+    # fetch data
+    path = os.path.expanduser(args.PATH)
+    if not lib.disk.dir_exists(path):
+        lib.base.cu(
+            f'No acme.sh configuration found in {path}. '
+            f'This check belongs on a host that issues its certificates with acme.sh; '
+            f'point --path at the directory acme.sh is called with as --config-home.'
+        )
+    cert_home = get_cert_home(path)
+    if not lib.disk.dir_exists(cert_home):
+        lib.base.cu(
+            f'The acme.sh certificate store {cert_home} does not exist. '
+            f'acme.sh keeps it in {path} unless CERT_HOME in account.conf names '
+            f'another directory.'
+        )
+    stores = lib.base.coe(collect_stores(cert_home))
+
+    # init some vars
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    actions = []
+    now = lib.time.now()
+    detached_count = 0
+    context = {'acme_sh': get_acme_sh(path), 'path': path}
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+
+    # analyze data
+    active = 0
+    stale = 0
+    for store in stores:
+        if compiled_match and not any(
+            item.search(store['store']) for item in compiled_match
+        ):
+            continue
+        if any(item.search(store['store']) for item in compiled_ignore):
+            continue
+        if store['detached']:
+            detached_count += 1
+        else:
+            active += 1
+        row, item_state, item_actions = evaluate_store(store, args, now)
+        if row is None:
+            # a detached store nothing serves any more: counted, but not a checked item
+            continue
+        if store['detached']:
+            stale += 1
+        state = lib.base.get_worst(state, item_state)
+        actions.extend(item_actions)
+        table_data.append(row)
+
+    # A configuration directory without a single certificate store is not the same as
+    # a filter that matched nothing: either acme.sh has never issued anything here, or
+    # the directory is the wrong one. An installation that was given `--config-home`
+    # leaves its default home behind holding the script and its hook directories but no
+    # certificates, and a check pointed at that one would report OK forever while
+    # looking at nothing.
+    if not stores:
+        lib.base.oao(
+            f'No certificate stores in {cert_home}. Either acme.sh has not issued a '
+            f'certificate yet, or the directory is the wrong one: an installation that '
+            f'was given --config-home keeps its certificates elsewhere, and the '
+            f'`acme.sh.env` file next to the acme.sh script names that directory as '
+            f'`LE_CONFIG_HOME`.',
+            lib.base.str2state(args.SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # every store was filtered out, so there is nothing to report on
+    if not active and not detached_count:
+        lib.base.oao(
+            f'Nothing checked. {len(stores)} certificate stores are present, filtered '
+            f'out by `--match` or `--ignore`.',
+            lib.base.str2state(args.NO_MATCH_SEVERITY),
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # build the message
+    failed = sum(1 for row in table_data if row['_state'] != STATE_OK)
+    overdue = sum(1 for row in table_data if 'renewal overdue' in row['note'])
+    orphaned = sum(1 for row in table_data if 'orphaned' in row['note'])
+    responsible = active + stale
+    dated = [row for row in table_data if row['_days_left'] is not None]
+    soonest = min(dated, key=lambda row: row['_days_left']) if dated else None
+
+    summary = []
+    if failed:
+        summary.append(f'{failed} of {responsible} certificates need attention.')
+    else:
+        summary.append(
+            f'Everything is ok. {responsible} certificates renew as scheduled.'
+        )
+    if soonest is not None:
+        days_left = soonest['_days_left']
+        summary.append(
+            f'The next one expired {-days_left}d ago.'
+            if days_left < 0
+            else f'The next one expires in {format_days_left(days_left)}.'
+        )
+    if detached_count:
+        summary.append(f'{detached_count} detached from renewal.')
+    sections = [' '.join(summary)]
+
+    perfdata += lib.base.get_perfdata(
+        'acmesh_certificates', responsible, uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'acmesh_needing_attention', failed, uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'acmesh_overdue', overdue, uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'acmesh_orphaned', orphaned, uom=None, warn='0', _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'acmesh_detached', detached_count, uom=None, _min=0
+    )
+    if soonest is not None:
+        perfdata += lib.base.get_perfdata(
+            'acmesh_days_left',
+            soonest['_days_left'],
+            uom=None,
+            warn=soonest['_warn'],
+            crit=soonest['_crit'],
+        )
+    # build table output
+    rows = table_data
+    if args.BRIEF:
+        rows = [row for row in rows if row['_state'] != STATE_OK]
+    if rows:
+        # the table ends in a newline of its own, which would double the blank line
+        # the sections are joined with
+        sections.append(
+            lib.base.get_table(
+                rows,
+                ['store', 'days_left', 'renewal', 'note', 'state'],
+                header=['Store', 'Days Left', 'Renewal', 'Note', 'State'],
+                sort_by_key='sort_days',
+            ).rstrip()
+        )
+
+    # The table names the certificates that are affected, the recommendations say what
+    # to do about them, so the table comes first: an administrator reads which ones are
+    # in trouble before reading a screen of commands.
+    recommendations = build_recommendations(context, actions)
+    if recommendations:
+        sections.append(
+            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
+        )
+    msg = '\n\n'.join(sections)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

@@ -29,6 +29,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
+* acmesh-status: an acme.sh certificate running out, and a renewal that stopped happening
 * apache-httpd-disclosure: what an Apache httpd server gives away about itself ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))
 * apache-httpd-logfile: crashed children, saturated workers, unreachable backends and scan bursts in the Apache httpd error log
 * apache-httpd-security: modules, worker account, permissions and request limits of a local Apache httpd ([#373](https://github.com/Linuxfabrik/monitoring-plugins/issues/373))

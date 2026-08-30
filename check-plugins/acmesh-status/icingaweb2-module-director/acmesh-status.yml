@@ -1,0 +1,24 @@
+---
+variants:
+  - 'linux'
+  - 'sudo'
+
+overwrites:
+  # The plugin defaults follow acme.sh upstream, where the configuration lives in
+  # `$HOME/.acme.sh` and the renewal job runs daily. Both are overridden here to the
+  # Linuxfabrik deployment, which calls acme.sh with `--config-home /etc/acme.sh` and
+  # runs the renewal from a weekly timer, so a single missed run stays quiet.
+  '["ServiceTemplate"]["tpl-service-acmesh-status"]["vars"]["acmesh_status_grace_renewal"]': '8D'
+  '["ServiceTemplate"]["tpl-service-acmesh-status"]["vars"]["acmesh_status_path"]': '/etc/acme.sh'
+  # Reading a few dozen small files and parsing their certificates, all of it local.
+  '["Command"]["cmd-check-acmesh-status"]["timeout"]': 20
+  # Four hours. What this reports moves in days, so checking more often finds nothing
+  # new, but it is also the check that says which certificate is behind a failed
+  # renewal run, and leaving that to the next morning wastes a day of the window a
+  # certificate has left.
+  '["ServiceTemplate"]["tpl-service-acmesh-status"]["check_interval"]': 14400
+  '["ServiceTemplate"]["tpl-service-acmesh-status"]["enable_perfdata"]': true
+  '["ServiceTemplate"]["tpl-service-acmesh-status"]["retry_interval"]': 600
+  # An expired certificate takes the service down for every client, and the window to
+  # prevent it is known weeks in advance.
+  '["ServiceTemplate"]["tpl-service-acmesh-status"]["vars"]["criticality"]': 'A'

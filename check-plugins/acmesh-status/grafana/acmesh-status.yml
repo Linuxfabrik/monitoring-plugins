@@ -1,0 +1,317 @@
+apiVersion: grizzly.grafana.com/v1alpha1
+kind: Dashboard
+metadata:
+  folder: linuxfabrik-monitoring-plugins
+  name: acmesh-status
+spec:
+  schemaVersion: 42
+  tags:
+    - Linuxfabrik
+    - Grizzly
+    - static
+  time:
+    from: now-90d
+    to: now
+  timepicker:
+    hidden: false
+    refresh_intervals:
+    - 1m
+  timezone: browser
+  title: acme.sh Status
+  editable: true
+  liveNow: true
+  refresh: 1m
+  templating:
+    list:
+    - label: Command
+      name: command
+      query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*acmesh-status.*/
+      current:
+        text: cmd-check-acmesh-status
+        value: cmd-check-acmesh-status
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Hostname
+      name: hostname
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "hostname"
+      refresh: 1
+      sort: 1
+      type: query
+    - label: Service
+      name: service
+      query: SHOW TAG VALUES FROM "$command" WITH KEY = "service" WHERE hostname = '$hostname'
+      refresh: 1
+      sort: 1
+      type: query
+
+  panels:
+
+  # Days, so this panel gets the deadline thresholds. The aggregate line is the one to
+  # watch: it is the certificate that runs out first, whichever that happens to be.
+  - title: Days Left
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 0
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: never
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: d
+        thresholds:
+          mode: absolute
+          steps:
+          - color: red
+            value: null
+          - color: orange
+            value: 5
+          - color: green
+            value: 14
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: soonest expiry
+      refId: acmesh_days_left
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: acmesh_days_left
+
+  # Counts, which are on a different scale and answer a different question than the days
+  # above, so they get a panel of their own.
+  - title: Certificates
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: certificates
+      refId: acmesh_certificates
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: acmesh_certificates
+
+    - alias: needing attention
+      refId: acmesh_needing_attention
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: acmesh_needing_attention
+
+    - alias: renewal overdue
+      refId: acmesh_overdue
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: acmesh_overdue
+
+    - alias: orphaned
+      refId: acmesh_orphaned
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: acmesh_orphaned
+
+    - alias: detached from renewal
+      refId: acmesh_detached
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: acmesh_detached

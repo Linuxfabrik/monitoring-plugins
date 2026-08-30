@@ -1,0 +1,550 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import datetime
+import os
+import shutil
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, '..')
+
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every finding this check reports is a statement about how far a date is from today, so
+# a directory of captured store files would report something different every morning and
+# would eventually assert the opposite of what it was written for. The stores below are
+# therefore built per testcase, with their certificates issued for the run that is
+# happening, which is what makes the expected states hold on any day. The shapes they are
+# built in were taken from a real acme.sh 3.1.5 store: an active certificate keeps
+# `<domain>.conf` in `<domain>[_ecc]/`, one that `--remove` detached keeps
+# `<domain>.conf.removed` next to the certificate files it leaves behind, and `account.conf`
+# names the `CERT_HOME` when it is not the configuration directory itself.
+
+
+def _issue(common_name, not_before, not_after):
+    """Return a self-signed PEM certificate with the validity a testcase needs."""
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name(
+        [x509.NameAttribute(NameOID.COMMON_NAME, common_name)],
+    )
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(not_before)
+        .not_valid_after(not_after)
+        .sign(key, hashes.SHA256())
+    )
+    return cert.public_bytes(serialization.Encoding.PEM)
+
+
+def _write(path, content):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    mode = 'wb' if isinstance(content, bytes) else 'w'
+    with open(path, mode) as f:
+        f.write(content)
+
+
+def _add_store(
+    root,
+    domain,
+    ecc=True,
+    detached=False,
+    days_valid=60,
+    days_issued_ago=30,
+    renew_in_days=8,
+    with_cert=True,
+    created=True,
+    install_to=None,
+    install_content=None,
+):
+    """Create one certificate store below `root`, the way acme.sh lays it out.
+
+    `install_to` is written into `Le_RealCertPath` and is deliberately relative, so a
+    testcase can place the installed copy inside its own temporary tree instead of
+    somewhere on the host. `install_content` decides what that copy holds: the store's own
+    certificate (the same bytes, hence the same serial) or a different one.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    store = f'{domain}_ecc' if ecc else domain
+    directory = os.path.join(root, 'certs', store)
+    os.makedirs(directory, exist_ok=True)
+
+    pem = None
+    if with_cert:
+        pem = _issue(
+            domain,
+            now - datetime.timedelta(days=days_issued_ago),
+            now + datetime.timedelta(days=days_valid),
+        )
+        _write(os.path.join(directory, f'{domain}.cer'), pem)
+
+    created_epoch = int((now - datetime.timedelta(days=days_issued_ago)).timestamp())
+    renew_epoch = int((now + datetime.timedelta(days=renew_in_days)).timestamp())
+    lines = [
+        f"Le_Domain='{domain}'",
+        "Le_Alt='no'",
+        "Le_Webroot='/var/www/html'",
+        "Le_API='https://acme-v02.api.letsencrypt.org/directory'",
+        f"Le_Keylength='{'ec-256' if ecc else '4096'}'",
+        f"Le_NextRenewTime='{renew_epoch}'",
+    ]
+    if created:
+        lines.append(f"Le_CertCreateTime='{created_epoch}'")
+        lines.append(
+            "Le_CertCreateTimeStr='"
+            + (now - datetime.timedelta(days=days_issued_ago)).strftime(
+                '%Y-%m-%dT%H:%M:%SZ'
+            )
+            + "'"
+        )
+    if install_to is not None:
+        lines.append(f"Le_RealCertPath='{install_to}'")
+        lines.append(f"Le_RealKeyPath='{install_to[:-4]}.key'")
+        lines.append(f"Le_RealFullChainPath='{install_to[:-4]}-fullchain.crt'")
+        lines.append(f"Le_RealCACertPath='{install_to[:-4]}-chain.crt'")
+        # acme.sh base64-wraps a value that may contain anything; the check has to decode
+        # it before putting it into a command it prints
+        lines.append(
+            "Le_ReloadCmd='__ACME_BASE64__START_"
+            "c3lzdGVtY3RsIHJlbG9hZCBodHRwZA==__ACME_BASE64__END_'"
+        )
+
+    suffix = '.conf.removed' if detached else '.conf'
+    _write(os.path.join(directory, f'{domain}{suffix}'), '\n'.join(lines) + '\n')
+
+    if install_to is not None and install_content is not None:
+        _write(install_to, pem if install_content == 'same' else install_content)
+
+
+def _build(scenario, root):
+    """Materialise one scenario's acme.sh configuration directory."""
+    _write(os.path.join(root, 'account.conf'), "CERT_HOME='certs'\n")
+    scenario['build'](root)
+
+
+SCENARIOS = [
+    {
+        'id': 'ok-all-renewing',
+        # two certificates well before their renewal date, both installed where their
+        # configuration says they are
+        'build': lambda root: (
+            _add_store(
+                root,
+                'www.example.com',
+                install_to=os.path.join(root, 'pki', 'www.example.com.crt'),
+                install_content='same',
+            ),
+            _add_store(
+                root,
+                'mail.example.com',
+                days_valid=45,
+                install_to=os.path.join(root, 'pki', 'mail.example.com.crt'),
+                install_content='same',
+            ),
+        ),
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '2 certificates renew as scheduled.'],
+        'assert-not-in': ['Recommendations:'],
+    },
+    {
+        'id': 'ok-detached-store-is-not-a-finding',
+        # the RSA store an RSA-to-ECDSA switch leaves behind: detached from renewal, its
+        # files still on disk, and no longer the certificate that is installed. Every
+        # acme.sh host that ever changed its key type carries these, so reporting them
+        # would put a permanent warning on a healthy host
+        'build': lambda root: (
+            _add_store(
+                root,
+                'www.example.com',
+                install_to=os.path.join(root, 'pki', 'www.example.com.crt'),
+                install_content='same',
+            ),
+            _add_store(
+                root,
+                'www.example.com',
+                ecc=False,
+                detached=True,
+                install_to=os.path.join(root, 'pki', 'www.example.com.crt'),
+            ),
+        ),
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '1 detached from renewal.'],
+        'assert-not-in': ['Recommendations:'],
+    },
+    {
+        'id': 'warn-renewal-overdue',
+        # the renewal date has passed and the certificate was not renewed, which is the
+        # only trace a failing renewal leaves in the store
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=40,
+            renew_in_days=-25,
+        ),
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'renewal overdue',
+            '1 of 1 certificates need attention.',
+            'Check why the renewal is not happening:',
+            'Detach a domain that has been retired:',
+            '--remove --domain=www.example.com --ecc',
+        ],
+    },
+    {
+        'id': 'ok-renewal-overdue-within-grace',
+        # one renewal run that has not happened yet is not a failure
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=40,
+            renew_in_days=-3,
+        ),
+        'params': '--grace-renewal=8D',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['renewal overdue'],
+    },
+    {
+        'id': 'crit-overdue-and-expiring',
+        # the state this check exists for: the renewal stopped happening weeks ago and
+        # the certificate is now running out
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            # half a day of slack, so the floor to whole days cannot land on 3 when the
+            # plugin reads the clock a moment after the fixture was built
+            days_valid=4.5,
+            days_issued_ago=86,
+            renew_in_days=-25,
+        ),
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['renewal overdue', '4d'],
+        'assert-regex': r'www\.example\.com_ecc.*\[CRITICAL\]',
+    },
+    {
+        'id': 'crit-expired',
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=-3,
+            days_issued_ago=93,
+            renew_in_days=-33,
+        ),
+        'params': '',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['expired'],
+        # the exact day count is a floor across a boundary the testcase does not
+        # control, so only the fact that the certificate is past its date is pinned
+        'assert-regex': r"acmesh_days_left'=-\d+",
+    },
+    {
+        'id': 'warn-orphaned',
+        # acme.sh installed the certificate somewhere and that copy is gone, so the
+        # service is serving something else than what was issued for it
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            install_to=os.path.join(root, 'pki', 'www.example.com.crt'),
+        ),
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'orphaned',
+            'Install the missing copy again:',
+            '--install-cert',
+            "--reloadcmd='systemctl reload httpd'",
+        ],
+    },
+    {
+        'id': 'warn-one-command-stands-for-every-affected-certificate',
+        # three certificates with the same fault produce the same command three times
+        # over, which is a screen of text saying one thing. The domain becomes a
+        # placeholder and the three collapse into one line; the table names them.
+        'build': lambda root: [
+            _add_store(
+                root,
+                domain,
+                days_valid=40,
+                renew_in_days=-25,
+                install_to=os.path.join(root, 'pki', f'{domain}.crt'),
+            )
+            for domain in ('a.example.com', 'b.example.com', 'c.example.com')
+        ],
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '3 of 3 certificates need attention.',
+            'Check why the renewal is not happening: `acme.sh',
+            '--renew --domain=$DOMAIN --ecc`',
+            '--install-cert --domain=$DOMAIN --ecc --cert-file=',
+            '/pki/$DOMAIN.crt',
+            '--remove --domain=$DOMAIN --ecc`',
+        ],
+        # the per-domain repetition is what this replaces
+        'assert-not-in': ['--domain=a.example.com', '--domain=b.example.com'],
+    },
+    {
+        'id': 'warn-both-key-types-get-a-line-each',
+        # `--ecc` addresses a different store, so a host holding both key types cannot
+        # be served by one command and must not be given one that is wrong for half of
+        # its certificates
+        'build': lambda root: (
+            _add_store(root, 'a.example.com', days_valid=40, renew_in_days=-25),
+            _add_store(
+                root, 'b.example.com', ecc=False, days_valid=40, renew_in_days=-25
+            ),
+        ),
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '--renew --domain=a.example.com --ecc`',
+            '--renew --domain=b.example.com`',
+        ],
+    },
+    {
+        'id': 'warn-detached-but-still-deployed',
+        # detached from renewal while the service still holds exactly this certificate:
+        # nothing renews it and it will run out without a line in any log
+        'build': lambda root: _add_store(
+            root,
+            'old.example.com',
+            detached=True,
+            install_to=os.path.join(root, 'pki', 'old.example.com.crt'),
+            install_content='same',
+        ),
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'detached from renewal but still installed',
+            'Put a detached certificate back under renewal:',
+            '--issue --domain=old.example.com',
+        ],
+    },
+    {
+        'id': 'warn-never-issued',
+        # a configuration without Le_CertCreateTime: the renewal job skips it outright,
+        # and a skip never fails a run, so nothing else ever reports it
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            created=False,
+            with_cert=False,
+        ),
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['never issued', 'no issued certificate'],
+    },
+    {
+        'id': 'crit-severity-raises-store-findings',
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=40,
+            renew_in_days=-25,
+        ),
+        'params': '--severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['renewal overdue'],
+    },
+    {
+        'id': 'warn-percentage-threshold',
+        # 20 of 90 days left is under a quarter of the lifetime, but well above the
+        # 14-day default, so this only alerts because the threshold is a percentage.
+        # The half day is slack against the floor to whole days, as above.
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=20.5,
+            days_issued_ago=70,
+            renew_in_days=8,
+        ),
+        'params': '--warning=25% --critical=5%',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['20d'],
+    },
+    {
+        'id': 'ok-duration-threshold',
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=20,
+            renew_in_days=8,
+        ),
+        'params': '--warning=10d --critical=3d',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=-3,
+            days_issued_ago=93,
+            renew_in_days=-33,
+        ),
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['expired'],
+    },
+    {
+        'id': 'ok-ignore-drops-store',
+        'build': lambda root: _add_store(
+            root,
+            'www.example.com',
+            days_valid=40,
+            renew_in_days=-25,
+        ),
+        'params': '--ignore=example',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Nothing checked.', '1 certificate stores are present'],
+    },
+    {
+        'id': 'warn-no-match-severity',
+        'build': lambda root: _add_store(root, 'www.example.com'),
+        'params': '--match=doesnotexist --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Nothing checked.'],
+    },
+    {
+        'id': 'ok-match-keeps-store',
+        'build': lambda root: (
+            _add_store(root, 'www.example.com'),
+            _add_store(root, 'mail.example.com', days_valid=45),
+        ),
+        'params': '--match=^www',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 certificates renew as scheduled.'],
+        'assert-not-in': ['mail.example.com'],
+    },
+    {
+        'id': 'ok-brief-hides-healthy-rows',
+        'build': lambda root: (
+            _add_store(root, 'www.example.com'),
+            _add_store(root, 'mail.example.com', days_valid=45),
+        ),
+        'params': '--brief',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['www.example.com_ecc !', 'Days Left'],
+    },
+    {
+        'id': 'ok-cert-home-defaults-to-the-configuration-directory',
+        # an installation that was never given --cert-home keeps the stores in the
+        # configuration directory itself, and account.conf then names no CERT_HOME
+        'build': lambda root: (
+            _write(
+                os.path.join(root, 'account.conf'), "ACCOUNT_EMAIL='a@example.com'\n"
+            ),
+            _add_store(root, 'www.example.com'),
+            shutil.move(
+                os.path.join(root, 'certs', 'www.example.com_ecc'),
+                os.path.join(root, 'www.example.com_ecc'),
+            ),
+            shutil.rmtree(os.path.join(root, 'certs')),
+        ),
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 certificates renew as scheduled.'],
+    },
+    {
+        'id': 'ok-directory-without-a-dot-is-not-a-store',
+        # acme.sh iterates `$CERT_HOME/*.*` and `$CERT_HOME/*:*`, so it never looks into
+        # a directory whose name carries neither, and neither does this check
+        'build': lambda root: (
+            _add_store(root, 'www.example.com'),
+            os.makedirs(os.path.join(root, 'certs', 'backup'), exist_ok=True),
+            _write(
+                os.path.join(root, 'certs', 'backup', 'backup.conf'), "Le_Domain='x'\n"
+            ),
+        ),
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 certificates renew as scheduled.'],
+        'assert-not-in': ['backup'],
+    },
+    {
+        'id': 'warn-no-certificate-stores',
+        # the configuration directory an installation that was given --config-home
+        # leaves behind: the script and its hook directories, no certificates. A check
+        # pointed at it would otherwise report OK forever while looking at nothing
+        'build': lambda root: [
+            os.makedirs(os.path.join(root, 'certs'), exist_ok=True),
+            os.makedirs(os.path.join(root, 'dnsapi'), exist_ok=True),
+            _write(os.path.join(root, 'acme.sh'), '#!/usr/bin/env sh\n'),
+        ],
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No certificate stores in', 'LE_CONFIG_HOME'],
+    },
+    {
+        'id': 'ok-no-certificate-stores-with-severity-ok',
+        'build': lambda root: os.makedirs(os.path.join(root, 'certs'), exist_ok=True),
+        'params': '--severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No certificate stores in'],
+    },
+    {
+        'id': 'unknown-no-configuration-directory',
+        'build': lambda root: None,
+        'params': '--path=/nonexistent/acme.sh',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No acme.sh configuration found'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'build': lambda root: _add_store(root, 'www.example.com'),
+        'params': '--match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../acmesh-status'
+
+
+def _run_scenario(test, scenario):
+    root = tempfile.mkdtemp(prefix='lfmp-acmesh-status-')
+    try:
+        _build(scenario, root)
+        params = scenario['params']
+        if '--path=' not in params:
+            params = f'--path={root} {params}'.strip()
+        testcase = {
+            key: value for key, value in scenario.items() if key.startswith('assert')
+        }
+        # this check reads a directory tree rather than the output of a command, so it
+        # has no --test hook; the empty value is dropped by parse_known_args()
+        testcase['test'] = ''
+        testcase['params'] = params
+        lib.lftest.run(test, test.check, testcase)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda it: it['id'])
+
+
+if __name__ == '__main__':
+    unittest.main()
