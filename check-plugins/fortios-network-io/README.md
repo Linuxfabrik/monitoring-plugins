@@ -8,7 +8,6 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 **Important Notes:**
 
 * FortiGate appliances running FortiOS with REST API enabled
-* The `--always-ok` parameter is accepted but has no effect (the plugin does not pass it to the output function)
 
 **Data Collection:**
 
@@ -121,6 +120,7 @@ port8       ! 338.9KiB ! 33.4KiB ! 334.0KiB ! 33.3KiB
 * WARN if link state, speed rate, or duplex mode for an interface changes compared to the inventorized baseline.
 * WARN if rx or tx bandwidth saturation (averaged over `--count` measurements) is >= `--warning` (default: 800000000 bps).
 * CRIT if rx or tx bandwidth saturation (averaged over `--count` measurements) is >= `--critical` (default: 900000000 bps).
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
