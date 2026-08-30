@@ -30,6 +30,7 @@ Monitors network I/O throughput per interface over time. Calculates bytes per se
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
+| Handles Periods                       | Yes (values are averaged over `--count` measurements, default 5) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-network-io.db` |
 
 

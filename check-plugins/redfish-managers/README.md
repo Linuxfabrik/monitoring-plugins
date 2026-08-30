@@ -28,7 +28,7 @@ Checks the health of all managers (BMCs such as iLO, iDRAC, or a generic BMC) of
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-managers> |
 | Nagios/Icinga Check Name              | `check_redfish_managers` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |

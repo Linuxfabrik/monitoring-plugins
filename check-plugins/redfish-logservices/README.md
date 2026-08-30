@@ -27,7 +27,7 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-logservices> |
 | Nagios/Icinga Check Name              | `check_redfish_logservices` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
@@ -155,7 +155,7 @@ Checked SEL on 1 member. There are critical errors.
 
 ## Perfdata / Metrics
 
-This plugin does not provide any performance data.
+There is no perfdata.
 
 
 ## For Maintainers

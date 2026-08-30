@@ -33,7 +33,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 | Can be called without parameters      | Yes |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| Handles Periods                       | Yes |
+| Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-podman-stats.db` |
 
 

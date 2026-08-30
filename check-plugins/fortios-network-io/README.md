@@ -27,6 +27,7 @@ Monitors network I/O and link states on all interfaces of FortiGate appliances r
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
+| Handles Periods                       | Yes (values are averaged over `--count` measurements, default 5) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-network-io.db` |
 
 

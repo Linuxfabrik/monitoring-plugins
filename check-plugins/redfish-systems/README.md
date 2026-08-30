@@ -29,7 +29,7 @@ Checks the overall system health reported by a Redfish-compatible server via the
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-systems> |
 | Nagios/Icinga Check Name              | `check_redfish_systems` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
@@ -136,7 +136,7 @@ Member: Contoso 3500, HostName: web483, Processors: 2x Multi-Core Intel(R) Xeon(
 
 ## Perfdata / Metrics
 
-This plugin does not provide any performance data.
+There is no perfdata.
 
 
 ## For Maintainers

@@ -39,7 +39,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `psutil` |
-| Handles Periods                       | Yes |
+| Handles Periods                       | Yes (values are averaged over `--count` measurements, default 5) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-disk-io.db` |
 
 

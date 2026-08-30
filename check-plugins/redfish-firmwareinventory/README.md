@@ -28,7 +28,7 @@ Reports the firmware inventory of a Redfish-compatible server via the Redfish AP
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-firmwareinventory> |
 | Nagios/Icinga Check Name              | `check_redfish_firmwareinventory` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |

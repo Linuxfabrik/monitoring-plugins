@@ -29,7 +29,7 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | 3rd Party Python modules              | `xmltodict` |
-| Handles Periods                       | Yes |
+| Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-qts-cpu-usage.db` |
 
 

@@ -29,7 +29,7 @@ Monitors CPU utilization on FortiGate appliances running FortiOS via the REST AP
 | Can be called without parameters      | No (`--hostname` and `--password` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| Handles Periods                       | Yes |
+| Handles Periods                       | Yes (alerts only after `--count` consecutive threshold violations) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-fortios-cpu-usage.db` |
 
 

@@ -30,7 +30,7 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-sensors> |
 | Nagios/Icinga Check Name              | `check_redfish_sensors` |
 | Check Interval Recommendation         | Every 5 minutes |
-| Can be called without parameters      | Yes |
+| Can be called without parameters      | No (`--url` is required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-redfish.db` |
