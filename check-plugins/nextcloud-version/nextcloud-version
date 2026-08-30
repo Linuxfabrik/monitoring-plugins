@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks the installed Nextcloud version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -167,9 +167,19 @@ def main():
     if not success:
         lib.base.cu(config)
 
-    state, msg = lib.version.check_eol(
+    # init some vars
+    installed_version = config['system']['version']
+    perfdata = lib.base.get_perfdata(
+        'nextcloud-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
+
+    # analyze data
+    state, eol = lib.version.check_eol(
         'https://endoflife.date/api/nextcloud.json',
-        config['system']['version'],
+        installed_version,
         offset_eol=args.OFFSET_EOL,
         check_major=args.CHECK_MAJOR,
         check_minor=args.CHECK_MINOR,
@@ -181,19 +191,14 @@ def main():
         unreachable_severity=args.UNREACHABLE_SEVERITY,
     )
 
+    # build the message
+    msg = f'Nextcloud v{installed_version} ({eol})'
+
     # over and out
     lib.base.oao(
-        f'Nextcloud v{config["system"]["version"]} ({msg})',
+        msg,
         state,
-        lib.base.get_perfdata(
-            'nextcloud-version',
-            lib.version.version2float(config['system']['version']),
-            uom=None,
-            warn=None,
-            crit=None,
-            _min=0,
-            _max=None,
-        ),
+        perfdata,
         always_ok=args.ALWAYS_OK,
         no_perfdata=args.NO_PERFDATA,
     )

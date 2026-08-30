@@ -27,7 +27,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks the installed GitLab version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -230,7 +230,17 @@ def main():
             f'GitLab not found at `{args.PATH}`. '
             'Use --path to point at the version manifest.'
         )
-    state, msg = lib.version.check_eol(
+
+    # init some vars
+    perfdata = lib.base.get_perfdata(
+        'gitlab-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
+
+    # analyze data
+    state, eol = lib.version.check_eol(
         'https://endoflife.date/api/gitlab.json',
         installed_version,
         offset_eol=args.OFFSET_EOL,
@@ -259,18 +269,17 @@ def main():
             sec_prefix = f', {sec_msg}'
         # collapse all inline state markers into a single overall marker at the
         # end, so EOL and security do not each stamp their own [WARNING]
-        msg = re.sub(r' \[(?:OK|WARNING|CRITICAL|UNKNOWN)\]', '', msg)
+        eol = re.sub(r' \[(?:OK|WARNING|CRITICAL|UNKNOWN)\]', '', eol)
         state_suffix = lib.base.state2str(state, prefix=' ')
+
+    # build the message
+    msg = f'GitLab v{installed_version}{sec_prefix} ({eol}){state_suffix}'
 
     # over and out
     lib.base.oao(
-        f'GitLab v{installed_version}{sec_prefix} ({msg}){state_suffix}',
+        msg,
         state,
-        lib.base.get_perfdata(
-            'gitlab-version',
-            lib.version.version2float(installed_version),
-            _min=0,
-        ),
+        perfdata,
         always_ok=args.ALWAYS_OK,
         no_perfdata=args.NO_PERFDATA,
     )

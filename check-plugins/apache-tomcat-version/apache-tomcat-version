@@ -24,7 +24,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks the installed Apache Tomcat version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -222,7 +222,17 @@ def main():
             f'Apache Tomcat not found at `{args.CATALINA_HOME}`. '
             'Use --catalina-home to point at the installation directory.'
         )
-    state, msg = lib.version.check_eol(
+
+    # init some vars
+    perfdata = lib.base.get_perfdata(
+        'apache-tomcat-version',
+        lib.version.version2float(installed_version),
+        uom=None,
+        _min=0,
+    )
+
+    # analyze data
+    state, eol = lib.version.check_eol(
         'https://endoflife.date/api/tomcat.json',
         installed_version,
         offset_eol=args.OFFSET_EOL,
@@ -236,16 +246,14 @@ def main():
         unreachable_severity=args.UNREACHABLE_SEVERITY,
     )
 
+    # build the message
+    msg = f'Apache Tomcat v{installed_version} ({eol})'
+
     # over and out
     lib.base.oao(
-        f'Apache Tomcat v{installed_version} ({msg})',
+        msg,
         state,
-        lib.base.get_perfdata(
-            'apache-tomcat-version',
-            lib.version.version2float(installed_version),
-            uom=None,
-            _min=0,
-        ),
+        perfdata,
         always_ok=args.ALWAYS_OK,
         no_perfdata=args.NO_PERFDATA,
     )
