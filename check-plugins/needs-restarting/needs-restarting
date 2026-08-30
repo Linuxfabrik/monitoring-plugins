@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082701'
+__version__ = '2026083001'
 
 DESCRIPTION = """Reports what on this host is still running the code it had before the
 last update: processes that were started before they or one of their dependencies were
@@ -358,7 +358,8 @@ def main():
         msg = f'{". ".join(headline)}.'
         if waiting:
             msg += (
-                f' {len(waiting)} more within the grace period, the oldest for '
+                f' {len(waiting)} more within the grace period '
+                f'({args.GRACE_WAIT}), the oldest for '
                 f'{lib.human.seconds2human(oldest)}.'
             )
     elif waiting:
@@ -367,7 +368,8 @@ def main():
         count = len(waiting)
         msg = (
             f'{count} pending {lib.txt.pluralize("restart", count, ",s")}, all within '
-            f'the grace period, the oldest for {lib.human.seconds2human(oldest)}.'
+            f'the grace period ({args.GRACE_WAIT}), the oldest for '
+            f'{lib.human.seconds2human(oldest)}.'
         )
     else:
         msg = 'No reboot and no service restart pending.'

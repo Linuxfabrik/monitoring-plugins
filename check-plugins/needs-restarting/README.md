@@ -114,13 +114,13 @@ sudo ./needs-restarting --grace-wait=4h
 While the grace period is running, the check reports what is pending and stays OK:
 
 ```text
-5 pending restarts, all within the grace period, the oldest for 12m 4s.
+5 pending restarts, all within the grace period (4h), the oldest for 12m 4s.
 ```
 
 Once part of it is due, the summary names both:
 
 ```text
-A reboot is pending. 2 more within the grace period, the oldest for 8m 31s.
+A reboot is pending. 2 more within the grace period (4h), the oldest for 8m 31s.
 ```
 
 Output on a host where nothing is waiting:

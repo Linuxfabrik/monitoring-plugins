@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082502'
+__version__ = '2026083001'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and how many of them come from a security
@@ -338,7 +338,13 @@ def main():
         msg += query_hint
         msg += '.'
         if within_grace:
-            msg += f' {within_grace} of them within the grace period.'
+            # Naming the periods answers the question the sentence otherwise
+            # provokes: an admin who reads that something is being held back wants
+            # to know for how long, and the two are not always the same.
+            msg += (
+                f' {within_grace} of them within the grace period'
+                f' (updates: {args.GRACE_UPDATES}, security: {args.GRACE_SECURITY}).'
+            )
         msg += lib.base.state2str(state, prefix=' ')
         msg += '\n* '
         msg += '\n* '.join([row['package'] for row in result])
