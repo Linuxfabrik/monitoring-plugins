@@ -856,7 +856,10 @@ TESTS = [
         'test': 'stdout/clean-site,,0',
         'params': (f'{BASE_PARAMS} --verbose --enterprise-db-token=linuxfabrik'),
         'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+        # The exact choices depend on whether a local database is there to widen the
+        # scan, which the union scenarios at the bottom cover with a fixture of
+        # their own. What matters here is that the enumeration survives at all.
+        'assert-in': ['--enumerate=', 'cb,dbe'],
     },
     # Configuring it as a raw option predates the parameter of its own and has to keep
     # working, down to the spelling that puts the value in the next element.
@@ -868,7 +871,10 @@ TESTS = [
             '--wpscan-option=--enterprise-db-token --wpscan-option=linuxfabrik'
         ),
         'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+        # The exact choices depend on whether a local database is there to widen the
+        # scan, which the union scenarios at the bottom cover with a fixture of
+        # their own. What matters here is that the enumeration survives at all.
+        'assert-in': ['--enumerate=', 'cb,dbe'],
     },
     # Like the API token, it travels through the environment, so neither the parameter
     # nor the raw option may leave it in the command the check prints. Only the `=` form
@@ -906,7 +912,10 @@ TESTS = [
         'test': 'stdout/clean-site,,0',
         'params': f'{BASE_PARAMS} --verbose --api-token=linuxfabrik',
         'assert-retc': STATE_OK,
-        'assert-in': ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+        # The exact choices depend on whether a local database is there to widen the
+        # scan, which the union scenarios at the bottom cover with a fixture of
+        # their own. What matters here is that the enumeration survives at all.
+        'assert-in': ['--enumerate=', 'cb,dbe'],
     },
     # The token is handed over through the environment, so it must never show up in the
     # command the check prints.
@@ -1347,6 +1356,132 @@ lib.lftest.attach_each(
     TARGET_PROBLEMS,
     _is_not_a_lookup_problem,
     id_func=lambda it: f'target-problem-{it[0]}',
+)
+
+
+# The union of wpscan's popular and vulnerable slugs is read from its own database, so
+# these run against a miniature of it rather than against whatever the developer's
+# machine happens to hold. No hook is added for it: `XDG_CACHE_HOME` is how wpscan
+# itself finds the file (`DB_DIR` in `lib/wpscan.rb`), and `HOME` is redirected
+# alongside it because the legacy `~/.wpscan/db` would win over it where it exists.
+#
+# The fixture deliberately does not sit under a `.cache` directory. The repository
+# ignores that name, so a tree below it would never reach git and these tests would
+# fail for everyone but the person who wrote them.
+WPSCAN_DB_FIXTURE = os.path.abspath('fixtures/wpscan-db')
+WPSCAN_DB_FIXTURE_HOME = os.path.abspath('fixtures/wpscan-db/no-legacy-db')
+
+# (id, extra params, expected substrings, forbidden substrings)
+UNION_SCENARIOS = [
+    (
+        # A locally held database answers every lookup for free, so the scan looks for
+        # everything wpscan knows rather than for the vulnerable slugs alone.
+        'enterprise-db-widens-the-scan',
+        '--enterprise-db-token=linuxfabrik',
+        [
+            '--plugins-list=',
+            '--themes-list=',
+            '--enumerate=tt,cb,dbe,bf,u',
+            'popular or vulnerable (3 plugins, 2 themes)',
+        ],
+        ['--enumerate=vp,vt'],
+    ),
+    (
+        # Against the API each detected component costs a request out of a daily
+        # allowance, so the scan stays narrow.
+        'api-token-keeps-the-scan-narrow',
+        '--api-token=linuxfabrik',
+        ['--enumerate=vp,vt,tt,cb,dbe,bf,u'],
+        ['--plugins-list=', 'Widened the scan'],
+    ),
+    (
+        'no-token-keeps-the-downgrade',
+        '',
+        ['--enumerate=p,t,tt,cb,dbe,bf,u'],
+        ['--plugins-list=', 'Widened the scan'],
+    ),
+    (
+        # An explicit choice is an instruction, not a default to improve upon.
+        'explicit-enumeration-is-left-alone',
+        '--enterprise-db-token=linuxfabrik --wpscan-enumerate=vp,vt,u',
+        ['--enumerate=vp,vt,u'],
+        ['--plugins-list=', 'Widened the scan'],
+    ),
+]
+
+
+def _run_union_scenario(test, scenario):
+    scenario_id, extra, expected, forbidden = scenario
+    env = dict(
+        os.environ,
+        HOME=WPSCAN_DB_FIXTURE_HOME,
+        XDG_CACHE_HOME=WPSCAN_DB_FIXTURE,
+    )
+    result = subprocess.run(
+        [
+            'python3',
+            '../wordpress-security-scan',
+            '--url=https://www.example.com',
+            '--path=wordpress',
+            '--verbose',
+            '--test=stdout/clean-site,,0',
+            *extra.split(),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    out = result.stdout + result.stderr
+    for text in expected:
+        test.assertIn(text, out, f'{scenario_id}: missing {text!r}')
+    for text in forbidden:
+        test.assertNotIn(text, out, f'{scenario_id}: unexpected {text!r}')
+
+
+def _no_leftover_temp_directory(test, scenario):
+    """The slug lists live in a temporary directory that has to be gone afterwards."""
+    scenario_id, extra, _, _ = scenario
+    env = dict(
+        os.environ,
+        HOME=WPSCAN_DB_FIXTURE_HOME,
+        XDG_CACHE_HOME=WPSCAN_DB_FIXTURE,
+    )
+    result = subprocess.run(
+        [
+            'python3',
+            '../wordpress-security-scan',
+            '--url=https://www.example.com',
+            '--path=wordpress',
+            '--verbose',
+            '--test=stdout/clean-site,,0',
+            *extra.split(),
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    for line in (result.stdout + result.stderr).splitlines():
+        for token in line.split():
+            if token.startswith('--plugins-list=') or token.startswith(
+                '--themes-list='
+            ):
+                path = token.split('=', 1)[1]
+                test.assertFalse(
+                    os.path.exists(os.path.dirname(path)),
+                    f'{scenario_id}: {path} survived the run',
+                )
+
+
+lib.lftest.attach_each(
+    TestCheck, UNION_SCENARIOS, _run_union_scenario, id_func=lambda it: f'union-{it[0]}'
+)
+lib.lftest.attach_each(
+    TestCheck,
+    [UNION_SCENARIOS[0]],
+    _no_leftover_temp_directory,
+    id_func=lambda it: f'union-{it[0]}-cleans-up',
 )
 
 

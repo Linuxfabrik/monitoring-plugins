@@ -19,6 +19,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.disk
 import lib.human
 import lib.lftest
 import lib.shell
@@ -29,7 +30,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026083002'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -639,6 +640,11 @@ def parse_args():
     )
 
     args, _ = parser.parse_known_args()
+    # Filled in later where the scan hands wpscan an explicit slug list, and the
+    # directory holding it, so it can be removed again once the scan is over.
+    args.PLUGINS_LIST_FILE = ''
+    args.THEMES_LIST_FILE = ''
+    args.TEMP_DIR = ''
     return args
 
 
@@ -857,6 +863,120 @@ def get_vulndb_age(last_db_update):
     return max(0, int(lib.time.now() - stamp))
 
 
+# Where wpscan keeps the database it downloads with `--update`. It prefers the legacy
+# directory where that exists and falls back to the XDG cache one, which is the same
+# rule `lib/wpscan.rb` applies when it sets `DB_DIR`.
+def get_wpscan_db_dir():
+    """Return the directory wpscan keeps its database in, or None when neither
+    candidate is there.
+    """
+    home = os.path.expanduser('~')
+    legacy = os.path.join(home, '.wpscan', 'db')
+    if lib.disk.dir_exists(legacy):
+        return legacy
+    cache = os.environ.get('XDG_CACHE_HOME') or os.path.join(home, '.cache')
+    xdg = os.path.join(cache, 'wpscan', 'db')
+    return xdg if lib.disk.dir_exists(xdg) else None
+
+
+def get_union_slugs():
+    """Return `(plugin_slugs, theme_slugs)` for everything wpscan knows to be either
+    popular or vulnerable, or `(None, None)` when its database cannot be read.
+
+    wpscan cannot express that union through `--enumerate`. `vp` and `p` name two
+    different lists and the narrower one wins for probing, while `vp` additionally
+    switches on the `only_vulnerable` output filter, so asking for both yields the cost
+    of the wide list and the output of the narrow one. Handing the slugs over as a list
+    is the one way to get both, and it also turns the filter off, because that filter
+    keys on the `vp` choice being present rather than on which list was used.
+    """
+    db_dir = get_wpscan_db_dir()
+    if not db_dir:
+        return (None, None)
+    metadata = os.path.join(db_dir, 'metadata.json')
+    if not lib.disk.file_exists(metadata):
+        return (None, None)
+    success, raw = lib.disk.read_file(metadata)
+    if not success:
+        return (None, None)
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        return (None, None)
+
+    def union(section):
+        items = data.get(section) or {}
+        if not isinstance(items, dict):
+            return None
+        slugs = sorted(
+            slug
+            for slug, item in items.items()
+            if isinstance(item, dict)
+            and (item.get('popular') is True or item.get('vulnerabilities') is True)
+        )
+        return slugs or None
+
+    return (union('plugins'), union('themes'))
+
+
+# The plugin and theme choices a slug list replaces. Everything else in the enumeration
+# is about files and user names and stays untouched.
+LIST_REPLACED_CHOICES = ('ap', 'at', 'p', 't', 'vp', 'vt')
+
+
+def use_union_lists(args, enumerate_opts):
+    """Hand wpscan the union of its popular and vulnerable slugs, and return
+    `(enumerate_opts, note)` with the choices that union replaces taken out.
+
+    Only worth doing where the vulnerability lookups are local. Against the API each
+    detected component costs one request out of a daily allowance, so a wider scan buys
+    its completeness with the quota and a site with a few dozen components exhausts a
+    day in one run. A locally held copy answers those lookups for free, and then there
+    is no reason to keep looking for less than everything.
+
+    Returns the arguments unchanged and an empty note where the database cannot be read,
+    which leaves the ordinary enumeration in place rather than failing the scan.
+    """
+    plugins, themes = get_union_slugs()
+    if not plugins and not themes:
+        return (enumerate_opts, '')
+
+    tmpdir = lib.base.coe(lib.disk.make_temp_dir(prefix='lfmp-wpscan-'))
+    written = []
+    for slugs, attribute, filename in (
+        (plugins, 'PLUGINS_LIST_FILE', 'plugins.txt'),
+        (themes, 'THEMES_LIST_FILE', 'themes.txt'),
+    ):
+        if not slugs:
+            continue
+        path = os.path.join(tmpdir, filename)
+        success, _ = lib.disk.write_file(path, '\n'.join(slugs) + '\n')
+        if not success:
+            continue
+        setattr(args, attribute, path)
+        written.append((attribute, len(slugs)))
+    if not written:
+        lib.disk.rm_dir(tmpdir)
+        return (enumerate_opts, '')
+
+    args.TEMP_DIR = tmpdir
+    kept = [
+        choice
+        for choice in enumerate_opts.split(',')
+        if choice.strip() and choice.strip() not in LIST_REPLACED_CHOICES
+    ]
+    counts = ', '.join(
+        f'{count} {"plugins" if attribute.startswith("PLUGINS") else "themes"}'
+        for attribute, count in written
+    )
+    note = (
+        f'the vulnerability database is held locally, so the scan looks for every '
+        f'component wpscan knows to be popular or vulnerable ({counts}) instead of '
+        f'only the vulnerable ones'
+    )
+    return (','.join(kept), note)
+
+
 def adjust_enumerate(enumerate_opts, has_vuln_data, wpscan_version):
     """Return the enumeration choices the installed wpscan actually accepts.
 
@@ -1006,6 +1126,13 @@ def build_wpscan_command(args, enumerate_opts, http_auth='', spent=0):
     ]
     if enumerate_opts:
         cmd.append(f'--enumerate={enumerate_opts}')
+    # A slug list replaces the plugin and theme enumeration choices rather than joining
+    # them: wpscan drops a colliding choice and, with `vp` gone, its `only_vulnerable`
+    # output filter with it.
+    if getattr(args, 'PLUGINS_LIST_FILE', ''):
+        cmd.append(f'--plugins-list={args.PLUGINS_LIST_FILE}')
+    if getattr(args, 'THEMES_LIST_FILE', ''):
+        cmd.append(f'--themes-list={args.THEMES_LIST_FILE}')
     # A random user agent overrides the identifiable one, so only one of them is passed.
     if args.WPSCAN_RANDOM_USER_AGENT:
         cmd.append('--random-user-agent')
@@ -1495,6 +1622,7 @@ def main():
                 args.VERBOSE, f'Cannot determine the wpscan version: {version_note}'
             )
         spent = int(lib.time.now() - started)
+        union_note = ''
         enumerate_opts, dropped = adjust_enumerate(
             args.WPSCAN_ENUMERATE, bool(token) or enterprise, wpscan_version
         )
@@ -1504,6 +1632,12 @@ def main():
                 f'Dropped the "{choice}" enumeration choice, it needs wpscan '
                 f'{minimum} or newer.',
             )
+        # Only where the operator did not choose the enumeration themselves: an explicit
+        # `--wpscan-enumerate` is an instruction, not a default to improve upon.
+        if enterprise and args.WPSCAN_ENUMERATE == DEFAULT_WPSCAN_ENUMERATE:
+            enumerate_opts, union_note = use_union_lists(args, enumerate_opts)
+            if union_note:
+                lib.base.verbose(args.VERBOSE, f'Widened the scan: {union_note}.')
         lib.base.verbose(
             args.VERBOSE, f'Scanning {args.URL} (this can take a few minutes)...'
         )
@@ -1538,6 +1672,12 @@ def main():
             # choices for want of a token is saying it has none, whatever a locally held
             # copy of the database was configured to supply - a release that predates
             # that option ignores it and then finds itself without any token at all.
+            # The lists go with it. They are only worth their probing cost where the
+            # lookups are free, and a scanner that just refused the vulnerable choices
+            # for want of a token is saying they are not.
+            args.PLUGINS_LIST_FILE = ''
+            args.THEMES_LIST_FILE = ''
+            union_note = ''
             enumerate_opts, _ = adjust_enumerate(
                 args.WPSCAN_ENUMERATE,
                 enterprise and VULN_ENUMERATION_ABORT_MARKER not in vuln_api_note,
@@ -1551,6 +1691,7 @@ def main():
         # do not call the command, put in test data. The version probe would be a second
         # subprocess, so assume a release that knows every choice the check adjusts for.
         last_db_update = ''
+        union_note = ''
         enumerate_opts, _ = adjust_enumerate(
             args.WPSCAN_ENUMERATE,
             bool(token) or enterprise,
@@ -1558,6 +1699,8 @@ def main():
             # choice carries a minimum any more there is nothing to satisfy either.
             max(ENUMERATE_MIN_VERSION.values(), key=lib.version.version, default='0'),
         )
+        if enterprise and args.WPSCAN_ENUMERATE == DEFAULT_WPSCAN_ENUMERATE:
+            enumerate_opts, union_note = use_union_lists(args, enumerate_opts)
         cmd = build_wpscan_command(args, enumerate_opts, http_auth)
         stdout, stderr, retc = lib.lftest.test(args.TEST)
         data = lib.base.coe(parse_scan(stdout, stderr))
@@ -1694,6 +1837,10 @@ def main():
             vulnerabilities_critical += 1
         state = lib.base.get_worst(state, item['state'])
 
+    # The slug lists have served every scan that was going to run.
+    if getattr(args, 'TEMP_DIR', ''):
+        lib.disk.rm_dir(args.TEMP_DIR)
+
     # A scan that could not consult the vulnerability database says nothing about known
     # vulnerabilities, whatever else it found. That is a property of the run, not of the
     # site, so it drives the state through its own parameter instead of a finding row.
@@ -1765,6 +1912,12 @@ def main():
             msg += f'\nNo vulnerability data: {vuln_data_note}.'
     elif args.LENGTHY:
         msg += f'\n{vuln_data_note.capitalize()}.'
+
+    # The scan quietly widened itself, so it says so. A check that decides how far to
+    # look on its own has to show the decision, or the next person comparing two hosts
+    # cannot tell why one of them reports more.
+    if union_note:
+        msg += f'\nWidened the scan: {union_note}.'
 
     # The refresh failed and the scan ran against the local copy instead. Naming it
     # separates a site that is genuinely clean from one that was graded against
