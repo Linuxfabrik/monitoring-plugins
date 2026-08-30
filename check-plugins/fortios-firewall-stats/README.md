@@ -39,7 +39,9 @@ usage: fortios-firewall-stats [-h] [-V] [--always-ok] -H HOSTNAME [--insecure]
 
 Summarizes traffic statistics for all IPv4 and IPv6 firewall policies on
 FortiGate appliances running FortiOS via the REST API. Reports byte and packet
-counters, active sessions, and hit counts per policy.
+counters, active sessions, and hit counts per policy. The figures are reported
+for trending and never alert on their own; only an appliance that answers
+neither the IPv4 nor the IPv6 request raises a state.
 
 options:
   -h, --help            show this help message and exit

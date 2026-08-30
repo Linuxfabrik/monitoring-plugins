@@ -59,7 +59,8 @@ usage: snmp [-h] [-V] [--always-ok] [--community COMMUNITY] [--device DEVICE]
 
 Queries SNMP OIDs defined in a CSV file and checks the returned values against
 optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with
-authentication and privacy protocols.
+authentication and privacy protocols. Alerts as the OID definitions in the CSV
+file prescribe, and reports UNKNOWN for an OID the appliance does not answer.
 
 options:
   -h, --help            show this help message and exit

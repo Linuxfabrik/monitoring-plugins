@@ -3,7 +3,7 @@
 
 ## Overview
 
-Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status page via its RSS feed. Returns a component-by-component status overview with Nagios-compatible alerting.
+Monitors a [StatusIQ](https://www.site24x7.com/statusiq/) (by Site24x7) status page via its RSS feed. Returns a component-by-component status overview. Alerts when a component is under maintenance, degraded or partially out, and raises a critical state for a service disruption or a major outage.
 
 **Important Notes:**
 
@@ -35,9 +35,9 @@ usage: statusiq [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                 [--no-proxy] [--proxy PROXY] [--retries RETRIES]
                 [--timeout TIMEOUT] [--url URL]
 
-Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Returns OK for
-operational or informational messages, WARN for maintenance windows, and CRIT
-for service disruptions or degraded performance.
+Monitors a StatusIQ (by Site24x7) status page via its RSS feed. Alerts when a
+component is under maintenance, degraded or partially out, and raises a
+critical state for a service disruption or a major outage.
 
 options:
   -h, --help         show this help message and exit

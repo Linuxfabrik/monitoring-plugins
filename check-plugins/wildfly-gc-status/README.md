@@ -39,7 +39,8 @@ usage: wildfly-gc-status [-h] [-V] [--always-ok] [--insecure]
 
 Reports garbage collector activity from a WildFly/JBoss AS server via its HTTP
 management API, reporting the collection rate and the share of wall-clock time
-spent in garbage collection (GC overhead) for each collector.
+spent in garbage collection (GC overhead) for each collector. The figures are
+reported for trending and never alert on their own.
 
 options:
   -h, --help            show this help message and exit

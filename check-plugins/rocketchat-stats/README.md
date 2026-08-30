@@ -38,7 +38,8 @@ usage: rocketchat-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
 
 Monitors Rocket.Chat server statistics via the API, including total users,
 active users, online users, channels, messages, uploads, and file storage
-usage. Requires a user with "view-statistics" permission.
+usage. Requires a user with "view-statistics" permission. The figures are
+reported for trending and never alert on their own.
 
 options:
   -h, --help            show this help message and exit

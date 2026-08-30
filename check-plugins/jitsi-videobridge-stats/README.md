@@ -43,7 +43,8 @@ usage: jitsi-videobridge-stats [-h] [-V] [--always-ok] [--insecure]
 
 Monitors Jitsi Videobridge performance via the COLIBRI REST API. Reports
 conference count, participant count, video channels, bitrates, packet rates,
-and other bridge metrics.
+and other bridge metrics. The figures are reported for trending and never
+alert on their own.
 
 options:
   -h, --help            show this help message and exit

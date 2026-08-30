@@ -37,7 +37,8 @@ usage: openvpn-client-list [-h] [-V] [--always-ok] [-c CRIT]
 
 Lists all clients currently connected to an OpenVPN server by parsing the
 status log file. Reports client name, remote address, bytes received and sent,
-and connection time. Requires root or sudo.
+and connection time. Alerts when the number of connected clients reaches
+`--warning` or `--critical`. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit

@@ -29,8 +29,8 @@ usage: selinux-mode [-h] [-V] [--always-ok]
                     [--mode {enforcing,permissive,disabled}]
 
 Verifies that the current SELinux mode (enforcing, permissive, or disabled)
-matches the expected setting. Returns WARN if the actual mode differs from the
-desired one.
+matches the expected setting. Alerts when the mode in force is not the
+expected one.
 
 options:
   -h, --help            show this help message and exit

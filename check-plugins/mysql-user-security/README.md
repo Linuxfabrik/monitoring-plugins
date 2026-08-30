@@ -51,7 +51,8 @@ matches a small dictionary of common defaults (`password`, `admin`, `root`,
 `letmein`, ...), accounts that accept connections from any host (`'%'`
 wildcard), and accounts still on the legacy SHA1-based `mysql_native_password`
 (or `sha256_password` on MySQL 8.0+) authentication plugin. Each finding maps
-to a copy-pasteable SQL recommendation.
+to a copy-pasteable SQL recommendation. Alerts on every account it finds
+insecure, at the level `--severity` sets.
 
 options:
   -h, --help            show this help message and exit

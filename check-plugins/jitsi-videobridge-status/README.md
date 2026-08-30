@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint. Returns OK if the bridge is healthy, WARN or CRIT otherwise.
+Checks the Jitsi Videobridge health state via the `/about/health` REST endpoint. Alerts when the Videobridge reports an unhealthy state, at the level `--severity` sets.
 
 **Important Notes:**
 
@@ -39,7 +39,8 @@ usage: jitsi-videobridge-status [-h] [-V] [--always-ok] [--insecure]
                                 [--username USERNAME]
 
 Checks the Jitsi Videobridge health state via the /about/health REST endpoint.
-Returns OK if the bridge is healthy, WARN or CRIT otherwise.
+Alerts when the Videobridge reports an unhealthy state, at the level
+`--severity` sets.
 
 options:
   -h, --help            show this help message and exit

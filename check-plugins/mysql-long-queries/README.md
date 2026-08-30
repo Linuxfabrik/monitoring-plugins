@@ -50,7 +50,8 @@ replication threads are ignored. Logic taken from MySQLTuner `mysql_pfs()`,
 but the data source is `information_schema.processlist` so the check works on
 every MySQL/MariaDB release without requiring Performance Schema to be
 enabled. Without `PROCESS` privilege, the monitoring user only sees its own
-sessions; grant `PROCESS` on `*.*` to see queries across all sessions.
+sessions; grant `PROCESS` on `*.*` to see queries across all sessions. Alerts
+when a query has been running longer than `--warning` or `--critical` allows.
 Supports extended reporting via --lengthy.
 
 options:

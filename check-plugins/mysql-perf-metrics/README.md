@@ -90,7 +90,9 @@ and emulated-NVMe devices regardless of the real backing store: a database on
 HDD-backed Ceph or a throttled cloud volume would be misread as fast local
 storage and told to raise the value, which can swamp a low-IOPS device. Pass
 `--storage-type=ssd` or `--storage-type=hdd` to override the auto-detection,
-or `--storage-type=skip` to disable the storage-aware checks entirely.
+or `--storage-type=skip` to disable the storage-aware checks entirely. Alerts
+when `innodb_stats_on_metadata` is on, when `concurrent_insert` is off, and
+when a deprecated variable was set explicitly.
 
 options:
   -h, --help            show this help message and exit

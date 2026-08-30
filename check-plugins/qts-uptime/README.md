@@ -38,7 +38,7 @@ usage: qts-uptime [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                   [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Reports how long a QNAP appliance running QTS has been running since the last
-boot.
+boot. The uptime is reported for trending and never alerts on its own.
 
 options:
   -h, --help           show this help message and exit

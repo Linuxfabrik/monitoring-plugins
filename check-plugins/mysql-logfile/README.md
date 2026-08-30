@@ -94,7 +94,10 @@ server. Recommendations are grouped under a single block at the end of the
 output. Reading the on-disk log file usually requires root/sudo (typical mysql
 logs are owned by `mysql:mysql` mode `0640`). The
 `performance_schema.error_log` path needs SELECT on that table but no
-filesystem access.
+filesystem access. Alerts on every error and warning the log carries, when the
+logins a single source had turned away or the connections a single client
+dropped cross their rates within `--lookback`, when a configured log is
+missing or unreadable, and when an on-disk log has grown past 32 MiB.
 
 options:
   -h, --help            show this help message and exit

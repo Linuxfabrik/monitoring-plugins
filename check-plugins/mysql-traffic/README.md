@@ -42,8 +42,8 @@ usage: mysql-traffic [-h] [-V] [--always-ok] [--defaults-file DEFAULTS_FILE]
                      [--timeout TIMEOUT]
 
 Reports MySQL/MariaDB traffic statistics: uptime, queries per second, total
-connections, bytes transferred, and the SELECT-vs-write ratio. Purely
-informational; the plugin always returns OK. Cumulative counters
+connections, bytes transferred, and the SELECT-vs-write ratio. The figures are
+reported for trending and never alert on their own. Cumulative counters
 (`Bytes_received`, `Bytes_sent`, `Connections`, `Questions`, `Com_*`) are
 emitted as in-plugin-computed per-second rates so the Grafana dashboard plots
 them without `non_negative_difference()` workarounds.

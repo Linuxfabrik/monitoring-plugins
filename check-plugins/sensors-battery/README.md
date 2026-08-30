@@ -3,7 +3,7 @@
 
 ## Overview
 
-Reports battery status information including charge percentage, time remaining, and power source (AC or battery). Returns OK if no battery is installed or if metrics cannot be determined.
+Reports battery status information including charge percentage, time remaining, and power source (AC or battery). Alerts when the charge left drops to `--warning` or `--critical`; a battery that is plugged in, a host without one, and a host whose metrics cannot be determined stay OK.
 
 **Important Notes:**
 
@@ -34,8 +34,9 @@ usage: sensors-battery [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
                        [-w WARN]
 
 Reports battery status information including charge percentage, time
-remaining, and power source (AC or battery). Returns OK if no battery is
-installed or if metrics cannot be determined.
+remaining, and power source (AC or battery). Alerts when the charge left drops
+to `--warning` or `--critical`; a battery that is plugged in, a host without
+one, and a host whose metrics cannot be determined stay OK.
 
 options:
   -h, --help           show this help message and exit

@@ -37,7 +37,8 @@ usage: nodebb-groups [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                      [--url URL]
 
 Monitors NodeBB group statistics via the admin API, including group count and
-membership numbers.
+membership numbers. The figures are reported for trending and never alert on
+their own.
 
 options:
   -h, --help         show this help message and exit

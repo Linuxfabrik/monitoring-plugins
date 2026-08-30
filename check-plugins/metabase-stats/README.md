@@ -40,7 +40,8 @@ usage: metabase-stats [-h] [-V] [--always-ok] [--cache-expire CACHE_EXPIRE]
 
 Retrieves recent activity and usage statistics from a Metabase instance via
 its API. Reports active users, executed queries, dashboards, and other
-operational metrics. Credentials are cached to reduce API calls.
+operational metrics. Credentials are cached to reduce API calls. The figures
+are reported for trending and never alert on their own.
 
 options:
   -h, --help            show this help message and exit

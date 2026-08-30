@@ -46,7 +46,9 @@ state, and perfdata values from configurable keys. Useful for integrating
 custom applications or APIs that expose monitoring data as JSON. Supports HTTP
 bearer-token and arbitrary header authentication, dot-notation for nested JSON
 keys, and per-key Nagios-range thresholds in addition to the state value
-extracted from the JSON itself.
+extracted from the JSON itself. Alerts when the value behind `--warning-key`
+or `--critical-key` falls outside its range, or when the JSON itself carries a
+non-OK state.
 
 options:
   -h, --help            show this help message and exit

@@ -40,7 +40,8 @@ usage: matomo-reporting [-h] [-V] [--always-ok] [--date DATE]
 
 Retrieves common analytics values from a Matomo instance, including visits,
 unique visitors, bounce rate, and actions. Supports one or multiple websites
-and any date range or period.
+and any date range or period. Alerts when a metric named by `--metric` falls
+outside its range; without one, the figures are reported and never alert.
 
 options:
   -h, --help           show this help message and exit

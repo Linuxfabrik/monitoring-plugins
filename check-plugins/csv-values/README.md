@@ -110,7 +110,8 @@ temporary SQLite database and runs configurable SQL queries against it.
 Separate queries can be defined for warning and critical conditions. The query
 result - either a row count or a specific value - is checked against Nagios
 range expressions. This makes it possible to monitor any data source that can
-export CSV.
+export CSV. Alerts when the result of `--warning-query` or `--critical-query`
+falls outside its range.
 
 options:
   -h, --help            show this help message and exit

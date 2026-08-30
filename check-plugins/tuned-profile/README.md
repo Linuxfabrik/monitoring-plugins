@@ -3,7 +3,7 @@
 
 ## Overview
 
-Verifies that the current `tuned` profile matches the expected setting. Useful for ensuring consistent performance tuning across a fleet of servers.
+Verifies that the current `tuned` profile matches the expected setting. Alerts when the profile in force is not the expected one. Useful for ensuring consistent performance tuning across a fleet of servers.
 
 **Data Collection:**
 
@@ -27,8 +27,8 @@ Verifies that the current `tuned` profile matches the expected setting. Useful f
 ```text
 usage: tuned-profile [-h] [-V] [--always-ok] [--profile TUNED_PROFILE]
 
-Verifies that the current tuned profile matches the expected setting. Returns
-WARN if the active profile differs from the desired one. Useful for ensuring
+Verifies that the current tuned profile matches the expected setting. Alerts
+when the profile in force is not the expected one. Useful for ensuring
 consistent performance tuning across a fleet of servers.
 
 options:

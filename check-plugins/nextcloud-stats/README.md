@@ -49,8 +49,8 @@ usage: nextcloud-stats [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
 Monitors Nextcloud usage statistics via the server info API, including active
 user counts over time, file shares by category, and storage metrics.
 Optionally lists the accounts consuming the most storage via --top, to
-identify who fills up the data directory. The listing is informative only: it
-never changes the state of the check and produces no performance data.
+identify who fills up the data directory. The listing produces no performance
+data. The figures are reported for trending and never alert on their own.
 
 options:
   -h, --help            show this help message and exit

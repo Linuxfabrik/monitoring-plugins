@@ -41,10 +41,10 @@ usage: atlassian-statuspage [-h] [-V] [--always-ok] [--insecure]
 Monitors a public Atlassian Statuspage for incidents, degraded services, and
 scheduled maintenance windows. Reports the overall status indicator, the name
 and latest update of each unresolved incident, the status of each affected
-service, and any ongoing or upcoming maintenance. Returns OK when no incidents
-are reported, WARN for minor incidents, degraded or partially unavailable
-services and maintenance windows, and CRIT for major/critical incidents or
-major service outages. Works with any Statuspage-powered status page, not just
+service, and any ongoing or upcoming maintenance. Alerts on a minor incident,
+on a service that is degraded or partially out, and on a maintenance window in
+progress; a major or critical incident, and a service in a major outage, raise
+a critical state. Works with any Statuspage-powered status page, not just
 Atlassian's own.
 
 options:

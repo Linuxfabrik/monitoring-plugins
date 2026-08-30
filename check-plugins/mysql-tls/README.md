@@ -50,7 +50,9 @@ server's TLS capability (`have_ssl`), enforcement
 TLSv1.2 or TLSv1.3), the presence of a server certificate and key, the local
 expiry of `ssl_cert` and `ssl_ca` files (when readable on the same host), and
 any remote accounts that can still connect without `REQUIRE SSL`. Each finding
-maps to a copy-pasteable SQL or `openssl` recommendation.
+maps to a copy-pasteable SQL or `openssl` recommendation. Alerts when a
+finding fails, at the level `--severity` sets, and on its own thresholds for
+the expiry of the local certificate.
 
 options:
   -h, --help            show this help message and exit

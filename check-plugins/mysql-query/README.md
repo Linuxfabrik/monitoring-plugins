@@ -52,7 +52,8 @@ CRIT. A query returning one row with one column is checked as a single value
 other shape is checked by its row count. Useful for custom application-level
 monitoring: queue depth, stale rows, replication lag tables, total user count,
 daily order count, failed-job count, inventory below threshold, expiring
-licences, anything an application stores in a table.
+licences, anything an application stores in a table. Alerts when the result of
+either statement falls outside its range.
 
 options:
   -h, --help            show this help message and exit

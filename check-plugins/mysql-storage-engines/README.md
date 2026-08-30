@@ -62,8 +62,10 @@ with more than 10% `DATA_FREE` count. The `AUTO_INCREMENT` check goes beyond
 mysqltuner by comparing each column to its own type ceiling (`TINYINT` to
 `BIGINT`, signed/unsigned), so tables using `INT UNSIGNED` are caught long
 before they hit the duplicate-key error. `--match` and `--ignore` narrow every
-check down to a single schema or table. Supports extended reporting via
---lengthy.
+check down to a single schema or table. Alerts when InnoDB is enabled without
+a single InnoDB table, when too many tables are fragmented, and when an
+`AUTO_INCREMENT` value approaches its column-type ceiling. Supports extended
+reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit

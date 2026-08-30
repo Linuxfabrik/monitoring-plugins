@@ -49,7 +49,8 @@ Monitors Grassfish digital signage players via the Grassfish API. Lists
 players whose data transfer is overdue, whose last access exceeds the
 configured threshold, or who are unlicensed. The player list can be filtered.
 Requires a Grassfish hostname and API token. Supports extended reporting via
---lengthy.
+--lengthy. Alerts when a player is unlicensed, when its transfer status is
+overdue, or when it was last seen longer ago than `--warning` allows.
 
 options:
   -h, --help            show this help message and exit

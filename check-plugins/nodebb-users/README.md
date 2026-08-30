@@ -37,7 +37,8 @@ usage: nodebb-users [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                     [--timeout TIMEOUT] -p TOKEN [--url URL]
 
 Monitors NodeBB user statistics via the admin API, including total user count,
-admins, and banned users.
+admins, and banned users. Alerts when a user is banned, at the level
+`--severity` sets.
 
 options:
   -h, --help            show this help message and exit

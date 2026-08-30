@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns OK if FPM responds with the expected "pong" reply.
+Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts when the reply differs from the expected "pong", at the level `--severity` sets.
 
 **Important Notes:**
 
@@ -49,8 +49,9 @@ usage: php-fpm-ping [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                     [--no-proxy] [--proxy PROXY] [--response RESPONSE]
                     [--severity {warn,crit}] [--timeout TIMEOUT] [-u URL]
 
-Checks whether PHP-FPM is alive by fetching its ping monitoring page. Returns
-OK if FPM responds with the expected "pong" reply.
+Checks whether PHP-FPM is alive by fetching its ping monitoring page. Alerts
+when the reply differs from the expected "pong", at the level `--severity`
+sets.
 
 options:
   -h, --help            show this help message and exit

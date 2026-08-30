@@ -41,7 +41,8 @@ usage: starface-account-stats [-h] [-V] [--always-ok]
 Monitors account statistics of a Starface PBX via its monitoring module on
 port 6556. Reports SIP and DAHDI account states including registered,
 unregistered, and failed accounts. Supports both IPv4 and IPv6. Data is cached
-to avoid overloading the PBX when multiple checks run in parallel.
+to avoid overloading the PBX when multiple checks run in parallel. The figures
+are reported for trending and never alert on their own.
 
 options:
   -h, --help            show this help message and exit

@@ -38,6 +38,7 @@ usage: librenms-version [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
 Displays LibreNMS instance information including version, database schema,
 Python and RRDtool versions via the LibreNMS API. This check does not track
 new releases since LibreNMS can update itself when running the Git version.
+The version is reported for reference and never alerts on its own.
 
 options:
   -h, --help         show this help message and exit

@@ -43,8 +43,8 @@ usage: restic-stats [-h] [-V] [--always-ok] [--host HOST]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
-counting modes (restore-size, files-by-contents, raw-data). Requires root or
-sudo.
+counting modes (restore-size, files-by-contents, raw-data). The figures are
+reported for trending and never alert on their own. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
