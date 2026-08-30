@@ -49,7 +49,6 @@ Whether a module belongs to a package is asked of `rpm` or `dpkg`, whichever the
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | Icinga Web 2; `rpm` or `dpkg` to recognise packaged modules; network access to `api.github.com` |
-| 3rd Party Python modules              | `httpx` |
 | Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-cache.db` |
 
 
