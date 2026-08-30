@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083001'
 
 DESCRIPTION = """Monitors the health status of a WHMCS installation via its system status API. Reports
 module versions, license status, and system health indicators.
@@ -209,11 +209,6 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # init some vars
-    msg = ''
-    state = STATE_OK
-    perfdata = ''
-
     # fetch data
     if args.TEST is None:
         result = lib.base.coe(get_data(args))
@@ -223,6 +218,11 @@ def main():
         result = json.loads(stdout)
     if result['result'] != 'success':
         lib.base.cu(f'Error: {result}')
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
 
     # analyze data
     result = get_failed_checks(result)

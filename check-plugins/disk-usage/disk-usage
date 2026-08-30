@@ -527,6 +527,19 @@ def main():
     if args.LIST_FSTYPES:
         list_fstypes()
 
+    # fetch data
+    fixture_usage = None
+    fixture_timeouts = set()
+    if args.TEST is None:
+        # `--fstype` means the user wants to pick the file system types themselves, so
+        # everything is listed; the default behaviour is to check physical devices only
+        # (e.g. hard disks, cd-rom drives, USB keys) and ignore all others (e.g. pseudo,
+        # memory, duplicate, inaccessible filesystems).
+        parts = lib.psutil.get_partitions(include_all=bool(args.FSTYPE))
+    else:
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        parts, fixture_usage, fixture_timeouts = _load_disk_usage_fixture(stdout)
+
     # init some vars
     state = STATE_OK
     perfdata = ''
@@ -555,19 +568,6 @@ def main():
             args.PERFDATA_REGEX, '--perfdata-regex', flags=re.IGNORECASE
         )
     ]
-
-    # fetch data
-    fixture_usage = None
-    fixture_timeouts = set()
-    if args.TEST is None:
-        # `--fstype` means the user wants to pick the file system types themselves, so
-        # everything is listed; the default behaviour is to check physical devices only
-        # (e.g. hard disks, cd-rom drives, USB keys) and ignore all others (e.g. pseudo,
-        # memory, duplicate, inaccessible filesystems).
-        parts = lib.psutil.get_partitions(include_all=bool(args.FSTYPE))
-    else:
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        parts, fixture_usage, fixture_timeouts = _load_disk_usage_fixture(stdout)
 
     # analyze data
     # Filter first, then ask the filesystems that are left. That order is what makes
