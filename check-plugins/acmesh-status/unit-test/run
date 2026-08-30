@@ -210,6 +210,8 @@ SCENARIOS = [
             'Detach a domain that has been retired:',
             '--remove --domain=www.example.com --ecc',
         ],
+        # the only repair on offer is not an alternative to anything
+        'assert-not-in': ['Or detach'],
     },
     {
         'id': 'ok-renewal-overdue-within-grace',
@@ -297,12 +299,20 @@ SCENARIOS = [
             '3 of 3 certificates need attention.',
             'Check why the renewal is not happening: `acme.sh',
             '--renew --domain=$DOMAIN --ecc`',
+            'Recommendations:\n* Install the missing copy again:',
             '--install-cert --domain=$DOMAIN --ecc --cert-file=',
             '/pki/$DOMAIN.crt',
+            '* Or detach a domain that has been retired:',
             '--remove --domain=$DOMAIN --ecc`',
         ],
-        # the per-domain repetition is what this replaces
-        'assert-not-in': ['--domain=a.example.com', '--domain=b.example.com'],
+        # the step that has to happen first does not sit inside the list of repairs
+        # the per-domain repetition is what this replaces, and the step that has to
+        # happen first does not sit inside the list of repairs
+        'assert-not-in': [
+            '--domain=a.example.com',
+            '--domain=b.example.com',
+            '* Check why the renewal is not happening',
+        ],
     },
     {
         'id': 'warn-both-key-types-get-a-line-each',

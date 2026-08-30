@@ -20,6 +20,7 @@ Reports the state of the certificates acme.sh manages, by reading its certificat
 * acme.sh is never executed. Its own `--list` reads each configuration file by sourcing it as shell code, which is not something a check should do to the files it is inspecting, so the files are parsed instead.
 * Certificates can be limited with `--match` and excluded with `--ignore`, both case-sensitive Python regular expressions matched against the store directory name (`www.example.com_ecc`); use `(?i)` for case-insensitive matching. An item hit by `--ignore` is dropped even if it also matches `--match`.
 * The recommendations are grouped by the command they carry, so the same fault on twenty domains is one line with `$DOMAIN` in place of the name rather than twenty paragraphs. A group covering a single certificate names that domain, so the command runs as it stands. `--ecc` addresses a different store than its absence does, so certificates of both key types are never folded into one command.
+* Running the renewal by hand is printed above the recommendations rather than among them. It is not an alternative to them: it produces the reason acme.sh has, which is what decides whether the certificate is repaired or retired.
 
 
 ## Fact Sheet
@@ -153,7 +154,7 @@ shop.example.com_ecc ! 68d       ! in 1M 1W ! -    ! [OK]
 www.example.com_ecc  ! 68d       ! in 1M 1W ! -    ! [OK]
 ```
 
-Three domains whose DNS records were removed without taking them out of the renewal list, and two whose installed copy has gone missing. The table names the certificates, the recommendations carry the commands, and each command stands for every certificate it applies to, with `$DOMAIN` in place of the name:
+Three domains whose DNS records were removed without taking them out of the renewal list, and two whose installed copy has gone missing. The table names the certificates and the commands below it carry the fix, each standing for every certificate it applies to with `$DOMAIN` in place of the name. Running the renewal by hand is what tells the two repairs apart, so it is listed on its own above them rather than as a third option:
 
 ```bash
 ./acmesh-status --path=/etc/acme.sh --grace-renewal=8D
@@ -172,10 +173,11 @@ ws.example.com_ecc     ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned !
 mail.example.com_ecc   ! 68d       ! in 1M 1W      ! orphaned                  ! [WARNING]
 www.example.com_ecc    ! 68d       ! in 1M 1W      ! orphaned                  ! [WARNING]
 
+Check why the renewal is not happening: `acme.sh --config-home=/etc/acme.sh --renew --domain=$DOMAIN --ecc`
+
 Recommendations:
-* Check why the renewal is not happening: `acme.sh --config-home=/etc/acme.sh --renew --domain=$DOMAIN --ecc`
 * Install the missing copy again: `acme.sh --config-home=/etc/acme.sh --install-cert --domain=$DOMAIN --ecc --cert-file=/etc/pki/tls/certs/$DOMAIN.crt --key-file=/etc/pki/tls/private/$DOMAIN.key --fullchain-file=/etc/pki/tls/certs/$DOMAIN-fullchain.crt --ca-file=/etc/pki/tls/certs/$DOMAIN-chain.crt --reloadcmd='systemctl reload httpd'`
-* Detach a domain that has been retired: `acme.sh --config-home=/etc/acme.sh --remove --domain=$DOMAIN --ecc`
+* Or detach a domain that has been retired: `acme.sh --config-home=/etc/acme.sh --remove --domain=$DOMAIN --ecc`
 ```
 
 On a busy reverse proxy, `--brief` drops the rows that are within the thresholds so only the certificates that need attention are listed. Performance data and the check state are unaffected:

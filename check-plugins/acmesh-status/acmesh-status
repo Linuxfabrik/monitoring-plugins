@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026083002'
 
 DESCRIPTION = """Reports the state of the certificates acme.sh manages, by reading its
 certificate store instead of its output. For every certificate it reports the time left
@@ -485,11 +485,16 @@ def action_reissue(store):
 def build_recommendations(context, actions):
     """Reduce the advice collected across all certificates to one line per command.
 
+    Returns `(diagnostics, repairs)`. The diagnostic step is kept apart from the repairs
+    because it is not an alternative to them: it is what tells an administrator which of
+    them applies. Listing all three together reads as a choice of one out of three, when
+    it is really one step followed by a choice of two.
+
     The same fault on twenty domains is the same command twenty times over, which is a
     screen of text saying one thing. Grouping by the command with the domain replaced by
-    a placeholder collapses those into a single line; the table above already names
-    which certificates it applies to. A group covering exactly one certificate names
-    that domain instead of the placeholder, so it can be run as it stands.
+    a placeholder collapses those into a single line; the table above already names which
+    certificates it applies to. A group covering exactly one certificate names that
+    domain, so it can be run as it stands.
     """
     groups = {}
     for label, arguments, domain in actions:
@@ -500,14 +505,23 @@ def build_recommendations(context, actions):
         key = (label, generic or concrete)
         groups.setdefault(key, []).append(concrete)
 
-    recommendations = []
+    diagnostics = []
+    repairs = []
     for label in ACTION_ORDER:
         for (group_label, generic), concretes in groups.items():
             if group_label != label:
                 continue
             command = concretes[0] if len(concretes) == 1 else generic
-            recommendations.append(f'{label}: `{command}`')
-    return recommendations
+            line = f'{label}: `{command}`'
+            (diagnostics if label == ACTION_DIAGNOSE else repairs).append(line)
+
+    # Retiring the domain is the alternative to every repair above it, and it is always
+    # last, so it is the line that gets to say so. On its own it is not an alternative
+    # to anything and keeps its plain wording.
+    if len(repairs) > 1 and repairs[-1].startswith(ACTION_DETACH):
+        repairs[-1] = 'Or ' + repairs[-1][0].lower() + repairs[-1][1:]
+
+    return (diagnostics, repairs)
 
 
 def format_days_left(days_left):
@@ -802,11 +816,14 @@ def main():
     # The table names the certificates that are affected, the recommendations say what
     # to do about them, so the table comes first: an administrator reads which ones are
     # in trouble before reading a screen of commands.
-    recommendations = build_recommendations(context, actions)
-    if recommendations:
-        sections.append(
-            'Recommendations:\n' + '\n'.join(f'* {r}' for r in recommendations)
-        )
+    # The diagnostic step stands on its own above the recommendations: it is the one
+    # that has to happen first, and it produces information rather than changing
+    # anything, which is what sets it apart from the repairs below it.
+    diagnostics, repairs = build_recommendations(context, actions)
+    if diagnostics:
+        sections.append('\n'.join(diagnostics))
+    if repairs:
+        sections.append('Recommendations:\n' + '\n'.join(f'* {r}' for r in repairs))
     msg = '\n\n'.join(sections)
 
     # over and out
