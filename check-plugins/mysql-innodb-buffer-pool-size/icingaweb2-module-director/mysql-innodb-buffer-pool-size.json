@@ -5,6 +5,9 @@
                 "--always-ok": {
                     "set_if": "$mysql_innodb_buffer_pool_size_always_ok$"
                 },
+                "--critical": {
+                    "value": "$mysql_innodb_buffer_pool_size_critical$"
+                },
                 "--defaults-file": {
                     "value": "$mysql_innodb_buffer_pool_size_defaults_file$"
                 },
@@ -16,6 +19,9 @@
                 },
                 "--timeout": {
                     "value": "$mysql_innodb_buffer_pool_size_timeout$"
+                },
+                "--warning": {
+                    "value": "$mysql_innodb_buffer_pool_size_warning$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mysql-innodb-buffer-pool-size",
@@ -43,6 +49,16 @@
                 },
                 {
                     "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -88,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and derives a workload-based recommendation for the redo log size from the per-hour `Innodb_os_log_written` write rate and the host's RAM tier (rounding matches mysqltuner). The redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL. Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits. Alerts if the buffer pool is undersized relative to the data or if the redo log is smaller than the workload-based target. On freshly booted servers (less than one hour of uptime) the redo-log recommendation is deferred, because the hourly write rate is not yet meaningful.",
+            "notes": "Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Compares the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and reports how far the checkpoint has run through the redo log, which is what tells a redo log that is too small for its workload from one that is merely small. On a server that publishes `Innodb_checkpoint_age` and `Innodb_checkpoint_max_age` those decide the state; on one that publishes neither, the average redo write rate since startup is compared against the redo log size instead, and a workload that writes through the whole log within an hour is reported. The redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL. Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits. Alerts if the buffer pool is undersized relative to the data, or if the checkpoint runs closer to the end of the redo log than the thresholds allow. The redo log size mysqltuner would recommend for the host's RAM is reported as advice without raising a state, because it is a floor for the RAM tier rather than a measurement of this server. On freshly booted servers (less than one hour of uptime) the write-rate comparison is deferred, because the rate is an average since startup and not yet meaningful.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-innodb-buffer-pool-size/",
             "object_name": "tpl-service-mysql-innodb-buffer-pool-size",
             "object_type": "template",
@@ -100,10 +116,12 @@
             "vars": {
                 "criticality": "C",
                 "mysql_innodb_buffer_pool_size_always_ok": false,
+                "mysql_innodb_buffer_pool_size_critical": "99",
                 "mysql_innodb_buffer_pool_size_defaults_file": "/var/spool/icinga2/.my.cnf",
                 "mysql_innodb_buffer_pool_size_defaults_group": "client",
                 "mysql_innodb_buffer_pool_size_no_perfdata": false,
-                "mysql_innodb_buffer_pool_size_timeout": 3
+                "mysql_innodb_buffer_pool_size_timeout": 3,
+                "mysql_innodb_buffer_pool_size_warning": "87.5"
             },
             "volatile": null,
             "zone": null,
@@ -121,6 +139,17 @@
             "uuid": "ae635553-486a-48a8-96e1-8d72b6b96592"
         },
         "2": {
+            "varname": "mysql_innodb_buffer_pool_size_critical",
+            "caption": "MySQL Innodb Buffer Pool Size: Critical",
+            "description": "CRIT threshold for how far the checkpoint has run through the redo log, in percent of `Innodb_checkpoint_max_age`. From 100 InnoDB puts a synchronous wait into every write operation, and a redo log that is too small sits pinned there under load. Only evaluated on a server that publishes its checkpoint age. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3b53670a-426f-4705-8a74-4a78da8c5e4e"
+        },
+        "3": {
             "varname": "mysql_innodb_buffer_pool_size_defaults_file",
             "caption": "MySQL Innodb Buffer Pool Size: Defaults File",
             "description": "MySQL/MariaDB cnf file to read user, host and password from. Example: `--defaults-file=/var/spool/icinga2/.my.cnf`.",
@@ -131,7 +160,7 @@
             },
             "uuid": "6968f480-6aca-459c-a01e-8d7c21ada7da"
         },
-        "3": {
+        "4": {
             "varname": "mysql_innodb_buffer_pool_size_defaults_group",
             "caption": "MySQL Innodb Buffer Pool Size: Defaults Group",
             "description": "Group/section to read from in the cnf file.",
@@ -142,7 +171,7 @@
             },
             "uuid": "e0528d24-a590-4d04-b8b3-b34ade81e81a"
         },
-        "4": {
+        "5": {
             "varname": "mysql_innodb_buffer_pool_size_no_perfdata",
             "caption": "MySQL Innodb Buffer Pool Size: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -151,7 +180,7 @@
             "settings": {},
             "uuid": "90725685-3a8c-4b8a-8e1c-e345b8e12d3a"
         },
-        "5": {
+        "6": {
             "varname": "mysql_innodb_buffer_pool_size_timeout",
             "caption": "MySQL Innodb Buffer Pool Size: Timeout",
             "description": "Network timeout in seconds.",
@@ -161,6 +190,17 @@
                 "visibility": "visible"
             },
             "uuid": "17ac7656-bbd8-481a-ba09-2c2c815641b8"
+        },
+        "7": {
+            "varname": "mysql_innodb_buffer_pool_size_warning",
+            "caption": "MySQL Innodb Buffer Pool Size: Warning",
+            "description": "WARN threshold for how far the checkpoint has run through the redo log, in percent of `Innodb_checkpoint_max_age`. At 87.5 InnoDB starts flushing pages ahead to keep the checkpoint moving. Only evaluated on a server that publishes its checkpoint age. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "0b737be7-9028-4fb0-8b48-4c1bb8fbb2a1"
         }
     }
 }

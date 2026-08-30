@@ -21,18 +21,24 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082801'
+__version__ = '2026083001'
 
-DESCRIPTION = """Checks the InnoDB buffer pool size configuration in MySQL/MariaDB. Compares the
-configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and derives
-a workload-based recommendation for the redo log size from the per-hour `Innodb_os_log_written`
-write rate and the host's RAM tier (rounding matches mysqltuner). The redo log knob is
-`innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times
+DESCRIPTION = """Checks the InnoDB buffer pool and redo log sizing in MySQL/MariaDB. Compares
+the configured `innodb_buffer_pool_size` against the actual InnoDB data and index sizes, and
+reports how far the checkpoint has run through the redo log, which is what tells a redo log
+that is too small for its workload from one that is merely small. On a server that publishes
+`Innodb_checkpoint_age` and `Innodb_checkpoint_max_age` those decide the state; on one that
+publishes neither, the average redo write rate since startup is compared against the redo log
+size instead, and a workload that writes through the whole log within an hour is reported. The
+redo log knob is `innodb_redo_log_capacity` on MySQL 8.0.30+ and `innodb_log_file_size` (times
 `innodb_log_files_in_group`, where that variable still exists) on MariaDB and older MySQL.
 Also flags `innodb_file_per_table = OFF` and architecture-related buffer-pool size limits.
-Alerts if the buffer pool is undersized relative to the data or if the redo log is smaller than
-the workload-based target. On freshly booted servers (less than one hour of uptime) the
-redo-log recommendation is deferred, because the hourly write rate is not yet meaningful."""
+Alerts if the buffer pool is undersized relative to the data, or if the checkpoint runs closer
+to the end of the redo log than the thresholds allow. The redo log size mysqltuner would
+recommend for the host's RAM is reported as advice without raising a state, because it is a
+floor for the RAM tier rather than a measurement of this server. On freshly booted servers
+(less than one hour of uptime) the write-rate comparison is deferred, because the rate is an
+average since startup and not yet meaningful."""
 
 DEFAULT_DEFAULTS_FILE = '/var/spool/icinga2/.my.cnf'
 DEFAULT_DEFAULTS_GROUP = 'client'
@@ -43,11 +49,31 @@ LIMIT_32BIT = 4294967295
 # 64-bit theoretical ceiling for innodb_buffer_pool_size (`2**64 - 1`).
 LIMIT_64BIT = 18446744073709551615
 
-# Workload-based redo log capacity check (matches mysqltuner):
-# - need at least 1 h of uptime for the hourly rate to be meaningful
-# - alert when the current capacity is more than 10% below the recommendation
+# The hourly `Innodb_os_log_written` rate is an average since startup, so it needs at
+# least an hour of uptime to mean anything.
 REDO_LOG_MIN_UPTIME = 3600
-REDO_LOG_TOLERANCE = 0.9
+
+# How full the redo log is allowed to get before it is worth reporting, as a percentage
+# of `Innodb_checkpoint_max_age`. Both numbers come from InnoDB itself rather than from
+# a rule of thumb (MariaDB `storage/innobase/log/log0log.cc`, `log_t::set_capacity()`):
+#
+# - at `max_modified_age_async`, which is `margin - margin / 8` and therefore 87.5% of
+#   `max_checkpoint_age`, InnoDB starts flushing pages ahead more aggressively to keep
+#   the checkpoint moving (`mtr0mtr.cc`, `mtr_flush_ahead()`)
+# - at `max_checkpoint_age` itself, `log_t::checkpoint_margin()` puts a synchronous wait
+#   into every write operation, which is the stall an administrator notices
+#
+# `Innodb_checkpoint_max_age` is derived from the redo log size, so a checkpoint age
+# close to it is what "the redo log is too small for this workload" actually looks like.
+#
+# Measured against MariaDB 11.8.8 with a 4 MiB redo log under a sustained insert load:
+# the checkpoint age does not climb through the band, it jumps to the limit and stays
+# pinned at 100.0-100.1% for as long as the load runs, because the synchronous wait is
+# what holds it there. The critical threshold is therefore 99 rather than 100: a range
+# of `100` only alerts above 100, and the value sits on exactly 100.0 often enough for
+# that to be missed.
+DEFAULT_CRIT = '99'
+DEFAULT_WARN = '87.5'
 
 
 def parse_args():
@@ -71,6 +97,19 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for how far the checkpoint has run through the redo '
+        'log, in percent of `Innodb_checkpoint_max_age`. '
+        'From 100 InnoDB puts a synchronous wait into every write operation, and a redo log that is too small sits pinned there under load. '
+        'Only evaluated on a server that publishes its checkpoint age. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
     )
 
     parser.add_argument(
@@ -105,6 +144,19 @@ def parse_args():
         default=DEFAULT_TIMEOUT,
     )
 
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for how far the checkpoint has run through the redo '
+        'log, in percent of `Innodb_checkpoint_max_age`. '
+        'At 87.5 InnoDB starts flushing pages ahead to keep the checkpoint moving. '
+        'Only evaluated on a server that publishes its checkpoint age. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -128,7 +180,9 @@ def get_vars(conn):
 def get_status(conn):
     sql = """
         show global status
-        where variable_name like 'Innodb_os_log_written'
+        where variable_name like 'Innodb_checkpoint_age'
+            or variable_name like 'Innodb_checkpoint_max_age'
+            or variable_name like 'Innodb_os_log_written'
             or variable_name like 'Uptime'
             ;
           """
@@ -255,6 +309,10 @@ def main():
     file_per_table = myvar.get('innodb_file_per_table', '').upper()
     uptime = int(mystat.get('Uptime') or 0)
     os_log_written = int(mystat.get('Innodb_os_log_written') or 0)
+    # MariaDB publishes both, MySQL neither (`ha_innodb.cc`). Absent means this
+    # server cannot answer how full its redo log runs, not that it runs empty.
+    checkpoint_age = int(mystat.get('Innodb_checkpoint_age') or 0)
+    checkpoint_max_age = int(mystat.get('Innodb_checkpoint_max_age') or 0)
     physical_memory = get_physical_memory()
 
     state = STATE_OK
@@ -325,37 +383,88 @@ def main():
             f' ({data_h}).'
         )
 
-    # 4. Workload-based redo log sizing. Compare the redo log against an hourly
-    #    write rate target rounded into the appropriate RAM tier. mysqltuner only
-    #    runs this on MySQL 8.0.30+, because its version gate leaves MariaDB in the
-    #    `innodb_redo_log_capacity` branch, where that variable does not exist, and
-    #    the older 25% log-size-ratio branch is unreachable there. The input
-    #    `Innodb_os_log_written` and the redo log size itself are available on both
-    #    servers (MariaDB exports the counter in srv0srv.cc as the LSN written since
-    #    startup), so this plugin applies the same target to `innodb_log_file_size`.
-    #    Deferred on freshly booted servers (< 1 h uptime), where the rate is
-    #    unreliable.
+    # 4. Redo log pressure. What "the redo log is too small" means is that the
+    #    checkpoint cannot keep up with it, and MariaDB publishes exactly that:
+    #    `Innodb_checkpoint_age` against `Innodb_checkpoint_max_age`, the latter
+    #    derived from the redo log size in `log_t::set_capacity()`. Measuring the
+    #    mechanism beats guessing at it from a write rate, so where those two are
+    #    there they decide the state.
+    #
+    #    MySQL exports neither, only `Innodb_os_log_written`. There the question
+    #    becomes how often the workload writes its way through the whole redo log:
+    #    a server that writes more redo per hour than the log holds wraps it at
+    #    least once an hour and keeps the checkpoint under permanent pressure.
+    #
+    #    mysqltuner's RAM-tier minimum stays a recommendation and no longer sets a
+    #    state. It is a floor, not a measurement: below 2 GiB of RAM it targets
+    #    100 MiB whatever the server does, so it fires on an idle database whose
+    #    redo log is nowhere near full, and mysqltuner itself never reaches this
+    #    code on MariaDB (`mysqltuner.pl` gates it on `mysql_version_ge(8, 0, 30)`
+    #    and on `innodb_redo_log_capacity` being defined).
     hourly_rate = None
     recommended_redo = None
-    if redo_size is not None and physical_memory is not None:
+    checkpoint_pct = None
+    if redo_size is not None:
         redo_h = lib.human.bytes2human(redo_size)
-        if uptime >= REDO_LOG_MIN_UPTIME:
+        if checkpoint_max_age:
+            checkpoint_pct = checkpoint_age / checkpoint_max_age * 100
+            item_state = lib.base.get_state(
+                checkpoint_pct, args.WARN, args.CRIT, _operator='range'
+            )
+            state = lib.base.get_worst(state, item_state)
+            sections.append(
+                f'The redo log ({redo_knob}, {redo_h}) is'
+                f' {checkpoint_pct:.1f}% through its checkpoint age'
+                f' ({lib.human.bytes2human(checkpoint_age)} of'
+                f' {lib.human.bytes2human(checkpoint_max_age)})'
+                f'{lib.base.state2str(item_state, prefix=" ")}.'
+            )
+            if item_state != STATE_OK:
+                recommendations.append(
+                    f'Raise `{redo_knob}`: the checkpoint is running this close to '
+                    f'the end of the redo log, so InnoDB is flushing pages ahead to '
+                    f'keep up and stalls every write once it arrives. Tradeoff: a '
+                    f'larger redo log means longer crash recovery'
+                )
+        elif uptime < REDO_LOG_MIN_UPTIME:
+            sections.append(
+                f'The redo log ({redo_knob}, {redo_h}); uptime < 1 h, so the write'
+                f' rate is not yet meaningful.'
+            )
+        else:
+            # No checkpoint age published: judge by how long the workload takes to
+            # write its way through the whole redo log.
+            hourly_rate = os_log_written / (uptime / 3600)
+            rate_h = lib.human.bytes2human(int(hourly_rate))
+            item_state = STATE_WARN if hourly_rate >= redo_size else STATE_OK
+            state = lib.base.get_worst(state, item_state)
+            # How long the log holds at that rate. A server writing nothing would
+            # divide by zero on the way there, and its log holds forever anyway.
+            if hourly_rate > 0:
+                holds = lib.human.seconds2human(int(redo_size / hourly_rate * 3600))
+            else:
+                holds = 'unlimited'
+            sections.append(
+                f'The redo log ({redo_knob}, {redo_h}) holds {holds} of redo at the'
+                f' average write rate since startup ({rate_h}/h)'
+                f'{lib.base.state2str(item_state, prefix=" ")}.'
+            )
+            if item_state != STATE_OK:
+                recommendations.append(
+                    f'Raise `{redo_knob}`: the workload writes through the whole '
+                    f'redo log at least once an hour, which keeps the checkpoint '
+                    f'under permanent pressure. Tradeoff: a larger redo log means '
+                    f'longer crash recovery'
+                )
+
+        # The floor mysqltuner would recommend, as advice rather than as a state.
+        if physical_memory is not None and uptime >= REDO_LOG_MIN_UPTIME:
             hourly_rate = os_log_written / (uptime / 3600)
             recommended_redo = recommended_redo_log_capacity(
-                hourly_rate,
-                physical_memory,
+                hourly_rate, physical_memory
             )
-            rec_h = lib.human.bytes2human(recommended_redo)
-            rate_h = lib.human.bytes2human(int(hourly_rate))
-            if redo_size < recommended_redo * REDO_LOG_TOLERANCE:
-                state = lib.base.get_worst(state, STATE_WARN)
-                sections.append(
-                    f'`{redo_knob}` ({redo_h}) is below the'
-                    f' workload-based target of {rec_h} (hourly InnoDB log'
-                    f' write rate: {rate_h}/h on a host with'
-                    f' {lib.human.bytes2human(physical_memory)} RAM)'
-                    f'{lib.base.state2str(STATE_WARN, prefix=" ")}.'
-                )
+            if redo_size < recommended_redo:
+                rec_h = lib.human.bytes2human(recommended_redo)
                 if redo_knob == 'innodb_log_file_size' and log_files_in_group > 1:
                     # Pre-8.0.30 MySQL splits the redo log over several files, so
                     # the per-file value the admin has to set is not the target.
@@ -364,36 +473,20 @@ def main():
                         recommended_redo // log_files_in_group
                     )
                     recommendations.append(
-                        f'Raise `innodb_log_file_size` to {per_file_h} or more'
-                        f' ({rec_h} across the {log_files_in_group} files of'
-                        f' `innodb_log_files_in_group`). Tradeoff: a larger redo'
-                        f' log means longer crash recovery'
+                        f'For reference, mysqltuner would size `{redo_knob}` at '
+                        f'{per_file_h} or more on a host with '
+                        f'{lib.human.bytes2human(physical_memory)} of RAM '
+                        f'({rec_h} across the {log_files_in_group} files of '
+                        f'`innodb_log_files_in_group`). That is a floor for the RAM '
+                        f'tier, not a measurement of this workload'
                     )
                 else:
                     recommendations.append(
-                        f'Raise `{redo_knob}` to {rec_h} or more.'
-                        f' Tradeoff: a larger redo log means longer crash recovery'
+                        f'For reference, mysqltuner would size `{redo_knob}` at '
+                        f'{rec_h} or more on a host with '
+                        f'{lib.human.bytes2human(physical_memory)} of RAM. That is a '
+                        f'floor for the RAM tier, not a measurement of this workload'
                     )
-            else:
-                sections.append(
-                    f'`{redo_knob}` ({redo_h}) matches the'
-                    f' workload-based target ({rec_h} for'
-                    f' {rate_h}/h on'
-                    f' {lib.human.bytes2human(physical_memory)} RAM).'
-                )
-        else:
-            sections.append(
-                f'`{redo_knob}` ({redo_h}); uptime < 1 h, workload-based sizing'
-                f' recommendation deferred.'
-            )
-    elif redo_size is not None:
-        # The RAM tier picks the minimum target size, so without the host's RAM
-        # there is no target to compare against.
-        sections.append(
-            f'`{redo_knob}` ({lib.human.bytes2human(redo_size)}); the host does'
-            f' not report its physical memory, workload-based sizing'
-            f' recommendation skipped.'
-        )
 
     if recommendations:
         sections.append(
@@ -444,6 +537,24 @@ def main():
             recommended_redo,
             uom='B',
             _min=0,
+        )
+    if checkpoint_pct is not None:
+        # The series that says whether the redo log is big enough for what the
+        # server does, which the sizes above cannot say on their own.
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_checkpoint_age_percent',
+            round(checkpoint_pct, 1),
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'mysql_innodb_checkpoint_age',
+            checkpoint_age,
+            uom='B',
+            _min=0,
+            _max=checkpoint_max_age,
         )
 
     # over and out

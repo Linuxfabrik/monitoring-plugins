@@ -79,7 +79,7 @@ Monitoring Plugins:
 * kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
-* mysql-innodb-buffer-pool-size: recommends a redo log size on MariaDB and older MySQL too
+* mysql-innodb-buffer-pool-size: judges the redo log by how far the checkpoint has run into it instead of by the size mysqltuner would recommend for the host's RAM, which alerted on idle databases
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
 * mysql-logfile: counts aborted connections and denied logins per source over a time window instead of alerting on each, and reads the error log and the journal of the database unit as one window
 * nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
