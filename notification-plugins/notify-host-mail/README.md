@@ -51,16 +51,17 @@ Sends notifications for hosts using mail.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --datetime DATETIME   Set the message timestamp.
+  --datetime DATETIME   Set the message timestamp ($icinga.short_date_time$).
   --host-address HOST_ADDRESS
                         Set the IPv4 address of the host.
   --host-displayname HOST_DISPLAYNAME
-                        Set the display name of the host.
+                        Set the display name of the host
+                        ($host.display_name$).
   --host-output HOST_OUTPUT
-                        Set the host output.
+                        Set the host output ($host.output$).
   --host-state HOST_STATE
-                        Set the host state.
-  --hostname HOSTNAME   Set the hostname.
+                        Set the host state ($host.state$).
+  --hostname HOSTNAME   Set the hostname ($host.name$).
   --icingaweb2-url ICINGAWEB2_URL
                         Set the Icinga Web 2 URL, for example
                         "https://example.com/icingaweb2".
@@ -80,9 +81,9 @@ options:
   --notes-url NOTES_URL
                         Set the notes url.
   --notification-author NOTIFICATION_AUTHOR
-                        Set the author of the comment.
+                        Set the author of the comment ($notification.author$).
   --notification-comment NOTIFICATION_COMMENT
-                        Set the comment.
+                        Set the comment ($notification.comment$).
   --notification-type NOTIFICATION_TYPE
                         Set the type of notification like "PROBLEM" or
                         "RECOVERY".

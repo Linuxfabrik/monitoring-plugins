@@ -21,7 +21,7 @@ Checks the status of a Windows Scheduled Task. Alerts when the task is not in th
 | Can be called without parameters      | No (`--task` is required) |
 | Runs on                               | Windows |
 | Compiled for Windows                  | Yes |
-| 3rd Party Python modules              | `psutil` |
+| Requirements                          | command-line tool `schtasks` (ships with Windows) |
 
 
 ## Help

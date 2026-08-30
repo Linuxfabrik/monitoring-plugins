@@ -35,28 +35,29 @@ Sends service notifications using the Rocket.Chat API.
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
-  --datetime DATETIME   Set the message timestamp.
+  --datetime DATETIME   Set the message timestamp ($icinga.short_date_time$).
   --host-displayname HOST_DISPLAYNAME
-                        Set the display name of the host.
-  --hostname HOSTNAME   Set the hostname.
+                        Set the display name of the host
+                        ($host.display_name$).
+  --hostname HOSTNAME   Set the hostname ($host.name$).
   --icingaweb2-url ICINGAWEB2_URL
                         Set the Icinga Web 2 URL, for example
                         "https://example.com/icingaweb2".
   --notification-author NOTIFICATION_AUTHOR
-                        Set the author of the comment.
+                        Set the author of the comment ($notification.author$).
   --notification-comment NOTIFICATION_COMMENT
-                        Set the comment.
+                        Set the comment ($notification.comment$).
   --rocketchat-mentions ROCKETCHAT_MENTIONS
                         Set the Rocket.Chat mentions. Can be specified
                         multiple times.
   --rocketchat-url ROCKETCHAT_URL
                         Set the Rocket.Chat Webhook API URL.
   --service-output SERVICE_OUTPUT
-                        Set the service output.
+                        Set the service output ($service.output$).
   --service-state SERVICE_STATE
-                        Set the service state.
+                        Set the service state ($service.state$).
   --servicename SERVICENAME
-                        Set the servicename.
+                        Set the servicename ($service.name$).
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/notification-plugins/notify-service-rocketchat/
