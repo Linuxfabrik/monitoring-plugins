@@ -31,7 +31,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083004'
+__version__ = '2026083005'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -1036,10 +1036,12 @@ def get_api_quota(args, token):
     """Return what the vulnerability API says is left of the daily allowance, as
     `(remaining, reset_epoch)`, or `(None, None)` where it cannot be asked.
 
-    Worth asking before the scan rather than finding out during it. An allowance that is
-    already spent makes the scanner give up before it looks at the site, and the check
-    then drops the token and scans a second time, so the whole run is paid for twice
-    over. Knowing beforehand costs one free request and turns that into one scan.
+    Worth asking before the scan rather than finding out during it, though not for the
+    time it saves: the scanner gives up before it enumerates anything, so the attempt
+    that fails costs a few seconds, not a second scan. What it buys is the answer. The
+    scanner says only that the limit has been reached, while this says when the
+    allowance returns, and the check no longer has to read its own state out of an abort
+    message.
 
     Any trouble reaching it is not this check's business to report: the scan is what
     matters, and it goes ahead exactly as it would have without this question.
@@ -1669,11 +1671,11 @@ def main():
         # itself the full budget a second time, the check would overrun --total-timeout
         # and the monitoring agent would kill it with nothing to report.
         started = lib.time.now()
-        # Ask what is left of the allowance before spending any of it. An allowance that
-        # is already gone makes the scanner give up before it looks at the site, after
-        # which this check drops the token and scans again, so the whole run is paid for
-        # twice. Dropping the token here turns that into a single scan, and the reason
-        # names the hour the allowance comes back rather than only that it is gone.
+        # Ask what is left of the allowance before spending any of it. Not for the time:
+        # the scanner gives up before it enumerates anything, so the failed attempt costs
+        # seconds rather than a second scan. It is the answer that is worth having. The
+        # scanner says only that the limit has been reached, this says when the allowance
+        # returns, and the state no longer has to be read out of an abort message.
         if token and not enterprise:
             remaining, reset = get_api_quota(args, token)
             if remaining == 0:

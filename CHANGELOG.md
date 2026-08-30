@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, the kernel's pressure stall information, the Apache httpd, PHP-FPM and OpenSSH server logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags.
+**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, acme.sh certificates, the kernel's pressure stall information, the Apache httpd, PHP-FPM and OpenSSH server logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags.
 
 ### Breaking Changes
 
@@ -80,16 +80,14 @@ Monitoring Plugins:
 * kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
-* mysql-innodb-buffer-pool-size: judges the redo log by how far the checkpoint has run into it instead of by the size mysqltuner would recommend for the host's RAM, which alerted on idle databases
+* mysql-innodb-buffer-pool-size: judges the redo log by how full it actually runs, instead of alerting on idle databases
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
 * mysql-logfile: counts aborted connections and denied logins per source over a time window instead of alerting on each, and reads the error log and the journal of the database unit as one window
 * nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running and reports the compute host; a password reset or rescue image is no longer CRITICAL, and a slow cloud no longer kills the check
 * openstack-swift-stat: alerts on the container and account quotas, and a slow cloud no longer kills the check
 * procs: reports the fork rate (Linux only)
-* wordpress-security-scan: looks for every component wpscan knows, not only the vulnerable ones, where `--enterprise-db-token` makes the lookups local and free
-* wordpress-security-scan: warns when the vulnerability database refuses the lookup or cannot be reached, instead of quietly scanning on without it
-* wordpress-security-scan: checks what is left of the daily API allowance before scanning, so an exhausted one costs one scan instead of two and the output names when it returns
+* wordpress-security-scan: warns when the vulnerability lookup fails, and scans wider where a local database makes it free
 
 Icinga Director:
 
@@ -152,7 +150,7 @@ Icinga Director:
 * the Huawei Dorado Service Set runs all of its checks again
 * the Apache and MySQL Logfile services read the logs the server writes again instead of only its systemd unit
 * the By WinRM service template processes the performance data its remote command returns; re-import the basket
-* the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` gets a new one and starts its history over
+* the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` starts its history over
 
 Build, CI/CD:
 
