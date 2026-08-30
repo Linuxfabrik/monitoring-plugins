@@ -88,6 +88,7 @@ Monitoring Plugins:
 * openstack-swift-stat: alerts on the container and account quotas, and a slow cloud no longer kills the check
 * procs: reports the fork rate (Linux only)
 * wordpress-security-scan: looks for every component wpscan knows, not only the vulnerable ones, where `--enterprise-db-token` makes the lookups local and free
+* wordpress-security-scan: warns when the vulnerability database refuses the lookup or cannot be reached, instead of quietly scanning on without it
 
 Icinga Director:
 

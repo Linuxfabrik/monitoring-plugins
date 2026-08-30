@@ -58,6 +58,9 @@
                 "--verbose": {
                     "set_if": "$wordpress_security_scan_verbose$"
                 },
+                "--vuln-api-failure-severity": {
+                    "value": "$wordpress_security_scan_vuln_api_failure_severity$"
+                },
                 "--wpscan-detection-mode": {
                     "value": "$wordpress_security_scan_wpscan_detection_mode$"
                 },
@@ -248,6 +251,11 @@
                     "datafield_id": 30,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 31,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -315,6 +323,7 @@
                 "wordpress_security_scan_total_timeout": 1800,
                 "wordpress_security_scan_unscored_severity": "warn",
                 "wordpress_security_scan_verbose": false,
+                "wordpress_security_scan_vuln_api_failure_severity": "warn",
                 "wordpress_security_scan_wpscan_detection_mode": "mixed",
                 "wordpress_security_scan_wpscan_enumerate": "vp,vt,tt,cb,dbe,bf,u",
                 "wordpress_security_scan_wpscan_follow_redirect": false,
@@ -416,6 +425,37 @@
                 }
             ],
             "uuid": "1cd2b36d-3364-4ce0-bfb2-a5f94565ae05"
+        },
+        "wordpress_security_scan_vuln_api_failure_severity_list": {
+            "list_name": "wordpress_security_scan_vuln_api_failure_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "c9d24bd3-80ce-494b-a11e-da23215a12e9"
         },
         "wordpress_security_scan_wpscan_detection_mode_list": {
             "list_name": "wordpress_security_scan_wpscan_detection_mode_list",
@@ -639,6 +679,19 @@
             "uuid": "404345b3-f30f-406b-992f-1958a35d7e30"
         },
         "19": {
+            "varname": "wordpress_security_scan_vuln_api_failure_severity",
+            "caption": "WordPress Security Scan: Vuln Api Failure Severity",
+            "description": "State to report when the vulnerability database refused the request or could not be reached: a token that was rejected or rotated, an exhausted daily request allowance, or an unreachable API. The scan itself still runs and everything it found still counts, but the vulnerability class is no longer being examined and nothing else says so. A run that was never given a token follows `--no-vuln-data-severity` instead, because that one was set up that way and is not a failure.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "wordpress_security_scan_vuln_api_failure_severity_list"
+            },
+            "uuid": "a83d7805-1959-4bca-9e8b-b12b29fb3341"
+        },
+        "20": {
             "varname": "wordpress_security_scan_wpscan_detection_mode",
             "caption": "WordPress Security Scan: WPScan Detection Mode",
             "description": "How hard the scan looks for components. `passive` only reads what the site shows on its own, `aggressive` requests known file locations directly and finds the most, `mixed` does both. Aggressive detection produces far more requests and takes correspondingly longer, so raise --total-timeout with it.",
@@ -651,7 +704,7 @@
             },
             "uuid": "72017484-86d1-478a-9501-c951d5dafbbc"
         },
-        "20": {
+        "21": {
             "varname": "wordpress_security_scan_wpscan_enumerate",
             "caption": "WordPress Security Scan: WPScan Enumerate",
             "description": "What the scan looks for, comma-separated. Plugins: `vp` only the ones with a known vulnerability, `p` the popular ones, `ap` every one known. Themes: `vt`, `t` and `at` in the same order. Further: `tt` timthumb scripts, `cb` wp-config backups, `dbe` database exports, `bf` backup folders, `u` user names. `m` enumerates media files and is accepted, but this check reports nothing from it, so it only lengthens the scan. Only one choice per group: `vp`, `p` and `ap` rule each other out, as do `vt`, `t` and `at`. The wider the choice, the longer the scan takes, since each one probes for every location it knows: `ap` and `at` walk tens of thousands of them. `vp` and `vt` need vulnerability data and are downgraded to `p` and `t` when none is available. `bf` needs wpscan 4.0.0 or newer and is skipped on older releases. Example: `--wpscan-enumerate=cb,dbe,bf,u` looks only for exposed files and user names, which is the fastest useful scan.",
@@ -662,7 +715,7 @@
             },
             "uuid": "b034ccd0-3653-4ee5-aea9-d483969578cf"
         },
-        "21": {
+        "22": {
             "varname": "wordpress_security_scan_wpscan_follow_redirect",
             "caption": "WordPress Security Scan: WPScan Follow Redirect?",
             "description": "Scan the target the site redirects to, instead of reporting the redirection and stopping. A site that answers on `www.example.com` but serves itself under `example.com` needs this, as does a plain HTTP URL redirecting to HTTPS. Only one redirect is followed. Pointing --url at the final address is still preferable, because the scan then spends no request on the redirect at all.",
@@ -671,7 +724,7 @@
             "settings": {},
             "uuid": "f6d3d97c-c9a3-4cef-9175-ca1f33b428de"
         },
-        "22": {
+        "23": {
             "varname": "wordpress_security_scan_wpscan_http_auth",
             "caption": "WordPress Security Scan: WPScan Http Auth",
             "description": "Credentials for HTTP basic authentication in front of the site, as `login:password`. Unlike the API token, the scanner accepts these only on its command line, where they are visible to every user on the scanning host while the scan runs. Prefer --wpscan-http-auth-file, which at least keeps them out of the monitoring configuration.",
@@ -682,7 +735,7 @@
             },
             "uuid": "0d396e5d-6e02-4df4-ad9b-0fcf76fd2109"
         },
-        "23": {
+        "24": {
             "varname": "wordpress_security_scan_wpscan_http_auth_file",
             "caption": "WordPress Security Scan: WPScan Http Auth File",
             "description": "Path to a file holding the HTTP basic authentication credentials, as `login:password`, read from its first line. Takes precedence over `--wpscan-http-auth`. Keep the file readable only by the monitoring user. Example: `--wpscan-http-auth-file=/etc/icinga2/secrets/wordpress-http-auth`.",
@@ -693,7 +746,7 @@
             },
             "uuid": "fbe90226-97ed-4951-aa81-465aac721b8c"
         },
-        "24": {
+        "25": {
             "varname": "wordpress_security_scan_wpscan_ignore_main_redirect",
             "caption": "WordPress Security Scan: WPScan Ignore Main Redirect?",
             "description": "Scan the address given in --url even though it redirects elsewhere. Use it where the redirect is the very thing to look behind, for example a compromised site redirecting its visitors away. Has no effect where --wpscan-follow-redirect is set as well, which wins.",
@@ -702,7 +755,7 @@
             "settings": {},
             "uuid": "02847abe-eeb3-409d-b1f1-54a4d3b0a3e7"
         },
-        "25": {
+        "26": {
             "varname": "wordpress_security_scan_wpscan_no_update",
             "caption": "WordPress Security Scan: WPScan No Update?",
             "description": "Skip the refresh of the local vulnerability database before scanning. The check refreshes it on every run by default, so a site is graded against current data rather than against whatever was last downloaded. Use this where something else keeps the database current, or to save the download on a host that is scanned several times an hour. A refresh that fails is not an error: the scan runs against the local copy, and the check says so. A local copy that was never downloaded at all is different - the scanner then refuses to scan rather than fetching it, so run `wpscan --update` once by hand before setting this.",
@@ -711,7 +764,7 @@
             "settings": {},
             "uuid": "35889eb8-6903-46ec-983b-98bb39f50033"
         },
-        "26": {
+        "27": {
             "varname": "wordpress_security_scan_wpscan_option",
             "caption": "WordPress Security Scan: WPScan Option",
             "description": "Additional raw option to pass to the wpscan call, for options that have no dedicated parameter here. Use it only for options this check does not set itself. Passing one it does set, the target address or the output format above all, leaves the check with nothing it can read. Can be specified multiple times. Example: `--wpscan-option=--plugins-detection=aggressive`.",
@@ -722,7 +775,7 @@
             },
             "uuid": "84ee7d12-7c4d-4fab-8b90-78e5e678baec"
         },
-        "27": {
+        "28": {
             "varname": "wordpress_security_scan_wpscan_proxy",
             "caption": "WordPress Security Scan: WPScan Proxy",
             "description": "Proxy the scan goes through, as `protocol://host:port`. Example: `--wpscan-proxy=http://192.0.2.1:3128`.",
@@ -733,7 +786,7 @@
             },
             "uuid": "2ec0bd47-cb12-4985-b9d2-c4fa59ceca77"
         },
-        "28": {
+        "29": {
             "varname": "wordpress_security_scan_wpscan_random_user_agent",
             "caption": "WordPress Security Scan: WPScan Random User Agent?",
             "description": "Use a random user agent for the scan instead of the one --wpscan-user-agent sets. Only useful where a web application firewall blocks the scan outright, which the scanner reports as a 403. It makes the scan harder to recognize in the target's access log and impossible to allow-list, so the identifiable default is the better choice on a site you run yourself.",
@@ -742,7 +795,7 @@
             "settings": {},
             "uuid": "5d36ba3e-2518-41a8-b1eb-a4e07e1fb156"
         },
-        "29": {
+        "30": {
             "varname": "wordpress_security_scan_wpscan_throttle",
             "caption": "WordPress Security Scan: WPScan Throttle",
             "description": "Milliseconds to wait between requests, to keep the scan from overwhelming the target or tripping a rate limit. Has to be greater than zero. Setting it makes the scanner use a single thread instead of five, so the scan takes considerably longer; raise --total-timeout with it. Not throttled when unset. Example: `--wpscan-throttle=200`.",
@@ -753,7 +806,7 @@
             },
             "uuid": "ac0314b0-e0b5-429e-a89a-3461783a354e"
         },
-        "30": {
+        "31": {
             "varname": "wordpress_security_scan_wpscan_user_agent",
             "caption": "WordPress Security Scan: WPScan User Agent",
             "description": "How the scan identifies itself to the target. The default names the monitoring rather than the scanner, so the daily scan is recognizable in the target's access log and can be allow-listed in a web application firewall or in fail2ban.",

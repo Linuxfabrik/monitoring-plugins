@@ -30,7 +30,7 @@ import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083002'
+__version__ = '2026083003'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -59,6 +59,7 @@ DEFAULT_PATH = '/var/www/html/wordpress'
 DEFAULT_TOTAL_TIMEOUT = 1800
 DEFAULT_UNSCORED_SEVERITY = 'warn'
 DEFAULT_VERBOSE = False
+DEFAULT_VULN_API_FAILURE_SEVERITY = 'warn'
 DEFAULT_WPSCAN_DETECTION_MODE = 'mixed'
 DEFAULT_WPSCAN_ENUMERATE = 'vp,vt,tt,cb,dbe,bf,u'
 DEFAULT_WPSCAN_FOLLOW_REDIRECT = False
@@ -479,6 +480,21 @@ def parse_args():
         dest='VERBOSE',
         action='store_true',
         default=DEFAULT_VERBOSE,
+    )
+
+    parser.add_argument(
+        '--vuln-api-failure-severity',
+        help='State to report when the vulnerability database refused the request or '
+        'could not be reached: a token that was rejected or rotated, an exhausted '
+        'daily request allowance, or an unreachable API. '
+        'The scan itself still runs and everything it found still counts, but the '
+        'vulnerability class is no longer being examined and nothing else says so. '
+        'A run that was never given a token follows `--no-vuln-data-severity` instead, '
+        'because that one was set up that way and is not a failure. '
+        'Default: %(default)s',
+        dest='VULN_API_FAILURE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_VULN_API_FAILURE_SEVERITY,
     )
 
     parser.add_argument(
@@ -1007,11 +1023,16 @@ def adjust_enumerate(enumerate_opts, has_vuln_data, wpscan_version):
 
 
 def get_vuln_data_status(data):
-    """Return (available, note) for the vulnerability database. `available` is False
-    whenever wpscan could not query it, which makes an empty vulnerability list say
-    nothing about the site. wpscan reports this in its `vuln_api` section: `error` for a
-    missing token, `http_error` and `parse_error` for an unreachable or broken API, and
-    a `plan` with the remaining request quota when everything worked.
+    """Return (available, note, failed) for the vulnerability database. `available` is
+    False whenever wpscan could not query it, which makes an empty vulnerability list
+    say nothing about the site. wpscan reports this in its `vuln_api` section: `error`
+    for a missing token, `http_error` and `parse_error` for an unreachable or broken
+    API, and a `plan` with the remaining request quota when everything worked.
+
+    `failed` separates the two reasons a check has to treat differently. A run without a
+    token was configured that way and nothing is broken; a lookup that was refused or
+    could not be reached is a state somebody has to change, and it stays silent
+    otherwise, because the scan carries on and reports everything else it found.
 
     A locally held copy of the vulnerability database needs no branch of its own. It is
     reported through the same `plan` as everything else, named `enterprise` and with an
@@ -1019,16 +1040,20 @@ def get_vuln_data_status(data):
     """
     vuln_api = data.get('vuln_api') or {}
     if vuln_api.get('error'):
-        return (False, 'no API token, the vulnerability database was not queried')
+        return (
+            False,
+            'no API token, the vulnerability database was not queried',
+            False,
+        )
     if vuln_api.get('http_error'):
-        return (False, 'the vulnerability database was unreachable')
+        return (False, 'the vulnerability database was unreachable', True)
     if vuln_api.get('parse_error'):
-        return (False, 'the vulnerability database returned an unusable response')
+        return (False, 'the vulnerability database returned an unusable response', True)
     if vuln_api.get('plan'):
         remaining = vuln_api.get('requests_remaining')
         plan = vuln_api['plan']
         if remaining in (None, ''):
-            return (True, f'vulnerability database queried ({plan} plan)')
+            return (True, f'vulnerability database queried ({plan} plan)', False)
         # The quota is a daily allowance that refills, not a balance that runs out for
         # good. Saying so is what tells an admin seeing "3 left" whether to buy a plan
         # or simply to wait. A plan without a limit reports a word instead of a count,
@@ -1037,11 +1062,13 @@ def get_vuln_data_status(data):
             return (
                 True,
                 f'vulnerability database queried ({plan} plan, unlimited requests)',
+                False,
             )
         return (
             True,
             f'vulnerability database queried ({plan} plan, {remaining} of the daily '
             'requests left)',
+            False,
         )
     # A document without a `vuln_api` section at all predates the section or was cut
     # short. Saying nothing would be the same silent all-clear this branch exists to
@@ -1049,6 +1076,9 @@ def get_vuln_data_status(data):
     return (
         False,
         'the scan did not report whether the vulnerability database was used',
+        # Not a refused lookup: a document this shape says nothing either way, and
+        # blaming the API for it would send somebody after the wrong thing.
+        False,
     )
 
 
@@ -1802,7 +1832,7 @@ def main():
     # Whether the vulnerability database was queried at all. Without it every
     # vulnerability list in the document is empty no matter what the site runs, so an
     # empty result must not be reported as a clean one.
-    vuln_data_available, vuln_data_note = get_vuln_data_status(data)
+    vuln_data_available, vuln_data_note, vuln_data_failed = get_vuln_data_status(data)
     # The probe reports the database age too, which the scan document does not carry.
     vulndb_age = get_vulndb_age(last_db_update)
 
@@ -1845,9 +1875,17 @@ def main():
     # vulnerabilities, whatever else it found. That is a property of the run, not of the
     # site, so it drives the state through its own parameter instead of a finding row.
     if not vuln_data_available:
-        state = lib.base.get_worst(
-            state, lib.base.str2state(args.NO_VULN_DATA_SEVERITY)
-        )
+        # Two different situations wear the same empty vulnerability list. A run without
+        # a token was set up that way, and `--no-vuln-data-severity` decides what that is
+        # worth. A lookup the API refused - a rotated key, an exhausted daily allowance -
+        # or one that could not be reached is a state somebody has to change, and it
+        # would otherwise stay invisible: the scan carries on, reports everything else,
+        # and nothing in the state says the vulnerability class stopped being examined.
+        if vuln_api_note or vuln_data_failed:
+            severity = args.VULN_API_FAILURE_SEVERITY
+        else:
+            severity = args.NO_VULN_DATA_SEVERITY
+        state = lib.base.get_worst(state, lib.base.str2state(severity))
 
     plugins_outdated = sum(
         1 for item in detected_plugins.values() if (item or {}).get('outdated')

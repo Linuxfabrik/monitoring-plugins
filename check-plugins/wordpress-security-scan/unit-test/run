@@ -485,13 +485,48 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
     },
     # The token was fine but the database itself could not be reached. Same consequence,
-    # different cause, and the cause is what the admin needs to see.
+    # different cause, and the cause is what the admin needs to see. A lookup that failed
+    # is somebody's to fix, so it carries its own severity and warns without being asked.
     {
-        'id': 'warn-vuln-api-unreachable',
+        'id': 'warn-vuln-api-unreachable-by-default',
         'test': 'stdout/vuln-api-unreachable,,0',
-        'params': f'{BASE_PARAMS} --no-vuln-data-severity=warn',
+        'params': BASE_PARAMS,
         'assert-retc': STATE_WARN,
         'assert-in': ['the vulnerability database was unreachable'],
+    },
+    {
+        'id': 'ok-vuln-api-failure-severity-accepts-the-gap',
+        'test': 'stdout/vuln-api-unreachable,,0',
+        'params': f'{BASE_PARAMS} --vuln-api-failure-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['the vulnerability database was unreachable'],
+    },
+    {
+        'id': 'crit-vuln-api-failure-severity-raises-it',
+        'test': 'stdout/vuln-api-unreachable,,0',
+        'params': f'{BASE_PARAMS} --vuln-api-failure-severity=crit',
+        'assert-retc': STATE_CRIT,
+    },
+    # The two parameters must not reach into each other's case. A failed lookup follows
+    # the failure severity even where the no-data one is set to something louder, and a
+    # run that was never given a token follows the no-data one even where the failure
+    # severity is louder. Without both directions the pair reads as one parameter.
+    {
+        'id': 'ok-a-failed-lookup-ignores-no-vuln-data-severity',
+        'test': 'stdout/vuln-api-unreachable,,0',
+        'params': (
+            f'{BASE_PARAMS} --no-vuln-data-severity=crit --vuln-api-failure-severity=ok'
+        ),
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-a-missing-token-ignores-vuln-api-failure-severity',
+        'test': 'stdout/no-api-token,,0',
+        'params': (
+            f'{BASE_PARAMS} --no-vuln-data-severity=ok --vuln-api-failure-severity=crit'
+        ),
+        'assert-retc': STATE_OK,
+        'assert-in': ['no API token'],
     },
     # A site with real findings must still report that the vulnerability class was never
     # examined, otherwise "0 vulnerabilities" reads as a verified zero. The `no-api-token`
