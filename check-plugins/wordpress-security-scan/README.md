@@ -13,7 +13,8 @@ Runs a WordPress security scan against a site and reports what an attacker can s
 * Without a WPScan API token there is no vulnerability data at all. Version detection, the outdated flags and every exposure still work, so the check remains useful, but the "known vulnerabilities" class stays empty. The check says so in its output instead of reporting a clean result, and `--no-vuln-data-severity` decides whether that alerts. A free token with a small daily request quota is available at <https://wpscan.com/register>.
 * A WPScan enterprise subscription replaces the API token with a locally held copy of the vulnerability database, which has no daily quota. Configure it with `--enterprise-db-token-file` (or `--enterprise-db-token`, or the `WPSCAN_ENTERPRISE_DB_TOKEN` environment variable). The check then keeps the vulnerable-plugins and vulnerable-themes enumeration even though no API token is set, and downloads the database dumps before every scan. `--api-token` is ignored alongside it, because the scanner refuses to run with both.
 * The token is looked up in three places, in this order: `--api-token-file` (first line of the file), `--api-token`, and an already exported `WPSCAN_API_TOKEN` environment variable. Prefer `--api-token-file` with a file owned by the monitoring user and mode `0600`: a token passed as `--api-token` is visible to every user on the scanning host for as long as the check runs, because command-line arguments show up in the process list, and it additionally sits in the monitoring configuration and in the Director basket. Whichever way it is supplied, the check hands it on to `wpscan` through the environment, so it never reaches the scanner's own command line. The same order applies to `--wpscan-http-auth-file` and `--wpscan-http-auth`.
-* Without a token, the `vp` and `vt` enumeration choices (vulnerable plugins, vulnerable themes) would make `wpscan` abort before it starts. The check downgrades them to `p` and `t` automatically, so a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
+* **The scan looks for the popular plugins and themes, not only the vulnerable ones.** `wpscan`'s `vp` and `vt` choices probe for the slugs on its vulnerable list alone and filter the output to the vulnerable ones on top, so a component that is merely out of date is never looked for and never reported. That is the component an administrator can still act on before it turns into a vulnerability, which is why `p` and `t` are the default. Against one real site `p,t` found 31 plugins and 5 themes in 262 seconds while `vp,vt` found 2 and 1 in 628 seconds, so the narrower choice is not the faster one either.
+* Set `--wpscan-enumerate` to `vp,vt,...` to get the old behaviour, or to `ap,at,...` to walk every slug `wpscan` knows, which takes far longer. Without a token `vp` and `vt` would make `wpscan` abort before it starts, so the check downgrades them to `p` and `t` automatically and a missing token results in a scan without vulnerability data rather than in an UNKNOWN result.
 * The time limit is `--total-timeout`, and there is no `--timeout` beside it. It bounds the run as a whole, across the refresh of the vulnerability database, the version probe and the scan itself, and every one of those is deducted from it as it is spent. A scan repeated after a redirect or after a rejected API token therefore shares the same budget rather than starting a second one.
 * The finding table stops after 50 rows and states how many were left out. That is a display limit only: the state is determined by every finding, and the performance data counts them all.
 * The scan sends a large number of requests to the target and probes for backup files and admin endpoints. Run it against your own sites only, and expect it to show up in the access log and in any WAF or fail2ban rule set.
@@ -301,16 +302,18 @@ options:
                         enumerates media files and is accepted, but this check
                         reports nothing from it, so it only lengthens the
                         scan. Only one choice per group: `vp`, `p` and `ap`
-                        rule each other out, as do `vt`, `t` and `at`. The
-                        wider the choice, the longer the scan takes, since
-                        each one probes for every location it knows: `ap` and
-                        `at` walk tens of thousands of them. `vp` and `vt`
-                        need vulnerability data and are downgraded to `p` and
-                        `t` when none is available. `bf` needs wpscan 4.0.0 or
-                        newer and is skipped on older releases. Example:
-                        `--wpscan-enumerate=cb,dbe,bf,u` looks only for
-                        exposed files and user names, which is the fastest
-                        useful scan. Default: vp,vt,tt,cb,dbe,bf,u
+                        rule each other out, as do `vt`, `t` and `at`. `ap`
+                        and `at` walk tens of thousands of locations and take
+                        correspondingly long. `vp` and `vt` are not the fast
+                        choice they look like: they probe for the slugs on the
+                        vulnerable list, which is not the shorter list, and
+                        they hide every component that is merely out of date.
+                        `vp` and `vt` need vulnerability data and are
+                        downgraded to `p` and `t` when none is available. `bf`
+                        needs wpscan 4.0.0 or newer and is skipped on older
+                        releases. Example: `--wpscan-enumerate=cb,dbe,bf,u`
+                        looks only for exposed files and user names, which is
+                        the fastest useful scan. Default: p,t,tt,cb,dbe,bf,u
   --wpscan-follow-redirect
                         Scan the target the site redirects to, instead of
                         reporting the redirection and stopping. A site that
@@ -734,7 +737,7 @@ The scanner refuses to run with both credentials and gives up before it looks at
 
 ### The backup folder enumeration is missing from the scan
 
-Run with `--verbose` and look at the executed command. If it shows `--enumerate=vp,vt,tt,cb,dbe,u` without the `bf`, the installed `wpscan` predates that choice and would refuse to start with it, so the check drops it rather than failing the scan. `--help` names the release the choice needs. Updating the gem brings it back:
+Run with `--verbose` and look at the executed command. If it shows `--enumerate=p,t,tt,cb,dbe,u` without the `bf`, the installed `wpscan` predates that choice and would refuse to start with it, so the check drops it rather than failing the scan. `--help` names the release the choice needs. Updating the gem brings it back:
 
 ```bash
 wpscan --version --no-update

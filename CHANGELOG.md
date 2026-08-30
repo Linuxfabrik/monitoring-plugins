@@ -86,6 +86,7 @@ Monitoring Plugins:
 * openstack-nova-list: alerts on an ACTIVE instance that is not running and reports the compute host; a password reset or rescue image is no longer CRITICAL, and a slow cloud no longer kills the check
 * openstack-swift-stat: alerts on the container and account quotas, and a slow cloud no longer kills the check
 * procs: reports the fork rate (Linux only)
+* wordpress-security-scan: looks for the popular plugins and themes instead of only the vulnerable ones, so a component that is merely out of date is reported too
 
 Icinga Director:
 
