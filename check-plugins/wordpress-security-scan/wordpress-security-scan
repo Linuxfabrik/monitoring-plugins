@@ -25,12 +25,13 @@ import lib.lftest
 import lib.shell
 import lib.time
 import lib.txt
+import lib.url
 import lib.version
 import lib.wordpress
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083003'
+__version__ = '2026083004'
 
 DESCRIPTION = """Runs a WordPress security scan against a site and reports what an
 attacker can see from the outside. Combines the black box scan with the inventory read
@@ -1022,6 +1023,43 @@ def adjust_enumerate(enumerate_opts, has_vuln_data, wpscan_version):
     return (','.join(adjusted), dropped)
 
 
+# The endpoint that reports what is left of the daily allowance. wpscan asks it too and
+# does not count the answer against the allowance itself (`from_vuln_api?` in
+# `lib/wpscan/typhoeus/response.rb` excludes exactly this path), so it is free to ask.
+VULN_API_STATUS_URL = 'https://wpscan.com/api/v4/status'
+# Short on purpose: it is one small request, and a scan that runs for minutes must
+# not be held up by a question it can do without.
+VULN_API_STATUS_TIMEOUT = 8
+
+
+def get_api_quota(args, token):
+    """Return what the vulnerability API says is left of the daily allowance, as
+    `(remaining, reset_epoch)`, or `(None, None)` where it cannot be asked.
+
+    Worth asking before the scan rather than finding out during it. An allowance that is
+    already spent makes the scanner give up before it looks at the site, and the check
+    then drops the token and scans a second time, so the whole run is paid for twice
+    over. Knowing beforehand costs one free request and turns that into one scan.
+
+    Any trouble reaching it is not this check's business to report: the scan is what
+    matters, and it goes ahead exactly as it would have without this question.
+    """
+    success, result = lib.url.fetch_json(
+        VULN_API_STATUS_URL,
+        header={'Authorization': f'Token token={token}'},
+        insecure=args.INSECURE,
+        proxy=args.WPSCAN_PROXY or None,
+        timeout=VULN_API_STATUS_TIMEOUT,
+    )
+    if not success or not isinstance(result, dict):
+        return (None, None)
+    remaining = result.get('requests_remaining')
+    if not isinstance(remaining, int):
+        return (None, None)
+    reset = result.get('requests_reset')
+    return (remaining, reset if isinstance(reset, int) else None)
+
+
 def get_vuln_data_status(data):
     """Return (available, note, failed) for the vulnerability database. `available` is
     False whenever wpscan could not query it, which makes an empty vulnerability list
@@ -1600,6 +1638,9 @@ def main():
     # Why the vulnerability lookup was not used, when the scanner refused it outright
     # rather than simply not being given a token.
     vuln_api_note = ''
+    # True where that note is the scanner's own words rather than this check's. Only the
+    # scanner's get labelled as such and have their option names rewritten.
+    vuln_api_note_from_wpscan = False
     # Seconds used up before the scan proper, which come off its budget.
     spent = 0
     if args.TEST is None:
@@ -1628,6 +1669,32 @@ def main():
         # itself the full budget a second time, the check would overrun --total-timeout
         # and the monitoring agent would kill it with nothing to report.
         started = lib.time.now()
+        # Ask what is left of the allowance before spending any of it. An allowance that
+        # is already gone makes the scanner give up before it looks at the site, after
+        # which this check drops the token and scans again, so the whole run is paid for
+        # twice. Dropping the token here turns that into a single scan, and the reason
+        # names the hour the allowance comes back rather than only that it is gone.
+        if token and not enterprise:
+            remaining, reset = get_api_quota(args, token)
+            if remaining == 0:
+                back = (
+                    f' It is granted again at {lib.time.epoch2iso(reset)}.'
+                    if reset
+                    else ''
+                )
+                vuln_api_note = (
+                    f'the daily request allowance of this API token is used up.{back}'
+                )
+                lib.base.verbose(
+                    args.VERBOSE,
+                    f'Scanning without the token: {vuln_api_note}',
+                )
+                token = ''  # nosec B105
+            elif remaining is not None:
+                lib.base.verbose(
+                    args.VERBOSE,
+                    f'{remaining} of the daily API requests left.',
+                )
         # The refresh runs as a call of its own. A failure here is not the site's fault
         # and must not stop the scan: a host that cannot reach the database host still
         # has its local copy, and grading a site against a copy of last week beats not
@@ -1689,6 +1756,7 @@ def main():
         # for; the scanner's own reason is carried into the output.
         if retc not in (0, 5) and is_vuln_api_failure(get_abort_reason(data)):
             vuln_api_note = get_abort_reason(data)
+            vuln_api_note_from_wpscan = True
             lib.base.verbose(
                 args.VERBOSE,
                 f'The vulnerability database rejected the request ({vuln_api_note}), '
@@ -1920,7 +1988,8 @@ def main():
             # first line is a verified zero to whoever reads it. The same all-clear is
             # avoided below for a site with no findings at all; a site that has some
             # must not state it either just because there is something else to report.
-            counted = 'vulnerabilities not checked'
+            # It opens the summary, so it opens a sentence.
+            counted = 'Vulnerabilities not checked'
         parts = [
             counted,
             f'{counts["exposure"]} {lib.txt.pluralize("exposure", counts["exposure"])}',
@@ -1944,8 +2013,10 @@ def main():
     if not vuln_data_available:
         # The scanner's own refusal beats the generic "no token" reading, which is what
         # the second run looks like from the outside once the token has been dropped.
-        if vuln_api_note:
+        if vuln_api_note and vuln_api_note_from_wpscan:
             msg += f'\nNo vulnerability data. {from_wpscan(vuln_api_note)}'
+        elif vuln_api_note:
+            msg += f'\nNo vulnerability data: {vuln_api_note}'
         else:
             msg += f'\nNo vulnerability data: {vuln_data_note}.'
     elif args.LENGTHY:

@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, '..')
 
+import argparse
 import importlib.machinery
 import importlib.util
 import os
@@ -547,7 +548,7 @@ TESTS = [
         'params': f'{BASE_PARAMS} --no-vuln-data-severity=ok',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'vulnerabilities not checked, 0 exposures, 1 hardening finding',
+            'Vulnerabilities not checked, 0 exposures, 1 hardening finding',
             "'vuln_data_available'=0",
         ],
         # the summary is what a notification carries, so the count must not appear
@@ -1024,6 +1025,76 @@ def load_check():
     module = importlib.util.module_from_spec(spec)
     loader.exec_module(module)
     return module
+
+
+class TestApiQuota(unittest.TestCase):
+    """What is left of the daily allowance is asked before the scan, so an allowance
+    that is already gone costs one scan instead of two. The fixture-driven tests cannot
+    reach it, because it only runs when a real scan is performed, so the helper is
+    exercised on its own here.
+    """
+
+    def setUp(self):
+        self.check = load_check()
+        self.args = argparse.Namespace(INSECURE=False, WPSCAN_PROXY='')
+
+    def _with_response(self, success, payload):
+        return mock.patch.object(
+            self.check.lib.url, 'fetch_json', return_value=(success, payload)
+        )
+
+    def test_reads_what_is_left(self):
+        with self._with_response(
+            True,
+            {
+                'plan': 'free',
+                'requests_limit': 25,
+                'requests_remaining': 21,
+                'requests_reset': 1788134400,
+            },
+        ):
+            self.assertEqual(
+                self.check.get_api_quota(self.args, 'linuxfabrik'), (21, 1788134400)
+            )
+
+    def test_an_exhausted_allowance_is_a_zero_not_a_gap(self):
+        # The difference the caller acts on: 0 means drop the token, None means the
+        # question could not be answered and the scan goes ahead as it always did.
+        with self._with_response(
+            True, {'requests_remaining': 0, 'requests_reset': 1788134400}
+        ):
+            self.assertEqual(
+                self.check.get_api_quota(self.args, 'linuxfabrik'), (0, 1788134400)
+            )
+
+    def test_an_unreachable_endpoint_answers_nothing(self):
+        with self._with_response(False, 'connection refused'):
+            self.assertEqual(
+                self.check.get_api_quota(self.args, 'linuxfabrik'), (None, None)
+            )
+
+    def test_an_answer_of_the_wrong_shape_answers_nothing(self):
+        for payload in ({}, {'requests_remaining': 'plenty'}, [], 'unauthorized', None):
+            with self._with_response(True, payload):
+                self.assertEqual(
+                    self.check.get_api_quota(self.args, 'linuxfabrik'),
+                    (None, None),
+                    f'payload {payload!r}',
+                )
+
+    def test_a_missing_reset_still_yields_the_count(self):
+        with self._with_response(True, {'requests_remaining': 0}):
+            self.assertEqual(
+                self.check.get_api_quota(self.args, 'linuxfabrik'), (0, None)
+            )
+
+    def test_the_token_travels_in_the_authorization_header(self):
+        with mock.patch.object(
+            self.check.lib.url, 'fetch_json', return_value=(True, {})
+        ) as fetch:
+            self.check.get_api_quota(self.args, 'linuxfabrik')
+        header = fetch.call_args.kwargs['header']
+        self.assertEqual(header['Authorization'], 'Token token=linuxfabrik')
 
 
 class TestRedirectTarget(unittest.TestCase):

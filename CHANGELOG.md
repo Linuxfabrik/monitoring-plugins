@@ -89,6 +89,7 @@ Monitoring Plugins:
 * procs: reports the fork rate (Linux only)
 * wordpress-security-scan: looks for every component wpscan knows, not only the vulnerable ones, where `--enterprise-db-token` makes the lookups local and free
 * wordpress-security-scan: warns when the vulnerability database refuses the lookup or cannot be reached, instead of quietly scanning on without it
+* wordpress-security-scan: checks what is left of the daily API allowance before scanning, so an exhausted one costs one scan instead of two and the output names when it returns
 
 Icinga Director:
 
