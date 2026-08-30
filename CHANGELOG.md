@@ -146,6 +146,7 @@ Icinga Director:
 * the Active Directory Domain Service Set renames `Service - ADWS` and `Service - DFSR`; both start their history over
 * the Huawei Dorado Service Set runs all of its checks again
 * the Apache and MySQL Logfile services read the logs the server writes again instead of only its systemd unit
+* the By WinRM service template processes the performance data its remote command returns; re-import the basket
 * the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` gets a new one and starts its history over
 
 Build, CI/CD:
