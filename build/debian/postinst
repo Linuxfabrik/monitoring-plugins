@@ -22,7 +22,10 @@ case "$1" in
         if command -v sudo >/dev/null 2>&1 \
             && sudo --version 2>/dev/null | head -1 | grep -qi 'sudo-rs'; then
             rm -f "${SUDOERS_LOGGING_DEST}"
-        elif [ -f "${SUDOERS_LOGGING_SRC}" ]; then
+        # A host carrying no sudo at all has no authentication log to quiet down, and no
+        # visudo either, which the check below would otherwise report as a failure of a file
+        # that is fine.
+        elif command -v visudo >/dev/null 2>&1 && [ -f "${SUDOERS_LOGGING_SRC}" ]; then
             # visudo refuses to be fooled by a broken drop-in, and a broken one in
             # /etc/sudoers.d would lock every user out of sudo, so it is checked first.
             if visudo -cf "${SUDOERS_LOGGING_SRC}" >/dev/null 2>&1; then

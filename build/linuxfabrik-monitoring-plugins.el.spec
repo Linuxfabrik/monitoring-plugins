@@ -133,7 +133,9 @@ popd
 %post
 if command -v sudo >/dev/null 2>&1 && sudo --version 2>/dev/null | head -1 | grep -qi 'sudo-rs'; then
     rm -f %{sudoers_logging_dest}
-elif [ -f %{sudoers_logging_src} ]; then
+# A host carrying no sudo at all has no authentication log to quiet down, and no visudo
+# either, which the check below would otherwise report as a failure of a file that is fine.
+elif command -v visudo >/dev/null 2>&1 && [ -f %{sudoers_logging_src} ]; then
     # A broken drop-in in /etc/sudoers.d locks every user out of sudo, so it is checked first.
     if visudo -cf %{sudoers_logging_src} >/dev/null 2>&1; then
         install -m 0440 -o root -g root %{sudoers_logging_src} %{sudoers_logging_dest}
