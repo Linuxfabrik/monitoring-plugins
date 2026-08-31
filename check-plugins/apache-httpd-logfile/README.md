@@ -36,6 +36,7 @@ Scans the Apache HTTP Server error log for the events an administrator has to ac
 * Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Recognizes a line by the level Apache puts in it (`[core:error]`) or by the message code every Apache message carries (`AH00484`), wherever the configured `ErrorLogFormat` places them.
 * Lines can be narrowed down with `--match` and filtered out with `--ignore`, both Python regular expressions.
+* Prints the source every count came from and the command that finds the same lines again, so a number can be checked instead of believed. A counter whose criterion is not a single pattern gets that criterion spelled out rather than a command that would find something else.
 
 
 ## Fact Sheet
@@ -334,13 +335,23 @@ Read 6 lines from 1 source:
 Output of a host that ran out of workers, lost a child to a segfault and could not reach its backend:
 
 ```text
-2026-08-28 17:11 .. 2026-08-28 17:12 (27s): 1 error line found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash [WARNING], 1 worker saturation [CRITICAL]. 0 client denials in the last 10m (1 in the window read). 0 proxy failures in the last 10m (2 in the window read). 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down).
+2026-08-28 17:11 .. 2026-08-28 17:12 (27s): 1 error line found [WARNING] (last: [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting). Found 1 child crash [WARNING], 1 worker saturation [CRITICAL]. 2 startups detected (last: [Fri Aug 28 17:12:08.167550 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 restart detected (last: [Fri Aug 28 17:12:08.157150 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00493: SIGUSR1 received.  Doing graceful restart). 1 shutdown detected (last: [Fri Aug 28 17:12:11.175839 2026] [mpm_event:notice] [pid 1835:tid 1835] AH00491: caught SIGTERM, shutting down); Last 10m: 0 client denials (1 in the whole window). 0 proxy failures (2 in the whole window).
 
 Error lines:
 * [Fri Aug 28 17:12:07.128098 2026] [cgid:error] [pid 1835:tid 1835] AH01239: cgid daemon process died, restarting
 
 Read 17 lines from 1 source:
 * `/var/log/httpd/error_log` (size: 2.4KiB)
+
+Where the numbers come from:
+* 1 child crash:
+  grep -n -e '\bAH00050\b' -e '\bAH00051\b' -e '\bAH00052\b' -e '\bAH00060\b' /var/log/httpd/error_log
+* 1 worker saturation:
+  grep -n -e '\bAH00161\b' -e '\bAH00286\b' -e '\bAH00484\b' -e '\bAH00288\b' -e '\bAH03490\b' /var/log/httpd/error_log
+* 1 client denial:
+  grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
+* 2 proxy failures:
+  grep -n -e '\bAH00860\b' -e '\bAH00866\b' -e '\bAH00896\b' -e '\bAH00898\b' -e '\bAH00939\b' -e '\bAH00940\b' -e '\bAH00957\b' -e '\bAH00958\b' -e '\bAH00959\b' -e '\bAH01079\b' -e '\bAH01102\b' -e '\bAH01110\b' -e '\bAH01114\b' -e '\bAH02452\b' -e '\bAH02454\b' -e '\bAH10101\b' /var/log/httpd/error_log
 
 Recommendations:
 * Children died on a signal Apache did not send them; look for a core dump, a faulty module, or the OOM killer in the kernel log
@@ -350,10 +361,16 @@ Recommendations:
 Output of a host somebody is walking:
 
 ```text
-2026-08-28 17:34 .. 2026-08-28 17:34 (4s): 0 client denials in the last 10m (4 in the window read). 0 authentication failures in the last 10m (2 in the window read). 1 startup detected (last: [Fri Aug 28 17:34:38.859461 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:34:42.936750 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00491: caught SIGTERM, shutting down).
+2026-08-28 17:34 .. 2026-08-28 17:34 (4s): 1 startup detected (last: [Fri Aug 28 17:34:38.859461 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:34:42.936750 2026] [mpm_event:notice] [pid 2335:tid 2335] AH00491: caught SIGTERM, shutting down); Last 10m: 0 client denials (4 in the whole window). 0 authentication failures (2 in the whole window).
 
 Read 12 lines from 1 source:
-* `/var/log/httpd/error_log` (size: 1.8KiB)|'apache_httpd_logfile_size'=1793B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=0;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=0;0;;0 'apache_httpd_worker_saturations'=0;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=1;;;0 'apache_httpd_restarts'=0;;;0 'apache_httpd_shutdowns'=1;;;0
+* `/var/log/httpd/error_log` (size: 1.8KiB)
+
+Where the numbers come from:
+* 4 client denials:
+  grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
+* 2 authentication failures:
+  grep -n -e '\bAH01614\b' -e '\bAH01617\b' -e '\bAH01618\b' -e '\bAH01631\b' -e '\bAH01807\b' -e '\bAH01808\b' /var/log/httpd/error_log|'apache_httpd_logfile_size'=1793B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=0;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=0;0;;0 'apache_httpd_worker_saturations'=0;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=1;;;0 'apache_httpd_restarts'=0;;;0 'apache_httpd_shutdowns'=1;;;0
 ```
 
 ## States
@@ -424,13 +441,13 @@ Look at which lines it names. Anything Apache logged about one request is alread
 
 ### The check does not alert although the log is full of `error` lines
 
-Read the lines. If they carry a `[client ...]` field, Apache logged them about one request and this check counts them as a rate rather than by their level, which is what keeps a scanned server green. The `... request errors in the last ...` fact says how many arrived recently and how many the whole window holds.
+Read the lines. If they carry a `[client ...]` field, Apache logged them about one request and this check counts them as a rate rather than by their level, which is what keeps a scanned server green. The `Last ...:` group says how many arrived recently, and the `... in the whole window` note next to each how many the whole window holds.
 
 1. Lower `--request-errors-warning` to have a smaller number of them reported. On a server nobody but the application talks to, `--request-errors-warning=1` is reasonable.
 2. Widen `--lookback` to judge over a longer stretch, for instance `--lookback=3600`.
 3. A line about the server itself is never affected by this: it counts by its level, unless it is one of the named events, which carry their own state and are counted there and nowhere else.
 
-### `proxy failures in the last ...` on a host where nothing is broken
+### `proxy failures` under `Last ...` on a host where nothing is broken
 
 `mod_proxy` logs one line per request it could not hand to a backend, so restarting the backend leaves one line behind and a backend that is gone leaves a stream of them. The count is what separates the two.
 

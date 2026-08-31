@@ -26,6 +26,7 @@ covered here; the journal fixture is a file holding what `journalctl` printed.
 """
 
 import datetime
+import glob
 import importlib.machinery
 import importlib.util
 import os
@@ -117,7 +118,7 @@ CASES = [
             '1 worker saturation',
             # An unreachable backend is a rate, not a single event: these two are
             # a backend that was restarted, and they are hours old by now.
-            '0 proxy failures in the last 10m (2 in the window read)',
+            '0 proxy failures (2 in the whole window)',
             '2 startups detected',
             '1 restart detected',
             '1 shutdown detected',
@@ -135,7 +136,7 @@ CASES = [
         'assert-in': [
             '1 child crash',
             '1 worker saturation',
-            '0 proxy failures in the last 10m (2 in the window read)',
+            '0 proxy failures (2 in the whole window)',
             '2 startups detected',
             '1 restart detected',
             '1 shutdown detected',
@@ -207,7 +208,7 @@ CASES = [
             'Read 9 lines from ',
             # the predecessor is named, so the fact says where they came from
             'error_log-20260828`',
-            '(1 in the window read)',
+            '(1 in the whole window)',
         ],
     },
     {
@@ -217,7 +218,7 @@ CASES = [
         'id': 'ok-a-single-failed-request-is-not-an-alert',
         'params': [f'--config-root={config_root("just-rotated")}'],
         'assert-retc': STATE_OK,
-        'assert-in': ['0 request errors in the last 10m'],
+        'assert-in': ['Last 10m: 0 request errors'],
         'assert-not-in': ['error line found'],
     },
     {
@@ -229,7 +230,7 @@ CASES = [
         'params': [f'--server-log={fixture("rocky9-scanner-noise.txt")}'],
         'assert-retc': STATE_OK,
         'assert-in': [
-            '(5 in the window read)',
+            '(5 in the whole window)',
             "'apache_httpd_request_errors'=0;6;60;0",
         ],
         'assert-not-in': ['error line found', 'invalid URI path'],
@@ -243,7 +244,7 @@ CASES = [
         ],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '5 request errors from 127.0.0.1 in the last',
+            'Last 1Y: 5 request errors from 127.0.0.1',
             'Requests are failing in bulk',
         ],
     },
@@ -292,8 +293,8 @@ CASES = [
         ],
         'assert-retc': STATE_OK,
         'assert-in': [
-            '4 in the window read',
-            '2 in the window read',
+            '4 in the whole window',
+            '2 in the whole window',
             "'apache_httpd_error_lines'=0",
         ],
     },
@@ -331,7 +332,7 @@ CASES = [
         ],
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            '2 proxy failures in the last',
+            '2 proxy failures',
             'Backends behind the reverse proxy',
         ],
     },
@@ -410,7 +411,7 @@ CASES = [
         'assert-in': [
             'from 2 sources',
             'www.example.com-error.log',
-            '(1 in the window read)',
+            '(1 in the whole window)',
         ],
     },
     {
@@ -423,7 +424,7 @@ CASES = [
         'assert-in': [
             'from 2 sources',
             'www.example.com-error.log',
-            '(1 in the window read)',
+            '(1 in the whole window)',
         ],
     },
     {
@@ -589,7 +590,7 @@ class TestArrivalRate(unittest.TestCase):
         path = self._write_denials(count=20, minutes_ago=5)
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_WARN, combined)
-        self.assertIn('20 client denials from 198.51.100.7 in the last 10m', combined)
+        self.assertIn('Last 10m: 20 client denials from 198.51.100.7', combined)
         self.assertIn('walking the site', combined)
 
     def test_burst_within_the_window_crits_above_the_threshold(self):
@@ -613,20 +614,20 @@ class TestArrivalRate(unittest.TestCase):
         path = self._write_denials(count=20, minutes_ago=5, peers=10)
         returncode, combined = _run([f'--server-log={path}', '--no-per-source'])
         self.assertEqual(returncode, STATE_WARN, combined)
-        self.assertIn('20 client denials in the last 10m', combined)
+        self.assertIn('Last 10m: 20 client denials', combined)
 
     def test_the_same_burst_an_hour_ago_is_quiet(self):
         path = self._write_denials(count=20, minutes_ago=60)
         returncode, combined = _run([f'--server-log={path}'])
         self.assertEqual(returncode, STATE_OK, combined)
-        self.assertIn('0 client denials in the last 10m', combined)
-        self.assertIn('(20 in the window read)', combined)
+        self.assertIn('Last 10m: 0 client denials', combined)
+        self.assertIn('(20 in the whole window)', combined)
 
     def test_a_wider_window_sees_the_older_burst(self):
         path = self._write_denials(count=20, minutes_ago=60)
         returncode, combined = _run([f'--server-log={path}', '--lookback=7200'])
         self.assertEqual(returncode, STATE_WARN, combined)
-        self.assertIn('20 client denials from 198.51.100.7 in the last 2h', combined)
+        self.assertIn('Last 2h: 20 client denials from 198.51.100.7', combined)
 
 
 class TestConfigParsing(unittest.TestCase):
@@ -859,6 +860,60 @@ class TestSourceAddress(unittest.TestCase):
             ' AH00484: server reached MaxRequestWorkers setting'
         )
         self.assertIsNone(apache_httpd_logfile.get_source(line))
+
+
+class TestMatchingIsReproducible(unittest.TestCase):
+    """The commands the check prints have to find exactly the lines it counted.
+
+    A command that comes back with a different number than the one it stands next
+    to is worse than no command at all: it sends an administrator looking for a
+    discrepancy that only exists in the check's own output.
+    """
+
+    def test_no_printed_command_carries_a_pipe(self):
+        """`lib.base.oao()` turns every `|` in the message into `!`, so a printed
+        expression that relies on alternation arrives broken and finds nothing."""
+        for group in ('EVENTS', 'RATE_EVENTS', 'LIFECYCLE'):
+            for event in getattr(apache_httpd_logfile, group):
+                if not event.get('regex'):
+                    continue
+                args = apache_httpd_logfile.to_grep_args(event['regex'].pattern)
+                for arg in args or []:
+                    self.assertNotIn('|', arg, f'{event["key"]}: {arg}')
+
+    def test_grep_finds_what_the_check_counted(self):
+        fixtures = sorted(
+            glob.glob(os.path.join(os.path.dirname(__file__), 'fixtures', '*.txt'))
+        )
+        self.assertTrue(fixtures, 'no fixtures to check against')
+        for group in ('EVENTS', 'RATE_EVENTS', 'LIFECYCLE'):
+            for event in getattr(apache_httpd_logfile, group):
+                regex = event.get('regex')
+                if not regex:
+                    continue
+                args = apache_httpd_logfile.to_grep_args(regex.pattern)
+                if not args:
+                    # Deliberate: a pattern this cannot take apart gets its
+                    # source named without a command.
+                    continue
+                command = ['grep', '-c', '-n']
+                for arg in args:
+                    command += ['-e', arg]
+                for fixture_path in fixtures:
+                    with open(fixture_path, encoding='utf-8', errors='replace') as fh:
+                        counted = sum(1 for line in fh if regex.search(line))
+                    completed = subprocess.run(
+                        [*command, fixture_path],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    found = int(completed.stdout.strip() or 0)
+                    self.assertEqual(
+                        counted,
+                        found,
+                        f'{event["key"]} on {os.path.basename(fixture_path)}',
+                    )
 
 
 class TestPathConfinement(unittest.TestCase):

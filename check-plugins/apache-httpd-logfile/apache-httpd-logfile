@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082905'
+__version__ = '2026083101'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal, a server that ran out of workers, processes
@@ -494,6 +494,20 @@ RATE_EVENTS = (
             ' server has no matching site for, or an application behind the'
             ' server that stopped answering'
         ),
+        # This one is matched by scope rather than by a pattern, so the command
+        # that shows its lines has to be spelled out. Apache writes the level
+        # before the request scope in `ap_log_error_core()`, which is what lets
+        # one expression carry both conditions. It finds the lines a named
+        # counter claimed as well, because those are request-scoped too, hence
+        # the note the renderer puts next to it.
+        # No command can express this one: it is every line at `error` or `warn`
+        # carrying a request scope, minus those a named counter above already
+        # claimed. A `grep` for the scope alone would print a larger number than
+        # the one it stands next to.
+        'criterion': (
+            'lines at level error or warn carrying a `[client ...]` or'
+            ' `[remote ...]` field, minus the named counters above'
+        ),
     },
 )
 
@@ -930,6 +944,129 @@ def get_source(log_line):
     if field.startswith('[') and ']' in field:
         return lib.net.normalize_address(field[1 : field.index(']')])
     return lib.net.normalize_address(field.rsplit(':', 1)[0])
+
+
+def split_alternatives(pattern):
+    """Split a pattern at every `|` that is not inside a group."""
+    parts = []
+    depth = 0
+    current = ''
+    escaped = False
+    for char in pattern:
+        if escaped:
+            current += char
+            escaped = False
+            continue
+        if char == '\\':
+            current += char
+            escaped = True
+            continue
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+        elif char == '|' and depth == 0:
+            parts.append(current)
+            current = ''
+            continue
+        current += char
+    parts.append(current)
+    return parts
+
+
+def to_grep_args(pattern):
+    """Return a Python pattern as `-e` arguments for `grep`, or None where it has
+    no form this can take apart.
+
+    Not one expression with alternation, because `lib.base.oao()` replaces every
+    `|` in the message with `!`: the character separates the message from the
+    performance data and cannot survive in it. A command carrying `AH(00860!...)`
+    would be printed, copied and find nothing, which is worse than printing no
+    command at all. `grep` takes each alternative as its own `-e` instead and
+    needs no `|` anywhere.
+
+    Every pattern here is a list of alternatives, each of them either a literal
+    or of the shape `prefix(?:a|b|c)suffix`. Anything else returns None and the
+    caller names the source without a command, rather than printing one that
+    looks right and matches something else.
+    """
+    args = []
+    for part in split_alternatives(pattern):
+        if '(' not in part:
+            args.append(part)
+            continue
+        match = re.fullmatch(r'([^()|]*)\(\?:([^()|]*(?:\|[^()|]*)*)\)([^()|]*)', part)
+        if not match:
+            return None
+        prefix, alternatives, suffix = match.groups()
+        args.extend(f'{prefix}{item}{suffix}' for item in alternatives.split('|'))
+    return args
+
+
+def get_origins(sources):
+    """Map every log line to the source it was read from.
+
+    `read_many()` drops a line an earlier source already delivered and keeps that
+    earlier one, so the first source holding a line is the one it was counted
+    from, and the one an administrator finds it in.
+    """
+    origins = {}
+    for source in sources:
+        for line in source['lines']:
+            origins.setdefault(line, source['label'])
+    return origins
+
+
+def describe_matching(event, hits, origins):
+    """Return the lines that say where an event was counted and what matched it.
+
+    A count nobody can reproduce is a number to be believed rather than checked.
+    The sources named are the ones the counted lines actually came from, not
+    every source read: a reverse proxy reads a dozen logs and the events are
+    usually in one of them.
+
+    Each source kind gets the command that reads it, because a path handed to
+    `grep` and a unit handed to `journalctl` are not interchangeable, and an
+    event whose criterion is not a pattern at all gets its criterion spelled out
+    instead of a command that would count something else.
+    """
+    files = []
+    units = []
+    for line in hits:
+        origin = origins.get(line)
+        if origin is None:
+            continue
+        success, parsed = lib.logsource.parse(origin)
+        if not success:
+            continue
+        kind, _, target = parsed
+        bucket = files if kind == lib.logsource.KIND_FILE else units
+        if target not in bucket:
+            bucket.append(target)
+    if not files and not units:
+        return []
+
+    label = lib.txt.pluralize(event['label'], len(hits), event.get('suffix', 's'))
+    heading = f'{len(hits)} {label}'
+    where = ', '.join(f'`{item}`' for item in files + [f'systemd:{u}' for u in units])
+
+    # A criterion that is not a pattern is described rather than run: the
+    # request-scoped fallback holds the lines no named counter claimed, and no
+    # single command can express that subtraction.
+    if event.get('criterion'):
+        return [f'{heading} in {where}: {event["criterion"]}']
+
+    args = to_grep_args(event['regex'].pattern) if event['regex'] else None
+    if not args:
+        return [f'{heading} in {where}']
+    expression = ' '.join(f"-e '{item}'" for item in args)
+    commands = []
+    if files:
+        commands.append(f'grep -n {expression} {" ".join(files)}')
+    commands.extend(
+        f'journalctl --unit={unit} | grep -n {expression}' for unit in units
+    )
+    return [f'{heading}:'] + [f'  {item}' for item in commands]
 
 
 def parse_timestamp(log_line):
@@ -1693,10 +1830,7 @@ def main():
         fact = f'{window["count"]} {lib.txt.pluralize(event["label"], window["count"])}'
         if window['busiest']:
             fact += f' from {window["busiest"]}'
-        fact += (
-            f' in the last {lib.human.seconds2human(args.LOOKBACK)}'
-            f'{lib.base.state2str(rate_state, prefix=" ")}'
-        )
+        fact += lib.base.state2str(rate_state, prefix=' ')
         extras = []
         if window['total'] != window['count']:
             extras.append(
@@ -1704,7 +1838,7 @@ def main():
                 f' {lib.txt.pluralize("address", window["sources"], "es")}'
             )
         if len(hits) != window['total']:
-            extras.append(f'{len(hits)} in the window read')
+            extras.append(f'{len(hits)} in the whole window')
         if extras:
             fact += ' (' + ', '.join(extras) + ')'
         if window['undated']:
@@ -1756,8 +1890,6 @@ def main():
         # these are lines the per-level counts above do not hold.
         facts.append('Found ' + ', '.join(named))
 
-    facts.extend(rate_facts)
-
     for item in LIFECYCLE:
         lines = found[item['key']]
         # A counter at zero says nothing the performance data does not, and a
@@ -1808,7 +1940,27 @@ def main():
     # The window the summary reports on comes first, because every count in it
     # is a count within that window and reads differently against an hour than
     # against a week.
-    sections.append(covered + '. '.join(facts) + '.')
+    # The two groups are labelled rather than run together, because they answer
+    # about different spans and the numbers are not comparable: an event counted
+    # over the whole window read and one counted over the rate window sat next to
+    # each other with nothing but the wording of each to tell them apart, and
+    # "12 stapling failures" next to "0 request errors in the last 10m" reads as
+    # if both were about the last ten minutes.
+    # Only the rate window is labelled. Everything before the semicolon is about
+    # the window the line opens with, which is already named there, so saying so
+    # again would be noise; what needed saying is that the counts after it are
+    # not, because "12 stapling failures" next to "0 request errors" otherwise
+    # reads as if both were about the same span. The separator is a semicolon and
+    # not a `|`: `lib.base.oao()` replaces every `|` in the message with `!`,
+    # because that is what divides the message from the performance data.
+    summary = []
+    if facts:
+        summary.append('. '.join(facts))
+    if rate_facts:
+        summary.append(
+            f'Last {lib.human.seconds2human(args.LOOKBACK)}: ' + '. '.join(rate_facts)
+        )
+    sections.append(covered + '; '.join(summary) + '.')
 
     for item in LEVELS:
         lines = levels[item['level']]
@@ -1823,6 +1975,25 @@ def main():
     sections.append(
         source_heading + '\n' + '\n'.join(f'* {item}' for item in described)
     )
+
+    # And how every count above was arrived at. A number in a check is only worth
+    # something if the administrator can go and look at the lines behind it, and
+    # with a dozen sites logging into a dozen files, finding them means knowing
+    # which file and which pattern. Only counts that actually fired are listed,
+    # so a quiet host does not carry a block of commands nobody needs to run.
+    origins = get_origins(result['sources'])
+    matching = []
+    for event in list(EVENTS) + list(RATE_EVENTS):
+        hits = found[event['key']]
+        if hits:
+            matching.extend(describe_matching(event, hits, origins))
+    if matching:
+        sections.append(
+            'Where the numbers come from:\n'
+            + '\n'.join(
+                f'* {item}' if not item.startswith('  ') else item for item in matching
+            )
+        )
 
     if recommendations:
         sections.append(
