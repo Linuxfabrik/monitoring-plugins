@@ -154,7 +154,6 @@ Tested on RHEL 7+.
 As an alternative you might add a sudoers rule, for example in `/etc/sudoers.d/fail2ban`:
 
 ```text
-Defaults:icinga !requiretty
 icinga    ALL = NOPASSWD: /usr/lib64/nagios/plugins/fail2ban
 ```
 
