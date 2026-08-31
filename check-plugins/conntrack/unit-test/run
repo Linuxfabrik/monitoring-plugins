@@ -213,6 +213,58 @@ SCENARIOS = [
         ],
     },
     {
+        # The reason the drop counters do not alert on their first event. `allow_clash`
+        # is false for TCP, so two packets of the same new TCP connection arriving on
+        # two CPUs always cost one of them, and both `drop` and `insert_failed` move by
+        # exactly one. A host with a nearly empty table produces this all day long, and
+        # a check that warns on it flaps between WARN and OK forever.
+        'id': 'ok-a-single-clash-is-not-a-finding',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/single-clash-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                # One event over at least the sleep below can only ever come out at or
+                # under 1/s, whatever the wall clock does, so this holds without
+                # pinning the rate itself.
+                'test': '',
+                'params': '--config-root=config/single-clash-2',
+                'sleep': 1.1,
+                'assert-retc': STATE_OK,
+                'assert-in': ["'drop_per_second'=", "'insert_failed_per_second'="],
+                'assert-not-in': [
+                    '[WARNING]',
+                    'Connection tracking dropped packets',
+                ],
+            },
+        ],
+    },
+    {
+        # The two thresholds are separate questions: a table at its limit still alerts
+        # with the drop threshold turned off entirely.
+        'id': 'warn-evictions-alert-with-the-drop-threshold-turned-off',
+        'steps': [
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-1',
+                'assert-retc': STATE_OK,
+            },
+            {
+                'test': '',
+                'params': '--config-root=config/table-full-2 --warning-drops=~: '
+                '--warning=~: --critical=~:',
+                'sleep': 1.1,
+                'assert-retc': STATE_WARN,
+                'assert-in': [
+                    'early_drop ',
+                    'The table was at its limit and entries were thrown out',
+                ],
+            },
+        ],
+    },
+    {
         # v5.10 and newer: insert_failed means a real failure, so it alerts, and
         # "clashres" carries a value while "ignore" no longer does.
         'id': 'warn-drops-without-the-table-being-full',
@@ -230,8 +282,8 @@ SCENARIOS = [
                 'assert-in': [
                     'drop ',
                     'insert_failed ',
-                    'Connection tracking gave up on connections although the table '
-                    'was not full.',
+                    'Connection tracking dropped packets although the table was not '
+                    'full.',
                     "'clashres_per_second'=",
                 ],
                 # hardcoded zeros on this kernel, so they are not reported at all

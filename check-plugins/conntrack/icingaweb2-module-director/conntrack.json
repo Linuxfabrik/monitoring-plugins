@@ -11,6 +11,9 @@
                 "--critical-drops": {
                     "value": "$conntrack_critical_drops$"
                 },
+                "--critical-evictions": {
+                    "value": "$conntrack_critical_evictions$"
+                },
                 "--lengthy": {
                     "set_if": "$conntrack_lengthy$"
                 },
@@ -22,6 +25,9 @@
                 },
                 "--warning-drops": {
                     "value": "$conntrack_warning_drops$"
+                },
+                "--warning-evictions": {
+                    "value": "$conntrack_warning_evictions$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/conntrack",
@@ -59,6 +65,16 @@
                 },
                 {
                     "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 8,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 9,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -104,7 +120,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks how full the netfilter connection tracking table is, and how often the kernel had to give up on a connection. Every host running a firewall, NAT or a container engine tracks its connections in a fixed-size table; once that table is full the kernel throws established connections out to make room, and after that it drops packets, which shows up as random connection timeouts nobody can explain from the application side. The check reports the table usage together with the kernel's own error counters as per-second rates measured between two runs, so the values reflect the current situation and not a total accumulated since boot. A host that does not track connections at all is reported as OK, because there is no table that could fill up. Supports extended reporting via --lengthy. Alerts when the table usage leaves the warning or critical range, and when the kernel evicts entries, refuses to insert them or drops packets.",
+            "notes": "Checks how full the netfilter connection tracking table is, and how often the kernel had to give up on a connection. Every host running a firewall, NAT or a container engine tracks its connections in a fixed-size table; once that table is full the kernel throws established connections out to make room, and after that it drops packets, which shows up as random connection timeouts nobody can explain from the application side. The check reports the table usage together with the kernel's own error counters as per-second rates measured between two runs, so the values reflect the current situation and not a total accumulated since boot. A host that does not track connections at all is reported as OK, because there is no table that could fill up. Supports extended reporting via --lengthy. Alerts when the table usage leaves the warning or critical range, when the kernel evicts an entry to make room in a full table, and when it drops packets faster than the thresholds allow.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/conntrack/",
             "object_name": "tpl-service-conntrack",
             "object_type": "template",
@@ -120,7 +136,8 @@
                 "conntrack_lengthy": false,
                 "conntrack_no_perfdata": false,
                 "conntrack_warning": "80",
-                "conntrack_warning_drops": "0"
+                "conntrack_warning_drops": "1",
+                "conntrack_warning_evictions": "0"
             },
             "volatile": null,
             "zone": null,
@@ -151,7 +168,7 @@
         "3": {
             "varname": "conntrack_critical_drops",
             "caption": "Conntrack: Critical Drops",
-            "description": "CRIT threshold for the per-second rate of each counter that means a connection was given up on: evicted entries, failed inserts and dropped packets. Every counter is compared on its own. Supports Nagios ranges. Default: no critical threshold",
+            "description": "CRIT threshold for the per-second rate of each counter that means a packet was dropped although the table was not full: refused inserts and dropped packets. Every counter is compared on its own. Supports Nagios ranges. Default: no critical threshold",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -160,6 +177,17 @@
             "uuid": "1c3bb4b5-6f24-40fc-be49-849171d680bf"
         },
         "4": {
+            "varname": "conntrack_critical_evictions",
+            "caption": "Conntrack: Critical Evictions",
+            "description": "CRIT threshold for the per-second rate of entries the kernel threw out of a full table to make room for a new connection. Supports Nagios ranges. Default: no critical threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "ed3e178d-23b0-45be-bc21-215dc6256559"
+        },
+        "5": {
             "varname": "conntrack_lengthy",
             "caption": "Conntrack: Lengthy?",
             "description": "Extended reporting.",
@@ -168,7 +196,7 @@
             "settings": {},
             "uuid": "3d0c86ce-21e9-41e7-a269-cceb63ff94ea"
         },
-        "5": {
+        "6": {
             "varname": "conntrack_no_perfdata",
             "caption": "Conntrack: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -177,7 +205,7 @@
             "settings": {},
             "uuid": "6691af9f-ebbc-4a27-ad94-dfd1319fe610"
         },
-        "6": {
+        "7": {
             "varname": "conntrack_warning",
             "caption": "Conntrack: Warning",
             "description": "WARN threshold for the connection tracking table usage in percent. Supports Nagios ranges.",
@@ -188,16 +216,27 @@
             },
             "uuid": "8951868c-6722-441a-aeeb-5a3edbc2a858"
         },
-        "7": {
+        "8": {
             "varname": "conntrack_warning_drops",
             "caption": "Conntrack: Warning Drops",
-            "description": "WARN threshold for the per-second rate of each counter that means a connection was given up on: evicted entries, failed inserts and dropped packets. Every counter is compared on its own. Supports Nagios ranges.",
+            "description": "WARN threshold for the per-second rate of each counter that means a packet was dropped although the table was not full: refused inserts and dropped packets. Every counter is compared on its own. These occur on a healthy host as well, because two packets of the same new TCP connection arriving on different CPUs always cost one of them, so this tolerates a trickle instead of alerting on the first event. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "097abcb5-4c2f-49df-b91c-d85f7b58d51d"
+        },
+        "9": {
+            "varname": "conntrack_warning_evictions",
+            "caption": "Conntrack: Warning Evictions",
+            "description": "WARN threshold for the per-second rate of entries the kernel threw out of a full table to make room for a new connection. This is the counter that catches a burst the table usage between two runs never sees, and a healthy host does not produce it at all. Supports Nagios ranges.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7b2eff48-d4c1-4fcd-9525-bc290fd3228b"
         }
     }
 }

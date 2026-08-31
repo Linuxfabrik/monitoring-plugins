@@ -40,8 +40,10 @@ Checks how full the netfilter connection tracking table is, and how often the ke
 
 ```text
 usage: conntrack [-h] [-V] [--always-ok] [-c CRIT]
-                 [--critical-drops CRIT_DROPS] [--lengthy] [--no-perfdata]
-                 [-w WARN] [--warning-drops WARN_DROPS]
+                 [--critical-drops CRIT_DROPS]
+                 [--critical-evictions CRIT_EVICTIONS] [--lengthy]
+                 [--no-perfdata] [-w WARN] [--warning-drops WARN_DROPS]
+                 [--warning-evictions WARN_EVICTIONS]
 
 Checks how full the netfilter connection tracking table is, and how often the
 kernel had to give up on a connection. Every host running a firewall, NAT or a
@@ -54,7 +56,8 @@ runs, so the values reflect the current situation and not a total accumulated
 since boot. A host that does not track connections at all is reported as OK,
 because there is no table that could fill up. Supports extended reporting via
 --lengthy. Alerts when the table usage leaves the warning or critical range,
-and when the kernel evicts entries, refuses to insert them or drops packets.
+when the kernel evicts an entry to make room in a full table, and when it
+drops packets faster than the thresholds allow.
 
 options:
   -h, --help            show this help message and exit
@@ -64,10 +67,15 @@ options:
                         in percent. Supports Nagios ranges. Default: 90
   --critical-drops CRIT_DROPS
                         CRIT threshold for the per-second rate of each counter
-                        that means a connection was given up on: evicted
-                        entries, failed inserts and dropped packets. Every
+                        that means a packet was dropped although the table was
+                        not full: refused inserts and dropped packets. Every
                         counter is compared on its own. Supports Nagios
                         ranges. Default: no critical threshold
+  --critical-evictions CRIT_EVICTIONS
+                        CRIT threshold for the per-second rate of entries the
+                        kernel threw out of a full table to make room for a
+                        new connection. Supports Nagios ranges. Default: no
+                        critical threshold
   --lengthy             Extended reporting.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
@@ -77,10 +85,22 @@ options:
                         in percent. Supports Nagios ranges. Default: 80
   --warning-drops WARN_DROPS
                         WARN threshold for the per-second rate of each counter
-                        that means a connection was given up on: evicted
-                        entries, failed inserts and dropped packets. Every
-                        counter is compared on its own. Supports Nagios
-                        ranges. Default: 0 (warns on any such event)
+                        that means a packet was dropped although the table was
+                        not full: refused inserts and dropped packets. Every
+                        counter is compared on its own. These occur on a
+                        healthy host as well, because two packets of the same
+                        new TCP connection arriving on different CPUs always
+                        cost one of them, so this tolerates a trickle instead
+                        of alerting on the first event. Supports Nagios
+                        ranges. Default: 1 (warns above one dropped packet per
+                        second)
+  --warning-evictions WARN_EVICTIONS
+                        WARN threshold for the per-second rate of entries the
+                        kernel threw out of a full table to make room for a
+                        new connection. This is the counter that catches a
+                        burst the table usage between two runs never sees, and
+                        a healthy host does not produce it at all. Supports
+                        Nagios ranges. Default: 0 (warns on any such event)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/conntrack/
@@ -143,22 +163,29 @@ A host whose table is deliberately kept full, a load balancer holding as many co
 ./conntrack --warning=~: --critical=~:
 ```
 
-Tolerate the occasional evicted entry on a busy gateway and only alert once it becomes a pattern:
+A busy host drops a packet now and then without anything being wrong, because two packets of the same new TCP connection arriving on different CPUs always cost one of them. Raise the tolerance to whatever this host idles at, and page once it becomes a pattern:
 
 ```bash
 ./conntrack --warning-drops=10 --critical-drops=100
 ```
 
+An evicted entry is a different matter and has its own thresholds, because it proves the table was full at that moment. On a gateway that is expected to run its table full, and where the eviction is the accepted price rather than a fault, raise it as well:
+
+```bash
+./conntrack --warning-evictions=50 --critical-evictions=500
+```
+
 
 ## States
 
-* OK if the table usage is within `--warning` and `--critical` and none of the drop counters moved.
+* OK if the table usage is within `--warning` and `--critical`, no entry was evicted, and the drop counters stay within their rate.
 * OK if connection tracking is not active on this host. Without the module there is no table that could fill up.
 * OK on the first run against the kernel counters, because there is no previous sample to compare against yet. The table usage is still evaluated and can alert.
 * WARN if the table usage leaves the `--warning` range.
-* WARN if the per-second rate of `early_drop`, `drop`, `insert_failed` or `chainlength` leaves the `--warning-drops` range, which by default means any of them moved at all. Each counter is compared on its own, so the output names the one that fired. `insert_failed` is excluded on a kernel that lacks the upstream 5.10 change, where it also counts clashes the kernel resolved.
+* WARN if the per-second rate of `early_drop` leaves the `--warning-evictions` range, which by default means a single evicted entry is enough. Nothing but a table at its limit produces one.
+* WARN if the per-second rate of `drop`, `insert_failed` or `chainlength` leaves the `--warning-drops` range, one dropped packet per second by default. Each counter is compared on its own, so the output names the one that fired. These carry a rate rather than a zero-tolerance threshold because a healthy host produces a trickle of them on its own: the kernel cannot resolve a clash between two packets of the same new TCP connection, so it drops one and the client resends it. `insert_failed` is excluded on a kernel that lacks the upstream 5.10 change, where it also counts clashes the kernel resolved.
 * CRIT if the table usage leaves the `--critical` range, 90 % by default.
-* CRIT if one of the drop counters leaves the `--critical-drops` range. There is no critical threshold by default.
+* CRIT if `early_drop` leaves the `--critical-evictions` range, or one of the drop counters leaves the `--critical-drops` range. Neither has a critical threshold by default.
 * UNKNOWN if `/proc/sys/net/netfilter/nf_conntrack_max` holds a value of zero or less, which no working kernel reports.
 * UNKNOWN if the check does not run on Linux.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -217,7 +244,7 @@ The `awk` picks the first `src=` of each line rather than a fixed column, becaus
 
 That is the case this check exists for. The usage is a sample taken every check interval, and a burst that fills the table between two samples is gone again before the next one. `early_drop` is the kernel's own record that it had to throw an established connection out to make room, so a rate above zero means the table did reach its limit, whatever the usage says.
 
-Raise the limit as described above rather than the thresholds. Alternatively, if the host is a load balancer or a gateway that is supposed to run its table full and only real drops matter, switch the usage thresholds off with `--warning=~: --critical=~:` and leave the alerting to the drop counters.
+Raise the limit as described above rather than the thresholds. Alternatively, if the host is a load balancer or a gateway that is supposed to run its table full and only real drops matter, switch the usage thresholds off with `--warning=~: --critical=~:` and leave the alerting to the counters.
 
 
 ### Connections are dropped although the table is not full
@@ -229,6 +256,13 @@ Raise the limit as described above rather than the thresholds. Alternatively, if
 ```
 
 An average chain length well above two means the hash table is too small for the number of tracked connections, usually because `nf_conntrack_max` was raised at some point and `nf_conntrack_buckets` was not. Set the two to the same value.
+
+Where the chains are short and the table is nearly empty, the clash is the whole story and there is nothing to repair. The kernel can resolve a clash for UDP, ICMP and GRE but not for TCP, so every collision between two packets of the same new TCP connection costs one packet, raising `drop` and `insert_failed` by one each. The client resends the SYN and the connection comes up a moment later. Compare the reported rate against what the host produces while everything is fine and raise `--warning-drops` above it.
+
+
+### `drop` and `insert_failed` report the same rate
+
+They are the same event. An unresolvable clash raises both counters for the one packet it drops, so a service that reports `drop 0.0167/s, insert_failed 0.0167/s` saw a single clash in the interval, not two separate faults. `chainlength` raises `insert_failed` alongside itself in the same way. That is why every counter is compared against its threshold on its own and never summed.
 
 
 ### The check reports "Connection tracking is not active on this host."

@@ -21,7 +21,7 @@ import lib.human
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026083101'
 
 DESCRIPTION = """Checks how full the netfilter connection tracking table is, and how often
 the kernel had to give up on a connection. Every host running a firewall, NAT or a
@@ -35,8 +35,9 @@ and not a total accumulated since boot.
 A host that does not track connections at all is reported as OK, because there is no
 table that could fill up.
 Supports extended reporting via --lengthy.
-Alerts when the table usage leaves the warning or critical range, and when the kernel
-evicts entries, refuses to insert them or drops packets."""
+Alerts when the table usage leaves the warning or critical range, when the kernel evicts
+an entry to make room in a full table, and when it drops packets faster than the
+thresholds allow."""
 
 # The connection tracking table, its limit and the size of the hash table it lives in.
 # The kernel registers these under net/netfilter for every network namespace, so a
@@ -121,11 +122,28 @@ CONDITIONAL_RATE_COLUMNS = {
     'ignore': 'searched',
 }
 
-# Rates that mean the kernel could not do its job. Each one is compared against
-# --warning-drops / --critical-drops on its own instead of being summed, because the
-# same packet raises several of them: an unresolvable clash counts as "drop" and as
-# "insert_failed". A sum would report it twice and hide which counter actually moved.
-ALERT_COLUMNS = ['chainlength', 'drop', 'early_drop', 'insert_failed']
+# Counters that mean the kernel gave up on a connection. Each one is compared against
+# its thresholds on its own instead of being summed, because the same packet raises
+# several of them: an unresolvable clash counts as "drop" and as "insert_failed", and a
+# chain too long to insert into counts as "chainlength" and as "insert_failed"
+# (`nf_ct_resolve_clash()` and `__nf_conntrack_confirm()` in nf_conntrack_core.c). A sum
+# would report the same packet twice and hide which counter actually moved.
+#
+# The two groups get separate thresholds because they are separate questions.
+#
+# An eviction proves the table was at its limit at that moment, which no amount of
+# traffic makes normal and which no host produces as background noise, so it alerts from
+# the first event on.
+#
+# A refused insert or a dropped packet does occur on a perfectly healthy host: `struct
+# nf_conntrack_l4proto.allow_clash` is set for UDP, ICMP, ICMPv6 and GRE but not for TCP,
+# so two packets of the same new TCP connection racing through conntrack on two CPUs
+# always cost one of them. The client resends the SYN, the connection comes up, and
+# nobody notices. A host with many short-lived connections produces a steady trickle of
+# those with a table that is nearly empty, which is why these carry a rate to stay under
+# rather than a zero-tolerance threshold.
+DROP_COLUMNS = ['chainlength', 'drop', 'insert_failed']
+EVICTION_COLUMNS = ['early_drop']
 
 # What each counter means, in the words an administrator needs to act on it.
 COLUMN_DESCRIPTION = {
@@ -143,8 +161,10 @@ COLUMN_DESCRIPTION = {
 
 DEFAULT_CRIT = '90'
 DEFAULT_CRIT_DROPS = None
+DEFAULT_CRIT_EVICTIONS = None
 DEFAULT_WARN = '80'
-DEFAULT_WARN_DROPS = '0'
+DEFAULT_WARN_DROPS = '1'
+DEFAULT_WARN_EVICTIONS = '0'
 
 
 def parse_args():
@@ -192,12 +212,22 @@ def parse_args():
     parser.add_argument(
         '--critical-drops',
         help='CRIT threshold for the per-second rate of each counter that means a '
-        'connection was given up on: evicted entries, failed inserts and dropped '
-        'packets. Every counter is compared on its own. '
+        'packet was dropped although the table was not full: refused inserts and '
+        'dropped packets. Every counter is compared on its own. '
         'Supports Nagios ranges. '
         'Default: no critical threshold',
         dest='CRIT_DROPS',
         default=DEFAULT_CRIT_DROPS,
+    )
+
+    parser.add_argument(
+        '--critical-evictions',
+        help='CRIT threshold for the per-second rate of entries the kernel threw out '
+        'of a full table to make room for a new connection. '
+        'Supports Nagios ranges. '
+        'Default: no critical threshold',
+        dest='CRIT_EVICTIONS',
+        default=DEFAULT_CRIT_EVICTIONS,
     )
 
     parser.add_argument(
@@ -229,12 +259,27 @@ def parse_args():
     parser.add_argument(
         '--warning-drops',
         help='WARN threshold for the per-second rate of each counter that means a '
-        'connection was given up on: evicted entries, failed inserts and dropped '
-        'packets. Every counter is compared on its own. '
+        'packet was dropped although the table was not full: refused inserts and '
+        'dropped packets. Every counter is compared on its own. These occur on a '
+        'healthy host as well, because two packets of the same new TCP connection '
+        'arriving on different CPUs always cost one of them, so this tolerates a '
+        'trickle instead of alerting on the first event. '
         'Supports Nagios ranges. '
-        'Default: %(default)s (warns on any such event)',
+        'Default: %(default)s (warns above one dropped packet per second)',
         dest='WARN_DROPS',
         default=DEFAULT_WARN_DROPS,
+    )
+
+    parser.add_argument(
+        '--warning-evictions',
+        help='WARN threshold for the per-second rate of entries the kernel threw out '
+        'of a full table to make room for a new connection. This is the counter that '
+        'catches a burst the table usage between two runs never sees, and a healthy '
+        'host does not produce it at all. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s (warns on any such event)',
+        dest='WARN_EVICTIONS',
+        default=DEFAULT_WARN_EVICTIONS,
     )
 
     args, _ = parser.parse_known_args()
@@ -306,6 +351,17 @@ def get_columns(counters):
     return sorted(columns)
 
 
+def get_thresholds(column, args):
+    """Return the `(warn, crit)` pair that applies to one counter.
+
+    See the comment above EVICTION_COLUMNS for why an eviction and a dropped packet do
+    not share a threshold.
+    """
+    if column in EVICTION_COLUMNS:
+        return (args.WARN_EVICTIONS, args.CRIT_EVICTIONS)
+    return (args.WARN_DROPS, args.CRIT_DROPS)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -363,7 +419,7 @@ def main():
     # does alert on it: measured on Rocky 8.
     alert_columns = [
         column
-        for column in ALERT_COLUMNS
+        for column in sorted(DROP_COLUMNS + EVICTION_COLUMNS)
         if not (column == 'insert_failed' and 'searched' in counters)
     ]
 
@@ -386,10 +442,10 @@ def main():
             # no baseline yet, so there is no rate to look at
             break
         rate = rates[column]
+        warn = crit = None
         if column in alert_columns:
-            column_state = lib.base.get_state(
-                rate, args.WARN_DROPS, args.CRIT_DROPS, _operator='range'
-            )
+            warn, crit = get_thresholds(column, args)
+            column_state = lib.base.get_state(rate, warn, crit, _operator='range')
         else:
             column_state = STATE_OK
         state = lib.base.get_worst(state, column_state)
@@ -399,8 +455,8 @@ def main():
             f'{column}_per_second',
             round(rate, 4),
             uom=None,
-            warn=args.WARN_DROPS if column in alert_columns else None,
-            crit=args.CRIT_DROPS if column in alert_columns else None,
+            warn=warn,
+            crit=crit,
             _min=0,
         )
         meaning = COLUMN_DESCRIPTION[column]
@@ -458,12 +514,15 @@ def main():
         )
     elif alerting_columns & {'drop', 'insert_failed'}:
         hints.append(
-            'Connection tracking gave up on connections although the table was not '
-            'full. That is either a clash between two packets of the same new '
-            'connection that the kernel could not resolve, or a hash chain too long '
-            'to insert into. Run the check with --lengthy to see the average chain '
-            'length, and raise net.netfilter.nf_conntrack_buckets if it is well '
-            'above two.'
+            'Connection tracking dropped packets although the table was not full. The '
+            'usual cause is two packets of the same new TCP connection arriving on '
+            'different CPUs: the kernel cannot resolve that clash, drops one of them '
+            'and the client resends it, so a host with many short-lived connections '
+            'produces a steady trickle of these. Compare the rate against what this '
+            'host idles at and raise --warning-drops if the connections themselves are '
+            'fine. The other cause is a hash chain too long to insert into: run the '
+            'check with --lengthy to see the average chain length, and raise '
+            'net.netfilter.nf_conntrack_buckets if it is well above two.'
         )
     if 'chainlength' in alerting_columns:
         hints.append(
