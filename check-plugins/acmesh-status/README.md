@@ -147,11 +147,11 @@ Output:
 ```text
 Everything is ok. 3 certificates renew as scheduled. The next one expires in 68d.
 
-Store                ! Days Left ! Renewal  ! Note ! State
----------------------+-----------+----------+------+------
-mail.example.com_ecc ! 68d       ! in 1M 1W ! -    ! [OK]
-shop.example.com_ecc ! 68d       ! in 1M 1W ! -    ! [OK]
-www.example.com_ecc  ! 68d       ! in 1M 1W ! -    ! [OK]
+Domain           ! Type ! Days Left ! Renewal  ! Note ! State
+-----------------+------+-----------+----------+------+------
+mail.example.com ! ECC  ! 68d       ! in 1M 1W ! -    ! [OK]
+shop.example.com ! ECC  ! 68d       ! in 1M 1W ! -    ! [OK]
+www.example.com  ! ECC  ! 68d       ! in 1M 1W ! -    ! [OK]
 ```
 
 Three domains whose DNS records were removed without taking them out of the renewal list, and two whose installed copy has gone missing. The table names the certificates and the commands below it carry the fix, each standing for every certificate it applies to with `$DOMAIN` in place of the name. Running the renewal by hand is what tells the two repairs apart, so it is listed on its own above them rather than as a third option:
@@ -165,19 +165,19 @@ Output:
 ```text
 5 of 5 certificates need attention. The next one expires in 4d. 3 detached from renewal.
 
-Store                  ! Days Left ! Renewal       ! Note                      ! State
------------------------+-----------+---------------+---------------------------+-----------
-cloud.example.com_ecc  ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned ! [CRITICAL]
-office.example.com_ecc ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned ! [CRITICAL]
-ws.example.com_ecc     ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned ! [CRITICAL]
-mail.example.com_ecc   ! 68d       ! in 1M 1W      ! orphaned                  ! [WARNING]
-www.example.com_ecc    ! 68d       ! in 1M 1W      ! orphaned                  ! [WARNING]
+Domain             ! Type ! Days Left ! Renewal       ! Note                      ! State
+-------------------+------+-----------+---------------+---------------------------+-----------
+cloud.example.com  ! ECC  ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned ! [CRITICAL]
+office.example.com ! ECC  ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned ! [CRITICAL]
+ws.example.com     ! ECC  ! 4d        ! overdue 3W 4D ! renewal overdue, orphaned ! [CRITICAL]
+mail.example.com   ! ECC  ! 68d       ! in 1M 1W      ! orphaned                  ! [WARNING]
+www.example.com    ! ECC  ! 68d       ! in 1M 1W      ! orphaned                  ! [WARNING]
 
-Check why the renewal is not happening: `acme.sh --config-home=/etc/acme.sh --renew --domain=$DOMAIN --ecc`
+Check why the renewal is not happening: `acme.sh --config-home /etc/acme.sh --renew --domain $DOMAIN --ecc`
 
 Recommendations:
-* Install the missing copy again: `acme.sh --config-home=/etc/acme.sh --install-cert --domain=$DOMAIN --ecc --cert-file=/etc/pki/tls/certs/$DOMAIN.crt --key-file=/etc/pki/tls/private/$DOMAIN.key --fullchain-file=/etc/pki/tls/certs/$DOMAIN-fullchain.crt --ca-file=/etc/pki/tls/certs/$DOMAIN-chain.crt --reloadcmd='systemctl reload httpd'`
-* Or detach a domain that has been retired: `acme.sh --config-home=/etc/acme.sh --remove --domain=$DOMAIN --ecc`
+* Install the missing copy again: `acme.sh --config-home /etc/acme.sh --install-cert --domain $DOMAIN --ecc --cert-file /etc/pki/tls/certs/$DOMAIN.crt --key-file /etc/pki/tls/private/$DOMAIN.key --fullchain-file /etc/pki/tls/certs/$DOMAIN-fullchain.crt --ca-file /etc/pki/tls/certs/$DOMAIN-chain.crt --reloadcmd 'systemctl reload httpd'`
+* Or detach a domain that has been retired: `acme.sh --config-home /etc/acme.sh --remove --domain $DOMAIN --ecc`
 ```
 
 On a busy reverse proxy, `--brief` drops the rows that are within the thresholds so only the certificates that need attention are listed. Performance data and the check state are unaffected:
@@ -222,7 +222,7 @@ On a busy reverse proxy, `--brief` drops the rows that are within the thresholds
 acme.sh considers a renewal due and it has not happened. The store records only successful renewals, so it holds no reason; the recommendation names the command that produces one:
 
 1. Run the renewal by hand. It prints why acme.sh cannot complete it, most often a validation error naming the domain.
-2. A verification error such as `no valid A records found for <domain>` means the domain no longer resolves. If the service behind it was retired, take the certificate out of the renewal list with `acme.sh --config-home=<path> --remove --domain=<domain> --ecc`. This detaches it and leaves its files in place. Leave `--ecc` off for a certificate with an RSA key.
+2. A verification error such as `no valid A records found for <domain>` means the domain no longer resolves. If the service behind it was retired, take the certificate out of the renewal list with `acme.sh --config-home <path> --remove --domain <domain> --ecc`. This detaches it and leaves its files in place. Leave `--ecc` off for a certificate with an RSA key.
 3. If the domain is still in use, fix what broke: the DNS record, the web server that answers on port 80, or the firewall in front of it.
 
 Until the entry is either renewed or removed, every run of the acme.sh renewal job exits non-zero because of it, which is why a single retired domain makes the whole job look broken.

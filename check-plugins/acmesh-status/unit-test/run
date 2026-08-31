@@ -208,7 +208,7 @@ SCENARIOS = [
             '1 of 1 certificates need attention.',
             'Check why the renewal is not happening:',
             'Detach a domain that has been retired:',
-            '--remove --domain=www.example.com --ecc',
+            '--remove --domain www.example.com --ecc',
         ],
         # the only repair on offer is not an alternative to anything
         'assert-not-in': ['Or detach'],
@@ -242,7 +242,7 @@ SCENARIOS = [
         'params': '',
         'assert-retc': STATE_CRIT,
         'assert-in': ['renewal overdue', '4d'],
-        'assert-regex': r'www\.example\.com_ecc.*\[CRITICAL\]',
+        'assert-regex': r'www\.example\.com.*ECC.*\[CRITICAL\]',
     },
     {
         'id': 'crit-expired',
@@ -275,7 +275,7 @@ SCENARIOS = [
             'orphaned',
             'Install the missing copy again:',
             '--install-cert',
-            "--reloadcmd='systemctl reload httpd'",
+            "--reloadcmd 'systemctl reload httpd'",
         ],
     },
     {
@@ -298,19 +298,19 @@ SCENARIOS = [
         'assert-in': [
             '3 of 3 certificates need attention.',
             'Check why the renewal is not happening: `acme.sh',
-            '--renew --domain=$DOMAIN --ecc`',
+            '--renew --domain $DOMAIN --ecc`',
             'Recommendations:\n* Install the missing copy again:',
-            '--install-cert --domain=$DOMAIN --ecc --cert-file=',
+            '--install-cert --domain $DOMAIN --ecc --cert-file ',
             '/pki/$DOMAIN.crt',
             '* Or detach a domain that has been retired:',
-            '--remove --domain=$DOMAIN --ecc`',
+            '--remove --domain $DOMAIN --ecc`',
         ],
         # the step that has to happen first does not sit inside the list of repairs
         # the per-domain repetition is what this replaces, and the step that has to
         # happen first does not sit inside the list of repairs
         'assert-not-in': [
-            '--domain=a.example.com',
-            '--domain=b.example.com',
+            '--domain a.example.com',
+            '--domain b.example.com',
             '* Check why the renewal is not happening',
         ],
     },
@@ -328,8 +328,8 @@ SCENARIOS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '--renew --domain=a.example.com --ecc`',
-            '--renew --domain=b.example.com`',
+            '--renew --domain a.example.com --ecc`',
+            '--renew --domain b.example.com`',
         ],
     },
     {
@@ -348,7 +348,7 @@ SCENARIOS = [
         'assert-in': [
             'detached from renewal but still installed',
             'Put a detached certificate back under renewal:',
-            '--issue --domain=old.example.com',
+            '--issue --domain old.example.com',
         ],
     },
     {
@@ -455,7 +455,7 @@ SCENARIOS = [
         ),
         'params': '--brief',
         'assert-retc': STATE_OK,
-        'assert-not-in': ['www.example.com_ecc !', 'Days Left'],
+        'assert-not-in': ['www.example.com !', 'Days Left'],
     },
     {
         'id': 'ok-cert-home-defaults-to-the-configuration-directory',

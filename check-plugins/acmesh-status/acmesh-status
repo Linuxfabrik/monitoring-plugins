@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083002'
+__version__ = '2026083101'
 
 DESCRIPTION = """Reports the state of the certificates acme.sh manages, by reading its
 certificate store instead of its output. For every certificate it reports the time left
@@ -388,6 +388,11 @@ def render_command(context, arguments, placeholder_for=None):
     Every value is quoted, because the domain names and paths interpolated here come
     from directory names and configuration files rather than from this check.
 
+    An option and its value are separated by a space, never by `=`: acme.sh parses its
+    command line with a `case` statement that takes the value from `$2`, so
+    `--domain=example.com` reaches the unknown-parameter branch and the command fails
+    (verified against acme.sh 3.1.4).
+
     With `placeholder_for`, that domain is replaced by `$DOMAIN` so one command can
     stand for every certificate the same advice applies to. A value that needs quoting
     is not templated, because a placeholder inside a quoted word is handed to acme.sh
@@ -395,7 +400,7 @@ def render_command(context, arguments, placeholder_for=None):
     certificate called `$DOMAIN` is worse than a repeated one. Such a command is
     returned as None, and the caller falls back to naming the domain.
     """
-    parts = [('', context['acme_sh']), ('--config-home=', context['path'])]
+    parts = [('', context['acme_sh']), ('--config-home', context['path'])]
     parts.extend(arguments)
     rendered = []
     for option, value in parts:
@@ -404,7 +409,7 @@ def render_command(context, arguments, placeholder_for=None):
             if quoted != value:
                 return None
             quoted = value.replace(placeholder_for, DOMAIN_PLACEHOLDER)
-        rendered.append(option + quoted)
+        rendered.append(f'{option} {quoted}' if option else quoted)
     return ' '.join(rendered)
 
 
@@ -416,7 +421,7 @@ def domain_arguments(store):
     none. Both spellings therefore group separately, and a host holding certificates of
     both key types gets one line for each.
     """
-    arguments = [('--domain=', store['domain'])]
+    arguments = [('--domain', store['domain'])]
     if store['ecc']:
         arguments.append(('', '--ecc'))
     return arguments
@@ -455,11 +460,11 @@ def action_install(store):
     conf = store['conf']
     arguments = [('', '--install-cert'), *domain_arguments(store)]
     for option, key in (
-        ('--cert-file=', 'Le_RealCertPath'),
-        ('--key-file=', 'Le_RealKeyPath'),
-        ('--fullchain-file=', 'Le_RealFullChainPath'),
-        ('--ca-file=', 'Le_RealCACertPath'),
-        ('--reloadcmd=', 'Le_ReloadCmd'),
+        ('--cert-file', 'Le_RealCertPath'),
+        ('--key-file', 'Le_RealKeyPath'),
+        ('--fullchain-file', 'Le_RealFullChainPath'),
+        ('--ca-file', 'Le_RealCACertPath'),
+        ('--reloadcmd', 'Le_ReloadCmd'),
     ):
         value = conf.get(key, '')
         if value:
@@ -475,10 +480,10 @@ def action_reissue(store):
     arguments = [('', '--issue'), *domain_arguments(store)]
     webroot = store['conf'].get('Le_Webroot', '')
     if webroot and not webroot.startswith('dns'):
-        arguments.append(('--webroot=', webroot))
+        arguments.append(('--webroot', webroot))
     keylength = store['conf'].get('Le_Keylength', '')
     if keylength:
-        arguments.append(('--keylength=', keylength))
+        arguments.append(('--keylength', keylength))
     return (ACTION_REISSUE, arguments)
 
 
@@ -636,11 +641,15 @@ def evaluate_store(store, args, now):
         '_crit': crit,
         '_warn': warn,
         'days_left': format_days_left(days_left),
+        # the domain and the key type are separate columns, because the `_ecc` suffix
+        # is an acme.sh implementation detail glued onto a domain name, and a column of
+        # names ending in it reads as part of the name
+        'domain': store['domain'],
         'note': ', '.join(notes) or '-',
         'renewal': format_overdue(seconds_overdue),
         'sort_days': days_left if days_left is not None else -99999,
         'state': lib.base.state2str(state, empty_ok=False),
-        'store': store['store'],
+        'type': 'ECC' if store['ecc'] else 'RSA',
         '_days_left': days_left,
         '_state': state,
     }
@@ -807,8 +816,8 @@ def main():
         sections.append(
             lib.base.get_table(
                 rows,
-                ['store', 'days_left', 'renewal', 'note', 'state'],
-                header=['Store', 'Days Left', 'Renewal', 'Note', 'State'],
+                ['domain', 'type', 'days_left', 'renewal', 'note', 'state'],
+                header=['Domain', 'Type', 'Days Left', 'Renewal', 'Note', 'State'],
                 sort_by_key='sort_days',
             ).rstrip()
         )
