@@ -21,17 +21,11 @@ import lib.args
 import lib.base
 import lib.disk
 import lib.lftest
+import lib.psutil
 import lib.shell
 import lib.txt
 import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
-
-try:
-    import psutil
-except ImportError:
-    print('Python module "psutil" is not installed.')
-    sys.exit(STATE_UNKNOWN)
-
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
 __version__ = '2026083101'
@@ -412,9 +406,8 @@ def stat_path(path, stat_fixture):
     """
     if stat_fixture is not None:
         return stat_fixture.get(path)
-    try:
-        info = os.stat(path)
-    except OSError:
+    info = lib.disk.stat(path)
+    if info is None:
         return None
     return {
         'owner': lib.user.get_uid_name(info.st_uid),
@@ -484,16 +477,19 @@ def check_account_locked(user, state, shadow, severity_state):
             f'`{user}` has no local shadow entry.',
             None,
         )
-    if shadow.startswith('!'):
+    # What the field means is a property of the shadow entry, not of this check,
+    # so `lib.user` reads it and only the verdict on each outcome stays here.
+    password = lib.user.password_state(shadow)
+    if password == 'locked':
         return (STATE_OK, f'{user}: locked', 'The password is locked.', None)
-    if shadow.startswith('*'):
+    if password == 'no-login':
         return (
             STATE_OK,
             f'{user}: no password login',
             'No password can be used for this account.',
             None,
         )
-    if not shadow:
+    if password == 'none':
         return (
             severity_state,
             f'{user}: no password at all',
@@ -509,28 +505,10 @@ def check_account_locked(user, state, shadow, severity_state):
 
 
 def get_worker_accounts(account_fixture):
-    """Return the account names the running Apache processes use.
-
-    A web server running in a container shows up in the host's process list
-    under a user id mapped into the host's range, which would be reported as a
-    stray account of the host's own installation. The mount namespace is what
-    separates the two reliably, so only processes sharing this one are counted.
-    """
+    """Return the account names the running Apache processes use."""
     if account_fixture is not None:
         return account_fixture['processes']
-    namespace = lib.user.own_mount_namespace()
-    accounts = []
-    for proc in psutil.process_iter(['name', 'pid', 'username']):
-        try:
-            if proc.info['name'] not in ('httpd', 'apache2'):
-                continue
-            if namespace is not None:
-                if os.readlink(f'/proc/{proc.info["pid"]}/ns/mnt') != namespace:
-                    continue
-            accounts.append(proc.info['username'])
-        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
-            continue
-    return accounts
+    return lib.psutil.get_process_accounts(('httpd', 'apache2'))
 
 
 def parse_account_fixture(stdout):
