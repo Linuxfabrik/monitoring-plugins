@@ -27,7 +27,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026083101'
 
 DESCRIPTION = """Checks the installed GitLab version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -175,9 +175,17 @@ def get_installed_version(args):
     return result
 
 
-def check_security(installed_version, insecure, no_proxy, timeout):
+def check_security(
+    installed_version, insecure, no_proxy, proxy, timeout, unreachable_severity
+):
     """Ask the public GitLab Version Check service whether the installed version
-    has a security-relevant update available. Cached for 4 hours."""
+    has a security-relevant update available. Cached for 4 hours.
+
+    Returns `(state, note)`, where the note is empty while there is nothing to say. An
+    unreachable service is named in the note either way and reported at
+    `unreachable_severity`, the same way check_eol() treats endoflife.date: an operator
+    who accepts that the lookup can fail still has to be able to see that it did.
+    """
     cache_key = f'gitlab-security:{installed_version}'
     try:
         cached = lib.cache.get(cache_key, filename='linuxfabrik-lib-version.db')
@@ -194,10 +202,14 @@ def check_security(installed_version, insecure, no_proxy, timeout):
             endpoint,
             insecure=insecure,
             no_proxy=no_proxy,
+            proxy=proxy,
             timeout=timeout,
         )
         if not success or not isinstance(data, dict):
-            return STATE_UNKNOWN, 'security check unavailable'
+            return (
+                lib.base.str2state(unreachable_severity),
+                'version.gitlab.com unreachable',
+            )
         lib.cache.set(
             cache_key,
             json.dumps(data),
@@ -208,7 +220,7 @@ def check_security(installed_version, insecure, no_proxy, timeout):
     severity = data.get('severity', 'success')
     critical = bool(data.get('critical_vulnerability', False))
     if severity == 'success' and not critical:
-        return STATE_OK, 'no security update'
+        return STATE_OK, ''
     if critical:
         return STATE_WARN, 'critical security update available'
     return STATE_WARN, 'security update available'
@@ -263,9 +275,10 @@ def main():
             no_proxy=args.NO_PROXY,
             proxy=args.PROXY,
             timeout=args.TIMEOUT,
+            unreachable_severity=args.UNREACHABLE_SEVERITY,
         )
         state = lib.base.get_worst(state, sec_state)
-        if sec_state != STATE_OK:
+        if sec_msg:
             sec_prefix = f', {sec_msg}'
         # collapse all inline state markers into a single overall marker at the
         # end, so EOL and security do not each stamp their own [WARNING]

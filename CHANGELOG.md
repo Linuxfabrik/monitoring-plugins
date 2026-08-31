@@ -130,6 +130,7 @@ Monitoring Plugins:
 * docker-service, docker-swarm: the sudoers file lets them reach the Docker daemon
 * file-ownership: a `--filename` missing its `owner:group,` prefix names the expected format instead of crashing
 * fortios-network-io, fortios-sensor, jitsi-videobridge-status: `--always-ok` suppresses the alert instead of being ignored
+* gitlab-version: `--check-security` no longer forces UNKNOWN when the version-check service cannot be reached, it follows `--unreachable-severity` and still says so in the output
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
 * icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows

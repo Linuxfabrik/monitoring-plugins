@@ -25,7 +25,7 @@ import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083101'
 
 DESCRIPTION = """Submits a URL to VirusTotal for analysis and checks the scan results. Alerts when any
 antivirus engine flags the URL as malicious or suspicious. Requires a VirusTotal API
@@ -134,7 +134,7 @@ def parse_args():
     return args
 
 
-def vt_urls(token, url, insecure=False, no_proxy=False, timeout=8):
+def vt_urls(token, url, insecure=False, no_proxy=False, proxy=None, timeout=8):
     """https://docs.virustotal.com/reference/scan-url
     Submit a URL for scanning to VirusTotal and return its analysis identifier.
 
@@ -150,6 +150,8 @@ def vt_urls(token, url, insecure=False, no_proxy=False, timeout=8):
       Defaults to `False`.
     - **no_proxy** (`bool`, optional): If `True`, bypasses any configured HTTP proxy.
       Defaults to `False`.
+    - **proxy** (`str`, optional): Proxy URL to send the request through. Overridden by
+      `no_proxy`. Defaults to `None`, which uses the environment.
     - **timeout** (`int` or `float`, optional): Maximum time, in seconds, to wait for a response.
       Defaults to `8`.
 
@@ -198,6 +200,7 @@ def vt_urls(token, url, insecure=False, no_proxy=False, timeout=8):
         data=data,
         insecure=insecure,
         no_proxy=no_proxy,
+        proxy=proxy,
         timeout=timeout,
     )
 
@@ -206,7 +209,9 @@ def vt_urls(token, url, insecure=False, no_proxy=False, timeout=8):
     return True, result
 
 
-def vt_analyses(token, analysis_id, insecure=False, no_proxy=False, timeout=8):
+def vt_analyses(
+    token, analysis_id, insecure=False, no_proxy=False, proxy=None, timeout=8
+):
     """https://docs.virustotal.com/reference/analysis
     Retrieve a URL or file analysis report from VirusTotal.
 
@@ -222,6 +227,8 @@ def vt_analyses(token, analysis_id, insecure=False, no_proxy=False, timeout=8):
       Defaults to `False`.
     - **no_proxy** (`bool`, optional): If `True`, bypasses any configured HTTP proxy.
       Defaults to `False`.
+    - **proxy** (`str`, optional): Proxy URL to send the request through. Overridden by
+      `no_proxy`. Defaults to `None`, which uses the environment.
     - **timeout** (`int` or `float`, optional): Maximum time, in seconds, to wait for a response.
       Defaults to `8`.
 
@@ -264,6 +271,7 @@ def vt_analyses(token, analysis_id, insecure=False, no_proxy=False, timeout=8):
         header=header,
         insecure=insecure,
         no_proxy=no_proxy,
+        proxy=proxy,
         timeout=timeout,
     )
 

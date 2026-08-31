@@ -133,7 +133,7 @@ GitLab v18.10.3, security update available (full support ended on 2026-04-16; EO
 * WARN if `--check-patch` is set and a new patch version is available.
 * WARN if `--check-security` is set and GitLab reports a non-`success` severity or a critical vulnerability for the installed version.
 * WARN if the installed version is EOL (considering `--offset-eol`, default: -30 days).
-* UNKNOWN if `--check-security` is set and the GitLab Version Check service cannot be reached.
+* `--unreachable-severity` (default: `ok`) if `--check-security` is set and the GitLab Version Check service cannot be reached. The output names it either way, so an operator who accepts a failing lookup can still see that it failed.
 * UNKNOWN if GitLab is not found or the version file cannot be read.
 * `--always-ok` suppresses all alerts and always returns OK.
 
