@@ -67,6 +67,13 @@ find %{buildroot}%{_libdir}/nagios/plugins \
 install --directory --mode 0750 %{buildroot}%{_sysconfdir}/sudoers.d
 install --mode 0440 --no-target-directory assets/sudoers/RedHat.sudoers %{buildroot}%{_sysconfdir}/sudoers.d/%{name}
 
+# The Defaults that keep the plugin calls out of the authentication log ship next to the rules
+# rather than in /etc/sudoers.d, because whether they belong on a host depends on the sudo
+# implementation it runs: sudo-rs knows none of them and warns about each on every sudo call by
+# any user. %post puts the file in place where the classic sudo from sudo.ws runs.
+install --directory %{buildroot}%{_datadir}/%{name}/sudoers
+install --mode 0440 --no-target-directory assets/sudoers/RedHat-logging.sudoers %{buildroot}%{_datadir}/%{name}/sudoers/RedHat-logging.sudoers
+
 # Install bash completion. It goes to the legacy directory on purpose: bash-completion
 # sources that one at shell startup, while its own completions directory is loaded lazily
 # by command name, which would need one file per plugin and would collide with the files
@@ -74,11 +81,41 @@ install --mode 0440 --no-target-directory assets/sudoers/RedHat.sudoers %{buildr
 install --directory %{buildroot}%{_sysconfdir}/bash_completion.d
 install --mode 0644 --no-target-directory assets/bash-completion/linuxfabrik-monitoring-plugins.bash %{buildroot}%{_sysconfdir}/bash_completion.d/%{name}
 
+%define sudoers_logging_src %{_datadir}/%{name}/sudoers/RedHat-logging.sudoers
+%define sudoers_logging_dest %{_sysconfdir}/sudoers.d/%{name}-logging
+
+# Without the Defaults in the companion drop-in, a single check costs five entries in the
+# authentication log, the sudo command line plus the PAM session being opened and closed, and a
+# monitored host runs dozens of checks a minute. It is placed here rather than packaged into
+# /etc/sudoers.d so that a host running sudo-rs, which knows none of those settings and warns
+# about each of them on every sudo call by any user, does not get it - and loses it again if it
+# changed implementation since the last transaction. The name carries no dot on purpose: sudo
+# skips a file in /etc/sudoers.d whose name holds one.
+%post
+if command -v sudo >/dev/null 2>&1 && sudo --version 2>/dev/null | head -1 | grep -qi 'sudo-rs'; then
+    rm -f %{sudoers_logging_dest}
+elif [ -f %{sudoers_logging_src} ]; then
+    # A broken drop-in in /etc/sudoers.d locks every user out of sudo, so it is checked first.
+    if visudo -cf %{sudoers_logging_src} >/dev/null 2>&1; then
+        install -m 0440 -o root -g root %{sudoers_logging_src} %{sudoers_logging_dest}
+        restorecon %{sudoers_logging_dest} 2>/dev/null || :
+    else
+        echo "%{name}: %{sudoers_logging_src} failed the visudo check, leaving %{sudoers_logging_dest} alone" >&2
+    fi
+fi
+
+%postun
+if [ "$1" -eq "0" ]; then
+    # Uninstall. The file sits outside the package's own file list, so rpm does not take it.
+    rm -f %{sudoers_logging_dest}
+fi
+
 %files
 %{_libdir}/%{name}/venv/
 %{_libdir}/nagios/plugins/
 %{_sysconfdir}/bash_completion.d/%{name}
 %{_sysconfdir}/sudoers.d/%{name}
+%{_datadir}/%{name}/sudoers/
 %license LICENSE
 
 %changelog

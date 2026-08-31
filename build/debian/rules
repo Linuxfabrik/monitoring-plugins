@@ -25,6 +25,13 @@ override_dh_auto_install:
 	install --directory --mode 0750 debian/tmp/etc/sudoers.d
 	install --mode 0440 --no-target-directory assets/sudoers/Debian.sudoers debian/tmp/etc/sudoers.d/linuxfabrik-monitoring-plugins
 
+	# The Defaults that keep the plugin calls out of the authentication log ship next to the
+	# rules rather than in /etc/sudoers.d, because this one package serves both sudo and
+	# sudo-rs: sudo-rs knows none of those settings and warns about each of them on every sudo
+	# call by any user. postinst puts the file in place on a host running the classic sudo.
+	install --directory debian/tmp/usr/share/linuxfabrik-monitoring-plugins/sudoers
+	install --mode 0440 --no-target-directory assets/sudoers/Debian-logging.sudoers debian/tmp/usr/share/linuxfabrik-monitoring-plugins/sudoers/Debian-logging.sudoers
+
 	# Install bash completion. It goes to the legacy directory on purpose: bash-completion
 	# sources that one at shell startup, while its own completions directory is loaded lazily
 	# by command name, which would need one file per plugin and would collide with the files

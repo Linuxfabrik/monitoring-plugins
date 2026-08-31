@@ -61,6 +61,11 @@ STATE_DIR='/usr/lib64/linuxfabrik-monitoring-plugins'
 VENV_DIR="${STATE_DIR}/venv"
 MANIFEST="${STATE_DIR}/install-manifest.txt"
 SUDOERS_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins'
+# Companion drop-in holding the Defaults that keep the plugin calls out of the authentication
+# log. It is separate because sudo-rs knows none of those settings and warns about each of them
+# on every sudo call by any user, so it goes onto hosts running the classic sudo only. The name
+# carries no dot: sudo skips a file in /etc/sudoers.d whose name contains one.
+SUDOERS_LOGGING_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging'
 # The bash completion goes to the legacy directory on purpose: bash-completion sources that one
 # at shell startup, while its own completions directory is loaded lazily by command name, which
 # would need one file per plugin and would collide with the files bash-completion ships for the
@@ -124,12 +129,14 @@ apt_get() {
 # copy leaves plugins added since that edit unable to run, and misses tightened rules.
 warn_conffile_leftovers() {
     [ "${DRY_RUN}" = '1' ] && return 0
-    local leftover
-    for leftover in "${SUDOERS_DEST}.dpkg-dist" "${SUDOERS_DEST}.dpkg-new"; do
-        if [ -e "${leftover}" ]; then
-            warn "${SUDOERS_DEST} differs from the version this release ships;"
-            warn "the shipped one is at ${leftover}. Compare them and merge what you need."
-        fi
+    local conffile leftover
+    for conffile in "${SUDOERS_DEST}" "${SUDOERS_LOGGING_DEST}"; do
+        for leftover in "${conffile}.dpkg-dist" "${conffile}.dpkg-new"; do
+            if [ -e "${leftover}" ]; then
+                warn "${conffile} differs from the version this release ships;"
+                warn "the shipped one is at ${leftover}. Compare them and merge what you need."
+            fi
+        done
     done
     return 0
 }
@@ -339,14 +346,29 @@ install_lib() {
     record "${PLUGIN_DIR}/lib"
 }
 
+# Whether the host runs sudo-rs rather than the classic sudo from sudo.ws. sudo-rs reports
+# itself as 'sudo-rs <version>' where the classic one says 'Sudo version <version>'. It is the
+# default sudo on Ubuntu 26.04.
+runs_sudo_rs() {
+    command -v sudo >/dev/null 2>&1 || return 1
+    sudo --version 2>/dev/null | head -1 | grep -qi 'sudo-rs'
+}
+
 # Install the family-specific sudoers drop-in shipped in the source tree, mirroring what the
 # RPM/DEB package does. The file is validated with visudo before activation so a broken
 # drop-in can never lock sudo out. Only Debian and RedHat drop-ins are shipped.
+#
+# The logging companion goes alongside it on a host running the classic sudo. Without it every
+# check costs five entries in the authentication log, the sudo command line plus the PAM session
+# being opened and closed, and a monitored host runs dozens of checks a minute. On sudo-rs the
+# companion is not installed but actively removed, because none of its settings exist there and
+# sudo-rs prints a warning for each of them on every sudo call by any user - which is what a
+# host carries away from an in-place upgrade to a release that switched implementations.
 install_sudoers() {
-    local mp_dir="$1" family_file=''
+    local mp_dir="$1" family_file='' logging_file=''
     case "${OS_FAMILY}" in
-        rhel)          family_file='RedHat.sudoers' ;;
-        debian|ubuntu) family_file='Debian.sudoers' ;;
+        rhel)          family_file='RedHat.sudoers'; logging_file='RedHat-logging.sudoers' ;;
+        debian|ubuntu) family_file='Debian.sudoers'; logging_file='Debian-logging.sudoers' ;;
         *)
             warn "no sudoers drop-in shipped for family ${OS_FAMILY}; configure sudo manually"
             return 0
@@ -357,9 +379,17 @@ install_sudoers() {
         return 0
     fi
     local src="${mp_dir}/assets/sudoers/${family_file}"
+    local logging_src="${mp_dir}/assets/sudoers/${logging_file}"
     if [ "${DRY_RUN}" = '1' ]; then
         printf '    [dry-run] visudo -cf %s && install -m 0440 %s %s\n' \
             "${src}" "${src}" "${SUDOERS_DEST}" >&2
+        if runs_sudo_rs; then
+            printf '    [dry-run] rm -f %s (sudo-rs knows none of its settings)\n' \
+                "${SUDOERS_LOGGING_DEST}" >&2
+        else
+            printf '    [dry-run] visudo -cf %s && install -m 0440 %s %s\n' \
+                "${logging_src}" "${logging_src}" "${SUDOERS_LOGGING_DEST}" >&2
+        fi
         return 0
     fi
     [ -f "${src}" ] || { warn "sudoers source ${src} not found; skipping"; return 0; }
@@ -367,6 +397,22 @@ install_sudoers() {
     visudo -cf "${src}" >/dev/null || die "sudoers file ${src} failed validation"
     install -m 0440 "${src}" "${SUDOERS_DEST}"
     record "${SUDOERS_DEST}"
+    if runs_sudo_rs; then
+        if [ -e "${SUDOERS_LOGGING_DEST}" ]; then
+            log "removing ${SUDOERS_LOGGING_DEST} (this host runs sudo-rs)"
+            run rm -f "${SUDOERS_LOGGING_DEST}"
+        else
+            log 'skipping the logging companion: this host runs sudo-rs'
+        fi
+    elif [ ! -f "${logging_src}" ]; then
+        warn "sudoers source ${logging_src} not found; skipping the logging companion"
+    else
+        log "installing sudoers drop-in ${logging_file}"
+        visudo -cf "${logging_src}" >/dev/null \
+            || die "sudoers file ${logging_src} failed validation"
+        install -m 0440 "${logging_src}" "${SUDOERS_LOGGING_DEST}"
+        record "${SUDOERS_LOGGING_DEST}"
+    fi
     # Drop sudoers files this project shipped under earlier names, so the LF_NAGIOS Cmnd_Alias is
     # not defined twice (which makes sudo warn about a duplicate Cmnd_Alias on every call).
     local legacy
@@ -431,10 +477,14 @@ finalize_permissions() {
     if [ -f "${MANIFEST}" ]; then
         while IFS= read -r p; do
             [ -n "${p}" ] || continue
-            # The sudoers drop-in was installed and validated with its own mandatory 0440, and
-            # the bash completion is sourced rather than executed. Both were placed by root
+            # The sudoers drop-ins were installed and validated with their own mandatory 0440,
+            # and the bash completion is sourced rather than executed. All were placed by root
             # with the mode they need, so they are left exactly as they are.
-            case "${p}" in "${SUDOERS_DEST}" | "${BASH_COMPLETION_DEST}") continue ;; esac
+            case "${p}" in
+                "${SUDOERS_DEST}" | "${SUDOERS_LOGGING_DEST}" | "${BASH_COMPLETION_DEST}")
+                    continue
+                    ;;
+            esac
             [ -e "${p}" ] || continue
             chown --recursive root:root "${p}" || warn "chown of ${p} to root failed"
             if [ -d "${p}" ]; then
@@ -926,7 +976,7 @@ uninstall() {
         run rm -rf "${STATE_DIR}"
         did_something=1
     fi
-    run rm -f "${SUDOERS_DEST}" "${BASH_COMPLETION_DEST}"
+    run rm -f "${SUDOERS_DEST}" "${SUDOERS_LOGGING_DEST}" "${BASH_COMPLETION_DEST}"
     # also drop any sudoers drop-ins shipped under earlier names
     for p in ${LEGACY_SUDOERS_DESTS}; do
         run rm -f "${p}"

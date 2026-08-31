@@ -377,22 +377,22 @@ Install the file for your family into `/etc/sudoers.d/` on every monitored host:
 * [RedHat.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/RedHat.sudoers):
   Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
 
-Next to each of them sits a `*-logging.sudoers` companion that quiets the sudo log for
-the plugin calls. A monitored host runs dozens of checks a minute, each through sudo, and
-logging every one of them buries whatever else reaches the authentication log. Install it
-only on a host running the classic sudo from sudo.ws, under a name that sorts after the
-first file and carries no dot, for example
+Next to each of them sits a `*-logging.sudoers` companion holding the `Defaults` that keep
+the plugin calls out of the authentication log. A monitored host runs dozens of checks a
+minute, each through sudo, and without the companion every single one of them costs five
+entries there: the sudo command line, plus the PAM session being opened and closed. Install
+it as a second drop-in under a name that carries no dot, for example
 `/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging`; sudo skips a file in
 `/etc/sudoers.d` whose name holds a `.` or ends in `~`.
 
-It is a separate file because sudo-rs, the default sudo on Ubuntu 26.04, knows none of
-these settings and prints a warning for each on every `sudo` call by any user. Check
-which implementation a host runs with `sudo --version`. Leaving the companion out costs
-nothing but the quiet log.
+Put the companion only on a host running the classic sudo from sudo.ws. sudo-rs, the default
+sudo on Ubuntu 26.04, knows none of these settings and prints a warning for each of them on
+every `sudo` call by any user, monitoring-related or not. Check which implementation a host
+runs with `sudo --version`.
 
-When the Linuxfabrik RPM or DEB package is installed, you will already find the
-appropriate sudoers drop-in in `/etc/sudoers.d/` (it is part of the package). Source-zip and
-GitHub source installs must add it manually.
+The RPM and DEB packages and the one-line installer place both files for you and pick the
+companion by the sudo implementation they find on the host, dropping it again where that
+turns out to be sudo-rs. Only a deployment you drive yourself has to do this by hand.
 
 When you call plugins with sudo from Icinga, also preserve the proxy environment
 variables you care about, for example:

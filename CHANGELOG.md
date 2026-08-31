@@ -15,8 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * file-age, file-size: no longer run through sudo, so a path only root may read now fails: grant the monitoring user access to it
+* the sudoers drop-in is split in two, so sudo-rs stops warning on every `sudo` call: a host whose sudoers you deploy by hand now also needs `*-logging.sudoers` to keep the plugin calls out of the authentication log ([#1493](https://github.com/Linuxfabrik/monitoring-plugins/issues/1493))
 * whmcs-status: `--url` is required now, because its old default named a port no WHMCS listens on: set it on every service that relied on the default
-* the sudoers drop-in no longer carries the `Defaults` lines that quiet the sudo log; they moved to a `*-logging.sudoers` companion that only a host with the classic sudo may install, because sudo-rs warns about them on every `sudo` call ([#1493](https://github.com/Linuxfabrik/monitoring-plugins/issues/1493))
 
 Icinga Director:
 

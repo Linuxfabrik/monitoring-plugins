@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+# postinst placed this outside dpkg's file list, because whether it belongs on the host depends
+# on the sudo implementation found there, so dpkg does not remove it on its own.
+SUDOERS_LOGGING_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging'
+
+case "$1" in
+    remove|purge)
+        rm -f "${SUDOERS_LOGGING_DEST}"
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

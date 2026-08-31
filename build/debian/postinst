@@ -1,0 +1,41 @@
+#!/bin/sh
+set -e
+
+# The sudoers Defaults that keep the plugin calls out of the authentication log cannot ship as
+# a plain /etc/sudoers.d conffile: this package serves Debian and Ubuntu alike, and Ubuntu 26.04
+# defaults to sudo-rs, which knows none of those settings and prints a warning for each of them
+# on every sudo call by any user, monitoring-related or not. So the file is packaged under
+# /usr/share and put in place here, only where the classic sudo from sudo.ws runs.
+#
+# Leaving it out costs five entries in the authentication log per check - the sudo command line
+# plus the PAM session being opened and closed - and a monitored host runs dozens of checks a
+# minute. The removal branch matters just as much: a host upgraded in place from Ubuntu 24.04 to
+# 26.04 changes implementation underneath us and has to lose the file again.
+#
+# The name carries no dot on purpose, sudo skips a file in /etc/sudoers.d whose name holds one.
+
+SUDOERS_LOGGING_SRC='/usr/share/linuxfabrik-monitoring-plugins/sudoers/Debian-logging.sudoers'
+SUDOERS_LOGGING_DEST='/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging'
+
+case "$1" in
+    configure)
+        if command -v sudo >/dev/null 2>&1 \
+            && sudo --version 2>/dev/null | head -1 | grep -qi 'sudo-rs'; then
+            rm -f "${SUDOERS_LOGGING_DEST}"
+        elif [ -f "${SUDOERS_LOGGING_SRC}" ]; then
+            # visudo refuses to be fooled by a broken drop-in, and a broken one in
+            # /etc/sudoers.d would lock every user out of sudo, so it is checked first.
+            if visudo -cf "${SUDOERS_LOGGING_SRC}" >/dev/null 2>&1; then
+                install -m 0440 -o root -g root \
+                    "${SUDOERS_LOGGING_SRC}" "${SUDOERS_LOGGING_DEST}"
+            else
+                echo "linuxfabrik-monitoring-plugins: ${SUDOERS_LOGGING_SRC} failed the" \
+                     "visudo check, leaving ${SUDOERS_LOGGING_DEST} alone" >&2
+            fi
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
