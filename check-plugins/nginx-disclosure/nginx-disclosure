@@ -11,7 +11,6 @@
 """See the check's README for more details."""
 
 import argparse
-import os
 import re
 import sys
 
@@ -22,7 +21,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026083101'
 
 DESCRIPTION = """Checks how much an NGINX server discloses about itself and about the
 application behind it in its HTTP responses: the product and version banner in the `Server`
@@ -202,53 +201,6 @@ def fetch_response(url, args):
     if not success and not isinstance(result, dict):
         return (False, result)
     return (True, result)
-
-
-def load_test_response(test_args, base, suffix):
-    """Build the response dict of one fixture, mirroring `fetch_response()`.
-
-    `<base>-<suffix>-header` holds the response headers, one `name: value` per
-    line; `<base>-<suffix>-body` the response body. Returns None if the header
-    fixture is absent, which stands for a request that did not answer.
-    """
-    header_path = f'{base}-{suffix}-header'
-    if not os.path.isfile(header_path):
-        return None
-
-    test_args[0] = header_path
-    raw_header, _, status_code = lib.lftest.test(test_args)
-    response_header = {}
-    for line in raw_header.splitlines():
-        if ':' not in line:
-            continue
-        key, _, value = line.partition(':')
-        # HTTP header field names are case-insensitive; lib.url lower-cases
-        # them, so the fixture path has to do the same.
-        response_header[key.strip().lower()] = value.strip()
-
-    body_path = f'{base}-{suffix}-body'
-    body = ''
-    if os.path.isfile(body_path):
-        test_args[0] = body_path
-        body, _, _ = lib.lftest.test(test_args)
-
-    return {
-        'response': body,
-        'response_header': response_header,
-        'status_code': status_code,
-    }
-
-
-def detect_product(response):
-    """Return the product token of the `Server` header, lower-cased.
-
-    Returns None when the server sends no banner, which leaves the product
-    genuinely unknown rather than proven to be something else.
-    """
-    banner = response['response_header'].get('server', '')
-    if not banner:
-        return None
-    return banner.partition('/')[0].strip().lower()
 
 
 def describe_tokens(banner):
@@ -443,10 +395,10 @@ def main():
             main_response = None
     else:
         base = args.TEST[0]
-        error_response = load_test_response(args.TEST, base, 'error')
+        error_response = lib.lftest.test_http_response(args.TEST, f'{base}-error')
         if error_response is None:
             lib.base.cu(f'Fixture "{base}-error-header" not found.')
-        main_response = load_test_response(args.TEST, base, 'main')
+        main_response = lib.lftest.test_http_response(args.TEST, f'{base}-main')
 
     # init some vars
     state = STATE_OK
@@ -463,7 +415,7 @@ def main():
     # passes through, and it is proof that an NGINX produced that page. Without
     # that proof and with a foreign banner there is no NGINX to audit here, so
     # the check says where to point instead.
-    product = detect_product(error_response)
+    product = lib.url.server_product(error_response['response_header'])
     footer = find_product_footer(
         [
             ('the probed error page', error_response, True),

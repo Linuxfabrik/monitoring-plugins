@@ -10,17 +10,17 @@ The checks follow the "Minimize Apache Modules", "Principles, Permissions, and O
 **Important Notes:**
 
 * The check is part of the Apache httpd and Apache apache2 Service Sets, where it runs through the `-sudo` check command. A host that has not deployed the sudoers file makes the service report UNKNOWN until it has.
-* The shipped service template excludes the status module check (`--ignore=^Status module`), because the same Service Sets deploy the status check, which reads `mod_status`. Drop that default on a host where the module is not wanted.
+* The shipped service template excludes the status module check (`--ignore='Status module'`), because the same Service Sets deploy the status check, which reads `mod_status`. Drop that default on a host where the module is not wanted.
 * Requires root or sudo. Both `httpd` and `apachectl` refuse to parse the configuration as an unprivileged account, because they create the runtime directory while doing so.
 * The check re-parses the configuration from disk. A change that has been written but not reloaded is therefore reported as if it were already in force. The worker account is the exception: it is additionally compared against the accounts the running processes actually use.
-* The module checks report what CIS recommends disabling. A module a site knowingly needs is excluded with `--ignore`, for example `--ignore=^Status module$` on a host whose monitoring reads `mod_status`. The check still lists everything else.
+* The module checks report what CIS recommends disabling. A module a site knowingly needs is excluded with `--ignore`, for example `--ignore='Status module'` on a host whose monitoring reads `mod_status`. `--match` and `--ignore` take the name from the `Check Name` column of the table, not a module or a file name, and match anywhere in it, so no anchors are needed. A filter that matches no check is reported rather than silently doing nothing. An excluded check keeps its row and reads `overridden [OK]` in the `State` column: it no longer drives the state or the recommendations, but the decision to live with it stays on the report instead of leaving a shorter table nobody revisits. `--match` selects what to look at and drops the rest silently, because it is a selection and not an override.
 * A check that finds more than three modules names the first three and counts the rest. The `Detail` column carries the full list.
 * The ownership and permission checks cover the configuration files the server itself reports reading, plus the runtime directories it resolves. They do not walk the whole installation tree, which would be both slow and unbounded.
 * The benchmark treats the core dump, lock, process ID and scoreboard file checks as ones an auditor confirms rather than as fully automatable. This check does the legwork and reports what it found; the judgement stays with the operator.
 * A scoreboard file that is not configured at all is compliant, and reported as such.
 * The four request limits are reported whether or not the configuration sets them, because httpd enforces a value either way. An absent `LimitRequestLine`, `LimitRequestFields` or `LimitRequestFieldSize` leaves a compiled-in value the benchmark accepts, so those pass. An absent `LimitRequestBody` caps the request body at 1 GiB, which the benchmark does not accept, so a stock installation fails that one until the directive is written out. Such a value carries `(default)` in the result column.
 * `LimitRequestBody` may also be set per virtual host, directory or location. Every value the configuration files carry is reported and judged, so a single permissive block is visible even when the server level is restrictive. Which block a value belongs to is not resolved; the recommendation names the value, and the operator knows where it lives.
-* `LimitRequestBody` caps every upload the server accepts, and an upload rejected by it never reaches the application. A host that has to accept larger uploads raises the directive for the vhost or location in question and excludes this check with `--ignore=^Request body limit$`, rather than lifting the limit everywhere.
+* `LimitRequestBody` caps every upload the server accepts, and an upload rejected by it never reaches the application. A host that has to accept larger uploads raises the directive for the vhost or location in question and excludes this check with `--ignore='Request body limit'`, rather than lifting the limit everywhere.
 
 ### Data Collection
 
@@ -83,12 +83,17 @@ options:
                         automatically if not given: `httpd` first, then
                         `apachectl`. Example: `--command=/usr/sbin/httpd`
   --ignore IGNORE       Any check whose name matches this Python regex will be
-                        dropped from the report. Use it for a finding the site
+                        dropped from the report. The name is the one in the
+                        `Check Name` column of the table, not a module or a
+                        file name, and it is matched anywhere in that name, so
+                        the name as it stands is enough and needs no anchors.
+                        A filter that matches no check is reported rather than
+                        silently doing nothing. Use it for a finding the site
                         knowingly accepts, for example the status module on a
                         host whose monitoring reads it. Case-sensitive by
                         default; use `(?i)` for case-insensitive matching. Can
                         be specified multiple times. Example:
-                        `--ignore=^Status module$`
+                        `--ignore='Status module'`
   --match MATCH         Only report the checks whose name matches this Python
                         regex. Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
@@ -128,15 +133,15 @@ sudo ./apache-httpd-security --brief
 7 of 16 checks failed.
 
 Recommendations:
-* WebDAV modules: Comment out the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and `mod_dav_lock`.
-* Status module: Comment out the `LoadModule` line for `mod_status`, or exclude this check with `--ignore=^Status module$` if the module feeds your monitoring.
-* Autoindex module: Comment out the `LoadModule` line for `mod_autoindex` so a directory without an index file stops listing its content.
-* Proxy modules: Comment out the `LoadModule` lines for the `mod_proxy` family unless the host really is a reverse proxy.
-* User directories module: Comment out the `LoadModule` line for `mod_userdir` so home directories stop being served.
-* Info module: Comment out the `LoadModule` line for `mod_info`; it exposes the whole configuration, including credentials of other modules.
-* Basic and digest auth: Comment out the `LoadModule` lines for `mod_auth_basic` and `mod_auth_digest`.
+* WebDAV modules: Comment out the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and `mod_dav_lock`. Accepted here? Exclude it with --ignore='WebDAV modules'.
+* Status module: Comment out the `LoadModule` line for `mod_status` unless the module feeds your monitoring. Accepted here? Exclude it with --ignore='Status module'.
+* Autoindex module: Comment out the `LoadModule` line for `mod_autoindex` so a directory without an index file stops listing its content. Accepted here? Exclude it with --ignore='Autoindex module'.
+* Proxy modules: Comment out the `LoadModule` lines for the `mod_proxy` family unless the host really is a reverse proxy. Accepted here? Exclude it with --ignore='Proxy modules'.
+* User directories module: Comment out the `LoadModule` line for `mod_userdir` so home directories stop being served. Accepted here? Exclude it with --ignore='User directories module'.
+* Info module: Comment out the `LoadModule` line for `mod_info`; it exposes the whole configuration, including credentials of other modules. Accepted here? Exclude it with --ignore='Info module'.
+* Basic and digest auth: Comment out the `LoadModule` lines for `mod_auth_basic` and `mod_auth_digest`. Accepted here? Exclude it with --ignore='Basic and digest auth'.
 
-Check                   ! Result                                                                    ! State
+Check Name              ! Result                                                                    ! State
 ------------------------+---------------------------------------------------------------------------+----------
 WebDAV modules          ! dav_fs_module, dav_lock_module, dav_module                                ! [WARNING]
 Status module           ! status_module                                                             ! [WARNING]
@@ -150,11 +155,11 @@ Basic and digest auth   ! auth_basic_module, auth_digest_module                 
 The same host, ignoring the module a site knowingly runs:
 
 ```bash
-sudo ./apache-httpd-security --brief --ignore=^Status
+sudo ./apache-httpd-security --brief --ignore='Status module'
 ```
 
 ```text
-6 of 15 checks failed.
+6 of 15 checks failed, 1 overridden.
 ```
 
 A host whose worker account and runtime paths are wrong. The `Detail` column carries the reasoning:
@@ -166,7 +171,7 @@ sudo ./apache-httpd-security --brief
 ```text
 11 of 16 checks failed.
 
-Check               ! Result                    ! Detail                                                                      ! State
+Check Name          ! Result                    ! Detail                                                                      ! State
 --------------------+---------------------------+-----------------------------------------------------------------------------+----------
 Worker account      ! nobody:nobody (uid 65534) ! `nobody` is shared with other daemons; uid 65534 is not below UID_MIN 1000. ! [WARNING]
 Config other write  ! 1 of 16 files             ! /etc/httpd/conf.d/zz-bad.conf (0646)                                        ! [WARNING]
@@ -183,7 +188,7 @@ sudo ./apache-httpd-security
 ```text
 Everything is ok. All 16 checks passed.
 
-Check                   ! Result                       ! State
+Check Name              ! Result                       ! State
 ------------------------+------------------------------+------
 Log config module       ! log_config_module loaded     ! [OK]
 WebDAV modules          ! WebDAV modules not loaded    ! [OK]
@@ -202,6 +207,7 @@ WebDAV modules          ! WebDAV modules not loaded    ! [OK]
     * a request limit is above the value the benchmark recommends, or is zero, which lifts the limit for `LimitRequestBody` and `LimitRequestFields` and breaks every request for `LimitRequestLine` and `LimitRequestFieldSize`.
 * Returns UNKNOWN if neither `httpd` nor `apachectl` is found, if the binary given via `--command` does not exist, or if the configuration does not parse, in which case the binary produces no output at all.
 * A check that cannot be carried out, because a directory could not be read for example, is reported as not evaluated. It does not count towards the result and does not drive the state.
+* A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
 * If `--match` and `--ignore` between them exclude every check, the plugin prints "Nothing checked." and returns the state given by `--no-match-severity` (OK by default).
 * `--always-ok` masks a WARN or CRIT as OK.
 
@@ -212,6 +218,7 @@ WebDAV modules          ! WebDAV modules not loaded    ! [OK]
 |------|------|-------------|
 | apache_httpd_checks_evaluated | Number | Number of checks that could be carried out on this run. |
 | apache_httpd_checks_failed | Number | Number of checks that failed. |
+| apache_httpd_checks_overridden | Number | Number of checks `--ignore` excluded from the verdict. |
 | apache_httpd_modules_loaded | Number | Total number of modules the server has loaded. |
 
 
@@ -231,13 +238,13 @@ That is expected on the Red Hat family, which ships a `LoadModule` line for ever
 
 ### The status module check fires on a host you monitor
 
-`mod_status` is what the `apache-httpd-status` check reads, so a host running that check will keep failing this one. Exclude it deliberately with `--ignore=^Status module$` and keep the rest of the report.
+`mod_status` is what the `apache-httpd-status` check reads, so a host running that check will keep failing this one. Exclude it deliberately with `--ignore='Status module'`; the row stays on the report as `overridden [OK]`.
 
 ### `Request body limit` fires on a fresh installation
 
 Expected. A configuration that never mentions `LimitRequestBody` does not leave the request body unlimited, it caps it at 1 GiB, which is far above the 102400 bytes the benchmark asks for. Write the directive out, at a value that covers the largest upload the site has to accept, and reload.
 
-Note what the directive does before lowering it on a host that takes uploads: a request body above the limit is answered with `413 Request Entity Too Large` by httpd itself, so the application never sees the upload, and the application's own upload settings (`upload_max_filesize` and `post_max_size` in PHP, for example) never come into play. Raise the limit for the vhost, directory or location that needs it, and exclude this check with `--ignore=^Request body limit$` on a host where a larger limit is deliberate.
+Note what the directive does before lowering it on a host that takes uploads: a request body above the limit is answered with `413 Request Entity Too Large` by httpd itself, so the application never sees the upload, and the application's own upload settings (`upload_max_filesize` and `post_max_size` in PHP, for example) never come into play. Raise the limit for the vhost, directory or location that needs it, and exclude this check with `--ignore='Request body limit'` on a host where a larger limit is deliberate.
 
 ### The worker account check fires although the account is correct
 

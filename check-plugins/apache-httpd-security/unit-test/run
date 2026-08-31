@@ -6,6 +6,8 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+import re
+import subprocess
 import sys
 
 sys.path.insert(0, '..')
@@ -119,13 +121,15 @@ TESTS = [
         'assert-not-in': ['[OK]'],
     },
     # A host whose monitoring reads mod_status knowingly accepts that finding.
+    # An excluded check stops counting towards the verdict but keeps its row,
+    # marked as overridden, so the decision stays visible.
     {
         'id': 'warn-ignore-status-module-anchored',
         'test': 'stdout/rhel-stock',
         'params': '--ignore=^Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 21 checks failed.'],
-        'assert-not-in': ['status_module'],
+        'assert-in': ['7 of 21 checks failed, 1 overridden.', 'overridden [OK]'],
+        'assert-not-in': ["Exclude it with --ignore='Status module'"],
     },
     # The same exclusion written as an unanchored substring.
     {
@@ -133,8 +137,8 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 21 checks failed.'],
-        'assert-not-in': ['status_module'],
+        'assert-in': ['7 of 21 checks failed, 1 overridden.', 'overridden [OK]'],
+        'assert-not-in': ["Exclude it with --ignore='Status module'"],
     },
     # Everything filtered out: report the configured severity, not a pass.
     {
@@ -172,7 +176,7 @@ TESTS = [
         'assert-in': [
             '2 of 2 checks failed.',
             '`/bin/bash`',
-            'An interactive login shell.',
+            'Not one of the shells that exit instead of opening a session.',
             'usable password',
             '`chsh -s /sbin/nologin nobody`',
             '`passwd -l nobody`',
@@ -184,7 +188,10 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--match=^Account',
         'assert-retc': STATE_OK,
-        'assert-in': ['Cannot be logged into.', 'The password is locked.'],
+        'assert-in': [
+            'A shell that exits instead of opening a session.',
+            'The password is locked.',
+        ],
     },
     # Debian sets the password field to "*", which is not a lock but still
     # leaves no password to log in with.
@@ -233,6 +240,58 @@ TESTS = [
         ],
     },
     {
+        # A filter given a module name instead of a check name matches nothing
+        # and would otherwise leave a report that looks exactly like a run
+        # without any filter at all.
+        'id': 'warn-a-filter-that-matches-nothing-is-named',
+        'test': 'stdout/rhel-stock',
+        'params': "--ignore=status_module --ignore='Autoindex module'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '`status_module` matched no check',
+            'take the name as it stands in the `Check Name` column',
+        ],
+        # the one that did match is not listed as unused
+        'assert-not-in': ['`Autoindex module`'],
+    },
+    {
+        # An ignored check keeps its row and says so, instead of vanishing. A
+        # check that is simply gone is a check nobody revisits, and the row is
+        # what shows the next reader that the site decided to live with it.
+        'id': 'ok-an-ignored-check-is-reported-as-overridden',
+        'test': 'stdout/rhel-stock',
+        'params': "--ignore='Status module' --ignore='Autoindex module'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'overridden [OK]',
+            '2 overridden.',
+            # the row itself survives, with the finding it was overriding
+            'Status module',
+            'status_module',
+            "'apache_httpd_checks_overridden'=2",
+        ],
+        # an overridden check drives neither the state nor the recommendations
+        'assert-not-in': ["Exclude it with --ignore='Status module'"],
+    },
+    {
+        # --brief hides what is within the thresholds, and an override is.
+        'id': 'ok-brief-hides-an-overridden-check',
+        'test': 'stdout/rhel-stock',
+        'params': "--brief --ignore='Status module'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 overridden.', "'apache_httpd_checks_overridden'=1"],
+        'assert-not-in': ['overridden [OK]'],
+    },
+    {
+        # Every finding says how to switch it off, so a site that accepts one
+        # does not have to look the parameter up.
+        'id': 'warn-every-recommendation-says-how-to-exclude-it',
+        'test': 'stdout/rhel-stock',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["Accepted here? Exclude it with --ignore='Status module'."],
+    },
+    {
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist',
         'params': '',
@@ -247,6 +306,47 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestCheckNames(unittest.TestCase):
+    """The `--ignore='<name>'` every recommendation prints carries no anchors,
+    which is only correct while the names stay unambiguous as substrings and free
+    of regular expression metacharacters. Both are properties of the names, so
+    they are pinned here rather than left to whoever adds the next check."""
+
+    def setUp(self):
+        completed = subprocess.run(
+            [sys.executable, '../apache-httpd-security', '--test=stdout/rhel-stock'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.output = completed.stdout
+        self.titles = [
+            line.split(' ! ')[0].strip()
+            for line in self.output.splitlines()
+            if ' ! ' in line and not line.startswith('Check Name')
+        ]
+
+    def test_the_fixture_produced_names(self):
+        self.assertGreater(len(self.titles), 10, self.output)
+
+    def test_no_name_carries_a_regex_metacharacter(self):
+        for title in self.titles:
+            self.assertIsNone(
+                re.search(r'[.^$*+?()\[\]{}|\\]', title),
+                f'{title} would not survive being used as a pattern',
+            )
+
+    def test_no_name_is_a_substring_of_another(self):
+        for title in self.titles:
+            for other in self.titles:
+                if title != other:
+                    self.assertNotIn(
+                        title,
+                        other,
+                        f'--ignore={title!r} would also drop {other!r}',
+                    )
 
 
 if __name__ == '__main__':

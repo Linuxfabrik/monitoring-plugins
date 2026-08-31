@@ -12,9 +12,9 @@ The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and 
 * The check is part of the Nginx Service Set, where it runs through the `-sudo` check command. A host that has not deployed the sudoers file makes the service report UNKNOWN until it has.
 * Requires root or sudo. `nginx -T` creates the runtime directory while parsing, which an unprivileged account may not do, and the shadow database is unreadable without it.
 * The check re-parses the configuration from disk. A change that has been written but not reloaded is therefore reported as if it were already in force. The worker account is the exception: it is additionally compared against the accounts the running processes actually use.
-* **The configuration tree check fails on a stock installation by design.** The distributions ship `0644` for files and `0755` for directories, and the benchmark's hardening target is `0640` and `0750`, so world-readable is a finding. World-writable and world-readable are reported apart, because only the first is a defect on any system. Exclude the check with `--ignore=^Config tree access$` if the site accepts the distribution default.
+* **The configuration tree check fails on a stock installation by design.** The distributions ship `0644` for files and `0755` for directories, and the benchmark's hardening target is `0640` and `0750`, so world-readable is a finding. World-writable and world-readable are reported apart, because only the first is a defect on any system. Exclude the check with `--ignore='Config tree access'` if the site accepts the distribution default.
 * A web server running in a container shows up in the host's process list under a mapped user id. Only processes sharing this host's mount namespace are counted, so a containerised NGINX does not make the host's check report a stray account.
-* Whether a loaded dynamic module is really needed is a judgement only the operator can make. The check lists what is loaded and leaves the decision; `--ignore=^Dynamic modules$` records that it has been made.
+* Whether a loaded dynamic module is really needed is a judgement only the operator can make. The check lists what is loaded and leaves the decision; `--ignore='Dynamic modules'` records that it has been made. `--match` and `--ignore` take the name from the `Check Name` column of the table, not a module or a file name, and match anywhere in it, so no anchors are needed. A filter that matches no check is reported rather than silently doing nothing. An excluded check keeps its row and reads `overridden [OK]` in the `State` column: it no longer drives the state or the recommendations, but the decision to live with it stays on the report. `--match` selects what to look at and drops the rest silently, because it is a selection and not an override.
 * **The request body check fails on a stock installation by design.** A configuration that never mentions `client_max_body_size` does not leave the body unlimited, it caps it at 1 MiB, which is small enough to reject an ordinary file upload with a `413` that names no cause. The benchmark asks for the limit to be written out, at a value the site has decided on. Such a value carries `(default)` in the result column.
 * Every `client_max_body_size` the configuration sets is reported, whatever block it sits in, so a permissive `location` is visible even when the `http` block is restrictive. Which block a value belongs to is not resolved. The benchmark names no upper bound, because how large a request an application has to accept is an application question; only a `0`, which removes the limit entirely, is reported as a finding.
 
@@ -74,11 +74,16 @@ options:
                         PATH if not given. Example:
                         `--command=/usr/local/nginx/sbin/nginx`
   --ignore IGNORE       Any check whose name matches this Python regex will be
-                        dropped from the report. Use it for a finding the site
+                        dropped from the report. The name is the one in the
+                        `Check Name` column of the table, not a module or a
+                        file name, and it is matched anywhere in that name, so
+                        the name as it stands is enough and needs no anchors.
+                        A filter that matches no check is reported rather than
+                        silently doing nothing. Use it for a finding the site
                         knowingly accepts, for example a dynamic module the
                         service needs. Case-sensitive by default; use `(?i)`
                         for case-insensitive matching. Can be specified
-                        multiple times. Example: `--ignore=^Dynamic modules$`
+                        multiple times. Example: `--ignore='Dynamic modules'`
   --match MATCH         Only report the checks whose name matches this Python
                         regex. Filter by this Python regular expression. Case-
                         sensitive by default; use `(?i)` for case-insensitive
@@ -120,21 +125,21 @@ sudo ./nginx-security
 Recommendations:
 * Config tree access: `chmod o= /etc/nginx /etc/nginx/conf.d ...` (currently /etc/nginx (0755), /etc/nginx/conf.d (0755), ...)
 
-Check              ! Result                ! Detail                                           ! State
--------------------+-----------------------+--------------------------------------------------+----------
-Dynamic modules    ! none loaded           ! No dynamic module adds to the attack surface.    ! [OK]
-Worker account     ! nginx (uid 101)       ! Dedicated unprivileged system account.           ! [OK]
-Account shell      ! nginx: `/bin/false`   ! Cannot be logged into.                           ! [OK]
-Account locked     ! nginx: locked         ! The password is locked.                          ! [OK]
-Config tree owner  ! 9 paths               ! Everything belongs to `root:root`.               ! [OK]
-Config tree access ! 9 of 9 paths          ! 9 paths readable by other.                       ! [WARNING]
-Pid file           ! /run/nginx.pid (0644) ! Owned by `root:root` and not writable by others. ! [OK]
+Check Name         ! Result                ! Detail                                                                        ! State    
+-------------------+-----------------------+-------------------------------------------------------------------------------+----------
+Dynamic modules    ! none loaded           ! No dynamic module adds to the attack surface.                                 ! [OK]     
+Worker account     ! nginx (uid 101)       ! Not root, uid below UID_MIN, no privileged group, not a known shared account. ! [OK]     
+Account shell      ! nginx: `/bin/false`   ! A shell that exits instead of opening a session.                              ! [OK]     
+Account locked     ! nginx: locked         ! The password is locked.                                                       ! [OK]     
+Config tree owner  ! 9 paths               ! Everything belongs to `root:root`.                                            ! [OK]     
+Config tree access ! 9 of 9 paths          ! 9 paths readable by other.                                                    ! [WARNING]
+Pid file           ! /run/nginx.pid (0644) ! Owned by `root:root` and not writable by others.                              ! [OK]     
 ```
 
 The same host with the distribution default accepted:
 
 ```bash
-sudo ./nginx-security --ignore=^Config
+sudo ./nginx-security --ignore='Config tree'
 ```
 
 ```text
@@ -150,11 +155,11 @@ sudo ./nginx-security --brief
 ```text
 3 of 7 checks failed.
 
-Check              ! Result            ! Detail                                                ! State
--------------------+-------------------+-------------------------------------------------------+----------
-Worker account     ! root (uid 0)      ! runs as root; member of root; processes run as nginx. ! [WARNING]
-Account shell      ! root: `/bin/bash` ! An interactive login shell.                           ! [WARNING]
-Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths readable by other.  ! [WARNING]
+Check Name         ! Result            ! Detail                                                        ! State    
+-------------------+-------------------+---------------------------------------------------------------+----------
+Worker account     ! root (uid 0)      ! runs as root; member of root; processes run as nginx.         ! [WARNING]
+Account shell      ! root: `/bin/bash` ! Not one of the shells that exit instead of opening a session. ! [WARNING]
+Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths readable by other.          ! [WARNING]
 ```
 
 
@@ -171,6 +176,7 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
     * `client_max_body_size` is not configured anywhere, or is set to `0`, which removes the limit.
 * Returns UNKNOWN if `nginx` is not found, if the binary given via `--command` does not exist, or if the configuration does not parse, in which case `nginx -T` produces no dump at all.
 * A check that cannot be carried out is reported as not evaluated and neither counts nor drives the state. That covers an account served by a directory service rather than by local files, a shadow database the check may not read, and a process ID file that does not exist because the server is not running.
+* A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
 * If `--match` and `--ignore` between them exclude every check, the plugin prints "Nothing checked." and returns the state given by `--no-match-severity` (OK by default).
 * `--always-ok` masks a WARN or CRIT as OK.
 
@@ -181,6 +187,7 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
 |------|------|-------------|
 | nginx_checks_evaluated | Number | Number of checks that could be carried out on this run. |
 | nginx_checks_failed | Number | Number of checks that failed. |
+| nginx_checks_overridden | Number | Number of checks `--ignore` excluded from the verdict. |
 | nginx_dynamic_modules_loaded | Number | Number of dynamic modules the configuration loads. |
 
 
@@ -196,7 +203,7 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
 
 ### The configuration tree check fails on a fresh installation
 
-Expected. Every distribution ships `0644` for files and `0755` for directories, while the benchmark wants `0640` and `0750`. Tighten the tree, or exclude the check with `--ignore=^Config tree access$`. Look at the `Detail` column first: world-**writable** is a defect worth fixing on any system, world-**readable** is the hardening target.
+Expected. Every distribution ships `0644` for files and `0755` for directories, while the benchmark wants `0640` and `0750`. Tighten the tree, or exclude the check with `--ignore='Config tree access'`. Look at the `Detail` column first: world-**writable** is a defect worth fixing on any system, world-**readable** is the hardening target.
 
 ### The modules directory keeps being reported after `chmod -R o= /etc/nginx`
 

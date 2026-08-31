@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026083101'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
@@ -166,12 +166,15 @@ def parse_args():
     parser.add_argument(
         '--ignore',
         help='Any check whose name matches this Python regex will be dropped '
-        'from the report. '
+        'from the report. The name is the one in the `Check Name` column of the '
+        'table, not a module or a file name, and it is matched anywhere in that '
+        'name, so the name as it stands is enough and needs no anchors. A filter '
+        'that matches no check is reported rather than silently doing nothing. '
         'Use it for a finding the site knowingly accepts, for example a dynamic '
         'module the service needs. '
         'Case-sensitive by default; use `(?i)` for case-insensitive matching. '
         'Can be specified multiple times. '
-        'Example: `--ignore=^Dynamic modules$`',
+        "Example: `--ignore='Dynamic modules'`",
         dest='IGNORE',
         action='append',
         default=None,
@@ -269,15 +272,6 @@ def run_binary(binary, cli_args, timeout, on_stderr=False):
             f'({hint}). The server configuration does not parse.',
         )
     return (True, wanted)
-
-
-def load_test_fixture(test_args, path):
-    """Return the content of one fixture file, or None if it does not exist."""
-    if not os.path.isfile(path):
-        return None
-    test_args[0] = path
-    stdout, _, _ = lib.lftest.test(test_args)
-    return stdout
 
 
 def parse_configure_args(stdout):
@@ -534,7 +528,17 @@ def check_worker_account(user, account, uid_min, worker_accounts, severity_state
 
     result = f'{user} (uid {account["uid"]})'
     if not problems:
-        return (STATE_OK, result, 'Dedicated unprivileged system account.', None)
+        # The benchmark wants an account used only by the web server. Whether any
+        # other service also runs under it is not something this check can see, so
+        # the detail lists the tests that did run: a name against SHARED_ACCOUNTS,
+        # the uid against UID_MIN, group membership, and the running workers.
+        return (
+            STATE_OK,
+            result,
+            'Not root, uid below UID_MIN, no privileged group, '
+            'not a known shared account.',
+            None,
+        )
     return (
         severity_state,
         result,
@@ -546,18 +550,37 @@ def check_worker_account(user, account, uid_min, worker_accounts, severity_state
 
 
 def check_account_shell(user, account, interactive_shells, severity_state):
-    """The worker account must not have a shell anybody can log in with."""
+    """The worker account must not have a shell anybody can log in with.
+
+    The detail names the test that decided it rather than concluding that no login
+    is possible, because neither test proves that. The benchmark names a short
+    list of shells, so everything beyond NOLOGIN_SHELLS falls back to
+    `/etc/shells` - and that file governs `chsh` and `pam_shells`, not `su` or
+    `sshd`, so a shell missing from it is usable all the same.
+    """
     if user is None or account is None:
         return (None, 'not evaluated', 'The account has no local entry.', None)
     shell = account['shell']
-    if shell in NOLOGIN_SHELLS or (
-        interactive_shells and shell not in interactive_shells
-    ):
-        return (STATE_OK, f'{user}: `{shell}`', 'Cannot be logged into.', None)
+    if shell in NOLOGIN_SHELLS:
+        return (
+            STATE_OK,
+            f'{user}: `{shell}`',
+            'A shell that exits instead of opening a session.',
+            None,
+        )
+    if interactive_shells and shell not in interactive_shells:
+        return (
+            STATE_OK,
+            f'{user}: `{shell}`',
+            'Not among the login shells `/etc/shells` lists.',
+            None,
+        )
     return (
         severity_state,
         f'{user}: `{shell}`',
-        'An interactive login shell.',
+        'Listed in `/etc/shells` as a login shell.'
+        if interactive_shells
+        else 'Not one of the shells that exit instead of opening a session.',
         f'`usermod -s /sbin/nologin {user}`',
     )
 
@@ -578,7 +601,7 @@ def check_account_locked(user, account, severity_state):
         return (
             None,
             'not evaluated',
-            f'`{user}` has no local shadow entry, so it is served elsewhere.',
+            f'`{user}` has no local shadow entry.',
             None,
         )
     shadow = account['shadow']
@@ -722,13 +745,17 @@ def collect_data(args):
         account_fixture = None
     else:
         base = args.TEST[0]
-        configure = load_test_fixture(args.TEST, f'{base}-configure')
-        dump = load_test_fixture(args.TEST, f'{base}-dump')
+        configure = lib.lftest.test_text(
+            args.TEST, f'{base}-configure', missing_ok=True
+        )
+        dump = lib.lftest.test_text(args.TEST, f'{base}-dump', missing_ok=True)
         if configure is None or dump is None:
             lib.base.cu(f'Fixtures for "{base}" not found.')
-        raw_stat = load_test_fixture(args.TEST, f'{base}-stat')
+        raw_stat = lib.lftest.test_text(args.TEST, f'{base}-stat', missing_ok=True)
         stat_fixture = parse_stat_fixture(raw_stat or '')
-        raw_account = load_test_fixture(args.TEST, f'{base}-account')
+        raw_account = lib.lftest.test_text(
+            args.TEST, f'{base}-account', missing_ok=True
+        )
         account_fixture = parse_account_fixture(raw_account or '')
 
     return {
@@ -891,14 +918,39 @@ def main():
     # analyze data
     failed = 0
     evaluated = 0
+    overridden = 0
+    # A filter that hits nothing is the one thing this loop cannot notice on its
+    # own: the report then looks exactly like a run without any filter at all.
+    # The names are what the parameter matches against, so `--ignore` given a
+    # module or a file name rather than a check name silently does nothing.
+    used = set()
     for title, (item_state, result, detail, recommendation) in build_checks(
         data, severity_state
     ):
         # --match (include) is applied first, then --ignore (exclude), so a
         # check hit by --ignore is dropped even if it also matches --match.
-        if compiled_match and not any(item.search(title) for item in compiled_match):
+        matched = [item for item in compiled_match if item.search(title)]
+        used.update(item.pattern for item in matched)
+        if compiled_match and not matched:
             continue
-        if any(item.search(title) for item in compiled_ignore):
+        ignored = [item for item in compiled_ignore if item.search(title)]
+        used.update(item.pattern for item in ignored)
+        if ignored:
+            # Kept in the table rather than dropped from it. A check that is
+            # simply gone is a check nobody revisits: the row is what reminds a
+            # site a year later that it decided to live with this one. `--match`
+            # is not treated this way, because it selects what to look at, while
+            # `--ignore` overrides a verdict on something that was looked at.
+            overridden += 1
+            if not args.BRIEF:
+                table_data.append(
+                    {
+                        'title': title,
+                        'result': result,
+                        'detail': detail,
+                        'state': f'overridden {lib.base.state2str(STATE_OK, empty_ok=False)}',
+                    }
+                )
             continue
 
         # `item_state` is None for a check that could not be carried out. Such a
@@ -909,7 +961,15 @@ def main():
             if item_state != STATE_OK:
                 failed += 1
                 if recommendation:
-                    recommendations.append(f'{title}: {recommendation}')
+                    # Every finding says how to switch it off, not only the ones
+                    # whose text happened to mention it. The parameter takes a
+                    # substring, so the title as it stands is enough: no title
+                    # here is a substring of another and none carries a regular
+                    # expression metacharacter, both of which the unit test pins.
+                    recommendations.append(
+                        f'{title}: {recommendation}'
+                        f" Accepted here? Exclude it with --ignore='{title}'."
+                    )
         if args.BRIEF and item_state == STATE_OK:
             continue
         row = {
@@ -933,10 +993,26 @@ def main():
         )
 
     # build the message
+    overridden_tail = f', {overridden} overridden' if overridden else ''
     if failed:
-        sections.append(f'{failed} of {evaluated} checks failed.')
+        sections.append(f'{failed} of {evaluated} checks failed{overridden_tail}.')
     else:
-        sections.append(f'Everything is ok. All {evaluated} checks passed.')
+        sections.append(
+            f'Everything is ok. All {evaluated} checks passed{overridden_tail}.'
+        )
+
+    unused = [
+        item.pattern
+        for item in compiled_match + compiled_ignore
+        if item.pattern not in used
+    ]
+    if unused:
+        sections.append(
+            f'{lib.txt.pluralize("Filter", len(unused))} '
+            + ', '.join(f'`{item}`' for item in unused)
+            + ' matched no check. --match and --ignore take the name as it stands '
+            'in the `Check Name` column of the table, not a module or a file name.'
+        )
 
     if recommendations:
         sections.append(
@@ -956,6 +1032,12 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
+        'nginx_checks_overridden',
+        overridden,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
         'nginx_dynamic_modules_loaded',
         len(data['dump']['modules']),
         uom=None,
@@ -965,7 +1047,10 @@ def main():
     # build table output
     if table_data:
         keys = ['title', 'result', 'detail', 'state']
-        headers = ['Check', 'Result', 'Detail', 'State']
+        # "Check Name" rather than "Check", because it is the value --match and
+        # --ignore are compared against and the message about a filter that hit
+        # nothing points at this column by name.
+        headers = ['Check Name', 'Result', 'Detail', 'State']
         sections.append(lib.base.get_table(table_data, keys, header=headers))
 
     msg = '\n\n'.join(sections)

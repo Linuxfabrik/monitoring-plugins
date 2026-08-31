@@ -6,6 +6,8 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+import re
+import subprocess
 import sys
 
 sys.path.insert(0, '..')
@@ -27,7 +29,8 @@ TESTS = [
         'assert-in': [
             '2 of 8 checks failed.',
             'nginx (uid 101)',
-            'Dedicated unprivileged system account.',
+            'Not root, uid below UID_MIN, no privileged group, '
+            'not a known shared account.',
             '9 paths readable by other.',
             "'nginx_checks_failed'=2",
         ],
@@ -49,7 +52,10 @@ TESTS = [
         'test': 'stdout/hardened',
         'params': '--ignore=^Config',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok. All 6 checks passed.'],
+        'assert-in': [
+            'Everything is ok. All 6 checks passed, 2 overridden.',
+            'overridden [OK]',
+        ],
     },
     # Worker running as root, a member of a privileged group, an interactive
     # shell, and a configuration file anybody may rewrite.
@@ -63,7 +69,7 @@ TESTS = [
             'root (uid 0)',
             'runs as root',
             'member of root',
-            'An interactive login shell.',
+            'Not one of the shells that exit instead of opening a session.',
             '1 path writable by other, 8 paths readable by other.',
         ],
     },
@@ -110,6 +116,30 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': ['4 of 8 checks failed.', "'nginx_checks_evaluated'=8"],
         'assert-not-in': ['[OK]'],
+    },
+    # An excluded check keeps its row and says so, instead of vanishing.
+    {
+        'id': 'warn-an-ignored-check-is-reported-as-overridden',
+        'test': 'stdout/hardened',
+        'params': "--ignore='Dynamic modules'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 overridden.',
+            'overridden [OK]',
+            "'nginx_checks_overridden'=1",
+        ],
+    },
+    # A filter given a module name instead of a check name matches nothing and
+    # would otherwise leave a report that looks like a run without any filter.
+    {
+        'id': 'warn-a-filter-that-matches-nothing-is-named',
+        'test': 'stdout/hardened',
+        'params': '--ignore=ngx_http_geoip_module',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '`ngx_http_geoip_module` matched no check',
+            'take the name as it stands in the `Check Name` column',
+        ],
     },
     # Everything filtered out: report the configured severity, not a pass.
     {
@@ -171,6 +201,47 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestCheckNames(unittest.TestCase):
+    """The `--ignore='<name>'` every recommendation prints carries no anchors,
+    which is only correct while the names stay unambiguous as substrings and free
+    of regular expression metacharacters. Both are properties of the names, so
+    they are pinned here rather than left to whoever adds the next check."""
+
+    def setUp(self):
+        completed = subprocess.run(
+            [sys.executable, '../nginx-security', '--test=stdout/stock'],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.output = completed.stdout
+        self.titles = [
+            line.split(' ! ')[0].strip()
+            for line in self.output.splitlines()
+            if ' ! ' in line and not line.startswith('Check Name')
+        ]
+
+    def test_the_fixture_produced_names(self):
+        self.assertGreater(len(self.titles), 4, self.output)
+
+    def test_no_name_carries_a_regex_metacharacter(self):
+        for title in self.titles:
+            self.assertIsNone(
+                re.search(r'[.^$*+?()\[\]{}|\\]', title),
+                f'{title} would not survive being used as a pattern',
+            )
+
+    def test_no_name_is_a_substring_of_another(self):
+        for title in self.titles:
+            for other in self.titles:
+                if title != other:
+                    self.assertNotIn(
+                        title,
+                        other,
+                        f'--ignore={title!r} would also drop {other!r}',
+                    )
 
 
 if __name__ == '__main__':
