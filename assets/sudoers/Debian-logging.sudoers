@@ -1,0 +1,40 @@
+# Optional companion to Debian.sudoers, for hosts running the classic sudo from
+# sudo.ws. Install it as a second drop-in whose name sorts after the first one and
+# carries no dot, for example
+# /etc/sudoers.d/linuxfabrik-monitoring-plugins-logging: sudo skips a file in
+# /etc/sudoers.d whose name contains a "." or ends in "~".
+#
+# The settings below live apart from the rules rather than next to them because
+# sudo-rs, the default sudo on Ubuntu 26.04, does not know them and prints a
+# warning for each on every single sudo call by any user, including the ones that
+# have nothing to do with monitoring (verified against sudo-rs 0.2.13). They are
+# not merely unknown there but pointless: sudo-rs needs no tty of its own and
+# offers no way to quiet its logging ([#1493](https://github.com/Linuxfabrik/monitoring-plugins/issues/1493)).
+#
+# Splitting them off is safe because sudo parses every file below /etc/sudoers.d
+# into one policy and resolves aliases only once all of them have been read
+# (`parsed_policy` and `check_defaults_and_aliases()` in the sudo sources), so a
+# `Defaults!LF_NAGIOS` here finds the alias defined in the other file whatever
+# order the two are read in.
+#
+# `requiretty` is deliberately not turned off any more: sudoers(5) documents the
+# flag as "off by default", and it is unset on every supported distribution
+# (measured on Rocky 8, Rocky 9 and Debian 13, where sudo runs without a tty).
+
+# A plugin runs unattended, so there is no session to set up for it, and no login
+# record that would have to be written and torn down for every check.
+Defaults:nagios !pam_session
+
+# A monitored host runs dozens of checks every minute, each of them through sudo.
+# Logging each one buries whatever else reaches the authentication log.
+#
+# `!log_allowed` rather than `!syslog`: it silences the calls the policy permits
+# and leaves `log_denied` alone, so anything this rule set refuses is still
+# recorded. It also works on both implementations - sudo has it since 1.8.29 and
+# sudo-rs since 0.2.15 - which is what will allow these lines to move back into
+# the main file once no supported release ships anything older. Ubuntu 26.04 is
+# on sudo-rs 0.2.13 today, which is why they still sit here.
+#
+# Drop these two lines to keep the audit trail for the plugin calls as well.
+Defaults!LF_NAGIOS !log_allowed
+Defaults!LF_LIBRENMS_VALIDATE !log_allowed

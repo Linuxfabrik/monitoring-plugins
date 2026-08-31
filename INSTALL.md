@@ -377,6 +377,19 @@ Install the file for your family into `/etc/sudoers.d/` on every monitored host:
 * [RedHat.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/RedHat.sudoers):
   Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
 
+Next to each of them sits a `*-logging.sudoers` companion that quiets the sudo log for
+the plugin calls. A monitored host runs dozens of checks a minute, each through sudo, and
+logging every one of them buries whatever else reaches the authentication log. Install it
+only on a host running the classic sudo from sudo.ws, under a name that sorts after the
+first file and carries no dot, for example
+`/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging`; sudo skips a file in
+`/etc/sudoers.d` whose name holds a `.` or ends in `~`.
+
+It is a separate file because sudo-rs, the default sudo on Ubuntu 26.04, knows none of
+these settings and prints a warning for each on every `sudo` call by any user. Check
+which implementation a host runs with `sudo --version`. Leaving the companion out costs
+nothing but the quiet log.
+
 When the Linuxfabrik RPM or DEB package is installed, you will already find the
 appropriate sudoers drop-in in `/etc/sudoers.d/` (it is part of the package). Source-zip and
 GitHub source installs must add it manually.
