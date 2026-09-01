@@ -24,7 +24,7 @@ The checks follow the "Minimize Apache Modules", "Principles, Permissions, and O
 
 ### Data Collection
 
-Three invocations of the Apache control binary per run, all of which only read: `-M` for the loaded modules, `-S` for the resolved runtime settings (server root, document root, process ID file, mutex mechanisms and directories, user and group with their numeric ids), and `-t -D DUMP_INCLUDES` for the list of configuration files. The paths that come out of these are then inspected with `stat`. `UID_MIN` is read from `/etc/login.defs`, and the running worker processes are enumerated via `psutil`. The core dump directory, the scoreboard file and the four request limits are the values the runtime dump does not resolve; they are read from the configuration files the server itself named. Nothing is stored between runs.
+Three invocations of the Apache control binary per run, all of which only read: `-M` for the loaded modules, `-S` for the resolved runtime settings (server root, document root, process ID file, mutex mechanisms and directories, user and group with their numeric ids), and `-t -D DUMP_INCLUDES` for the list of configuration files. The paths that come out of these are then inspected with `stat`. `UID_MIN` is read from `/etc/login.defs`, and the running worker processes are enumerated via `psutil`. `sudo -l -U` says whether the worker account can take its privileges back. The core dump directory, the scoreboard file and the four request limits are the values the runtime dump does not resolve; they are read from the configuration files the server itself named. Nothing is stored between runs.
 
 The binary is probed automatically: `httpd` first, which covers the Red Hat and SUSE families, then `apachectl`, which is the entry point on Debian and Ubuntu because `apache2` refuses to parse its own configuration without the variables from `/etc/apache2/envvars`. Use `--command` to point at a binary in a non-standard location.
 
@@ -133,13 +133,13 @@ sudo ./apache-httpd-security --brief
 7 of 16 checks failed.
 
 Recommendations:
-* WebDAV modules: Comment out the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and `mod_dav_lock`. Accepted here? Exclude it with --ignore='WebDAV modules'.
-* Status module: Comment out the `LoadModule` line for `mod_status` unless the module feeds your monitoring. Accepted here? Exclude it with --ignore='Status module'.
-* Autoindex module: Comment out the `LoadModule` line for `mod_autoindex` so a directory without an index file stops listing its content. Accepted here? Exclude it with --ignore='Autoindex module'.
-* Proxy modules: Comment out the `LoadModule` lines for the `mod_proxy` family unless the host really is a reverse proxy. Accepted here? Exclude it with --ignore='Proxy modules'.
-* User directories module: Comment out the `LoadModule` line for `mod_userdir` so home directories stop being served. Accepted here? Exclude it with --ignore='User directories module'.
-* Info module: Comment out the `LoadModule` line for `mod_info`; it exposes the whole configuration, including credentials of other modules. Accepted here? Exclude it with --ignore='Info module'.
-* Basic and digest auth: Comment out the `LoadModule` lines for `mod_auth_basic` and `mod_auth_digest`. Accepted here? Exclude it with --ignore='Basic and digest auth'.
+* WebDAV modules: Deactivate the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and `mod_dav_lock`. Accepted here? Exclude it with --ignore='WebDAV modules'.
+* Status module: Deactivate the `LoadModule` line for `mod_status` unless the module feeds your monitoring. Accepted here? Exclude it with --ignore='Status module'.
+* Autoindex module: Deactivate the `LoadModule` line for `mod_autoindex` so a directory without an index file stops listing its content. Accepted here? Exclude it with --ignore='Autoindex module'.
+* Proxy modules: Deactivate the `LoadModule` lines for the `mod_proxy` family unless the host really is a reverse proxy. Accepted here? Exclude it with --ignore='Proxy modules'.
+* User directories module: Deactivate the `LoadModule` line for `mod_userdir` so home directories stop being served. Accepted here? Exclude it with --ignore='User directories module'.
+* Info module: Deactivate the `LoadModule` line for `mod_info`; it exposes the whole configuration, including credentials of other modules. Accepted here? Exclude it with --ignore='Info module'.
+* Basic and digest auth: Deactivate the `LoadModule` lines for `mod_auth_basic` and `mod_auth_digest`. Accepted here? Exclude it with --ignore='Basic and digest auth'.
 
 Check Name              ! Result                                                                    ! State
 ------------------------+---------------------------------------------------------------------------+----------
@@ -171,12 +171,12 @@ sudo ./apache-httpd-security --brief
 ```text
 11 of 16 checks failed.
 
-Check Name          ! Result                    ! Detail                                                                      ! State
---------------------+---------------------------+-----------------------------------------------------------------------------+----------
-Worker account      ! nobody:nobody (uid 65534) ! `nobody` is shared with other daemons; uid 65534 is not below UID_MIN 1000. ! [WARNING]
-Config other write  ! 1 of 16 files             ! /etc/httpd/conf.d/zz-bad.conf (0646)                                        ! [WARNING]
-Core dump directory ! /var/www/html             ! inside the document root.                                                   ! [WARNING]
-Lock file           ! default in /tmp           ! writable beyond its owner (1777).                                           ! [WARNING]
+Check Name          ! Result                    ! Detail                                                   ! State    
+--------------------+---------------------------+----------------------------------------------------------+----------
+Worker account      ! nobody:nobody (uid 65534) ! `nobody` is a shared account; uid 65534 >= UID_MIN 1000. ! [WARNING]
+Config other write  ! 1 of 16 files             ! 1 file writable by other.                                ! [WARNING]
+Core dump directory ! /var/www/html             ! inside the document root.                                ! [WARNING]
+Lock file           ! default in /tmp           ! writable beyond its owner (1777).                        ! [WARNING]
 ```
 
 A hardened host:
@@ -201,6 +201,7 @@ WebDAV modules          ! WebDAV modules not loaded    ! [OK]
 * Returns OK if every check that could be carried out passed.
 * Returns WARN (or CRIT with `--severity=crit`) if at least one check failed:
     * a module CIS recommends disabling is loaded, or the log config module is missing,
+    * the worker account may run commands through `sudo`, which hands back the privileges the account exists to drop,
     * the worker account runs as root, is an account shared with other daemons (`daemon`, `nfsnobody`, `nobody`, `nogroup`), has a uid at or above `UID_MIN`, or a running process uses an account other than the configured one,
     * a configuration file is not owned by `root:root`, or is writable by other,
     * the core dump directory, the lock file directory, the process ID file directory or the scoreboard file directory sits inside the document root, is not owned by root, or is writable beyond its owner,

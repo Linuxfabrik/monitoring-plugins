@@ -28,7 +28,7 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083101'
+__version__ = '2026083102'
 
 DESCRIPTION = """Checks the local security posture of an Apache httpd installation: which
 modules the server has loaded, which account its worker processes run under, the ownership
@@ -160,6 +160,17 @@ MUTEX_MECHANISM_REGEX = re.compile(r'mechanism=(?P<mechanism>\S+)')
 MODULE_REGEX = re.compile(r'^\s*(?P<module>\S+_module)\s+\((?:static|shared)\)')
 # "    (61) /etc/httpd/conf.modules.d/00-base.conf"
 INCLUDE_REGEX = re.compile(r'^\s*\((?:\*|\d+)\)\s+(?P<path>\S.*)$')
+
+
+# Both sudo and sudo-rs answer with this sentence for an account that may run
+# nothing, and with "may run the following commands" for one that may. Asked with
+# LC_ALL=C so the wording is the untranslated one whatever locale the agent runs
+# under.
+NO_SUDO_REGEX = re.compile(r'is not allowed to run sudo')
+
+# The heading sudo prints in front of the rules themselves. Everything indented
+# below it is one rule, everything above it belongs to the `Defaults` block.
+RULE_LISTING_REGEX = re.compile(r'may run the following commands')
 
 
 def parse_args():
@@ -422,6 +433,63 @@ def read_login_shell(user):
         return pwd.getpwnam(user).pw_shell
     except KeyError:
         return None
+
+
+def check_account_sudo(user, sudo_output, severity_state):
+    """The worker account must not be able to run anything through sudo.
+
+    A dedicated unprivileged account is only unprivileged as long as it cannot
+    take the privileges back, and `sudo` is the shortest way to do that: a worker
+    an attacker reaches through the server is a root shell away from owning the
+    host. The NGINX benchmark asks for this outright (2.2.1, "Ensure the user
+    cannot execute commands via sudo"); the Apache one does not, which is a gap in
+    it rather than a difference between the two servers.
+
+    Both sudo and sudo-rs answer `sudo -l -U <user>` with the same two sentences,
+    `is not allowed to run sudo` and `may run the following commands`, and both
+    exit non-zero for an account they cannot resolve (measured against sudo
+    1.9.17 and sudo-rs 0.2.13). The listing is read rather than the exit code,
+    because a user who may run nothing and a user who may run everything both
+    exit 0.
+    """
+    if user is None:
+        return (None, 'not evaluated', 'No worker account to ask about.', None)
+    if sudo_output is None:
+        return (
+            None,
+            'not evaluated',
+            'sudo is not installed, or it could not be asked what the account may run.',
+            None,
+        )
+    if NO_SUDO_REGEX.search(sudo_output):
+        return (
+            STATE_OK,
+            f'{user}: no sudo rules',
+            'Cannot take privileges back through sudo.',
+            None,
+        )
+    # Only the lines below the listing's own heading. sudo prints a `Defaults`
+    # block in front of it whose entries are indented the same way but say
+    # nothing about what the account may run, so counting those would report
+    # more rules than exist.
+    rules = []
+    listing = False
+    for line in sudo_output.splitlines():
+        if RULE_LISTING_REGEX.search(line):
+            listing = True
+            continue
+        if listing and line.startswith((' ', '\t')) and line.strip():
+            rules.append(line.strip())
+    return (
+        severity_state,
+        f'{user}: {len(rules)} sudo {lib.txt.pluralize("rule", len(rules))}'
+        if rules
+        else f'{user}: sudo rules',
+        'Can take privileges back through sudo.',
+        f'Remove the rules that name `{user}` from /etc/sudoers and '
+        f'/etc/sudoers.d, so the account the server drops to cannot raise its '
+        f'privileges again.',
+    )
 
 
 def check_account_shell(user, shell, interactive_shells, severity_state):
@@ -905,6 +973,35 @@ def check_request_limit(limit, values, severity_state):
     )
 
 
+def get_sudo_rules(user, timeout):
+    """Return what `sudo -l -U <user>` prints, or None where it cannot be asked.
+
+    `LC_ALL=C` so the two sentences the answer is read for arrive untranslated
+    whatever locale the monitoring agent runs under. The user name reaches sudo as
+    its own argument of an argument list, never through a shell.
+    """
+    if user is None:
+        return None
+    sudo = lib.shell.which('sudo')
+    if not sudo:
+        return None
+    # The name comes out of the server configuration. As its own argv element it
+    # cannot reach a shell, but sudo would still read a leading "-" as an option
+    # of its own, so it is refused rather than passed on (CONTRIBUTING, Security).
+    success, safe_user = lib.shell.safe_cli_value(user, 'the worker account')
+    if not success:
+        return None
+    success, result = lib.shell.shell_exec(
+        [sudo, '-l', '-U', safe_user], env={'LC_ALL': 'C'}, timeout=timeout
+    )
+    if not success:
+        return None
+    stdout, _stderr, retc = result
+    # A non-zero exit is an account sudo could not resolve, which says nothing
+    # about what it may run and must not be read as "nothing".
+    return stdout if retc == 0 else None
+
+
 def collect_data(args):
     """Gather every data source, live or from fixtures."""
     if args.TEST is None:
@@ -917,6 +1014,7 @@ def collect_data(args):
         stat_fixture = None
         account_fixture = None
         directive_fixture = None
+        sudo_output = get_sudo_rules(parse_run_cfg(run_cfg)['user'], args.TIMEOUT)
     else:
         base = args.TEST[0]
         modules = lib.lftest.test_text(args.TEST, f'{base}-modules', missing_ok=True)
@@ -934,6 +1032,7 @@ def collect_data(args):
             args.TEST, f'{base}-directives', missing_ok=True
         )
         directive_fixture = parse_directive_fixture(raw_directives or '')
+        sudo_output = lib.lftest.test_text(args.TEST, f'{base}-sudo', missing_ok=True)
 
     return {
         'account_fixture': account_fixture,
@@ -942,6 +1041,7 @@ def collect_data(args):
         'modules': parse_modules(modules),
         'run_cfg': parse_run_cfg(run_cfg),
         'stat_fixture': stat_fixture,
+        'sudo_output': sudo_output,
     }
 
 
@@ -1001,7 +1101,7 @@ def build_checks(data, severity_state):
                 [r'^dav_module$', r'^dav_\w+_module$'],
                 'WebDAV modules',
                 severity_state,
-                'Comment out the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and '
+                'Deactivate the `LoadModule` lines for `mod_dav`, `mod_dav_fs` and '
                 '`mod_dav_lock`.',
             ),
         ),
@@ -1012,7 +1112,7 @@ def build_checks(data, severity_state):
                 [r'^status_module$'],
                 'Status module',
                 severity_state,
-                'Comment out the `LoadModule` line for `mod_status` unless the '
+                'Deactivate the `LoadModule` line for `mod_status` unless the '
                 'module feeds your monitoring.',
             ),
         ),
@@ -1023,7 +1123,7 @@ def build_checks(data, severity_state):
                 [r'^autoindex_module$'],
                 'Autoindex module',
                 severity_state,
-                'Comment out the `LoadModule` line for `mod_autoindex` so a directory '
+                'Deactivate the `LoadModule` line for `mod_autoindex` so a directory '
                 'without an index file stops listing its content.',
             ),
         ),
@@ -1034,7 +1134,7 @@ def build_checks(data, severity_state):
                 [r'^proxy_\w*module$', r'^proxy_module$'],
                 'Proxy modules',
                 severity_state,
-                'Comment out the `LoadModule` lines for the `mod_proxy` family unless '
+                'Deactivate the `LoadModule` lines for the `mod_proxy` family unless '
                 'the host really is a reverse proxy.',
             ),
         ),
@@ -1045,7 +1145,7 @@ def build_checks(data, severity_state):
                 [r'^userdir_module$'],
                 'User directories module',
                 severity_state,
-                'Comment out the `LoadModule` line for `mod_userdir` so home '
+                'Deactivate the `LoadModule` line for `mod_userdir` so home '
                 'directories stop being served.',
             ),
         ),
@@ -1056,7 +1156,7 @@ def build_checks(data, severity_state):
                 [r'^info_module$'],
                 'Info module',
                 severity_state,
-                'Comment out the `LoadModule` line for `mod_info`; it exposes the '
+                'Deactivate the `LoadModule` line for `mod_info`; it exposes the '
                 'whole configuration, including credentials of other modules.',
             ),
         ),
@@ -1067,7 +1167,7 @@ def build_checks(data, severity_state):
                 [r'^auth_basic_module$', r'^auth_digest_module$'],
                 'Basic and digest authentication modules',
                 severity_state,
-                'Comment out the `LoadModule` lines for `mod_auth_basic` and '
+                'Deactivate the `LoadModule` lines for `mod_auth_basic` and '
                 '`mod_auth_digest`.',
             ),
         ),
@@ -1082,6 +1182,10 @@ def build_checks(data, severity_state):
         (
             'Account locked',
             check_account_locked(user, shadow_state, shadow, severity_state),
+        ),
+        (
+            'Account sudo',
+            check_account_sudo(user, data['sudo_output'], severity_state),
         ),
         (
             'Config file owner',

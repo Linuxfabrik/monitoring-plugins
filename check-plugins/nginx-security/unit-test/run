@@ -27,7 +27,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '2 of 8 checks failed.',
+            '2 of 9 checks failed.',
             'nginx (uid 101)',
             'Not root, uid below UID_MIN, no privileged group, '
             'not a known shared account.',
@@ -53,7 +53,7 @@ TESTS = [
         'params': '--ignore=^Config',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 6 checks passed, 2 overridden.',
+            'Everything is ok. All 7 checks passed, 2 overridden.',
             'overridden [OK]',
         ],
     },
@@ -65,7 +65,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '4 of 8 checks failed.',
+            '5 of 9 checks failed.',
             'root (uid 0)',
             'runs as root',
             'member of root',
@@ -85,7 +85,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['4 of 8 checks failed.'],
+        'assert-in': ['5 of 9 checks failed.'],
     },
     # A password that can actually be used, as opposed to the "*" the
     # distributions ship, which cannot.
@@ -114,7 +114,7 @@ TESTS = [
         'test': 'stdout/loose',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['4 of 8 checks failed.', "'nginx_checks_evaluated'=8"],
+        'assert-in': ['5 of 9 checks failed.', "'nginx_checks_evaluated'=9"],
         'assert-not-in': ['[OK]'],
     },
     # An excluded check keeps its row and says so, instead of vanishing.
@@ -139,6 +139,19 @@ TESTS = [
         'assert-in': [
             '`ngx_http_geoip_module` matched no check',
             'take the name as it stands in the `Check Name` column',
+        ],
+    },
+    # The benchmark asks for this outright (2.2.1): a worker account that can
+    # sudo is a root shell away from owning the host.
+    {
+        'id': 'warn-worker-account-may-use-sudo',
+        'test': 'stdout/loose',
+        'params': "--match='Account sudo'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 sudo rule',
+            'Can take privileges back through sudo.',
+            'Remove the rules that name `root`',
         ],
     },
     # Everything filtered out: report the configured severity, not a pass.

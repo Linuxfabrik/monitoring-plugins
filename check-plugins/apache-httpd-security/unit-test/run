@@ -26,7 +26,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '8 of 22 checks failed.',
+            '8 of 23 checks failed.',
             'info_module',
             'status_module',
             "'apache_httpd_checks_failed'=8",
@@ -40,7 +40,7 @@ TESTS = [
         'params': '--match=(ccount|Config|dump|Lock|Pid|ScoreBoard)',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 10 checks passed.',
+            'Everything is ok. All 11 checks passed.',
             'apache:apache (uid 48)',
         ],
         'assert-not-in': ['info_module'],
@@ -52,7 +52,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '4 of 22 checks failed.',
+            '4 of 23 checks failed.',
             'status_module',
             'www-data:www-data (uid 33)',
         ],
@@ -73,7 +73,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Everything is ok. All 22 checks passed.',
+            'Everything is ok. All 23 checks passed.',
             "'apache_httpd_checks_failed'=0",
         ],
         'assert-not-in': ['Recommendations:'],
@@ -87,7 +87,7 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '12 of 22 checks failed.',
+            '13 of 23 checks failed.',
             'nobody:nobody (uid 65534)',
             '`nobody` is a shared account',
             'uid 65534 >= UID_MIN 1000',
@@ -108,7 +108,7 @@ TESTS = [
         'test': 'stdout/shared-account',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['12 of 22 checks failed.'],
+        'assert-in': ['13 of 23 checks failed.'],
     },
     # --brief drops the passing rows but must not change the counts, the
     # recommendations or the state.
@@ -117,7 +117,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--brief',
         'assert-retc': STATE_WARN,
-        'assert-in': ['8 of 22 checks failed.', "'apache_httpd_checks_evaluated'=22"],
+        'assert-in': ['8 of 23 checks failed.', "'apache_httpd_checks_evaluated'=23"],
         'assert-not-in': ['[OK]'],
     },
     # A host whose monitoring reads mod_status knowingly accepts that finding.
@@ -128,7 +128,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=^Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 21 checks failed, 1 overridden.', 'overridden [OK]'],
+        'assert-in': ['7 of 22 checks failed, 1 overridden.', 'overridden [OK]'],
         'assert-not-in': ["Exclude it with --ignore='Status module'"],
     },
     # The same exclusion written as an unanchored substring.
@@ -137,7 +137,7 @@ TESTS = [
         'test': 'stdout/rhel-stock',
         'params': '--ignore=Status',
         'assert-retc': STATE_WARN,
-        'assert-in': ['7 of 21 checks failed, 1 overridden.', 'overridden [OK]'],
+        'assert-in': ['7 of 22 checks failed, 1 overridden.', 'overridden [OK]'],
         'assert-not-in': ["Exclude it with --ignore='Status module'"],
     },
     # Everything filtered out: report the configured severity, not a pass.
@@ -174,7 +174,7 @@ TESTS = [
         'params': '--match=^Account',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '2 of 2 checks failed.',
+            '2 of 3 checks failed.',
             '`/bin/bash`',
             'Not one of the shells that exit instead of opening a session.',
             'usable password',
@@ -290,6 +290,26 @@ TESTS = [
         'params': '',
         'assert-retc': STATE_WARN,
         'assert-in': ["Accepted here? Exclude it with --ignore='Status module'."],
+    },
+    {
+        # CIS NGINX 2.2.1 asks for this outright; the Apache benchmark does not,
+        # which is a gap in it rather than a difference between the servers.
+        'id': 'warn-worker-account-may-use-sudo',
+        'test': 'stdout/shared-account',
+        'params': "--match='Account sudo'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 sudo rules',
+            'Can take privileges back through sudo.',
+            'Remove the rules that name `nobody`',
+        ],
+    },
+    {
+        'id': 'ok-worker-account-has-no-sudo-rules',
+        'test': 'stdout/rhel-stock',
+        'params': "--match='Account sudo'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['no sudo rules', 'Cannot take privileges back through sudo.'],
     },
     {
         'id': 'unknown-missing-fixture',

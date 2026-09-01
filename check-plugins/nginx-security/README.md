@@ -20,7 +20,7 @@ The checks follow the "Minimize NGINX Modules", "Permissions and Ownership" and 
 
 ### Data Collection
 
-Two invocations of the NGINX binary per run, both of which only read: `-V` for the compile-time paths and accounts (prefix, configuration path, process ID path, user, group, modules path), which is what every setting the configuration leaves out falls back to, and `-T` for the fully parsed configuration including every included file behind its own marker. The configuration directory is then walked and inspected with `stat`, as is the process ID file. `UID_MIN` comes from `/etc/login.defs`, the account's shell and groups from the local user database, its lock state from `/etc/shadow`, and the running worker processes from `psutil`. Nothing is stored between runs.
+Two invocations of the NGINX binary per run, both of which only read: `-V` for the compile-time paths and accounts (prefix, configuration path, process ID path, user, group, modules path), which is what every setting the configuration leaves out falls back to, and `-T` for the fully parsed configuration including every included file behind its own marker. The configuration directory is then walked and inspected with `stat`, as is the process ID file. `UID_MIN` comes from `/etc/login.defs`, the account's shell and groups from the local user database, its lock state from `/etc/shadow`, the running worker processes from `psutil`, and whether the account can use `sudo` from `sudo -l -U`. Nothing is stored between runs.
 
 Symbolic links are followed, the way the benchmark's own audit does. A configuration directory that links to a modules directory elsewhere is therefore reported with the permissions of the target, which is what actually applies.
 
