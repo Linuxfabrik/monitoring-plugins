@@ -158,6 +158,11 @@ Everything is ok.
 * `--always-ok` turns the WARN above into OK. It does not cover the UNKNOWN cases, which leave before a state is evaluated.
 
 
+## Perfdata / Metrics
+
+There is no perfdata.
+
+
 ## Troubleshooting
 
 ### `The WHMCS API refused the request`
@@ -171,11 +176,6 @@ The credential authenticated, but the API role behind it does not allow the `Get
 ### The same message keeps the check at WARNING forever
 
 WHMCS reports things an operator can legitimately decide to live with, for example the use of default template names. The plugin has no filter for individual checks, so the way to silence one is to resolve it in WHMCS or to acknowledge the service.
-
-
-## Perfdata / Metrics
-
-There is no perfdata.
 
 
 ## Credits, License
