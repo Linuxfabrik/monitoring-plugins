@@ -19,7 +19,7 @@ A virtual machine has three different memory sizes at the same time, and confusi
 * Only running machines are looked at. A machine that is shut off occupies no memory on the host, and the memory it will be given once it starts is a plan rather than a measurement.
 * Machines add up to more memory than the host has on many perfectly healthy hosts. That is what the commitment figure is for: it is a fact, not an alert, and the check does not turn it into one. The host's own memory pressure is what `check_memory_usage` reports.
 * The check connects to libvirt read-only, which needs neither root nor sudo nor membership in the `libvirt` group. Only QEMU/KVM connections report the data it needs; Xen and libvirt-LXC connections are refused with an explanation.
-* **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. It combines with `--lengthy`, which decides the columns rather than the rows. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
+* **`--brief` shortens the table on a busy host.** A host with hundreds of machines produces hundreds of rows, and `--brief` keeps only the machines in a WARN or CRIT state. Performance data and alerting are unaffected: every item still emits its metrics and still drives the overall state, so it is safe to leave on. When nothing is in a WARN or CRIT state, the check prints its summary line and no table at all.
 
 **Data Collection:**
 
