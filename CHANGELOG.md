@@ -124,8 +124,7 @@ Monitoring Plugins:
 * about-me: recognises a KVM host running the modular libvirt daemons again
 * all plugins: a command stuck on storage that has gone away no longer runs past the check's `--timeout`
 * apache-httpd-security, nginx-security: read a configuration file, `/etc/shadow` or `/etc/shells` that is not valid UTF-8 instead of going UNKNOWN over it
-* cert: `--warning` and `--critical` take a lowercase week unit (`2w`) instead of reporting UNKNOWN
-* cert, nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* cert: `--warning` and `--critical` take a lowercase week unit (`2w`) instead of reporting UNKNOWN, and the check uses the proxy the environment names and honours `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update, and two runs at the same time no longer report each other's rows
 * disk-usage: `--fstype` and `--list-fstypes` work again on a host whose network filesystem stopped answering, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * docker-service, docker-swarm: the sudoers file lets them reach the Docker daemon
@@ -138,6 +137,7 @@ Monitoring Plugins:
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
 * needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
+* nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
