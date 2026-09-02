@@ -110,8 +110,8 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* the `File Size - /var/log/audit/audit.log` service is gone from the RHEL and Fedora Basic Service Sets
 * the Basic and Apache Service Sets for Debian 10, RHEL 7, Ubuntu 16, 18 and 20 are gone with their host tags: retag those hosts or they lose their checks
+* the `File Size - /var/log/audit/audit.log` service is gone from the RHEL and Fedora Basic Service Sets
 
 Build, CI/CD:
 
@@ -149,9 +149,9 @@ Monitoring Plugins:
 Icinga Director:
 
 * the Active Directory Domain Service Set renames `Service - ADWS` and `Service - DFSR`; both start their history over
-* the Huawei Dorado Service Set runs all of its checks again
 * the Apache and MySQL Logfile services read the logs the server writes again instead of only its systemd unit
 * the By WinRM service template processes the performance data its remote command returns; re-import the basket
+* the Huawei Dorado Service Set runs all of its checks again
 * the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` starts its history over
 
 Build, CI/CD:
