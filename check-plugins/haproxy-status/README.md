@@ -122,7 +122,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/haproxy-status/
 ## Usage Examples
 
 ```bash
-./haproxy-status --username haproxy-stats --password password --url http://webserver/server-status
+./haproxy-status --url=http://haproxy-stats:linuxfabrik@webserver/server-status
 ```
 
 Output:
