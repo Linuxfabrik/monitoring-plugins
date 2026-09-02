@@ -1270,7 +1270,7 @@ Icinga Director:
 This is a "we migrated everything from GitLab to GitHub, but had to adjust many details afterwards" version. **In terms of source code, nothing has changed** compared to 2022022801, just a bunch of links in source code comments and READMEs.
 
 
-## 2022022801 - 2022-02-28
+## [2022022801] - 2022-02-28
 
 ### Breaking Changes
 
@@ -1356,7 +1356,7 @@ Icinga Director:
 * SysMain and TimeBrokerSvc are gone from the Windows Service Set, and getent from the basic Service Sets ([#427](https://github.com/Linuxfabrik/monitoring-plugins/issues/427), [#446](https://github.com/Linuxfabrik/monitoring-plugins/issues/446))
 
 
-## 2021101401 - 2021-10-14
+## [2021101401] - 2021-10-14
 
 ### Added
 
@@ -1419,7 +1419,7 @@ Monitoring Plugins:
 * fah-stats, hostname and all Atlassian checks
 
 
-## 2021061501 - 2021-06-15
+## [2021061501] - 2021-06-15
 
 ### Added
 
@@ -1468,7 +1468,7 @@ Monitoring Plugins:
 * three of the four "Top 3" checks, merged into cpu-usage, file-descriptors and memory-usage
 
 
-## 2021021701 - 2021-02-17
+## [2021021701] - 2021-02-17
 
 ### Fixed
 
@@ -1477,7 +1477,7 @@ Monitoring Plugins:
 * the virtualenv is activated even when a plugin is called by an absolute path ([#154](https://github.com/Linuxfabrik/monitoring-plugins/issues/154))
 
 
-## 2021021601 - 2021-02-16
+## [2021021601] - 2021-02-16
 
 ### Added
 
@@ -1502,7 +1502,7 @@ Monitoring Plugins:
 * pip-version: the output message is no longer mixed up
 
 
-## 2020122401 - 2020-12-24
+## [2020122401] - 2020-12-24
 
 ### Added
 
@@ -1524,7 +1524,7 @@ Monitoring Plugins:
 * users: the count on Windows includes disconnected users
 
 
-## 2020112001 - 2020-11-20
+## [2020112001] - 2020-11-20
 
 ### Changed
 
@@ -1533,7 +1533,7 @@ Monitoring Plugins:
 * systemd-unit: knows more states
 
 
-## 2020111901 - 2020-11-19
+## [2020111901] - 2020-11-19
 
 ### Fixed
 
@@ -1542,7 +1542,7 @@ Monitoring Plugins:
 * ntp-offset: no longer errors on a server without NTP ([#138](https://github.com/Linuxfabrik/monitoring-plugins/issues/138))
 
 
-## 2020111801 - 2020-11-18
+## [2020111801] - 2020-11-18
 
 ### Added
 
@@ -1558,7 +1558,7 @@ Monitoring Plugins:
 * ntp-offset: corrected logic ([#134](https://github.com/Linuxfabrik/monitoring-plugins/issues/134))
 
 
-## 2020102301 - 2020-10-23
+## [2020102301] - 2020-10-23
 
 ### Breaking Changes
 
@@ -1598,7 +1598,7 @@ Monitoring Plugins:
 * xca-cert: lists all checked certificates with common name, CA, serial and expiry date ([#65](https://github.com/Linuxfabrik/monitoring-plugins/issues/65))
 
 
-## 2020061901 - 2020-06-19
+## [2020061901] - 2020-06-19
 
 ### Added
 
@@ -1613,7 +1613,7 @@ Monitoring Plugins:
 * nextcloud-version: no longer aborts with an AttributeError ([#105](https://github.com/Linuxfabrik/monitoring-plugins/issues/105))
 
 
-## 2020052801 - 2020-05-28
+## [2020052801] - 2020-05-28
 
 ### Added
 
@@ -1642,7 +1642,7 @@ Monitoring Plugins:
 * procs: the total process count in the perfdata is no longer always 0 ([#96](https://github.com/Linuxfabrik/monitoring-plugins/issues/96))
 
 
-## 2020042001 - 2020-04-20
+## [2020042001] - 2020-04-20
 
 ### Added
 
@@ -1660,7 +1660,7 @@ Monitoring Plugins:
 * ping: no duplicate output ([#84](https://github.com/Linuxfabrik/monitoring-plugins/issues/84))
 
 
-## 2020041501 - 2020-04-15
+## [2020041501] - 2020-04-15
 
 ### Added
 
@@ -1675,7 +1675,7 @@ Monitoring Plugins:
 * docker-info, docker-container, network-io, redis and xca-cert, to be rewritten from scratch
 
 
-## 2020031201 - 2020-03-12
+## [2020031201] - 2020-03-12
 
 ### Added
 
@@ -1692,7 +1692,7 @@ Monitoring Plugins:
 * systemd-unit: improved output
 
 
-## 2020022801 - 2020-02-28
+## [2020022801] - 2020-02-28
 
 Initial release for the general public.
 
