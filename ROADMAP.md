@@ -1,5 +1,9 @@
 # Roadmap
 
+## Supported releases
+
+Fixes, including security fixes, are only released for the most recent version. A major version therefore reaches its end of life on the day the next major version is published, and within a major version only the latest minor release is maintained. There is no fixed release cadence: a new major version is published whenever breaking changes accumulate, in practice every few weeks to a few months.
+
 ## When Linuxfabrik drops support for an operating system.
 
 An operating system reaching its end of life produces two different dates. One is when that release loses its packages. The other is when the project may raise the minimum Python version every plugin has to run on. They are rarely the same day.
