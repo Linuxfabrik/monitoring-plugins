@@ -151,7 +151,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/snmp/
 A minimal command call:
 
 ```bash
-./snmp --hostname 10.80.32.109
+./snmp --hostname=10.80.32.109
 ```
 
 Calling this the check...

@@ -54,7 +54,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sensors-fans/
 ## Usage Examples
 
 ```bash
-./sensors-fans --warning 10000 --critical 20000
+./sensors-fans --warning=10000 --critical=20000
 ```
 
 Output:

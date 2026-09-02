@@ -106,8 +106,8 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ping/
 ## Usage Examples
 
 ```bash
-./ping --hostname localhost
-./ping --interval=0.2 --count=5 --timeout=5 --hostname localhost
+./ping --hostname=localhost
+./ping --interval=0.2 --count=5 --timeout=5 --hostname=localhost
 ```
 
 Output:

@@ -121,20 +121,20 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/diacos/
 
 ```bash
 ./diacos \
-    --critical 6000 \
-    --login-computer Brower_APP \
-    --login-ip 127.0.0.1 \
-    --login-licence 4b903485-1def-4f1b-a4d5-dd5464176954 \
-    --login-name supervisor \
-    --search-concept-filter '%25R239%3BC%3BD99.99' \
-    --search-country 'CH' \
-    --search-format '%25T0%25C%3F%25I%25R' \
-    --search-searchtext Haut \
-    --search-sort-mode '%25T' \
-    --search-year 2020 \
-    --timeout 7 \
-    --url http://localhost:9999 \
-    --warning 3000
+    --critical=6000 \
+    --login-computer=Brower_APP \
+    --login-ip=127.0.0.1 \
+    --login-licence=4b903485-1def-4f1b-a4d5-dd5464176954 \
+    --login-name=supervisor \
+    --search-concept-filter='%25R239%3BC%3BD99.99' \
+    --search-country='CH' \
+    --search-format='%25T0%25C%3F%25I%25R' \
+    --search-searchtext=Haut \
+    --search-sort-mode='%25T' \
+    --search-year=2020 \
+    --timeout=7 \
+    --url=http://localhost:9999 \
+    --warning=3000
 ```
 
 Output:

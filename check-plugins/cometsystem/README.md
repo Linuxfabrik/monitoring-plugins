@@ -19,7 +19,7 @@ Reads sensor data from Comet System Web Sensors via their JSON API endpoint. Mon
 Example:
 
 ```bash
-./cometsystem --url http://example.com/values.json --severity temp:high:crit --severity humi:ok --severity warn
+./cometsystem --url=http://example.com/values.json --severity=temp:high:crit --severity=humi:ok --severity=warn
 ```
 
 Here, the check raises critical for any channel with "temp" in its name on high alarms only, returns ok for any alarm in channels with "humi" in their name, and finally warns on all other alarms in all other channels. The last `--severity warn` can be omitted as this is the default behavior.
@@ -95,7 +95,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cometsystem/
 ## Usage Examples
 
 ```bash
-./cometsystem --url http://example.com/values.json --severity temp:high:crit --severity dew:ok
+./cometsystem --url=http://example.com/values.json --severity=temp:high:crit --severity=dew:ok
 ```
 
 Output:

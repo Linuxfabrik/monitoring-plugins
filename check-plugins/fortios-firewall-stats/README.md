@@ -79,7 +79,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-firewall-
 ## Usage Examples
 
 ```bash
-./fortios-firewall-stats --hostname fortigate-cluster.linuxfabrik.io --password mypass
+./fortios-firewall-stats --hostname=fortigate-cluster.linuxfabrik.io --password=mypass
 ```
 
 Output:

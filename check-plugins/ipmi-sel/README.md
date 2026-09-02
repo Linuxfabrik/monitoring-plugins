@@ -78,7 +78,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sel/
 ## Usage Examples
 
 ```bash
-./ipmi-sel --privlevel USER --interface lanplus --hostname 10.100.184.29 --username 'user' --password 'pa$$word'
+./ipmi-sel --privlevel=USER --interface=lanplus --hostname=10.100.184.29 --username='user' --password='pa$$word'
 ```
 
 Output:

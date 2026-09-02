@@ -58,7 +58,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/sensors-battery/
 ## Usage Examples
 
 ```bash
-./sensors-battery --warning 20 --critical 5
+./sensors-battery --warning=20 --critical=5
 ```
 
 Output:

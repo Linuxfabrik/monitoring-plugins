@@ -69,7 +69,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-peer-sta
 ## Usage Examples
 
 ```bash
-./starface-peer-stats --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-peer-stats --cache-expire=1 --hostname=mypbx --port=6556 --timeout=3
 ```
 
 Output:

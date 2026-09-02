@@ -80,7 +80,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-cache/
 ## Usage Examples
 
 ```bash
-./nodebb-cache --token edd956be-9ea5-4f2a-94ca-3948a1b9d184 --severity warn
+./nodebb-cache --token=edd956be-9ea5-4f2a-94ca-3948a1b9d184 --severity=warn
 ```
 
 Output:

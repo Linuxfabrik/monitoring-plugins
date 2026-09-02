@@ -74,7 +74,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-backup-s
 ## Usage Examples
 
 ```bash
-./starface-backup-status --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-backup-status --cache-expire=1 --hostname=mypbx --port=6556 --timeout=3
 ```
 
 Output:

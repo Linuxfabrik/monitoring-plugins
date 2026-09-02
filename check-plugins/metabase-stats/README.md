@@ -86,7 +86,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/metabase-stats/
 ## Usage Examples
 
 ```bash
-./metabase-stats --username user --password pass --url http://metabase:3000
+./metabase-stats --username=user --password=pass --url=http://metabase:3000
 ```
 
 Output:

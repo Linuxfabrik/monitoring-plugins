@@ -86,10 +86,10 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/matomo-reporting/
 ## Usage Examples
 
 ```bash
-./matomo-reporting --url https://demo.matomo.org --password anonymous --idsite 1 --period day --date today
-./matomo-reporting --url https://demo.matomo.org --password anonymous --idsite 1 --period day --date today --metric nb_visits
-./matomo-reporting --period day --date today --metric sum_total_audio_impressions --metric form_resubmitters_rate,3,5 --metric avg_form_time_spent,,:120 --metric nb_visits,0:10000
-./matomo-reporting --url https://demo.matomo.org --password anonymous --idsite 1 --period day --date today --metric avg_page_load_time --metric nb_visits,0:10000
+./matomo-reporting --url=https://demo.matomo.org --password=anonymous --idsite=1 --period=day --date=today
+./matomo-reporting --url=https://demo.matomo.org --password=anonymous --idsite=1 --period=day --date=today --metric=nb_visits
+./matomo-reporting --period=day --date=today --metric=sum_total_audio_impressions --metric=form_resubmitters_rate,3,5 --metric=avg_form_time_spent,,:120 --metric=nb_visits,0:10000
+./matomo-reporting --url=https://demo.matomo.org --password=anonymous --idsite=1 --period=day --date=today --metric=avg_page_load_time --metric=nb_visits,0:10000
 ```
 
 Output:

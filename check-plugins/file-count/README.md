@@ -81,19 +81,19 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-count/
 
 ```bash
 # check the existence of a file; if missing warn
-./file-count --filename '/path/to/file' --warning 1
+./file-count --filename='/path/to/file' --warning=1
 
 # check the absence of a file; if present warn
-./file-count --filename '/path/to/file' --warning '~:0'
+./file-count --filename='/path/to/file' --warning='~:0'
 
 # check that there are at least 5 `.md` files, else warn
-./file-count --filename '/path/to/*.md' --warning 5
+./file-count --filename='/path/to/*.md' --warning=5
 
 # check that there are at least 5 files modified in the last 10 seconds, else warn
-./file-count --filename '/path/to/file/*' --warning 5 --timerange 5
+./file-count --filename='/path/to/file/*' --warning=5 --timerange=5
 
 # check a SMB share
-./file-count  --username USER --password mysecret --pattern '*' --timeout 3 --url smb://\\server\path
+./file-count  --username=USER --password=mysecret --pattern='*' --timeout=3 --url=smb://\\server\path
 ```
 
 Output:

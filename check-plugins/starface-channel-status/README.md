@@ -72,7 +72,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-channel-
 ## Usage Examples
 
 ```bash
-./starface-channel-status --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-channel-status --cache-expire=1 --hostname=mypbx --port=6556 --timeout=3
 ```
 
 Output:

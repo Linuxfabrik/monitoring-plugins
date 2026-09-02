@@ -74,7 +74,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/axenita-stats/
 ## Usage Examples
 
 ```bash
-./axenita-stats --url http://localhost:10000/achilles/ar --timeout 3
+./axenita-stats --url=http://localhost:10000/achilles/ar --timeout=3
 ```
 
 

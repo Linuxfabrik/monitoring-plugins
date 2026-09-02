@@ -78,7 +78,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-liveness/
 ## Usage Examples
 
 ```bash
-./gitlab-liveness --severity warn --timeout 3 --url http://localhost/-/liveness
+./gitlab-liveness --severity=warn --timeout=3 --url=http://localhost/-/liveness
 ```
 
 Output:

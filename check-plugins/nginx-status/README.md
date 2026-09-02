@@ -90,7 +90,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nginx-status/
 ## Usage Examples
 
 ```bash
-./nginx-status --url http://nginx/server-status --warning 460 --critical 486
+./nginx-status --url=http://nginx/server-status --warning=460 --critical=486
 ```
 
 Output:

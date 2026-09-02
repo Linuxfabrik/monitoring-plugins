@@ -98,7 +98,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-version/
 ## Usage Examples
 
 ```bash
-./fortios-version --hostname fortigate-cluster.example.com --password mypass
+./fortios-version --hostname=fortigate-cluster.example.com --password=mypass
 ```
 
 Output:

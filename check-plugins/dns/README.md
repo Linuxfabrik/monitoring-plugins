@@ -63,8 +63,8 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/
 ## Usage Examples
 
 ```bash
-./dns --hostname $(hostname)
-./dns --hostname www.example.org --type udp --port 53 --warning 1000 --critical 5000
+./dns --hostname=$(hostname)
+./dns --hostname=www.example.org --type=udp --port=53 --warning=1000 --critical=5000
 ```
 
 Output:

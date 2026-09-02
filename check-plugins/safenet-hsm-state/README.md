@@ -71,7 +71,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/safenet-hsm-state
 ## Usage Examples
 
 ```bash
-./safenet-hsm-state --hostname hsm.example.com --password linuxfabrik
+./safenet-hsm-state --hostname=hsm.example.com --password=linuxfabrik
 ```
 
 Output:

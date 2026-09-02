@@ -60,7 +60,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mydumper-version/
 ## Usage Examples
 
 ```bash
-./mydumper-version --cache-expire 8 --always-ok
+./mydumper-version --cache-expire=8 --always-ok
 ```
 
 Output:

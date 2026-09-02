@@ -65,7 +65,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mysql-system/
 ## Usage Examples
 
 ```bash
-./mysql-system --maxportsallowed 15
+./mysql-system --maxportsallowed=15
 ```
 
 Output:

@@ -73,7 +73,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-sensor/
 ## Usage Examples
 
 ```bash
-./fortios-sensor --hostname fortigate-cluster.linuxfabrik.io --password mypass
+./fortios-sensor --hostname=fortigate-cluster.linuxfabrik.io --password=mypass
 ```
 
 Output:

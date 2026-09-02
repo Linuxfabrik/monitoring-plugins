@@ -73,7 +73,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-version/
 ## Usage Examples
 
 ```bash
-./qts-version --url http://qts:8080 --username admin --password linuxfabrik --insecure
+./qts-version --url=http://qts:8080 --username=admin --password=linuxfabrik --insecure
 ```
 
 Output:

@@ -97,7 +97,7 @@ clox              2001:db8::ff30   16:05   15:44m  0.00s   ?    sshd: clox [priv
 On Windows, if one user is connected via RDP:
 
 ```bash
-./users --warning 1,20,1 --critical None,50,5
+./users --warning=1,20,1 --critical=None,50,5
 ```
 
 Output:

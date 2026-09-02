@@ -71,7 +71,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/librenms-version/
 ## Usage Examples
 
 ```bash
-./librenms-version --url http://librenms --token 03xyza61e74a9876f3dc7ab11234229d
+./librenms-version --url=http://librenms --token=03xyza61e74a9876f3dc7ab11234229d
 ```
 
 Output:

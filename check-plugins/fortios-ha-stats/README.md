@@ -80,7 +80,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-ha-stats/
 ## Usage Examples
 
 ```bash
-./fortios-ha-stats --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 2
+./fortios-ha-stats --hostname=fortigate-cluster.linuxfabrik.io --password=mypass --count=2
 ```
 
 Output:

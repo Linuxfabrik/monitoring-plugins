@@ -70,7 +70,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-database
 ## Usage Examples
 
 ```bash
-./starface-database-stats --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-database-stats --cache-expire=1 --hostname=mypbx --port=6556 --timeout=3
 ```
 
 Output:

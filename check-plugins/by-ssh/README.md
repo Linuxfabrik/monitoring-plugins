@@ -165,10 +165,10 @@ Simple example - returns CRIT if `dmesg --level=emerg,alert,crit` reports critic
 
 ```bash
 ./by-ssh \
-    --hostname appserver \
-    --username linuxfabrik \
-    --severity-stdout crit \
-    --command 'sudo dmesg --level=emerg,alert,crit'
+    --hostname=appserver \
+    --username=linuxfabrik \
+    --severity-stdout=crit \
+    --command='sudo dmesg --level=emerg,alert,crit'
 ```
 
 Output:
@@ -195,36 +195,36 @@ You want to get a CRIT if the command does not return `Command Result : 0`. A ve
     --identity ~/.ssh/id_rsa1 \
     --identity ~/.ssh/id_rsa2 \
     --ipv6 \
-    --port 22 \
+    --port=22 \
     --quiet \
-    --ssh-option 'ConnectTimeout=3' \
-    --ssh-option 'MACs=hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' \
+    --ssh-option='ConnectTimeout=3' \
+    --ssh-option='MACs=hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com' \
      \
-    --severity-retc crit \
-    --severity-stderr ok \
-    --severity-timeout unknown \
-    --critical-regex 'command result : (?!0).*' \
+    --severity-retc=crit \
+    --severity-stderr=ok \
+    --severity-timeout=unknown \
+    --critical-regex='command result : (?!0).*' \
      \
-    --hostname appserver \
-    --username linuxfabrik \
-    --command 'status interface | tail -1'
+    --hostname=appserver \
+    --username=linuxfabrik \
+    --command='status interface | tail -1'
 ```
 
 Get a WARNING if the `/opt` directory does NOT have `rwxrwxrwx` permissions, using a negative lookahead in a Python regular expression:
 
 ```bash
 ./by-ssh \
-    --hostname appserver \
-    --username linuxfabrik \
-    --warning-regex '^(?!drwxrwxrwx.*).*opt$' \
-    --command 'ls -ld /opt'
+    --hostname=appserver \
+    --username=linuxfabrik \
+    --warning-regex='^(?!drwxrwxrwx.*).*opt$' \
+    --command='ls -ld /opt'
 
 # another more consistent way using `stat` and a more readable regex (but same logic)
 ./by-ssh \
-    --hostname appserver \
-    --username linuxfabrik \
-    --warning-regex '^(?!777)\d{3}$' \
-    --command 'stat /opt -c %a'
+    --hostname=appserver \
+    --username=linuxfabrik \
+    --warning-regex='^(?!777)\d{3}$' \
+    --command='stat /opt -c %a'
 ```
 
 Output in case of an error will look like this:
@@ -237,9 +237,9 @@ Calling an invalid command:
 
 ```bash
 ./by-ssh \
-    --hostname appserver \
-    --username linuxfabrik \
-    --command 'sudo gobbledygook'
+    --hostname=appserver \
+    --username=linuxfabrik \
+    --command='sudo gobbledygook'
 ```
 
 Output:

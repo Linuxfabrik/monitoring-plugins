@@ -71,7 +71,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-groups/
 ## Usage Examples
 
 ```bash
-./nodebb-groups --token edd956be-9ea5-4f2a-94ca-3948a1b9d184
+./nodebb-groups --token=edd956be-9ea5-4f2a-94ca-3948a1b9d184
 ```
 
 Output:

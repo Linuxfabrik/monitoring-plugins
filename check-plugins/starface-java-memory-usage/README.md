@@ -72,7 +72,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-java-mem
 ## Usage Examples
 
 ```bash
-./starface-java-memory-usage --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-java-memory-usage --cache-expire=1 --hostname=mypbx --port=6556 --timeout=3
 ```
 
 Output:

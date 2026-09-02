@@ -76,7 +76,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-disk-smart/
 ## Usage Examples
 
 ```bash
-./qts-disk-smart --url http://qts:8080 --username admin --password linuxfabrik --insecure
+./qts-disk-smart --url=http://qts:8080 --username=admin --password=linuxfabrik --insecure
 ```
 
 Output:

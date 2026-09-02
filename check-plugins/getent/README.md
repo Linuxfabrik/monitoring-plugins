@@ -55,15 +55,15 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/getent/
 ## Usage Examples
 
 ```bash
-./getent --database group --key SysOps
+./getent --database=group --key=SysOps
 ```
 
 ```bash
-./getent --database hosts --key localhost --key localhost.localdomain
+./getent --database=hosts --key=localhost --key=localhost.localdomain
 ```
 
 ```bash
-./getent --database passwd --key ldapuser
+./getent --database=passwd --key=ldapuser
 ```
 
 Output:

@@ -87,7 +87,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-inodes/
 ## Usage Examples
 
 ```bash
-./fs-inodes --warning 90 --critical 95
+./fs-inodes --warning=90 --critical=95
 ```
 
 Output:
@@ -117,7 +117,7 @@ Mountpoint ! Device         ! ITotal ! IUsed ! IFree ! Use%
 Ignore Kubernetes CSI volumes that are only readable by root:
 
 ```bash
-./fs-inodes --ignore '/var/lib/kubelet'
+./fs-inodes --ignore='/var/lib/kubelet'
 ```
 
 

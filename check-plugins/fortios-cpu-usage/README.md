@@ -93,7 +93,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-cpu-usage
 ## Usage Examples
 
 ```bash
-./fortios-cpu-usage --hostname fortigate-cluster.linuxfabrik.io --password mypass --count=15 --warning=50 --critical=70
+./fortios-cpu-usage --hostname=fortigate-cluster.linuxfabrik.io --password=mypass --count=15 --warning=50 --critical=70
 ```
 
 Output:

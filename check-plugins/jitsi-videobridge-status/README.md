@@ -80,7 +80,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/jitsi-videobridge
 ## Usage Examples
 
 ```bash
-./jitsi-videobridge-status --severity warn
+./jitsi-videobridge-status --severity=warn
 ```
 
 Output (healthy):

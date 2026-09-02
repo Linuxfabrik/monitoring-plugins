@@ -49,7 +49,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/selinux-mode/
 ## Usage Examples
 
 ```bash
-./selinux-mode --mode permissive
+./selinux-mode --mode=permissive
 ```
 
 Output:

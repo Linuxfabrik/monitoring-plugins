@@ -62,7 +62,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/openvpn-client-li
 ## Usage Examples
 
 ```bash
-./openvpn-client-list --warning 20 --critical 100 --filename /var/log/openvpn-status.log
+./openvpn-client-list --warning=20 --critical=100 --filename=/var/log/openvpn-status.log
 ```
 
 Output:

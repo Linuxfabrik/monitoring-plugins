@@ -79,7 +79,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-memory-usage/
 ## Usage Examples
 
 ```bash
-./qts-memory-usage --url http://qts:8080 --username admin --password linuxfabrik --insecure
+./qts-memory-usage --url=http://qts:8080 --username=admin --password=linuxfabrik --insecure
 ```
 
 Output:

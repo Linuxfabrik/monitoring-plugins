@@ -86,8 +86,8 @@ The plugin can then check both pools in one run with:
 
 ```bash
 ./php-fpm-status \
-    --url http://localhost/nextcloud-fpm-status \
-    --url http://localhost/wordpress-fpm-status
+    --url=http://localhost/nextcloud-fpm-status \
+    --url=http://localhost/wordpress-fpm-status
 ```
 
 The overall state is the worst of all pools. Perfdata labels are prefixed with the pool name, so Grafana panels can distinguish them (`nextcloud saturation`, `wordpress saturation`, etc.), and the admin sees which pool is in trouble directly on the first line of the output:
@@ -204,27 +204,27 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status/
 Single pool, default thresholds:
 
 ```bash
-./php-fpm-status --url http://localhost/fpm-status
+./php-fpm-status --url=http://localhost/fpm-status
 ```
 
 Two pools on the same host:
 
 ```bash
 ./php-fpm-status \
-    --url http://localhost/nextcloud-fpm-status \
-    --url http://localhost/wordpress-fpm-status
+    --url=http://localhost/nextcloud-fpm-status \
+    --url=http://localhost/wordpress-fpm-status
 ```
 
 Basic auth on a protected status page:
 
 ```bash
-./php-fpm-status --url 'http://monitor:s3cret@localhost/fpm-status'
+./php-fpm-status --url='http://monitor:s3cret@localhost/fpm-status'
 ```
 
 Extended output (all columns, both tables):
 
 ```bash
-./php-fpm-status --url http://localhost/fpm-status --lengthy
+./php-fpm-status --url=http://localhost/fpm-status --lengthy
 ```
 
 ### Single-pool output (default)

@@ -87,7 +87,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-memory-us
 ## Usage Examples
 
 ```bash
-./fortios-memory-usage --hostname fortigate-cluster.linuxfabrik.io --password mypass --warning=50 --critical=70
+./fortios-memory-usage --hostname=fortigate-cluster.linuxfabrik.io --password=mypass --warning=50 --critical=70
 ```
 
 Output:

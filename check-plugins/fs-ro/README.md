@@ -53,7 +53,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/
 ## Usage Examples
 
 ```bash
-./fs-ro --ignore /proc --ignore /sys/fs
+./fs-ro --ignore=/proc --ignore=/sys/fs
 ```
 
 Output:

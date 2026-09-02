@@ -115,7 +115,7 @@ Everything is ok. Size of 1 file checked, all in (0.0B..25.0MiB). Checked /var/l
 Warn if files are not within 6 to 10 KB, crit if files are larger than 14 KB (plus showing the various formats):
 
 ```bash
-./file-size --filename '/path/to/m*.png*' --warning '6 KiB:10k' --critical ':14 KB'
+./file-size --filename='/path/to/m*.png*' --warning='6 KiB:10k' --critical=':14 KB'
 ```
 
 Output:
@@ -157,7 +157,7 @@ mysql-version.png                      ! 10.3KiB ! [WARNING]
 The same as above, but recursive (might use a lot of memory):
 
 ```bash
-./file-size --filename '/path/to/**/m*.png*' --warning 6000B:10K --critical :14KB
+./file-size --filename='/path/to/**/m*.png*' --warning=6000B:10K --critical=:14KB
 ```
 
 

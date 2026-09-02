@@ -89,7 +89,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fortios-network-i
 ## Usage Examples
 
 ```bash
-./fortios-network-io --hostname fortigate-cluster.linuxfabrik.io --password mypass --count 5 --warning 800000000 --critical 900000000
+./fortios-network-io --hostname=fortigate-cluster.linuxfabrik.io --password=mypass --count=5 --warning=800000000 --critical=900000000
 ```
 
 Output (first run):

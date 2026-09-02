@@ -74,7 +74,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-uptime/
 ## Usage Examples
 
 ```bash
-./qts-uptime --url http://192.168.1.100:8080 --username admin --password linuxfabrik --insecure
+./qts-uptime --url=http://192.168.1.100:8080 --username=admin --password=linuxfabrik --insecure
 ```
 
 Output:

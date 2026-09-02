@@ -79,7 +79,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-io/
 ## Usage Examples
 
 ```bash
-./network-io --ignore lo --warning 80 --critical 90 --count 5
+./network-io --ignore=lo --warning=80 --critical=90 --count=5
 ```
 
 Output:

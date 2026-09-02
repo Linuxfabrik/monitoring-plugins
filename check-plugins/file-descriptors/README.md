@@ -60,7 +60,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/file-descriptors/
 ## Usage Examples
 
 ```bash
-./file-descriptors --warning 90 --critical 95
+./file-descriptors --warning=90 --critical=95
 ```
 
 Output:

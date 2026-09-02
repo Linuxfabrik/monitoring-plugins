@@ -144,13 +144,13 @@ Path                       ! Expected        ! Found
 Adding files to the defaults (merged, user entry wins on duplicate paths):
 
 ```bash
-./file-ownership --filename root:root,/etc/shadow --filename root:root,/etc/shadow-
+./file-ownership --filename=root:root,/etc/shadow --filename=root:root,/etc/shadow-
 ```
 
 Checking only specific files (no defaults):
 
 ```bash
-./file-ownership --no-default-files --filename root:root,/etc/passwd --filename root:root,/etc/shadow
+./file-ownership --no-default-files --filename=root:root,/etc/passwd --filename=root:root,/etc/shadow
 ```
 
 

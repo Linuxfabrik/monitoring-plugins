@@ -66,7 +66,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/swap-usage/
 ## Usage Examples
 
 ```bash
-./swap-usage --warning 70 --critical 90 --top 3
+./swap-usage --warning=70 --critical=90 --top=3
 ```
 
 Output:

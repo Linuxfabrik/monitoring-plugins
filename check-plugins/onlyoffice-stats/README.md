@@ -68,7 +68,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/onlyoffice-stats/
 ## Usage Examples
 
 ```bash
-./onlyoffice-stats --url http://localhost --timeout 3
+./onlyoffice-stats --url=http://localhost --timeout=3
 ```
 
 Output:

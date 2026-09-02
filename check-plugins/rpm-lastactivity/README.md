@@ -49,7 +49,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rpm-lastactivity/
 ## Usage Examples
 
 ```bash
-./rpm-lastactivity --warning 90 --critical 365
+./rpm-lastactivity --warning=90 --critical=365
 ```
 
 Output:

@@ -56,7 +56,7 @@ The full command line call describing the columns, retrieving the data and apply
 
 ```bash
 csv-values \
-    --filename path/to/hosts-with-waiting-updates.csv \
+    --filename=path/to/hosts-with-waiting-updates.csv \
     --columns-query='Hostname TEXT, WaitingUpdates INTEGER' \
     --warning-query='select * from data where WaitingUpdates >= 5' \
     --warning=2

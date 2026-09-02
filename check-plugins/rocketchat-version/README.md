@@ -103,7 +103,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-versio
 ## Usage Examples
 
 ```bash
-./rocketchat-version --username rocket-stats --password mypassword --url http://rocket:3000/api/v1 --offset-eol=-30
+./rocketchat-version --username=rocket-stats --password=mypassword --url=http://rocket:3000/api/v1 --offset-eol=-30
 ```
 
 Output:

@@ -97,7 +97,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/moodle-version/
 ## Usage Examples
 
 ```bash
-./moodle-version --path /var/www/html/moodle
+./moodle-version --path=/var/www/html/moodle
 ```
 
 Output:

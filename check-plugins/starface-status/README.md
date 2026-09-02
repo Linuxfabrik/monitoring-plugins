@@ -72,7 +72,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/starface-status/
 ## Usage Examples
 
 ```bash
-./starface-status --cache-expire 1 --hostname mypbx --port 6556 --timeout 3
+./starface-status --cache-expire=1 --hostname=mypbx --port=6556 --timeout=3
 ```
 
 Output:

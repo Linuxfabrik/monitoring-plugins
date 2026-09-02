@@ -83,7 +83,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-cpu-usage/
 ## Usage Examples
 
 ```bash
-./qts-cpu-usage --url http://qts:8080 --username admin --password linuxfabrik --insecure
+./qts-cpu-usage --url=http://qts:8080 --username=admin --password=linuxfabrik --insecure
 ```
 
 Output:

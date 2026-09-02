@@ -74,7 +74,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-temperatures/
 ## Usage Examples
 
 ```bash
-./qts-temperatures --url http://qts:8080 --username admin --password linuxfabrik --insecure
+./qts-temperatures --url=http://qts:8080 --username=admin --password=linuxfabrik --insecure
 ```
 
 Output:

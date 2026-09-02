@@ -77,7 +77,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-health/
 ## Usage Examples
 
 ```bash
-./gitlab-health --severity warn --timeout 3 --url http://localhost/-/health
+./gitlab-health --severity=warn --timeout=3 --url=http://localhost/-/health
 ```
 
 Output:

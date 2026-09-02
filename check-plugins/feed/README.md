@@ -109,8 +109,8 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/feed/
 
 ```bash
 ./feed
-./feed --url https://github.com/Linuxfabrik/monitoring-plugins/releases.atom --warning 1440
-./feed --icinga-url https://icinga-host:5665 --icinga-callback --icinga-username linuxfabrik-check-api-user --icinga-password linuxfabrik --icinga-service-name 'icinga-host!Feed Service Name' --url https://www.heise.de/security/rss/alert-news-atom.xml
+./feed --url=https://github.com/Linuxfabrik/monitoring-plugins/releases.atom --warning=1440
+./feed --icinga-url=https://icinga-host:5665 --icinga-callback --icinga-username=linuxfabrik-check-api-user --icinga-password=linuxfabrik --icinga-service-name='icinga-host!Feed Service Name' --url=https://www.heise.de/security/rss/alert-news-atom.xml
 ```
 
 Output:
@@ -134,7 +134,7 @@ Icinga 2 Releases Feed on GitHub:
 * Run once or twice a day
 * Warn for 24 hours (1440 minutes)
 * No summary, just the title (the new version string)
-* Usage: `./feed --url https://github.com/Icinga/icinga2/releases.atom --no-summary --warning 1440`
+* Usage: `./feed --url=https://github.com/Icinga/icinga2/releases.atom --no-summary --warning=1440`
 
 
 ## States

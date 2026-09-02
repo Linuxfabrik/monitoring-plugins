@@ -97,7 +97,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mastodon-version/
 ## Usage Examples
 
 ```bash
-./mastodon-version --path /home/mastodon
+./mastodon-version --path=/home/mastodon
 ```
 
 Output:

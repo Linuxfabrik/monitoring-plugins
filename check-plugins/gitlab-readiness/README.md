@@ -79,7 +79,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/gitlab-readiness/
 ## Usage Examples
 
 ```bash
-./gitlab-readiness --severity warn --timeout 3 --url http://localhost/-/readiness
+./gitlab-readiness --severity=warn --timeout=3 --url=http://localhost/-/readiness
 ```
 
 Output:

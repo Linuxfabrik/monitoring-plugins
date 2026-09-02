@@ -52,7 +52,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/load/
 ## Usage Examples
 
 ```bash
-./load --warning 1.15 --critical 5.0
+./load --warning=1.15 --critical=5.0
 ```
 
 Output:

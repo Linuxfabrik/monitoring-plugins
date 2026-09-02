@@ -164,7 +164,7 @@ Check a service depending on a timer (has two activestates and two substates)?
 Use the `--machine` parameter:
 
 ```bash
-./systemd-unit --machine=linus@.host --unit sshd
+./systemd-unit --machine=linus@.host --unit=sshd
 ```
 
 Output (mismatch):

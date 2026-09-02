@@ -104,7 +104,7 @@ myapp4711         ! myapp4711    ! running ! automatic
 Check that ALL services with startup type "automatic" are running, except for a few that are known for a delayed or triggered start:
 
 ```bash
-service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --starttype=automatic --status=continue_pending --status=pause_pending --status=paused --status=start_pending --status=stop_pending --status=stopped --warning 0
+service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --starttype=automatic --status=continue_pending --status=pause_pending --status=paused --status=start_pending --status=stop_pending --status=stopped --warning=0
 ```
 
 

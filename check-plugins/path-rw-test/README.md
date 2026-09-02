@@ -74,7 +74,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/path-rw-test/
 ## Usage Examples
 
 ```bash
-./path-rw-test --path /mnt/nfs --path /mnt/smb --path /usr --severity warn
+./path-rw-test --path=/mnt/nfs --path=/mnt/smb --path=/usr --severity=warn
 ```
 
 Output:

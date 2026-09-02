@@ -63,7 +63,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/network-port-tcp/
 ## Usage Examples
 
 ```bash
-./network-port-tcp --hostname www.linuxfabrik.ch --port 443 --portname https --timeout 1.3 --severity warn
+./network-port-tcp --hostname=www.linuxfabrik.ch --port=443 --portname=https --timeout=1.3 --severity=warn
 ```
 
 Output:

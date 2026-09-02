@@ -48,7 +48,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/tuned-profile/
 ## Usage Examples
 
 ```bash
-./tuned-profile --profile "virtual-guest kernel-settings"
+./tuned-profile --profile="virtual-guest kernel-settings"
 ```
 
 Output:

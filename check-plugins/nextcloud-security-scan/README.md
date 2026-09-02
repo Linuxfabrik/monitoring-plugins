@@ -80,7 +80,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-securit
 ## Usage Examples
 
 ```bash
-./nextcloud-security-scan --url cloud.linuxfabrik.io --timeout 1 --trigger 10
+./nextcloud-security-scan --url=cloud.linuxfabrik.io --timeout=1 --trigger=10
 ```
 
 Output:

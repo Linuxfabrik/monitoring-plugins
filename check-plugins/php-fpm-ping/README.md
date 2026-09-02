@@ -89,7 +89,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-ping/
 ## Usage Examples
 
 ```bash
-./php-fpm-ping --url http://localhost/fpm-ping --response pong --severity crit
+./php-fpm-ping --url=http://localhost/fpm-ping --response=pong --severity=crit
 ```
 
 Output:

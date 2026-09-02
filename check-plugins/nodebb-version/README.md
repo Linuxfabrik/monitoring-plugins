@@ -71,7 +71,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-version/
 ## Usage Examples
 
 ```bash
-./nodebb-version --url http://localhost:4567/forum --token bc68eed3-4cff-4a6e-8372-3b41dfa67635
+./nodebb-version --url=http://localhost:4567/forum --token=bc68eed3-4cff-4a6e-8372-3b41dfa67635
 ```
 
 Output:

@@ -112,7 +112,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/
 ## Usage Examples
 
 ```bash
-./docker-stats --count 5 --warning-cpu 70 --critical-cpu 90 --warning-mem 90 --critical-mem 95
+./docker-stats --count=5 --warning-cpu=70 --critical-cpu=90 --warning-mem=90 --critical-mem=95
 ```
 
 Output:

@@ -94,7 +94,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/
 ## Usage Examples
 
 ```bash
-./pip-updates --virtualenv /path/to/my/venv/bin/activate --local --exclude boto3 --exclude pip
+./pip-updates --virtualenv=/path/to/my/venv/bin/activate --local --exclude=boto3 --exclude=pip
 ```
 
 Output:

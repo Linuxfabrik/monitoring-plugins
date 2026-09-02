@@ -168,8 +168,8 @@ Device `apc-ups`: On Battery, Low Battery (OB+LB), Discharging (DISCHRG), charge
 Remote upsd with authentication, extended output:
 
 ```bash
-./ups-nut --device apc-ups --hostname ups.example.com --username monitor \
-    --password s3cret --lengthy
+./ups-nut --device=apc-ups --hostname=ups.example.com --username=monitor \
+    --password=s3cret --lengthy
 ```
 
 The `--lengthy` table lists every NUT variable from the `LIST VAR` response with its original dotted name (so you can map each row 1:1 to `upsc <device>`); the State column is filled for the threshold-aware metrics.

@@ -80,7 +80,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/ipmi-sensor/
 ## Usage Examples
 
 ```bash
-./ipmi-sensor --privlevel USER --interface lanplus --hostname 10.100.184.29 --username 'user' --password 'pa$$word'
+./ipmi-sensor --privlevel=USER --interface=lanplus --hostname=10.100.184.29 --username='user' --password='pa$$word'
 ```
 
 Output:

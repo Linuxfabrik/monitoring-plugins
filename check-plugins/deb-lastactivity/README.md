@@ -56,7 +56,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/deb-lastactivity/
 ## Usage Examples
 
 ```bash
-./deb-lastactivity --warning 90 --critical 365
+./deb-lastactivity --warning=90 --critical=365
 ```
 
 Output:

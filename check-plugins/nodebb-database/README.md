@@ -79,7 +79,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-database/
 ## Usage Examples
 
 ```bash
-./nodebb-database --token edd956be-9ea5-4f2a-94ca-3948a1b9d184 --severity warn
+./nodebb-database --token=edd956be-9ea5-4f2a-94ca-3948a1b9d184 --severity=warn
 ```
 
 Output:

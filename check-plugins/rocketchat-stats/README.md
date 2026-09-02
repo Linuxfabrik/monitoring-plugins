@@ -78,7 +78,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/rocketchat-stats/
 ## Usage Examples
 
 ```bash
-./rocketchat-stats --username rocket-stats --password linuxfabrik --url http://rocket.chat:3000/api/v1
+./rocketchat-stats --username=rocket-stats --password=linuxfabrik --url=http://rocket.chat:3000/api/v1
 ```
 
 Output:

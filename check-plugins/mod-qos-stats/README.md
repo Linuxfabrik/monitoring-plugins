@@ -71,7 +71,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mod-qos-stats/
 ## Usage Examples
 
 ```bash
-./mod-qos-stats --url http://webserver/qos-status
+./mod-qos-stats --url=http://webserver/qos-status
 ```
 
 Output:

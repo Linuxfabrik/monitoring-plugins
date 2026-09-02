@@ -53,7 +53,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/crypto-policy/
 ## Usage Examples
 
 ```bash
-./crypto-policy --policy FUTURE
+./crypto-policy --policy=FUTURE
 ```
 
 Output:
