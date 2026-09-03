@@ -72,7 +72,7 @@ Then run a plugin directly to verify it works, for example on Linux:
 $ /usr/lib64/nagios/plugins/cpu-usage
 5.1% - user: 3.0%, system: 1.0%, irq: 0.5%, softirq: 0.5%
 guest: 0.0%, guest_nice: 0.0%, iowait: 0.0%, nice: 0.0%, steal: 0.0%
-ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G|'cpu-usage'=5.1%;80;90;0;100 ...
+ctx_switches: 8.5G, interrupts: 6.8G, soft_interrupts: 1.7G
 ```
 
 Every plugin supports `--help` and prints its version with `--version`.

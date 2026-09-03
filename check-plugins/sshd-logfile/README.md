@@ -322,7 +322,7 @@ Output of a healthy host:
 2026-08-28 19:25 .. 2026-08-28 19:25 (47s): No failed logins and nothing else worth reporting found. 1 startup detected (last: Aug 28 19:25:03 host sshd[231]: Server listening on 0.0.0.0 port 22.). 1 shutdown detected (last: Aug 28 19:25:50 host sshd[231]: Received signal 15; terminating.). 0 successful logins in the last 10m (1 in the window read) (last: Aug 28 19:25:05 host sshd-session[236]: Accepted password for alice from 127.0.0.1 port 54876 ssh2).
 
 Read 9 lines from 1 source:
-* `/var/log/secure` (size: 909.0B)|'sshd_logfile_size'=909B;;;0 'sshd_startup_failures'=0;;0;0 'sshd_host_key_problems'=0;0;;0 'sshd_revoked_keys'=0;;0;0 'sshd_root_login_refusals'=0;0;;0 'sshd_key_file_refusals'=0;0;;0 'sshd_child_crashes'=0;0;;0 'sshd_auth_failures'=0;6;60;0 'sshd_invalid_users'=0;6;60;0 'sshd_access_denials'=0;6;60;0 'sshd_throttled_connections'=0;1;10;0 'sshd_aborted_connections'=0;200;2000;0 'sshd_startups'=1;;;0 'sshd_restarts'=0;;;0 'sshd_shutdowns'=1;;;0 'sshd_logins'=0;;;0
+* `/var/log/secure` (size: 909.0B)
 ```
 
 Output of a host whose sshd could not take its port, and whose users cannot get in with their keys:
@@ -343,7 +343,7 @@ Read 73 lines from 1 source:
 
 Recommendations:
 * sshd could not start or could not take all its addresses; `sshd -t` names a rejected directive, and a port that is already taken names the process holding it in `ss --listening --processes`
-* sshd ignored a key file because of its ownership or its mode; the home directory and `.ssh` may not be group- or world-writable, and `chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys` is what the file itself needs|'sshd_logfile_size'=7542B;;;0 'sshd_startup_failures'=3;;0;0 'sshd_host_key_problems'=0;0;;0 'sshd_revoked_keys'=0;;0;0 'sshd_root_login_refusals'=0;0;;0 'sshd_key_file_refusals'=1;0;;0 'sshd_child_crashes'=0;0;;0 'sshd_auth_failures'=0;6;60;0 'sshd_invalid_users'=0;6;60;0 'sshd_access_denials'=0;6;60;0 'sshd_throttled_connections'=0;1;10;0 'sshd_aborted_connections'=0;200;2000;0 'sshd_startups'=6;;;0 'sshd_restarts'=4;;;0 'sshd_shutdowns'=2;;;0 'sshd_logins'=0;;;0
+* sshd ignored a key file because of its ownership or its mode; the home directory and `.ssh` may not be group- or world-writable, and `chmod 700 ~/.ssh; chmod 600 ~/.ssh/authorized_keys` is what the file itself needs
 ```
 
 Output of a host somebody is guessing passwords on:

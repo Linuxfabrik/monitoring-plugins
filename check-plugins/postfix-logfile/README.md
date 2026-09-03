@@ -349,7 +349,7 @@ Output of a host that only sends its own mail, with somebody working through a m
 2026-08-29 09:00 .. 2026-08-29 09:15 (14m 59s): 0 failed logins in the last 10m (6 in the window read). 0 rejected messages in the last 10m (2 in the window read). 0 aborted connections in the last 10m (5 in the window read). 1 startup detected (last: Aug 29 09:00:01 mail postfix/postfix-script[1101]: starting the Postfix mail system). 0 deliveries in the last 10m (1 in the window read) (last: Aug 29 09:15:00 mail postfix/smtp[2220]: 3F2A14804001: to=<user@example.org>, relay=mail.example.org[198.51.100.20]:25, delay=0.4, delays=0.1/0/0.2/0.1, dsn=2.0.0, status=sent (250 2.0.0 Ok: queued)).
 
 Read 20 lines from 1 source:
-* `/var/log/maillog` (size: 2.5KiB)|'postfix_logfile_size'=2568B;;;0 'postfix_panic_lines'=0;;0;0 'postfix_fatal_lines'=0;;0;0 'postfix_error_lines'=0;0;;0 'postfix_warning_lines'=0;0;;0 'postfix_startup_failures'=0;;0;0 'postfix_relay_auth_failures'=0;0;;0 'postfix_queue_problems'=0;;0;0 'postfix_auth_failures'=0;6;60;0 'postfix_rejects'=0;6;60;0 'postfix_aborted_connections'=0;200;2000;0 'postfix_relay_failures'=0;20;200;0 'postfix_tls_failures'=0;20;200;0 'postfix_deferred'=0;20;200;0 'postfix_bounced'=0;20;200;0 'postfix_startups'=1;;;0 'postfix_reloads'=0;;;0 'postfix_shutdowns'=0;;;0 'postfix_deliveries'=0;;;0
+* `/var/log/maillog` (size: 2.5KiB)
 ```
 
 Output of a host whose relay is unreachable, refuses the credentials and speaks no TLS, and whose mail system then failed to start:
@@ -369,7 +369,7 @@ Read 74 lines from 1 source:
 
 Recommendations:
 * The mail system did not start; `postfix check` names what it refuses, and nothing leaves this host until it does
-* The relay refused the credentials this host offered; check `smtp_sasl_password_maps` and whether the account still exists|'postfix_logfile_size'=8430B;;;0 'postfix_panic_lines'=0;;0;0 'postfix_fatal_lines'=0;;0;0 'postfix_error_lines'=0;0;;0 'postfix_warning_lines'=0;0;;0 'postfix_startup_failures'=2;;0;0 'postfix_relay_auth_failures'=1;0;;0 'postfix_queue_problems'=0;;0;0 'postfix_auth_failures'=0;6;60;0 'postfix_rejects'=0;6;60;0 'postfix_aborted_connections'=0;200;2000;0 'postfix_relay_failures'=0;20;200;0 'postfix_tls_failures'=0;20;200;0 'postfix_deferred'=0;20;200;0 'postfix_bounced'=0;20;200;0 'postfix_startups'=3;;;0 'postfix_reloads'=5;;;0 'postfix_shutdowns'=2;;;0 'postfix_deliveries'=0;;;0
+* The relay refused the credentials this host offered; check `smtp_sasl_password_maps` and whether the account still exists
 ```
 
 

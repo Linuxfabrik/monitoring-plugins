@@ -329,7 +329,7 @@ Output of a healthy host:
 2026-08-28 17:12 .. 2026-08-28 17:12 (3s): No errors or warnings found. 1 startup detected (last: [Fri Aug 28 17:12:25.860583 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00489: Apache/2.4.62 (Rocky Linux) configured -- resuming normal operations). 1 shutdown detected (last: [Fri Aug 28 17:12:28.865860 2026] [mpm_event:notice] [pid 1929:tid 1929] AH00491: caught SIGTERM, shutting down).
 
 Read 6 lines from 1 source:
-* `/var/log/httpd/error_log` (size: 815.0B)|'apache_httpd_logfile_size'=815B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=0;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=0;0;;0 'apache_httpd_worker_saturations'=0;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=1;;;0 'apache_httpd_restarts'=0;;;0 'apache_httpd_shutdowns'=1;;;0
+* `/var/log/httpd/error_log` (size: 815.0B)
 ```
 
 Output of a host that ran out of workers, lost a child to a segfault and could not reach its backend:
@@ -355,7 +355,7 @@ Where the numbers come from:
 
 Recommendations:
 * Children died on a signal Apache did not send them; look for a core dump, a faulty module, or the OOM killer in the kernel log
-* The server ran out of workers; raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, otherwise clients wait in the listen queue|'apache_httpd_logfile_size'=2451B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=1;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=1;0;;0 'apache_httpd_worker_saturations'=1;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=2;;;0 'apache_httpd_restarts'=1;;;0 'apache_httpd_shutdowns'=1;;;0
+* The server ran out of workers; raise `MaxRequestWorkers` (and `ServerLimit` with it) or shorten the requests, otherwise clients wait in the listen queue
 ```
 
 Output of a host somebody is walking:
@@ -370,7 +370,7 @@ Where the numbers come from:
 * 4 client denials:
   grep -n -e '\bAH01630\b' -e '\bAH01797\b' /var/log/httpd/error_log
 * 2 authentication failures:
-  grep -n -e '\bAH01614\b' -e '\bAH01617\b' -e '\bAH01618\b' -e '\bAH01631\b' -e '\bAH01807\b' -e '\bAH01808\b' /var/log/httpd/error_log|'apache_httpd_logfile_size'=1793B;;;0 'apache_httpd_emerg_lines'=0;;0;0 'apache_httpd_alert_lines'=0;;0;0 'apache_httpd_crit_lines'=0;;0;0 'apache_httpd_error_lines'=0;0;;0 'apache_httpd_warn_lines'=0;;;0 'apache_httpd_child_crashes'=0;0;;0 'apache_httpd_worker_saturations'=0;;0;0 'apache_httpd_worker_pressure'=0;0;;0 'apache_httpd_fork_failures'=0;;0;0 'apache_httpd_stapling_failures'=0;0;;0 'apache_httpd_startup_failures'=0;;0;0 'apache_httpd_client_denials'=0;6;60;0 'apache_httpd_auth_failures'=0;6;60;0 'apache_httpd_proxy_failures'=0;10;100;0 'apache_httpd_request_errors'=0;6;60;0 'apache_httpd_startups'=1;;;0 'apache_httpd_restarts'=0;;;0 'apache_httpd_shutdowns'=1;;;0
+  grep -n -e '\bAH01614\b' -e '\bAH01617\b' -e '\bAH01618\b' -e '\bAH01631\b' -e '\bAH01807\b' -e '\bAH01808\b' /var/log/httpd/error_log
 ```
 
 ## States

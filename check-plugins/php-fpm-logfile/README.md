@@ -269,7 +269,7 @@ Output of a healthy host:
 2026-08-28 15:21 .. 2026-08-28 15:21 (0s): No errors or warnings found. 1 startup detected (last: [28-Aug-2026 15:21:20] NOTICE: fpm is running, pid 205).
 
 Read 3 lines from 1 source:
-* `/var/log/php-fpm/error.log` (size: 185.0B)|'php_fpm_logfile_size'=185B;;;0 'php_fpm_alert_lines'=0;;0;0 'php_fpm_error_lines'=0;;0;0 'php_fpm_warning_lines'=0;0;;0 'php_fpm_worker_crashes'=0;0;;0 'php_fpm_pool_saturations'=0;;0;0 'php_fpm_emergency_restarts'=0;;0;0 'php_fpm_request_timeouts'=0;5;50;0 'php_fpm_slow_requests'=0;20;200;0 'php_fpm_spawn_pressure'=0;10;100;0 'php_fpm_startups'=1;;;0 'php_fpm_reloads'=0;;;0 'php_fpm_shutdowns'=0;;;0 'php_fpm_log_rotations'=0;;;0
+* `/var/log/php-fpm/error.log` (size: 185.0B)
 ```
 
 Output of a host whose pool ran out of workers and whose application crashed a worker:
@@ -295,7 +295,7 @@ Read 33 lines from 1 source:
 
 Recommendations:
 * Workers died on a signal PHP-FPM did not send them; look for a core dump, a faulty PHP extension, or the OOM killer in the kernel log
-* A pool ran out of workers; raise `pm.max_children` (or `process.max`) or shorten the requests, otherwise clients wait in the listen queue|'php_fpm_logfile_size'=3152B;;;0 'php_fpm_alert_lines'=0;;0;0 'php_fpm_error_lines'=3;;0;0 'php_fpm_warning_lines'=6;0;;0 'php_fpm_worker_crashes'=2;0;;0 'php_fpm_pool_saturations'=1;;0;0 'php_fpm_emergency_restarts'=0;;0;0 'php_fpm_request_timeouts'=0;5;50;0 'php_fpm_slow_requests'=0;20;200;0 'php_fpm_spawn_pressure'=0;10;100;0 'php_fpm_startups'=2;;;0 'php_fpm_reloads'=1;;;0 'php_fpm_shutdowns'=1;;;0 'php_fpm_log_rotations'=0;;;0
+* A pool ran out of workers; raise `pm.max_children` (or `process.max`) or shorten the requests, otherwise clients wait in the listen queue
 ```
 
 ## States

@@ -230,7 +230,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/cert/
 Output (default, OK):
 
 ```text
-www.example.com, 61d left, chain verified|'cert_days_left'=61d;14:;5: 'tls_handshake_time'=0.07s;;;0
+www.example.com, 61d left, chain verified
 ```
 
 Alert relative to the certificate's lifetime instead of a fixed number of days. Here WARN when less than 25% of the validity period is left, CRIT below 10% (adapts to short-lived 90-day certs and multi-year certs alike):
@@ -254,7 +254,7 @@ Self-signed certificate, default `--severity=warn`:
 Output:
 
 ```text
-internal.example.com, 725d left, chain unverified (self-signed certificate) [WARNING]|'cert_days_left'=725d;14:;5: 'tls_handshake_time'=0.5s;;;0
+internal.example.com, 725d left, chain unverified (self-signed certificate) [WARNING]
 ```
 
 Skip chain verification entirely, but still inspect the cert:
@@ -337,7 +337,7 @@ Inspect a non-HTTPS TLS service - point `--url` at the service's TLS port. Each 
 Output (single endpoint, same one-line form as the first example):
 
 ```text
-mail.example.com, 61d left, chain verified|'cert_days_left'=61d;14:;5: 'tls_handshake_time'=0.07s;;;0
+mail.example.com, 61d left, chain verified
 ```
 
 Full field/value table per certificate with `--lengthy`:

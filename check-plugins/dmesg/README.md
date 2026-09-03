@@ -167,7 +167,7 @@ Sample output on a host with real errors:
 [Sat Jun  5 18:49:50 2021] ACPI Error: Thread 2495397888 cannot release Mutex [ECMX] acquired by thread 1817575424 (20210105/exmutex-378)
 [Sat Jun  5 18:49:50 2021] ACPI Error: Aborting method \_SB.PCI0.LPCB.ECDV._Q66 due to previous error (AE_AML_NOT_OWNER) (20210105/psparse-529)
 [Tue Jun  8 18:54:41 2021] usb usb2-port1: Cannot enable. Maybe the USB cable is bad?
-[Tue Jun  8 18:54:41 2021] usb usb2-port1: unable to enumerate USB device|'errors'=5;;;0
+[Tue Jun  8 18:54:41 2021] usb usb2-port1: unable to enumerate USB device
 ```
 
 Report kernel messages with Icinga acknowledgement support. After the admin acknowledges the service in Icinga, the reported messages are persisted as "already handled" and no longer re-alert on following runs, so there is no need to log in and run `dmesg --clear`:
@@ -179,7 +179,7 @@ Report kernel messages with Icinga acknowledgement support. After the admin ackn
 Output once the previously reported messages have been acknowledged:
 
 ```text
-Everything is ok. 5 acknowledged messages suppressed.|'errors'=0;;;0
+Everything is ok. 5 acknowledged messages suppressed.
 ```
 
 
