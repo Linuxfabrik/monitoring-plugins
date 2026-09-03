@@ -127,15 +127,11 @@ GitLab v18.10.3, security update available (full support ended on 2026-04-16; EO
 
 ## States
 
-* OK if the installed version is not EOL and no update alerts are configured.
-* WARN if `--check-major` is set and a new major version is available.
-* WARN if `--check-minor` is set and a new minor version is available.
-* WARN if `--check-patch` is set and a new patch version is available.
 * WARN if `--check-security` is set and GitLab reports a non-`success` severity or a critical vulnerability for the installed version.
-* WARN if the installed version is EOL (considering `--offset-eol`, default: -30 days).
 * `--unreachable-severity` (default: `ok`) if `--check-security` is set and the GitLab Version Check service cannot be reached. The output names it either way, so an operator who accepts a failing lookup can still see that it failed.
 * UNKNOWN if GitLab is not found or the version file cannot be read.
-* `--always-ok` suppresses all alerts and always returns OK.
+
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

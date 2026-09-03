@@ -905,8 +905,11 @@ The directory a fixture lives in says what the plugin reads it as, so pick the n
 | `config/` | directory trees standing in for the host's `/etc` | a hidden root hook such as `--config-root` |
 | `<app>/` | directory trees standing in for an installation the plugin inspects, named after the application (`wordpress/`) | a normal path parameter such as `--path` |
 | `fixtures/` | single files the plugin opens by path, a token file for example | a normal path parameter such as `--api-token-file` |
+| `<service>/` | answers of a remote service the plugin reads through a library, named after the service (`endoflifedate/`) | the test seeds them where the library looks, before the plugin subprocess starts |
 
-The last two hold input an administrator points the plugin at deliberately, which is why they sit behind a documented parameter instead of a hidden hook. Reference implementations: `check-plugins/wordpress-checksums` (`wordpress/`) and `check-plugins/wordpress-security-scan` (`wordpress/` and `fixtures/` side by side).
+`<app>/` and `fixtures/` hold input an administrator points the plugin at deliberately, which is why they sit behind a documented parameter instead of a hidden hook. Reference implementations: `check-plugins/wordpress-checksums` (`wordpress/`) and `check-plugins/wordpress-security-scan` (`wordpress/` and `fixtures/` side by side).
+
+`<service>/` is the exception that no parameter reaches. Where a shared library answers from a remote service, neither `--test` nor a path parameter gets between the two, and pinning a verdict against the live service makes the testcase age: it breaks as soon as upstream changes its data or a date passes. The test therefore puts the answer where the library looks for it and drives the plugin normally. Because the library is the same code in every plugin that uses it, cover the service's answer shapes in **one** plugin and have the others point at it in their module docstring, rather than repeating near-identical cases across the tree. Reference implementation: `check-plugins/mysql-version` (`endoflifedate/`, seeded into the `lib.cache` entry `lib.version.check_eol()` reads, with `TMPDIR` pointed at a throwaway directory so the shared per-user cache stays untouched). Note the guard it carries: one testcase asserts that the seeded file really landed in the throwaway directory, because a seeding mechanism that quietly stops working turns every other case into a live test against the real service without failing.
 
 
 #### Test data file naming
@@ -926,7 +929,7 @@ The expected state is encoded in the testcase `id` instead (see below).
 
 #### Writing tests
 
-Define a `TESTS` list and use `lib.lftest.attach_tests()` to materialise one real `unittest` test method per testcase. The testcase `id` should lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), followed by a short description of what is being verified. The id becomes the test method name, so it shows up in `./run -v` output and in the unittest test count.
+Define a `TESTS` list and use `lib.lftest.attach_tests()` to materialise one real `unittest` test method per testcase. The testcase `id` should lead with the expected state (`ok-`, `warn-`, `crit-`, `unknown-`), or with what it verifies where it pins no state, followed by a short description of what is being verified. The id becomes the test method name, so it shows up in `./run -v` output and in the unittest test count.
 
 ```python
 #!/usr/bin/env python3
@@ -988,13 +991,13 @@ The reason for `attach_tests()` over a plain `for` loop with `subTest()` is repo
 
 Naming rules for the testcase `id`:
 
-* Lead with the expected state: `ok-`, `warn-`, `crit-`, `unknown-`.
-* Follow with a short description of what the test verifies (not the fixture name): `ok-below-warn`, `warn-above-warn`, `crit-disk-full`, `unknown-missing-dependency`.
+* Lead with the expected state: `ok-`, `warn-`, `crit-`, `unknown-`. A testcase that deliberately pins no state (see `assert-retc` below) leads with what it does verify instead, `parses-` for example.
+* Follow with a short description of what the test verifies (not the fixture name): `ok-below-warn`, `warn-above-warn`, `crit-disk-full`, `unknown-missing-dependency`, `parses-rhel9-httpd-2-4-62`.
 * `id` must be unique within the `TESTS` list.
 
 Available assertion keys in each testcase dict:
 
-* `assert-retc` (`int`, required): Expected return code (`STATE_OK`, `STATE_WARN`, `STATE_CRIT`, `STATE_UNKNOWN`).
+* `assert-retc` (`int`, optional): Expected return code (`STATE_OK`, `STATE_WARN`, `STATE_CRIT`, `STATE_UNKNOWN`). Pin it wherever the fixture and the parameters decide the state, which is almost everywhere. Leave it out where something outside the testcase does: a check whose verdict comes from a remote service the fixture does not stand in for would otherwise go red when that service changes its data, with nothing wrong in the plugin. Such a testcase asserts the parsed output it does control and leaves the state alone. Reference implementations: `check-plugins/apache-httpd-version` and the `TESTS` list of `check-plugins/mysql-version`, both of which grade the version their parser found and let `check-plugins/mysql-version`'s `EOL_TESTS` cover the verdict against fixtures.
 * `assert-in` (`list` of `str`, optional): Strings that must appear in stdout.
 * `assert-not-in` (`list` of `str`, optional): Strings that must not appear in stdout.
 * `assert-regex` (`str`, optional): Regex pattern that must match stdout.

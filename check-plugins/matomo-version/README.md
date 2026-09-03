@@ -106,13 +106,9 @@ Matomo v5.3.2 (EOL unknown)
 
 ## States
 
-* OK if the installed version is not EOL and no relevant updates are available.
-* WARN if the installed version is EOL.
-* WARN if `--check-major` is set and a new major version is available.
-* WARN if `--check-minor` is set and a new minor version is available.
-* WARN if `--check-patch` is set and a new patch version is available.
 * UNKNOWN if the Matomo installation or version information cannot be found.
-* `--always-ok` suppresses all alerts and always returns OK.
+
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

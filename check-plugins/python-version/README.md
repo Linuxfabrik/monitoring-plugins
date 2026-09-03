@@ -108,12 +108,7 @@ Python v3.11.4 (EOL 2027-10-24 -30d, minor 3.12.0 available, patch 3.11.6 availa
 
 ## States
 
-* OK if the installed version is not EOL (considering the configured offset).
-* WARN if the installed version is EOL.
-* Optional: WARN when a new major version is available.
-* Optional: WARN when a new minor version is available.
-* Optional: WARN when a new patch version is available.
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

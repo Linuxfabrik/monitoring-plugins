@@ -111,13 +111,9 @@ Apache httpd v2.4.37 (EOL unknown, patch 2.4.57 available)
 
 ## States
 
-* OK if the installed version is not EOL and no newer releases are flagged.
-* WARN if the installed version is EOL (or will be within `--offset-eol` days, default: -30).
-* WARN if `--check-major` is set and a newer major version is available.
-* WARN if `--check-minor` is set and a newer minor version is available.
-* WARN if `--check-patch` is set and a newer patch version is available.
 * UNKNOWN if Apache httpd is not found.
-* `--always-ok` suppresses all alerts and always returns OK.
+
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

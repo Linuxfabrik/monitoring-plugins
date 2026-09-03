@@ -109,11 +109,7 @@ Rocky Linux 8.9 (Green Obsidian) (full support ended on 2024-05-31; EOL 2029-05-
 
 ## States
 
-* WARN if the installed version is EOL.
-* Optional: WARN when a new major version is available.
-* Optional: WARN when a new minor version is available.
-* Optional: WARN when a new patch version is available.
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

@@ -15,11 +15,15 @@ outputs captured from every officially-supported PostgreSQL major
 (13 through 18) using the `postgres:<tag>` images on Docker Hub. The
 plugin runs its regex parser against each one.
 
-The testcases assert the parsed version and nothing else. An end-of-life
-verdict is derived from live endoflife.date data and from today's date, so
-pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
-`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
-instead, where the expectation cannot age.
+The testcases assert the parsed version and nothing else. The end-of-life half is
+not tested here: `lib.version.check_eol()` is the same code in every `*-version`
+plugin, and a verdict it derives from live endoflife.date data and today's date
+cannot be pinned without breaking as soon as upstream re-dates a cycle or a date
+passes. It is covered twice without the network instead, and that is where a case
+belongs: against synthetic cycles in the lib repo (`tests/version/unit-test/run`),
+and against every answer shape the API returns in
+`check-plugins/mysql-version/unit-test/run`, whose fixtures sit next to it in
+`endoflifedate/`.
 """
 
 import sys

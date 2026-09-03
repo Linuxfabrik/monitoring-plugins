@@ -8,38 +8,18 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-import sys
+"""Unit tests for the mediawiki-version check plugin.
 
-sys.path.insert(0, '..')
+The plugin reads a local `Defines.php` and judges the release it finds. It
+has no `--test` hook; the `stdout/defines-php-1-39-3` fixture documents the
+expected file shape for reference.
 
-import unittest
-
-import lib.version
-from lib.globals import STATE_WARN
-
-# This plugin has no --test hook. It reads a local Defines.php file and then
-# queries the endoflife.date API for the current MediaWiki EOL data. That API
-# call is not deterministic, so unit tests exercise the `lib.version.check_eol`
-# helper directly instead of the plugin binary. The `stdout/defines-php-1-39-3`
-# fixture documents the expected Defines.php shape for reference.
-
-
-class TestCheck(unittest.TestCase):
-    def test_check_eol_1_38_2_warn(self):
-        retc, msg = lib.version.check_eol(
-            'https://endoflife.date/api/mediawiki.json',
-            '1.38.2',
-            offset_eol=-30,
-            check_major=False,
-            check_minor=False,
-            check_patch=False,
-        )
-        self.assertRegex(
-            msg,
-            r'EOL 2023-06-30 -30d \[WARNING\], minor 1\..* available',
-        )
-        self.assertEqual(retc, STATE_WARN)
-
-
-if __name__ == '__main__':
-    unittest.main()
+The end-of-life half is not tested here: `lib.version.check_eol()` is the same code
+in every `*-version` plugin, and a verdict it derives from live endoflife.date data
+and today's date cannot be pinned without breaking as soon as upstream re-dates a
+cycle or a date passes. It is covered twice without the network instead, and that is
+where a case belongs: against synthetic cycles in the lib repo
+(`tests/version/unit-test/run`), and against every answer shape the API returns in
+`check-plugins/mysql-version/unit-test/run`, whose fixtures sit next to it in
+`endoflifedate/`.
+"""

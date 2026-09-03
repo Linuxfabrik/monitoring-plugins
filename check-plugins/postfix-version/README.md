@@ -108,12 +108,7 @@ Postfix v3.3.20 (EOL 2022-02-05 -30d [WARNING], minor 3.8.2 available, patch 3.3
 
 ## States
 
-* OK if the installed version is not EOL (considering the configured offset).
-* WARN if the installed version is EOL.
-* Optional: WARN when a new major version is available.
-* Optional: WARN when a new minor version is available.
-* Optional: WARN when a new patch version is available.
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

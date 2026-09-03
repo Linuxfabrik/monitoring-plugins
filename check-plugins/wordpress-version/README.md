@@ -106,11 +106,7 @@ WordPress v4.0.37 (EOL 2022-12-01 -30d [WARNING], major 6.3.1 available, minor 4
 
 ## States
 
-* WARN if the installed version is EOL (or within the configured offset).
-* Optional: WARN when a new major version is available (`--check-major`).
-* Optional: WARN when a new minor version is available (`--check-minor`).
-* Optional: WARN when a new patch version is available (`--check-patch`).
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

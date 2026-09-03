@@ -109,13 +109,9 @@ Composer v2.6.4 (EOL 2024-02-08 -30d [WARNING], minor 2.7.2 available, patch 2.6
 
 ## States
 
-* OK if the installed version is not EOL and no newer releases are flagged.
-* WARN if the installed version is EOL (including the `--offset-eol` window, default: 30 days before EOL date).
-* WARN if `--check-major` is set and a newer major version is available.
-* WARN if `--check-minor` is set and a newer minor version is available.
-* WARN if `--check-patch` is set and a newer patch version is available.
 * UNKNOWN if the Composer binary is not found at `--path`.
-* `--always-ok` suppresses all alerts and always returns OK.
+
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

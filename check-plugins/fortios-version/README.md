@@ -110,12 +110,7 @@ FortiOS v6.0.1 (EOL 2022-09-29 -30d [WARNING])
 
 ## States
 
-* OK if the installed FortiOS version is not EOL and no newer release is flagged.
-* WARN if the installed version has reached or is approaching EOL (within `--offset-eol` days, default: -30).
-* WARN if `--check-major` is set and a newer major release is available.
-* WARN if `--check-minor` is set and a newer minor release is available.
-* WARN if `--check-patch` is set and a newer patch release is available.
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

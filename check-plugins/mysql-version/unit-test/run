@@ -45,21 +45,29 @@ captures from multiple sources whenever possible:
                                        introduced (the regex case
                                        starting with `from X.Y.Z`)
 
-The testcases assert the parsed version and nothing else. An end-of-life
-verdict is derived from live endoflife.date data and from today's date, so
-pinning one here breaks as soon as upstream re-dates a cycle or a date passes.
-`lib.version.check_eol()` is covered against synthetic cycles in the lib repo
-instead, where the expectation cannot age.
+The testcases in `TESTS` assert the parsed version and nothing else. The
+end-of-life half lives in `EOL_TESTS` further down: `lib.version.check_eol()` is the
+same code in every `*-version` plugin, so this file is the one place in the
+repository that covers the shapes endoflife.date answers with, driven from the
+fixtures in `endoflifedate/` rather than from the live API. The other half of the
+coverage is in the lib repo (`tests/version/unit-test/run`), against synthetic
+cycles.
 """
 
+import json
+import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
 import unittest
 
+import lib.cache
 import lib.lftest
-from lib.globals import STATE_UNKNOWN
+import lib.time
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     # ---- MariaDB 5.5 ----------------------------------------------
@@ -206,6 +214,226 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+# The end-of-life half of the check. `check_eol()` reads endoflife.date over the
+# network, so the cases below seed its cache instead and drive the plugin against
+# the fixtures in `endoflifedate/`. This is the one place in the repository where
+# endoflife.date answers are kept: every `*-version` plugin runs the same
+# `lib.version.check_eol()`, so covering the shapes once here beats spreading
+# near-identical copies over thirty plugins.
+#
+# The fixtures are real `https://endoflife.date/api/mysql.json` entries taken from
+# `lib/endoflifedate.py`, trimmed to the cycles a case needs. Only the dates a case
+# actually hangs on are moved out to 1999 / 2099 / 2100, because an assertion
+# anchored to a real date breaks the moment upstream re-dates a cycle or the day
+# passes.
+EOL_TESTS = [
+    # ---- eol, the field that decides the verdict ----------------------------
+    {
+        'id': 'ok-eol-date-in-the-future',
+        'eol': 'eol-date-in-the-future',
+        'assert-retc': STATE_OK,
+        'assert-in': ['MySQL v8.0.45', 'EOL 2100-01-01'],
+    },
+    {
+        'id': 'warn-eol-date-in-the-past',
+        'eol': 'eol-date-in-the-past',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['EOL 2000-01-01', '[WARNING]'],
+    },
+    {
+        # `eol: true` is end of life reached without a date. It used to reach
+        # strptime() and take the check down with a TypeError.
+        'id': 'warn-eol-true-without-a-date',
+        'eol': 'eol-true',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['EOL, no date announced', '[WARNING]'],
+        'assert-not-in': ['Traceback'],
+    },
+    {
+        # `eol: false` is the opposite: no end announced, the healthiest answer the
+        # API gives. It used to be reported as "EOL unknown".
+        'id': 'ok-eol-false-no-end-announced',
+        'eol': 'eol-false',
+        'assert-retc': STATE_OK,
+        'assert-in': ['no EOL announced'],
+        'assert-not-in': ['EOL unknown'],
+    },
+    # ---- support, a note in the message and never a state -------------------
+    {
+        'id': 'ok-support-true',
+        'eol': 'support-true',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['full support ended'],
+    },
+    {
+        'id': 'ok-support-false',
+        'eol': 'support-false',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['full support ended'],
+    },
+    {
+        'id': 'ok-support-absent',
+        'eol': 'support-absent',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['full support ended'],
+    },
+    {
+        'id': 'ok-support-ended-eol-ahead',
+        'eol': 'support-ended-eol-ahead',
+        'assert-retc': STATE_OK,
+        'assert-in': ['full support ended on 1999-01-01', 'EOL 2100-01-01'],
+    },
+    # ---- extendedSupport ----------------------------------------------------
+    # Only nextcloud-status and rhel-version ask for it, so here the field is
+    # present and must be ignored: the plain `eol` in the past decides.
+    {
+        'id': 'warn-extended-support-date-ignored',
+        'eol': 'extended-support-date',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['EOL 2000-01-01'],
+        'assert-not-in': ['2100-06-01'],
+    },
+    {
+        'id': 'warn-extended-support-true-ignored',
+        'eol': 'extended-support-true',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['EOL 2000-01-01'],
+    },
+    {
+        'id': 'warn-extended-support-false-ignored',
+        'eol': 'extended-support-false',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['EOL 2000-01-01'],
+    },
+    # ---- fields that are absent or null -------------------------------------
+    {
+        # 2163 cycles in 74 products carry no `latest`. One of them costs the whole
+        # "newer release available" comparison, which is worth knowing but must not
+        # take the EOL verdict with it.
+        'id': 'ok-latest-absent',
+        'eol': 'latest-absent',
+        'assert-retc': STATE_OK,
+        'assert-in': ['EOL 2100-01-01'],
+        'assert-not-in': ['available'],
+    },
+    {
+        'id': 'ok-link-null',
+        'eol': 'link-null',
+        'assert-retc': STATE_OK,
+        'assert-in': ['EOL 2100-01-01'],
+    },
+    {
+        'id': 'ok-lts-date-rather-than-bool',
+        'eol': 'lts-date',
+        'assert-retc': STATE_OK,
+        'assert-in': ['EOL 2100-01-01'],
+    },
+    {
+        # A cycle named without a single digit ("provided", "current", ...) must not
+        # drag the lower bound of the cycle range down to zero.
+        'id': 'ok-cycle-without-digits',
+        'eol': 'cycle-without-digits',
+        'assert-retc': STATE_OK,
+        'assert-in': ['EOL 2100-01-01'],
+    },
+    # ---- where the installed version sits relative to the listed cycles ------
+    {
+        # The host runs a release endoflife.date has not catalogued yet. Nobody can
+        # act on that, so it must not alert.
+        'id': 'ok-version-newer-than-every-cycle',
+        'eol': 'version-newer-than-every-cycle',
+        'assert-retc': STATE_OK,
+        'assert-in': ['newer than anything endoflife.date lists'],
+    },
+    {
+        'id': 'warn-version-older-than-every-cycle',
+        'eol': 'version-older-than-every-cycle',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['older than anything endoflife.date lists', '[WARNING]'],
+    },
+    {
+        # A genuine gap: cycles above and below are listed, this one is not.
+        'id': 'unknown-version-between-listed-cycles',
+        'eol': 'version-between-listed-cycles',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['version 8.0.45 unknown'],
+    },
+]
+
+# The plugin picks its endoflife.date product from the banner it parsed, so the
+# MySQL fixtures above are graded against this key.
+EOL_PRODUCT = 'https://endoflife.date/api/mysql.json'
+
+# One parsed version for every EOL case, so each fixture varies exactly one thing.
+DEFAULT_BANNER = 'stdout/mysql-8.0-c9s,,0'
+
+
+class TestEndOfLife(unittest.TestCase):
+    check = '../mysql-version'
+
+    def setUp(self):
+        # `check_eol()` resolves its cache through `disk.get_tmpdir()`, which honours
+        # TMPDIR. Pointing that at a throwaway directory keeps the seeded answers out
+        # of the shared per-user cache every plugin on this machine reads, and the
+        # environment variable carries into the plugin subprocess.
+        self.tmpdir = tempfile.mkdtemp(prefix='lftest-eol-')
+        self.saved_env = os.environ.get('TMPDIR')
+        self.saved_tempdir = tempfile.tempdir
+        os.environ['TMPDIR'] = self.tmpdir
+        tempfile.tempdir = self.tmpdir
+
+    def tearDown(self):
+        tempfile.tempdir = self.saved_tempdir
+        if self.saved_env is None:
+            os.environ.pop('TMPDIR', None)
+        else:
+            os.environ['TMPDIR'] = self.saved_env
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def seed(self, fixture):
+        with open(f'endoflifedate/{fixture}.json', encoding='utf-8') as fd:
+            payload = json.load(fd)
+        ok = lib.cache.set(
+            EOL_PRODUCT,
+            json.dumps(payload),
+            expire=lib.time.now() + 3600,
+            filename='linuxfabrik-lib-version.db',
+        )
+        self.assertTrue(ok, f'seeding the EOL cache with {fixture} failed')
+
+    def test_seeded_cache_is_isolated(self):
+        # Guards the mechanism itself: if TMPDIR ever stops steering the cache, the
+        # seeded file lands in the shared directory and every case below silently
+        # starts grading against live endoflife.date data.
+        self.seed('eol-date-in-the-future')
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(
+                    self.tmpdir,
+                    f'linuxfabrik-monitoring-plugins-uid{os.geteuid()}',
+                    'linuxfabrik-lib-version.db',
+                )
+            )
+        )
+
+
+def _check_eol(test, testcase):
+    """Seed the cache for this case, then drive the plugin the usual way.
+
+    The per-item setup is why these use `attach_each()` rather than
+    `attach_tests()`: every case needs its own answer in the cache before the
+    plugin subprocess starts.
+    """
+    test.seed(testcase['eol'])
+    testcase.setdefault('test', DEFAULT_BANNER)
+    lib.lftest.run(test, test.check, testcase)
+
+
+lib.lftest.attach_each(
+    TestEndOfLife, EOL_TESTS, _check_eol, id_func=lambda item: item['id']
+)
 
 
 if __name__ == '__main__':

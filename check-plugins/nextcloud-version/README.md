@@ -111,12 +111,7 @@ Nextcloud v22.1.7 (EOL 2022-07-01 -30d [WARNING], major 27.1.2 available, minor 
 
 ## States
 
-* OK if the installed version is not EOL and no newer versions are requested to be checked.
-* WARN if the software is EOL.
-* Optional: WARN when a new major version is available.
-* Optional: WARN when a new minor version is available.
-* Optional: WARN when a new patch version is available.
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

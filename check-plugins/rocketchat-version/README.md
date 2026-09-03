@@ -115,11 +115,7 @@ Rocket.Chat v6.13.0 (full support ended on 2024-10-10; EOL 2025-04-30 -30d, majo
 
 ## States
 
-* WARN if the installed version is EOL.
-* Optional: WARN when a new major version is available.
-* Optional: WARN when a new minor version is available.
-* Optional: WARN when a new patch version is available.
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

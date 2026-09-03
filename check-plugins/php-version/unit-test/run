@@ -8,99 +8,17 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
-import sys
+"""Unit tests for the php-version check plugin.
 
-sys.path.insert(0, '..')  # Adds higher directory to python modules path.
+The plugin runs `php --version` and judges the release it finds. It has no
+`--test` hook, so there is nothing here to drive it with.
 
-
-import unittest
-
-import lib.base
-import lib.shell
-import lib.version
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
-
-# Attention: NOT testing the check (as usual), but testing the library function directly
-# Here, we have MAJOR.MINOR.PATCH (or sometimes MAJOR.MINOR.PATCH.MICRO) releases.
-
-
-class TestCheck(unittest.TestCase):
-    # self.assertEqual(retc, STATE_CRIT)
-    # self.assertIn('Waiting for more data (1).', stdout)
-    # self.assertRegex(stdout, r'1 error in Kernel Ring Buffer.')
-
-    def test_if_check_runs_php01(self):
-        retc, msg = lib.version.check_eol(
-            'https://endoflife.date/api/php.json',
-            '7.3.0',
-            offset_eol=-30,
-            check_major=False,
-            check_minor=False,
-            check_patch=False,
-        )
-        self.assertRegex(
-            msg,
-            r'full support ended on 2020-12-06; EOL 2021-12-06 -30d \[WARNING\], major .* available',
-        )
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_php02(self):
-        retc, msg = lib.version.check_eol(
-            'https://endoflife.date/api/php.json',
-            '999.999.999',
-            offset_eol=-30,
-            check_major=False,
-            check_minor=False,
-            check_patch=False,
-        )
-        self.assertIn('version 999.999.999 unknown', msg)
-        self.assertEqual(retc, STATE_UNKNOWN)
-
-    def test_if_check_runs_php03(self):
-        retc, msg = lib.version.check_eol(
-            'https://endoflife.date/api/php.json',
-            '7.3.0',
-            offset_eol=+9999,
-            check_major=False,
-            check_minor=False,
-            check_patch=False,
-        )
-        self.assertRegex(
-            msg,
-            r'full support ended on 2020-12-06; EOL 2021-12-06 \+9999d, major .* available',
-        )
-        self.assertEqual(retc, STATE_OK)
-
-    def test_if_check_runs_php04(self):
-        retc, msg = lib.version.check_eol(
-            'https://endoflife.date/api/php.json',
-            '7.3.0',
-            offset_eol=-30,
-            check_major=True,
-            check_minor=False,
-            check_patch=False,
-        )
-        self.assertRegex(
-            msg,
-            r'full support ended on 2020-12-06; EOL 2021-12-06 -30d \[WARNING\], major .* available',
-        )
-        self.assertEqual(retc, STATE_WARN)
-
-    def test_if_check_runs_php05(self):
-        retc, msg = lib.version.check_eol(
-            'https://endoflife.date/api/php.json',
-            '8.1.73.alpha',
-            offset_eol=-30,
-            check_major=True,
-            check_minor=True,
-            check_patch=True,
-        )
-        self.assertRegex(
-            msg,
-            r'full support ended on 2023-11-25; EOL 2025-12-31 -30d.*, minor 8\..* available',
-        )
-        self.assertEqual(retc, STATE_WARN)
-
-
-if __name__ == '__main__':
-    unittest.main()
+The end-of-life half is not tested here: `lib.version.check_eol()` is the same code
+in every `*-version` plugin, and a verdict it derives from live endoflife.date data
+and today's date cannot be pinned without breaking as soon as upstream re-dates a
+cycle or a date passes. It is covered twice without the network instead, and that is
+where a case belongs: against synthetic cycles in the lib repo
+(`tests/version/unit-test/run`), and against every answer shape the API returns in
+`check-plugins/mysql-version/unit-test/run`, whose fixtures sit next to it in
+`endoflifedate/`.
+"""

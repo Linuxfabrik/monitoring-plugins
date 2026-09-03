@@ -108,12 +108,7 @@ Java (Red Hat build of OpenJDK) v17.0.8 (EOL 2027-10-30 -30d, patch 17.0.9.0.9-1
 
 ## States
 
-* OK if the installed version is not EOL and no newer versions are requested.
-* WARN if the installed version is EOL (or approaching EOL within `--offset-eol` days).
-* Optional: WARN when a new major version is available (`--check-major`).
-* Optional: WARN when a new minor version is available (`--check-minor`).
-* Optional: WARN when a new patch version is available (`--check-patch`).
-* `--always-ok` suppresses all alerts and always returns OK.
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics

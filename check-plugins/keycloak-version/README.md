@@ -123,13 +123,9 @@ Keycloak v21.0.1 (EOL 2023-04-19 -30d [WARNING], major 22.0.4 available, minor 2
 
 ## States
 
-* OK if the installed version is not EOL and no newer versions are requested to be checked.
-* WARN if the installed version is EOL (or approaching EOL within the configured offset).
-* WARN if `--check-major` is set and a new major version is available.
-* WARN if `--check-minor` is set and a new minor version is available.
-* WARN if `--check-patch` is set and a new patch version is available.
 * UNKNOWN if the installed version cannot be determined, for example because `version.txt` is missing and the account the check authenticates with may not read the system information.
-* `--always-ok` suppresses all alerts and always returns OK.
+
+The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
 
 ## Perfdata / Metrics
