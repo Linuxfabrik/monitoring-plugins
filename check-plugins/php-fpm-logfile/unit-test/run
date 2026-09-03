@@ -121,7 +121,19 @@ CASES = [
             '2 startups detected',
             '1 reload detected',
             '1 shutdown detected',
+            # A named event is kept out of the per-level counts, so its own
+            # section is the only place its lines appear. Without them the
+            # summary says a pool saturated without saying when or which one,
+            # and the access log cannot be read for the same minute.
+            'Pool saturation:\n* [28-Aug-2026 15:20:09] WARNING: [pool www] server'
+            ' reached pm.max_children setting (2), consider raising it',
+            'Worker crashes:\n* [28-Aug-2026 15:20:17] WARNING: [pool www] child 178'
+            ' exited on signal 11 (SIGSEGV - core dumped)',
             'Recommendations:',
+            # Raising the cap is the wrong lever to reach for first, because a
+            # scanner fills a pool the way real traffic does.
+            'check the web server access log around the timestamp above before'
+            ' raising `pm.max_children`',
         ],
         # The two workers PHP-FPM terminated itself after
         # `request_terminate_timeout` also exit on a signal, but they are not

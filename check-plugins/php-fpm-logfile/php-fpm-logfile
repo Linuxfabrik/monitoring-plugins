@@ -28,7 +28,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082905'
+__version__ = '2026090301'
 
 DESCRIPTION = """Scans the PHP-FPM error log for the events an administrator has to act
 on: rejected configurations, worker crashes, requests that ran into
@@ -199,9 +199,18 @@ EVENTS = (
             re.IGNORECASE,
         ),
         'state': STATE_CRIT,
+        # Raising the cap is the obvious lever and the wrong one to reach for
+        # first: a scanner walking a few hundred 404s fills a pool exactly the
+        # way real traffic does, and where the app renders its own 404 through
+        # PHP every one of those costs a worker. A higher cap then multiplies
+        # the memory the pool can claim and hands the next burst more of it, so
+        # the access log decides which case this is before the pool is resized.
         'recommendation': (
-            'A pool ran out of workers; raise `pm.max_children` (or `process.max`)'
-            ' or shorten the requests, otherwise clients wait in the listen queue'
+            'A pool ran out of workers and clients waited in the listen queue;'
+            ' check the web server access log around the timestamp above before'
+            ' raising `pm.max_children` (or `process.max`), because a scanner'
+            ' walking 404s fills a pool the same way real traffic does and a'
+            ' higher cap only hands it more workers'
         ),
     },
     {
@@ -1179,6 +1188,24 @@ def main():
         if lines:
             sections.append(
                 f'{item["level"].capitalize()} lines:\n'
+                + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
+            )
+
+    # The lines behind the named events. They are kept out of the per-level
+    # counts above, so without this they are the one thing the check alerts on
+    # that it never shows: "1 pool saturation" says that a pool ran dry, not
+    # when, not which one, and not whether it was five minutes ago or a burst
+    # from yesterday still sitting in the rotated file. The timestamp is what
+    # lets the access log be read for the same minute, which is where the cause
+    # of a saturation is.
+    for event in EVENTS:
+        lines = found[event['key']]
+        if lines:
+            label = lib.txt.pluralize(
+                event['label'], len(lines), event.get('suffix', 's')
+            )
+            sections.append(
+                f'{label.capitalize()}:\n'
                 + '\n'.join(f'* {line}' for line in lib.txt.shorten_list(lines))
             )
 

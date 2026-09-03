@@ -290,12 +290,19 @@ Warning lines:
 * [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "#0 {main}"
 * [28-Aug-2026 15:20:21] WARNING: [pool www] child 184 said into stderr: "  thrown in /srv/fatal.php on line 3"
 
+Worker crashes:
+* [28-Aug-2026 15:20:17] WARNING: [pool www] child 178 exited on signal 11 (SIGSEGV - core dumped) after 4.769535 seconds from start
+* [28-Aug-2026 15:20:19] WARNING: [pool www] child 179 exited on signal 9 (SIGKILL) after 5.345946 seconds from start
+
+Pool saturation:
+* [28-Aug-2026 15:20:09] WARNING: [pool www] server reached pm.max_children setting (2), consider raising it
+
 Read 33 lines from 1 source:
 * `/var/log/php-fpm/error.log` (size: 3.1KiB)
 
 Recommendations:
 * Workers died on a signal PHP-FPM did not send them; look for a core dump, a faulty PHP extension, or the OOM killer in the kernel log
-* A pool ran out of workers; raise `pm.max_children` (or `process.max`) or shorten the requests, otherwise clients wait in the listen queue
+* A pool ran out of workers and clients waited in the listen queue; check the web server access log around the timestamp above before raising `pm.max_children` (or `process.max`), because a scanner walking 404s fills a pool the same way real traffic does and a higher cap only hands it more workers
 ```
 
 ## States
@@ -368,9 +375,10 @@ The check runs as root and therefore only opens a log that resolves inside `/var
 
 Every request that arrives while all workers are busy waits in the listen queue, and the visible symptom is a slow site rather than an error page.
 
-1. Look at [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status.md) for how saturated the pool runs on an ordinary day.
-2. Raise `pm.max_children` only as far as the memory of the host allows: multiply the value by the resident size of a worker and keep the result well below the memory available.
-3. Where the requests themselves are slow, raising the limit only buys time. The slow requests in the pool `slowlog` name the scripts to profile.
+1. Read the web server access log for the minute the check names. A few hundred requests from one address within a few seconds, walking a list of configuration file names and collecting 404s, is a scanner and not a pool that is too small. Where the application renders its own 404 page through PHP, every one of those occupies a worker for as long as a real request does. Rate-limit it at the reverse proxy: raising the limit here would only hand the next burst more workers, and the memory to run them.
+2. Look at [php-fpm-status](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/php-fpm-status.md) for how saturated the pool runs on an ordinary day. A quiet status page does not contradict the log. Saturation lasting seconds is over before the next poll, the `max children reached` counter of the status page resets whenever PHP-FPM restarts, and on a `dynamic` pool the reported total is the live worker count rather than `pm.max_children`.
+3. Raise `pm.max_children` only as far as the memory of the host allows: multiply the value by the resident size of a worker and keep the result well below the memory available.
+4. Where the requests themselves are slow, raising the limit only buys time. The slow requests in the pool `slowlog` name the scripts to profile.
 
 
 ## Credits, License
