@@ -135,6 +135,7 @@ Monitoring Plugins:
 * gitlab-version: `--check-security` no longer forces UNKNOWN when the version-check service cannot be reached, it follows `--unreachable-severity` and still says so in the output
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
+* huawei-pacific-quota, huawei-pacific-storagepool: the thresholds sit inside the sentence that names them instead of between two sentences
 * icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down

@@ -95,7 +95,7 @@ TESTS = [
         'params': f'{COMMON} --warning 80 --critical 90 --brief',
         'assert-retc': STATE_CRIT,
         'assert-in': [
-            'Checked 2 quotas.',
+            'Checked 2 quotas (warn=',
             'fs1/dt2',
             "'fs1_dt1_usage_percent'=42%",
         ],
@@ -107,7 +107,7 @@ TESTS = [
         'test': 'stdout/shares-42-and-95-percent,,0',
         'params': f'{COMMON} --warning 96 --critical 97 --brief',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok.', 'Checked 2 quotas.'],
+        'assert-in': ['Everything is ok.', 'Checked 2 quotas (warn='],
         'assert-not-in': ['Share', 'fs1/dt1', 'fs1/dt2'],
     },
     {
@@ -117,7 +117,7 @@ TESTS = [
         'test': 'stdout/shares-42-and-95-percent,,0',
         'params': f'{COMMON} --warning 80 --critical 90 --ignore=.*dt2$',
         'assert-retc': STATE_OK,
-        'assert-in': ['Checked 1 quota.', 'fs1/dt1'],
+        'assert-in': ['Checked 1 quota (warn=', 'fs1/dt1'],
         'assert-not-in': ['fs1/dt2'],
     },
     {
@@ -126,7 +126,7 @@ TESTS = [
         'test': 'stdout/shares-42-and-95-percent,,0',
         'params': f'{COMMON} --warning 80 --critical 90 --ignore-regex=.*dt2$',
         'assert-retc': STATE_OK,
-        'assert-in': ['Checked 1 quota.', 'fs1/dt1'],
+        'assert-in': ['Checked 1 quota (warn=', 'fs1/dt1'],
         'assert-not-in': ['fs1/dt2'],
     },
     {
@@ -134,7 +134,7 @@ TESTS = [
         'test': 'stdout/shares-42-and-95-percent,,0',
         'params': f'{COMMON} --warning 80 --critical 90 --match=.*dt2$',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Checked 1 quota.', 'fs1/dt2'],
+        'assert-in': ['Checked 1 quota (warn=', 'fs1/dt2'],
         'assert-not-in': ['fs1/dt1'],
     },
     {
@@ -144,7 +144,7 @@ TESTS = [
         'test': 'stdout/quota-values-as-strings,,0',
         'params': f'{COMMON} --warning 80 --critical 90',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['42%', '95%', 'Checked 2 quotas.'],
+        'assert-in': ['42%', '95%', 'Checked 2 quotas (warn='],
     },
     {
         # A quota counted in gibibytes, next to one counted in bytes on the same
@@ -202,7 +202,7 @@ TESTS = [
         'test': 'stdout/directory-and-user-quotas,,0',
         'params': f'{COMMON} --warning 80 --critical 90',
         'assert-retc': STATE_OK,
-        'assert-in': ['Checked 1 quota.', '42%'],
+        'assert-in': ['Checked 1 quota (warn=', '42%'],
         'assert-not-in': ['alice', 'grp-radiology'],
     },
     {
@@ -210,7 +210,7 @@ TESTS = [
         'test': 'stdout/directory-and-user-quotas,,0',
         'params': f'{COMMON} --warning 80 --critical 90 --quota-type=user',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Checked 1 quota.', 'alice', '99%'],
+        'assert-in': ['Checked 1 quota (warn=', 'alice', '99%'],
         'assert-not-in': ['grp-radiology'],
     },
     {
@@ -219,7 +219,7 @@ TESTS = [
         'params': f'{COMMON} --warning 80 --critical 90'
         ' --quota-type=directory --quota-type=user --quota-type=user-group',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Checked 3 quotas.', 'alice', 'grp-radiology'],
+        'assert-in': ['Checked 3 quotas (warn=', 'alice', 'grp-radiology'],
     },
     {
         'id': 'unknown-invalid-ignore-regex',

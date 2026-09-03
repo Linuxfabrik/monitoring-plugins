@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026090301'
 
 DESCRIPTION = """Checks the status and capacity usage of all storage pools on a Huawei OceanStor
 Pacific storage system via the REST API (/data_service/storagepool endpoint). Alerts when a pool
@@ -554,14 +554,15 @@ def main():
     # build the message
     thresholds = f'warn={args.WARN} crit={args.CRIT}'
     if state == STATE_CRIT:
-        msg += f'There are critical errors. ({thresholds})'
+        msg += 'There are critical errors.'
     elif state == STATE_WARN:
-        msg += f'There are warnings. ({thresholds})'
+        msg += 'There are warnings.'
     else:
-        msg += f'Everything is ok. ({thresholds})'
+        msg += 'Everything is ok.'
     msg += (
         f' Checked {len(table_data)}'
-        f' {lib.txt.pluralize("storage pool", len(table_data))}.'
+        f' {lib.txt.pluralize("storage pool", len(table_data))}'
+        f' ({thresholds}).'
     )
 
     # build table output
