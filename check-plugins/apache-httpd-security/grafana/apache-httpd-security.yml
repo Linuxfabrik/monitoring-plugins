@@ -80,6 +80,12 @@ spec:
         properties:
         - id: displayName
           value: checks evaluated
+      - matcher:
+          id: byName
+          options: apache_httpd_checks_overridden
+        properties:
+        - id: displayName
+          value: checks overridden
     options:
       legend:
         calcs:
@@ -156,6 +162,36 @@ spec:
         key: metric
         operator: '='
         value: apache_httpd_checks_evaluated
+
+    - alias: apache_httpd_checks_overridden
+      refId: apache_httpd_checks_overridden
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: apache_httpd_checks_overridden
 
   - title: Apache httpd Security - Loaded Modules
     type: timeseries

@@ -100,6 +100,8 @@ Icinga Director:
 
 Grafana:
 
+* apache-httpd-security, nginx-security: the findings panel graphs the checks `--ignore` excluded, too
+* Icinga Web 2 shows all graphs of a check instead of only the first one, on 24 checks: re-deploy the `icingaweb2-module-grafana` assets
 * re-import the dashboards of apache-httpd-status, cpu-usage, disk-io, Icinga overview, keycloak-memory-usage, kvm-vm, load, memory-usage, mysql-logfile, network-io, php-status, ping, procs and swap-usage: panels and metric names changed, and series hidden from a panel no longer show up in its tooltip
 
 ### Removed

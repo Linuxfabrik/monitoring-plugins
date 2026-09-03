@@ -80,6 +80,12 @@ spec:
         properties:
         - id: displayName
           value: checks evaluated
+      - matcher:
+          id: byName
+          options: nginx_checks_overridden
+        properties:
+        - id: displayName
+          value: checks overridden
     options:
       legend:
         calcs:
@@ -156,6 +162,36 @@ spec:
         key: metric
         operator: '='
         value: nginx_checks_evaluated
+
+    - alias: nginx_checks_overridden
+      refId: nginx_checks_overridden
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: nginx_checks_overridden
 
   - title: NGINX Security - Dynamic Modules
     type: timeseries
