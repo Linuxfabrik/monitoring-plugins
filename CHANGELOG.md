@@ -161,6 +161,10 @@ Icinga Director:
 * the Huawei Dorado Service Set runs all of its checks again
 * the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` starts its history over
 
+Grafana:
+
+* keycloak-stats, and the sudo and Windows variants of acmesh-status, apache-httpd-security, dns, graylog-version, ipmi-sensor, lvm-snapshots, lvm-thin-pools, lvm-volume-groups, lvm-volumes and nginx-security, show their graphs in Icinga Web 2: re-deploy the `icingaweb2-module-grafana` assets
+
 Build, CI/CD:
 
 * the SELinux policy loads on RHEL 10 again
