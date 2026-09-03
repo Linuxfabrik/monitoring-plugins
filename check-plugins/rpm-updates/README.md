@@ -14,6 +14,7 @@ Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
     * `repo_upgrade` (TEXT)
     * `version_installed` (TEXT)
     * `version_upgrade` (TEXT)
+* The "State" column says whether a package is `overdue` or still counting down (`due in 1W 23h`), and marks the ones a WARNING or CRITICAL hangs on, so an alert can be traced back to the packages responsible for it
 * The "Type" column in the output lists the type of update for each intermediate version. Abbreviation meanings:
     * B: Bugfix
     * E: Enhancement
@@ -116,11 +117,11 @@ Output:
 ```text
 30 updates available. [WARNING]
 
-Package    ! Installed     ! Upgrade to           ! Type
------------+---------------+----------------------+------
-audit      ! 3.0.7-5       ! 3.1.2-1              ! B
-bind-utils ! 32:9.11.36-11 ! 32:9.11.36-16.el8_10 !
-gcc-c++    ! 8.5.0-20      ! 8.5.0-26             ! BSB
+Package    ! Installed          ! Upgrade to           ! Type ! State
+-----------+--------------------+----------------------+------+------------------
+audit      ! 3.0.7-5.el8        ! 3.1.2-1.el8          ! B    ! overdue [WARNING]
+bind-utils ! 32:9.11.36-11.el8  ! 32:9.11.36-16.el8_10 !      ! overdue [WARNING]
+gcc-c++    ! 8.5.0-20.el8       ! 8.5.0-26.el8_10      ! BSB  ! overdue [WARNING]
 ```
 
 Wake somebody up as soon as an update carrying a security advisory is pending:
@@ -134,10 +135,30 @@ Output:
 ```text
 2 updates available, 2 of them critical. [CRITICAL]
 
-Package     ! Installed   ! Upgrade to  ! Type
-------------+-------------+-------------+-----
-vim-data    ! 2:9.2.240-1 ! 2:9.2.280-1 ! S
-vim-minimal ! 2:9.2.240-1 ! 2:9.2.280-1 ! S
+Package     ! Installed        ! Upgrade to       ! Type ! State
+------------+------------------+------------------+------+-------------------
+vim-data    ! 2:9.2.240-1.fc42 ! 2:9.2.280-1.fc42 ! S    ! overdue [CRITICAL]
+vim-minimal ! 2:9.2.240-1.fc42 ! 2:9.2.280-1.fc42 ! S    ! overdue [CRITICAL]
+```
+
+Hold ordinary updates back until the host has had its weekly patch window, while security updates keep alerting right away. The "State" column says which packages the alert hangs on, and when the rest follow:
+
+```bash
+./rpm-updates --grace-updates=8D
+```
+
+Output:
+
+```text
+5 updates available, 2 of them critical. 3 of them within the grace period (updates: 8D, security: 0D). [WARNING]
+
+Package       ! Installed         ! Upgrade to        ! Type ! State
+--------------+-------------------+-------------------+------+------------------
+glib2         ! 2.56.4-170.el8_10 ! 2.56.4-177.el8_10 ! S    ! overdue [WARNING]
+libssh        ! 0.9.6-16.el8_10   ! 0.9.6-17.el8_10   !      ! due in 1W 18h
+libssh-config ! 0.9.6-16.el8_10   ! 0.9.6-17.el8_10   !      ! due in 1W 18h
+libxml2       ! 2.9.7-21.el8_10.6 ! 2.9.7-21.el8_10.7 ! S    ! overdue [WARNING]
+wget          ! 1.19.5-12.el8_10  ! 1.19.5-16.el8_10  !      ! due in 1W 18h
 ```
 
 

@@ -78,6 +78,7 @@ Monitoring Plugins:
 * apache-httpd-status: worker usage counts every busy slot, and `ExtendedStatus Off` no longer blanks most metrics
 * countdown: table output, Nagios ranges, and days left as performance data
 * cpu-usage: alerts on CPU steal at 10% by default, and reports the right percentages on a host running virtual machines
+* deb-updates, rpm-updates: the output says per package whether it is overdue or how long its grace period still has to run, and marks the packages the alert hangs on
 * dmesg: fewer false alarms on physical servers and in virtual machines
 * kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
@@ -138,13 +139,14 @@ Monitoring Plugins:
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
 * huawei-pacific-quota, huawei-pacific-storagepool: the thresholds sit inside the sentence that names them instead of between two sentences
-* icinga-topflap-services, kubectl-get-pods, rpm-updates: two runs at the same time no longer report each other's rows
+* icinga-topflap-services, kubectl-get-pods: two runs at the same time no longer report each other's rows
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
 * needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
 * nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* rpm-updates: an update that only bumps the release behind the distribution tag no longer shows the installed version as the one to upgrade to, and two runs at the same time no longer report each other's rows
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
 * whmcs-status: no longer calls an installation healthy when WHMCS answered with no health check at all, and survives an unexpected answer
 * wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--always-ok` also covers a run that found no datasource

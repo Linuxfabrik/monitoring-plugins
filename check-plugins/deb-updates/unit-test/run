@@ -161,6 +161,34 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['No updates available', "'critical_updates'=0"],
     },
+    # The list names per package the state it feeds, so the check's own state
+    # can be traced back to the packages responsible for it. Under `--test` no
+    # ages are read from the host, so every package is due.
+    {
+        'id': 'warn-state-per-package-debian12',
+        'test': 'stdout/debian12,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['[WARNING]'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-state-per-package-debian12',
+        'test': 'stdout/debian12,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    # A threshold nothing reaches leaves the packages unmarked, even though all
+    # of them are pending and listed. `[OK]` next to a pending update would
+    # read as "nothing to do here".
+    {
+        'id': 'ok-state-per-package-below-thresholds',
+        'test': 'stdout/debian12,,0',
+        'params': '--warning 99999',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[OK]', '[WARNING]', '[CRITICAL]'],
+    },
 ]
 
 

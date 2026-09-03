@@ -30,6 +30,7 @@ bind9-dnsutils/stable,stable-security 1:9.18.33-1~deb12u2 amd64 [upgradable from
 * Stores the results in a local SQLite database for flexible querying via `--query`
 * Classifies an update as security-critical when it matches `--critical-pattern`, which by default keys on the suite an update is offered from. This covers a package offered by the security archive alone (`aom-tools/stable-security`), which is what a fresh CVE fix looks like before the next point release folds it into the main suite, as well as one offered by both (`gzip/noble-updates,noble-security`)
 * Optionally narrows the report down to those updates (`--only-critical`); the security count is reported either way
+* Every listed package says whether it is `overdue` or still counting down (`due in 1W 23h`), and the ones a WARNING or CRITICAL hangs on are marked, so an alert can be traced back to the packages responsible for it
 * Records when an update for a package first showed up, so `--grace-updates` and `--grace-security` can hold the alert back until the host has had a patch window. An update inside its grace period is still listed and still counted in the performance data, it just does not drive the check state yet. The clock keys on the package name, so a newer candidate version does not restart it, and it starts over if the package drops off the list and comes back. A security update is governed by `--grace-security` alone, which by default is `0D`, so security never waits. Both are `0D` out of the box; the shipped Icinga Director service template sets `--grace-updates=8D` to cover a weekly patch window
 
 
@@ -133,9 +134,9 @@ Output:
 
 ```text
 17 updates available, 15 of them critical. [WARNING]
-* aom-tools/stable-security 3.12.1-1+deb13u1 amd64 [upgradable from: 3.12.1-1]
-* base-files/stable 13.8+deb13u6 amd64 [upgradable from: 13.8+deb13u5]
-* bind9-doc/stable-security 1:9.20.26-1~deb13u1 all [upgradable from: 1:9.20.23-1~deb13u1]
+* aom-tools/stable-security 3.12.1-1+deb13u1 amd64 [upgradable from: 3.12.1-1] overdue [WARNING]
+* base-files/stable 13.8+deb13u6 amd64 [upgradable from: 13.8+deb13u5] overdue [WARNING]
+* bind9-doc/stable-security 1:9.20.26-1~deb13u1 all [upgradable from: 1:9.20.23-1~deb13u1] overdue [WARNING]
 ```
 
 Wake somebody up as soon as a security update is pending, and refresh the package cache from the check:
@@ -160,9 +161,24 @@ Output:
 
 ```text
 3 critical updates available (query: package like "bind9-%"). [WARNING]
-* bind9-doc/stable-security 1:9.20.26-1~deb13u1 all [upgradable from: 1:9.20.23-1~deb13u1]
-* bind9-libs/stable-security 1:9.20.26-1~deb13u1 amd64 [upgradable from: 1:9.20.23-1~deb13u1]
-* bind9-utils/stable-security 1:9.20.26-1~deb13u1 amd64 [upgradable from: 1:9.20.23-1~deb13u1]
+* bind9-doc/stable-security 1:9.20.26-1~deb13u1 all [upgradable from: 1:9.20.23-1~deb13u1] overdue [WARNING]
+* bind9-libs/stable-security 1:9.20.26-1~deb13u1 amd64 [upgradable from: 1:9.20.23-1~deb13u1] overdue [WARNING]
+* bind9-utils/stable-security 1:9.20.26-1~deb13u1 amd64 [upgradable from: 1:9.20.23-1~deb13u1] overdue [WARNING]
+```
+
+Hold ordinary updates back until the host has had its weekly patch window, while security updates keep alerting right away. Every package says whether the alert hangs on it, and when the rest follow:
+
+```bash
+./deb-updates --grace-updates=8D
+```
+
+Output:
+
+```text
+17 updates available, 15 of them critical. 2 of them within the grace period (updates: 8D, security: 0D). [WARNING]
+* aom-tools/stable-security 3.12.1-1+deb13u1 amd64 [upgradable from: 3.12.1-1] overdue [WARNING]
+* base-files/stable 13.8+deb13u6 amd64 [upgradable from: 13.8+deb13u5] due in 1W 18h
+* bind9-doc/stable-security 1:9.20.26-1~deb13u1 all [upgradable from: 1:9.20.23-1~deb13u1] overdue [WARNING]
 ```
 
 

@@ -143,6 +143,44 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['2 critical updates available', "'critical_updates'=2"],
     },
+    # The table names per row the state that package feeds, so the check's own
+    # state can be traced back to the packages responsible for it. Under
+    # `--test` no ages are read from the host, so every row is due.
+    {
+        'id': 'warn-state-column-fedora42',
+        'test': 'stdout/fedora42,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['State', '[WARNING]'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-state-column-fedora42',
+        'test': 'stdout/fedora42,,0',
+        'params': '--critical 1',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['State', '[CRITICAL]'],
+    },
+    # A threshold nothing reaches leaves the column blank, even though all of
+    # the packages are pending and listed. `[OK]` next to a pending update
+    # would read as "nothing to do here".
+    {
+        'id': 'ok-state-column-below-thresholds',
+        'test': 'stdout/fedora42,,0',
+        'params': '--warning 99999',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['[OK]', '[WARNING]', '[CRITICAL]'],
+    },
+    # A z-stream release counts up behind the dist tag. Both versions have to
+    # survive into the table, otherwise the row reads as an update to the
+    # version already installed.
+    {
+        'id': 'warn-zstream-versions-stay-distinct',
+        'test': 'stdout/rhel8,,0',
+        'params': '',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['7.61.1-34.el8_10.2', '7.61.1-34.el8_10.11'],
+    },
 ]
 
 

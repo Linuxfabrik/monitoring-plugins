@@ -16,13 +16,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026090301'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and how many of them come from a security
@@ -308,23 +309,45 @@ def main():
     # could not read counts as old enough, so a cache that went missing never
     # silences the check. The reported and graphed numbers stay untouched: what
     # is pending is pending, the grace period only postpones the alert.
-    def is_due(row):
+    def grace_of(row):
         # A security update is held back by `--grace-security`, everything else
         # by `--grace-updates`. Both counts share this rule, so the default
         # `--grace-security=0D` keeps security updates alerting right away even
         # when `--critical` is unset and they are only counted as ordinary updates.
-        grace = args.GRACE_SECURITY if row['critical'] else args.GRACE_UPDATES
-        return ages is None or ages.get(package_name(row['package']), 0) >= grace
+        return args.GRACE_SECURITY if row['critical'] else args.GRACE_UPDATES
+
+    def is_due(row):
+        if ages is None:
+            return True
+        return ages.get(package_name(row['package']), 0) >= grace_of(row)
 
     due_count = sum(1 for row in result if is_due(row))
     due_critical_count = sum(1 for row in result if row['critical'] and is_due(row))
     within_grace = len(result) - due_count
 
     # get state
-    state = lib.base.get_worst(
-        lib.base.get_state(due_count, args.WARN, None),
-        lib.base.get_state(due_critical_count, None, args.CRIT),
-    )
+    updates_state = lib.base.get_state(due_count, args.WARN, None)
+    critical_state = lib.base.get_state(due_critical_count, None, args.CRIT)
+    state = lib.base.get_worst(updates_state, critical_state)
+
+    def row_state(row):
+        # The sentence above the list only carries totals, and the number that
+        # drives the state is the number of due updates, not the number
+        # available. Naming per package the state it feeds traces the check's
+        # own state back to the packages responsible for it, and says of the
+        # rest when they follow. Both thresholds count packages, so no single
+        # package crosses one on its own: every due one carries the state its
+        # count produced. A package that alerts nobody carries no marker rather
+        # than an `[OK]`, which next to a pending update looks like there is
+        # nothing left to do; it still says `overdue`, so every package that
+        # has run out its grace period reads the same way.
+        if not is_due(row):
+            left = grace_of(row) - ages.get(package_name(row['package']), 0)
+            return f'due in {lib.human.seconds2human(left)}'
+        worst = updates_state
+        if row['critical']:
+            worst = lib.base.get_worst(worst, critical_state)
+        return f'overdue{lib.base.state2str(worst, prefix=" ")}'
 
     # build the message
     query_hint = f' (query: {args.QUERY})' if args.QUERY != DEFAULT_QUERY else ''
@@ -347,7 +370,9 @@ def main():
             )
         msg += lib.base.state2str(state, prefix=' ')
         msg += '\n* '
-        msg += '\n* '.join([row['package'] for row in result])
+        msg += '\n* '.join(
+            [f'{row["package"]} {row_state(row)}'.rstrip() for row in result]
+        )
     perfdata += lib.base.get_perfdata(
         'updates',
         len(result),

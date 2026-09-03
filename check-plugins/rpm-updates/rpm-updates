@@ -17,13 +17,14 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.human
 import lib.lftest
 import lib.shell
 import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026090301'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -319,8 +320,8 @@ def join_packages_updates(yum_installed, yum_upgrades):
         - **"package"** (`str`): Base package name (e.g., `"bash"`).
         - **"arch"** (`str`): Architecture suffix extracted from the RPM filename
           (e.g., `"x86_64"`).
-        - **"version_installed"** (`str`): Installed version string without the
-          architecture/release suffix (e.g., `"5.0.17-1.fc32"` → `"5.0.17-1.fc32"`).
+        - **"version_installed"** (`str`): Installed version and release exactly as
+          reported (e.g., `"5.0.17-1.fc32"`, `"2.9.7-21.el8_10.6"`).
         - **"repo_installed"** (`str`): Repository from which the package was installed
           (e.g., `"@anaconda"`).
         - **"version_upgrade"** (`str` or `None`): Available upgrade version (same format
@@ -342,9 +343,8 @@ def join_packages_updates(yum_installed, yum_upgrades):
            practice, most package names have a dash-separated epoch/version so this yields the
            correct base).
          - Architecture by taking the substring after the last `.` (e.g., `"x86_64"`).
-         - Store `version_installed` as everything except the last dotted segment of its own string
-           (dropping e.g. the `el8_9.6` or `fc32` suffix if present). Implementation does this by
-           splitting on `.` and rejoining all except the final element.
+         - Store `version_installed` verbatim, dist tag and z-stream counter included, so
+           two releases that differ only behind the dist tag stay distinguishable.
        - Initialize the entry in `packages[...]` with `version_upgrade` and `repo_upgrade` set to
         `None`.
     2. Iterate over each non-empty line in `yum_upgrades` in the same manner:
@@ -354,14 +354,14 @@ def join_packages_updates(yum_installed, yum_upgrades):
        - Compute the same base package name (by splitting `package_upgrade` on `.` and taking
          index 0).
        - If that key exists in the `packages` dictionary, update its `"version_upgrade"`
-         (dropping the last dotted segment) and `"repo_upgrade"` fields. If the key does not
-         already exist (i.e., an upgrade for a package not currently installed), this implementation
-         will raise a `KeyError`. In typical use, every upgrade corresponds to an installed package.
+         and `"repo_upgrade"` fields. If the key does not already exist (i.e., an upgrade for
+         a package not currently installed), this implementation will raise a `KeyError`. In
+         typical use, every upgrade corresponds to an installed package.
 
     ### Notes
     - Package name splitting logic assumes RPM filenames formatted as
       `<name>-<version>.<release>.<arch>`. If a package name contains additional dots or
-      unexpected formatting, the splitting heuristic may misidentify the base name or version.
+      unexpected formatting, the splitting heuristic may misidentify the base name.
     - Lines in the YUM output that are headers, separators, or otherwise do not have exactly
       three whitespace-separated columns are silently ignored.
     - If there is an upgrade entry for a package not present in `yum_installed`, a `KeyError`
@@ -377,7 +377,13 @@ def join_packages_updates(yum_installed, yum_upgrades):
         packages[package_installed.split('.')[0]] = {
             'package': package_installed.split('.')[0],
             'arch': package_installed.split('.')[-1],
-            'version_installed': '.'.join(version_installed.split('.')[0:-1]),
+            # Version and release are kept exactly as yum reports them. Dropping
+            # the last dotted segment shortens `2.56.4-170.el8_10` nicely, but a
+            # z-stream release carries its counter behind the dist tag, so the
+            # same rule turned `2.9.7-21.el8_10.6` and `2.9.7-21.el8_10.7` into
+            # one and the same string and the table showed an update to the
+            # version already installed.
+            'version_installed': version_installed,
             'repo_installed': repo_installed,
             'version_upgrade': None,
             'repo_upgrade': None,
@@ -390,7 +396,7 @@ def join_packages_updates(yum_installed, yum_upgrades):
         package_upgrade, version_upgrade, repo_upgrade = upgrade
         packages[package_upgrade.split('.')[0]].update(
             {
-                'version_upgrade': '.'.join(version_upgrade.split('.')[0:-1]),
+                'version_upgrade': version_upgrade,
                 'repo_upgrade': repo_upgrade,
             }
         )
@@ -761,13 +767,17 @@ def main():
     # could not read counts as old enough, so a cache that went missing never
     # silences the check. The reported and graphed numbers stay untouched: what
     # is pending is pending, the grace period only postpones the alert.
-    def is_due(row):
+    def grace_of(row):
         # A security advisory is held back by `--grace-security`, everything else
         # by `--grace-updates`. Both counts share this rule, so the default
         # `--grace-security=0D` keeps security updates alerting right away even
         # when `--critical` is unset and they are only counted as ordinary updates.
-        grace = args.GRACE_SECURITY if 'S' in row['type'] else args.GRACE_UPDATES
-        return ages is None or ages.get(row['package'], 0) >= grace
+        return args.GRACE_SECURITY if 'S' in row['type'] else args.GRACE_UPDATES
+
+    def is_due(row):
+        if ages is None:
+            return True
+        return ages.get(row['package'], 0) >= grace_of(row)
 
     due_count = sum(1 for row in table_data if is_due(row))
     due_critical_count = sum(
@@ -776,10 +786,28 @@ def main():
     within_grace = len(table_data) - due_count
 
     # get state
-    state = lib.base.get_worst(
-        lib.base.get_state(due_count, args.WARN, None),
-        lib.base.get_state(due_critical_count, None, args.CRIT),
-    )
+    updates_state = lib.base.get_state(due_count, args.WARN, None)
+    critical_state = lib.base.get_state(due_critical_count, None, args.CRIT)
+    state = lib.base.get_worst(updates_state, critical_state)
+
+    # The sentence above the table only carries totals, and the number that
+    # drives the state is the number of due updates, not the number available.
+    # Naming per row the state it feeds traces the check's own state back to
+    # the packages responsible for it, and says of the rest when they follow.
+    # Both thresholds count packages, so no single row crosses one on its own:
+    # every due row carries the state its count produced. A row that alerts
+    # nobody carries no marker rather than an `[OK]`, which next to a pending
+    # update looks like there is nothing left to do; it still says `overdue`,
+    # so every row that has run out its grace period reads the same way.
+    for row in table_data:
+        if not is_due(row):
+            left = grace_of(row) - ages.get(row['package'], 0)
+            row['state'] = f'due in {lib.human.seconds2human(left)}'
+            continue
+        row_state = updates_state
+        if 'S' in row['type']:
+            row_state = lib.base.get_worst(row_state, critical_state)
+        row['state'] = f'overdue{lib.base.state2str(row_state, prefix=" ")}'
 
     # build the message
     if len(table_data) == 0:
@@ -803,8 +831,8 @@ def main():
         msg += '\n\n'
         msg += lib.base.get_table(
             table_data,
-            ['package', 'version_installed', 'version_upgrade', 'type'],
-            header=['Package', 'Installed', 'Upgrade to', 'Type'],
+            ['package', 'version_installed', 'version_upgrade', 'type', 'state'],
+            header=['Package', 'Installed', 'Upgrade to', 'Type', 'State'],
         )
     perfdata += lib.base.get_perfdata(
         'updates',
