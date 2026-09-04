@@ -163,6 +163,7 @@ Icinga Director:
 
 Grafana:
 
+* file-growth shows its graph in Icinga Web 2 at all, and mysql-innodb-buffer-pool-size, network-io and swap-usage no longer put an empty "Panel not found" next to theirs: re-deploy the `icingaweb2-module-grafana` assets
 * keycloak-stats, and the sudo and Windows variants of acmesh-status, apache-httpd-security, dns, graylog-version, ipmi-sensor, lvm-snapshots, lvm-thin-pools, lvm-volume-groups, lvm-volumes and nginx-security, show their graphs in Icinga Web 2: re-deploy the `icingaweb2-module-grafana` assets
 
 Build, CI/CD:
