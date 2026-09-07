@@ -39,7 +39,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082701 / v7.0.0'
+__version__ = '2026090701 / v7.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -877,16 +877,6 @@ def get_lftags(distro):
             'expr': [has_md_array],
         },
         {
-            'sw': 'Metabase',
-            'package': [],
-            'expr': [
-                run_cmd(
-                    ['systemctl', 'is-enabled', 'metabase.service'], ignore_output=True
-                ),
-                lib.disk.dir_exists('/opt/metabase'),
-            ],
-        },
-        {
             'sw': 'MediaWiki',
             'package': [],
             'expr': [
@@ -894,6 +884,16 @@ def get_lftags(distro):
                 lib.disk.dir_exists('/var/www/html/wiki'),
                 lib.disk.dir_exists('/var/www/mediawiki'),
                 lib.disk.dir_exists('/var/www/wiki'),
+            ],
+        },
+        {
+            'sw': 'Metabase',
+            'package': [],
+            'expr': [
+                run_cmd(
+                    ['systemctl', 'is-enabled', 'metabase.service'], ignore_output=True
+                ),
+                lib.disk.dir_exists('/opt/metabase'),
             ],
         },
         {
@@ -1571,7 +1571,6 @@ def get_software_found():
             ],
         },
         {'sw': 'LibreNMS', 'expr': [lib.disk.dir_exists('/opt/librenms')]},
-        {'sw': 'Metabase', 'expr': [lib.disk.dir_exists('/opt/metabase')]},
         {
             'sw': 'MariaDB ColumnStore',
             'expr': [lib.disk.dir_exists('/usr/local/mariadb/columnstore')],
