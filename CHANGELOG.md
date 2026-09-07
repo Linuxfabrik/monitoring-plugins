@@ -86,6 +86,7 @@ Monitoring Plugins:
 * mysql-innodb-buffer-pool-size: judges the redo log by how full it actually runs, instead of alerting on idle databases
 * mysql-innodb-log-waits: alerts when a full redo log holds writing sessions back
 * mysql-logfile: counts aborted connections and denied logins per source over a time window instead of alerting on each, and reads the error log and the journal of the database unit as one window
+* nextcloud-enterprise: alerts on an expired or unrefreshed subscription and on the account count against the licensed and the locally configured limit ([#647](https://github.com/Linuxfabrik/monitoring-plugins/issues/647))
 * nextcloud-stats: also lists the five largest accounts, which takes much longer on an instance with many users; `--top=0` turns it off ([#103](https://github.com/Linuxfabrik/monitoring-plugins/issues/103))
 * openstack-nova-list: alerts on an ACTIVE instance that is not running and reports the compute host; a password reset or rescue image is no longer CRITICAL, and a slow cloud no longer kills the check
 * openstack-swift-stat: alerts on the container and account quotas, and a slow cloud no longer kills the check
@@ -98,12 +99,14 @@ Icinga Director:
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
 * the Needs Restarting service runs hourly and waits four hours before alerting; it covers Debian hosts now, so tag them
+* the Nextcloud Enterprise service checks hourly instead of daily and waits three days before it alerts on the account count; re-import the basket
 * the WHMCS Status service checks every 15 minutes instead of every minute, as its documentation always said; re-import the basket
 
 Grafana:
 
 * apache-httpd-security, nginx-security: the findings panel graphs the checks `--ignore` excluded, too
 * Icinga Web 2 shows all graphs of a check instead of only the first one, on 27 checks: re-deploy the `icingaweb2-module-grafana` assets
+* import the new nextcloud-enterprise dashboard, which graphs the account counts against their limits
 * re-import the dashboards of apache-httpd-status, cpu-usage, disk-io, Icinga overview, keycloak-memory-usage, kvm-vm, load, memory-usage, mysql-logfile, network-io, php-status, ping, procs and swap-usage: panels and metric names changed, and series hidden from a panel no longer show up in its tooltip
 
 ### Removed

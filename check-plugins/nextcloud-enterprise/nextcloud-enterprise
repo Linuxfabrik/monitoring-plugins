@@ -11,23 +11,60 @@
 """See the check's README for more details."""
 
 import argparse
+import json
+import os
+import re
 import sys
 
 import lib.args
 import lib.base
+import lib.db_sqlite
+import lib.disk
+import lib.human
 import lib.nextcloud
-from lib.globals import STATE_OK, STATE_UNKNOWN
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026090701'
 
-DESCRIPTION = """Retrieves and displays information about an installed Nextcloud Enterprise subscription,
-including license status, expiration date, and supported user count.
-Alerts when the subscription is expired or about to expire.
+DESCRIPTION = """Monitors an installed Nextcloud Enterprise subscription and the number of accounts
+it has to cover, reporting license level, expiration date, per-feature subscriptions and
+the account breakdown by backend. Alerts when the subscription has expired, when its data
+has gone stale because nothing refreshes it any more, when the account count exceeds the
+licensed amount or a locally configured account limit, and when it crosses the thresholds
+on an instance that carries no limit of its own. A grace period holds back the
+account-count alerts, so a directory synchronisation that briefly overshoots stays quiet.
 Requires root or sudo."""
 
+# The subscription data is refreshed by a background job that runs every five minutes and
+# renews once the stored answer is older than 23 hours. Anything past two days therefore
+# means the job, the internet connection or the subscription itself stopped working, and
+# every figure below is left over from whenever it last succeeded. Verified against the
+# `support` app 6.0.0 on Nextcloud 34.0.3 Enterprise.
+STALE_AFTER = 48 * 3600
+
+# Row labels of `occ user:report` that carry a summary figure. Everything else in the
+# table that carries a number is one of the account backends.
+SUMMARY_LABELS = (
+    'active users',
+    'disabled users',
+    'total users',
+    'user directories',
+)
+
+# Symfony renders the report as an ASCII table of label/value pairs, padded with blank
+# separator rows. Rows are read by their label rather than by their position, because the
+# table grows a row per account backend and its header changed from `User Report` to
+# `Account Report` in Nextcloud 29.
+REPORT_ROW = re.compile(r'^\|(?P<label>[^|]*)\|(?P<value>[^|]*)\|$')
+
+DEFAULT_CRIT = ''
+DEFAULT_GRACE_WAIT = '0D'
 DEFAULT_PATH = '/var/www/html/nextcloud'
 DEFAULT_TIMEOUT = 8
+DEFAULT_WARN = '@150:'
 
 
 def parse_args():
@@ -54,6 +91,33 @@ def parse_args():
     )
 
     parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the number of accounts the subscription has to cover. '
+        'Supports Nagios ranges. '
+        'Evaluated whenever it is given. When omitted, it is evaluated only on an '
+        'instance that declares no account limit of its own, because a declared limit '
+        'is compared against the account count anyway. '
+        f'Default: {DEFAULT_CRIT or "empty, no CRIT threshold"}',
+        dest='CRIT',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--grace-wait',
+        help='How long an account count above its limit is tolerated before it counts '
+        'towards the state. Set this to cover the time a directory synchronisation '
+        'needs to settle, so an import that briefly overshoots stays quiet until it has '
+        'had its chance. Starts when the count first goes over and starts over once it '
+        'is back within the limit. '
+        'A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period. '
+        'Default: %(default)s',
+        dest='GRACE_WAIT',
+        type=lib.args.duration,
+        default=DEFAULT_GRACE_WAIT,
+    )
+
+    parser.add_argument(
         '--no-perfdata',
         help=lib.args.help('--no-perfdata'),
         dest='NO_PERFDATA',
@@ -63,14 +127,158 @@ def parse_args():
 
     parser.add_argument(
         '--path',
-        help='Local path to the Nextcloud installation, typically the web server document root. '
+        help='Local path to the Nextcloud installation, typically the web server '
+        'document root. '
         'Default: %(default)s',
         dest='PATH',
         default=DEFAULT_PATH,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help='Timeout in seconds for a single Nextcloud command. '
+        'Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the number of accounts the subscription has to cover. '
+        'Supports Nagios ranges. '
+        'Evaluated whenever it is given. When omitted, it is evaluated only on an '
+        'instance that declares no account limit of its own, because a declared limit '
+        'is compared against the account count anyway. The default covers the smallest '
+        'Nextcloud subscription, which stops short of 150 accounts. '
+        f'Default: {DEFAULT_WARN}',
+        dest='WARN',
+        default=None,
+    )
+
     args, _ = parser.parse_known_args()
     return args
+
+
+def parse_account_report(stdout):
+    """Pick the account figures out of the table `occ user:report` prints.
+
+    Returns a dict holding the summary figures the report carries and the per-backend
+    counts. `user directories` is absent above 500 accounts, where the report skips
+    counting them, so it stays `None` rather than being reported as zero.
+    """
+    counts = {}
+    backends = {}
+    for line in stdout.splitlines():
+        match = REPORT_ROW.match(line.strip())
+        if not match:
+            continue
+        label = match.group('label').strip()
+        value = match.group('value').strip()
+        # The table header carries no value, the separator rows carry neither, and a
+        # report without a counting backend says so in the label column alone.
+        if not label or not value.isdigit():
+            continue
+        if label in SUMMARY_LABELS:
+            counts[label] = int(value)
+        else:
+            backends[label] = int(value)
+
+    if 'total users' not in counts:
+        return (
+            False,
+            'Nextcloud did not report an account total. No account backend on this '
+            'instance supports counting.',
+        )
+
+    return (
+        True,
+        {
+            'backends': backends,
+            'directories': counts.get('user directories'),
+            'disabled': counts.get('disabled users', 0),
+            'seen': counts.get('active users', 0),
+            'total': counts['total users'],
+        },
+    )
+
+
+def get_account_report(args):
+    """Run `occ user:report` and hand back the figures it carries.
+
+    The command takes no `--output` option, so its table is parsed as text.
+    """
+    success, result = lib.nextcloud.run_occ(
+        args.PATH,
+        'user:report',
+        _format='text',
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        return (False, result)
+    return parse_account_report(result)
+
+
+def get_build(path):
+    """Read what `version.php` says about the installed code.
+
+    An Enterprise build carries a marker and a build timestamp that the public release
+    does not: `34.0.3 Enterprise` with a filled `$OC_Build`, against `34.0.3` with an
+    empty one. Verified against the `v34.0.3` tag of nextcloud/server and an Enterprise
+    instance on Rocky 8.
+
+    It says the instance is being kept on the Enterprise track, which is worth knowing
+    where the subscription record has gone stale, and no more than that. It is
+    deliberately not read as proof of a running subscription: an instance was observed
+    downloading an Enterprise build from the customer channel three weeks before this
+    was written, on a key whose stored record said the subscription had ended in 2023,
+    and nothing on the host tells a renewal that was never recorded from a channel that
+    was never revoked.
+
+    Returns `(enterprise, build_date)`. Anything that cannot be read leaves both empty.
+    """
+    success, content = lib.disk.read_file(os.path.join(path, 'version.php'))
+    if not success:
+        return (False, None)
+    version = re.search(r"\$OC_VersionString\s*=\s*'([^']*)'", content)
+    enterprise = bool(version) and 'enterprise' in version.group(1).lower()
+    build = re.search(r"\$OC_Build\s*=\s*'(\d{4}-\d{2}-\d{2})", content)
+    return (enterprise, build.group(1) if build else None)
+
+
+def get_support_config(args):
+    """Read the whole configuration of the `support` app in one call.
+
+    Every `occ` invocation pays for a full application bootstrap, which is what this
+    check spends nearly all of its runtime on, so the values are read together rather
+    than one command per key. `config:list` emits JSON without being asked to.
+
+    `--private` is required, not a convenience: Nextcloud lists `subscription_key` and
+    `last_response` among the sensitive values of this app and replaces both with a
+    placeholder without it, which is exactly what the check needs to read.
+    """
+    success, result = lib.nextcloud.run_occ(
+        args.PATH,
+        'config:list support --private',
+        _format='json',
+        timeout=args.TIMEOUT,
+    )
+    if not success:
+        # The answer carries the subscription key, so whatever the command produced is
+        # never passed on: a failure that hands its output back, a failing JSON parse
+        # above all, would print that key into the plugin output.
+        return (
+            False,
+            'Could not read the configuration of the `support` app. Run '
+            '`occ config:list support` on the host to see why.',
+        )
+    if not isinstance(result, dict):
+        return (False, 'Nextcloud did not return its configuration as a JSON object.')
+    # An instance that never carried the app answers with an empty list rather than an
+    # empty object, because PHP writes an empty array either way.
+    support = result.get('apps', {}).get('support')
+    return (True, support if isinstance(support, dict) else {})
 
 
 def main():
@@ -83,109 +291,414 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    success, subscription_key = lib.nextcloud.run_occ(
-        args.PATH,
-        'config:app:get --output=json support subscription_key',
-    )
-    if not success:
-        lib.base.oao('No enterprise subscription found.', STATE_OK)
+    support = lib.base.coe(get_support_config(args))
+    accounts = lib.base.coe(get_account_report(args))
+    enterprise_build, build_date = get_build(args.PATH)
 
-    success, last_response = lib.nextcloud.run_occ(
-        args.PATH,
-        'config:app:get support last_response',
-    )
-    if not success:
+    subscription_key = support.get('subscription_key') or None
+    last_check = support.get('last_check')
+    user_limit = support.get('user-limit')
+    # Depending on how old the app was when it stored the answer, it comes back as the
+    # JSON document itself or as the string it is written as.
+    last_response = support.get('last_response')
+    if isinstance(last_response, str):
+        try:
+            last_response = json.loads(last_response)
+        except ValueError:
+            last_response = {}
+    if not isinstance(last_response, dict):
         last_response = {}
-
-    success, user_limit = lib.nextcloud.run_occ(
-        args.PATH,
-        'config:app:get --output=json support user-limit',
-    )
-    if not success:
-        user_limit = 'not set'
-    else:
-        user_limit += ' users'
+    # An app enabled for selected groups only stores the group list here, so the literal
+    # `no` is the only value that means the app does not run.
+    support_enabled = str(support.get('enabled', 'yes')).lower() != 'no'
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
     table_data = []
+    findings = []
+    hints = []
+    now = lib.time.now()
+
+    # The subscription counts every account that exists and is not disabled, unless it
+    # was sold on the number of accounts that ever logged in instead. Both figures are
+    # reported either way, because they differ on any instance that carries accounts
+    # which have never been used. Verified against the `support` app 6.0.0.
+    only_count_active = last_response.get('onlyCountActiveUsers', False)
+    if only_count_active:
+        counted = accounts['seen']
+    else:
+        counted = max(accounts['total'] - accounts['disabled'], 0)
+
+    # `amountOfUsers` is the licensed amount, where `-1` means unlimited. The locally
+    # configured `user-limit` is a separate cap that stops new accounts from being
+    # created, and it bites as soon as the count reaches it, one account earlier than
+    # the licensed amount does.
+    licensed = last_response.get('amountOfUsers')
+    unlimited = licensed is not None and licensed < 0
+    if unlimited:
+        licensed = None
+    try:
+        user_limit = int(user_limit)
+    except (TypeError, ValueError):
+        user_limit = None
+    if user_limit is not None and user_limit <= 0:
+        user_limit = None
+    # An unlimited license is a declared limit like any other, it just sits at infinity.
+    # Only an instance that declares nothing at all falls back to the thresholds.
+    declares_limit = unlimited or licensed is not None or user_limit is not None
+
+    # `endDate` is a plain date, which the subscription itself reads as midnight local
+    # time, so the subscription counts as expired once that day has begun.
+    end_date = last_response.get('endDate')
+    expires = None
+    if end_date:
+        try:
+            expires = lib.time.timestr2epoch(end_date, pattern='%Y-%m-%d')
+        except ValueError:
+            expires = None
+
+    # analyze data
+    # An account count over its limit is held back by the grace period, so a directory
+    # synchronisation that briefly overshoots does not alert on its own. Everything else
+    # is a standing condition that a grace period would only delay.
+    pending = []
+    if licensed is not None and licensed < counted:
+        pending.append('over-licensed-limit')
+
+    if args.WARN is not None or args.CRIT is not None:
+        threshold_state = lib.base.get_state(
+            counted, args.WARN, args.CRIT, _operator='range'
+        )
+    elif not declares_limit:
+        threshold_state = lib.base.get_state(
+            counted, DEFAULT_WARN, DEFAULT_CRIT, _operator='range'
+        )
+    else:
+        threshold_state = STATE_OK
+    if threshold_state != STATE_OK:
+        pending.append('over-threshold')
+
+    ages = lib.db_sqlite.first_seen(
+        'linuxfabrik-monitoring-plugins-nextcloud-enterprise.db',
+        'nextcloud-enterprise',
+        pending,
+    )
+    waiting = 0
+    count_state = STATE_OK
+    for key in pending:
+        # A cache that cannot be read hands back no ages at all. Acting on every finding
+        # then is the safe direction: a broken cache must never silence the check.
+        age = args.GRACE_WAIT if ages is None else ages.get(key, 0)
+        if age < args.GRACE_WAIT:
+            waiting += 1
+            continue
+        # Both of these grade the account count itself, so they colour the sentence that
+        # states it rather than adding one that repeats the same numbers.
+        if key == 'over-licensed-limit':
+            count_state = lib.base.get_worst(count_state, STATE_WARN)
+            hints.append(
+                'The instance carries more accounts than the subscription covers. '
+                'Order the missing seats or remove the accounts that are not needed.'
+            )
+        else:
+            count_state = lib.base.get_worst(count_state, threshold_state)
+
+    # Nextcloud asks the `support` app before it creates an account, before it re-enables
+    # a disabled one, and before it maps a new directory user. Those three are the only
+    # callers of `Assertion::createUserIsLegit()`, so a backend that provisions on its
+    # own is never held to the limit: `user_saml` inserts into its own table directly and
+    # asks nobody, which is why an instance can carry 126 accounts under a limit of 10.
+    # The app answers yes to the limit only while it is running, because a disabled app
+    # registers nothing to ask, and only while its stored record has not run out:
+    # `!$isInvalidSubscription && $configUserLimit > 0 && $configUserLimit <= $userCount`.
+    # Both conditions are known here, so the check says whether the limit is in effect
+    # instead of assuming that a configured number is one.
+    expired = expires is not None and now > expires
+    limit_enforced = support_enabled and not expired
+
+    if user_limit is not None and user_limit <= counted:
+        count_state = lib.base.get_worst(count_state, STATE_WARN)
+        if limit_enforced:
+            hints.append(
+                'Nextcloud refuses to create an account, to re-enable a disabled one '
+                'and to map a directory user while the limit is reached. A backend '
+                'that provisions accounts on its own writes them straight into its own '
+                'table and is not affected, which is how an instance ends up far past '
+                'its limit. Raise it with `occ config:app:set support user-limit '
+                '--value=`, or remove accounts.'
+            )
+        else:
+            hints.append(
+                f'The configured limit of {user_limit} accounts has no effect '
+                + (
+                    'while the `support` app is disabled'
+                    if not support_enabled
+                    else 'while the stored subscription is past its end date'
+                )
+                + ', because that is what Nextcloud asks before it creates an account. '
+                'Accounts can still be created past the limit.'
+            )
+
+    # Everything the subscription says about itself was true when it was last fetched.
+    # Once that stopped happening, the end date is a memory rather than a fact: a
+    # subscription renewed since then looks expired here, and one that lapsed looks
+    # valid until the stored date passes. Stale data is therefore reported instead of
+    # the verdicts drawn from it, not next to them.
+    stale_age = None
+    if subscription_key:
+        stale_age = None if last_check is None else now - int(last_check)
+        stale = stale_age is None or stale_age > STALE_AFTER
+    else:
+        stale = False
+
+    if stale:
+        findings.append(
+            (
+                'subscription data never refreshed'
+                if stale_age is None
+                else f'subscription data {lib.human.seconds2human(stale_age)} old',
+                STATE_WARN,
+            )
+        )
+        hint = (
+            'Nothing refreshes the subscription data, so every subscription figure '
+            'above is a memory rather than a fact, the end date included. '
+        )
+        if enterprise_build:
+            # An Enterprise build is worth naming next to a record that stopped years
+            # earlier, because it says somebody kept the instance on the Enterprise
+            # track. It is not a verdict on the subscription: the customer download
+            # channel is known to still serve a key whose stored record says the
+            # subscription ended, and nothing on the host distinguishes a renewal that
+            # was never recorded from a channel that was never revoked. Only a
+            # refreshed record settles that, which is what the advice aims at.
+            hint += 'An Enterprise build'
+            hint += f' of {build_date}' if build_date else ''
+            hint += (
+                ' is installed, so the instance is being kept on the Enterprise track, '
+                'but whether the subscription behind it still runs cannot be told here '
+                'while nothing refreshes the record. '
+            )
+            hint += (
+                'Enable the `support` app again'
+                if not support_enabled
+                else 'Make sure background jobs run and that the host reaches Nextcloud'
+            )
+            hint += ', and it answers that within a day. '
+            hint += (
+                'Do not remove the subscription key, the update channel is derived '
+                'from it and removing it settles nothing.'
+            )
+        elif support_enabled:
+            hint += 'Make sure background jobs run and that the host reaches Nextcloud.'
+        else:
+            hint += (
+                'The `support` app is disabled, and its stored answer outlives it. '
+                'Enable the app again, or confirm with Nextcloud whether the '
+                'subscription is still running.'
+            )
+        hints.append(hint)
+    elif subscription_key and expired:
+        findings.append(
+            (
+                f'subscription expired {end_date} '
+                f'({lib.human.seconds2human(now - expires)} ago)',
+                STATE_WARN,
+            )
+        )
+
+    state = lib.base.get_worst(state, count_state)
+    for _, finding_state in findings:
+        state = lib.base.get_worst(state, finding_state)
 
     # build the message
-    msg += f'Subscr.: {last_response.get("amountOfUsers", "N/A")} users, '
-    msg += f'Limit: {user_limit}, '
-    msg += f'End date: {last_response.get("endDate", "N/A")}, '
-    msg += f'Key: *****{subscription_key[-11:]}, '
-    msg += f'Level: {last_response.get("level", "N/A")}'
+    # One line of sentences, state first, facts behind it. That first line is what a
+    # notification carries, so everything needed to judge the check has to be in it and
+    # only what fixes the problem goes into the lines below.
+    sentences = []
 
-    msg += '\n'
-    msg += f'Subscr. Renewal: {last_response.get("subscriptionRenewal", "N/A")}, '
-    msg += (
-        f'Count active users only: {last_response.get("onlyCountActiveUsers", "N/A")}, '
-    )
-    msg += f'Hard User Limit: {last_response.get("hasHardUserLimit", "N/A")}, '
-    msg += f'Extended Support: {last_response.get("extendedSupport", "N/A")}, '
-    msg += f'Branding: {last_response.get("hasBrandingOption", "N/A")}, '
-    msg += f'Branding Plus: {last_response.get("hasBrandingPlusOption", "N/A")}, '
-    msg += (
-        f'Customization Service: {last_response.get("hasCustomizationService", "N/A")}'
-    )
+    # The bound this instance is actually held to is the local limit where one is set.
+    # The licensed amount is the subscription's total, and a subscription can be spread
+    # over several instances that all carry the same key and all read the same figure,
+    # so relating one instance's count to it would claim a headroom that its siblings
+    # are consuming. It is stated as the total it is, never as this instance's share.
+    # On stale data even that is only a memory, so the count then stands on its own and
+    # the findings lead.
+    if not subscription_key:
+        head = f'{counted} {lib.txt.pluralize("account", counted)}'
+        head += ' and no enterprise subscription'
+    elif user_limit is not None:
+        head = f'{counted} {lib.txt.pluralize("account", counted)}'
+        head += f', local limit {user_limit}'
+    elif stale:
+        head = None
+    elif licensed is not None:
+        head = f'{counted} {lib.txt.pluralize("account", counted)}'
+        head += f', subscription covers {licensed}'
+    else:
+        head = f'{counted} {lib.txt.pluralize("account", counted)}, unlimited license'
+    if head is not None:
+        head += lib.base.state2str(count_state, prefix=' ')
+        if waiting:
+            head += f', {waiting} more within the grace period ({args.GRACE_WAIT})'
+        sentences.append(head)
 
-    msg += '\n'
-    msg += 'Account Manager: '
-    msg += f'{last_response.get("accountManagerInfo", {}).get("name", "N/A")}, '
-    msg += f'{last_response.get("accountManagerInfo", {}).get("phone", "N/A")}, '
-    msg += f'{last_response.get("accountManagerInfo", {}).get("email", "N/A")}'
-
-    for feature in [
-        'groupware',
-        'talk',
-        'collabora',
-        'onlyoffice',
-        'outlook',
-        'sip_bridge',
-    ]:
-        table_data.append(
-            {
-                'feature': feature,
-                'hasSubscription': last_response.get(feature, {}).get(
-                    'hasSubscription', ''
-                ),
-                'users': last_response.get(feature, {}).get('users', ''),
-                'endDate': last_response.get(feature, {}).get('endDate', ''),
-                'mcuOption': last_response.get(feature, {}).get('mcuOption', ''),
-                'mcuOptionUsers': last_response.get(feature, {}).get(
-                    'mcuOptionUsers', ''
-                ),
-                'level': last_response.get(feature, {}).get('level', ''),
-            }
+    for finding, finding_state in findings:
+        sentences.append(
+            finding[0].upper()
+            + finding[1:]
+            + lib.base.state2str(finding_state, prefix=' ')
         )
-    msg += '\n\n'
-    msg += lib.base.get_table(
-        table_data,
-        [
-            'feature',
-            'hasSubscription',
-            'users',
-            'endDate',
-            'mcuOption',
-            'mcuOptionUsers',
-            'level',
-        ],
-        header=['', 'hasSubscription', 'users', 'endDate', 'mcu', 'mcuUsers', 'level'],
-        strip=False,
+
+    if subscription_key:
+        # The flags that change how the account numbers have to be read are named in
+        # this sentence where they are set; the full set follows below.
+        subscription = [str(last_response.get('level', 'N/A'))]
+        # Stated once. The head carries it only where no local limit displaced it, and
+        # `covers` says it is the subscription's total, not this instance's share.
+        if head is None or user_limit is not None:
+            if licensed is not None:
+                subscription.append(f'covers {licensed} accounts')
+            elif unlimited:
+                subscription.append('covers unlimited accounts')
+        if end_date:
+            subscription.append(f'ends {end_date}')
+        if only_count_active:
+            subscription.append('counts accounts that logged in')
+        if last_response.get('hasHardUserLimit'):
+            subscription.append('hard account limit')
+        if last_response.get('extendedSupport'):
+            subscription.append('extended support')
+        if enterprise_build:
+            subscription.append(
+                'Enterprise build' + (f' of {build_date}' if build_date else '')
+            )
+        subscription.append(f'key *****{subscription_key[-5:]}')
+        label = 'Subscription'
+        if stale and last_check is not None:
+            label = f'Subscription as of {lib.time.epoch2iso(int(last_check))[:10]}'
+        sentences.append(f'{label}: ' + ', '.join(subscription))
+
+    breakdown = ''
+    if accounts['total'] != counted:
+        breakdown += f'{accounts["total"]} accounts in total, '
+    breakdown += (
+        f'{accounts["disabled"]} disabled, '
+        f'{accounts["seen"]} have logged in at least once'
     )
+    if accounts['backends']:
+        backends = ', '.join(
+            f'{name}: {count}' for name, count in sorted(accounts['backends'].items())
+        )
+        breakdown += f' ({backends})'
+    sentences.append(breakdown)
+
+    msg += '. '.join(sentences) + '.'
+
+    for hint in hints:
+        msg += f'\n{hint}'
+
+    if subscription_key:
+        msg += '\n'
+        msg += f'Subscr. Renewal: {last_response.get("subscriptionRenewal", "N/A")}, '
+        msg += f'Count active users only: {only_count_active}, '
+        msg += f'Hard User Limit: {last_response.get("hasHardUserLimit", "N/A")}, '
+        msg += f'Extended Support: {last_response.get("extendedSupport", "N/A")}, '
+        msg += f'Branding: {last_response.get("hasBrandingOption", "N/A")}, '
+        msg += f'Branding Plus: {last_response.get("hasBrandingPlusOption", "N/A")}, '
+        msg += (
+            'Customization Service: '
+            f'{last_response.get("hasCustomizationService", "N/A")}'
+        )
+
+        msg += '\n'
+        msg += 'Account Manager: '
+        msg += f'{last_response.get("accountManagerInfo", {}).get("name", "N/A")}, '
+        msg += f'{last_response.get("accountManagerInfo", {}).get("phone", "N/A")}, '
+        msg += f'{last_response.get("accountManagerInfo", {}).get("email", "N/A")}'
 
     perfdata += lib.base.get_perfdata(
-        'user_limit',
-        user_limit,
+        'accounts_counted',
+        counted,
         uom=None,
-        warn=None,
+        warn=user_limit or (None if stale else licensed),
         crit=None,
         _min=0,
-        _max=last_response.get('amountOfUsers'),
     )
+    perfdata += lib.base.get_perfdata(
+        'accounts_total', accounts['total'], uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'accounts_disabled', accounts['disabled'], uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata(
+        'accounts_seen', accounts['seen'], uom=None, _min=0
+    )
+    perfdata += lib.base.get_perfdata('account_limit', user_limit, uom=None, _min=0)
+    # The account counts are measured on every run, the subscription figures are only as
+    # current as the last refresh. Graphing a countdown that a dead record ran out of
+    # would paint an expiry into the dashboard that nobody can confirm, so on stale data
+    # the subscription contributes no metric at all.
+    if not stale:
+        perfdata += lib.base.get_perfdata(
+            'accounts_licensed', licensed, uom=None, _min=0
+        )
+        perfdata += lib.base.get_perfdata(
+            'subscription_seconds_left',
+            None if expires is None else int(expires - now),
+            uom='s',
+        )
+
+    # build table output
+    if subscription_key:
+        for feature in [
+            'groupware',
+            'talk',
+            'collabora',
+            'onlyoffice',
+            'outlook',
+            'sip_bridge',
+        ]:
+            table_data.append(
+                {
+                    'feature': feature,
+                    'hasSubscription': last_response.get(feature, {}).get(
+                        'hasSubscription', ''
+                    ),
+                    'users': last_response.get(feature, {}).get('users', ''),
+                    'endDate': last_response.get(feature, {}).get('endDate', ''),
+                    'mcuOption': last_response.get(feature, {}).get('mcuOption', ''),
+                    'mcuOptionUsers': last_response.get(feature, {}).get(
+                        'mcuOptionUsers', ''
+                    ),
+                    'level': last_response.get(feature, {}).get('level', ''),
+                }
+            )
+        msg += '\n\n'
+        msg += lib.base.get_table(
+            table_data,
+            [
+                'feature',
+                'hasSubscription',
+                'users',
+                'endDate',
+                'mcuOption',
+                'mcuOptionUsers',
+                'level',
+            ],
+            header=[
+                '',
+                'hasSubscription',
+                'users',
+                'endDate',
+                'mcu',
+                'mcuUsers',
+                'level',
+            ],
+            strip=False,
+        )
 
     # over and out
     lib.base.oao(

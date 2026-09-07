@@ -5,11 +5,23 @@
                 "--always-ok": {
                     "set_if": "$nextcloud_enterprise_always_ok$"
                 },
+                "--critical": {
+                    "value": "$nextcloud_enterprise_critical$"
+                },
+                "--grace-wait": {
+                    "value": "$nextcloud_enterprise_grace_wait$"
+                },
                 "--no-perfdata": {
                     "set_if": "$nextcloud_enterprise_no_perfdata$"
                 },
                 "--path": {
                     "value": "$nextcloud_enterprise_path$"
+                },
+                "--timeout": {
+                    "value": "$nextcloud_enterprise_timeout$"
+                },
+                "--warning": {
+                    "value": "$nextcloud_enterprise_warning$"
                 }
             },
             "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/nextcloud-enterprise",
@@ -29,6 +41,26 @@
                     "datafield_id": 3,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 6,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 7,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -36,7 +68,7 @@
             "methods_execute": "PluginCheck",
             "object_name": "cmd-check-nextcloud-enterprise",
             "object_type": "object",
-            "timeout": "10",
+            "timeout": 20,
             "vars": {},
             "zone": null,
             "uuid": "679aff6d-aa48-4fb2-a3e1-40d0ab652130"
@@ -48,7 +80,7 @@
             "apply_for": null,
             "assign_filter": null,
             "check_command": "cmd-check-nextcloud-enterprise",
-            "check_interval": 86400,
+            "check_interval": 3600,
             "check_period": null,
             "check_timeout": null,
             "command_endpoint": null,
@@ -72,7 +104,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Retrieves and displays information about an installed Nextcloud Enterprise subscription, including license status, expiration date, and supported user count. Alerts when the subscription is expired or about to expire. Requires root or sudo.",
+            "notes": "Monitors an installed Nextcloud Enterprise subscription and the number of accounts it has to cover, reporting license level, expiration date, per-feature subscriptions and the account breakdown by backend. Alerts when the subscription has expired, when its data has gone stale because nothing refreshes it any more, when the account count exceeds the licensed amount or a locally configured account limit, and when it crosses the thresholds on an instance that carries no limit of its own. A grace period holds back the account-count alerts, so a directory synchronisation that briefly overshoots stays quiet. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nextcloud-enterprise/",
             "object_name": "tpl-service-nextcloud-enterprise",
             "object_type": "template",
@@ -84,8 +116,10 @@
             "vars": {
                 "criticality": "C",
                 "nextcloud_enterprise_always_ok": false,
+                "nextcloud_enterprise_grace_wait": "3D",
                 "nextcloud_enterprise_no_perfdata": false,
-                "nextcloud_enterprise_path": "/var/www/html/nextcloud"
+                "nextcloud_enterprise_path": "/var/www/html/nextcloud",
+                "nextcloud_enterprise_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -103,6 +137,28 @@
             "uuid": "20844aae-aba5-498b-b7c8-fb743327efc0"
         },
         "2": {
+            "varname": "nextcloud_enterprise_critical",
+            "caption": "Nextcloud Enterprise: Critical",
+            "description": "CRIT threshold for the number of accounts the subscription has to cover. Supports Nagios ranges. Evaluated whenever it is given. When omitted, it is evaluated only on an instance that declares no account limit of its own, because a declared limit is compared against the account count anyway. Default: empty, no CRIT threshold",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5128fdf4-a049-4f0b-8805-a33ebaf93304"
+        },
+        "3": {
+            "varname": "nextcloud_enterprise_grace_wait",
+            "caption": "Nextcloud Enterprise: Grace Wait",
+            "description": "How long an account count above its limit is tolerated before it counts towards the state. Set this to cover the time a directory synchronisation needs to settle, so an import that briefly overshoots stays quiet until it has had its chance. Starts when the count first goes over and starts over once it is back within the limit. A duration such as `12h`, `8D` or `2W`; `0D` disables the grace period.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5559f2c4-a0c2-4fe8-bbe9-61ba2f301aa7"
+        },
+        "4": {
             "varname": "nextcloud_enterprise_no_perfdata",
             "caption": "Nextcloud Enterprise: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -111,7 +167,7 @@
             "settings": {},
             "uuid": "f715aafc-a5aa-4912-b270-60e8dd86d0c9"
         },
-        "3": {
+        "5": {
             "varname": "nextcloud_enterprise_path",
             "caption": "Nextcloud Enterprise: Path",
             "description": "Local path to the Nextcloud installation, typically the web server document root.",
@@ -121,6 +177,28 @@
                 "visibility": "visible"
             },
             "uuid": "424ef281-469f-4ab9-bc57-993c2ac193c8"
+        },
+        "6": {
+            "varname": "nextcloud_enterprise_timeout",
+            "caption": "Nextcloud Enterprise: Timeout",
+            "description": "Timeout in seconds for a single Nextcloud command.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1cf60361-d881-40b0-8f66-93f99a32f890"
+        },
+        "7": {
+            "varname": "nextcloud_enterprise_warning",
+            "caption": "Nextcloud Enterprise: Warning",
+            "description": "WARN threshold for the number of accounts the subscription has to cover. Supports Nagios ranges. Evaluated whenever it is given. When omitted, it is evaluated only on an instance that declares no account limit of its own, because a declared limit is compared against the account count anyway. The default covers the smallest Nextcloud subscription, which stops short of 150 accounts. Default: @150:",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "aed8f76e-c2bd-4e07-a7f0-1729fd50f447"
         }
     }
 }
