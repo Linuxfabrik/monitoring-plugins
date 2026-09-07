@@ -7,13 +7,13 @@ Checks the installed Python version against the endoflife.date API and alerts if
 
 **Important Notes:**
 
-* Must run on the server where Python is installed
+* The check must run locally on the host where Python is installed because it runs the Python binary to read its version.
 
 **Data Collection:**
 
-* Executes `python3 --version` locally to determine the installed version
-* Queries the endoflife.date API to get the EOL date and latest available releases
-* Caches the API response in a local SQLite database to avoid excessive requests
+* Runs `python3 --version` to read the installed Python version (default: `/usr/bin/python3`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/python.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

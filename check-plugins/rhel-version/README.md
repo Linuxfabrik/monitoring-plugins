@@ -3,18 +3,19 @@
 
 ## Overview
 
-Checks the installed Red Hat Enterprise Linux version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
+Checks the installed Red Hat Enterprise Linux version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
 **Important Notes:**
 
-* Also works for Alma, CentOS, CentOS Stream, Oracle, Rocky, etc., but reports the EOL date for RHEL
-* On Fedora Workstation or Fedora Server, use <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/fedora-version>
+* The check must run locally on the server because it reads the version from the local system.
+* It also works on Alma, CentOS, CentOS Stream, Oracle, Rocky and the other rebuilds, but reports the end-of-life date of RHEL.
+* On Fedora Workstation or Fedora Server, use [fedora-version](https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fedora-version/) instead.
 
 **Data Collection:**
 
-* Reads the installed version from the local OS distribution facts
-* Queries the endoflife.date API (<https://endoflife.date/api/rhel.json>) and caches the result in a local SQLite database
-* Must run on the RHEL server itself
+* Reads the installed version from the local distribution facts
+* Compares against the [endoflife.date API](https://endoflife.date/api/rhel.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

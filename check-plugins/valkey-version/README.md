@@ -3,17 +3,18 @@
 
 ## Overview
 
-Checks the installed Valkey version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available. The check must run on the Valkey server itself, as it uses `valkey-server --version` to determine the installed version.
+Checks the installed Valkey version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
 **Important Notes:**
 
-* Tested with Valkey 7.2 and 8.0
+* The check must run locally on the Valkey server because it runs the Valkey binary to read its version.
+* Verified against Valkey 7.2 and 8.0.
 
 **Data Collection:**
 
-* Executes `valkey-server --version` locally to determine the installed version
-* Queries the [endoflife.date API](https://endoflife.date/api/valkey.json) to fetch EOL dates and latest available versions
-* Caches API responses in a SQLite database to reduce network calls
+* Runs `valkey-server --version` to read the installed Valkey version (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/valkey.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

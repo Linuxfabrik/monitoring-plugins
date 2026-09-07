@@ -7,18 +7,18 @@ Checks the installed Apache Tomcat version against the endoflife.date API and al
 
 **Important Notes:**
 
-* Must run on the Tomcat server itself to detect the installed version
+* The check must run locally on the Tomcat server because it reads the version from the installation directory.
 * Point `--catalina-home` at the Tomcat installation directory (CATALINA_HOME). The location depends on how Tomcat was installed:
+
     * `/usr/share/tomcat` on Red Hat family packages (default)
     * `/usr/share/tomcat10`, `/usr/share/tomcat9` and similar on Debian/Ubuntu packages (the path carries the major version)
     * the unpacked directory (often `/opt/tomcat`) for the upstream binary distribution
 
 **Data Collection:**
 
-* Detects the installed Apache Tomcat version by running `bin/version.sh`, which ships with the upstream distribution and the official container images
-* Falls back to reading the version from `lib/catalina.jar` when `bin/version.sh` is absent, which is the case for Red Hat family packages
-* Queries the [endoflife.date API](https://endoflife.date/api/tomcat.json) to determine EOL status and available releases
-* Caches the API response in a local SQLite database to reduce network calls
+* Runs `bin/version.sh` below `--catalina-home` to read the installed Apache Tomcat version, and falls back to `lib/catalina.jar` where that script is absent, which is the case for Red Hat family packages
+* Compares against the [endoflife.date API](https://endoflife.date/api/tomcat.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

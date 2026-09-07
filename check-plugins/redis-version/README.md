@@ -3,13 +3,17 @@
 
 ## Overview
 
-Checks the installed Redis version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
+Checks the installed Redis version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
+
+**Important Notes:**
+
+* The check must run locally on the Redis server because it runs the Redis binary to read its version.
 
 **Data Collection:**
 
-* Runs `redis-server --version` locally to determine the installed version
-* Queries the endoflife.date API (<https://endoflife.date/api/redis.json>) and caches the result in a local SQLite database
-* Must run on the Redis server itself
+* Runs `redis-server --version` to read the installed Redis version (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/redis.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

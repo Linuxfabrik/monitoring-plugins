@@ -7,13 +7,13 @@ Checks the installed Apache Solr version against the endoflife.date API and aler
 
 **Important Notes:**
 
-* Must run on the Apache Solr server itself to detect the installed version
+* The check must run locally on the Apache Solr server because it runs the Solr binary to read its version.
 
 **Data Collection:**
 
-* Detects the installed Apache Solr version by running `<path> version` (default path: `/opt/solr/bin/solr`)
-* Queries the [endoflife.date API](https://endoflife.date/api/solr.json) to determine EOL status and available releases
-* Caches the API response in a local SQLite database to reduce network calls
+* Runs `solr version` to read the installed Apache Solr version (default: `/opt/solr/bin/solr`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/solr.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

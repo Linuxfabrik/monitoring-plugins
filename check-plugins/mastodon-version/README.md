@@ -3,18 +3,18 @@
 
 ## Overview
 
-Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
+Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Requires root or sudo.
 
 **Important Notes:**
 
-* Requires root or sudo to access the Mastodon installation directory
-* Does not use the `tootctl` command (which requires a working Ruby environment and extra environment variables), but instead parses the Docker Compose file directly
+* The check must run locally on the Mastodon server because it reads the version from the installation directory.
+* It does not call `tootctl`, which needs a working Ruby environment and extra environment variables that a monitoring agent does not have.
 
 **Data Collection:**
 
-* Reads the Mastodon version from `docker-compose.yml` in the local installation directory (default: `/home/mastodon/live/docker-compose.yml`)
-* Compares the installed version against the [endoflife.date API](https://endoflife.date/api/mastodon.json) to determine EOL status and available updates
-* Uses SQLite to cache API responses between runs
+* Reads the installed Mastodon version from `live/docker-compose.yml` in the installation directory (default: `/home/mastodon`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/mastodon.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -7,13 +7,13 @@ Checks the installed Graylog version against the endoflife.date API and alerts i
 
 **Important Notes:**
 
-* The check must run locally on the Graylog server because it queries the local package manager for the installed version.
+* The check must run locally on the Graylog server because it asks the local package manager for the installed version.
 
 **Data Collection:**
 
-* Determines the installed Graylog version from the package manager (`yum` on RHEL, `dpkg` on Debian)
+* Reads the installed Graylog version from the package manager (`yum` on the Red Hat family, `dpkg` on the Debian family)
 * Compares against the [endoflife.date API](https://endoflife.date/api/graylog.json) to determine EOL status and available updates
-* Caches API responses locally for 24 hours to reduce external requests
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

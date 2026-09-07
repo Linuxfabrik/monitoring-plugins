@@ -3,17 +3,17 @@
 
 ## Overview
 
-Checks whether the installed Moodle version is end-of-life (EOL) by comparing the local version against the endoflife.date API. Optionally alerts on available major, minor, or patch releases (each independently configurable).
+Checks the installed Moodle version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
 **Important Notes:**
 
-* Requires local file system access to the Moodle installation directory
+* The check must run locally on the Moodle server because it reads the version from the installation directory.
 
 **Data Collection:**
 
-* Reads the installed Moodle version from `version.php` in the local Moodle installation directory (default: `/var/www/html/moodle`)
-* Queries the endoflife.date API for the latest EOL and release information
-* Caches API responses in a local SQLite database to reduce network calls
+* Reads the installed Moodle version from `version.php` in the installation directory (default: `/var/www/html/moodle`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/moodle.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

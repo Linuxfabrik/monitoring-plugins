@@ -7,14 +7,14 @@ Checks the installed Apache httpd version against the endoflife.date API and ale
 
 **Important Notes:**
 
-* Runs on all systems where the Apache binary is named either `httpd` or `apache2`
-* Must run on the Apache httpd server itself to detect the installed version
+* The check must run locally on the Apache httpd server because it runs the Apache binary to read its version.
+* Both `httpd` and `apache2` are tried, so the check runs unconfigured on the Red Hat and the Debian family alike.
 
 **Data Collection:**
 
-* Detects the installed Apache httpd version by running `httpd -v` (RHEL) or `apache2 -v` (Debian-based systems)
-* Queries the [endoflife.date API](https://endoflife.date/api/apache-http-server.json) to determine EOL status and available releases
-* Caches the API response in a local SQLite database to reduce network calls
+* Runs `httpd -v` or `apache2 -v` to read the installed Apache httpd version (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/apache-http-server.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

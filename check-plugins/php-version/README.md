@@ -7,13 +7,13 @@ Checks the installed PHP version against the endoflife.date API and alerts if th
 
 **Important Notes:**
 
-* Must run on the PHP server itself
+* The check must run locally on the PHP host because it runs the PHP binary to read its version.
 
 **Data Collection:**
 
-* Executes `php --version` locally to determine the installed version
-* Queries the endoflife.date API to get the EOL date and latest available releases
-* Caches the API response in a local SQLite database to avoid excessive requests
+* Runs `php --version` to read the installed PHP version (default: `/usr/bin/php`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/php.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -7,13 +7,13 @@ Checks the installed Grafana version against the endoflife.date API and alerts i
 
 **Important Notes:**
 
-* The check must run locally on the Grafana server because it executes `grafana-server -v` to determine the installed version.
+* The check must run locally on the Grafana server because it runs the Grafana binary to read its version.
 
 **Data Collection:**
 
-* Determines the installed Grafana version by executing `grafana-server -v`
+* Runs `grafana-server -v` to read the installed Grafana version (configurable via `--path`)
 * Compares against the [endoflife.date API](https://endoflife.date/api/grafana.json) to determine EOL status and available updates
-* Caches API responses locally for 24 hours to reduce external requests
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

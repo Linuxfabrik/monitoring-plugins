@@ -3,18 +3,18 @@
 
 ## Overview
 
-Checks the installed Rocket.Chat version against the endoflife.date API and alerts if the version is end-of-life or if newer releases are available.
+Checks the installed Rocket.Chat version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
 **Important Notes:**
 
-* Requires a Rocket.Chat user with a strong password and the `view-statistics` permission (only)
-* See [Creating an API user account to monitor Rocket.Chat](https://linuxfabrik.github.io/monitoring-plugins/plugins-rocketchat/)
+* The check reaches Rocket.Chat over the network, so it needs a Rocket.Chat user with a strong password and the `view-statistics` permission, and nothing else.
+* See [Creating an API user account to monitor Rocket.Chat](https://linuxfabrik.github.io/monitoring-plugins/plugins-rocketchat/) for setting up that account.
 
 **Data Collection:**
 
-* Authenticates against the Rocket.Chat REST API and reads the installed version from the statistics endpoint
-* Supports Rocket.Chat versions before and after 3.0.0 (different API response formats)
-* Queries the endoflife.date API (<https://endoflife.date/api/rocket-chat.json>) and caches the result in a local SQLite database
+* Reads the installed version from the statistics endpoint of the Rocket.Chat REST API, in the response format of Rocket.Chat before and after 3.0.0
+* Compares against the [endoflife.date API](https://endoflife.date/api/rocket-chat.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

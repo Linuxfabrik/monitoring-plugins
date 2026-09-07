@@ -7,13 +7,13 @@ Checks the installed MySQL/MariaDB version against the endoflife.date API and al
 
 **Important Notes:**
 
-* Must run on the MySQL/MariaDB server itself to detect the installed version
+* The check must run locally on the MySQL or MariaDB server because it runs the server binary to read its version.
 
 **Data Collection:**
 
-* Detects the installed version by running `mysqld --version`, `mariadb --version`, or `mysql --version`
-* Queries the [endoflife.date API](https://endoflife.date/) for MySQL or MariaDB lifecycle data
-* Caches the API response in a local SQLite database to reduce API calls
+* Runs `mysqld --version`, `mariadbd --version`, `mariadb --version` or `mysql --version`, whichever answers first, to read the installed version
+* Compares against the [endoflife.date API](https://endoflife.date/api/mariadb.json) for MariaDB and the [endoflife.date API](https://endoflife.date/api/mysql.json) for MySQL to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

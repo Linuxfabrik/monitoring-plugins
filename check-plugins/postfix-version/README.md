@@ -7,13 +7,13 @@ Checks the installed Postfix version against the endoflife.date API and alerts i
 
 **Important Notes:**
 
-* Must run on the Postfix server itself
+* The check must run locally on the Postfix server because it runs `postconf` to read the installed version.
 
 **Data Collection:**
 
-* Executes `postconf -d mail_version` locally to determine the installed version
-* Queries the endoflife.date API to get the EOL date and latest available releases
-* Caches the API response in a local SQLite database to avoid excessive requests
+* Runs `postconf -d mail_version` to read the installed Postfix version (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/postfix.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -7,13 +7,13 @@ Checks the installed Red Hat OpenJDK version against the endoflife.date API and 
 
 **Important Notes:**
 
-* The check must run on the Java server itself to detect the installed version
+* The check must run locally on the Java server because it runs the Java binary to read its version.
 
 **Data Collection:**
 
-* Executes `java -version` (at the configured `--path`) to determine the installed version
-* Queries the endoflife.date API at `https://endoflife.date/api/redhat-build-of-openjdk.json` to compare against known EOL dates and available releases
-* Caches the API response in a local SQLite database to reduce network requests
+* Runs `java -version` to read the installed Red Hat OpenJDK version (default: `/usr/bin/java`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/redhat-build-of-openjdk.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

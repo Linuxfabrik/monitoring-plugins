@@ -7,13 +7,13 @@ Checks the installed OpenVPN version against the endoflife.date API and alerts i
 
 **Important Notes:**
 
-* The check must run on the machine running OpenVPN itself to detect the installed version
+* The check must run locally on the OpenVPN host because it runs the OpenVPN binary to read its version.
 
 **Data Collection:**
 
-* Executes `openvpn --version` (at the configured `--path`) to determine the installed version
-* Queries the endoflife.date API at `https://endoflife.date/api/openvpn.json` to compare against known EOL dates and available releases
-* Caches the API response in a local SQLite database to reduce network requests
+* Runs `openvpn --version` to read the installed OpenVPN version (default: `/usr/sbin/openvpn`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/openvpn.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

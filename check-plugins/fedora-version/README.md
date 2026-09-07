@@ -7,14 +7,13 @@ Checks the installed Fedora version against the endoflife.date API and alerts if
 
 **Important Notes:**
 
-* The `--offset-eol` parameter accepts negative values (e.g. `-30`) to alert *before* the EOL date, and positive values (e.g. `30` or `+30`) to alert *after* the EOL date
-* The `--check-major`, `--check-minor`, and `--check-patch` options each independently trigger a WARN when a newer release of the respective type is available, even if the installed version is not yet EOL
+* The check must run locally on the Fedora host because it reads the version from the local system.
 
 **Data Collection:**
 
-* Reads the installed Fedora version from the local system via `/etc/os-release`
-* Queries the [endoflife.date](https://endoflife.date) API to determine the EOL date and available releases
-* Caches the API response in a local SQLite database to avoid repeated network requests
+* Reads the installed Fedora version from the local distribution facts
+* Compares against the [endoflife.date API](https://endoflife.date/api/fedora.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

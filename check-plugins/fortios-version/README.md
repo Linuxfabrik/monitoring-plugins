@@ -7,13 +7,13 @@ Checks the installed FortiOS version against the endoflife.date API and alerts i
 
 **Important Notes:**
 
-* FortiGate appliances running FortiOS with REST API enabled
+* The check reaches a FortiGate appliance over the network, so it needs the FortiOS REST API enabled and an API token, which it passes as `--password`.
 
 **Data Collection:**
 
-* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/firmware/` to determine the installed version
-* Compares the installed version against the endoflife.date API (`https://endoflife.date/api/fortios.json`) to determine EOL status and available updates
-* Caches the endoflife.date API response in a local SQLite database (`$TEMP/linuxfabrik-lib-version.db`)
+* Queries the FortiOS REST API endpoint `/api/v2/monitor/system/firmware/` to read the installed version
+* Compares against the [endoflife.date API](https://endoflife.date/api/fortios.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -5,11 +5,15 @@
 
 Checks the installed Matomo version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
+**Important Notes:**
+
+* The check must run locally on the Matomo server because it reads the version from the installation directory.
+
 **Data Collection:**
 
-* Reads the installed Matomo version from `core/Version.php` in the local installation directory (default: `/var/www/html/matomo`)
-* Compares the installed version against the [endoflife.date API](https://endoflife.date/api/matomo.json) to determine EOL status and available updates
-* Uses SQLite to cache API responses between runs
+* Reads the installed Matomo version from `core/Version.php` in the installation directory (default: `/var/www/html/matomo`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/matomo.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -7,14 +7,13 @@ Checks the installed Composer version against the endoflife.date API and alerts 
 
 **Important Notes:**
 
-* The check must run on the machine where Composer is installed
-* Optionally alerts on available major, minor, or patch releases independently of EOL status via `--check-major`, `--check-minor`, and `--check-patch`
+* The check must run locally on the host where Composer is installed because it runs the Composer binary to read its version.
 
 **Data Collection:**
 
-* Runs `composer --version` at the configured `--path` (default: `/usr/bin/composer`) to determine the installed version
-* Queries the endoflife.date API (`https://endoflife.date/api/composer.json`) for lifecycle data
-* Caches API responses locally in an SQLite database to reduce network requests
+* Runs `composer --version` to read the installed Composer version (default: `/usr/bin/composer`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/composer.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

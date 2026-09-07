@@ -7,13 +7,13 @@ Checks the installed PostgreSQL version against the endoflife.date API and alert
 
 **Important Notes:**
 
-* Must run on the PostgreSQL server itself
+* The check must run locally on the PostgreSQL server because it queries the running server for its version.
 
 **Data Collection:**
 
-* Executes `psql --username=<user> --command="SELECT version();"` locally to determine the installed version
-* Queries the endoflife.date API to get the EOL date and latest available releases
-* Caches the API response in a local SQLite database to avoid excessive requests
+* Runs `psql --username=<user> --command="SELECT version();"` to read the installed PostgreSQL version (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/postgresql.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -3,21 +3,21 @@
 
 ## Overview
 
-Checks the installed Keycloak version against the endoflife.date API and alerts if the version is end-of-life (EOL) or if newer major, minor, or patch releases are available. By default, the check alerts 30 days before the official EOL date. The offset is configurable via `--offset-eol`.
+Checks the installed Keycloak version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable.
 
 **Important Notes:**
 
-* Verified against Keycloak 17 to 26
-* All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`
-* See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials (only needed if `version.txt` is not available).
-* On that fallback path the account needs the client role `manage-realm` of the `master-realm` client. Keycloak 26.7 and later report the `systemInfo` section of `/admin/serverinfo` only to an account holding that role
+* Verified against Keycloak 17 to 26.
+* All API paths are relative to `--url`. An instance that serves below a context path (Keycloak 16 and older by default, or a Quarkus instance started with `--http-relative-path=/auth`) needs that path in `--url`, for example `--url=http://127.0.0.1:8080/auth`.
+* See [Creating an API user account to monitor Keycloak](https://linuxfabrik.github.io/monitoring-plugins/plugins-keycloak/) for setting up the required API credentials, which are only needed where `version.txt` is not available.
+* On that fallback path the account needs the client role `manage-realm` of the `master-realm` client. Keycloak 26.7 and later report the `systemInfo` section of `/admin/serverinfo` only to an account holding that role.
 
 **Data Collection:**
 
-* Determines the installed Keycloak version by first trying to read `version.txt` from the local installation directory (`--path`, default: `/opt/keycloak`)
-* If the file is not found, falls back to querying the Keycloak Admin REST API at `/admin/serverinfo` (requires `--username`, `--password`, and `--url`)
-* Compares the installed version against the endoflife.date API (`https://endoflife.date/api/keycloak.json`)
-* Caches the endoflife.date response in a local SQLite database to reduce API calls
+* Reads the installed Keycloak version from `version.txt` in the installation directory (default: `/opt/keycloak`, configurable via `--path`)
+* Falls back to the Keycloak Admin REST API at `/admin/serverinfo` where that file is absent, which needs `--url`, `--username` and `--password`
+* Compares against the [endoflife.date API](https://endoflife.date/api/keycloak.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

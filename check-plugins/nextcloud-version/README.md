@@ -7,14 +7,14 @@ Checks the installed Nextcloud version against the endoflife.date API and alerts
 
 **Important Notes:**
 
-* Must run on the Nextcloud server itself to access the installation directory
+* The check must run locally on the Nextcloud server because it reads the version from the installation directory.
+* It calls `occ` through sudo as the account the Nextcloud application runs under, so the monitoring user needs the matching sudoers entry.
 
 **Data Collection:**
 
-* Requires sudo permissions for the UID under which the Nextcloud application runs
-* Runs Nextcloud `occ config:list` via sudo to determine the installed version
-* Queries the [endoflife.date API](https://endoflife.date/) for Nextcloud lifecycle data
-* Caches the API response in a local SQLite database to reduce API calls
+* Runs Nextcloud `occ config:list` through sudo to read the installed version (default: `/var/www/html/nextcloud`, configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/nextcloud.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet

@@ -7,14 +7,13 @@ Checks the installed Icinga version against the endoflife.date API and alerts if
 
 **Important Notes:**
 
-* Must run on the host where the Icinga 2 daemon is installed
-* The check returns UNKNOWN if the `icinga2` binary is not found on the system
+* The check must run locally on the host where the Icinga 2 daemon is installed because it runs the `icinga2` binary to read its version.
 
 **Data Collection:**
 
-* Runs `icinga2 --version` locally to determine the installed version
-* Queries the endoflife.date API (`https://endoflife.date/api/icinga.json`) for EOL and release information
-* Caches API responses in a SQLite database to avoid repeated requests
+* Runs `icinga2 --version` to read the installed Icinga version (configurable via `--path`)
+* Compares against the [endoflife.date API](https://endoflife.date/api/icinga.json) to determine EOL status and available updates
+* Caches endoflife.date responses locally for 24 hours to reduce external requests
 
 
 ## Fact Sheet
