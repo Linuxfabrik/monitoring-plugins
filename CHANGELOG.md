@@ -51,6 +51,7 @@ Monitoring Plugins:
 * lvm-volumes: an LVM logical volume that is incomplete, degraded or not active
 * md-raid: a software RAID array losing redundancy or reporting inconsistent sectors
 * memory-paging: a host paging to and from swap
+* metabase-version: a Metabase running out of support, and a newer release
 * multipath: a LUN losing a path, or a map losing all of them
 * nfs-exports: an NFS server not serving an export it is configured for
 * nfs-mounts: an NFS mount going stale or no longer answering

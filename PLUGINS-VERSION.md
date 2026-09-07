@@ -9,7 +9,7 @@ once here rather than in every README.
 
 ## endoflife.date-based Version Plugins
 
-These 28 plugins share the same verdict logic. Each one reads the installed
+These 29 plugins share the same verdict logic. Each one reads the installed
 version its own way and hands it to the same routine, so everything below
 applies to all of them:
 
@@ -29,6 +29,7 @@ applies to all of them:
 | `mastodon-version` | [mastodon](https://endoflife.date/mastodon) |
 | `matomo-version` | [matomo](https://endoflife.date/matomo) |
 | `mediawiki-version` | [mediawiki](https://endoflife.date/mediawiki) |
+| `metabase-version` | [metabase](https://endoflife.date/metabase) |
 | `moodle-version` | [moodle](https://endoflife.date/moodle) |
 | `mysql-version` | [mariadb](https://endoflife.date/mariadb), [mysql](https://endoflife.date/mysql) |
 | `nextcloud-version` | [nextcloud](https://endoflife.date/nextcloud) |

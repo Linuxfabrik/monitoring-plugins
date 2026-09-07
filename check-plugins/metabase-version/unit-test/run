@@ -1,0 +1,265 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the metabase-version check plugin.
+
+The check reads `version.properties` out of the Metabase jar, so it has two layers and
+two hooks, the way `check-plugins/deb-versionlock` has one per layer:
+
+    --test    stands in for the contents of version.properties, so `stdout/` drives
+              every version shape the file can carry
+    --path    opens a real archive, so the jar layer is exercised with jars
+
+Every `stdout/` fixture whose name carries a version is the `version.properties` of the
+released metabase.jar of that version, captured on 2026-09-07:
+
+    oss-0.58.24                the release the check was written against
+    oss-0.63.16.6              a hotfix release, four version parts instead of three
+    enterprise-1.58.24         the same release, Enterprise Edition
+    enterprise-1.63.16.6       the same hotfix, Enterprise Edition
+    oss-0.47.13-with-branch    an older jar that carries an extra `branch=` line
+
+Each Enterprise fixture shares its `hash=` and `date=` with its open-source counterpart,
+which is what the digit in front of the version means: 0 for the open-source edition,
+1 for the Enterprise Edition, the same release behind it. The remaining fixtures are
+shapes a released jar does not have and the check still has to survive.
+
+The jar cases build their archives into a throwaway directory rather than committing
+them, because a zip embeds a timestamp and would change on every rebuild. `fixtures/`
+holds the one file that has to be committed as it is: a `--path` target that is not an
+archive at all.
+
+The testcases assert the parsed version and nothing else. The end-of-life half is
+not tested here: `lib.version.check_eol()` is the same code in every `*-version`
+plugin, and a verdict it derives from live endoflife.date data and today's date
+cannot be pinned without breaking as soon as upstream re-dates a cycle or a date
+passes. It is covered twice without the network instead, and that is where a case
+belongs: against synthetic cycles in the lib repo (`tests/version/unit-test/run`),
+and against every answer shape the API returns in
+`check-plugins/mysql-version/unit-test/run`, whose fixtures sit next to it in
+`endoflifedate/`.
+
+What is pinned here is the license digit the check strips before that lookup, because
+getting it wrong is silent: endoflife.date catalogues the open-source cycles only, so an
+Enterprise version handed over unchanged sits above every cycle listed and reports
+"newer than anything endoflife.date lists" forever. `TestReleaseVersion` asserts the
+mapping directly, without the network.
+"""
+
+import importlib.machinery
+import importlib.util
+import os
+import shutil
+import sys
+import tempfile
+import unittest
+import zipfile
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_UNKNOWN
+
+CHECK = '../metabase-version'
+TMPDIR = tempfile.mkdtemp(prefix='lfmp-metabase-version-')
+
+
+def build_jars():
+    """Pack the jars the `--path` testcases open.
+
+    ### Returns
+    - **dict**:
+      Scenario name to the path of the jar built for it.
+    """
+    jars = {}
+
+    # A jar as Metabase ships it, which is what the ordinary run opens.
+    jars['released'] = os.path.join(TMPDIR, 'released.jar')
+    with zipfile.ZipFile(jars['released'], 'w') as jar:
+        jar.write(os.path.join('stdout', 'oss-0.58.24'), 'version.properties')
+
+    # A jar carrying no version.properties at all. That is what Metabase built straight
+    # from a source checkout looks like, and it is also every other jar on the host that
+    # --path could be pointed at by mistake.
+    jars['without-version-properties'] = os.path.join(
+        TMPDIR, 'without-version-properties.jar'
+    )
+    with zipfile.ZipFile(jars['without-version-properties'], 'w') as jar:
+        jar.writestr('META-INF/MANIFEST.MF', 'Manifest-Version: 1.0\n')
+
+    # A version.properties far larger than the handful of lines a real one holds. The
+    # check refuses it instead of pulling it into memory.
+    jars['oversized-version-properties'] = os.path.join(
+        TMPDIR, 'oversized-version-properties.jar'
+    )
+    with zipfile.ZipFile(
+        jars['oversized-version-properties'], 'w', zipfile.ZIP_DEFLATED
+    ) as jar:
+        jar.writestr('version.properties', 'tag=v0.58.24\n' + 'x' * 128 * 1024)
+
+    return jars
+
+
+JARS = build_jars()
+
+
+def tearDownModule():
+    shutil.rmtree(TMPDIR, ignore_errors=True)
+
+
+TESTS = [
+    # The version shapes, driven through --test.
+    #
+    # A released open-source jar, which is the ordinary case.
+    {
+        'id': 'parses-oss-0-58-24',
+        'test': 'stdout/oss-0.58.24,,0',
+        'assert-in': ['Metabase v0.58.24'],
+    },
+    # A hotfix release carries a fourth version part.
+    {
+        'id': 'parses-oss-hotfix-0-63-16-6',
+        'test': 'stdout/oss-0.63.16.6,,0',
+        'assert-in': ['Metabase v0.63.16.6'],
+    },
+    # The Enterprise Edition reports the release it really runs, license digit included.
+    {
+        'id': 'parses-enterprise-1-58-24',
+        'test': 'stdout/enterprise-1.58.24,,0',
+        'assert-in': ['Metabase v1.58.24'],
+    },
+    {
+        'id': 'parses-enterprise-hotfix-1-63-16-6',
+        'test': 'stdout/enterprise-1.63.16.6,,0',
+        'assert-in': ['Metabase v1.63.16.6'],
+    },
+    # An older jar puts a `branch=` line between `hash=` and `date=`, so the file is
+    # read by key and never by line position.
+    {
+        'id': 'parses-oss-0-47-13-with-branch-line',
+        'test': 'stdout/oss-0.47.13-with-branch,,0',
+        'assert-in': ['Metabase v0.47.13'],
+    },
+    # A jar built off a branch names the release it will become, with a suffix that
+    # carries nothing for us.
+    {
+        'id': 'parses-snapshot-0-59-0',
+        'test': 'stdout/snapshot-0.59.0,,0',
+        'assert-in': ['Metabase v0.59.0'],
+    },
+    # A build from a source checkout has no release at all. Reporting it as a version
+    # would put a number on the dashboard that upstream never shipped.
+    {
+        'id': 'unknown-local-dev-build',
+        'test': 'stdout/local-dev-without-release,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['names no release', '--path'],
+    },
+    {
+        'id': 'unknown-version-properties-without-tag',
+        'test': 'stdout/without-tag,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['names no release', '--path'],
+    },
+    # A truncated version.properties, which carries no release either.
+    {
+        'id': 'unknown-empty-version-properties',
+        'test': 'stdout/empty-file,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['names no release', '--path'],
+    },
+    # The jar layer, driven through --path. No --test here, or the archive would never
+    # be opened.
+    {
+        'id': 'parses-a-released-jar',
+        'test': '',
+        'params': f'--path={JARS["released"]}',
+        'assert-in': ['Metabase v0.58.24'],
+    },
+    # A jar, but not Metabase's.
+    {
+        'id': 'unknown-jar-without-version-properties',
+        'test': '',
+        'params': f'--path={JARS["without-version-properties"]}',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['carries no `version.properties`', '--path'],
+    },
+    {
+        'id': 'unknown-oversized-version-properties',
+        'test': '',
+        'params': f'--path={JARS["oversized-version-properties"]}',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['does not look like a Metabase jar', '--path'],
+    },
+    # Not an archive at all.
+    {
+        'id': 'unknown-path-is-not-a-jar',
+        'test': '',
+        'params': '--path=fixtures/not-a-jar',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read', 'not a zip file'],
+    },
+    {
+        'id': 'unknown-path-does-not-exist',
+        'test': '',
+        'params': '--path=fixtures/no-such-metabase.jar',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Metabase not found', '--path'],
+    },
+    {
+        'id': 'unknown-path-is-a-directory',
+        'test': '',
+        'params': '--path=fixtures',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read'],
+    },
+    {
+        'id': 'unknown-path-is-empty',
+        'test': '',
+        'params': '--path=',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Metabase not found', '--path'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = CHECK
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestReleaseVersion(unittest.TestCase):
+    """The license digit the check strips before it asks endoflife.date."""
+
+    @classmethod
+    def setUpClass(cls):
+        loader = importlib.machinery.SourceFileLoader('metabase_version', CHECK)
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        cls.plugin = importlib.util.module_from_spec(spec)
+        loader.exec_module(cls.plugin)
+
+    def test_enterprise_maps_to_the_open_source_cycle(self):
+        self.assertEqual(self.plugin.to_release_version('1.58.24'), '0.58.24')
+        self.assertEqual(self.plugin.to_release_version('1.63.16.6'), '0.63.16.6')
+
+    def test_open_source_is_left_alone(self):
+        self.assertEqual(self.plugin.to_release_version('0.58.24'), '0.58.24')
+        self.assertEqual(self.plugin.to_release_version('0.63.16.6'), '0.63.16.6')
+
+    def test_only_the_leading_digits_are_replaced(self):
+        # A digit anywhere but at the front is part of the release and stays.
+        self.assertEqual(self.plugin.to_release_version('1.1.1'), '0.1.1')
+        self.assertEqual(self.plugin.to_release_version('11.58.24'), '0.58.24')
+
+
+if __name__ == '__main__':
+    unittest.main()
