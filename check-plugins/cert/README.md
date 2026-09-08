@@ -125,7 +125,8 @@ options:
                         one path segment, `**` matches across directories.
                         Always quote the pattern in shells so that the shell
                         does not expand the wildcard before the plugin sees
-                        it. Example: `--filename='/etc/ssl/certs/*.pem'`.
+                        it. Can be specified multiple times. Example:
+                        `--filename='/etc/ssl/certs/*.pem'`.
                         Recursive example:
                         `--filename='/etc/letsencrypt/live/**/cert.pem'`
   -H, --host HOST       Target host to scan. Overrides subnet auto-discovery.

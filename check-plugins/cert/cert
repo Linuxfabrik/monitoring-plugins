@@ -224,9 +224,11 @@ def parse_args():
         'Python conventions: `*` matches one path segment, `**` matches across '
         'directories. Always quote the pattern in shells so that the shell does not '
         'expand the wildcard before the plugin sees it. '
+        'Can be specified multiple times. '
         "Example: `--filename='/etc/ssl/certs/*.pem'`. "
         "Recursive example: `--filename='/etc/letsencrypt/live/**/cert.pem'`",
         dest='FILENAME',
+        action='append',
     )
 
     parser.add_argument(
@@ -1013,39 +1015,41 @@ def get_certs_from_files(args):
     even when they hit private keys or trust bundles. Files that look like certificates
     but fail to parse are reported as a real error so corrupt certs surface clearly.
     """
-    matches = lib.disk.glob(args.FILENAME)
     items = []
-    matched_files = 0
-    for match in matches:
-        if not lib.disk.file_exists(match, allow_empty=True):
-            continue
-        matched_files += 1
-        success, data = lib.disk.read_file(match, binary=True)
-        if not success:
-            return False, f'Cannot read {match}: {data}'
-        if not _looks_like_cert(data):
-            continue
-        try:
-            cert_ders = _load_all_certs(data)
-        except (ValueError, TypeError) as e:
-            return False, f'Cannot parse certificate from {match}: {e}'
-        for cert_der in cert_ders:
-            items.append(
-                {
-                    'cert_der': cert_der,
-                    'chain_verdict': None,
-                    'handshake_seconds': None,
-                    'label': match,
-                    'proxy': None,
-                    'tls_version': None,
-                }
-            )
+    file_patterns = list(args.FILENAME)
+    for file_pattern in file_patterns:
+        matches = lib.disk.glob(file_pattern)
+        matched_files = 0
+        for match in matches:
+            if not lib.disk.file_exists(match, allow_empty=True):
+                continue
+            matched_files += 1
+            success, data = lib.disk.read_file(match, binary=True)
+            if not success:
+                return False, f'Cannot read {match}: {data}'
+            if not _looks_like_cert(data):
+                continue
+            try:
+                cert_ders = _load_all_certs(data)
+            except (ValueError, TypeError) as e:
+                return False, f'Cannot parse certificate from {match}: {e}'
+            for cert_der in cert_ders:
+                items.append(
+                    {
+                        'cert_der': cert_der,
+                        'chain_verdict': None,
+                        'handshake_seconds': None,
+                        'label': match,
+                        'proxy': None,
+                        'tls_version': None,
+                    }
+                )
     if not items:
         if matched_files == 0:
-            return False, f'No files match "{args.FILENAME}"'
+            return False, f'No files match "{", ".join(args.FILENAME)}"'
         return False, (
             f'No parseable certificates among {matched_files} file(s)'
-            f' matching "{args.FILENAME}"'
+            f' matching "{", ".join(args.FILENAME)}"'
         )
     return True, items
 

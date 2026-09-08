@@ -796,6 +796,17 @@ class TestFileSource(unittest.TestCase):
         self.assertEqual(result.returncode, STATE_OK, result.stdout)
         self.assertIn('test.example.com', result.stdout)
 
+    def test_ok_two_file(self):
+        cert_pem1, _ = make_cert('test1.example.com', days_valid=60)
+        path1 = self._write(cert_pem1)
+        cert_pem2, _ = make_cert('test2.example.com', days_valid=60)
+        path2 = self._write(cert_pem2)
+        result = run_plugin('--source', 'file', '--filename', path1, '--filename', path2)
+        self.assertEqual(result.returncode, STATE_OK, result.stdout)
+        self.assertIn('test1.example.com', result.stdout)
+        self.assertIn('test2.example.com', result.stdout)
+        self.assertIn('59d left', result.stdout)
+
     def test_crit_expired_file(self):
         cert_pem, _ = make_cert(
             'test.example.com',
