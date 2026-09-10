@@ -16,14 +16,13 @@ import sys
 
 import lib.args
 import lib.base
-import lib.disk
 import lib.lftest
 import lib.redfish
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026091001'
 
 DESCRIPTION = """Checks the state of all Ethernet interfaces in a Redfish-compatible server via the
 Redfish API. Alerts when any enabled Ethernet interface reports a degraded or failed health state.
@@ -199,7 +198,7 @@ def parse_args():
 
     parser.add_argument(
         '--verbose',
-        help=lib.args.help('--verbose') + ' ' + lib.redfish.TRACE_HELP,
+        help=lib.args.help('--verbose') + ' ' + lib.redfish.VERBOSE_HELP,
         dest='VERBOSE',
         action='store_true',
         default=DEFAULT_VERBOSE,
@@ -207,21 +206,6 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
-
-
-def load_test_fixture(test_args, path):
-    # Replace the first element of args.TEST with the walk-specific
-    # fixture path, read it via lib.lftest.test() and return the parsed
-    # JSON. On a missing file or malformed JSON, exit STATE_UNKNOWN with
-    # a helpful message instead of letting json.loads raise a traceback.
-    if not lib.disk.file_exists(path, allow_empty=True):
-        lib.base.cu(f'Test fixture not found: "{path}".')
-    test_args[0] = path
-    stdout, _, _ = lib.lftest.test(test_args)
-    try:
-        return json.loads(stdout)
-    except (json.JSONDecodeError, ValueError) as e:
-        lib.base.cu(f'Test fixture "{path}" does not contain valid JSON: {e}')
 
 
 def main():
@@ -233,15 +217,15 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # --verbose: write a trace of every Redfish request to a file. A file rather than this
-    # check's output, because a check slow enough to need diagnosing is usually one the
-    # monitoring server terminates for exceeding its timeout, and a terminated check prints
-    # nothing at all.
+    # --verbose: record every Redfish response for the output, where a bug report can pick
+    # them up, and trace every request to a file. A file as well, because a check slow enough
+    # to need diagnosing is usually one the monitoring server terminates for exceeding its
+    # timeout, and a terminated check prints nothing at all.
     if args.VERBOSE:
         success, trace_path = lib.redfish.start_trace()
         if not success:
             lib.base.cu(trace_path)
-        lib.base.verbose(args.VERBOSE, f'Tracing Redfish requests to {trace_path}')
+        lib.redfish.record_responses()
 
     # set default values for append parameters that were not specified
     if args.IGNORE is None:
@@ -258,16 +242,36 @@ def main():
     ]
 
     # fetch data
-    if args.TEST is None:
-        if not args.URL.startswith('http'):
-            lib.base.cu('--url parameter has to start with "http://" or https://".')
-        header = {'Accept': 'application/json'}
-        # cache_expire (seconds) enables the lib fetch layer's shared per-URL cache,
-        # so sibling Redfish checks on this host share one session and each fetch.
-        cache_expire = args.CACHE_EXPIRE * 60
-        header.update(lib.redfish.get_auth_header(args, cache_expire=cache_expire))
-        expand = lib.redfish.get_expand_suffix(
-            args.URL,
+    if args.TEST is not None:
+        # do not call the API, replay the responses a --verbose run recorded instead. The
+        # code below then walks them exactly as it would walk the controller.
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        lib.base.coe(lib.redfish.replay(stdout))
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+    header = {'Accept': 'application/json'}
+    # cache_expire (seconds) enables the lib fetch layer's shared per-URL cache,
+    # so sibling Redfish checks on this host share one session and each fetch.
+    cache_expire = args.CACHE_EXPIRE * 60
+    header.update(lib.redfish.get_auth_header(args, cache_expire=cache_expire))
+    expand = lib.redfish.get_expand_suffix(
+        args.URL,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        timeout=args.TIMEOUT,
+        retries=args.RETRIES,
+        cache_expire=cache_expire,
+    )
+    # Entry point: the Systems collection, read in one request via the Redfish
+    # $expand query and cached by the lib fetch layer so the sibling Redfish
+    # checks on this host reuse it within the cache window.
+    systems_url = f'{args.URL}{API_BASE}/Systems'
+    result = lib.base.coe(
+        lib.redfish.fetch_collection(
+            systems_url,
+            expand=expand,
             header=header,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
@@ -276,30 +280,7 @@ def main():
             retries=args.RETRIES,
             cache_expire=cache_expire,
         )
-        # Entry point: the Systems collection, read in one request via the Redfish
-        # $expand query and cached by the lib fetch layer so the sibling Redfish
-        # checks on this host reuse it within the cache window.
-        systems_url = f'{args.URL}{API_BASE}/Systems'
-        result = lib.base.coe(
-            lib.redfish.fetch_collection(
-                systems_url,
-                expand=expand,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                proxy=args.PROXY,
-                timeout=args.TIMEOUT,
-                retries=args.RETRIES,
-                cache_expire=cache_expire,
-            )
-        )
-    else:
-        # do not call the API, put in test data. Each API call in the
-        # Redfish walk has an explicit fixture suffix, so the fixture
-        # file names describe what they contain (systems, system,
-        # ethernetinterfaces, nic-N).
-        test_base = args.TEST[0]
-        result = load_test_fixture(args.TEST, f'{test_base}-systems')
+    )
     # "Members": [
     #     {
     #         "@odata.id": "/redfish/v1/Systems/437XR1138R2"
@@ -324,25 +305,19 @@ def main():
     # aggregated (see `redfish-systems` for that).
     # fetch_members fills in any systems the controller left as bare references
     # (i.e. when it did not honour $expand on the collection above)
-    if args.TEST is None:
-        system_members = lib.base.coe(
-            lib.redfish.fetch_members(
-                result.get('Members', []),
-                args.URL,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                proxy=args.PROXY,
-                timeout=args.TIMEOUT,
-                retries=args.RETRIES,
-                cache_expire=cache_expire,
-            )
+    system_members = lib.base.coe(
+        lib.redfish.fetch_members(
+            result.get('Members', []),
+            args.URL,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
+            timeout=args.TIMEOUT,
+            retries=args.RETRIES,
+            cache_expire=cache_expire,
         )
-    else:
-        system_members = [
-            load_test_fixture(args.TEST, f'{test_base}-system')
-            for _ in range(len(result.get('Members', [])))
-        ]
+    )
     for systems in system_members:
         systems = lib.redfish.get_systems(systems)
         if systems['Status_State'] not in ['Enabled', 'Quiesced']:
@@ -371,43 +346,37 @@ def main():
         # Redfish $expand query, so a system with many interfaces costs one
         # request instead of one per interface; fetch_members fills in any
         # members the controller left as bare references.
-        if args.TEST is None:
-            # "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces"
-            interfaces = lib.base.coe(
-                lib.redfish.fetch_collection(
-                    lib.base.coe(
-                        lib.redfish.build_url(
-                            args.URL, systems['EthernetInterfaces_@odata.id']
-                        )
-                    ),
-                    header=header,
-                    insecure=args.INSECURE,
-                    no_proxy=args.NO_PROXY,
-                    proxy=args.PROXY,
-                    timeout=args.TIMEOUT,
-                    retries=args.RETRIES,
-                    cache_expire=cache_expire,
-                )
+        # "/redfish/v1/Systems/437XR1138R2/EthernetInterfaces"
+        interfaces = lib.base.coe(
+            lib.redfish.fetch_collection(
+                lib.base.coe(
+                    lib.redfish.build_url(
+                        args.URL, systems['EthernetInterfaces_@odata.id']
+                    )
+                ),
+                expand=expand,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+                retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
-            nic_members = lib.base.coe(
-                lib.redfish.fetch_members(
-                    interfaces.get('Members', []),
-                    args.URL,
-                    header=header,
-                    insecure=args.INSECURE,
-                    no_proxy=args.NO_PROXY,
-                    proxy=args.PROXY,
-                    timeout=args.TIMEOUT,
-                    retries=args.RETRIES,
-                    cache_expire=cache_expire,
-                )
+        )
+        nic_members = lib.base.coe(
+            lib.redfish.fetch_members(
+                interfaces.get('Members', []),
+                args.URL,
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+                retries=args.RETRIES,
+                cache_expire=cache_expire,
             )
-        else:
-            interfaces = load_test_fixture(args.TEST, f'{test_base}-ethernetinterfaces')
-            nic_members = [
-                load_test_fixture(args.TEST, f'{test_base}-nic-{i}')
-                for i in range(len(interfaces.get('Members', [])))
-            ]
+        )
         table_data = []
         for nic_data in nic_members:
             nic_data = lib.redfish.get_systems_ethernetinterfaces(nic_data)
@@ -497,6 +466,9 @@ def main():
         interface_not_ok,
         _min=0,
     )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.redfish.format_responses()
 
     # over and out
     lib.base.oao(

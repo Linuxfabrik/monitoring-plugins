@@ -17,9 +17,10 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
-# The plugin appends `-managers` (Managers collection) and `-manager` (member)
-# to the --test path as it walks the Redfish API. Each scenario therefore
-# requires the matching fixture files.
+# Each fixture in stdout/ is the output of a `--verbose` run: one `### GET <path>` block per
+# Redfish response the plugin evaluated. lib.redfish.replay() answers every request of the
+# walk from these blocks, so a scenario is a single file, it may hold any number of members,
+# and the output a user attaches to a bug report can be used as a fixture as it is.
 COMMON = '--url=https://example.com'
 
 TESTS = [
@@ -56,13 +57,22 @@ TESTS = [
         'assert-in': ['"manager":', '"FirmwareVersion":'],
     },
     {
+        # --verbose appends every Redfish response the check evaluated, in the form a
+        # fixture takes, so the output of a reported run can be replayed as a test.
+        'id': 'ok-verbose-appends-responses',
+        'test': 'stdout/healthy-managers,,0',
+        'params': f'{COMMON} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': ['### GET /redfish/v1/Managers'],
+    },
+    {
         # A missing fixture must surface as STATE_UNKNOWN with a
         # readable message, not as a Python traceback.
         'id': 'unknown-missing-fixture',
         'test': 'stdout/does-not-exist,,0',
         'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
-        'assert-in': ['Test fixture not found'],
+        'assert-in': ['Found no recorded Redfish responses to replay.'],
     },
 ]
 

@@ -148,7 +148,8 @@ Monitoring Plugins:
 * needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
 * nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
-* redfish-\*: recover on their own after a management controller drops its sessions, and log in far less often ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372))
+* redfish-\*: recover on their own after a management controller drops its sessions, log in far less often, and ask it for a fraction of the data they used to ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372), [#1507](https://github.com/Linuxfabrik/monitoring-plugins/issues/1507))
+* redfish-logservices: evaluates the System Event Log of Avigilon servers instead of always reporting OK
 * rpm-updates: an update that only bumps the release behind the distribution tag no longer shows the installed version as the one to upgrade to, and two runs at the same time no longer report each other's rows
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
 * whmcs-status: no longer calls an installation healthy when WHMCS answered with no health check at all, and survives an unexpected answer

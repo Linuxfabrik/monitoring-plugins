@@ -112,13 +112,19 @@ options:
   --username USERNAME   Redfish API username.
   --verbose             Makes this plugin verbose during the operation. Useful
                         for debugging and seeing what is going on under the
-                        hood. For this check that also writes a trace of every
+                        hood. For this check that also appends every Redfish
+                        response it evaluated to its output, ready to be
+                        attached to a bug report, and writes a trace of every
                         Redfish request, with timings, to linuxfabrik-
                         monitoring-plugins-redfish-trace.log below the
                         temporary directory. Unlike this check's output, the
                         trace survives a check that the monitoring server
                         terminates for exceeding its timeout, which is what
                         makes it useful against a slow management controller.
+                        Passwords and session tokens are kept out of both. The
+                        output grows with the responses, so keep this switched
+                        on in a service definition only while chasing a
+                        problem.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/redfish-firmwareinventory/
@@ -179,7 +185,7 @@ podman stop lfmp-redfish-mock
 
 Use `http://127.0.0.1:5000` rather than `http://localhost:5000`, because `localhost` may resolve to IPv6 (`::1`) while the published container port is bound to IPv4.
 
-The fixtures under [`unit-test/stdout/`](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-firmwareinventory/unit-test/stdout) were captured from this mockup server. Each scenario is one set of files named `<scenario>-firmwareinventory` (the collection) and `<scenario>-firmware-N` (one per component, in collection order); they are the raw Redfish responses the plugin walks. To simulate a fault, copy a healthy set and edit a component's `Status.Health` to `Critical` or `Warning`. The offline test suite is run with `./run` from the `unit-test` directory.
+The fixtures under [`unit-test/stdout/`](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/redfish-firmwareinventory/unit-test/stdout) are the output of `--verbose` runs, one file per scenario, with a `### GET <path>` block for every Redfish response the plugin evaluated. The test suite replays them instead of calling a controller, so the output a user attaches to a bug report becomes a new scenario as it is, whatever the number of members. To simulate a fault, copy a healthy scenario and edit a component's `Status.Health` to `Critical` or `Warning`. The offline test suite is run with `./run` from the `unit-test` directory.
 
 
 ## Credits, License
