@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091001'
+__version__ = '2026091002'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -299,21 +299,26 @@ def main():
 
     # analyze data: follow each "Member" link, aggregate chassis,
     # sensor and thermal health into `state`.
-    for member in result.get('Members', []):
-        # "/redfish/v1/Chassis/1U"
-        chassis = lib.base.coe(
-            lib.redfish.fetch_resource(
-                lib.base.coe(lib.redfish.build_url(args.URL, member['@odata.id'])),
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                proxy=args.PROXY,
-                timeout=args.TIMEOUT,
-                retries=args.RETRIES,
-                cache_expire=cache_expire,
-            )
+    # fetch_members fills in any chassis the controller left as bare references
+    # (i.e. when it did not honour $expand on the collection above), so a chassis
+    # the collection already carries costs no request of its own
+    chassis_members = lib.base.coe(
+        lib.redfish.fetch_members(
+            result.get('Members', []),
+            args.URL,
+            header=header,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
+            timeout=args.TIMEOUT,
+            retries=args.RETRIES,
+            cache_expire=cache_expire,
         )
-        chassis = lib.redfish.get_chassis(chassis)
+    )
+    for chassis_data in chassis_members:
+        # "/redfish/v1/Chassis/1U", the base of the Thermal and Power links below
+        chassis_path = chassis_data.get('@odata.id', '')
+        chassis = lib.redfish.get_chassis(chassis_data)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
         member_count += 1
@@ -405,9 +410,7 @@ def main():
         # redundancy). Fetched defensively: a chassis without a Thermal
         # endpoint must not abort the check.
         success, thermal = lib.redfish.fetch_resource(
-            lib.base.coe(
-                lib.redfish.build_url(args.URL, f'{member["@odata.id"]}/Thermal')
-            ),
+            lib.base.coe(lib.redfish.build_url(args.URL, f'{chassis_path}/Thermal')),
             header=header,
             insecure=args.INSECURE,
             no_proxy=args.NO_PROXY,
@@ -425,9 +428,7 @@ def main():
         # supplies), so without this fallback they would report no readings.
         if not table_data:
             success, power = lib.redfish.fetch_resource(
-                lib.base.coe(
-                    lib.redfish.build_url(args.URL, f'{member["@odata.id"]}/Power')
-                ),
+                lib.base.coe(lib.redfish.build_url(args.URL, f'{chassis_path}/Power')),
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,

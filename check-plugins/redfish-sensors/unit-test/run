@@ -125,6 +125,20 @@ TESTS = [
         'assert-regex': r'Inlet Temperature.*\[WARNING\]',
     },
     {
+        # The controller honoured $expand and inlined the chassis into the collection.
+        # The check has to take it from there instead of requesting it again (#1507);
+        # the fixture holds no separate chassis response, so a second request would
+        # be answered with a 404.
+        'id': 'ok-chassis-inlined-by-expand',
+        'test': 'stdout/chassis-inlined,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked sensors on 1 member.',
+            'Ambient Temperature',
+        ],
+    },
+    {
         # --verbose appends every Redfish response the check evaluated, in the form a
         # fixture takes, so the output of a reported run can be replayed as a test.
         'id': 'ok-verbose-appends-responses',
