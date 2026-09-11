@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026091101'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -91,6 +91,14 @@ CORE_DIRS = ('wp-admin/', 'wp-includes/')
 # - `readme.html` and `license.txt` are documentation and are routinely deleted as a
 #   hardening step, which must not read as a damaged installation. WordPress's own updater
 #   skips them too, along with every other `.html` and `.txt` in the installation root.
+#   The same goes for the translated copies a localized release ships next to them:
+#   `liesmich.html` in German, `licenza.html` and `LEGGIMI.txt` in Italian. Verified
+#   against the core checksums api.wordpress.org publishes for every release from 3.7 to
+#   7.1 in de_AT, de_CH, de_CH_informal, de_DE, de_DE_formal, fr_BE, fr_CA, fr_FR and
+#   it_IT, and against the release archives of de_CH 6.6, de_DE 7.1 and it_IT 6.0.8.
+#   French and the other German variants ship nothing beyond the English files. Italian
+#   stopped shipping `LEGGIMI.txt` with 4.4 and `licenza.html` with 6.1, but a release
+#   before that is still verified against a list that names them.
 # - `index.php` is copied and edited by WordPress's own procedure for serving a site from a
 #   subdirectory, so a modified one is a documented setup rather than a finding. This is
 #   the one exception WordPress itself does not make, and it is a deliberate trade: the
@@ -100,7 +108,10 @@ CORE_ROOT_EXCLUDED = (
     '.htaccess',
     '.maintenance',
     'index.php',
+    'LEGGIMI.txt',
     'license.txt',
+    'licenza.html',
+    'liesmich.html',
     'readme.html',
     'wp-config.php',
 )
@@ -388,12 +399,13 @@ def digests(published):
 
 
 def get_digest(root, relative_path, algorithm):
-    """Return the digest of a whole file below `root`, or the empty string when it cannot
-    be read.
+    """Return `(digest, reason)`: the digest of a whole file below `root`, or the empty
+    string and why none could be taken.
 
     A file that is listed and present but unreadable is reported as modified rather than
     silently skipped: the check cannot say it matches, and a permission change on a single
-    core file is itself worth looking at.
+    core file is itself worth looking at. The reason stands in for the digest under
+    `--lengthy`, where a bare "-" would read like a file that is not there at all.
 
     The path comes out of a document fetched over the network, so it is checked to resolve
     below `root` before anything is opened. Nothing else keeps a `../../etc/shadow` in that
@@ -401,11 +413,16 @@ def get_digest(root, relative_path, algorithm):
     """
     filename = os.path.join(root, relative_path)
     if not lib.disk.is_within(filename, [root]):
-        return ''
+        return '', ''
     success, result = lib.disk.get_fingerprint(filename, length=0, algorithm=algorithm)
-    if not success:
-        return ''
-    return result[0]
+    if success:
+        return result[0], ''
+    # The one reason worth naming, because it is the one an administrator fixes on the
+    # spot: a web server or a deployment writing with umask 027 leaves every file it
+    # creates unreadable to the monitoring user.
+    if not os.access(filename, os.R_OK):
+        return '', 'Permission denied'
+    return '', 'Unreadable'
 
 
 def keep(path, match_patterns, ignore_patterns):
@@ -484,10 +501,13 @@ def scope_plugin(path, slug, checksums, core_checksums):
     return plugin_dir, wanted, present_of(plugin_dir, wanted), set(), bundled
 
 
-def finding(component, relative_path, issue, expected='-', found='-', *, bucket):
+def finding(
+    component, relative_path, issue, expected='-', found='-', *, bucket, reason=''
+):
     """Build one row of the result table. `bucket` says which of the two counters the row
     belongs to, and is passed in rather than derived from `component`: a plugin may live in
     `wp-content/plugins/core/`, and reading the name would file its findings under the core.
+    `reason` says why a file could not be read, and is shown in place of its digest.
     """
     return {
         'bucket': bucket,
@@ -496,6 +516,7 @@ def finding(component, relative_path, issue, expected='-', found='-', *, bucket)
         'found': found or '-',
         'issue': issue,
         'path': relative_path,
+        'reason': reason,
     }
 
 
@@ -537,11 +558,11 @@ def compare(
             # it to. Saying "modified" here would accuse an untouched installation of
             # having been tampered with on the strength of an answer we could not read.
             continue
-        found = get_digest(root, relative_path, algorithm)
+        found, reason = get_digest(root, relative_path, algorithm)
         if found in expected:
             continue
         if relative_path in bundled and (
-            get_digest(root, relative_path, CORE_CHECKSUM_ALGORITHM)
+            get_digest(root, relative_path, CORE_CHECKSUM_ALGORITHM)[0]
             in digests(bundled[relative_path])
         ):
             continue
@@ -556,6 +577,7 @@ def compare(
                 expected[0],
                 found,
                 bucket=bucket,
+                reason=reason,
             )
         )
     for relative_path in sorted(wanted - present):
@@ -1070,7 +1092,9 @@ def main():
                 # published or content somebody else published.
                 row['path'] = item['path']
                 row['expected'] = item['expected'][:DIGEST_LEN]
-                row['found'] = item['found'][:DIGEST_LEN]
+                # Why a file could not be read is shown in full, since there is no digest
+                # it would stand in for.
+                row['found'] = item['reason'] or item['found'][:DIGEST_LEN]
             table_data.append(row)
         if args.LENGTHY:
             keys = ['component', 'path', 'issue', 'expected', 'found', 'state']

@@ -146,7 +146,7 @@ Monitoring Plugins:
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
 * needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
-* nextcloud-status, spring-boot-actuator-health, wordpress-checksums: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* nextcloud-status, spring-boot-actuator-health: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, log in far less often, and ask it for a fraction of the data they used to ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372), [#1507](https://github.com/Linuxfabrik/monitoring-plugins/issues/1507))
 * redfish-logservices: evaluates the System Event Log of Avigilon servers instead of always reporting OK
@@ -154,6 +154,7 @@ Monitoring Plugins:
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
 * whmcs-status: no longer calls an installation healthy when WHMCS answered with no health check at all, and survives an unexpected answer
 * wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--always-ok` also covers a run that found no datasource
+* wordpress-checksums: no longer alerts on a German or Italian installation without `liesmich.html` or `licenza.html`, and uses the proxy the environment names ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * wordpress-security-scan: no longer reports "0 vulnerabilities" on a site it could not check for vulnerabilities
 * xml: a host without the `lxml` module gets the sentence that says so and an UNKNOWN, instead of a Python stack trace and a WARNING
 

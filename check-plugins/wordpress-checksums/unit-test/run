@@ -26,6 +26,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -417,13 +418,16 @@ TESTS = [
         ],
         'assert-not-in': ['wp-includes/functions.php', 'wp-admin/about.php'],
     },
-    # The locale a localized build was made for decides which list it is held to.
+    # The locale a localized build was made for decides which list it is held to. The
+    # German release lists a translated `liesmich.html` next to `readme.html`, and a site
+    # that deleted it as a hardening step is not a damaged installation.
     {
         'id': 'ok-localized-installation-reports-its-locale',
         'test': 'stdout/de,,0',
         'params': f'{DE}',
         'assert-retc': STATE_OK,
-        'assert-in': ['WordPress v6.8.2 (de_DE)'],
+        'assert-in': ['WordPress v7.1 (de_DE)', "'core_missing'=0"],
+        'assert-not-in': ['liesmich.html'],
     },
     {
         'id': 'unknown-path-holds-no-installation',
@@ -710,6 +714,71 @@ class TestGetChecksums(unittest.TestCase):
             result = self._get()
         self.assertEqual(result['checksums'], {'acme.php': 'dd'})
         self.assertFalse(result['stale'])
+
+
+class TestIsCoreFile(unittest.TestCase):
+    """Which files in the installation root are held to the published list. A localized
+    release lists translated documentation next to `readme.html` and `license.txt`, which
+    is deleted as a hardening step just as often and has to be left alone the same way.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.check = load_check()
+
+    def test_the_documentation_is_left_alone_in_every_language(self):
+        for name in (
+            'LEGGIMI.txt',
+            'license.txt',
+            'licenza.html',
+            'liesmich.html',
+            'readme.html',
+        ):
+            with self.subTest(name=name):
+                self.assertFalse(self.check.is_core_file(name))
+
+    def test_an_ordinary_root_file_is_verified(self):
+        self.assertTrue(self.check.is_core_file('wp-login.php'))
+
+
+class TestUnreadableFile(unittest.TestCase):
+    """A file the monitoring user may not read cannot be compared, and is reported as
+    modified with the reason in place of its digest. A web server or a deployment writing
+    with umask 027 produces exactly this, and a bare "-" there reads like a file that is
+    not there at all.
+
+    Built at run time on a copy of a fixture tree, because git keeps no mode that takes
+    the read permission away. Skipped for root, who reads the file regardless.
+    """
+
+    @unittest.skipIf(
+        not hasattr(os, 'geteuid') or os.geteuid() == 0,
+        'needs a user the file mode applies to',
+    )
+    def test_an_unreadable_file_names_the_permission_problem(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site = os.path.join(tmpdir, 'site')
+            shutil.copytree('wordpress/site', site)
+            os.chmod(os.path.join(site, 'wp-includes', 'functions.php'), 0)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    '../wordpress-checksums',
+                    f'--path={site}',
+                    '--test=stdout/clean,,0',
+                    '--lengthy',
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, STATE_WARN)
+        self.assertIn('1 modified', output)
+        self.assertRegex(
+            output,
+            r'wp-includes/functions\.php.*modified.*Permission denied.*\[WARNING\]',
+        )
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
