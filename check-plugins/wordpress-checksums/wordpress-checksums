@@ -29,7 +29,7 @@ import lib.wordpress
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091101'
+__version__ = '2026091102'
 
 DESCRIPTION = """Verifies the files of a local WordPress installation against the checksums
 wordpress.org publishes for the installed release, and reports every file that was
@@ -88,17 +88,6 @@ CORE_DIRS = ('wp-admin/', 'wp-includes/')
 #   list either way, `wp-config-sample.php` is.
 # - `.htaccess` is rewritten by WordPress itself whenever the permalink structure changes,
 #   and `.maintenance` exists only while an update is running. Neither ships in a release.
-# - `readme.html` and `license.txt` are documentation and are routinely deleted as a
-#   hardening step, which must not read as a damaged installation. WordPress's own updater
-#   skips them too, along with every other `.html` and `.txt` in the installation root.
-#   The same goes for the translated copies a localized release ships next to them:
-#   `liesmich.html` in German, `licenza.html` and `LEGGIMI.txt` in Italian. Verified
-#   against the core checksums api.wordpress.org publishes for every release from 3.7 to
-#   7.1 in de_AT, de_CH, de_CH_informal, de_DE, de_DE_formal, fr_BE, fr_CA, fr_FR and
-#   it_IT, and against the release archives of de_CH 6.6, de_DE 7.1 and it_IT 6.0.8.
-#   French and the other German variants ship nothing beyond the English files. Italian
-#   stopped shipping `LEGGIMI.txt` with 4.4 and `licenza.html` with 6.1, but a release
-#   before that is still verified against a list that names them.
 # - `index.php` is copied and edited by WordPress's own procedure for serving a site from a
 #   subdirectory, so a modified one is a documented setup rather than a finding. This is
 #   the one exception WordPress itself does not make, and it is a deliberate trade: the
@@ -108,13 +97,23 @@ CORE_ROOT_EXCLUDED = (
     '.htaccess',
     '.maintenance',
     'index.php',
-    'LEGGIMI.txt',
-    'license.txt',
-    'licenza.html',
-    'liesmich.html',
-    'readme.html',
     'wp-config.php',
 )
+
+# Every `.html` and `.txt` in the installation root is left alone as well. That is the rule
+# WordPress's own updater applies (`update_core()` in wp-admin/includes/update-core.php):
+# it neither compares these files before an update nor verifies them after it, so there
+# is nothing about them the core relies on. They are documentation, `readme.html` and
+# `license.txt` in every release, and are routinely deleted as a hardening step, which
+# must not read as a damaged installation. A localized release ships translated copies
+# next to them, under names that differ per language and come and go between releases -
+# `liesmich.html` in German, `licenza.html` and `LEGGIMI.txt` in Italian, `licencia.txt`
+# in Spanish - so a list of names would always be one short. Checked against the core
+# checksums api.wordpress.org publishes for every release from 3.7 to 7.1 in de_*, fr_*
+# and it_IT, and for the first and last release of every branch in all 125 locales: the
+# root files a localized release adds over the English one are 15 names in all, every
+# one of them `.html` or `.txt`. Matched with regard to case, as the updater matches it.
+CORE_ROOT_EXCLUDED_EXTENSIONS = ('.html', '.txt')
 
 # Files inside a plugin that the plugin directory rewrites without the plugin itself
 # changing. The convention comes from wp-cli's `plugin verify-checksums`, which calls them
@@ -363,14 +362,18 @@ def walk(root):
 
 def is_core_file(relative_path):
     """Report whether a path out of the published core checksum list is one this check
-    verifies. See `CORE_DIRS` and `CORE_ROOT_EXCLUDED` for what is left out and why.
+    verifies. See `CORE_DIRS`, `CORE_ROOT_EXCLUDED` and `CORE_ROOT_EXCLUDED_EXTENSIONS`
+    for what is left out and why.
     """
     if relative_path.startswith(CORE_DIRS):
         return True
     if '/' in relative_path:
         # Anything below another directory, `wp-content/` above all.
         return False
-    return relative_path not in CORE_ROOT_EXCLUDED
+    return not (
+        relative_path in CORE_ROOT_EXCLUDED
+        or relative_path.endswith(CORE_ROOT_EXCLUDED_EXTENSIONS)
+    )
 
 
 def is_soft_file(relative_path):

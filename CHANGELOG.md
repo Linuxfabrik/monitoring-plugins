@@ -154,7 +154,7 @@ Monitoring Plugins:
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
 * whmcs-status: no longer calls an installation healthy when WHMCS answered with no health check at all, and survives an unexpected answer
 * wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--always-ok` also covers a run that found no datasource
-* wordpress-checksums: no longer alerts on a German or Italian installation without `liesmich.html` or `licenza.html`, and uses the proxy the environment names ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
+* wordpress-checksums: no longer alerts on a localized installation whose translated readme or license was deleted, and uses the proxy the environment names ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * wordpress-security-scan: no longer reports "0 vulnerabilities" on a site it could not check for vulnerabilities
 * xml: a host without the `lxml` module gets the sentence that says so and an UNKNOWN, instead of a Python stack trace and a WARNING
 

@@ -717,9 +717,10 @@ class TestGetChecksums(unittest.TestCase):
 
 
 class TestIsCoreFile(unittest.TestCase):
-    """Which files in the installation root are held to the published list. A localized
-    release lists translated documentation next to `readme.html` and `license.txt`, which
-    is deleted as a hardening step just as often and has to be left alone the same way.
+    """Which files in the installation root are held to the published list. Every `.html`
+    and `.txt` there is left alone, as WordPress's own updater leaves it alone: it is the
+    documentation, and a localized release ships translated copies of it under names of
+    its own, which are deleted as a hardening step just as often as the English ones.
     """
 
     @classmethod
@@ -727,11 +728,15 @@ class TestIsCoreFile(unittest.TestCase):
         cls.check = load_check()
 
     def test_the_documentation_is_left_alone_in_every_language(self):
+        # The English pair and a sample of the translated names the published lists hold.
         for name in (
             'LEGGIMI.txt',
+            'licencia.txt',
             'license.txt',
             'licenza.html',
             'liesmich.html',
+            'olvasdel.html',
+            'readme-ja.html',
             'readme.html',
         ):
             with self.subTest(name=name):
@@ -739,6 +744,11 @@ class TestIsCoreFile(unittest.TestCase):
 
     def test_an_ordinary_root_file_is_verified(self):
         self.assertTrue(self.check.is_core_file('wp-login.php'))
+
+    def test_the_documentation_below_the_core_directories_is_verified(self):
+        # The rule is the installation root's alone. Below wp-admin/ and wp-includes/ a
+        # text file is as much a part of the core as any script, and the updater checks it.
+        self.assertTrue(self.check.is_core_file('wp-includes/ID3/license.txt'))
 
 
 class TestUnreadableFile(unittest.TestCase):
