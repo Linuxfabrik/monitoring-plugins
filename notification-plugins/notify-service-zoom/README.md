@@ -44,8 +44,8 @@ options:
                         ($host.display_name$).
   --hostname HOSTNAME   Set the hostname ($host.name$).
   --icingaweb2-url ICINGAWEB2_URL
-                        Set the Icinga Web 2 URL, for example
-                        "https://example.com/icingaweb2".
+                        Set the Icinga Web 2 URL. Example: `--icingaweb2-
+                        url=https://icinga.example.com/icingaweb2`.
   --notification-author NOTIFICATION_AUTHOR
                         Set the author of the comment ($notification.author$).
   --notification-comment NOTIFICATION_COMMENT

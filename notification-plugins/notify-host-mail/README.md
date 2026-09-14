@@ -8,7 +8,7 @@ Sends host notifications via email for Icinga/Nagios. Generates an HTML-formatte
 **Important Notes:**
 
 * Designed for use with the [Linuxfabrik Icinga Director Basket](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/notification-plugins/notify-host-mail/icingaweb2-module-director/notify-host-mail.json). The basket wires every Icinga macro (`$host.state$`, `$host.display_name$`, `$notification.author$`, etc.) to the parameter names the plugin actually expects (`--host-state`, `--host-displayname`, `--notification-author`, ...). Icinga's stock ITL notification templates (`mail-host-notification` from `icinga2-common`) use different parameter names (`--hoststate`, `--hostdisplayname`, `--longdatetime`, ...) and will not work with this plugin. If you plug the plugin directly into the stock ITL template, `argparse` fails with "the following arguments are required: ..." because the names do not match. Import the basket into Icinga Director instead.
-* Use the `--short` parameter to create a short message without a subject, for example for sending to a SMS relay service.
+* Use the `--short` parameter to create a short message without a subject, for example for sending to an SMS relay service.
 
 **Data Collection:**
 
@@ -63,8 +63,8 @@ options:
                         Set the host state ($host.state$).
   --hostname HOSTNAME   Set the hostname ($host.name$).
   --icingaweb2-url ICINGAWEB2_URL
-                        Set the Icinga Web 2 URL, for example
-                        "https://example.com/icingaweb2".
+                        Set the Icinga Web 2 URL. Example: `--icingaweb2-
+                        url=https://icinga.example.com/icingaweb2`.
   --mail-password MAIL_PASSWORD
                         Set the mail server login password.
   --mail-port MAIL_PORT
@@ -85,10 +85,10 @@ options:
   --notification-comment NOTIFICATION_COMMENT
                         Set the comment ($notification.comment$).
   --notification-type NOTIFICATION_TYPE
-                        Set the type of notification like "PROBLEM" or
-                        "RECOVERY".
+                        Set the type of notification ($notification.type$).
+                        Example: `--notification-type=PROBLEM`.
   --perfdata PERFDATA   Set the perfdata.
-  --short               Send a short message. This can be useful when using a
+  --short               Send a short message. This can be useful when using an
                         SMS relay, for example.
 
 Documentation:
