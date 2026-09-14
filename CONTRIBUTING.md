@@ -635,10 +635,34 @@ Plugins have a limited runtime - typically 10 seconds max. Every plugin must han
 
 ### Security
 
+Two questions decide most of this section. Ask both for every plugin that runs as root (it ships in `assets/sudoers/`, or its README tells the admin to grant sudo), and ask them again for every parameter you add:
+
+1. **What else can a local attacker who controls all arguments do?** The unprivileged monitoring user (`icinga`/`nagios`) supplies every command-line value and owns any file or directory they can create (`/tmp`, their home). Walk each parameter through to the file the plugin opens, the command it runs, the socket it connects to, and ask what that reaches when the value and the surrounding filesystem are hostile, not just when they are the intended ones.
+2. **For each parameter: who may set it, and with what privileges does the resulting action run?** A value that only chooses *data the plugin reads back and filters* is low risk. A value that *redirects a privileged action* (which file to open as root, which binary to execute, which socket to talk to) hands the caller that privilege unless the plugin confines it. That is the class behind [GHSA-q8c8-wxhc-3h4c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-q8c8-wxhc-3h4c) and [GHSA-f54c-p5vg-mr5c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-f54c-p5vg-mr5c): the guidance below covered a value travelling *into* a trusted command (shell injection, option injection) but not a value *choosing the target of a root action*.
+
 * **External commands**: When executing system commands, use `lib.shell.shell_exec()`. Avoid `os.system()` or `subprocess` with `shell=True`, as these are vulnerable to shell injection. `lib.shell.shell_exec()` requires the command as a list of arguments (argv) and always runs with `shell=False`, so arguments are passed verbatim to the executable and are never interpreted by a shell. Build commands as lists and put each user-supplied value in its own element, for example `['restic', f'--repo={repo}', 'check']` or `['ping', '-q', hostname]`; never assemble a command string from user input. This closes shell injection, but a value that starts with `-` can still be picked up as an *option* by the program being run (for example an ssh destination `-oProxyCommand=...`, or `ping -f`). For values that reach a command as a positional argument or as a command target, guard them with `lib.shell.safe_cli_value()` (`coe(lib.shell.safe_cli_value(args.HOSTNAME, '--hostname'))`). The official Monitoring Plugins guidelines require full paths for all external commands to prevent PATH-based trojan hijacking. We accept PATH-based command resolution for cross-platform compatibility (paths differ across distributions), but be aware that a compromised PATH could still redirect commands.
 * **Input validation**: Validate all user-supplied input. Use `argparse` type converters (`type=int`, `type=float`, `type=lib.args.csv`) to enforce expected types.
 * **Temporary files**: Avoid temporary files where possible. Prefer a local SQLite database via `lib.db_sqlite` or `lib.cache`. If temp files are unavoidable, fail cleanly if the file cannot be created, and delete it when done.
-* **Symlinks**: If a plugin opens or reads files, ensure it does not follow symlinks to unintended locations.
+* **Confining a path a privileged plugin was pointed at**: When a plugin runs as root (it ships in `assets/sudoers/`, or its README tells the admin to grant sudo) and it opens, reads, stats, globs or lists a location that any caller-supplied value can steer (`--path`, `--filename`, `--socket`, a directory it scans, or a file it discovers *inside* such a directory), the unprivileged monitoring user can plant a symlink there and make the root process read a file of their choosing (`/etc/shadow`, a private key). A caller-chosen root cannot be trusted just because the plugin would legitimately read the default location: `--path=/var/crash` is fine, `--path=/tmp/attacker` is not, and the plugin cannot tell them apart without a containment check. Confine every such access, at **every** edge (the directory scanned, each file found inside it, and the final read), not just the first one:
+
+```python
+import os
+import lib.disk
+
+# 1. Reject anything that resolves outside the trusted root. is_within()
+#    canonicalizes both sides with realpath(), so a symlink or `..` that
+#    escapes the root is rejected.
+if not lib.disk.is_within(os.path.realpath(candidate), [os.path.realpath(root)]):
+    lib.base.cu(f'Refusing to read "{candidate}": outside {root}.')
+
+# 2. Open the final file with symlink following disabled. is_within() alone is
+#    check-then-open: a second local process can swap the name for a symlink
+#    between the check and the open() (TOCTOU). O_NOFOLLOW is the atomic guard;
+#    the containment check narrows what is reachable in the first place.
+fd = os.open(candidate, os.O_RDONLY | os.O_NOFOLLOW)
+```
+
+Do not weaken this to a filename check (`if name == 'vmcore-dmesg.txt'`): that binds the symlink's name, never its target. Where a shared `lib` function does the reading, the guard belongs in the `lib` so every consumer inherits it (see `lib.logsource` reading log files only within its `allowed_roots`). As defense in depth, pin the arguments in the sudoers entry so the monitoring user cannot pass an arbitrary value at all (see the `LF_LIBRENMS_VALIDATE` alias in `assets/sudoers/`), but never rely on the sudoers file as the only guard. The same care applies to a `--socket` a root plugin connects to: a socket under an attacker-writable path lets them feed the root process a crafted response, which is a remote-code-execution primitive when the client deserializes it.
 * **Credentials**: Never log or print passwords, tokens, or other secrets in plugin output - not even in verbose mode.
 * **Network communication**: Use HTTPS by default. Support `--insecure` to allow self-signed certificates where needed, but never make insecure the default.
 * **Internal management endpoints**: Checks that talk to an internal management endpoint are the one exception to the rule above. An Icinga API port, a BMC, a storage controller or a backup appliance practically always presents a certificate signed by its own CA, which no host trusts out of the box, so verifying by default would break every deployment of the check. Those plugins may set `DEFAULT_INSECURE = True`, and then must offer `--no-insecure` as the counterpart so an admin who added the CA to the system trust store can enforce verification:
