@@ -27,6 +27,7 @@ __version__ = '2026091401'
 DESCRIPTION = """Sends notifications for hosts using mail."""
 
 TIMEOUT = 8  # seconds
+DEFAULT_MAIL_ENCRYPTION = 'none'
 DEFAULT_MAIL_PORT = 25
 DEFAULT_MAIL_SERVER = 'localhost'
 
@@ -92,6 +93,22 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--mail-encryption',
+        help=lib.args.help('--mail-encryption') + ' Default: %(default)s.',
+        dest='MAIL_ENCRYPTION',
+        choices=['none', 'starttls', 'tls'],
+        default=DEFAULT_MAIL_ENCRYPTION,
+    )
+
+    parser.add_argument(
         '--mail-password',
         help=lib.args.help('--mail-password'),
         dest='MAIL_PASSWORD',
@@ -101,6 +118,7 @@ def parse_args():
         '--mail-port',
         help=lib.args.help('--mail-port') + ' Default: %(default)s.',
         dest='MAIL_PORT',
+        type=int,
         default=DEFAULT_MAIL_PORT,
     )
 
@@ -356,14 +374,16 @@ def main():
             args.MAIL_SERVER,
             args.MAIL_SENDER,
             args.MAIL_RECIPIENT,
-            subject=subject,
-            plain=plain,
+            encryption=args.MAIL_ENCRYPTION,
             html=html,
             images=images,
-            port=args.MAIL_PORT,
-            username=args.MAIL_USER,
+            insecure=args.INSECURE,
             password=args.MAIL_PASSWORD,
+            plain=plain,
+            port=args.MAIL_PORT,
+            subject=subject,
             timeout=TIMEOUT,
+            username=args.MAIL_USER,
         )
     )
 

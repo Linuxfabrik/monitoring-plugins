@@ -17,6 +17,12 @@
                 "--icingaweb2-url": {
                     "value": "$notify_service_mail_icingaweb2_url$"
                 },
+                "--insecure": {
+                    "set_if": "$notify_service_mail_insecure$"
+                },
+                "--mail-encryption": {
+                    "value": "$notify_service_mail_mail_encryption$"
+                },
                 "--mail-password": {
                     "value": "$notify_service_mail_mail_password$"
                 },
@@ -109,22 +115,22 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 9,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -159,7 +165,7 @@
                 },
                 {
                     "datafield_id": 18,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -179,6 +185,16 @@
                 },
                 {
                     "datafield_id": 22,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -238,22 +254,22 @@
                 },
                 {
                     "datafield_id": 8,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 9,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -288,7 +304,7 @@
                 },
                 {
                     "datafield_id": 18,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -308,6 +324,16 @@
                 },
                 {
                     "datafield_id": 22,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 23,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -336,6 +362,8 @@
             "user_groups": [],
             "users": [],
             "vars": {
+                "notify_service_mail_insecure": false,
+                "notify_service_mail_mail_encryption": "none",
                 "notify_service_mail_mail_port": 25,
                 "notify_service_mail_mail_server": "localhost",
                 "notify_service_mail_short": false,
@@ -356,6 +384,33 @@
             },
             "zone": null,
             "uuid": "17587e1b-9117-437d-bac9-7935521b18c5"
+        }
+    },
+    "DataList": {
+        "notify_service_mail_mail_encryption_list": {
+            "list_name": "notify_service_mail_mail_encryption_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "none",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "starttls",
+                    "entry_value": "STARTTLS",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "tls",
+                    "entry_value": "TLS",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "e1879116-3d60-4ebc-9b0d-d9f6db5ffd30"
         }
     },
     "Datafield": {
@@ -415,6 +470,28 @@
             "uuid": "7862463c-4203-43f6-a793-35a6ef117d38"
         },
         "6": {
+            "varname": "notify_service_mail_insecure",
+            "caption": "Notify Service Mail: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "699cfa40-a6ec-4293-8d17-57086c453fe3"
+        },
+        "7": {
+            "varname": "notify_service_mail_mail_encryption",
+            "caption": "Notify Service Mail: Mail Encryption",
+            "description": "Set how the connection to the mail server is encrypted. `none` sends the mail and the login in plaintext. `starttls` upgrades the connection with STARTTLS, which the server has to offer. `tls` encrypts the connection from the start (SMTPS, implicit TLS). The server certificate is verified unless `--insecure` is given. Example: `--mail-encryption=tls --mail-port=465`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "notify_service_mail_mail_encryption_list"
+            },
+            "uuid": "aa87a618-7cc9-4cb0-a763-5a9007b804d0"
+        },
+        "8": {
             "varname": "notify_service_mail_mail_password",
             "caption": "Notify Service Mail: Mail Password",
             "description": "Set the mail server login password.",
@@ -425,7 +502,7 @@
             },
             "uuid": "c13a5c73-75ac-4430-a1e4-9499dc6994d1"
         },
-        "7": {
+        "9": {
             "varname": "notify_service_mail_mail_port",
             "caption": "Notify Service Mail: Mail Port",
             "description": "Set the mail server port.",
@@ -436,7 +513,7 @@
             },
             "uuid": "3a8c0a64-7096-48d9-b4cd-fc8ba1414d67"
         },
-        "8": {
+        "10": {
             "varname": "notify_service_mail_mail_recipient",
             "caption": "Notify Service Mail: Mail Recipient",
             "description": "Set the mail recipient.",
@@ -447,7 +524,7 @@
             },
             "uuid": "9cb3c90b-c98d-4944-a01b-d945117a9d5c"
         },
-        "9": {
+        "11": {
             "varname": "notify_service_mail_mail_sender",
             "caption": "Notify Service Mail: Mail Sender",
             "description": "Set the mail sender.",
@@ -458,7 +535,7 @@
             },
             "uuid": "47101b19-a796-49a0-8250-e0be667f0019"
         },
-        "10": {
+        "12": {
             "varname": "notify_service_mail_mail_server",
             "caption": "Notify Service Mail: Mail Server",
             "description": "Set the mail server.",
@@ -469,7 +546,7 @@
             },
             "uuid": "07602521-0369-4799-8a8e-7205fd1b3c0b"
         },
-        "11": {
+        "13": {
             "varname": "notify_service_mail_mail_user",
             "caption": "Notify Service Mail: Mail User",
             "description": "Set the mail server login user.",
@@ -480,7 +557,7 @@
             },
             "uuid": "fe4da4ed-4260-435e-b42d-8c4035bb3fb5"
         },
-        "12": {
+        "14": {
             "varname": "notify_service_mail_notes",
             "caption": "Notify Service Mail: Notes",
             "description": "Set the notes.",
@@ -491,7 +568,7 @@
             },
             "uuid": "febd67ec-becb-4045-aa4e-dd670b743658"
         },
-        "13": {
+        "15": {
             "varname": "notify_service_mail_notes_url",
             "caption": "Notify Service Mail: Notes URL",
             "description": "Set the notes url.",
@@ -502,7 +579,7 @@
             },
             "uuid": "ba4b03ed-2345-454a-8d7c-0d00a88427c4"
         },
-        "14": {
+        "16": {
             "varname": "notify_service_mail_notification_author",
             "caption": "Notify Service Mail: Notification Author",
             "description": "Set the author of the comment ($notification.author$).",
@@ -513,7 +590,7 @@
             },
             "uuid": "0607000a-38f8-408a-ba85-067b1528e4fa"
         },
-        "15": {
+        "17": {
             "varname": "notify_service_mail_notification_comment",
             "caption": "Notify Service Mail: Notification Comment",
             "description": "Set the comment ($notification.comment$).",
@@ -524,7 +601,7 @@
             },
             "uuid": "00741188-58d2-4ff6-8b25-45cb6caa8d16"
         },
-        "16": {
+        "18": {
             "varname": "notify_service_mail_notification_type",
             "caption": "Notify Service Mail: Notification Type",
             "description": "Set the type of notification ($notification.type$). Example: `--notification-type=PROBLEM`.",
@@ -535,7 +612,7 @@
             },
             "uuid": "deb99df3-e212-472b-bacc-443b8574436b"
         },
-        "17": {
+        "19": {
             "varname": "notify_service_mail_perfdata",
             "caption": "Notify Service Mail: Perfdata",
             "description": "Set the perfdata.",
@@ -546,7 +623,7 @@
             },
             "uuid": "6a7f991b-7d30-4866-801a-50db70409546"
         },
-        "18": {
+        "20": {
             "varname": "notify_service_mail_service_displayname",
             "caption": "Notify Service Mail: Service Displayname",
             "description": "Set the display name of the service ($service.display_name$).",
@@ -557,7 +634,7 @@
             },
             "uuid": "7f81c37d-605c-4c41-9db9-caaed198f8db"
         },
-        "19": {
+        "21": {
             "varname": "notify_service_mail_service_output",
             "caption": "Notify Service Mail: Service Output",
             "description": "Set the service output ($service.output$).",
@@ -568,7 +645,7 @@
             },
             "uuid": "58ef650d-fa0d-4019-a823-1cb1f279fd1f"
         },
-        "20": {
+        "22": {
             "varname": "notify_service_mail_service_state",
             "caption": "Notify Service Mail: Service State",
             "description": "Set the service state ($service.state$).",
@@ -579,7 +656,7 @@
             },
             "uuid": "96c25daf-e85f-43fa-b09e-7a59387dee76"
         },
-        "21": {
+        "23": {
             "varname": "notify_service_mail_servicename",
             "caption": "Notify Service Mail: Servicename",
             "description": "Set the servicename ($service.name$).",
@@ -590,7 +667,7 @@
             },
             "uuid": "e4357877-605f-41c7-9641-22113897847a"
         },
-        "22": {
+        "24": {
             "varname": "notify_service_mail_short",
             "caption": "Notify Service Mail: Short?",
             "description": "Send a short message. This can be useful when using an SMS relay, for example.",

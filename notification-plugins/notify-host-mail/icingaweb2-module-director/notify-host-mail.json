@@ -23,6 +23,12 @@
                 "--icingaweb2-url": {
                     "value": "$notify_host_mail_icingaweb2_url$"
                 },
+                "--insecure": {
+                    "set_if": "$notify_host_mail_insecure$"
+                },
+                "--mail-encryption": {
+                    "value": "$notify_host_mail_mail_encryption$"
+                },
                 "--mail-password": {
                     "value": "$notify_host_mail_mail_password$"
                 },
@@ -113,22 +119,22 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 12,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 13,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -163,6 +169,16 @@
                 },
                 {
                     "datafield_id": 20,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -232,22 +248,22 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 11,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 12,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 13,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -284,6 +300,16 @@
                     "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 21,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 22,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "host": null,
@@ -308,6 +334,8 @@
             "user_groups": [],
             "users": [],
             "vars": {
+                "notify_host_mail_insecure": false,
+                "notify_host_mail_mail_encryption": "none",
                 "notify_host_mail_mail_port": 25,
                 "notify_host_mail_mail_server": "localhost",
                 "notify_host_mail_short": false,
@@ -326,6 +354,33 @@
             },
             "zone": null,
             "uuid": "2c84226b-6a7d-44e8-8601-1dd97095921b"
+        }
+    },
+    "DataList": {
+        "notify_host_mail_mail_encryption_list": {
+            "list_name": "notify_host_mail_mail_encryption_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "none",
+                    "entry_value": "None",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "starttls",
+                    "entry_value": "STARTTLS",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "tls",
+                    "entry_value": "TLS",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "f8952558-c66e-4e49-9c38-457cc7ed74b7"
         }
     },
     "Datafield": {
@@ -407,6 +462,28 @@
             "uuid": "d38f6881-dcd2-402a-966c-eadd6c085dd1"
         },
         "8": {
+            "varname": "notify_host_mail_insecure",
+            "caption": "Notify Host Mail: Insecure?",
+            "description": "This option explicitly allows insecure SSL connections.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "caec5c9b-8f5d-4ddb-b29f-a75c4c1fd5c6"
+        },
+        "9": {
+            "varname": "notify_host_mail_mail_encryption",
+            "caption": "Notify Host Mail: Mail Encryption",
+            "description": "Set how the connection to the mail server is encrypted. `none` sends the mail and the login in plaintext. `starttls` upgrades the connection with STARTTLS, which the server has to offer. `tls` encrypts the connection from the start (SMTPS, implicit TLS). The server certificate is verified unless `--insecure` is given. Example: `--mail-encryption=tls --mail-port=465`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "notify_host_mail_mail_encryption_list"
+            },
+            "uuid": "98c62b1c-0935-4cd3-8107-f9c7db76c85a"
+        },
+        "10": {
             "varname": "notify_host_mail_mail_password",
             "caption": "Notify Host Mail: Mail Password",
             "description": "Set the mail server login password.",
@@ -417,7 +494,7 @@
             },
             "uuid": "28aaf67a-b299-4957-8aa1-18674eeb7140"
         },
-        "9": {
+        "11": {
             "varname": "notify_host_mail_mail_port",
             "caption": "Notify Host Mail: Mail Port",
             "description": "Set the mail server port.",
@@ -428,7 +505,7 @@
             },
             "uuid": "18d17f0e-cf63-43c0-a42e-346eac8e291a"
         },
-        "10": {
+        "12": {
             "varname": "notify_host_mail_mail_recipient",
             "caption": "Notify Host Mail: Mail Recipient",
             "description": "Set the mail recipient.",
@@ -439,7 +516,7 @@
             },
             "uuid": "9ccd58df-49d3-4841-b197-44f79a6d5c09"
         },
-        "11": {
+        "13": {
             "varname": "notify_host_mail_mail_sender",
             "caption": "Notify Host Mail: Mail Sender",
             "description": "Set the mail sender.",
@@ -450,7 +527,7 @@
             },
             "uuid": "7966e1e3-3656-47a2-a6b6-233b9668d753"
         },
-        "12": {
+        "14": {
             "varname": "notify_host_mail_mail_server",
             "caption": "Notify Host Mail: Mail Server",
             "description": "Set the mail server.",
@@ -461,7 +538,7 @@
             },
             "uuid": "58ff4f1f-9c0e-4889-9ae1-6f56cdc4e002"
         },
-        "13": {
+        "15": {
             "varname": "notify_host_mail_mail_user",
             "caption": "Notify Host Mail: Mail User",
             "description": "Set the mail server login user.",
@@ -472,7 +549,7 @@
             },
             "uuid": "2cd70c96-abfc-4719-a831-42ee6fb069e5"
         },
-        "14": {
+        "16": {
             "varname": "notify_host_mail_notes",
             "caption": "Notify Host Mail: Notes",
             "description": "Set the notes.",
@@ -483,7 +560,7 @@
             },
             "uuid": "87f9867e-10c1-4787-8370-8470c173342e"
         },
-        "15": {
+        "17": {
             "varname": "notify_host_mail_notes_url",
             "caption": "Notify Host Mail: Notes URL",
             "description": "Set the notes url.",
@@ -494,7 +571,7 @@
             },
             "uuid": "18f4b127-9433-460d-914d-3feacec9666e"
         },
-        "16": {
+        "18": {
             "varname": "notify_host_mail_notification_author",
             "caption": "Notify Host Mail: Notification Author",
             "description": "Set the author of the comment ($notification.author$).",
@@ -505,7 +582,7 @@
             },
             "uuid": "b0d2315c-3113-4830-bf86-3e05f0af30c3"
         },
-        "17": {
+        "19": {
             "varname": "notify_host_mail_notification_comment",
             "caption": "Notify Host Mail: Notification Comment",
             "description": "Set the comment ($notification.comment$).",
@@ -516,7 +593,7 @@
             },
             "uuid": "9bcc9a5d-9e99-48c9-94fa-bfc96df100dc"
         },
-        "18": {
+        "20": {
             "varname": "notify_host_mail_notification_type",
             "caption": "Notify Host Mail: Notification Type",
             "description": "Set the type of notification ($notification.type$). Example: `--notification-type=PROBLEM`.",
@@ -527,7 +604,7 @@
             },
             "uuid": "b4693f94-f0df-4573-8911-7d1e4114d3bb"
         },
-        "19": {
+        "21": {
             "varname": "notify_host_mail_perfdata",
             "caption": "Notify Host Mail: Perfdata",
             "description": "Set the perfdata.",
@@ -538,7 +615,7 @@
             },
             "uuid": "458ac183-3b5f-44ab-9e01-ef958df0306e"
         },
-        "20": {
+        "22": {
             "varname": "notify_host_mail_short",
             "caption": "Notify Host Mail: Short?",
             "description": "Send a short message. This can be useful when using an SMS relay, for example.",
