@@ -8,7 +8,10 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -103,6 +106,26 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestSecurity(unittest.TestCase):
+    """This check runs as root and fail2ban-client deserializes the reply it
+    reads from its socket, so --socket must stay within the system runtime
+    directories and reject a path an unprivileged user could write to.
+    """
+
+    check = '../fail2ban'
+
+    def test_unknown_socket_outside_run_is_refused(self):
+        with tempfile.TemporaryDirectory() as base:
+            evil = os.path.join(base, 'evil.sock')
+            result = subprocess.run(
+                [sys.executable, self.check, f'--socket={evil}'],
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('Refusing to use socket', result.stdout)
 
 
 if __name__ == '__main__':

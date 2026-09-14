@@ -11,6 +11,7 @@
 import datetime
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -554,6 +555,33 @@ def _run_scenario(test, scenario):
 
 
 lib.lftest.attach_each(TestCheck, SCENARIOS, _run_scenario, id_func=lambda it: it['id'])
+
+
+class TestSecurity(unittest.TestCase):
+    """This check runs as root against a caller-supplied --path, so a store
+    configuration symlinked to a file outside the store must not be disclosed.
+    """
+
+    check = '../acmesh-status'
+
+    def test_symlinked_store_conf_is_not_disclosed(self):
+        sentinel = 'S3NT1NEL_ROOTONLY'
+        with tempfile.TemporaryDirectory() as base:
+            secret = os.path.join(base, 'secret.env')
+            with open(secret, 'w') as handle:
+                handle.write(f'TOKEN={sentinel}\n')
+            path = os.path.join(base, 'acme')
+            store = os.path.join(path, 'example.com')
+            os.makedirs(store)
+            open(os.path.join(path, 'account.conf'), 'w').close()
+            os.symlink(secret, os.path.join(store, 'example.com.conf'))
+            result = subprocess.run(
+                [sys.executable, self.check, f'--path={path}'],
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotIn(sentinel, result.stdout)
+        self.assertIn('outside the allowed roots', result.stdout)
 
 
 if __name__ == '__main__':

@@ -29,7 +29,7 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083102'
+__version__ = '2026091401'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
@@ -56,6 +56,12 @@ DEFAULT_UID_MIN = 1000
 # Candidate binaries, in probe order. Every distribution installs the same name,
 # unlike Apache, whose control wrapper differs between families.
 BINARY_CANDIDATES = ('nginx',)
+
+# --command names the binary this root process executes. It is confined to the
+# standard system binary directories so a caller cannot point the check at an
+# executable they planted (for example under /tmp or their home): those trusted
+# roots are not writable by the unprivileged monitoring user.
+ALLOWED_BINARY_ROOTS = ('/bin', '/opt', '/sbin', '/usr')
 
 # Accounts that exist on practically every system and are shared by unrelated
 # daemons, so a web server dropping to one of them shares its reach.
@@ -164,6 +170,7 @@ def parse_args():
         '--command',
         help='Path to the NGINX binary. '
         'Probed automatically in the PATH if not given. '
+        'Must resolve within a standard binary directory (/bin, /opt, /sbin, /usr). '
         'Example: `--command=/usr/local/nginx/sbin/nginx`',
         dest='COMMAND',
         default=None,
@@ -245,6 +252,12 @@ def find_binary(command):
     if command:
         if not os.path.isfile(command):
             return (False, f'Command "{command}" not found.')
+        if not lib.disk.is_within(os.path.realpath(command), ALLOWED_BINARY_ROOTS):
+            return (
+                False,
+                f'Refusing to run "{command}": it resolves outside '
+                f'{", ".join(ALLOWED_BINARY_ROOTS)}.',
+            )
         return (True, command)
     for candidate in BINARY_CANDIDATES:
         path = lib.shell.which(candidate)

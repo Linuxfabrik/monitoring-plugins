@@ -28,7 +28,7 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083102'
+__version__ = '2026091401'
 
 DESCRIPTION = """Checks the local security posture of an Apache httpd installation: which
 modules the server has loaded, which account its worker processes run under, the ownership
@@ -62,6 +62,12 @@ DEFAULT_UID_MIN = 1000
 # The reverse does not work: the Red Hat `apachectl` is a replacement script that
 # rejects `-S` and `-M` with "option is not supported".
 BINARY_CANDIDATES = ('httpd', 'apachectl')
+
+# --command names the binary this root process executes. It is confined to the
+# standard system binary directories so a caller cannot point the check at an
+# executable they planted (for example under /tmp or their home): those trusted
+# roots are not writable by the unprivileged monitoring user.
+ALLOWED_BINARY_ROOTS = ('/bin', '/opt', '/sbin', '/usr')
 
 # Accounts that exist on practically every system and are shared by unrelated
 # daemons. CIS names nobody and daemon explicitly; the remaining entries are the
@@ -208,6 +214,7 @@ def parse_args():
         '--command',
         help='Path to the Apache httpd control binary. '
         'Probed automatically if not given: `httpd` first, then `apachectl`. '
+        'Must resolve within a standard binary directory (/bin, /opt, /sbin, /usr). '
         'Example: `--command=/usr/sbin/httpd`',
         dest='COMMAND',
         default=None,
@@ -289,6 +296,12 @@ def find_binary(command):
     if command:
         if not os.path.isfile(command):
             return (False, f'Command "{command}" not found.')
+        if not lib.disk.is_within(os.path.realpath(command), ALLOWED_BINARY_ROOTS):
+            return (
+                False,
+                f'Refusing to run "{command}": it resolves outside '
+                f'{", ".join(ALLOWED_BINARY_ROOTS)}.',
+            )
         return (True, command)
     for candidate in BINARY_CANDIDATES:
         path = lib.shell.which(candidate)

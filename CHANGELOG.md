@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, acme.sh certificates, the kernel's pressure stall information, the Apache httpd, PHP-FPM and OpenSSH server logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags.
+**Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, acme.sh certificates, the kernel's pressure stall information, the Apache httpd, PHP-FPM and OpenSSH server logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags. Two root-run checks close a local privilege escalation: `fail2ban` stops trusting a caller-supplied `--socket` and `kdump` no longer follows a symlink out of its crash-dump directory.
 
 ### Breaking Changes
 
@@ -174,6 +174,13 @@ Grafana:
 Build, CI/CD:
 
 * the SELinux policy loads on RHEL 10 again
+
+### Security
+
+Monitoring Plugins:
+
+* fail2ban: `--socket` is confined to `/run` and `/var/run`, closing a local root code-execution via a crafted socket
+* kdump: `--path` no longer discloses a file outside the crash-dump directory through a symlink ([GHSA-q8c8-wxhc-3h4c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-q8c8-wxhc-3h4c))
 
 
 ## [v7.0.0] - 2026-08-14

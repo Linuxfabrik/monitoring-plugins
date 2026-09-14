@@ -54,7 +54,8 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   --socket SOCKET       Path to the fail2ban server Unix socket. Passed to
-                        `fail2ban-client --socket`. Default: None
+                        `fail2ban-client --socket`. Must resolve within /run
+                        or /var/run. Default: None
   -w, --warning WARN    WARN threshold for the number of banned IPs per jail.
                         Supports Nagios ranges. Default: 2500
 
@@ -87,6 +88,7 @@ portscan ! 1974   ! [OK]
 * WARN if the number of banned IPs in any jail exceeds `--warning` (default: 2500).
 * CRIT if the number of banned IPs in any jail exceeds `--critical` (default: 10000).
 * UNKNOWN if `fail2ban-client ping` fails or `fail2ban-client status` returns an error.
+* UNKNOWN if `--socket` resolves outside `/run` or `/var/run`.
 * `--warning` and `--critical` accept Nagios range expressions.
 * Jails matching `--ignore` are excluded from both the output and the alerting.
 * `--no-match-severity` sets the state reported when the filters match no jail and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing jail) instead of silently returning OK.

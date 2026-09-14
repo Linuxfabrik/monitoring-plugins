@@ -6,9 +6,11 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+import os
 import re
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -367,6 +369,28 @@ class TestCheckNames(unittest.TestCase):
                         other,
                         f'--ignore={title!r} would also drop {other!r}',
                     )
+
+
+class TestSecurity(unittest.TestCase):
+    """This check runs as root, so --command must not execute a binary the
+    caller planted outside the standard binary directories.
+    """
+
+    check = '../apache-httpd-security'
+
+    def test_unknown_command_outside_allowed_roots_is_refused(self):
+        with tempfile.TemporaryDirectory() as base:
+            evil = os.path.join(base, 'httpd')
+            with open(evil, 'w') as handle:
+                handle.write('#!/bin/sh\necho fake\n')
+            os.chmod(evil, 0o755)
+            result = subprocess.run(
+                [sys.executable, self.check, f'--command={evil}'],
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('Refusing to run', result.stdout)
 
 
 if __name__ == '__main__':

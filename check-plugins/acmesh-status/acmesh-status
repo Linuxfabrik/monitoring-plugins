@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083101'
+__version__ = '2026091401'
 
 DESCRIPTION = """Reports the state of the certificates acme.sh manages, by reading its
 certificate store instead of its output. For every certificate it reports the time left
@@ -237,7 +237,10 @@ def get_cert_home(path):
     account_conf = os.path.join(path, 'account.conf')
     if not lib.disk.file_exists(account_conf, allow_empty=True):
         return path
-    success, conf = lib.disk.read_env(account_conf)
+    # This check may run as root against a caller-supplied --path, so confine the read
+    # to that directory and refuse a symlink: account.conf always sits directly in the
+    # configuration directory, and a symlink there must not redirect the root read.
+    success, conf = lib.disk.read_env(account_conf, allowed_roots=[path], nofollow=True)
     if not success:
         return path
     cert_home = conf.get('CERT_HOME', '').strip()
@@ -289,7 +292,13 @@ def collect_stores(cert_home):
             # neither renewed nor detached: acme.sh ignores it, and so do we
             continue
 
-        success, values = lib.disk.read_env(conf)
+        # Confine the read to the certificate store and refuse a symlink: the store
+        # tree can be caller-supplied and this check may run as root, so a symlinked
+        # `<domain>.conf` must not redirect the read to an arbitrary root-readable file
+        # whose `KEY=VALUE` lines would then surface in the recommendations below.
+        success, values = lib.disk.read_env(
+            conf, allowed_roots=[cert_home], nofollow=True
+        )
         if not success:
             return (False, values)
 

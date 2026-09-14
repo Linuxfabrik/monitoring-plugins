@@ -8,7 +8,10 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -124,6 +127,38 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestSecurity(unittest.TestCase):
+    """Regression test for GHSA-q8c8-wxhc-3h4c: a caller-supplied --path with a
+    dmesg symlinked to a file outside the dump tree must not disclose that file.
+    Driven against the real --path code path (not --test), with a readable
+    sentinel standing in for /etc/shadow so the test is meaningful as non-root.
+    """
+
+    check = '../kdump'
+
+    def test_crit_symlinked_dmesg_is_not_disclosed(self):
+        # The secret sits beside the crash-dump root, so the symlink inside a
+        # dump directory resolves outside the --path the plugin is confined to.
+        sentinel = 'S3NT1NEL-do-not-disclose'
+        with tempfile.TemporaryDirectory() as base:
+            secret = os.path.join(base, 'secret')
+            with open(secret, 'w') as handle:
+                handle.write(sentinel + '\n')
+            dump_root = os.path.join(base, 'crash')
+            dump = os.path.join(dump_root, 'dump.1')
+            os.makedirs(dump)
+            open(os.path.join(dump, 'vmcore'), 'w').close()
+            os.symlink(secret, os.path.join(dump, 'vmcore-dmesg.txt'))
+            result = subprocess.run(
+                [sys.executable, self.check, '--path', dump_root],
+                capture_output=True,
+                text=True,
+            )
+        # the dump is still reported, but the symlinked file is never read
+        self.assertIn('dump.1', result.stdout)
+        self.assertNotIn(sentinel, result.stdout)
 
 
 if __name__ == '__main__':

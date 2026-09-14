@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071501'
+__version__ = '2026091401'
 
 DESCRIPTION = """Checks the kernel crash dump (kdump) subsystem. Verifies that the
 system is ready to capture the next kernel panic (crash kernel memory reserved and the
@@ -303,12 +303,23 @@ def scan_dumps(path):
 
 
 def find_dmesg_file(dump_dir):
-    """Locate the captured dmesg text file inside a dump directory, if any."""
+    """Locate the captured dmesg text file inside a dump directory, if any.
+
+    A symlink is never accepted as the dmesg file. The plugin runs as root and the
+    dump directory can be caller-supplied (`--path`), so a symlink named like a dmesg
+    file could otherwise point the root read at any file on the host (for example
+    `/etc/shadow`). The read in analyze_dump() is confined and refuses to follow
+    symlinks as well; rejecting them here keeps the reason legible.
+    """
     for name in ('vmcore-dmesg.txt', 'vmcore-dmesg-incomplete.txt'):
         candidate = os.path.join(dump_dir, name)
-        if os.path.isfile(candidate):
+        if os.path.isfile(candidate) and not lib.disk.is_symlink(candidate):
             return candidate
-    debian = lib.disk.glob(os.path.join(dump_dir, 'dmesg.*'))
+    debian = [
+        entry
+        for entry in lib.disk.glob(os.path.join(dump_dir, 'dmesg.*'))
+        if not lib.disk.is_symlink(entry)
+    ]
     return debian[0] if debian else ''
 
 
@@ -346,15 +357,21 @@ def analyze_dmesg_text(content):
     return '\n'.join(section)
 
 
-def analyze_dump(dump_dir):
+def analyze_dump(dump_dir, allowed_root):
     """Return (dmesg_file, analysis) for the crash dump in dump_dir. dmesg_file
     is the captured dmesg the analysis was read from (so the admin can read the
     full log), or ('', '') if no captured dmesg is available or readable.
+
+    The read is confined to allowed_root (the resolved crash-dump directory) and
+    refuses to follow a symlink, so a caller-supplied `--path` cannot make this
+    root process disclose a file outside the dump tree.
     """
     dmesg_file = find_dmesg_file(dump_dir)
     if not dmesg_file:
         return ('', '')
-    success, content = lib.disk.read_file(dmesg_file)
+    success, content = lib.disk.read_file(
+        dmesg_file, allowed_roots=[allowed_root], nofollow=True
+    )
     if not success:
         return ('', '')
     return (dmesg_file, analyze_dmesg_text(content))
@@ -418,7 +435,9 @@ def main():
             service_journal = ''
         dumps = scan_dumps(path)
         if dumps:
-            dmesg_file, analysis = analyze_dump(os.path.join(path, dumps[0]['name']))
+            dmesg_file, analysis = analyze_dump(
+                os.path.join(path, dumps[0]['name']), path
+            )
         else:
             dmesg_file, analysis = ('', '')
     else:
