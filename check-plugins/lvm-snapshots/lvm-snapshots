@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082701'
+__version__ = '2026091401'
 
 DESCRIPTION = """Monitors the LVM snapshots on this host. A classic snapshot holds the
 blocks its origin has overwritten since it was taken, in a store of a fixed size, and
@@ -250,10 +250,12 @@ def analyze(snapshot, now, args):
     if age is not None and (args.WARN_AGE or args.CRIT_AGE):
         # A disabled threshold is a zero, which as a Nagios range would alert on
         # everything, so each of them only takes part once it is set.
+        # int() drops the duration's text form (`2D`): the range parser needs the
+        # plain second count as its bound, not the string the operator typed.
         age_state = lib.base.get_state(
             age,
-            args.WARN_AGE if args.WARN_AGE else None,
-            args.CRIT_AGE if args.CRIT_AGE else None,
+            int(args.WARN_AGE) if args.WARN_AGE else None,
+            int(args.CRIT_AGE) if args.CRIT_AGE else None,
             _operator='range',
         )
         state = lib.base.get_worst(state, age_state)
