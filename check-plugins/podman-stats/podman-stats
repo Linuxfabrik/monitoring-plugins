@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026091601'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
 normalized by dividing by the number of available host CPU cores. CPU alerts only
@@ -390,7 +390,11 @@ def main():
         # accumulate totals for aggregate perfdata
         total_block_input += int(container.get('BlockInput', 0))
         total_block_output += int(container.get('BlockOutput', 0))
-        network = container.get('Network', {})
+        # a container without a network namespace of its own (`--network host` or
+        # `none`) carries `"Network":null` instead of leaving the key out. Verified
+        # against podman 5.8 on Fedora 44 (libpod/networking_linux.go,
+        # getContainerNetIO()).
+        network = container.get('Network') or {}
         for iface in network.values():
             total_net_rx += int(iface.get('RxBytes', 0))
             total_net_tx += int(iface.get('TxBytes', 0))

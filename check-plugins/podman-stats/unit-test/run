@@ -33,6 +33,20 @@ TESTS = [
         'assert-in': ['No containers to check (user:'],
     },
     {
+        # a container on `--network host` or `none` reports `"Network":null`; it
+        # must neither crash the check nor add to the network totals
+        # (https://github.com/Linuxfabrik/monitoring-plugins/issues/1519)
+        'id': 'ok-bridge-and-host-network',
+        'test': 'stdout/bridge-and-host-network,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. 2 containers checked (user: `',
+            'host-network ! 4.2   ! 0.0',
+            "'net_rx'=602B;;;0",
+            "'net_tx'=716B;;;0",
+        ],
+    },
+    {
         'id': 'ok-traefik-idle',
         'test': 'stdout/traefik-idle,,0',
         'assert-retc': STATE_OK,
