@@ -27,12 +27,28 @@ TESTS = [
         'assert-in': ['No permission to talk to the container engine'],
     },
     {
-        # --always-ok covers an engine that cannot be asked, too
-        'id': 'ok-always-ok-no-permission',
-        'test': ',stderr/permission-denied,125',
+        # an engine that is not there is an outage, and --always-ok suppresses the alert
+        'id': 'crit-engine-not-running',
+        'test': ',stderr/engine-not-running,125',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Cannot connect to Podman'],
+    },
+    {
+        'id': 'ok-always-ok-engine-not-running',
+        'test': ',stderr/engine-not-running,125',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['(always ok)'],
+        'assert-in': ['Cannot connect to Podman', '(always ok)'],
+    },
+    {
+        # --always-ok suppresses alerts only; a refused permission is UNKNOWN and says the
+        # check is deployed wrong, so it stays visible
+        'id': 'unknown-always-ok-keeps-no-permission',
+        'test': ',stderr/permission-denied,125',
+        'params': '--always-ok',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+        'assert-not-in': ['(always ok)'],
     },
     {
         'id': 'ok-no-containers',

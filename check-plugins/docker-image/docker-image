@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091702'
+__version__ = '2026091703'
 
 DESCRIPTION = """Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than the
@@ -175,7 +175,9 @@ def assert_docker_engine(args, started):
         ['docker', 'info', '--format', '{{json .}}'], args.TIMEOUT, started
     )
     if not success:
-        lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        # --always-ok suppresses what would alert somebody. An UNKNOWN (no
+        # permission, client missing) says the check is deployed wrong and stays.
+        lib.base.oao(*result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN)
     stdout, _, retc = result
     if retc != 0:
         return
@@ -279,13 +281,13 @@ def main():
             ['docker', 'images', '--quiet', '--no-trunc'], args.TIMEOUT, started
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
         if retc != 0:
-            lib.base.oao(
-                *lib.container.get_engine_error(stderr, stdout),
-                always_ok=args.ALWAYS_OK,
-            )
+            error = lib.container.get_engine_error(stderr, stdout)
+            lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
         # `docker images -q` repeats an ID once per tag; inspect each ID only once
         image_ids = sorted(set(stdout.split()))
         if image_ids:
@@ -293,7 +295,9 @@ def main():
                 ['docker', 'image', 'inspect', *image_ids], args.TIMEOUT, started
             )
             if not success:
-                lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+                lib.base.oao(
+                    *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+                )
             stdout, stderr, retc = result
         else:
             stdout, stderr, retc = '[]', '', 0
@@ -316,10 +320,8 @@ def main():
         # on; only an answer without a single usable image means the engine could not
         # be asked at all.
         if retc != 0:
-            lib.base.oao(
-                *lib.container.get_engine_error(stderr, stdout),
-                always_ok=args.ALWAYS_OK,
-            )
+            error = lib.container.get_engine_error(stderr, stdout)
+            lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
         lib.base.cu(
             'Unable to parse docker image inspect output as JSON.'
             ' If you are using Podman, use the podman-image check instead.'

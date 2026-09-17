@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091702'
+__version__ = '2026091703'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores, so 100% means all host
@@ -288,13 +288,15 @@ def main():
             started,
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            # --always-ok suppresses what would alert somebody. An UNKNOWN (no
+            # permission, client missing) says the check is deployed wrong and stays.
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
         if retc != 0:
-            lib.base.oao(
-                *lib.container.get_engine_error(stderr, stdout),
-                always_ok=args.ALWAYS_OK,
-            )
+            error = lib.container.get_engine_error(stderr, stdout)
+            lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
         try:
             host_cpus = int(json.loads(stdout).get('NCPU') or 0)
         except Exception:
@@ -312,22 +314,20 @@ def main():
             started,
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
         if retc != 0:
-            lib.base.oao(
-                *lib.container.get_engine_error(stderr, stdout),
-                always_ok=args.ALWAYS_OK,
-            )
+            error = lib.container.get_engine_error(stderr, stdout)
+            lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
     else:
         # do not call the command, put in test data
         host_cpus = 1
         stdout, stderr, retc = lib.lftest.test(args.TEST)
         if retc != 0:
-            lib.base.oao(
-                *lib.container.get_engine_error(stderr, stdout),
-                always_ok=args.ALWAYS_OK,
-            )
+            error = lib.container.get_engine_error(stderr, stdout)
+            lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
 
     # init some vars
     msg = ''

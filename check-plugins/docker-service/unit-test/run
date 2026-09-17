@@ -42,12 +42,14 @@ TESTS = [
         'assert-in': ['No permission to talk to the container engine'],
     },
     {
-        # --always-ok covers an engine that cannot be asked, too
-        'id': 'ok-always-ok-no-permission',
+        # --always-ok suppresses alerts only; a refused permission is UNKNOWN and says the
+        # check is deployed wrong, so it stays visible
+        'id': 'unknown-always-ok-keeps-no-permission',
         'test': ',stderr/permission-denied,1',
         'params': '--always-ok',
-        'assert-retc': STATE_OK,
-        'assert-in': ['(always ok)'],
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['No permission to talk to the container engine'],
+        'assert-not-in': ['(always ok)'],
     },
     {
         # a worker cannot list services at all, which is a placement mistake

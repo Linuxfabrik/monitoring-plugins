@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091702'
+__version__ = '2026091703'
 
 DESCRIPTION = """Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version, available
@@ -129,16 +129,19 @@ def main():
             ['docker', 'info', '--format', '{{json .}}'], args.TIMEOUT, started
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            # --always-ok suppresses what would alert somebody. An UNKNOWN (no
+            # permission, client missing) says the check is deployed wrong and stays.
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     if retc != 0:
-        lib.base.oao(
-            *lib.container.get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK
-        )
+        error = lib.container.get_engine_error(stderr, stdout)
+        lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
 
     try:
         result = json.loads(stdout)

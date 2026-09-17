@@ -26,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091702'
+__version__ = '2026091703'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -254,7 +254,11 @@ def get_services(args, started):
             ['docker', 'service', 'ls', '--format', '{{json .}}'], args.TIMEOUT, started
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            # --always-ok suppresses what would alert somebody. An UNKNOWN (no
+            # permission, client missing) says the check is deployed wrong and stays.
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
     else:
         stdout, stderr = load_fixture(args.TEST, '-services')
@@ -267,7 +271,8 @@ def get_services(args, started):
             lib.base.cu(
                 'This node is not a swarm manager. Run docker-service on a manager.'
             )
-        lib.base.oao(*get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK)
+        error = get_engine_error(stderr, stdout)
+        lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
     return parse_json_lines(stdout, 'docker service ls')
 
 
@@ -282,7 +287,9 @@ def get_service_tasks(args, started, name):
             started,
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
     else:
         # the service name can contain characters unsafe for a filename, but the
@@ -290,7 +297,8 @@ def get_service_tasks(args, started, name):
         stdout, stderr = load_fixture(args.TEST, f'-ps-{name}')
         retc = 1 if stderr else 0
     if retc != 0:
-        lib.base.oao(*get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK)
+        error = get_engine_error(stderr, stdout)
+        lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
     return parse_json_lines(stdout, 'docker service ps')
 
 
@@ -305,13 +313,16 @@ def get_node_count(args, started):
             ['docker', 'node', 'ls', '--format', '{{json .}}'], args.TIMEOUT, started
         )
         if not success:
-            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            lib.base.oao(
+                *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+            )
         stdout, stderr, retc = result
     else:
         stdout, stderr = load_fixture(args.TEST, '-nodes')
         retc = 1 if stderr else 0
     if retc != 0:
-        lib.base.oao(*get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK)
+        error = get_engine_error(stderr, stdout)
+        lib.base.oao(*error, always_ok=args.ALWAYS_OK and error[1] != STATE_UNKNOWN)
     return len(parse_json_lines(stdout, 'docker node ls'))
 
 

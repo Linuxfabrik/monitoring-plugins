@@ -76,7 +76,7 @@ Icinga Director:
 
 Monitoring Plugins:
 
-* a container engine that does not answer ends the check with a warning after `--timeout` instead of running into the timeout of the monitoring system, and `--always-ok` also covers an engine that cannot be asked (docker-\*, podman-\*)
+* a container engine that does not answer ends the check with a warning after `--timeout` instead of running into the timeout of the monitoring system, and `--always-ok` also covers an engine that is down or does not answer (docker-\*, podman-\*)
 * apache-httpd-status: worker usage counts every busy slot, and `ExtendedStatus Off` no longer blanks most metrics
 * countdown: table output, Nagios ranges, and days left as performance data
 * cpu-usage: alerts on CPU steal at 10% by default, and reports the right percentages on a host running virtual machines
