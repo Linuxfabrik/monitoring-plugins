@@ -10,7 +10,7 @@ Reports CPU and memory usage for all running Podman containers. CPU usage is nor
 * Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
 * Containers can be selected or excluded by name with `--match` / `--ignore` (Python regular expressions, matched against the full name); `--no-match-severity` sets the state when nothing matches (default: ok).
 * Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there.
-* `--timeout` covers all Podman commands of a run together, so the check ends in time however long each of them takes.
+* `--timeout` covers all Podman commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds.
 * Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) reports on root's own Podman, not on the rootless containers of other users. To report on a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious. The Podman Service Set in the Icinga Director creates its services without `--user`. Set it on the service of every host whose containers belong to a rootless user, otherwise a tagged host reports "No containers to check" while the containers are running.
 * Block and network I/O are reported as aggregate perfdata only, as bytes per second across all containers since the previous check run. The first run after a container started has no previous sample, so it reports no CPU value and adds nothing to the I/O rates yet.
 * Containers sharing a network namespace (the members of a pod including its infra container, or a container started with `--network container:<name>`) all see the same traffic. It is counted once. A container on `--network host` or `--network none` has no network statistics of its own and adds nothing to the network rates; traffic on the host network belongs to the host.
@@ -196,9 +196,9 @@ One CPU and one memory metric is emitted per running container, plus the aggrega
 
 ### Timeout while running a Podman command
 
-``Timeout after 8s while running `podman stats --no-stream --format {{json .}}` (user: `root`).``
+``Timeout after 8s while running `podman stats --no-stream --format {{json .}}`.``
 
-The container engine did not answer within `--timeout`. `podman stats` has to query every running container, so a host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
+The container engine did not answer within `--timeout`, which covers all Podman commands of a run together. `podman stats` has to query every running container, so a host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

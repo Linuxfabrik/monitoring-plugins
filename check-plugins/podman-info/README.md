@@ -8,6 +8,7 @@ Displays system-wide Podman information including container counts, image count,
 **Important Notes:**
 
 * Podman runs rootless by default, and every user keeps their containers and images in their own storage. Running the check as root (via `sudo`) reports on root's own Podman, not on the rootless containers of other users. To report on a rootless user's Podman, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious. The Podman Service Set in the Icinga Director creates its services without `--user`. Set it on the service of every host whose containers belong to a rootless user, otherwise a tagged host reports "No containers to check" while the containers are running.
+* `--timeout` covers all Podman commands of a run together, so the check ends in time however long each of them takes.
 
 **Data Collection:**
 
@@ -31,7 +32,7 @@ Displays system-wide Podman information including container counts, image count,
 
 ```text
 usage: podman-info [-h] [-V] [--always-ok] [--ignore IGNORE] [--no-perfdata]
-                   [--user USER]
+                   [--timeout TIMEOUT] [--user USER]
 
 Displays system-wide Podman information including container counts, image
 count, storage driver, logging driver, number of search registries, runtime
@@ -41,27 +42,29 @@ Podman writes while answering. Individual lines can be filtered out with
 docker-info check instead. Requires root or sudo.
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  --always-ok      Always returns OK.
-  --ignore IGNORE  Ignore stderr lines matching this Python regular
-                   expression. Case-sensitive by default; use `(?i)` for case-
-                   insensitive matching. Can be specified multiple times.
-                   Example: `--ignore="cgroup v1"` to suppress a benign
-                   cgroup-version warning on hosts that have not yet migrated
-                   to cgroup v2. Example: `--ignore="(?i)rootless"` (case-
-                   insensitive) to suppress any rootless-related informational
-                   warning. Default: None
-  --no-perfdata    Suppress the performance data section from the output. The
-                   status message and the exit code are unaffected, so
-                   alerting keeps working while trending data is dropped.
-  --user USER      Report on the rootless Podman of this user instead of the
-                   one visible to the executing user. Podman keeps each user's
-                   rootless containers and images in that user's own storage,
-                   so root (the monitoring user runs the check via sudo) does
-                   not see them. With --user, the check runs podman as that
-                   user. Requires the right to `sudo -u <user>` (root has this
-                   by default). Example: `--user=rocketchat`. Default: None
+  -h, --help         show this help message and exit
+  -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
+  --ignore IGNORE    Ignore stderr lines matching this Python regular
+                     expression. Case-sensitive by default; use `(?i)` for
+                     case-insensitive matching. Can be specified multiple
+                     times. Example: `--ignore="cgroup v1"` to suppress a
+                     benign cgroup-version warning on hosts that have not yet
+                     migrated to cgroup v2. Example: `--ignore="(?i)rootless"`
+                     (case-insensitive) to suppress any rootless-related
+                     informational warning. Default: None
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
+  --user USER        Report on the rootless Podman of this user instead of the
+                     one visible to the executing user. Podman keeps each
+                     user's rootless containers and images in that user's own
+                     storage, so root (the monitoring user runs the check via
+                     sudo) does not see them. With --user, the check runs
+                     podman as that user. Requires the right to `sudo -u
+                     <user>` (root has this by default). Example:
+                     `--user=rocketchat`. Default: None
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-info/
@@ -86,6 +89,7 @@ Output:
 * OK if `podman info` completes without warnings or errors.
 * WARN on `podman info` warnings in stderr.
 * CRIT on `podman info` errors in stderr or return codes != 0.
+* WARN if the Podman commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * UNKNOWN if the answer cannot be read, or reports no version at all.
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -102,6 +106,15 @@ Output:
 | cpu                | Number | Number of host CPUs.          |
 | images             | Number | Number of images.             |
 | ram                | Bytes  | Total host memory.            |
+
+
+## Troubleshooting
+
+### Timeout while running a Podman command
+
+``Timeout after 8s while running `podman info --format json`.``
+
+The container engine did not answer within `--timeout`, which covers all Podman commands of a run together. A host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

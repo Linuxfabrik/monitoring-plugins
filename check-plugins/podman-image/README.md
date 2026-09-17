@@ -10,7 +10,8 @@ Lists the container images on a host and checks how old they are. Reports each i
 * Alerts when an image is older than the `--warning` (default `90D`) or `--critical` (default `365D`) age threshold; raise or widen these for images you intentionally pin
 * A dangling image (one that has lost its repository tag) is shown by its short image ID instead of a tag, and counted in the `images_dangling` perfdata
 * Podman runs rootless by default, and every user keeps their images in their own storage. Running the check as root (via `sudo`) sees root's own images, not the rootless images of other users. To check a rootless user's images, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious The Podman Service Set in the Icinga Director creates its services without `--user`. Set it on the service of every host whose containers belong to a rootless user, otherwise a tagged host reports "No containers to check" while the containers are running.
-* On a host with a very large number of images, or with rootless Podman under `--user`, the check can take a while, since every image is inspected, and may exceed the short check timeout monitoring systems use by default (often 10 seconds); give the check more time if it times out
+* On a host with a very large number of images, or with rootless Podman under `--user`, the check can take a while, since every image is inspected.
+* `--timeout` covers all Podman commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds.
 
 **Data Collection:**
 
@@ -37,7 +38,8 @@ Lists the container images on a host and checks how old they are. Reports each i
 usage: podman-image [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                     [--ignore IGNORE] [--match MATCH]
                     [--no-match-severity {ok,warn,crit,unknown}]
-                    [--no-perfdata] [--user USER] [-w WARN]
+                    [--no-perfdata] [--timeout TIMEOUT] [--user USER]
+                    [-w WARN]
 
 Lists the container images on a host and checks how old they are. Reports each
 image's repository tag, age and size, and alerts when an image is older than
@@ -84,6 +86,7 @@ options:
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
                         dropped.
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --user USER           Inspect the rootless images of this user instead of
                         those visible to the executing user. Podman keeps each
                         user's rootless images in that user's own storage, so
@@ -140,6 +143,7 @@ docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [CRITICAL]
 * WARN/CRIT if an image's age crosses `--warning` (default 90D) or `--critical` (default 365D).
 * The state reported when no image matches the `--match` / `--ignore` filters (or no images exist) is configurable via `--no-match-severity` (default: ok).
 * CRIT if `podman images` fails, or if `podman image inspect` returns nothing that can be read. An image that is removed while the check runs makes `podman image inspect` fail as well; the images it did report are checked as usual.
+* WARN if the Podman commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -150,6 +154,15 @@ docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [CRITICAL]
 |----|----|----|
 | images_checked | Number | Number of images that passed the filters and were checked. |
 | images_dangling | Number | Number of checked images that have lost their repository tag. |
+
+
+## Troubleshooting
+
+### Timeout while running a Podman command
+
+``Timeout after 8s while running `podman images --quiet --no-trunc`.``
+
+The container engine did not answer within `--timeout`, which covers all Podman commands of a run together. A host with many images, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

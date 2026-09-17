@@ -20,13 +20,12 @@ import lib.base
 import lib.container
 import lib.db_sqlite
 import lib.lftest
-import lib.shell
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091602'
+__version__ = '2026091702'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
 normalized by dividing by the number of available host CPU cores, so 100% means all host
@@ -242,32 +241,6 @@ def parse_percent(value):
         return None
 
 
-def run_docker(args, cmd, deadline):
-    """Run a docker command and return what it printed.
-
-    Every command gets what is left of `--timeout`, so the check as a whole keeps to
-    it however many commands it runs. Ends the check with a WARN when the engine does
-    not answer in time, and with the engine's own verdict on a non-zero exit code.
-    """
-    remaining = deadline - lib.time.now(as_type='float')
-    if remaining > 0:
-        success, result = lib.shell.shell_exec(cmd, timeout=remaining)
-    else:
-        success, result = False, 'Timeout'
-    if not success:
-        if result.startswith('Timeout'):
-            lib.base.oao(
-                f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
-        lib.base.cu(result)
-    stdout, stderr, retc = result
-    if retc != 0:
-        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
-    return stdout
-
-
 def main():
     """The main function. This is where the magic happens."""
 
@@ -307,11 +280,21 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        deadline = lib.time.now(as_type='float') + args.TIMEOUT
+        started = lib.time.now(as_type='float')
         # get the number of host CPUs
-        stdout = run_docker(
-            args, ['docker', 'info', '--format', '{{json .}}'], deadline
+        success, result = lib.container.run(
+            ['docker', 'info', '--format', '{{json .}}'],
+            args.TIMEOUT,
+            started,
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
+        if retc != 0:
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
         try:
             host_cpus = int(json.loads(stdout).get('NCPU') or 0)
         except Exception:
@@ -323,15 +306,28 @@ def main():
             )
 
         # get the container statistics for all running containers
-        stdout = run_docker(
-            args, ['docker', 'stats', '--no-stream', '--format', '{{json .}}'], deadline
+        success, result = lib.container.run(
+            ['docker', 'stats', '--no-stream', '--format', '{{json .}}'],
+            args.TIMEOUT,
+            started,
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
+        if retc != 0:
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
     else:
         # do not call the command, put in test data
         host_cpus = 1
         stdout, stderr, retc = lib.lftest.test(args.TEST)
         if retc != 0:
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
 
     # init some vars
     msg = ''

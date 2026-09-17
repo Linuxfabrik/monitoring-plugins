@@ -21,13 +21,12 @@ import lib.base
 import lib.container
 import lib.human
 import lib.lftest
-import lib.shell
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082903'
+__version__ = '2026091702'
 
 DESCRIPTION = """Checks the lifecycle and health of Podman containers: the container status
 (running, exited, paused, ...), the result of the container health check (healthy,
@@ -41,6 +40,7 @@ Docker, use the docker-container check instead.
 Requires root or sudo."""
 
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -165,6 +165,14 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     parser.add_argument(
@@ -294,22 +302,32 @@ def main():
         # list all container IDs, then inspect them in a single call. `podman
         # inspect` errors out when called without arguments, so the empty case
         # is handled separately below.
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['podman', 'ps', '--all', '--quiet', '--no-trunc'],
-                run_as=args.USER,
-            ),
+        started = lib.time.now(as_type='float')
+        success, result = lib.container.run(
+            ['podman', 'ps', '--all', '--quiet', '--no-trunc'],
+            args.TIMEOUT,
+            started,
+            run_as=args.USER,
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
         if retc != 0:
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
         container_ids = stdout.split()
         if container_ids:
-            stdout, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(
-                    ['podman', 'inspect', *container_ids],
-                    run_as=args.USER,
-                ),
+            success, result = lib.container.run(
+                ['podman', 'inspect', *container_ids],
+                args.TIMEOUT,
+                started,
+                run_as=args.USER,
             )
+            if not success:
+                lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            stdout, stderr, retc = result
         else:
             stdout, stderr, retc = '[]', '', 0
     else:
@@ -328,7 +346,10 @@ def main():
         # reported on; only an answer without a single usable container means the
         # engine could not be asked at all.
         if retc != 0:
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
         lib.base.cu(
             'Unable to parse podman inspect output as JSON.'
             ' If you are using Docker, use the docker-container check instead.'

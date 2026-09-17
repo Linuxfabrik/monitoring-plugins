@@ -19,12 +19,12 @@ import lib.base
 import lib.container
 import lib.human
 import lib.lftest
-import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026091702'
 
 DESCRIPTION = """Displays system-wide Docker information including container counts (running,
 paused, stopped), image count, storage and logging driver, Docker version, available
@@ -33,6 +33,8 @@ host, and when the daemon answers with an error at all. Individual warnings can 
 filtered out with --ignore (e.g. the "No swap limit support" message on hosts where the
 kernel does not expose swap accounting). For Podman, use the podman-info check instead.
 Requires root or sudo."""
+
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -89,6 +91,14 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -114,15 +124,21 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
+        started = lib.time.now(as_type='float')
+        success, result = lib.container.run(
+            ['docker', 'info', '--format', '{{json .}}'], args.TIMEOUT, started
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     if retc != 0:
-        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+        lib.base.oao(
+            *lib.container.get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK
+        )
 
     try:
         result = json.loads(stdout)

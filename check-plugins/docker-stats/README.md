@@ -10,7 +10,7 @@ Reports CPU and memory usage for all running Docker containers. CPU usage is nor
 * Memory usage is relative to the container's memory limit if one is set, otherwise relative to the total host memory.
 * Containers can be selected or excluded by name with `--match` / `--ignore` (Python regular expressions, matched against the full name); `--no-match-severity` sets the state when nothing matches (default: ok).
 * Per-container CPU and memory perfdata are most useful for long-lived containers with stable names (e.g. `traefik_traefik.2`, named systemd-managed services). For ever-changing workloads (e.g. GitLab runner jobs, CI builders), the per-container labels churn between check runs and are useless for trending. The aggregate perfdata is the right signal there.
-* `--timeout` covers all Docker commands of a run together, so the check ends in time however long each of them takes. `docker stats --no-stream` alone takes one to two seconds, because the daemon samples every container twice, one second apart, and the client waits up to two seconds for each.
+* `--timeout` covers all Docker commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds. `docker stats --no-stream` alone takes one to two seconds, because the daemon samples every container twice, one second apart, and the client waits up to two seconds for each.
 
 **Data Collection:**
 
@@ -181,7 +181,7 @@ One CPU and one memory metric is emitted per running container, plus the aggrega
 
 ``Timeout after 8s while running `docker stats --no-stream --format {{json .}}`.``
 
-The container engine did not answer within `--timeout`. `docker stats` has to query every running container, so a host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
+The container engine did not answer within `--timeout`, which covers all Docker commands of a run together. `docker stats` has to query every running container, so a host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

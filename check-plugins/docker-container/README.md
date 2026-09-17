@@ -12,7 +12,8 @@ Checks the lifecycle and health of Docker containers: the container status (runn
 * The container status is reported but only alerts when you pin an expected status with `--status` (for example `--status=running`)
 * The restart count is reported for every container, but only alerts when you set `--warning-restarts` or `--critical-restarts`
 * The uptime of running containers is reported, but only alerts when you set `--warning-uptime` or `--critical-uptime` (for example `--warning-uptime=5m:` to catch a container that keeps restarting)
-* On a host with a very large number of containers the check can take a while, since every container is inspected, and may exceed the short check timeout monitoring systems use by default (often 10 seconds); give the check more time if it times out
+* On a host with a very large number of containers the check can take a while, since every container is inspected
+* `--timeout` covers all Docker commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds
 
 **Data Collection:**
 
@@ -41,7 +42,7 @@ usage: docker-container [-h] [-V] [--always-ok]
                         [--critical-uptime CRIT_UPTIME] [--full-name]
                         [--ignore IGNORE] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
-                        [--no-perfdata] [--status STATUS]
+                        [--no-perfdata] [--status STATUS] [--timeout TIMEOUT]
                         [--warning-restarts WARN_RESTARTS]
                         [--warning-uptime WARN_UPTIME]
 
@@ -112,6 +113,7 @@ options:
                         status differs is reported as CRITICAL. If not
                         specified, the status is reported but not alerted on.
                         Default: None
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --warning-restarts WARN_RESTARTS
                         WARN threshold for the number of automatic restarts a
                         container has performed, compared as a Nagios range.
@@ -176,6 +178,7 @@ app-unhealthy      ! running ! unhealthy ! 3        ! [CRITICAL]
 * WARN/CRIT if a running container's uptime crosses `--warning-uptime` / `--critical-uptime` (when given).
 * The state reported when no container matches the `--match` / `--ignore` filters (or no containers exist) is configurable via `--no-match-severity` (default: ok).
 * CRIT if `docker ps` fails, or if `docker inspect` returns nothing that can be read. A container that is removed while the check runs makes `docker inspect` fail as well; the containers it did report are checked as usual.
+* WARN if the Docker commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -202,6 +205,12 @@ To reset it, simply restart the container:
 * Acknowledging the problem in the monitoring system does not change the underlying count.
 
 If the restarts are expected for a given workload, raise the threshold, or leave `--warning-restarts` / `--critical-restarts` unset so that restarts are reported but not alerted on.
+
+### Timeout while running a Docker command
+
+``Timeout after 8s while running `docker ps --all --quiet --no-trunc`.``
+
+The container engine did not answer within `--timeout`, which covers all Docker commands of a run together. A host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

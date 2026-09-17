@@ -19,13 +19,12 @@ import lib.base
 import lib.container
 import lib.human
 import lib.lftest
-import lib.shell
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082903'
+__version__ = '2026091702'
 
 DESCRIPTION = """Checks the lifecycle and health of Docker containers: the container status
 (running, exited, paused, ...), the result of the container health check (healthy,
@@ -39,6 +38,7 @@ Podman, use the podman-container check instead.
 Requires root or sudo."""
 
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -166,6 +166,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--warning-restarts',
         help='WARN threshold for the number of automatic restarts a container has '
         'performed, compared as a Nagios range. '
@@ -195,7 +203,7 @@ def parse_args():
     return args
 
 
-def assert_docker_engine():
+def assert_docker_engine(args, started):
     """Exit UNKNOWN when `docker` on this host is Podman.
 
     A host carrying podman-docker answers every `docker` command through Podman, and
@@ -205,9 +213,12 @@ def assert_docker_engine():
     docker-info recognises it: Podman reports no server version. An engine that cannot
     be asked at all is left to the caller, which has the better message for it.
     """
-    stdout, _, retc = lib.base.coe(
-        lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
+    success, result = lib.container.run(
+        ['docker', 'info', '--format', '{{json .}}'], args.TIMEOUT, started
     )
+    if not success:
+        lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+    stdout, _, retc = result
     if retc != 0:
         return
     try:
@@ -301,20 +312,30 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        assert_docker_engine()
+        started = lib.time.now(as_type='float')
+        assert_docker_engine(args, started)
         # list all container IDs, then inspect them in a single call. `docker
         # inspect` errors out when called without arguments, so the empty case
         # is handled separately below.
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'ps', '--all', '--quiet', '--no-trunc']),
+        success, result = lib.container.run(
+            ['docker', 'ps', '--all', '--quiet', '--no-trunc'], args.TIMEOUT, started
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
         if retc != 0:
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
         container_ids = stdout.split()
         if container_ids:
-            stdout, stderr, retc = lib.base.coe(
-                lib.shell.shell_exec(['docker', 'inspect', *container_ids]),
+            success, result = lib.container.run(
+                ['docker', 'inspect', *container_ids], args.TIMEOUT, started
             )
+            if not success:
+                lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+            stdout, stderr, retc = result
         else:
             stdout, stderr, retc = '[]', '', 0
     else:
@@ -333,7 +354,10 @@ def main():
         # reported on; only an answer without a single usable container means the
         # engine could not be asked at all.
         if retc != 0:
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+            lib.base.oao(
+                *lib.container.get_engine_error(stderr, stdout),
+                always_ok=args.ALWAYS_OK,
+            )
         lib.base.cu(
             'Unable to parse docker inspect output as JSON.'
             ' If you are using Podman, use the podman-container check instead.'

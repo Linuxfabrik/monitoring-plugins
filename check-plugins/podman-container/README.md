@@ -13,7 +13,8 @@ Checks the lifecycle and health of Podman containers: the container status (runn
 * The restart count is reported for every container, but only alerts when you set `--warning-restarts` or `--critical-restarts`
 * The uptime of running containers is reported, but only alerts when you set `--warning-uptime` or `--critical-uptime` (for example `--warning-uptime=5m:` to catch a container that keeps restarting)
 * Podman runs rootless by default, and every user keeps their containers in their own storage. Running the check as root (via `sudo`) sees root's own containers, not the rootless containers of other users. To check a rootless user's containers, pass `--user=<name>`: the check then runs podman as that user. Every line of output names the inspected user, so an empty result against root's storage is obvious The Podman Service Set in the Icinga Director creates its services without `--user`. Set it on the service of every host whose containers belong to a rootless user, otherwise a tagged host reports "No containers to check" while the containers are running.
-* On a host with many containers, or with rootless Podman under `--user`, the check can take a while, since every container is inspected, and may exceed the short check timeout monitoring systems use by default (often 10 seconds); give the check more time if it times out
+* On a host with many containers, or with rootless Podman under `--user`, the check can take a while, since every container is inspected.
+* `--timeout` covers all Podman commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds.
 
 **Data Collection:**
 
@@ -42,8 +43,8 @@ usage: podman-container [-h] [-V] [--always-ok]
                         [--critical-uptime CRIT_UPTIME] [--full-name]
                         [--ignore IGNORE] [--match MATCH]
                         [--no-match-severity {ok,warn,crit,unknown}]
-                        [--no-perfdata] [--status STATUS] [--user USER]
-                        [--warning-restarts WARN_RESTARTS]
+                        [--no-perfdata] [--status STATUS] [--timeout TIMEOUT]
+                        [--user USER] [--warning-restarts WARN_RESTARTS]
                         [--warning-uptime WARN_UPTIME]
 
 Checks the lifecycle and health of Podman containers: the container status
@@ -113,6 +114,7 @@ options:
                         `unknown`. A container whose status differs is
                         reported as CRITICAL. If not specified, the status is
                         reported but not alerted on. Default: None
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --user USER           Inspect the rootless containers of this user instead
                         of those visible to the executing user. Podman keeps
                         each user's rootless containers in that user's own
@@ -191,6 +193,7 @@ app-unhealthy      ! running ! unhealthy ! 3        ! [CRITICAL]
 * WARN/CRIT if a running container's uptime crosses `--warning-uptime` / `--critical-uptime` (when given).
 * The state reported when no container matches the `--match` / `--ignore` filters (or no containers exist) is configurable via `--no-match-severity` (default: ok).
 * CRIT if `podman ps` fails, or if `podman inspect` returns nothing that can be read. A container that is removed while the check runs makes `podman inspect` fail as well; the containers it did report are checked as usual.
+* WARN if the Podman commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -217,6 +220,12 @@ To reset it, simply restart the container:
 * Acknowledging the problem in the monitoring system does not change the underlying count.
 
 If the restarts are expected for a given workload, raise the threshold, or leave `--warning-restarts` / `--critical-restarts` unset so that restarts are reported but not alerted on.
+
+### Timeout while running a Podman command
+
+``Timeout after 8s while running `podman ps --all --quiet --no-trunc`.``
+
+The container engine did not answer within `--timeout`, which covers all Podman commands of a run together. A host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

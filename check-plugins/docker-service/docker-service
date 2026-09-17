@@ -21,12 +21,12 @@ import lib.base
 import lib.container
 import lib.disk
 import lib.lftest
-import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082904'
+__version__ = '2026091702'
 
 DESCRIPTION = """Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those tasks are
@@ -46,6 +46,7 @@ Requires root or sudo."""
 
 DEFAULT_CRIT = '50:'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = '100:'
 
 
@@ -159,6 +160,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for the percentage of expected tasks that are running, '
@@ -235,17 +244,20 @@ def get_engine_error(stderr, stdout=''):
     return lib.container.get_engine_error(text, fallback_state=STATE_UNKNOWN)
 
 
-def get_services(test_args):
+def get_services(args, started):
     """Return the swarm services as reported by `docker service ls`, one dict per
     service (Name, Mode, Replicas). Must run on a manager. `docker service ls` emits one
     JSON object per line, not a JSON array.
     """
-    if test_args is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'service', 'ls', '--format', '{{json .}}']),
+    if args.TEST is None:
+        success, result = lib.container.run(
+            ['docker', 'service', 'ls', '--format', '{{json .}}'], args.TIMEOUT, started
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
     else:
-        stdout, stderr = load_fixture(test_args, '-services')
+        stdout, stderr = load_fixture(args.TEST, '-services')
         # a fixture that carries error output stands in for a command that failed
         retc = 1 if stderr else 0
     if retc != 0:
@@ -255,53 +267,51 @@ def get_services(test_args):
             lib.base.cu(
                 'This node is not a swarm manager. Run docker-service on a manager.'
             )
-        lib.base.oao(*get_engine_error(stderr, stdout))
+        lib.base.oao(*get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK)
     return parse_json_lines(stdout, 'docker service ls')
 
 
-def get_service_tasks(test_args, name):
+def get_service_tasks(args, started, name):
     """Return the tasks of a single service as reported by `docker service ps`, one dict
     per task (Node, DesiredState, CurrentState). Used for the distribution check.
     """
-    if test_args is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                [
-                    'docker',
-                    'service',
-                    'ps',
-                    '--no-trunc',
-                    '--format',
-                    '{{json .}}',
-                    name,
-                ]
-            ),
+    if args.TEST is None:
+        success, result = lib.container.run(
+            ['docker', 'service', 'ps', '--no-trunc', '--format', '{{json .}}', name],
+            args.TIMEOUT,
+            started,
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
     else:
         # the service name can contain characters unsafe for a filename, but the
         # test service names used in fixtures are plain, so a direct suffix is fine
-        stdout, stderr = load_fixture(test_args, f'-ps-{name}')
+        stdout, stderr = load_fixture(args.TEST, f'-ps-{name}')
         retc = 1 if stderr else 0
     if retc != 0:
-        lib.base.oao(*get_engine_error(stderr, stdout))
+        lib.base.oao(*get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK)
     return parse_json_lines(stdout, 'docker service ps')
 
 
-def get_node_count(test_args):
+def get_node_count(args, started):
     """Return the total number of swarm nodes, used as the denominator for the even-
     spread optimum in the distribution check. All nodes count, including a drained one,
     so that both replicas landing on one node because the other was drained is still
     flagged as an imbalance the operator should see.
     """
-    if test_args is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
+    if args.TEST is None:
+        success, result = lib.container.run(
+            ['docker', 'node', 'ls', '--format', '{{json .}}'], args.TIMEOUT, started
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
     else:
-        stdout, stderr = load_fixture(test_args, '-nodes')
+        stdout, stderr = load_fixture(args.TEST, '-nodes')
         retc = 1 if stderr else 0
     if retc != 0:
-        lib.base.oao(*get_engine_error(stderr, stdout))
+        lib.base.oao(*get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK)
     return len(parse_json_lines(stdout, 'docker node ls'))
 
 
@@ -387,11 +397,12 @@ def main():
     ]
 
     # fetch data
-    services = get_services(args.TEST)
+    started = lib.time.now(as_type='float')
+    services = get_services(args, started)
     services_by_name = {s.get('Name', ''): s for s in services}
 
     # a total node count is only needed for the distribution optimum
-    node_count = get_node_count(args.TEST) if args.CHECK_DISTRIBUTION else 0
+    node_count = get_node_count(args, started) if args.CHECK_DISTRIBUTION else 0
 
     # init some vars
     msg = ''
@@ -464,7 +475,7 @@ def main():
         dist_state = STATE_OK
         tasks = None
         if args.CHECK_DISTRIBUTION and mode == 'replicated' and expected > 0:
-            tasks = get_service_tasks(args.TEST, name)
+            tasks = get_service_tasks(args, started, name)
             per_node = count_tasks_per_node(tasks)
             max_per_node = max(per_node.values()) if per_node else 0
             optimal = math.ceil(expected / node_count) if node_count else expected
@@ -494,7 +505,7 @@ def main():
             # so a healthy swarm costs no additional call.
             if service_state != STATE_OK:
                 if tasks is None:
-                    tasks = get_service_tasks(args.TEST, name)
+                    tasks = get_service_tasks(args, started, name)
                 problem = get_task_problem(tasks)
                 if problem:
                     msg_body += f'{name}: {problem}\n'

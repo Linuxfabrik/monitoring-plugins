@@ -16,6 +16,7 @@ Checks the health of Docker Swarm services: how many of the expected tasks (cont
 * `--check-distribution` additionally warns when more tasks of a service sit on one node than an even spread (`ceil(expected / number of nodes)`) would place there. All nodes count towards the spread, including a drained one, so both replicas landing on a single node because the other node was drained is still surfaced. Only replicated services are examined: a global service runs one task per node by definition, and a job runs until its work is done
 * To alert when a specific service disappears entirely, name it with `--service`. A named service the swarm does not know is CRIT, with or without a pinned count. In the default all-services mode a removed service simply drops out of the list; use `--no-match-severity` to alert when the list becomes empty
 * For the node and cluster health of the swarm itself (node down, manager quorum), use the docker-swarm check. For plain (non-swarm) container health, use docker-container
+* `--timeout` covers all Docker commands of a run together, so the check ends in time however long each of them takes. With `--check-distribution` every checked service is asked separately, so a swarm with many services needs more time; the shipped Director template allows 25 seconds
 
 **Data Collection:**
 
@@ -42,7 +43,8 @@ Checks the health of Docker Swarm services: how many of the expected tasks (cont
 usage: docker-service [-h] [-V] [--always-ok] [--check-distribution] [-c CRIT]
                       [--ignore IGNORE] [--lengthy]
                       [--no-match-severity {ok,warn,crit,unknown}]
-                      [--no-perfdata] [--service SERVICE] [-w WARN]
+                      [--no-perfdata] [--service SERVICE] [--timeout TIMEOUT]
+                      [-w WARN]
 
 Checks the health of Docker Swarm services: how many of the expected tasks
 (containers) of a service are actually running, and optionally whether those
@@ -102,6 +104,7 @@ options:
                         expected tasks, even after someone scaled it down to
                         one. Example: `--service=traefik` checks `traefik`
                         against its own desired count. Default: None
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN    WARN threshold for the percentage of expected tasks
                         that are running, compared as a Nagios range. Default:
                         100: (warn when fewer than 100% of the expected tasks
@@ -149,6 +152,7 @@ web     ! 2/2              ! [OK]
 * CRIT if a service runs fewer than the critical percentage of its expected tasks (default: below 50%), including a service pinned with `--service` that is scaled to zero.
 * CRIT if a service named with `--service` does not exist in this swarm.
 * UNKNOWN if the node is not a swarm manager (services cannot be listed there).
+* WARN if the Docker commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--no-match-severity` sets the state when no service is checked (default: OK).
 * `--always-ok` suppresses all alerts and always returns OK.
@@ -162,6 +166,15 @@ web     ! 2/2              ! [OK]
 | services_degraded | Number | Number of services below their expected tasks or unevenly spread. |
 | tasks_expected | Number | Sum of the expected tasks across all checked services. |
 | tasks_running | Number | Sum of the running tasks across all checked services. |
+
+
+## Troubleshooting
+
+### Timeout while running a Docker command
+
+``Timeout after 8s while running `docker service ls --format {{json .}}`.``
+
+The container engine did not answer within `--timeout`, which covers all Docker commands of a run together. A host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License

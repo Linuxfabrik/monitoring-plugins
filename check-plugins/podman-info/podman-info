@@ -21,12 +21,12 @@ import lib.base
 import lib.container
 import lib.human
 import lib.lftest
-import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026091702'
 
 DESCRIPTION = """Displays system-wide Podman information including container counts, image count,
 storage driver, logging driver, number of search registries, runtime version, available
@@ -34,6 +34,8 @@ CPUs, and total memory. Alerts on the warnings and errors Podman writes while an
 Individual lines can be filtered out with --ignore (e.g. benign cgroup warnings on
 rootless hosts). For Docker, use the docker-info check instead.
 Requires root or sudo."""
+
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -90,6 +92,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--user',
         help='Report on the rootless Podman of this user instead of the one visible to '
         'the executing user. '
@@ -128,18 +138,24 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['podman', 'info', '--format', 'json'],
-                run_as=args.USER,
-            ),
+        started = lib.time.now(as_type='float')
+        success, result = lib.container.run(
+            ['podman', 'info', '--format', 'json'],
+            args.TIMEOUT,
+            started,
+            run_as=args.USER,
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     if retc != 0:
-        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+        lib.base.oao(
+            *lib.container.get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK
+        )
 
     try:
         result = json.loads(stdout)

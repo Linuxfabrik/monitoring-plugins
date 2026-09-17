@@ -19,12 +19,12 @@ import lib.base
 import lib.container
 import lib.disk
 import lib.lftest
-import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082903'
+__version__ = '2026091702'
 
 DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active, pending,
@@ -36,6 +36,8 @@ since draining a node is a deliberate operator action. Podman does not support s
 mode, so there is no Podman counterpart to this check. Supports extended reporting via
 --lengthy.
 Requires root or sudo."""
+
+DEFAULT_TIMEOUT = 8
 
 # Maps the local swarm state reported by `docker info` to a monitoring
 # state. `active` is the only healthy value; `pending` is transient
@@ -110,6 +112,14 @@ def parse_args():
         type=lib.args.csv,
     )
 
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -134,7 +144,7 @@ def load_fixture(test_args, suffix):
     return (stdout, stderr)
 
 
-def get_swarm_info(test_args):
+def get_swarm_info(args, started):
     """Return the parsed `docker info` Swarm object. Live it comes from
     `docker info --format '{{json .}}'`, which works on every node (worker or
     manager) and reports the local swarm state under the `Swarm` key. The full
@@ -144,17 +154,22 @@ def get_swarm_info(test_args):
     be misread as a daemon failure. Fetching the whole object lets us detect
     the missing `Swarm` key and report UNKNOWN instead.
     """
-    if test_args is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
+    if args.TEST is None:
+        success, result = lib.container.run(
+            ['docker', 'info', '--format', '{{json .}}'], args.TIMEOUT, started
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
     else:
-        stdout, stderr = load_fixture(test_args, '-info')
+        stdout, stderr = load_fixture(args.TEST, '-info')
         stdout = stdout or ''
         # a fixture that carries error output stands in for a command that failed
         retc = 1 if stderr else 0
     if retc != 0:
-        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+        lib.base.oao(
+            *lib.container.get_engine_error(stderr, stdout), always_ok=args.ALWAYS_OK
+        )
     try:
         info = json.loads(stdout)
     except (json.JSONDecodeError, ValueError):
@@ -170,7 +185,7 @@ def get_swarm_info(test_args):
     return swarm
 
 
-def get_nodes(test_args):
+def get_nodes(args, started):
     """Return `(nodes, error)` for the swarm nodes as reported by `docker node ls`. This
     only works on a manager node, so the caller must ensure the local node is a manager
     before calling. The CLI emits one JSON object per line (not a JSON array); each object
@@ -182,14 +197,17 @@ def get_nodes(test_args):
     handed back to the caller rather than ending the check here, so the missing quorum is
     graded as the outage it is instead of as a failed command.
     """
-    if test_args is None:
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'node', 'ls', '--format', '{{json .}}']),
+    if args.TEST is None:
+        success, result = lib.container.run(
+            ['docker', 'node', 'ls', '--format', '{{json .}}'], args.TIMEOUT, started
         )
+        if not success:
+            lib.base.oao(*result, always_ok=args.ALWAYS_OK)
+        stdout, stderr, retc = result
         if retc != 0:
             return ([], lib.container.strip_daemon_error(stderr or stdout))
     else:
-        stdout, stderr = load_fixture(test_args, '-nodes')
+        stdout, stderr = load_fixture(args.TEST, '-nodes')
         if stderr:
             return ([], lib.container.strip_daemon_error(stderr))
         if stdout is None:
@@ -216,7 +234,8 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    swarm = get_swarm_info(args.TEST)
+    started = lib.time.now(as_type='float')
+    swarm = get_swarm_info(args, started)
     if 'LocalNodeState' not in swarm:
         lib.base.cu(
             'No swarm state reported. This check requires Docker;'
@@ -231,7 +250,7 @@ def main():
     nodes = []
     node_error = ''
     if is_manager and local_state == 'active':
-        nodes, node_error = get_nodes(args.TEST)
+        nodes, node_error = get_nodes(args, started)
 
     # init some vars
     msg = ''

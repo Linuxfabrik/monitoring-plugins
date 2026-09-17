@@ -17,6 +17,7 @@ Checks whether the local node participates in a Docker Swarm and whether the clu
 * `--lengthy` prints the columns of `docker node ls` (hostname, status, availability, manager status, engine version) with the check's own verdict appended, so the table reads like the output the engine itself produces
 * Node availability (`active`, `pause`, `drain`) is shown with `--lengthy` but never raises an alert, since draining or pausing a node is a deliberate operator action. It states whether the scheduler may place tasks on the node, not whether the node is up: a node that is down keeps its `active` availability until someone drains it, and a healthy node under maintenance reads `Ready` and `Drain` at the same time. The `Status` column is the one that says whether the cluster can reach the node
 * For the health of individual swarm services and their replica counts, use the docker-service check
+* `--timeout` covers all Docker commands of a run together, so the check ends in time however long each of them takes. The shipped Director template allows 15 seconds
 
 **Data Collection:**
 
@@ -41,6 +42,7 @@ Checks whether the local node participates in a Docker Swarm and whether the clu
 
 ```text
 usage: docker-swarm [-h] [-V] [--always-ok] [--lengthy] [--no-perfdata]
+                    [--timeout TIMEOUT]
 
 Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active,
@@ -54,13 +56,14 @@ Podman counterpart to this check. Supports extended reporting via --lengthy.
 Requires root or sudo.
 
 options:
-  -h, --help     show this help message and exit
-  -V, --version  show program's version number and exit
-  --always-ok    Always returns OK.
-  --lengthy      Extended reporting.
-  --no-perfdata  Suppress the performance data section from the output. The
-                 status message and the exit code are unaffected, so alerting
-                 keeps working while trending data is dropped.
+  -h, --help         show this help message and exit
+  -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
+  --lengthy          Extended reporting.
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-swarm/
@@ -103,6 +106,7 @@ Manager             ! Node ID
 * CRIT if the managers have lost their quorum (half or more unreachable).
 * CRIT if a manager cannot reach the swarm control plane. The daemon's own explanation is put on the first line; a lost quorum is the usual cause and reads as "The swarm does not have a leader".
 * CRIT if `docker info` returns a non-zero exit code (daemon unreachable).
+* WARN if the Docker commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -126,6 +130,12 @@ Perfdata is only emitted on a manager node, where the cluster inventory is avail
 ### `Unable to determine the swarm state. This check requires Docker; Podman does not support swarm mode.`
 
 The output of `docker info` does not contain a swarm object. Podman does not implement swarm mode, so this check only works with Docker. For multi-host orchestration under Podman, use Kubernetes manifests (`podman kube play`) instead.
+
+### Timeout while running a Docker command
+
+``Timeout after 8s while running `docker info --format {{json .}}`.``
+
+The container engine did not answer within `--timeout`, which covers all Docker commands of a run together. A host running many containers, or an engine busy with other work, can take longer than usual. Run the command from the message by hand to see how long it takes, and raise `--timeout` accordingly. Keep it below the timeout of the monitoring system for the check command.
 
 
 ## Credits, License
