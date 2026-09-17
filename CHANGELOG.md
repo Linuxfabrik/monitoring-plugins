@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * file-age, file-size: no longer run through sudo, so a path only root may read now fails: grant the monitoring user access to it
+* podman-stats: block and network I/O are reported as bytes per second instead of totals since the containers started, under new metric names (`read_bytes_per_second`, `rx_bytes_per_second`, `tx_bytes_per_second`, `write_bytes_per_second`). Adjust graphs built on `block_input`, `block_output`, `net_rx` and `net_tx`. Network traffic of a pod is counted once and reported on Podman 4 as well, and a container on `--network host` or `--network none` no longer crashes the check ([#1519](https://github.com/Linuxfabrik/monitoring-plugins/issues/1519))
 * the sudoers drop-in is split in two, so sudo-rs stops warning on every `sudo` call: a host whose sudoers you deploy by hand now also needs `*-logging.sudoers` to keep the plugin calls out of the authentication log ([#1493](https://github.com/Linuxfabrik/monitoring-plugins/issues/1493))
 * whmcs-status: `--url` is required now, because its old default named a port no WHMCS listens on: set it on every service that relied on the default
 
@@ -136,6 +137,7 @@ Monitoring Plugins:
 * deb-updates: `--only-critical` no longer stays OK on a fresh security update, and two runs at the same time no longer report each other's rows
 * disk-usage: `--fstype` and `--list-fstypes` work again on a host whose network filesystem stopped answering, and the warning and critical lines stay on the chart for filesystems smaller than an absolute `FREE` threshold
 * docker-service, docker-swarm: the sudoers file lets them reach the Docker daemon
+* docker-stats: a busy container no longer pushes the CPU history of the others out, so `--count` holds for every container
 * file-ownership: a `--filename` missing its `owner:group,` prefix names the expected format instead of crashing
 * fortios-network-io, fortios-sensor, jitsi-videobridge-status: `--always-ok` suppresses the alert instead of being ignored
 * gitlab-version: `--check-security` no longer forces UNKNOWN when the version-check service cannot be reached, it follows `--unreachable-severity` and still says so in the output
@@ -148,7 +150,6 @@ Monitoring Plugins:
 * needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
 * nextcloud-status, spring-boot-actuator-health: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
-* podman-stats: a container running with `--network host` or `--network none` no longer crashes the check ([#1519](https://github.com/Linuxfabrik/monitoring-plugins/issues/1519))
 * redfish-\*: recover on their own after a management controller drops its sessions, log in far less often, and ask it for a fraction of the data they used to ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372), [#1507](https://github.com/Linuxfabrik/monitoring-plugins/issues/1507))
 * redfish-logservices: evaluates the System Event Log of Avigilon servers instead of always reporting OK
 * rpm-updates: an update that only bumps the release behind the distribution tag no longer shows the installed version as the one to upgrade to, and two runs at the same time no longer report each other's rows

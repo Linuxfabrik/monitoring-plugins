@@ -21,28 +21,31 @@ import lib.container
 import lib.db_sqlite
 import lib.lftest
 import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026091602'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Docker containers. CPU usage is
-normalized by dividing by the number of available host CPU cores. CPU alerts only
-trigger after the threshold has been exceeded for a configurable number of consecutive
-check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately.
-Uses a local SQLite database for CPU trend tracking across runs. For Podman, use the
-podman-stats check instead.
+normalized by dividing by the number of available host CPU cores, so 100% means all host
+CPUs are fully utilized. Alerts when the CPU usage of a container has been outside its
+threshold for a configurable number of consecutive check runs (default: 5), suppressing
+short spikes, and immediately when its memory usage is outside its threshold. For
+Podman, use the podman-stats check instead.
 Requires root or sudo."""
 
+DB_FILENAME = 'linuxfabrik-monitoring-plugins-docker-stats.db'
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute period
 )
+DEFAULT_CRIT_CPU = '90'  # %
+DEFAULT_CRIT_MEM = '95'  # %
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
-DEFAULT_WARN_CPU = 80  # %
-DEFAULT_CRIT_CPU = 90  # %
-DEFAULT_WARN_MEM = 90  # %
-DEFAULT_CRIT_MEM = 95  # %
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN_CPU = '80'  # %
+DEFAULT_WARN_MEM = '90'  # %
 
 
 def parse_args():
@@ -78,14 +81,18 @@ def parse_args():
 
     parser.add_argument(
         '--critical-cpu',
-        help='CRIT threshold for CPU usage in percent. Default: >= %(default)s',
+        help='CRIT threshold for CPU usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_CPU,
         dest='CRIT_CPU',
     )
 
     parser.add_argument(
         '--critical-mem',
-        help='CRIT threshold for memory usage in percent. Default: %(default)s',
+        help='CRIT threshold for memory usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_MEM,
         dest='CRIT_MEM',
     )
@@ -155,15 +162,27 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--warning-cpu',
-        help='WARN threshold for CPU usage in percent. Default: >= %(default)s',
+        help='WARN threshold for CPU usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_CPU,
         dest='WARN_CPU',
     )
 
     parser.add_argument(
         '--warning-mem',
-        help='WARN threshold for memory usage in percent. Default: %(default)s',
+        help='WARN threshold for memory usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_MEM,
         dest='WARN_MEM',
     )
@@ -172,21 +191,31 @@ def parse_args():
     return args
 
 
-def get_cpu_from_db(conn, container, threshold):
-    """Return the number of rows where cpu_usage >= threshold for a container."""
-    result = lib.base.coe(
+def get_cpu_state(conn, container, count, warn, crit):
+    """Return the state the last COUNT CPU samples of a container agree on.
+
+    A single sample outside the threshold is a burst, COUNT of them in a row are a
+    container that stays busy. Until COUNT samples are recorded, the container cannot
+    alert on its CPU usage.
+    """
+    rows = lib.base.coe(
         lib.db_sqlite.select(
             conn,
-            """
-        SELECT count(*) as cnt
-        FROM cpu
-        WHERE container = :container and cpu_usage >= :threshold
-        """,
-            {'container': container, 'threshold': threshold},
-            fetchone=True,
+            'SELECT cpu_usage FROM cpu_usage WHERE container = :container',
+            {'container': container},
         )
     )
-    return int(result['cnt'])
+    samples = [row['cpu_usage'] for row in rows]
+    if len(samples) < count:
+        return STATE_OK
+    states = [
+        lib.base.get_state(sample, warn, crit, _operator='range') for sample in samples
+    ]
+    if all(item == STATE_CRIT for item in states):
+        return STATE_CRIT
+    if all(item in (STATE_CRIT, STATE_WARN) for item in states):
+        return STATE_WARN
+    return STATE_OK
 
 
 def keep_container(name, match_patterns, ignore_patterns):
@@ -213,6 +242,32 @@ def parse_percent(value):
         return None
 
 
+def run_docker(args, cmd, deadline):
+    """Run a docker command and return what it printed.
+
+    Every command gets what is left of `--timeout`, so the check as a whole keeps to
+    it however many commands it runs. Ends the check with a WARN when the engine does
+    not answer in time, and with the engine's own verdict on a non-zero exit code.
+    """
+    remaining = deadline - lib.time.now(as_type='float')
+    if remaining > 0:
+        success, result = lib.shell.shell_exec(cmd, timeout=remaining)
+    else:
+        success, result = False, 'Timeout'
+    if not success:
+        if result.startswith('Timeout'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        lib.base.cu(result)
+    stdout, stderr, retc = result
+    if retc != 0:
+        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+    return stdout
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -228,6 +283,18 @@ def main():
     if args.MATCH is None:
         args.MATCH = []
 
+    # reject a threshold that is not a valid Nagios range, instead of grading every
+    # container against it
+    for param, threshold in (
+        ('--critical-cpu', args.CRIT_CPU),
+        ('--critical-mem', args.CRIT_MEM),
+        ('--warning-cpu', args.WARN_CPU),
+        ('--warning-mem', args.WARN_MEM),
+    ):
+        success, result = lib.base.match_range(0, threshold)
+        if not success:
+            lib.base.cu(f'Invalid Nagios range for {param} ("{threshold}"): {result}.')
+
     # compile --match and --ignore patterns (case-sensitive by default, matching
     # the lib.args convention; the user can opt into case-insensitive matching
     # with the inline `(?i)` flag)
@@ -238,53 +305,33 @@ def main():
         lib.base.coe(p) for p in lib.txt.compile_regex(args.IGNORE, '--ignore')
     ]
 
-    # create the db tables
-    definition = """
-                container TEXT NOT NULL,
-                cpu_usage REAL NOT NULL
-        """
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-docker-stats.db'
-        ),
-    )
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu'))
-    lib.db_sqlite.create_index(conn, 'container', table='cpu')
-
     # fetch data
     if args.TEST is None:
+        deadline = lib.time.now(as_type='float') + args.TIMEOUT
         # get the number of host CPUs
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['docker', 'info', '--format', '{{json .}}']),
+        stdout = run_docker(
+            args, ['docker', 'info', '--format', '{{json .}}'], deadline
         )
-        if retc != 0:
-            lib.db_sqlite.close(conn)
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
         try:
             host_cpus = int(json.loads(stdout).get('NCPU') or 0)
         except Exception:
             host_cpus = 0
         if not host_cpus:
-            lib.db_sqlite.close(conn)
             lib.base.cu(
                 'The daemon did not report the number of host CPUs.'
                 ' If you are using Podman, use the podman-stats check instead.'
             )
 
         # get the container statistics for all running containers
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['docker', 'stats', '--no-stream', '--format', '{{json .}}']
-            ),
+        stdout = run_docker(
+            args, ['docker', 'stats', '--no-stream', '--format', '{{json .}}'], deadline
         )
     else:
         # do not call the command, put in test data
         host_cpus = 1
         stdout, stderr, retc = lib.lftest.test(args.TEST)
-
-    if retc != 0:
-        lib.db_sqlite.close(conn)
-        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+        if retc != 0:
+            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
 
     # init some vars
     msg = ''
@@ -304,20 +351,46 @@ def main():
             continue
 
     # sort containers by name, then apply the --match / --ignore name filters (dropping
-    # entries without a usable name), so the SQLite trend cut below is sized to the
-    # number of tracked containers
+    # entries without a usable name)
     containers.sort(key=lambda c: c.get('Name', ''))
     # a container whose statistics never arrived is reported without a name, which the
     # engine prints as the same placeholder it uses for every unknown value
+    containers = [c for c in containers if c.get('Name', '') not in ('', '--')]
+    # every name a running container is known under, whatever this run filters: another
+    # service on the same host may filter differently or use --full-name, and must not
+    # lose its history because this run looks elsewhere
+    running_names = {c['Name'] for c in containers}
+    running_names |= {lib.container.strip_task_id(name) for name in running_names}
     containers = [
         c
         for c in containers
-        if c.get('Name', '')
-        and c.get('Name') != '--'
-        and keep_container(c.get('Name', ''), match_patterns, ignore_patterns)
+        if keep_container(c.get('Name', ''), match_patterns, ignore_patterns)
     ]
 
     # analyze data
+    # create the db table holding the CPU trend the --count evaluation reads
+    definition = """
+                container TEXT NOT NULL,
+                cpu_usage REAL NOT NULL,
+                timestamp REAL NOT NULL
+        """
+    # in test mode the trend lives in memory only, so a fixture neither reads the
+    # history an earlier test run left behind nor leaves one for the next
+    if args.TEST is None:
+        conn = lib.base.coe(lib.db_sqlite.connect(filename=DB_FILENAME))
+    else:
+        conn = lib.base.coe(lib.db_sqlite.connect(in_memory=True))
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu_usage'))
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'container', table='cpu_usage'))
+    # forget the history of containers that no longer exist, otherwise the state file
+    # grows with every short-lived container (CI jobs, one-off runs)
+    lib.base.coe(
+        lib.db_sqlite.forget_sensors(
+            conn, 'container', running_names, table='cpu_usage'
+        )
+    )
+
+    # grade every container
     for container in containers:
         name = container.get('Name', '')
         # https://github.com/Linuxfabrik/monitoring-plugins/issues/586
@@ -360,20 +433,27 @@ def main():
             # save trend data to local sqlite database, limited to "count" rows max.
             lib.base.coe(
                 lib.db_sqlite.insert(
-                    conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
+                    conn,
+                    {
+                        'container': name,
+                        'cpu_usage': cpu_usage,
+                        'timestamp': lib.time.now(as_type='float'),
+                    },
+                    table='cpu_usage',
                 ),
             )
+            # keep "count" rows per container; trimming the table to a total instead
+            # lets a container that is sampled more often evict the others' history
             lib.base.coe(
-                lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
+                lib.db_sqlite.cut_per_sensor(
+                    conn, sensorcol='container', _max=args.COUNT, table='cpu_usage'
+                )
             )
 
-            # alert when container cpu_usage is exceeded
-            # my container state is not ok, if in every of my historic rows the cpu
-            # value is above the threshold
-            if get_cpu_from_db(conn, name, args.CRIT_CPU) >= args.COUNT:
-                cpu_state = STATE_CRIT
-            elif get_cpu_from_db(conn, name, args.WARN_CPU) >= args.COUNT:
-                cpu_state = STATE_WARN
+            # alert when the cpu usage of the container stayed outside its threshold
+            cpu_state = get_cpu_state(
+                conn, name, args.COUNT, args.WARN_CPU, args.CRIT_CPU
+            )
             if cpu_state != STATE_OK:
                 # build the message
                 msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
@@ -381,7 +461,9 @@ def main():
 
         # alert when container mem_usage is exceeded
         if mem_usage is not None:
-            mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
+            mem_state = lib.base.get_state(
+                mem_usage, args.WARN_MEM, args.CRIT_MEM, _operator='range'
+            )
             if mem_state != STATE_OK:
                 msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
             state = lib.base.get_worst(mem_state, state)
@@ -411,7 +493,7 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
-    # build perfdata
+    # build the message
     perfdata += lib.base.get_perfdata(
         'containers_running',
         len(table_values),
@@ -423,7 +505,6 @@ def main():
         _min=0,
     )
 
-    # create output
     if state == STATE_OK:
         checked = len(table_values)
         msg = (
@@ -432,6 +513,8 @@ def main():
         )
     else:
         msg = msg[:-2] + '\n\n'
+
+    # build table output
     if len(table_values) > 0:
         msg += lib.base.get_table(
             table_values,

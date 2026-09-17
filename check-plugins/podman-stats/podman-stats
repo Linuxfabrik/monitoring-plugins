@@ -23,29 +23,31 @@ import lib.container
 import lib.db_sqlite
 import lib.lftest
 import lib.shell
+import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091601'
+__version__ = '2026091603'
 
 DESCRIPTION = """Reports CPU and memory usage for all running Podman containers. CPU usage is
-normalized by dividing by the number of available host CPU cores. CPU alerts only
-trigger after the threshold has been exceeded for a configurable number of consecutive
-check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately.
-Uses a local SQLite database for CPU trend tracking across runs. For Docker, use the
-docker-stats check instead.
+normalized by dividing by the number of available host CPU cores, so 100% means all host
+CPUs are fully utilized. Alerts when the CPU usage of a container has been outside its
+threshold for a configurable number of consecutive check runs (default: 5), suppressing
+short spikes, and immediately when its memory usage is outside its threshold. For
+Docker, use the docker-stats check instead.
 Requires root or sudo."""
 
 DB_FILENAME = 'linuxfabrik-monitoring-plugins-podman-stats.db'
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute period
 )
+DEFAULT_CRIT_CPU = '90'  # %
+DEFAULT_CRIT_MEM = '95'  # %
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
-DEFAULT_WARN_CPU = 80  # %
-DEFAULT_CRIT_CPU = 90  # %
-DEFAULT_WARN_MEM = 90  # %
-DEFAULT_CRIT_MEM = 95  # %
+DEFAULT_TIMEOUT = 8
+DEFAULT_WARN_CPU = '80'  # %
+DEFAULT_WARN_MEM = '90'  # %
 
 
 def parse_args():
@@ -81,14 +83,18 @@ def parse_args():
 
     parser.add_argument(
         '--critical-cpu',
-        help='CRIT threshold for CPU usage, in percent. Default: >= %(default)s',
+        help='CRIT threshold for CPU usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_CPU,
         dest='CRIT_CPU',
     )
 
     parser.add_argument(
         '--critical-mem',
-        help='CRIT threshold for memory usage, in percent. Default: >= %(default)s',
+        help='CRIT threshold for memory usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_CRIT_MEM,
         dest='CRIT_MEM',
     )
@@ -158,6 +164,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--user',
         help='Report on the rootless containers of this user instead of those visible '
         'to the executing user. '
@@ -173,14 +187,18 @@ def parse_args():
 
     parser.add_argument(
         '--warning-cpu',
-        help='WARN threshold for CPU usage, in percent. Default: >= %(default)s',
+        help='WARN threshold for CPU usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_CPU,
         dest='WARN_CPU',
     )
 
     parser.add_argument(
         '--warning-mem',
-        help='WARN threshold for memory usage, in percent. Default: >= %(default)s',
+        help='WARN threshold for memory usage, in percent. '
+        'Supports Nagios ranges. '
+        'Default: %(default)s',
         default=DEFAULT_WARN_MEM,
         dest='WARN_MEM',
     )
@@ -189,21 +207,54 @@ def parse_args():
     return args
 
 
-def get_cpu_from_db(conn, container, threshold):
-    """Return the number of rows where cpu_usage >= threshold for a container."""
-    result = lib.base.coe(
+def get_cpu_state(conn, container, count, warn, crit):
+    """Return the state the last COUNT CPU samples of a container agree on.
+
+    A single sample outside the threshold is a burst, COUNT of them in a row are a
+    container that stays busy. Until COUNT samples are recorded, the container cannot
+    alert on its CPU usage.
+    """
+    rows = lib.base.coe(
         lib.db_sqlite.select(
             conn,
-            """
-        SELECT count(*) as cnt
-        FROM cpu
-        WHERE container = :container and cpu_usage >= :threshold
-        """,
-            {'container': container, 'threshold': threshold},
-            fetchone=True,
+            'SELECT cpu_usage FROM cpu_usage WHERE container = :container',
+            {'container': container},
         )
     )
-    return int(result['cnt'])
+    samples = [row['cpu_usage'] for row in rows]
+    if len(samples) < count:
+        return STATE_OK
+    states = [
+        lib.base.get_state(sample, warn, crit, _operator='range') for sample in samples
+    ]
+    if all(item == STATE_CRIT for item in states):
+        return STATE_CRIT
+    if all(item in (STATE_CRIT, STATE_WARN) for item in states):
+        return STATE_WARN
+    return STATE_OK
+
+
+def get_net_counters(container):
+    """Return the cumulative `(rx_bytes, tx_bytes)` of a container summed over its
+    interfaces, or None if the engine reports no network statistics for it.
+
+    Podman 5 reports a map of interfaces under `Network`, and `null` for a container
+    without a network namespace of its own (`--network host` or `none`). Podman 4
+    reports the sums as `NetInput` and `NetOutput` instead. Verified against the
+    libpod sources of podman 4.9.4 and 5.8 (libpod/define/containerstate.go).
+    """
+    network = container.get('Network')
+    if isinstance(network, dict):
+        return (
+            sum(int(iface.get('RxBytes') or 0) for iface in network.values()),
+            sum(int(iface.get('TxBytes') or 0) for iface in network.values()),
+        )
+    if 'NetInput' in container:
+        return (
+            int(container.get('NetInput') or 0),
+            int(container.get('NetOutput') or 0),
+        )
+    return None
 
 
 def keep_container(name, match_patterns, ignore_patterns):
@@ -216,6 +267,33 @@ def keep_container(name, match_patterns, ignore_patterns):
     if match_patterns and not any(p.search(name) for p in match_patterns):
         return False
     return not any(p.search(name) for p in ignore_patterns)
+
+
+def run_podman(args, cmd, deadline):
+    """Run a podman command as the inspected user and return what it printed.
+
+    Every command gets what is left of `--timeout`, so the check as a whole keeps to
+    it however many commands it runs. Ends the check with a WARN when the engine does
+    not answer in time, and with the engine's own verdict on a non-zero exit code.
+    """
+    remaining = deadline - lib.time.now(as_type='float')
+    if remaining > 0:
+        success, result = lib.shell.shell_exec(cmd, run_as=args.USER, timeout=remaining)
+    else:
+        success, result = False, 'Timeout'
+    if not success:
+        if result.startswith('Timeout'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while running `{" ".join(cmd)}` '
+                f'(user: `{args.USER or pwd.getpwuid(os.geteuid()).pw_name}`).',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        lib.base.cu(result)
+    stdout, stderr, retc = result
+    if retc != 0:
+        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+    return stdout
 
 
 def main():
@@ -233,6 +311,18 @@ def main():
     if args.MATCH is None:
         args.MATCH = []
 
+    # reject a threshold that is not a valid Nagios range, instead of grading every
+    # container against it
+    for param, threshold in (
+        ('--critical-cpu', args.CRIT_CPU),
+        ('--critical-mem', args.CRIT_MEM),
+        ('--warning-cpu', args.WARN_CPU),
+        ('--warning-mem', args.WARN_MEM),
+    ):
+        success, result = lib.base.match_range(0, threshold)
+        if not success:
+            lib.base.cu(f'Invalid Nagios range for {param} ("{threshold}"): {result}.')
+
     # compile --match and --ignore patterns (case-sensitive by default, matching
     # the lib.args convention; the user can opt into case-insensitive matching
     # with the inline `(?i)` flag)
@@ -245,15 +335,9 @@ def main():
 
     # fetch data
     if args.TEST is None:
+        deadline = lib.time.now(as_type='float') + args.TIMEOUT
         # get the number of host CPUs
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['podman', 'info', '--format', 'json'],
-                run_as=args.USER,
-            ),
-        )
-        if retc != 0:
-            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+        stdout = run_podman(args, ['podman', 'info', '--format', 'json'], deadline)
         try:
             podman_info = json.loads(stdout)
             host_cpus = podman_info['host']['cpus']
@@ -262,32 +346,60 @@ def main():
         except Exception:
             lib.base.cu('Unable to parse podman info output as JSON.')
 
+        # get the network namespace of every running container. Containers sharing
+        # one (the members of a pod, `--network container:<name>`) all report the
+        # traffic of that namespace, which must only be counted once.
+        stdout = run_podman(
+            args, ['podman', 'ps', '--ns', '--format', 'json'], deadline
+        )
+        try:
+            podman_ps = json.loads(stdout) or []
+        except Exception:
+            lib.base.cu('Unable to parse podman ps output as JSON.')
+
         # get the container statistics for all running containers
-        stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(
-                ['podman', 'stats', '--no-stream', '--format', '{{json .}}'],
-                run_as=args.USER,
-            ),
+        stdout = run_podman(
+            args,
+            ['podman', 'stats', '--no-stream', '--format', '{{json .}}'],
+            deadline,
         )
     else:
         # do not call the command, put in test data
         host_cpus = 1
         host_images = 0
         host_ram = 0
+        # the namespaces come from an optional `<fixture>-ps` next to the stats
+        ps_fixture = lib.lftest.test_text(
+            args.TEST, f'{args.TEST[0]}-ps', missing_ok=True
+        )
+        podman_ps = json.loads(ps_fixture) if ps_fixture else []
         stdout, stderr, retc = lib.lftest.test(args.TEST)
-
-    if retc != 0:
-        lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
+        if retc != 0:
+            lib.base.oao(*lib.container.get_engine_error(stderr, stdout))
 
     # init some vars
+    # Rootless Podman keeps the containers of every user apart, while the check runs as
+    # root for all of them. A state file per inspected user keeps two users' containers
+    # of the same name from sharing, or forgetting, each other's history.
+    db_filename = DB_FILENAME
+    if args.USER:
+        user_suffix = re.sub(r'\W+', '_', args.USER)
+        db_filename = DB_FILENAME.replace('.db', f'-{user_suffix}.db')
     msg = ''
     state = STATE_OK
     perfdata = ''
     table_values = []
-    total_block_input = 0
-    total_block_output = 0
-    total_net_rx = 0
-    total_net_tx = 0
+    netns_by_id = {
+        item.get('Id', ''): (item.get('Namespaces') or {}).get('Net', '')
+        for item in podman_ps
+    }
+    have_block_rates = False
+    have_net_rates = False
+    seen_netns = set()
+    total_read = 0
+    total_rx = 0
+    total_tx = 0
+    total_write = 0
 
     # parse newline-delimited JSON output
     containers = []
@@ -301,23 +413,28 @@ def main():
             continue
 
     # sort containers by name, then apply the --match / --ignore name filters (dropping
-    # entries without a usable name), so the SQLite trend cut below is sized to the
-    # number of tracked containers
+    # entries without a usable name)
     containers.sort(key=lambda c: c.get('Name', ''))
+    containers = [c for c in containers if c.get('Name', '') not in ('', '--')]
+    # every name a running container is known under, whatever this run filters: another
+    # service on the same host may filter differently or use --full-name, and must not
+    # lose its history because this run looks elsewhere
+    running_names = {c['Name'] for c in containers}
+    running_names |= {lib.container.strip_task_id(name) for name in running_names}
     containers = [
         c
         for c in containers
-        if c.get('Name', '')
-        and c.get('Name') != '--'
-        and keep_container(c.get('Name', ''), match_patterns, ignore_patterns)
+        if keep_container(c.get('Name', ''), match_patterns, ignore_patterns)
     ]
 
+    # analyze data
     # Podman reports the CPU percentage of a container as its average since the
     # container started: a single `podman stats --no-stream` has no earlier sample to
     # compare against and falls back to the start time. That average converges and says
     # nothing about the load right now, so the rate is derived from the cumulative CPU
-    # time the same output carries (#320). Until a second run has something to compare
-    # against, a container is listed without a CPU reading.
+    # time the same output carries (#320). Block and network I/O are cumulative since
+    # the container started as well, and turn into rates the same way. Until a second
+    # run has something to compare against, a container is listed without a CPU reading.
     # This happens before the trend database below is opened: the helper writes to the
     # same file through a connection of its own, and would be locked out by a write
     # this check has not committed yet.
@@ -326,36 +443,83 @@ def main():
         name = container.get('Name', '')
         if not args.FULL_NAME:
             name = lib.container.strip_task_id(name)
+        net_counters = get_net_counters(container)
+        # the helper derives its cache table from these keys, so every container
+        # passes the same set; a container without network statistics stores zeros
+        # that are never read back below
+        counters = {
+            'block_input': int(container.get('BlockInput') or 0),
+            'block_output': int(container.get('BlockOutput') or 0),
+            'cpu_nano': int(container.get('CPUNano') or 0),
+            'rx_bytes': net_counters[0] if net_counters else 0,
+            'tx_bytes': net_counters[1] if net_counters else 0,
+        }
         if args.TEST is None:
             rates = lib.db_sqlite.per_second_deltas(
-                DB_FILENAME,
-                f'cpu-{name}',
-                {'cpu_nano': int(container.get('CPUNano', 0) or 0)},
+                db_filename, f'cpu-{name}', counters
             )
+            if rates is None:
+                cpu_usage_by_name[name] = None
+                continue
             # nanoseconds of CPU per second of wall time make up the share of a single
             # core; divide by the cores of the host to get its share of the whole host
-            cpu_usage_by_name[name] = (
-                None if rates is None else round(rates['cpu_nano'] / 1e7 / host_cpus, 1)
-            )
+            cpu_usage_by_name[name] = round(rates['cpu_nano'] / 1e7 / host_cpus, 1)
         else:
             # in test mode the fixture is the only sample there is, so its own
-            # percentage stands in for the rate two samples would produce
+            # percentage and counters stand in for the rates two samples would produce
+            rates = counters
             cpu_usage_by_name[name] = round(
                 float(container.get('CPU', 0)) / host_cpus, 1
             )
 
+        # accumulate totals for aggregate perfdata
+        total_read += rates['block_input']
+        total_write += rates['block_output']
+        have_block_rates = True
+        if net_counters is None:
+            continue
+        container_id = container.get('ContainerID', '')
+        netns = netns_by_id.get(container_id) or container_id or name
+        if netns in seen_netns:
+            continue
+        seen_netns.add(netns)
+        total_rx += rates['rx_bytes']
+        total_tx += rates['tx_bytes']
+        have_net_rates = True
+
+    # forget the rate baselines of containers that no longer exist, otherwise the state
+    # file grows with every short-lived container (CI jobs, one-off runs). Best effort:
+    # a failed cleanup must not take the check down.
+    if args.TEST is None:
+        success, cache = lib.db_sqlite.connect(filename=db_filename)
+        if success:
+            lib.db_sqlite.forget_sensors(
+                cache, 'name', {f'cpu-{name}' for name in running_names}
+            )
+            lib.db_sqlite.commit(cache)
+            lib.db_sqlite.close(cache)
+
     # create the db table holding the CPU trend the --count evaluation reads
     definition = """
                 container TEXT NOT NULL,
-                cpu_usage REAL NOT NULL
+                cpu_usage REAL NOT NULL,
+                timestamp REAL NOT NULL
         """
-    conn = lib.base.coe(
-        lib.db_sqlite.connect(filename=DB_FILENAME),
+    # in test mode the trend lives in memory only, so a fixture neither reads the
+    # history an earlier test run left behind nor leaves one for the next
+    if args.TEST is None:
+        conn = lib.base.coe(lib.db_sqlite.connect(filename=db_filename))
+    else:
+        conn = lib.base.coe(lib.db_sqlite.connect(in_memory=True))
+    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu_usage'))
+    lib.base.coe(lib.db_sqlite.create_index(conn, 'container', table='cpu_usage'))
+    lib.base.coe(
+        lib.db_sqlite.forget_sensors(
+            conn, 'container', running_names, table='cpu_usage'
+        )
     )
-    lib.base.coe(lib.db_sqlite.create_table(conn, definition, table='cpu'))
-    lib.db_sqlite.create_index(conn, 'container', table='cpu')
 
-    # analyze data
+    # grade every container
     for container in containers:
         name = container.get('Name', '')
         if not args.FULL_NAME:
@@ -387,44 +551,41 @@ def main():
             _max=100,
         )
 
-        # accumulate totals for aggregate perfdata
-        total_block_input += int(container.get('BlockInput', 0))
-        total_block_output += int(container.get('BlockOutput', 0))
-        # a container without a network namespace of its own (`--network host` or
-        # `none`) carries `"Network":null` instead of leaving the key out. Verified
-        # against podman 5.8 on Fedora 44 (libpod/networking_linux.go,
-        # getContainerNetIO()).
-        network = container.get('Network') or {}
-        for iface in network.values():
-            total_net_rx += int(iface.get('RxBytes', 0))
-            total_net_tx += int(iface.get('TxBytes', 0))
-
         cpu_state = STATE_OK
         if cpu_usage is not None:
             # save trend data to local sqlite database, limited to "count" rows max.
             lib.base.coe(
                 lib.db_sqlite.insert(
-                    conn, {'container': name, 'cpu_usage': cpu_usage}, table='cpu'
+                    conn,
+                    {
+                        'container': name,
+                        'cpu_usage': cpu_usage,
+                        'timestamp': lib.time.now(as_type='float'),
+                    },
+                    table='cpu_usage',
                 ),
             )
+            # keep "count" rows per container; trimming the table to a total instead
+            # lets a container that is sampled more often evict the others' history
             lib.base.coe(
-                lib.db_sqlite.cut(conn, _max=args.COUNT * len(containers), table='cpu')
+                lib.db_sqlite.cut_per_sensor(
+                    conn, sensorcol='container', _max=args.COUNT, table='cpu_usage'
+                )
             )
 
-            # alert when container cpu_usage is exceeded
-            # my container state is not ok, if in every of my historic rows the cpu
-            # value is above the threshold
-            if get_cpu_from_db(conn, name, args.CRIT_CPU) >= args.COUNT:
-                cpu_state = STATE_CRIT
-            elif get_cpu_from_db(conn, name, args.WARN_CPU) >= args.COUNT:
-                cpu_state = STATE_WARN
+            # alert when the cpu usage of the container stayed outside its threshold
+            cpu_state = get_cpu_state(
+                conn, name, args.COUNT, args.WARN_CPU, args.CRIT_CPU
+            )
             if cpu_state != STATE_OK:
                 # build the message
                 msg += f'"{name}" cpu {cpu_usage}% {lib.base.state2str(cpu_state)}, '
             state = lib.base.get_worst(cpu_state, state)
 
         # alert when container mem_usage is exceeded
-        mem_state = lib.base.get_state(mem_usage, args.WARN_MEM, args.CRIT_MEM)
+        mem_state = lib.base.get_state(
+            mem_usage, args.WARN_MEM, args.CRIT_MEM, _operator='range'
+        )
         if mem_state != STATE_OK:
             msg += f'"{name}" memory {mem_usage}% {lib.base.state2str(mem_state)}, '
         state = lib.base.get_worst(mem_state, state)
@@ -458,19 +619,7 @@ def main():
             always_ok=args.ALWAYS_OK,
         )
 
-    # build perfdata
-    perfdata += lib.base.get_perfdata(
-        'block_input',
-        total_block_input,
-        uom='B',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'block_output',
-        total_block_output,
-        uom='B',
-        _min=0,
-    )
+    # build the message
     perfdata += lib.base.get_perfdata(
         'containers_running',
         len(table_values),
@@ -487,25 +636,39 @@ def main():
         _min=0,
     )
     perfdata += lib.base.get_perfdata(
-        'net_rx',
-        total_net_rx,
-        uom='B',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'net_tx',
-        total_net_tx,
-        uom='B',
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
         'ram',
         host_ram,
         uom='B',
         _min=0,
     )
+    if have_block_rates:
+        perfdata += lib.base.get_perfdata(
+            'read_bytes_per_second',
+            round(total_read),
+            uom='B',
+            _min=0,
+        )
+    if have_net_rates:
+        perfdata += lib.base.get_perfdata(
+            'rx_bytes_per_second',
+            round(total_rx),
+            uom='B',
+            _min=0,
+        )
+        perfdata += lib.base.get_perfdata(
+            'tx_bytes_per_second',
+            round(total_tx),
+            uom='B',
+            _min=0,
+        )
+    if have_block_rates:
+        perfdata += lib.base.get_perfdata(
+            'write_bytes_per_second',
+            round(total_write),
+            uom='B',
+            _min=0,
+        )
 
-    # create output
     if state == STATE_OK:
         checked = len(table_values)
         msg = (
@@ -514,6 +677,8 @@ def main():
         )
     else:
         msg = f'{msg[:-2]} {user_note}\n\n'
+
+    # build table output
     if len(table_values) > 0:
         msg += lib.base.get_table(
             table_values,

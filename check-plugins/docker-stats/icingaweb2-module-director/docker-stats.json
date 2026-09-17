@@ -31,6 +31,9 @@
                 "--no-perfdata": {
                     "set_if": "$docker_stats_no_perfdata$"
                 },
+                "--timeout": {
+                    "value": "$docker_stats_timeout$"
+                },
                 "--warning-cpu": {
                     "value": "$docker_stats_warning_cpu$"
                 },
@@ -95,6 +98,11 @@
                     "datafield_id": 11,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -138,7 +146,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports CPU and memory usage for all running Docker containers. CPU usage is normalized by dividing by the number of available host CPU cores. CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately. Uses a local SQLite database for CPU trend tracking across runs. For Podman, use the podman-stats check instead. Requires root or sudo.",
+            "notes": "Reports CPU and memory usage for all running Docker containers. CPU usage is normalized by dividing by the number of available host CPU cores, so 100% means all host CPUs are fully utilized. Alerts when the CPU usage of a container has been outside its threshold for a configurable number of consecutive check runs (default: 5), suppressing short spikes, and immediately when its memory usage is outside its threshold. For Podman, use the podman-stats check instead. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/docker-stats/",
             "object_name": "tpl-service-docker-stats",
             "object_type": "template",
@@ -151,15 +159,16 @@
                 "criticality": "C",
                 "docker_stats_always_ok": false,
                 "docker_stats_count": 5,
-                "docker_stats_critical_cpu": 90,
-                "docker_stats_critical_mem": 95,
+                "docker_stats_critical_cpu": "90",
+                "docker_stats_critical_mem": "95",
                 "docker_stats_full_name": false,
                 "docker_stats_ignore": [],
                 "docker_stats_match": [],
                 "docker_stats_no_match_severity": "ok",
                 "docker_stats_no_perfdata": false,
-                "docker_stats_warning_cpu": 80,
-                "docker_stats_warning_mem": 90
+                "docker_stats_timeout": 8,
+                "docker_stats_warning_cpu": "80",
+                "docker_stats_warning_mem": "90"
             },
             "volatile": null,
             "zone": null,
@@ -223,7 +232,7 @@
         "3": {
             "varname": "docker_stats_critical_cpu",
             "caption": "Docker Stats: Critical CPU",
-            "description": "CRIT threshold for CPU usage in percent.",
+            "description": "CRIT threshold for CPU usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -234,7 +243,7 @@
         "4": {
             "varname": "docker_stats_critical_mem",
             "caption": "Docker Stats: Critical Memory",
-            "description": "CRIT threshold for memory usage in percent.",
+            "description": "CRIT threshold for memory usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -296,9 +305,20 @@
             "uuid": "3621115e-afb3-4346-bec4-f4bc25e86941"
         },
         "10": {
+            "varname": "docker_stats_timeout",
+            "caption": "Docker Stats: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "1b9592e7-71b4-4714-9bb8-e51cff581761"
+        },
+        "11": {
             "varname": "docker_stats_warning_cpu",
             "caption": "Docker Stats: Warning CPU",
-            "description": "WARN threshold for CPU usage in percent.",
+            "description": "WARN threshold for CPU usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -306,10 +326,10 @@
             },
             "uuid": "6d11fc9e-88cc-49e3-812c-91217fd10dfe"
         },
-        "11": {
+        "12": {
             "varname": "docker_stats_warning_mem",
             "caption": "Docker Stats: Warning Memory",
-            "description": "WARN threshold for memory usage in percent.",
+            "description": "WARN threshold for memory usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

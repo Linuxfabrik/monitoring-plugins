@@ -139,6 +139,35 @@ TESTS = [
         'assert-retc': STATE_CRIT,
         'assert-in': ['No containers to check.'],
     },
+    {
+        # with --count=1 the single sample decides; the CPU thresholds are plain upper
+        # bounds, the memory threshold is an inverted range that alerts inside 0..2
+        'id': 'crit-cpu-and-mem-ranges',
+        'test': 'stdout/three-containers-graylog-stack,,0',
+        'params': '--count=1 --warning-cpu=150 --critical-cpu=200 --critical-mem=@0:2',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '"elasticsearch" cpu 188.8% [WARNING]',
+            '"graylog" cpu 204.2% [CRITICAL]',
+            '"mongo" memory 1.9% [CRITICAL]',
+            "'mongo_mem_usage'=1.9%;90;@0:2;0;100",
+        ],
+    },
+    {
+        # the same CPU usage does not alert before --count samples agree
+        'id': 'ok-cpu-range-waits-for-count',
+        'test': 'stdout/three-containers-graylog-stack,,0',
+        'params': '--count=2 --warning-cpu=150 --critical-cpu=200',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. 3 containers checked'],
+    },
+    {
+        'id': 'unknown-invalid-range',
+        'test': 'stdout/three-containers-graylog-stack,,0',
+        'params': '--warning-mem=10:5',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid Nagios range for --warning-mem ("10:5")'],
+    },
 ]
 
 

@@ -31,6 +31,9 @@
                 "--no-perfdata": {
                     "set_if": "$podman_stats_no_perfdata$"
                 },
+                "--timeout": {
+                    "value": "$podman_stats_timeout$"
+                },
                 "--user": {
                     "value": "$podman_stats_user$"
                 },
@@ -103,6 +106,11 @@
                     "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -146,7 +154,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Reports CPU and memory usage for all running Podman containers. CPU usage is normalized by dividing by the number of available host CPU cores. CPU alerts only trigger after the threshold has been exceeded for a configurable number of consecutive check runs (default: 5), suppressing short spikes. Memory alerts trigger immediately. Uses a local SQLite database for CPU trend tracking across runs. For Docker, use the docker-stats check instead. Requires root or sudo.",
+            "notes": "Reports CPU and memory usage for all running Podman containers. CPU usage is normalized by dividing by the number of available host CPU cores, so 100% means all host CPUs are fully utilized. Alerts when the CPU usage of a container has been outside its threshold for a configurable number of consecutive check runs (default: 5), suppressing short spikes, and immediately when its memory usage is outside its threshold. For Docker, use the docker-stats check instead. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-stats/",
             "object_name": "tpl-service-podman-stats",
             "object_type": "template",
@@ -159,15 +167,16 @@
                 "criticality": "C",
                 "podman_stats_always_ok": false,
                 "podman_stats_count": 5,
-                "podman_stats_critical_cpu": 90,
-                "podman_stats_critical_mem": 95,
+                "podman_stats_critical_cpu": "90",
+                "podman_stats_critical_mem": "95",
                 "podman_stats_full_name": false,
                 "podman_stats_ignore": [],
                 "podman_stats_match": [],
                 "podman_stats_no_match_severity": "ok",
                 "podman_stats_no_perfdata": false,
-                "podman_stats_warning_cpu": 80,
-                "podman_stats_warning_mem": 90
+                "podman_stats_timeout": 8,
+                "podman_stats_warning_cpu": "80",
+                "podman_stats_warning_mem": "90"
             },
             "volatile": null,
             "zone": null,
@@ -231,7 +240,7 @@
         "3": {
             "varname": "podman_stats_critical_cpu",
             "caption": "Podman Stats: Critical CPU",
-            "description": "CRIT threshold for CPU usage, in percent.",
+            "description": "CRIT threshold for CPU usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -242,7 +251,7 @@
         "4": {
             "varname": "podman_stats_critical_mem",
             "caption": "Podman Stats: Critical Memory",
-            "description": "CRIT threshold for memory usage, in percent.",
+            "description": "CRIT threshold for memory usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -304,6 +313,17 @@
             "uuid": "ac36433b-04d1-4bfb-b1fb-40b026f15359"
         },
         "10": {
+            "varname": "podman_stats_timeout",
+            "caption": "Podman Stats: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "b073edc2-778c-48d5-9f6a-b790520b45e8"
+        },
+        "11": {
             "varname": "podman_stats_user",
             "caption": "Podman Stats: User",
             "description": "Report on the rootless containers of this user instead of those visible to the executing user. Podman keeps each user's rootless containers in that user's own storage, so root (the monitoring user runs the check via sudo) does not see them. With --user, the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default). Example: `--user=rocketchat`.",
@@ -314,10 +334,10 @@
             },
             "uuid": "46be914e-a6b2-49ab-b7bb-c0e34d0675ae"
         },
-        "11": {
+        "12": {
             "varname": "podman_stats_warning_cpu",
             "caption": "Podman Stats: Warning CPU",
-            "description": "WARN threshold for CPU usage, in percent.",
+            "description": "WARN threshold for CPU usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -325,10 +345,10 @@
             },
             "uuid": "d2580263-e0b7-4637-87a6-32ea6976e2b9"
         },
-        "12": {
+        "13": {
             "varname": "podman_stats_warning_mem",
             "caption": "Podman Stats: Warning Memory",
-            "description": "WARN threshold for memory usage, in percent.",
+            "description": "WARN threshold for memory usage, in percent. Supports Nagios ranges.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

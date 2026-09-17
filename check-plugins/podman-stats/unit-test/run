@@ -42,8 +42,35 @@ TESTS = [
         'assert-in': [
             'Everything is ok. 2 containers checked (user: `',
             'host-network ! 4.2   ! 0.0',
-            "'net_rx'=602B;;;0",
-            "'net_tx'=716B;;;0",
+            "'read_bytes_per_second'=3031040B;;;0",
+            "'rx_bytes_per_second'=602B;;;0",
+            "'tx_bytes_per_second'=716B;;;0",
+        ],
+    },
+    {
+        # the members of a pod and a container on `--network container:<name>` report
+        # the traffic of the namespace they share; the `-ps` fixture maps them to it,
+        # so each namespace counts once (pod 1000/2000, bridge 100/200)
+        'id': 'ok-pod-and-shared-network-count-once',
+        'test': 'stdout/pod-and-shared-network,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. 6 containers checked (user: `',
+            "'read_bytes_per_second'=15000B;;;0",
+            "'rx_bytes_per_second'=1100B;;;0",
+            "'tx_bytes_per_second'=2200B;;;0",
+            "'write_bytes_per_second'=150B;;;0",
+        ],
+    },
+    {
+        # podman 4 reports `NetInput` / `NetOutput` instead of a `Network` map
+        'id': 'ok-podman4-net-input-output',
+        'test': 'stdout/podman4-two-containers,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. 2 containers checked (user: `',
+            "'rx_bytes_per_second'=800B;;;0",
+            "'tx_bytes_per_second'=1000B;;;0",
         ],
     },
     {
@@ -132,6 +159,35 @@ TESTS = [
         'params': '--match=^nope$ --no-match-severity=crit',
         'assert-retc': STATE_CRIT,
         'assert-in': ['No containers to check (user:'],
+    },
+    {
+        # with --count=1 the single sample decides; the CPU thresholds are plain upper
+        # bounds, the memory threshold is an inverted range that alerts inside 0..2
+        'id': 'crit-cpu-and-mem-ranges',
+        'test': 'stdout/elasticsearch-graylog-mongo,,0',
+        'params': '--count=1 --warning-cpu=150 --critical-cpu=200 --critical-mem=@0:2',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '"elasticsearch" cpu 188.8% [WARNING]',
+            '"graylog" cpu 204.2% [CRITICAL]',
+            '"mongo" memory 1.9% [CRITICAL]',
+            "'mongo_mem_usage'=1.9%;90;@0:2;0;100",
+        ],
+    },
+    {
+        # the same CPU usage does not alert before --count samples agree
+        'id': 'ok-cpu-range-waits-for-count',
+        'test': 'stdout/elasticsearch-graylog-mongo,,0',
+        'params': '--count=2 --warning-cpu=150 --critical-cpu=200',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. 3 containers checked'],
+    },
+    {
+        'id': 'unknown-invalid-range',
+        'test': 'stdout/elasticsearch-graylog-mongo,,0',
+        'params': '--warning-mem=10:5',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Invalid Nagios range for --warning-mem ("10:5")'],
     },
 ]
 
