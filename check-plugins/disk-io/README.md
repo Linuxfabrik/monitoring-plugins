@@ -5,9 +5,9 @@
 
 Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes. The check records per-disk read/write counters and then derives current (R1/W1) and period averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds `--warning` percent of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O is a signal to investigate, not an emergency you have to react to at night.
 
-The check also reports per-disk I/O latency (`await`): the average time a read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust against device parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD and RAID as well. The optional `--await-warning` and `--await-critical` thresholds alert on sustained latency; both are disabled by default. A critical latency threshold is the place to catch a disk that is effectively hung.
+The check also reports per-disk I/O latency (`await`, not on Windows): the average time a read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust against device parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD and RAID as well. The optional `--await-warning` and `--await-critical` thresholds alert on sustained latency; both are disabled by default. A critical latency threshold is the place to catch a disk that is effectively hung.
 
-Perfdata is emitted for each disk (read/write throughput per second, IOPS and I/O latency, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
+Perfdata is emitted for each disk (read/write throughput per second and IOPS, plus I/O latency except on Windows and disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
@@ -15,6 +15,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 
 * `--count=5` (the default) while checking every minute means that the check will alert if any of your disks have been above a threshold in the last 5 minutes
 * Plugin execution may take a moment due to process enumeration when `--top` is enabled
+* On Windows, the check reports no I/O latency (await) and ignores `--await-warning` and `--await-critical`: psutil delivers the underlying disk times with the wrong unit there ([psutil#3002](https://github.com/giampaolo/psutil/issues/3002))
 
 **Data Collection:**
 
@@ -60,22 +61,23 @@ period's total bandwidth against the maximum ever observed for that disk
 (RWmax). It raises a WARNING when the period average exceeds --warning percent
 of RWmax. This bandwidth part only ever warns, never criticals: sustained I/O
 is a signal to investigate, not an emergency you have to react to at night.
-The check also reports per-disk I/O latency (await): the average time a read
-or write took to complete over the period, in milliseconds. Unlike disk busy
-percentage, latency is robust against device parallelism, so it is a
-meaningful "is my storage slow" signal on NVMe, SSD and RAID as well. Optional
---await-warning and --await-critical thresholds alert on sustained latency;
-both are disabled by default. A critical latency threshold is the place to
-catch a disk that is effectively hung. Perfdata is emitted for each disk
-(read/write throughput per second, IOPS and I/O latency, plus disk busy
-percentage on Linux), so you can graph trends. On Linux the check focuses on
-block devices with a mounted filesystem by default; use `--include-unmounted`
-to also include raw, unmounted devices such as multipath SAN volumes. On
-Windows it uses psutil's disk counters. Optionally, `--top` lists the
-processes that generated the most I/O traffic (read/write totals) to help
-identify offenders. This check is cross-platform and works on Linux, Windows,
-and all psutil-supported systems. The check stores its short trend state
-locally in an SQLite DB to evaluate sustained load across runs.
+The check also reports per-disk I/O latency (await, not on Windows): the
+average time a read or write took to complete over the period, in
+milliseconds. Unlike disk busy percentage, latency is robust against device
+parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD
+and RAID as well. Optional --await-warning and --await-critical thresholds
+alert on sustained latency; both are disabled by default. A critical latency
+threshold is the place to catch a disk that is effectively hung. Perfdata is
+emitted for each disk (read/write throughput per second and IOPS, plus I/O
+latency except on Windows and disk busy percentage on Linux), so you can graph
+trends. On Linux the check focuses on block devices with a mounted filesystem
+by default; use `--include-unmounted` to also include raw, unmounted devices
+such as multipath SAN volumes. On Windows it uses psutil's disk counters.
+Optionally, `--top` lists the processes that generated the most I/O traffic
+(read/write totals) to help identify offenders. This check is cross-platform
+and works on Linux, Windows, and all psutil-supported systems. The check
+stores its short trend state locally in an SQLite DB to evaluate sustained
+load across runs.
 
 options:
   -h, --help            show this help message and exit
@@ -85,18 +87,19 @@ options:
                         CRIT threshold for per-disk I/O latency (await) in
                         milliseconds, averaged over the last `--count` runs.
                         await is the average time a read or write took to
-                        complete. Use this to catch a disk that is effectively
-                        hung (sustained latency of seconds), not a merely busy
-                        one. Supports Nagios ranges. Disabled by default.
+                        complete. Ignored on Windows. Use this to catch a disk
+                        that is effectively hung (sustained latency of
+                        seconds), not a merely busy one. Supports Nagios
+                        ranges. Disabled by default.
   --await-warning AWAIT_WARN
                         WARN threshold for per-disk I/O latency (await) in
                         milliseconds, averaged over the last `--count` runs.
                         await is the average time a read or write took to
-                        complete. A good value depends on the storage (an SSD
-                        is well below a millisecond, a busy HDD can sustain
-                        tens of milliseconds), so set it to what is abnormal
-                        for your disks. Supports Nagios ranges. Disabled by
-                        default.
+                        complete. Ignored on Windows. A good value depends on
+                        the storage (an SSD is well below a millisecond, a
+                        busy HDD can sustain tens of milliseconds), so set it
+                        to what is abnormal for your disks. Supports Nagios
+                        ranges. Disabled by default.
   --count COUNT         Number of consecutive checks the threshold must be
                         exceeded before alerting. Default: 5
   --include-unmounted   Also monitor block devices that have no mounted
@@ -189,15 +192,15 @@ Top 5 processes that generate the most I/O traffic (r/w):
 * OK if every disk's bandwidth period average is below `--warning` (default: 80%) of the observed maximum, and I/O latency (await) is below the await thresholds (both off by default).
 * OK with "Waiting for more data." on the first run or after a reboot.
 * WARN if the bandwidth period average (computed over the last `--count` runs, default: 5) reaches `--warning` (default: 80%) of the observed maximum for a disk. Bandwidth alerts never escalate beyond WARN: a busy disk is a signal to investigate, not an emergency.
-* WARN if a disk's average I/O latency (await, over the last `--count` runs) reaches `--await-warning` (disabled by default).
-* CRIT if a disk's average I/O latency reaches `--await-critical` (disabled by default). This is the place to catch a disk that is effectively hung (sustained multi-second latency); a merely busy disk never criticals.
+* WARN if a disk's average I/O latency (await, over the last `--count` runs) reaches `--await-warning` (disabled by default, not on Windows).
+* CRIT if a disk's average I/O latency reaches `--await-critical` (disabled by default, not on Windows). This is the place to catch a disk that is effectively hung (sustained multi-second latency); a merely busy disk never criticals.
 * `--no-match-severity` sets the state reported when the filters match no disk and nothing is checked (default: `ok`); set it to `warn`, `crit`, or `unknown` to alert on an empty selection (for example a filter typo or a missing disk) instead of silently returning OK.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
 
-Per matched disk, where `<disk>` is the block device name. The `1` suffix is the latest interval (like a "load1"), the `15` suffix is the average over the last `--count` runs (like a "load15"). The byte, throughput, IOPS and latency metrics are cross-platform; `busy_percent` is Linux only, because the underlying counter (`busy_time`) is not exposed by psutil on Windows:
+Per matched disk, where `<disk>` is the block device name. The `1` suffix is the latest interval (like a "load1"), the `15` suffix is the average over the last `--count` runs (like a "load15"). The byte, throughput and IOPS metrics are cross-platform. The latency metrics (`await`, `read_await`, `write_await`) are not reported on Windows, and `busy_percent` is Linux only, because the underlying counter (`busy_time`) is not exposed by psutil on Windows:
 
 | Name | Type | Description |
 |----|----|----|
