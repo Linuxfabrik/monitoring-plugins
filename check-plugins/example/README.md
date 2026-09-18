@@ -2,7 +2,9 @@
 
 ## Overview
 
-Skeleton plugin demonstrating all standard patterns and library functions: argparse with append/deprecated/suppress parameters, (success, result) error handling, SQLite delta calculations (no continuous counters), regex filtering, `--lengthy` table output, human-readable formatting (bytes, seconds, numbers), perfdata, get_state/get_worst, and Grafana-compatible panel design. Use this as a template for new check plugins.
+Monitors the relative humidity reported by a sensor endpoint and the rate at which the host receives data, measured between two consecutive check runs. Alerts when the humidity exceeds the warning or critical threshold. Items can be filtered by name or by regular expression. Supports extended reporting via `--lengthy`.
+
+This plugin is the skeleton for new check plugins. It demonstrates the standard patterns and library functions, from parameter handling and error handling to rate calculation, filtering, table output, perfdata and the Grafana dashboard.
 
 **Important Notes:**
 
@@ -39,11 +41,11 @@ usage: example [-h] [-V] [--always-ok] [-c CRIT] [--ignore IGNORE]
                [--no-perfdata] [--no-proxy] [--proxy PROXY]
                [--timeout TIMEOUT] --token TOKEN [--url URL] [-w WARN]
 
-Skeleton plugin demonstrating all standard patterns and library functions:
-argparse with append/deprecated/suppress parameters, (success, result) error
-handling, SQLite delta calculations (no continuous counters), regex filtering,
---lengthy table output, human-readable formatting (bytes, seconds, numbers),
-perfdata, get_state/get_worst, and Grafana-compatible panel design.
+Monitors the relative humidity reported by a sensor endpoint and the rate at
+which the host receives data, measured between two consecutive check runs.
+Alerts when the humidity exceeds the warning or critical threshold. Items can
+be filtered by name or by regular expression. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
