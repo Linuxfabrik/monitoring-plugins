@@ -156,6 +156,7 @@ Monitoring Plugins:
 * redfish-logservices: evaluates the System Event Log of Avigilon servers instead of always reporting OK
 * rpm-updates: an update that only bumps the release behind the distribution tag no longer shows the installed version as the one to upgrade to, and two runs at the same time no longer report each other's rows
 * rpm-versionlock: reports the dnf 5 locks it used to miss, no longer counts entries that hold nothing, and names a lock file it cannot read ([#1462](https://github.com/Linuxfabrik/monitoring-plugins/issues/1462))
+* users: counts disconnected sessions on Windows, and accepts a two-value threshold there
 * whmcs-status: no longer calls an installation healthy when WHMCS answered with no health check at all, and survives an unexpected answer
 * wildfly-non-xa-datasource-stats, wildfly-xa-datasource-stats: `--always-ok` also covers a run that found no datasource
 * wordpress-checksums: no longer alerts on a localized installation whose translated readme or license was deleted, and uses the proxy the environment names ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))

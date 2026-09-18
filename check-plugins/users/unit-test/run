@@ -86,10 +86,79 @@ TESTS = [
         'test': 'stdout/windows-rdp-active,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'TTY: 0, PTS: 1',
+            'TTY: 0, PTS: 1, Disconnected: 0',
             'USERNAME              SESSIONNAME        ID  STATE   IDLE TIME  LOGON TIME',
             # oao() replaces '>' with "'" to prevent HTML injection in Icinga Web
             '>linuxfabrik           rdp-tcp#0           5  Active          .  05.08.2025 10:58',
+        ],
+    },
+    # A disconnected session has no session name. Splitting the line at whitespace
+    # moved its ID into that column, so it was counted nowhere and the threshold for
+    # disconnected sessions never fired. Captured on Windows Server 2025.
+    {
+        'id': 'warn-windows-rdp-disconnected',
+        'test': 'stdout/windows-rdp-disconnected,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'TTY: 0, PTS: 1, Disconnected: 1 [WARNING]',
+            'müller                                    3  Disc            .  18.09.2026 06:03',
+        ],
+    },
+    {
+        'id': 'ok-windows-rdp-disconnected-above-threshold',
+        'test': 'stdout/windows-rdp-disconnected,,0',
+        'params': '--warning=1,20,2',
+        'assert-retc': STATE_OK,
+        'assert-in': ['TTY: 0, PTS: 1, Disconnected: 1'],
+    },
+    # "tty,pts" is a valid threshold on Windows too; the third value falls back to
+    # its default instead of ending the run with an IndexError.
+    {
+        'id': 'warn-windows-two-value-threshold',
+        'test': 'stdout/windows-rdp-disconnected,,0',
+        'params': '--warning=1,20',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Disconnected: 1 [WARNING]'],
+    },
+    # With nobody logged in, `query user` prints nothing on stdout and "No User
+    # exists for *" on stderr. The disconnected sessions keep their graph.
+    {
+        'id': 'ok-windows-no-users',
+        'test': 'stdout/windows-no-users,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No one is logged in.', "'disc'=0;1;;0"],
+    },
+    # A logon at the console is a TTY. Captured on Windows Server 2025.
+    {
+        'id': 'warn-windows-console-and-rdp',
+        'test': 'stdout/windows-console-and-rdp,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'TTY: 1 [WARNING], PTS: 1, Disconnected: 0',
+            'administrator         console             2  Active          .  18.09.2026 05:59',
+        ],
+    },
+    {
+        'id': 'warn-windows-console-and-disconnected',
+        'test': 'stdout/windows-console-and-disconnected,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['TTY: 1 [WARNING], PTS: 0, Disconnected: 1 [WARNING]'],
+    },
+    {
+        'id': 'ok-windows-console-and-disconnected-above-threshold',
+        'test': 'stdout/windows-console-and-disconnected,,0',
+        'params': '--warning=2,20,2',
+        'assert-retc': STATE_OK,
+        'assert-in': ['TTY: 1, PTS: 0, Disconnected: 1'],
+    },
+    # A user name outside ASCII (monitoring-plugins#681).
+    {
+        'id': 'ok-windows-rdp-two-active',
+        'test': 'stdout/windows-rdp-two-active,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'TTY: 0, PTS: 2, Disconnected: 0',
+            'müller                rdp-tcp#1           3  Active          .  18.09.2026 06:03',
         ],
     },
     {

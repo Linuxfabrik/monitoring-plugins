@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import re
 import sys
 
 import lib.args
@@ -20,7 +21,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026091801'
 
 DESCRIPTION = """Counts the number of currently logged-in users by session type: tty (console) and pts
 (SSH on Linux, RDP on Windows). On Windows, also counts disconnected sessions (closed
@@ -139,16 +140,35 @@ def parse_linux_output(s):
 
 
 def parse_windows_output(s):
-    """Parse the output of `query user` on Windows."""
-    s = s.strip().splitlines()
+    """Parse the output of `query user` on Windows.
+
+    Cuts the session name at the columns the header gives it, the way
+    `parse_linux_output()` reads the TTY column. A disconnected session has no
+    session name, so splitting the line at whitespace moves its ID into that
+    column and the session is counted nowhere. The header is translated with the
+    display language, its layout is not. `query user` prints nothing on stdout
+    when nobody is logged in. Verified against Windows Server 2025.
+    """
+    # Only trailing whitespace goes: the header starts with the space the data
+    # lines keep for the ">" that marks the calling session, and stripping it
+    # would shift every header position by one.
+    s = [line for line in s.rstrip().splitlines() if line.strip()]
+    if not s:
+        return s, 0, 0, 0
+
+    columns = [m.start() for m in re.finditer(r'\S+', s[0])]
+    if len(columns) < 3:
+        return s, 0, 0, 0
+    name_start, name_end = columns[1], columns[2]
+
     count_tty, count_pts, count_disc = 0, 0, 0
-    for line in s:
-        value = line.split()[1]
+    for line in s[1:]:
+        value = line[name_start:name_end].strip()
         if value == 'console':
             count_tty += 1
-        if 'rdp-' in value:
+        elif 'rdp-' in value:
             count_pts += 1
-        if value == '':  # independent of display language
+        elif value == '':
             count_disc += 1
 
     return s, count_tty, count_pts, count_disc
@@ -176,14 +196,26 @@ def main():
     except Exception:
         lib.base.cu('Unexpected parameter values for --warning and/or --critical.')
 
-    WARN_DISC = None
-    CRIT_DISC = None
+    # A Windows fixture is read like the output of a Windows host, thresholds and
+    # message included, so the tests reach the disconnected sessions too.
+    windows = (
+        lib.base.WINDOWS
+        if args.TEST is None
+        else any('windows' in s for s in args.TEST)
+    )
+    WARN_DISC, CRIT_DISC = None, None
+    if windows:
+        # "tty,pts" is a valid threshold on Windows too, the third value is optional
+        WARN_DISC = lib.args.int_or_none(
+            args.WARN[2] if len(args.WARN) > 2 else DEFAULT_WARN_DISC
+        )
+        CRIT_DISC = lib.args.int_or_none(
+            args.CRIT[2] if len(args.CRIT) > 2 else DEFAULT_CRIT_DISC
+        )
 
     # fetch data
     if args.TEST is None:
-        if lib.base.WINDOWS:
-            WARN_DISC = lib.args.int_or_none(args.WARN[2])
-            CRIT_DISC = lib.args.int_or_none(args.CRIT[2])
+        if windows:
             cmd = ['query', 'user']
             stdout, _, _ = lib.base.coe(lib.shell.shell_exec(cmd))
             # Could not find any documentation in the return codes of 'query user'
@@ -198,15 +230,14 @@ def main():
     else:
         # do not call the command, put in test data
         stdout, _, _ = lib.lftest.test(args.TEST)
-        if any('windows' in s for s in args.TEST):
-            WARN_DISC = lib.args.int_or_none(args.WARN[2])
-            CRIT_DISC = lib.args.int_or_none(args.CRIT[2])
+        if windows:
             lines, count_tty, count_pts, count_disc = parse_windows_output(stdout)
         else:
             lines, count_tty, count_pts = parse_linux_output(stdout)
 
     # analyze data and build the message
-    if count_tty == 0 and count_pts == 0 and len(lines) == 1:
+    # both parsers keep the header, so a header alone is nobody
+    if len(lines) <= 1:
         msg = 'No one is logged in.'
     else:
         tty_state = lib.base.get_state(count_tty, WARN_TTY, CRIT_TTY)
@@ -219,24 +250,27 @@ def main():
         state = lib.base.get_worst(state, pts_state)
         msg += f', PTS: {count_pts}' + lib.base.state2str(pts_state, prefix=' ')
 
-        if lib.base.WINDOWS:
+        if windows:
             disc_state = lib.base.get_state(count_disc, WARN_DISC, CRIT_DISC)
             state = lib.base.get_worst(state, disc_state)
             msg += f', Disconnected: {count_disc}' + lib.base.state2str(
                 disc_state, prefix=' '
             )
-            perfdata += lib.base.get_perfdata(
-                'disc',
-                count_disc,
-                uom=None,
-                warn=WARN_DISC,
-                crit=CRIT_DISC,
-                _min=0,
-                _max=None,
-            )
 
         msg += '\n\n' + '\n'.join(lines)
 
+    # written whether or not anybody is logged in, like tty and pts, so the graph
+    # has no gap
+    if windows:
+        perfdata += lib.base.get_perfdata(
+            'disc',
+            count_disc,
+            uom=None,
+            warn=WARN_DISC,
+            crit=CRIT_DISC,
+            _min=0,
+            _max=None,
+        )
     perfdata += lib.base.get_perfdata(
         'tty',
         count_tty,
