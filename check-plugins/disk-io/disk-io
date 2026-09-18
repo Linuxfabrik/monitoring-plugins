@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091801'
+__version__ = '2026091802'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes.
 The check records per-disk read/write counters and then derives current (R1/W1) and period
@@ -62,6 +62,16 @@ systems. The check stores its short trend state locally in an SQLite DB to evalu
 sustained load across runs."""
 
 
+# cumulative psutil counters stored per run; none of them may ever decrease
+COUNTER_COLUMNS = (
+    'busy_time',
+    'read_bytes',
+    'read_count',
+    'read_time',
+    'write_bytes',
+    'write_count',
+    'write_time',
+)
 DEFAULT_CACHE_EXPIRE = 90
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute interval
@@ -218,8 +228,12 @@ def parse_args():
 
 def get_max_bandwidth(disk, current_bandwidth):
     """Store the maximum measured bandwidth for the secific disk in cache table."""
+    # The key was `disk-io-{disk}-bandwidth-max` before 2026091802. Those releases
+    # turned the counter reset of a reboot into a huge fake bandwidth and
+    # stored it as the maximum, which kept the bandwidth warning from ever firing
+    # again. A fresh key makes every host learn its maximum anew.
     historic_bandwidth = lib.cache.get(
-        f'disk-io-{disk}-bandwidth-max',
+        f'disk-io-{disk}-bandwidth-peak',
         filename='linuxfabrik-monitoring-plugins-disk-io.db',
     )
     # Disk should be capable of at least 10 MB/sec (if no info is provided)
@@ -229,7 +243,7 @@ def get_max_bandwidth(disk, current_bandwidth):
         10 * 1024 * 1024,
     )
     lib.cache.set(
-        f'disk-io-{disk}-bandwidth-max',
+        f'disk-io-{disk}-bandwidth-peak',
         max_bandwidth,
         filename='linuxfabrik-monitoring-plugins-disk-io.db',
     )
@@ -418,7 +432,7 @@ def main():
         write_count INT DEFAULT 0,
         write_merged_count INT DEFAULT 0,
         write_time INT DEFAULT 0,
-        timestamp INT DEFAULT 0
+        timestamp REAL DEFAULT 0
     """
     lib.base.coe(lib.db_sqlite.create_table(conn, definition, drop_table_first=False))
     lib.base.coe(lib.db_sqlite.create_index(conn, 'bd'))
@@ -429,7 +443,9 @@ def main():
     state = STATE_OK
     table_values = []
     compiled_regex = lib.base.coe(lib.txt.compile_regex(args.MATCH))
-    now = lib.time.now()
+    # sub-second resolution: a whole-second timestamp stretches or shrinks the
+    # interval between two runs by up to a second, which skews every rate
+    now = lib.time.now(as_type='float')
     busiest_disk = 0  # disk with the highest sum of r/w: show this on top later on
     alert_state = STATE_OK  # most severe per-disk finding, for the first line
     alert_msg = ''
@@ -530,8 +546,11 @@ def main():
             no_perfdata=args.NO_PERFDATA,
         )
 
-    # truncate old data (just keep args.COUNT for each disk) and commit
-    lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT * len(disks)))
+    # keep args.COUNT rows for each disk. Trimming the whole table to
+    # args.COUNT * len(disks) rows would let one disk evict another's history as
+    # soon as two services with a different --match share this database, or the
+    # set of disks changes between runs.
+    lib.base.coe(lib.db_sqlite.cut_per_sensor(conn, 'bd', _max=args.COUNT))
     lib.base.coe(lib.db_sqlite.commit(conn))
 
     # from here on just working on the database
@@ -556,6 +575,33 @@ def main():
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
+        # A counter that went backwards means the counters started over: after a
+        # reboot (the state database survives it wherever the temp directory is
+        # on disk), after the device was re-created, or after a 32-bit counter
+        # wrapped (psutil's nowrap only works within one process, not across
+        # check runs). Any delta against the older rows is meaningless then, and
+        # would turn into an invented spike and a bogus RWmax. Restart this disk's
+        # history from the newest row.
+        if any(data[0][key] < data[1][key] for key in COUNTER_COLUMNS):
+            lib.base.coe(
+                lib.db_sqlite.delete(
+                    conn,
+                    """
+                    DELETE FROM perfdata
+                    WHERE bd = :name AND rowid != (
+                        SELECT rowid FROM perfdata
+                        WHERE bd = :name
+                        ORDER BY timestamp DESC, rowid DESC
+                        LIMIT 1
+                    )
+                    """,
+                    {'name': disk['bd']},
+                )
+            )
+            lib.base.coe(lib.db_sqlite.commit(conn))
+            lib.db_sqlite.close(conn)
+            lib.base.oao('Waiting for more data.', state)
+
         # calculate current rates (like "load1")
         timediff1, read_bytes_per_second1, write_bytes_per_second1, bandwidth1 = (
             get_rate(
@@ -567,7 +613,7 @@ def main():
                 data[1]['write_bytes'],
             )
         )
-        if timediff1 <= 0:  # often happens after a reboot
+        if timediff1 <= 0:  # two runs within the same instant
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 
@@ -619,7 +665,7 @@ def main():
                 data[args.COUNT - 1]['write_bytes'],
             )
         )
-        if timediff15 <= 0:  # often happens after a reboot
+        if timediff15 <= 0:  # two runs within the same instant
             lib.db_sqlite.close(conn)
             lib.base.oao('Waiting for more data.', state)
 

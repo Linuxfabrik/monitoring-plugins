@@ -81,7 +81,7 @@ Monitoring Plugins:
 * countdown: table output, Nagios ranges, and days left as performance data
 * cpu-usage: alerts on CPU steal at 10% by default, and reports the right percentages on a host running virtual machines
 * deb-updates, rpm-updates: the output says per package whether it is overdue or how long its grace period still has to run, and marks the packages the alert hangs on
-* disk-io: reports IOPS per disk ([#677](https://github.com/Linuxfabrik/monitoring-plugins/issues/677))
+* disk-io: reports IOPS per disk, no longer warns falsely after a reboot, and keeps alerting when several disk-io services share a host ([#677](https://github.com/Linuxfabrik/monitoring-plugins/issues/677))
 * dmesg: fewer false alarms on physical servers and in virtual machines
 * kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
