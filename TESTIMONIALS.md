@@ -2,6 +2,11 @@
 
 Comments from the community about the Linuxfabrik Monitoring Plugins.
 
+> I find this collection significantly better; it comes pre-configured with default values based on experience. It is simply a different set of plugins—one that might overlap slightly with the standard plugins.
+
+-- [MAngel666](https://github.com/SynoCommunity/spksrc/issues/7392)
+
+
 > First off, thanks for maintaining this project — it's a great plugin collection and we rely on it heavily. :)
 
 -- [dv-27](https://github.com/dv-27)
