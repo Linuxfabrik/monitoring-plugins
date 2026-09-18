@@ -149,7 +149,7 @@ Monitoring Plugins:
 * icinga-topflap-services, kubectl-get-pods: two runs at the same time no longer report each other's rows
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
 * logfile: a log that is not valid UTF-8 is read and reported instead of taking the check down
-* needs-restarting: no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting
+* needs-restarting: no longer counts the Red Hat Subscription Manager banner as a process that needs a restart, no longer calls a Debian host clean when it could not ask it at all, and no longer announces a reboot where only services need restarting ([#1522](https://github.com/Linuxfabrik/monitoring-plugins/issues/1522))
 * nextcloud-status, spring-boot-actuator-health: use the proxy the environment names, and honour `--no-proxy` ([#1474](https://github.com/Linuxfabrik/monitoring-plugins/issues/1474))
 * php-status: no longer warns when `post_max_size` is smaller than `upload_max_filesize`
 * redfish-\*: recover on their own after a management controller drops its sessions, log in far less often, and ask it for a fraction of the data they used to ([#1372](https://github.com/Linuxfabrik/monitoring-plugins/discussions/1372), [#1507](https://github.com/Linuxfabrik/monitoring-plugins/issues/1507))

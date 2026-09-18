@@ -25,15 +25,26 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 #           needs-restarting                -> <base>-services
 #   Debian: needrestart -b                  -> <base>-needrestart
 #
-# Every fixture below is the verbatim answer of that command, captured from a real
-# host. The Red Hat ones come from Rocky 9.4 and Rocky 10.0 with yum-utils 4.14 and
-# 4.20, the Debian ones from Debian 13 with needrestart 3.11:
+# Unless noted otherwise, every fixture below is the verbatim answer of that command,
+# captured from a real host. The Red Hat ones come from Rocky 9.4 and Rocky 10.0 with
+# yum-utils 4.14 and 4.20, the Debian ones from Debian 13 with needrestart 3.11:
 #
 #   rhel-clean                 Rocky 9 right after a reboot: `--reboothint` returns 0
 #                              and the process list is empty
 #   rhel-reboot-and-services   Rocky 10 after `dnf update` and no reboot: seven core
 #                              packages replaced since boot, seven processes still on
 #                              the old code
+#   rhel-rhsm-unregistered     RHEL 9.7 (UBI 9), subscription-manager 1.29.47,
+#                              yum-utils 4.3.0, dnf 4.14, not registered: the RHSM
+#                              dnf plugin logs its banner and the registration
+#                              notice at INFO level, which dnf sends to stdout,
+#                              ahead of the actual answer. Nothing is pending (#1522)
+#   rhel-rhsm-registered       the same on a registered host, where the banner is a
+#                              single line. Taken from the report in #1522
+#   rhel-rhsm-registered-and-pending
+#                              the banner of a registered host put in front of the
+#                              `rhel-reboot-and-services` answers, so the banner is
+#                              proven not to change what is counted
 #   debian-clean               Debian 13 right after a reboot: the kernel is the
 #                              installed one and no service is listed
 #   debian-services-only       the same host patched but with the kernel untouched.
@@ -79,6 +90,35 @@ TESTS = [
         'params': '--test-os-family=RedHat',
         'assert-retc': STATE_WARN,
         'assert-regex': r'(?m)\AA reboot is pending\. 7 running processes need a restart\.$',
+    },
+    {
+        # The Red Hat Subscription Manager banner lands on stdout of both calls and is
+        # not a process (#1522).
+        'id': 'ok-rhel-rhsm-banner-unregistered',
+        'test': 'stdout/rhel-rhsm-unregistered,,0',
+        'params': '--test-os-family=RedHat',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No reboot and no service restart pending.'],
+        'assert-not-in': ['Subscription Management', 'need a restart'],
+    },
+    {
+        'id': 'ok-rhel-rhsm-banner-registered',
+        'test': 'stdout/rhel-rhsm-registered,,0',
+        'params': '--test-os-family=RedHat',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No reboot and no service restart pending.'],
+        'assert-not-in': ['Subscription Management', 'needs a restart'],
+    },
+    {
+        'id': 'warn-rhel-rhsm-banner-is-not-counted',
+        'test': 'stdout/rhel-rhsm-registered-and-pending,,1',
+        'params': '--test-os-family=RedHat',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'A reboot is pending. 7 running processes need a restart.',
+            'replaced since boot: dbus-broker, glibc, kernel',
+        ],
+        'assert-not-in': ['Subscription Management'],
     },
     {
         'id': 'ok-debian-nothing-pending',
