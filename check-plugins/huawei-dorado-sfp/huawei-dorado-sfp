@@ -352,19 +352,25 @@ def as_dbm(tenth_microwatts):
     The appliance reports optical power in units of 0.1 microwatt. Transceiver data
     sheets, and every other tool an engineer compares a reading against, state it in dBm.
 
-    ### Parameters
-    - **tenth_microwatts** (`int`, `str` or `None`): The reading as the API reported it.
+    Parameters
+    ----------
+    tenth_microwatts : int, str or None
+        The reading as the API reported it.
 
-    ### Returns
-    - **float** or **None**: The power in dBm, rounded to two decimals, or `None` for a
-      value that cannot be used.
+    Returns
+    -------
+    float or None
+        The power in dBm, rounded to two decimals, or `None` for a
+        value that cannot be used.
 
-    ### Notes
+    Notes
+    -----
     - Zero is not a reading but the absence of light, and dBm is undefined for it. So is
       the appliance's `4294967295` marker for a value it does not have. Both yield `None`,
       which keeps them out of the performance data instead of graphing minus infinity.
 
-    ### Example
+    Examples
+    --------
     >>> as_dbm('10000')
     0.0
 
@@ -385,16 +391,21 @@ def get_power(module, fields):
     """
     Read one optical power reading and the operating range the module reports for it.
 
-    ### Parameters
-    - **module** (`dict`): One optical module as the API returned it.
-    - **fields** (`tuple`): The reading, minimum and maximum field names to try, each as
-      a tuple of the spellings the vendor documents.
+    Parameters
+    ----------
+    module : dict
+        One optical module as the API returned it.
+    fields : tuple
+        The reading, minimum and maximum field names to try, each as
+        a tuple of the spellings the vendor documents.
 
-    ### Returns
-    - **tuple** (`float` or `None`, `float` or `None`, `float` or `None`):
-      The reading and its lower and upper bound, all in dBm.
+    Returns
+    -------
+    tuple (float or None, float or None, float or None)
+        The reading and its lower and upper bound, all in dBm.
 
-    ### Notes
+    Notes
+    -----
     - The reading is documented as an array, because a module with several lanes reports
       one value per lane. The first usable lane is taken: a check reports whether the
       module has light, and a per-lane breakdown belongs in a diagnosis, not in a
@@ -402,7 +413,8 @@ def get_power(module, fields):
     - A module that does not report its operating range yields `None` for the bounds, and
       the caller then has nothing to compare against unless the operator supplied a range.
 
-    ### Example
+    Examples
+    --------
     >>> get_power({'RXPOWER': '[10000]', 'RXPOWERMIN': '1000'}, POWER_FIELDS['rx'])
     (0.0, -10.0, None)
     """

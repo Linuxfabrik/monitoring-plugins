@@ -143,49 +143,59 @@ def vt_urls(token, url, insecure=False, no_proxy=False, proxy=None, timeout=8):
     as the Analysis ID; you can later retrieve the full report via the Analysis endpoint
     (`GET /api/v3/analyses/{analysis_id}`).
 
-    ### Parameters
-    - **token** (`str`): Your VirusTotal API key.
-    - **url** (`str`): The URL to analyze (e.g. `"http://example.com"`).
-    - **insecure** (`bool`, optional): If `True`, disables SSL certificate verification.
-      Defaults to `False`.
-    - **no_proxy** (`bool`, optional): If `True`, bypasses any configured HTTP proxy.
-      Defaults to `False`.
-    - **proxy** (`str`, optional): Proxy URL to send the request through. Overridden by
-      `no_proxy`. Defaults to `None`, which uses the environment.
-    - **timeout** (`int` or `float`, optional): Maximum time, in seconds, to wait for a response.
-      Defaults to `8`.
+    Parameters
+    ----------
+    token : str
+        Your VirusTotal API key.
+    url : str
+        The URL to analyze (e.g. `"http://example.com"`).
+    insecure : bool, optional
+        If `True`, disables SSL certificate verification.
+        Defaults to `False`.
+    no_proxy : bool, optional
+        If `True`, bypasses any configured HTTP proxy.
+        Defaults to `False`.
+    proxy : str, optional
+        Proxy URL to send the request through. Overridden by
+        `no_proxy`. Defaults to `None`, which uses the environment.
+    timeout : int or float, optional
+        Maximum time, in seconds, to wait for a response.
+        Defaults to `8`.
 
-    ### Returns
-    - **tuple**:
-      1. **`bool`** – `True` if the request succeeded and an analysis ID was returned;
-         `False` otherwise.
-      2. **`dict`** or **`str`** – On success, the parsed JSON response from VT
-         (contains `data.id`); on failure, an error message string.
+    Returns
+    -------
+    tuple
+        1. **`bool`** – `True` if the request succeeded and an analysis ID was returned;
+           `False` otherwise.
+        2. **`dict`** or **`str`** – On success, the parsed JSON response from VT
+           (contains `data.id`); on failure, an error message string.
 
-    ### Notes
+    Notes
+    -----
     - A typical successful response looks like:
-      ```json
-      {
-        "data": {
-          "type": "analysis",
-          "id": "u-c0...6405",
-          "links": {
-            "self": "https://www.virustotal.com/api/v3/analyses/u-c0...6405"
+
+      .. code-block:: json
+
+          {
+            "data": {
+              "type": "analysis",
+              "id": "u-c0...6405",
+              "links": {
+                "self": "https://www.virustotal.com/api/v3/analyses/u-c0...6405"
+              }
+            }
           }
-        }
-      }
-      ```
+
     - This helper uses `lib.url.fetch_json()` under the hood.
 
-    ### Example
-    ```python
+    Examples
+    --------
     >>> success, result = vt_urls(API_KEY, 'http://example.com')
     >>> if not success:
     ...     print('Error submitting URL:', result)
     ... else:
     ...     analysis_id = result['data']['id']
     ...     print('VirusTotal analysis submitted, ID =', analysis_id)
-    ```
     """
     header = {
         'accept': 'application/json',
@@ -219,27 +229,36 @@ def vt_analyses(
     (`https://www.virustotal.com/api/v3/analyses/ANALYSIS_ID`) and returns the
     full JSON payload containing the scan results and metadata.
 
-    ### Parameters
-    - **token** (`str`): Your VirusTotal API key.
-    - **analysis_id** (`str`): The Analysis ID returned by `vt_urls()`.
-      Example: `"u-c0...6405"`.
-    - **insecure** (`bool`, optional): If `True`, disables SSL certificate verification.
-      Defaults to `False`.
-    - **no_proxy** (`bool`, optional): If `True`, bypasses any configured HTTP proxy.
-      Defaults to `False`.
-    - **proxy** (`str`, optional): Proxy URL to send the request through. Overridden by
-      `no_proxy`. Defaults to `None`, which uses the environment.
-    - **timeout** (`int` or `float`, optional): Maximum time, in seconds, to wait for a response.
-      Defaults to `8`.
+    Parameters
+    ----------
+    token : str
+        Your VirusTotal API key.
+    analysis_id : str
+        The Analysis ID returned by `vt_urls()`.
+        Example: `"u-c0...6405"`.
+    insecure : bool, optional
+        If `True`, disables SSL certificate verification.
+        Defaults to `False`.
+    no_proxy : bool, optional
+        If `True`, bypasses any configured HTTP proxy.
+        Defaults to `False`.
+    proxy : str, optional
+        Proxy URL to send the request through. Overridden by
+        `no_proxy`. Defaults to `None`, which uses the environment.
+    timeout : int or float, optional
+        Maximum time, in seconds, to wait for a response.
+        Defaults to `8`.
 
-    ### Returns
-    - **tuple**:
-      1. **`bool`** – `True` if the request succeeded and valid JSON was returned;
-         `False` otherwise.
-      2. **`dict`** or **`str`** – On success, the parsed JSON object with analysis data;
-         on failure, an error message string.
+    Returns
+    -------
+    tuple
+        1. **`bool`** – `True` if the request succeeded and valid JSON was returned;
+           `False` otherwise.
+        2. **`dict`** or **`str`** – On success, the parsed JSON object with analysis data;
+           on failure, an error message string.
 
-    ### Notes
+    Notes
+    -----
     - A typical response includes fields such as `data.attributes.stats` (detection counts),
       `data.attributes.results` (per-engine verdicts), and timestamps.
     - To initiate a new URL analysis, use `vt_urls()` to obtain an analysis ID first.
@@ -249,8 +268,8 @@ def vt_analyses(
       says (CWE-918/CWE-522).
     - This helper relies on `lib.url.fetch_json()` for HTTP interaction.
 
-    ### Example
-    ```python
+    Examples
+    --------
     >>> # First submit the URL and get an analysis ID:
     >>> success, submit_result = vt_urls(API_KEY, 'http://example.com')
     >>> analysis_id = submit_result['data']['id'] if success else None
@@ -258,7 +277,6 @@ def vt_analyses(
     >>> # Then retrieve the full report:
     >>> success, report = vt_analyses(API_KEY, analysis_id)
     >>> print('Detections:', report['data']['attributes']['stats'])
-    ```
     """
     header = {
         'accept': 'application/json',

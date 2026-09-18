@@ -218,21 +218,28 @@ def get_usage_percent(used, total):
     """
     Return a capacity's usage in percent, or `None` if it cannot be calculated.
 
-    ### Parameters
-    - **used** (`int`, `str` or `None`): The used capacity, in sectors.
-    - **total** (`int`, `str` or `None`): The total capacity, in sectors.
+    Parameters
+    ----------
+    used : int, str or None
+        The used capacity, in sectors.
+    total : int, str or None
+        The total capacity, in sectors.
 
-    ### Returns
-    - **int** or **None**: The usage in percent, or `None` when there is nothing to
-      divide by.
+    Returns
+    -------
+    int or None
+        The usage in percent, or `None` when there is nothing to
+        divide by.
 
-    ### Notes
+    Notes
+    -----
     - An appliance without a storage pool reports a total of `0`, and a firmware that
       does not report a capacity leaves the field out entirely. Dividing either of them
       used to end the check in a traceback rather than in a reading it simply does not
       have.
 
-    ### Example
+    Examples
+    --------
     >>> get_usage_percent('50', '200')
     25
 
@@ -250,14 +257,19 @@ def get_sector_size(data):
     """
     Return the sector size the appliance reports, in bytes.
 
-    ### Parameters
-    - **data** (`dict`): The `system/` response as the API returned it.
+    Parameters
+    ----------
+    data : dict
+        The `system/` response as the API returned it.
 
-    ### Returns
-    - **int**: The reported sector size, or the 512 bytes that are the common case when
-      the appliance does not report a usable one.
+    Returns
+    -------
+    int
+        The reported sector size, or the 512 bytes that are the common case when
+        the appliance does not report a usable one.
 
-    ### Notes
+    Notes
+    -----
     - This is the only endpoint that reports `SECTORSIZE`, and all of its own capacities
       are counted in those sectors. An array formatted with larger sectors reports the
       same numbers for eight times the capacity, so taking 512 for granted understates
@@ -265,7 +277,8 @@ def get_sector_size(data):
     - Not to be confused with the `SECTORSIZE` a LUN reports, which is the block size the
       host sees rather than the unit its capacity is counted in.
 
-    ### Example
+    Examples
+    --------
     >>> get_sector_size({'SECTORSIZE': '4096'})
     4096
 

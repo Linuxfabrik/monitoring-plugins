@@ -231,14 +231,20 @@ def get_usable_capacity(data, kind):
     """
     Sum the per-service capacity fields of every storage medium, in bytes.
 
-    ### Parameters
-    - **data** (`dict`): The `system_capacity` response as the API returned it.
-    - **kind** (`str`): Either `'used'` or `'total'`.
+    Parameters
+    ----------
+    data : dict
+        The `system_capacity` response as the API returned it.
+    kind : str
+        Either `'used'` or `'total'`.
 
-    ### Returns
-    - **float**: The capacity in bytes, `0` where the appliance fills none of the fields.
+    Returns
+    -------
+    float
+        The capacity in bytes, `0` where the appliance fills none of the fields.
 
-    ### Example
+    Examples
+    --------
     >>> get_usable_capacity({'sata_used_capacity_converged': 1}, 'used')
     1048576.0
     """
@@ -255,20 +261,27 @@ def get_capacity(data, field):
     """
     Return one raw cluster capacity, or `None` where the appliance reports none.
 
-    ### Parameters
-    - **data** (`dict`): The `system_capacity` response as the API returned it.
-    - **field** (`str`): The field to read.
+    Parameters
+    ----------
+    data : dict
+        The `system_capacity` response as the API returned it.
+    field : str
+        The field to read.
 
-    ### Returns
-    - **float** or **None**: The capacity, or `None` for a missing field and for the
-      placeholders a firmware sends in place of a number.
+    Returns
+    -------
+    float or None
+        The capacity, or `None` for a missing field and for the
+        placeholders a firmware sends in place of a number.
 
-    ### Notes
+    Notes
+    -----
     - A cluster that has not finished reporting its capacity answers with `null` or with
       a dash rather than with a number. Converting either used to end the check in a
       message-less UNKNOWN instead of in a reading it simply does not have.
 
-    ### Example
+    Examples
+    --------
     >>> get_capacity({'used_raw_capacity': '1048576'}, 'used_raw_capacity')
     1048576.0
 

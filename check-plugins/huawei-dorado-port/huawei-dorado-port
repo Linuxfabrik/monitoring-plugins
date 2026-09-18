@@ -379,23 +379,28 @@ def get_speeds(port):
     """
     Read a port's operating, configured and maximum speed, all in Mbit/s.
 
-    ### Parameters
-    - **port** (`dict`): One port as the API returned it, carrying the `kind` `get_ports()`
-      tagged it with.
+    Parameters
+    ----------
+    port : dict
+        One port as the API returned it, carrying the `kind` `get_ports()`
+        tagged it with.
 
-    ### Returns
-    - **tuple** (`int` or `None`, `int` or `None`, `int` or `None`):
-      The operating speed, the speed the port is configured for and the speed it is built
-      for. A speed the port does not report, or reports as a placeholder, is `None`.
+    Returns
+    -------
+    tuple (int or None, int or None, int or None)
+        The operating speed, the speed the port is configured for and the speed it is built
+        for. A speed the port does not report, or reports as a placeholder, is `None`.
 
-    ### Notes
+    Notes
+    -----
     - `-1` is what an FC port answers with while it is not working correctly, and `0` is
       what a port with no link reports. Neither is a rate, so both yield `None` and the
       port is not judged to be slow because of them.
     - A configured speed of `0` means auto-negotiation, so there is no configured speed to
       fall short of. It is `None` here, which makes the caller compare against the maximum.
 
-    ### Example
+    Examples
+    --------
     >>> get_speeds(
     ...     {'kind': 'FC', 'RUNSPEED': '8000', 'CONFSPEED': '0', 'MAXSPEED': '32000'}
     ... )
@@ -416,18 +421,25 @@ def get_error_rates(port, label, testing):
     """
     Return a port's link error counters as per-second rates.
 
-    ### Parameters
-    - **port** (`dict`): One port as the API returned it.
-    - **label** (`str`): The port's sanitised UUID, used as the key the previous reading
-      is stored under.
-    - **testing** (`bool`): Whether the check runs against fixture data, in which case no
-      persistent state is written.
+    Parameters
+    ----------
+    port : dict
+        One port as the API returned it.
+    label : str
+        The port's sanitised UUID, used as the key the previous reading
+        is stored under.
+    testing : bool
+        Whether the check runs against fixture data, in which case no
+        persistent state is written.
 
-    ### Returns
-    - **dict**: Counter name to rate per second. Empty on the first run, after a counter
-      reset, in test mode, and for a kind of port that counts no errors.
+    Returns
+    -------
+    dict
+        Counter name to rate per second. Empty on the first run, after a counter
+        reset, in test mode, and for a kind of port that counts no errors.
 
-    ### Notes
+    Notes
+    -----
     - The appliance reports these as totals since it started counting, which only ever
       grow. A cumulative counter aggregates wrong in every dashboard that touches it, so
       the delta against the previous run is what goes out
@@ -450,15 +462,20 @@ def get_ports(args):
     """
     Read the four front-end port endpoints and return their ports as one list.
 
-    ### Parameters
-    - **args** (object): The argument namespace `lib.huawei_dorado.get_data()` reads.
+    Parameters
+    ----------
+    args : object
+        The argument namespace `lib.huawei_dorado.get_data()` reads.
 
-    ### Returns
-    - **tuple** (`list`, `dict`): One entry per port, each carrying an extra `kind` field
-      naming which of the four endpoints it came from, and the envelope of the last
-      endpoint that refused the query so the caller can report the appliance's own words.
+    Returns
+    -------
+    tuple (list, dict)
+        One entry per port, each carrying an extra `kind` field
+        naming which of the four endpoints it came from, and the envelope of the last
+        endpoint that refused the query so the caller can report the appliance's own words.
 
-    ### Notes
+    Notes
+    -----
     - An endpoint that is not implemented on a given appliance, or that carries no
       port at all, contributes nothing rather than aborting the check. An array
       without SAS ports is a normal array, not a broken query.

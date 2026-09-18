@@ -177,12 +177,15 @@ def read_version_properties(path):
     directly for the same reason (`bin/build-backend-for-test`: "pulling the
     version.properties directly from the jar is much faster than starting the JVM").
 
-    ### Parameters
-    - **path** (`str`): Path to the Metabase jar.
+    Parameters
+    ----------
+    path : str
+        Path to the Metabase jar.
 
-    ### Returns
-    - **tuple** (`bool`, `str`):
-      The contents of the file on success, an admin-facing error message otherwise.
+    Returns
+    -------
+    tuple (bool, str)
+        The contents of the file on success, an admin-facing error message otherwise.
     """
     try:
         with zipfile.ZipFile(path) as jar:
@@ -221,14 +224,18 @@ def get_installed_version(path, test_arg=None):
     both carrying `tag=v...`, `hash=03d994f`, `date=2026-08-05`; the v0.47.13 jar adds a
     `branch=?` line, so the file is read by key and never by line position.
 
-    ### Parameters
-    - **path** (`str`): Path to the Metabase jar.
-    - **test_arg** (`list`, optional): `--test` fixture standing in for the contents of
-      `version.properties`.
+    Parameters
+    ----------
+    path : str
+        Path to the Metabase jar.
+    test_arg : list, optional
+        `--test` fixture standing in for the contents of
+        `version.properties`.
 
-    ### Returns
-    - **tuple** (`bool`, `str`):
-      The version on success, an admin-facing error message otherwise.
+    Returns
+    -------
+    tuple (bool, str)
+        The version on success, an admin-facing error message otherwise.
     """
     if test_arg is None:
         success, properties = read_version_properties(path)
@@ -261,14 +268,18 @@ def to_release_version(installed_version):
     report "newer than anything endoflife.date lists" on every run, for as long as the
     host keeps running it.
 
-    ### Parameters
-    - **installed_version** (`str`): Version as the jar names it, for example `1.58.24`.
+    Parameters
+    ----------
+    installed_version : str
+        Version as the jar names it, for example `1.58.24`.
 
-    ### Returns
-    - **str**:
-      The same version with the license digit normalized to `0`.
+    Returns
+    -------
+    str
+        The same version with the license digit normalized to `0`.
 
-    ### Example
+    Examples
+    --------
     >>> to_release_version('1.58.24')
     '0.58.24'
     >>> to_release_version('0.58.24')

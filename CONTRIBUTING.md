@@ -865,7 +865,7 @@ Every plugin must define a `DESCRIPTION` variable that is passed to `argparse.Ar
 
 ### Docstrings
 
-We document our [Libraries](https://git.linuxfabrik.ch/linuxfabrik/lib) using [numpydoc docstrings](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so that calling `pydoc lib/base.py` works, for example.
+Docstrings in the plugins and in our [Libraries](https://github.com/Linuxfabrik/lib) follow the [numpydoc standard](https://numpydoc.readthedocs.io/en/latest/format.html#docstring-standard), so that calling `pydoc lib/base.py` works, for example.
 
 
 ### Ruff
