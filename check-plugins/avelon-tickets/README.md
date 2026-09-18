@@ -213,5 +213,5 @@ A ticket that Avelon shows in its ticket list is missing from the output. Check 
 
 ## Credits, License
 
-* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)
+* Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch); originally written by Stadt Luzern/Switzerland
 * License: The Unlicense, see [LICENSE file](https://unlicense.org/).
