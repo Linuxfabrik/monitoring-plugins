@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Where the fixtures come from:
+#
+# * `acknowledged-closed`, `closed-only`, `empty` and `open-acknowledged-closed` were
+#   captured from a real Avelon Cloud tenant in June 2024, as answers of the former
+#   `/public-api/v1/tickets` endpoint. The fields the check reads (`id`, `type`,
+#   `message`, `status`, `created`, `modified`) are the same in the answer of
+#   `/public-api/v2/tickets` according to the `TicketV2TO` schema. Like every Avelon
+#   answer, they escape non-ASCII characters (`Notk\u00fchlung`), which the check
+#   has to print decoded.
+# * `all-statuses` is not a capture. It is derived from the `TicketV2TO`,
+#   `TicketStatusPublicAPI` and `TicketTypePublicAPI` schemas of the Avelon Public
+#   API OpenAPI document, to cover every status and every ticket type, and a `Z`
+#   offset next to the `+02:00` the captures carry.
+# * `malformed-json` stands for an error page a proxy or load balancer answers with,
+#   `not-a-list` for a JSON document of an unexpected shape.
+#
+# Credentials are passed on every call because the check requires them, their values
+# do not matter in test mode.
+CREDENTIALS = (
+    '--client-id=linuxfabrik --client-secret=linuxfabrik '
+    '--username=linuxfabrik --password=linuxfabrik'
+)
+
+TESTS = [
+    {
+        'id': 'ok-no-tickets',
+        'test': 'stdout/empty,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['ID'],
+    },
+    {
+        'id': 'ok-closed-tickets-are-not-listed',
+        'test': 'stdout/closed-only,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
+        'assert-not-in': ['13915922'],
+    },
+    {
+        'id': 'ok-closed-ticket-lists-closed-tickets',
+        'test': 'stdout/closed-only,,0',
+        'params': CREDENTIALS + ' --closed-ticket',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'Vorlauftemperatur TT201 zu tief -> Notkühlung',
+        ],
+        'assert-regex': r'13915922 ! .* ! CLOSED\s*$',
+    },
+    {
+        'id': 'warn-open-and-acknowledged-by-default',
+        'test': 'stdout/open-acknowledged-closed,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '2 tickets need attention (1 ACKNOWLEDGED, 1 OPEN).',
+            'Durchfluss Notkühlung FQ201 Störung',
+            'OPEN [WARNING]',
+            'ACKNOWLEDGED [WARNING]',
+        ],
+        # the alarm prefix is dropped, the closed ticket is not listed
+        'assert-not-in': ['ALARM: ', '13915922', '\\u00fc'],
+    },
+    {
+        'id': 'warn-acknowledged-only',
+        'test': 'stdout/acknowledged-closed,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '1 ticket needs attention (1 ACKNOWLEDGED).',
+            'Anlage Zustand Störung',
+        ],
+    },
+    {
+        'id': 'crit-open-and-acknowledged',
+        'test': 'stdout/open-acknowledged-closed,,0',
+        'params': CREDENTIALS + ' --critical=ACKNOWLEDGED --critical=OPEN',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['OPEN [CRITICAL]', 'ACKNOWLEDGED [CRITICAL]'],
+    },
+    {
+        'id': 'crit-takes-precedence-over-warning',
+        'test': 'stdout/open-acknowledged-closed,,0',
+        'params': CREDENTIALS
+        + ' --warning=ACKNOWLEDGED --warning=OPEN --critical=OPEN',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['OPEN [CRITICAL]', 'ACKNOWLEDGED [WARNING]'],
+    },
+    {
+        'id': 'ok-warning-none',
+        'test': 'stdout/open-acknowledged-closed,,0',
+        'params': CREDENTIALS + ' --warning=none',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', '13927572'],
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'ok-always-ok-masks-warn',
+        'test': 'stdout/open-acknowledged-closed,,0',
+        'params': CREDENTIALS + ' --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['OPEN [WARNING]'],
+    },
+    {
+        # every unclosed status of an alarm, SUPPRESSED and EVENT do not alert by
+        # default, the closed ones and the other ticket types are not listed
+        'id': 'warn-all-statuses-default',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '5 tickets need attention (1 ACKNOWLEDGED, 1 ACKNOWLEDGED_AND_GONE, '
+            '1 GONE, 1 OPEN, 1 REOPENED).',
+            'REOPENED [WARNING]',
+            'GONE [WARNING]',
+            'Rücklauftemperatur zu hoch',
+        ],
+        'assert-regex': r'(?m)20000006 ! .* ! SUPPRESSED\s*$',
+        'assert-not-in': ['20000008', '20000009', '20000010', '20000011'],
+    },
+    {
+        # an offset written as `Z` is parsed like one written as `+02:00`
+        'id': 'warn-all-statuses-parses-utc-timestamp',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'20000007 ! \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(.+ ago\) ! ',
+    },
+    {
+        'id': 'warn-all-statuses-suppressed-raised',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --warning=SUPPRESSED',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 ticket needs attention (1 SUPPRESSED).'],
+        'assert-not-in': ['OPEN [WARNING]'],
+    },
+    {
+        'id': 'ok-all-statuses-closed-ticket-never-alerts',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --closed-ticket --warning=none',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'(?m)20000008 ! .* ! EVENT_CLOSED\s*$',
+        'assert-in': ['20000009'],
+    },
+    {
+        'id': 'crit-all-statuses-building-type',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --type=BUILDING --critical=OPEN',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '1 ticket needs attention (1 OPEN).',
+            'Heizung im Büro 2.14 bleibt kalt',
+        ],
+        'assert-not-in': ['20000001', '20000011'],
+    },
+    {
+        'id': 'warn-all-statuses-system-monitor-type',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --type=SYSTEM_MONITOR',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Gerät 10149 antwortet nicht'],
+        'assert-not-in': ['20000001', '20000010'],
+    },
+    {
+        'id': 'warn-all-statuses-ignore',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --ignore=Pumpe',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['3 tickets need attention'],
+        'assert-not-in': ['Pumpe'],
+    },
+    {
+        'id': 'warn-all-statuses-match',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --match=temperatur',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['2 tickets need attention (1 ACKNOWLEDGED_AND_GONE, 1 GONE).'],
+        'assert-not-in': ['Pumpe'],
+    },
+    {
+        'id': 'warn-all-statuses-lengthy',
+        'test': 'stdout/all-statuses,,0',
+        'params': CREDENTIALS + ' --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'ID +! Type +! Created +! Modified +! Message +! Status',
+    },
+    {
+        'id': 'unknown-malformed-json',
+        'test': 'stdout/malformed-json,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Avelon answered the list of tickets with unexpected data.'],
+    },
+    {
+        'id': 'unknown-not-a-list',
+        'test': 'stdout/not-a-list,,0',
+        'params': CREDENTIALS,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Avelon answered the list of tickets with unexpected data.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/empty,,0',
+        'params': CREDENTIALS + ' --match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../avelon-tickets'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

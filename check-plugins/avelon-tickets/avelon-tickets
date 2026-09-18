@@ -1,0 +1,587 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import concurrent.futures
+import json
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.lftest
+import lib.time
+import lib.txt
+import lib.url
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026091801'
+
+DESCRIPTION = """Checks the tickets of the Avelon Cloud building management platform, which
+its devices and data points raise as alarms. Alerts when a ticket is in a status that
+still needs attention, by default any unclosed alarm, whether acknowledged or not.
+Requires a license for the Avelon Public API. Supports extended reporting via --lengthy."""
+
+DEFAULT_CLOSED_TICKET = False
+DEFAULT_CRIT = []
+DEFAULT_LENGTHY = False
+DEFAULT_TIMEOUT = 8
+DEFAULT_TYPE = ['ALARM']
+DEFAULT_URL = 'https://avelon.cloud'
+DEFAULT_WARN = ['ACKNOWLEDGED', 'ACKNOWLEDGED_AND_GONE', 'GONE', 'OPEN', 'REOPENED']
+
+# The statuses of a ticket, complete as `TicketStatusPublicAPI` in the Avelon Public
+# API lists them (OpenAPI document at /swagger/public-api/v3/api-docs, read
+# 2026-09-18), with the meaning the "Ticket status" chapter of the Avelon user
+# documentation gives:
+#
+# * OPEN: nobody has acknowledged the alarm yet. WARN by default.
+# * REOPENED: the same alarm came back after an acknowledgement, before the ticket
+#   was closed. The same situation as OPEN, therefore WARN by default.
+# * ACKNOWLEDGED: a user took the ticket, the problem is still pending. WARN by
+#   default, since an acknowledged alarm is not a solved one.
+# * GONE: the device reports the alarm as gone, nobody has acknowledged it. WARN by
+#   default, someone still has to look at it and close it.
+# * ACKNOWLEDGED_AND_GONE: acknowledged and gone, but not closed. WARN by default for
+#   the same reason.
+# * SUPPRESSED: the alarm was suppressed and nobody was notified. OK by default, the
+#   suppression was somebody's decision. Can be raised via --warning / --critical.
+# * EVENT: an informative event, not an alarm. OK by default, can be raised as well.
+# * CLOSED, EVENT_CLOSED: done. They never alert and are only listed on request
+#   (--closed-ticket), which is why they are no choice for --warning / --critical.
+STATUSES_CLOSED = ['CLOSED', 'EVENT_CLOSED']
+STATUSES_UNCLOSED = [
+    'ACKNOWLEDGED',
+    'ACKNOWLEDGED_AND_GONE',
+    'EVENT',
+    'GONE',
+    'OPEN',
+    'REOPENED',
+    'SUPPRESSED',
+]
+
+# The ticket types, complete as `TicketTypePublicAPI` lists them.
+TYPES = ['ALARM', 'BUILDING', 'SYSTEM_MONITOR']
+
+# Without `beginDate`, the tickets endpoint only returns tickets modified within the
+# past seven days (`LoadTicketRequest` in the OpenAPI document), and the ticket list
+# selects by modification date, not by creation date (user documentation, "Ticket
+# list > Advanced features > Set time interval"). An alarm that stays open without
+# anyone touching it would therefore drop out of the check after a week. Unclosed
+# tickets are requested back to this date instead, which the server-side status
+# filter keeps small. Taken from the documentation, not measured against a live
+# tenant.
+UNCLOSED_SINCE = '2000-01-01T00:00:00Z'
+
+# The API returns at most 500 tickets per request unless told otherwise
+# (`LoadTicketRequest.limit`). Asked for explicitly, so the check can say when it hit
+# the cap instead of silently reporting a partial list.
+TICKET_LIMIT = 500
+
+# One request per device; run them side by side so a client with many devices still
+# finishes within the check's runtime.
+MAX_WORKERS = 8
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--client-id',
+        help='Client ID of the Avelon Public API. '
+        'Shown in Avelon under Settings > General > Public API.',
+        dest='CLIENT_ID',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--client-secret',
+        help='Client secret of the Avelon Public API. '
+        'Shown in Avelon under Settings > General > Public API.',
+        dest='CLIENT_SECRET',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--closed-ticket',
+        help='Also list the tickets that were closed within the past seven days. '
+        'They never change the state of the check.',
+        dest='CLOSED_TICKET',
+        action='store_true',
+        default=DEFAULT_CLOSED_TICKET,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='Ticket status that returns CRIT. '
+        '`none` returns CRIT for no status. '
+        'Takes precedence over `--warning`. '
+        'Can be specified multiple times. '
+        'Example: `--critical=OPEN --critical=REOPENED`. '
+        'Default: none',
+        dest='CRIT',
+        action='append',
+        choices=[*STATUSES_UNCLOSED, 'none'],
+        default=None,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help=lib.args.help('--ignore-regex'),
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
+    )
+
+    parser.add_argument(
+        '--match',
+        help=lib.args.help('--match'),
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--password',
+        help=lib.args.help('--password'),
+        dest='PASSWORD',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--type',
+        help='Ticket type to check. '
+        '`ALARM` is raised by a device or a data point, '
+        '`BUILDING` is a report by a tenant or a user, '
+        '`SYSTEM_MONITOR` is a system event. '
+        'Can be specified multiple times. '
+        'Example: `--type=ALARM --type=SYSTEM_MONITOR`. '
+        f'Default: {", ".join(DEFAULT_TYPE)}',
+        dest='TYPE',
+        action='append',
+        choices=TYPES,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--url',
+        help='Base URL of the Avelon Cloud. Default: %(default)s',
+        dest='URL',
+        default=DEFAULT_URL,
+    )
+
+    parser.add_argument(
+        '--username',
+        help=lib.args.help('--username'),
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='Ticket status that returns WARN. '
+        '`none` returns WARN for no status. '
+        'Can be specified multiple times. '
+        'Example: `--warning=OPEN --warning=REOPENED`. '
+        f'Default: {", ".join(DEFAULT_WARN)}',
+        dest='WARN',
+        action='append',
+        choices=[*STATUSES_UNCLOSED, 'none'],
+        default=None,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def fetch(args, url, data=None, header=None, encoding='urlencode'):
+    """Send one request to the Avelon Cloud, forwarding every transport option.
+
+    Returns (True, extended response) or (False, errormessage, status code). The status
+    code is 0 where the request never got an answer.
+    """
+    success, result = lib.url.fetch(
+        url,
+        data=data,
+        encoding=encoding,
+        extended=True,
+        header=header,
+        insecure=args.INSECURE,
+        no_proxy=args.NO_PROXY,
+        proxy=args.PROXY,
+        response_on_error=True,
+        timeout=args.TIMEOUT,
+    )
+    if success:
+        return (True, result, result['status_code'])
+    if not isinstance(result, dict):
+        # no answer at all: a name that does not resolve, a refused connection,
+        # a timeout
+        return (False, result, 0)
+    return (False, f'HTTP {result["status_code"]} for {url}', result['status_code'])
+
+
+def get_token(args):
+    """Exchange the credentials for an access token (OAuth 2.0 password grant).
+
+    Returns (True, access token) or (False, errormessage).
+    """
+    success, result, status = fetch(
+        args,
+        f'{args.URL}/oauth/token',
+        data={
+            'client_id': args.CLIENT_ID,
+            'client_secret': args.CLIENT_SECRET,
+            'grant_type': 'password',
+            'password': args.PASSWORD,
+            'username': args.USERNAME,
+        },
+    )
+    if not success:
+        # The endpoint answers 400 to an invalid request and 401 to refused
+        # credentials, which is the same mistake from where the administrator stands.
+        if status in (400, 401):
+            return (
+                False,
+                'Failed to authenticate. Check the client ID and secret, the '
+                'username and password, and that the Public API is enabled for '
+                'the client account.',
+            )
+        return (False, f'Cannot get an access token from Avelon: {result}')
+    success, token = parse_json(result['response'])
+    if not success:
+        return (False, f'Cannot get an access token from Avelon: {token}')
+    if not isinstance(token, dict) or not token.get('access_token'):
+        return (False, 'Avelon answered the login without an access token.')
+    return (True, token['access_token'])
+
+
+def get_devices(args, token):
+    """Get the devices the user may see.
+
+    Returns (True, list of devices) or (False, errormessage).
+    """
+    success, result, _ = fetch(
+        args,
+        f'{args.URL}/public-api/v1/devices',
+        header={'Authorization': f'Bearer {token}'},
+    )
+    if not success:
+        return (False, f'Cannot get the list of devices from Avelon: {result}')
+    success, devices = parse_json(result['response'])
+    if not success or not isinstance(devices, list):
+        return (False, 'Avelon answered the list of devices with unexpected data.')
+    return (True, devices)
+
+
+def get_device_tickets(args, token, device_id, statuses, since=None):
+    """Get the tickets of one device in one of the given statuses.
+
+    Returns (True, response body) or (False, errormessage).
+    """
+    body = {
+        'filterScope': 'DEVICE',
+        'id': device_id,
+        'limit': TICKET_LIMIT,
+        'statuses': statuses,
+        'ticketTypes': args.TYPE,
+    }
+    if since:
+        body['beginDate'] = since
+    success, result, _ = fetch(
+        args,
+        f'{args.URL}/public-api/v2/tickets',
+        data=body,
+        encoding='serialized-json',
+        header={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+        },
+    )
+    if not success:
+        return (False, f'Cannot get the tickets of device {device_id}: {result}')
+    return (True, result['response'])
+
+
+def get_tickets(args):
+    """Log in, then collect the tickets of every device the user may see.
+
+    Returns (True, list of response bodies) or (False, errormessage).
+    """
+    success, token = get_token(args)
+    if not success:
+        return (False, token)
+    success, devices = get_devices(args, token)
+    if not success:
+        return (False, devices)
+    if not devices:
+        # An empty list is not an empty client: the Public API only shows the devices
+        # the user has been granted access to.
+        return (
+            False,
+            'Avelon shows this user no devices. Grant one of its user groups access '
+            'on the "Device Access" card of each device.',
+        )
+
+    # Unclosed tickets are requested far back, closed ones only for the API's default
+    # window of seven days, see UNCLOSED_SINCE.
+    requests = [(STATUSES_UNCLOSED, UNCLOSED_SINCE)]
+    if args.CLOSED_TICKET:
+        requests.append((STATUSES_CLOSED, None))
+
+    bodies = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = [
+            executor.submit(
+                get_device_tickets, args, token, device.get('id'), statuses, since
+            )
+            for device in devices
+            for statuses, since in requests
+        ]
+        for future in futures:
+            success, body = future.result()
+            if not success:
+                return (False, body)
+            bodies.append(body)
+    return (True, bodies)
+
+
+def parse_json(text):
+    """Parse a response body as JSON.
+
+    Returns (True, document) or (False, errormessage).
+    """
+    try:
+        return (True, json.loads(text))
+    except (TypeError, ValueError):
+        return (False, 'the answer is not valid JSON')
+
+
+def parse_tickets(body):
+    """Parse the answer of the tickets endpoint.
+
+    Returns (True, list of tickets) or (False, errormessage).
+    """
+    success, tickets = parse_json(body)
+    if not success or not isinstance(tickets, list):
+        return (False, 'Avelon answered the list of tickets with unexpected data.')
+    return (True, [ticket for ticket in tickets if isinstance(ticket, dict)])
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # set default values for append parameters that were not specified
+    if args.CRIT is None:
+        args.CRIT = DEFAULT_CRIT
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.TYPE is None:
+        args.TYPE = DEFAULT_TYPE
+    if args.WARN is None:
+        args.WARN = DEFAULT_WARN
+    args.URL = args.URL.rstrip('/')
+
+    # fetch data
+    if args.TEST is None:
+        bodies = lib.base.coe(get_tickets(args))
+    else:
+        # do not call the API, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        bodies = [stdout]
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    table_data = []
+    alerting = {}
+    capped = False
+    compiled_match = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    wanted_statuses = STATUSES_UNCLOSED + (
+        STATUSES_CLOSED if args.CLOSED_TICKET else []
+    )
+    now = lib.time.now()
+
+    tickets = {}
+    for body in bodies:
+        device_tickets = lib.base.coe(parse_tickets(body))
+        if len(device_tickets) >= TICKET_LIMIT:
+            capped = True
+        for ticket in device_tickets:
+            # a ticket belongs to exactly one device, but never count one twice
+            tickets[ticket.get('id')] = ticket
+
+    # analyze data
+    for ticket_id in sorted(tickets, key=str):
+        ticket = tickets[ticket_id]
+        status = ticket.get('status', '')
+        # The API already filters by type and status. Filter again, so a server that
+        # ignores a filter does not change the result, and so the fixtures in test
+        # mode go through the same selection.
+        if ticket.get('type') not in args.TYPE or status not in wanted_statuses:
+            continue
+        # Avelon starts the message of an alarm with the ticket type.
+        message = re.sub(r'^ALARM: ', '', ticket.get('message') or '')
+        if compiled_match and not any(item.search(message) for item in compiled_match):
+            continue
+        if any(item.search(message) for item in compiled_ignore):
+            continue
+
+        ticket_state = STATE_OK
+        if status in args.CRIT:
+            ticket_state = STATE_CRIT
+        elif status in args.WARN:
+            ticket_state = STATE_WARN
+        state = lib.base.get_worst(state, ticket_state)
+        if ticket_state != STATE_OK:
+            alerting[status] = alerting.get(status, 0) + 1
+
+        row = {
+            'created': '',
+            'id': ticket_id,
+            'message': message,
+            'modified': '',
+            'status': f'{status}{lib.base.state2str(ticket_state, prefix=" ")}',
+            'type': ticket.get('type', ''),
+        }
+        for key in ('created', 'modified'):
+            try:
+                epoch = lib.time.timestr2epoch(ticket.get(key), pattern='iso8601')
+            except (TypeError, ValueError):
+                continue
+            row[key] = (
+                f'{lib.time.epoch2iso(epoch)}'
+                f' ({lib.human.seconds2human(max(now - epoch, 0))} ago)'
+            )
+        table_data.append(row)
+
+    # build the message
+    alert_count = sum(alerting.values())
+    if alert_count:
+        breakdown = ', '.join(
+            f'{count} {status}' for status, count in sorted(alerting.items())
+        )
+        msg = (
+            f'{alert_count} {lib.txt.pluralize("ticket", alert_count)} '
+            f'{lib.txt.pluralize("", alert_count, "needs,need")} attention '
+            f'({breakdown}).'
+        )
+    else:
+        msg = 'Everything is ok.'
+    if capped:
+        msg += (
+            f' Avelon returned its maximum of {TICKET_LIMIT} tickets for a device, '
+            'the list may be incomplete.'
+        )
+
+    # build table output
+    if table_data:
+        if args.LENGTHY:
+            keys = ['id', 'type', 'created', 'modified', 'message', 'status']
+            headers = ['ID', 'Type', 'Created', 'Modified', 'Message', 'Status']
+        else:
+            keys = ['id', 'created', 'message', 'status']
+            headers = ['ID', 'Created', 'Message', 'Status']
+        msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers)
+
+    # over and out
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
