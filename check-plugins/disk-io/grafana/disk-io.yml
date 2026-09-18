@@ -147,7 +147,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_read_bytes_per_second1/
+        value: /^${metric}_read_bytes_per_second1$/
 
     - alias: read_bytes_per_second15
       groupBy:
@@ -176,7 +176,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_read_bytes_per_second15/
+        value: /^${metric}_read_bytes_per_second15$/
 
     - alias: throughput1
       groupBy:
@@ -205,7 +205,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_throughput1/
+        value: /^${metric}_throughput1$/
 
     - alias: throughput15
       groupBy:
@@ -234,7 +234,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_throughput15/
+        value: /^${metric}_throughput15$/
 
     - alias: write_bytes_per_second1
       groupBy:
@@ -263,7 +263,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_write_bytes_per_second1/
+        value: /^${metric}_write_bytes_per_second1$/
 
     - alias: write_bytes_per_second15
       groupBy:
@@ -292,7 +292,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_write_bytes_per_second15/
+        value: /^${metric}_write_bytes_per_second15$/
 
 
   - title: Disk I/O - $metric - Busy
@@ -359,14 +359,14 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_busy_percent/
+        value: /^${metric}_busy_percent$/
 
 
   - title: Disk I/O - $metric - Latency (await)
     type: timeseries
     gridPos:
       h: 8
-      w: 24
+      w: 12
       x: 0
       y: 9
     fieldConfig:
@@ -425,7 +425,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_await/
+        value: /^${metric}_await$/
 
     - alias: read_await
       groupBy:
@@ -454,7 +454,7 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_read_await/
+        value: /^${metric}_read_await$/
 
     - alias: write_await
       groupBy:
@@ -483,4 +483,215 @@ spec:
         value: $service
       - key: metric
         operator: =~
-        value: /^${metric}_write_await/
+        value: /^${metric}_write_await$/
+
+
+  - title: Disk I/O - $metric - IOPS
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 9
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        mappings: []
+        min: 0
+        unit: iops
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+
+    targets:
+
+    - alias: iops1
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-iops1
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^${metric}_iops1$/
+
+    - alias: iops15
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-iops15
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^${metric}_iops15$/
+
+    - alias: read_iops1
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-read_iops1
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^${metric}_read_iops1$/
+
+    - alias: read_iops15
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-read_iops15
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^${metric}_read_iops15$/
+
+    - alias: write_iops1
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-write_iops1
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^${metric}_write_iops1$/
+
+    - alias: write_iops15
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      refId: disk-io-write_iops15
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - key: metric
+        operator: =~
+        value: /^${metric}_write_iops15$/

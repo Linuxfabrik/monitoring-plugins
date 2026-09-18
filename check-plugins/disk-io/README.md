@@ -7,7 +7,7 @@ Checks disk I/O bandwidth over time and alerts on sustained saturation, not shor
 
 The check also reports per-disk I/O latency (`await`): the average time a read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is robust against device parallelism, so it is a meaningful "is my storage slow" signal on NVMe, SSD and RAID as well. The optional `--await-warning` and `--await-critical` thresholds alert on sustained latency; both are disabled by default. A critical latency threshold is the place to catch a disk that is effectively hung.
 
-Perfdata is emitted for each disk (read/write throughput per second and I/O latency, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
+Perfdata is emitted for each disk (read/write throughput per second, IOPS and I/O latency, plus disk busy percentage on Linux), so you can graph trends. On Linux the check focuses on block devices with a mounted filesystem by default; use `--include-unmounted` to also include raw, unmounted devices such as multipath SAN volumes. On Windows it uses psutil's disk counters. Optionally, `--top` lists the processes that generated the most I/O traffic (read/write totals) to help identify offenders.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
 
@@ -21,6 +21,7 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 * Uses `psutil` to collect per-disk I/O counters (see Perfdata / Metrics for the full list)
 * On Linux, automatically detects "real" block devices that have mountpoints, filtering out virtual devices
 * Stores counter snapshots in a local SQLite database and calculates deltas between consecutive runs
+* IOPS are the completed read and write operations per second. They are reported for graphing only and never alert: they show how much is asked of a disk, not whether it copes. A disk that runs into an IOPS limit, for example a cloud volume with a QoS cap, shows a flat IOPS curve at the limit while its latency (await) rises, which is what `--await-warning` catches
 * On the first run, returns "Waiting for more data." until at least two measurements are available
 * After a system reboot, counter values may be lower than the previous measurement. The check detects this and returns "Waiting for more data." until the next valid measurement pair
 * Disk I/O bandwidth tracking starts at 10 MiB/sec as a baseline, but stores the highest measured bandwidth, so the `RWmax/s` value adjusts accordingly over time. The check may throw warnings during the first major disk activities above 10 MiB/sec until the actual maximum bandwidth of the disk has been determined
@@ -66,15 +67,15 @@ meaningful "is my storage slow" signal on NVMe, SSD and RAID as well. Optional
 --await-warning and --await-critical thresholds alert on sustained latency;
 both are disabled by default. A critical latency threshold is the place to
 catch a disk that is effectively hung. Perfdata is emitted for each disk
-(read/write throughput per second and I/O latency, plus disk busy percentage
-on Linux), so you can graph trends. On Linux the check focuses on block
-devices with a mounted filesystem by default; use `--include-unmounted` to
-also include raw, unmounted devices such as multipath SAN volumes. On Windows
-it uses psutil's disk counters. Optionally, `--top` lists the processes that
-generated the most I/O traffic (read/write totals) to help identify offenders.
-This check is cross-platform and works on Linux, Windows, and all
-psutil-supported systems. The check stores its short trend state locally in an
-SQLite DB to evaluate sustained load across runs.
+(read/write throughput per second, IOPS and I/O latency, plus disk busy
+percentage on Linux), so you can graph trends. On Linux the check focuses on
+block devices with a mounted filesystem by default; use `--include-unmounted`
+to also include raw, unmounted devices such as multipath SAN volumes. On
+Windows it uses psutil's disk counters. Optionally, `--top` lists the
+processes that generated the most I/O traffic (read/write totals) to help
+identify offenders. This check is cross-platform and works on Linux, Windows,
+and all psutil-supported systems. The check stores its short trend state
+locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help            show this help message and exit
@@ -196,19 +197,25 @@ Top 5 processes that generate the most I/O traffic (r/w):
 
 ## Perfdata / Metrics
 
-Per matched disk, where `<disk>` is the block device name. The `1` suffix is the latest interval (like a "load1"), the `15` suffix is the average over the last `--count` runs (like a "load15"). The byte, throughput and latency metrics are cross-platform; `busy_percent` is Linux only, because the underlying counter (`busy_time`) is not exposed by psutil on Windows:
+Per matched disk, where `<disk>` is the block device name. The `1` suffix is the latest interval (like a "load1"), the `15` suffix is the average over the last `--count` runs (like a "load15"). The byte, throughput, IOPS and latency metrics are cross-platform; `busy_percent` is Linux only, because the underlying counter (`busy_time`) is not exposed by psutil on Windows:
 
 | Name | Type | Description |
 |----|----|----|
 | `<disk>`\_await | Seconds | Average time a read or write took to complete over the last `--count` runs, in milliseconds (iostat's await). This is the latency signal that `--await-warning`/`--await-critical` alert on. |
 | `<disk>`\_busy_percent | Percentage | **Linux only.** Share of wall-clock time the device had at least one I/O in flight over the last interval. This is exactly iostat's %util, derived from the `io_ticks` counter in `/proc/diskstats`. It is a busy/idle indicator, not a saturation measure: on devices that serve requests in parallel (NVMe, SSD, dm/md, ZFS) it can sit near 100% far below the real throughput limit, which is why the check does not alert on it. |
+| `<disk>`\_iops1 | Number | Completed read plus write operations per second over the latest interval. |
+| `<disk>`\_iops15 | Number | Completed read plus write operations per second, averaged over the last `--count` runs. |
 | `<disk>`\_read_await | Seconds | Average read latency over the last `--count` runs, in milliseconds (iostat's r_await). |
 | `<disk>`\_read_bytes_per_second1 | Bytes | Bytes read per second over the latest interval. |
 | `<disk>`\_read_bytes_per_second15 | Bytes | Bytes read per second, averaged over the last `--count` runs. |
+| `<disk>`\_read_iops1 | Number | Completed read operations per second over the latest interval. |
+| `<disk>`\_read_iops15 | Number | Completed read operations per second, averaged over the last `--count` runs. |
 | `<disk>`\_throughput1 | Bytes | Read plus write bytes per second over the latest interval. |
 | `<disk>`\_throughput15 | Bytes | Read plus write bytes per second, averaged over the last `--count` runs. |
 | `<disk>`\_write_bytes_per_second1 | Bytes | Bytes written per second over the latest interval. |
 | `<disk>`\_write_bytes_per_second15 | Bytes | Bytes written per second, averaged over the last `--count` runs. |
+| `<disk>`\_write_iops1 | Number | Completed write operations per second over the latest interval. |
+| `<disk>`\_write_iops15 | Number | Completed write operations per second, averaged over the last `--count` runs. |
 
 
 ## Troubleshooting
@@ -226,6 +233,10 @@ Update the `psutil` library. On RHEL 8+, use at least `python38` and `python38-p
 ### `Waiting for more data.`
 
 This is expected on the first run. The check needs at least two measurements to calculate a delta. Wait for the next check interval.
+
+### `No disks found.`
+
+On Windows, the disk performance counters may be switched off, so psutil does not see any disk. Enable them with `diskperf -y` in an elevated command prompt.
 
 ### A raw or unmounted device is missing
 
