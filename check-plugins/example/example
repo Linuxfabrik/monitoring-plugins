@@ -24,6 +24,8 @@ import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
+# How to import a 3rd party module: a missing one ends the check with a readable
+# UNKNOWN instead of a stack trace. The skeleton does not use psutil itself.
 try:
     import psutil
 except ImportError:
@@ -32,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026091801'
 
 DESCRIPTION = """Skeleton plugin demonstrating all standard patterns and library functions:
 argparse with append/deprecated/suppress parameters, (success, result) error handling,
@@ -138,7 +140,7 @@ def parse_args():
         '--module',
         help='"modulename" to check (startswith). '
         'Can be specified multiple times. '
-        'Example: `--module json --module mbstring`',
+        'Example: `--module json --module mbstring`.',
         dest='MODULE',
         action='append',
         default=None,
@@ -433,7 +435,7 @@ def main():
         f', {lib.human.number2human(42000)} items'
     )
     perfdata += lib.base.get_perfdata(
-        'rx-bytes-per-second',
+        'rx_bytes_per_second',
         rx_bytes_per_second,
         uom='B',
         _min=0,

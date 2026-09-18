@@ -68,7 +68,7 @@ options:
                         "example" (negative lookahead).
   --module MODULE       "modulename" to check (startswith). Can be specified
                         multiple times. Example: `--module json --module
-                        mbstring`
+                        mbstring`.
   --name NAME           Only check items with this name. Can be specified
                         multiple times. If not specified, all items are
                         checked.
@@ -117,21 +117,21 @@ Waiting for more data.
 Output (subsequent runs):
 
 ```text
-42% used, up 1D 10h, since 2026-04-09 06:30:44, 1.0GiB/s, 42K items
+42% humidity, up 1D 10h since 2026-09-17 01:33:43, 1.2MiB/s, 42K items
 
-Title       ! Value
-------------+------
-Lorem ipsum ! 42%
+Title     ! Value
+----------+------
+humidity1 ! 42%
 ```
 
 With `--lengthy`:
 
 ```text
-42% used, up 1D 10h, since 2026-04-09 06:30:44, 1.0GiB/s, 42K items
+42% humidity, up 1D 10h since 2026-09-17 01:33:43, 1.2MiB/s, 42K items
 
-Title       ! Type  ! Value
-------------+-------+------
-Lorem ipsum ! Lorem ! 42%
+Title     ! Type  ! Value
+----------+-------+------
+humidity1 ! Lorem ! 42%
 ```
 
 
@@ -151,8 +151,8 @@ Lorem ipsum ! Lorem ! 42%
 
 | Name | Type | Description |
 |----|----|----|
-| cpu-usage | Percentage | The measured percentage value. |
-| rx-bytes-per-second | Bytes | Received bytes per second, calculated as delta between two consecutive check runs. |
+| humidity | Percentage | The measured relative humidity. |
+| rx_bytes_per_second | Bytes | Received bytes per second, calculated as delta between two consecutive check runs. |
 
 
 ## Troubleshooting
