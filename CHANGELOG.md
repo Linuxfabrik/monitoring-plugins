@@ -101,8 +101,9 @@ Icinga Director:
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
 * the Needs Restarting service runs hourly and waits four hours before alerting; it covers Debian hosts now, so tag them
-* the Nextcloud Enterprise service checks hourly instead of daily and waits three days before it alerts on the account count; re-import the basket
-* the WHMCS Status service checks every 15 minutes instead of every minute, as its documentation always said; re-import the basket
+* the Nextcloud Enterprise service checks hourly instead of daily and waits three days before it alerts on the account count
+* the WHMCS Status service checks every 15 minutes instead of every minute, as its documentation always said
+* the WordPress Version service warns on every new major, minor and patch release, not only near the end of life
 
 Grafana:
 
@@ -165,7 +166,7 @@ Icinga Director:
 
 * the Active Directory Domain Service Set renames `Service - ADWS` and `Service - DFSR`; both start their history over
 * the Apache and MySQL Logfile services read the logs the server writes again instead of only its systemd unit
-* the By WinRM service template processes the performance data its remote command returns; re-import the basket
+* the By WinRM service template processes the performance data its remote command returns
 * the Huawei Dorado Service Set runs all of its checks again
 * the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` starts its history over
 
