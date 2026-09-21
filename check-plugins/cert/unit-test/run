@@ -178,9 +178,8 @@ class TLSServer:
 
     @staticmethod
     def _write_temp(data):
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix='.pem')
-        tmp.write(data)
-        tmp.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pem') as tmp:
+            tmp.write(data)
         return tmp.name
 
     def _remember_sni(self, _sslsocket, server_name, _ctx):
@@ -497,9 +496,8 @@ class TestCheck(unittest.TestCase):
         # check is left to fail
         cert_pem, key_pem = make_cert('other.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
-        ca_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pem')
-        ca_file.write(cert_pem)
-        ca_file.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pem') as ca_file:
+            ca_file.write(cert_pem)
         self.addCleanup(os.unlink, ca_file.name)
         result = run_plugin(
             '--source',
@@ -687,9 +685,8 @@ class TestCheck(unittest.TestCase):
         # system store); with a matching SNI the chain verifies and the result is OK
         cert_pem, key_pem = make_cert('ca.example.com', days_valid=60)
         port = self._serve(cert_pem, key_pem)
-        ca_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pem')
-        ca_file.write(cert_pem)
-        ca_file.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pem') as ca_file:
+            ca_file.write(cert_pem)
         self.addCleanup(os.unlink, ca_file.name)
         result = run_plugin(
             '--source',
@@ -770,9 +767,8 @@ class TestFileSource(unittest.TestCase):
     """
 
     def _write(self, data, suffix='.pem'):
-        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-        tmp.write(data)
-        tmp.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(data)
         self.addCleanup(os.unlink, tmp.name)
         return tmp.name
 
@@ -1294,7 +1290,7 @@ class TestWorkerBudget(unittest.TestCase):
         verify_ctx, insecure_ctx = contexts
 
         original = plugin.ssl.create_default_context
-        plugin.ssl.create_default_context = lambda *a, **kw: self.fail(
+        plugin.ssl.create_default_context = lambda *_args, **_kwargs: self.fail(
             'scan_targets built a TLS context per target instead of reusing the shared one'
         )
         self.addCleanup(setattr, plugin.ssl, 'create_default_context', original)
@@ -1471,9 +1467,8 @@ class TestProxy(unittest.TestCase):
         server = self._serve(common_name='ca.example.com')
         proxy = self._proxy()
         # trust the served certificate itself, so the chain verifies against it
-        ca_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pem')
-        ca_file.write(server.cert_pem)
-        ca_file.close()
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pem') as ca_file:
+            ca_file.write(server.cert_pem)
         self.addCleanup(os.unlink, ca_file.name)
         result = run_plugin(
             '--source=url',
