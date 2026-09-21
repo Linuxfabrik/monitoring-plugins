@@ -14,6 +14,7 @@ import argparse
 import os
 import re
 import sys
+import uuid
 
 import lib.args
 import lib.base
@@ -25,7 +26,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092101'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -40,6 +41,9 @@ Configurable alarm duration limits how long matches trigger alerts.
 as fallback if the compact file does not exist. Read offset and pending matches carry
 over when the filename changes on the next day, no wrapper script needed.
 
+Prints the lines around each match on request, like `grep --context`, including lines
+the logfile only receives after the run that found the match.
+
 Requires root or sudo."""
 
 # The plugin runs as root via sudo on many hosts, so it only opens files that
@@ -48,7 +52,14 @@ Requires root or sudo."""
 # rejected because the confinement resolves symlinks.
 ALLOWED_LOG_ROOTS = ['/var/log']
 
+# Context lines are printed with every pending match on every run until it ages
+# out or is acknowledged, so the number of them has to stay small.
+MAX_CONTEXT = 10
+CONTEXT_INDENT = '  '
+CONTEXT_MATCH_MARKER = '>>> '
+
 DEFAULT_ALARM_DURATION = 60  # minutes (1 hour)
+DEFAULT_CONTEXT = 0
 DEFAULT_CRIT = 1
 DEFAULT_ICINGA_CALLBACK = False
 DEFAULT_INSECURE = True
@@ -57,6 +68,88 @@ DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_SUMMARY = False
 DEFAULT_TIMEOUT = 5
 DEFAULT_WARN = 1
+
+
+def add_context(lines, matches, waiting, remaining, before, after):
+    """Attach the lines around each match to it, the way `grep --context` does.
+
+    The check reads its logfile incrementally, so the lines around a match often
+    belong to another run: the lines in front of it were read by the previous run,
+    and the lines after it may not even be written yet. This is the same problem
+    grep solves at the boundary between two read buffers, and it is solved the same
+    way (see `grep()` and `prtext()` in grep's `src/grep.c`): the previous run keeps
+    its last lines back as leading context, and a match at the end of a run waits
+    for its trailing context on the following runs.
+
+    As in grep, no line is printed twice. A matching line is never context, and a
+    line between two matches is trailing context of the first one rather than
+    leading context of the second.
+
+    Parameters
+    ----------
+    lines : list of str
+        The lines the previous run kept back, followed by the lines this run read.
+    matches : list of dict
+        The matches of this run, each with `index` pointing into `lines`. Gets
+        `before` and `after` set.
+    waiting : list of dict
+        Matches of earlier runs that still wait for trailing context. Gets `after`
+        extended.
+    remaining : int
+        How many lines of trailing context `waiting` still miss.
+    before : int
+        Lines of leading context.
+    after : int
+        Lines of trailing context.
+
+    Returns
+    -------
+    tuple
+          - tuple[0] (**list**): The lines to keep back for the next run.
+          - tuple[1] (**list**): The matches that still wait for trailing context.
+          - tuple[2] (**int**): How many lines of trailing context they still miss.
+    """
+    printed = 0  # index of the first line not printed yet
+    for index in sorted({match['index'] for match in matches}):
+        # the trailing context of the previous match ends where this match begins
+        take = min(remaining, index - printed)
+        for match in waiting:
+            match['after'] += lines[printed : printed + take]
+        printed += take
+        group = [match for match in matches if match['index'] == index]
+        for match in group:
+            match['before'] = lines[max(printed, index - before) : index]
+            match['after'] = []
+        printed = index + 1
+        waiting, remaining = group, after
+    take = min(remaining, len(lines) - printed)
+    for match in waiting:
+        match['after'] += lines[printed : printed + take]
+    printed += take
+    remaining -= take
+    if remaining:
+        # every line after the match went into its trailing context, so there is
+        # nothing left that could serve as leading context
+        return [], waiting, remaining
+    return lines[max(printed, len(lines) - before) :], [], 0
+
+
+def render_match(match):
+    """Render a match as it is printed and stored.
+
+    Without context, that is the matching line. With context, it is the lines in
+    the order the logfile holds them, the matching line marked among them. The
+    first line carries the bullet of the list the match is printed in, the others
+    are indented below it.
+    """
+    if not match['before'] and not match['after']:
+        return match['line']
+    lines = [
+        *match['before'],
+        f'{CONTEXT_MATCH_MARKER}{match["line"]}',
+        *match['after'],
+    ]
+    return '\n'.join(lines[:1] + [f'{CONTEXT_INDENT}{line}' for line in lines[1:]])
 
 
 def migrate_state(conn, filename):
@@ -146,6 +239,23 @@ def parse_args():
         version=f'%(prog)s: v{__version__} by {__author__}',
     )
 
+    # `--after-context` and `--before-context` default to None rather than to a
+    # number, so that main() can tell an explicit 0 apart from "not given" and let
+    # an explicit value take precedence over `--context`, as in grep.
+    parser.add_argument(
+        '--after-context',
+        help='Print this many lines that follow a matching line along with it, '
+        'like `grep --after-context`. '
+        'Lines the logfile does not hold yet are added on the following runs. '
+        'Applies to matches found from then on. '
+        'Takes precedence over `--context`. '
+        f'Takes 0 to {MAX_CONTEXT}. '
+        'Default: the value of `--context`',
+        dest='AFTER_CONTEXT',
+        type=int,
+        default=None,
+    )
+
     parser.add_argument(
         '--alarm-duration',
         help='Duration in minutes for how long new matches trigger an alert. '
@@ -162,6 +272,33 @@ def parse_args():
         dest='ALWAYS_OK',
         action='store_true',
         default=False,
+    )
+
+    parser.add_argument(
+        '--before-context',
+        help='Print this many lines that precede a matching line along with it, '
+        'like `grep --before-context`. '
+        'Lines read by the previous run count as well. '
+        'Applies to matches found from then on. '
+        'Takes precedence over `--context`. '
+        f'Takes 0 to {MAX_CONTEXT}. '
+        'Default: the value of `--context`',
+        dest='BEFORE_CONTEXT',
+        type=int,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--context',
+        help='Print this many lines before and after a matching line along with '
+        'it, like `grep --context`. '
+        'Sets `--before-context` and `--after-context` where they are not given. '
+        'Applies to matches found from then on. '
+        f'Takes 0 to {MAX_CONTEXT}. '
+        'Default: %(default)s',
+        dest='CONTEXT',
+        type=int,
+        default=DEFAULT_CONTEXT,
     )
 
     parser.add_argument(
@@ -416,6 +553,20 @@ def main():
     ):
         lib.base.cu('At least one pattern or regex is required.')
 
+    # Checked each on its own, like grep does, so an out-of-range `--context` is
+    # reported even where both explicit values override it.
+    for name, value in (
+        ('--after-context', args.AFTER_CONTEXT),
+        ('--before-context', args.BEFORE_CONTEXT),
+        ('--context', args.CONTEXT),
+    ):
+        if value is not None and not 0 <= value <= MAX_CONTEXT:
+            lib.base.cu(f'`{name}` takes a number of lines from 0 to {MAX_CONTEXT}.')
+    if args.AFTER_CONTEXT is None:
+        args.AFTER_CONTEXT = args.CONTEXT
+    if args.BEFORE_CONTEXT is None:
+        args.BEFORE_CONTEXT = args.CONTEXT
+
     if args.ICINGA_CALLBACK and not all(
         (
             args.ICINGA_URL,
@@ -469,6 +620,9 @@ def main():
     }
     if args.MATCH:
         instance_payload['match'] = args.MATCH
+    # The context parameters stay out of the payload on purpose: they change what
+    # is printed along with a match, not which lines match, so changing them must
+    # not start a new database that reports every match of the logfile again.
     instance = lib.logmatch.instance_id(instance_payload)
     basename = os.path.basename(args.FILENAME)
     conn = lib.base.coe(lib.logmatch.connect('logfile', f'{basename}-{instance}'))
@@ -499,7 +653,6 @@ def main():
         # is an everyday event, not a defect in the plugin
         lib.db_sqlite.close(conn)
         lib.base.oao(result, STATE_UNKNOWN)
-    lib.base.coe(lib.logmatch.set_position(conn, args.FILENAME, result['position']))
 
     # init some vars
     compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
@@ -523,9 +676,26 @@ def main():
     crit_matches = []
     line_counter = len(result['lines'])
 
+    # What the previous run left for the context: the lines it kept back as
+    # leading context, and its matches that still wait for trailing context. It
+    # travels with the read position, because both describe the same point in the
+    # logfile: once the logfile was rotated, truncated or rewritten, neither means
+    # anything any more. A change of the context parameters cuts it to size.
+    previous = (position or {}).get('context') or {}
+    if result['restarted']:
+        previous = {}
+    carry = previous.get('carry', [])
+    carry = carry[-args.BEFORE_CONTEXT :] if args.BEFORE_CONTEXT else []
+    remaining = min(previous.get('remaining', 0), args.AFTER_CONTEXT)
+    waiting = previous.get('waiting', []) if remaining else []
+    waiting_lengths = [len(match['after']) for match in waiting]
+    lines = carry + result['lines']
+
     # analyze data
     matched_any = False
-    for line in result['lines']:
+    # the lines kept back from the previous run were already scanned by it
+    for index in range(len(carry), len(lines)):
+        line = lines[index]
         # `--match` (include) is applied first, then `--ignore` (exclude), so a
         # line hit by `--ignore` is dropped even if it also matches `--match`.
         if compiled_match and not any(item.search(line) for item in compiled_match):
@@ -542,7 +712,14 @@ def main():
             item.search(line) for item in compiled_warn_regex
         ):
             if not is_ignored:
-                warn_matches.append(line.strip())
+                warn_matches.append(
+                    {
+                        'index': index,
+                        'key': uuid.uuid4().hex,
+                        'line': line.strip(),
+                        'state': STATE_WARN,
+                    }
+                )
                 for pat in args.WARN_PATTERN:
                     if pat in line:
                         warn_pattern_hits[pat] += 1
@@ -554,13 +731,62 @@ def main():
             item.search(line) for item in compiled_crit_regex
         ):
             if not is_ignored:
-                crit_matches.append(line.strip())
+                crit_matches.append(
+                    {
+                        'index': index,
+                        'key': uuid.uuid4().hex,
+                        'line': line.strip(),
+                        'state': STATE_CRIT,
+                    }
+                )
                 for pat in args.CRIT_PATTERN:
                     if pat in line:
                         crit_pattern_hits[pat] += 1
                 for idx, rgx in enumerate(compiled_crit_regex):
                     if rgx.search(line):
                         crit_regex_hits[args.CRIT_REGEX[idx]] += 1
+
+    previous_waiting = waiting
+    carry, waiting, remaining = add_context(
+        lines,
+        warn_matches + crit_matches,
+        waiting,
+        remaining,
+        args.BEFORE_CONTEXT,
+        args.AFTER_CONTEXT,
+    )
+    for match in warn_matches + crit_matches:
+        match['text'] = render_match(match)
+    # A match of an earlier run that received trailing context from this run is
+    # stored again under its own key, which keeps when it was first seen and
+    # whether it was acknowledged.
+    lib.base.coe(
+        lib.logmatch.record(
+            conn,
+            [
+                {
+                    'key': match['key'],
+                    'line': render_match(match),
+                    'state': match['state'],
+                }
+                for match, length in zip(previous_waiting, waiting_lengths)
+                if len(match['after']) > length
+            ],
+        )
+    )
+    position = result['position']
+    if carry or waiting:
+        position['context'] = {
+            'carry': carry,
+            'remaining': remaining,
+            'waiting': [
+                {key: match[key] for key in ('after', 'before', 'key', 'line', 'state')}
+                for match in waiting
+            ],
+        }
+    # Stored only now, after the patterns were compiled and the lines scanned: a
+    # run that ends in UNKNOWN on the way leaves the lines for the next run.
+    lib.base.coe(lib.logmatch.set_position(conn, args.FILENAME, position))
 
     # `--match` narrowed the run down to nothing, so this run looked at no line
     # at all rather than at a quiet logfile. Only reachable when the operator
@@ -615,8 +841,10 @@ def main():
     lib.base.coe(
         lib.logmatch.record(
             conn,
-            [{'line': match, 'state': STATE_WARN} for match in warn_matches]
-            + [{'line': match, 'state': STATE_CRIT} for match in crit_matches],
+            [
+                {'key': match['key'], 'line': match['text'], 'state': match['state']}
+                for match in warn_matches + crit_matches
+            ],
         )
     )
     lib.base.coe(lib.logmatch.prune(conn))
@@ -675,10 +903,14 @@ def main():
 
     if not args.SUPPRESS_OUTPUT:
         if warn_matches:
-            msg += '\n\nWarning matches:\n* ' + '\n* '.join(warn_matches)
+            msg += '\n\nWarning matches:\n* ' + '\n* '.join(
+                match['text'] for match in warn_matches
+            )
 
         if crit_matches:
-            msg += '\n\nCritical matches:\n* ' + '\n* '.join(crit_matches)
+            msg += '\n\nCritical matches:\n* ' + '\n* '.join(
+                match['text'] for match in crit_matches
+            )
 
         if old_warn_matches:
             msg += (

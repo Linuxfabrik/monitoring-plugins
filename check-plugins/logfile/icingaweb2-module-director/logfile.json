@@ -2,11 +2,20 @@
     "Command": {
         "cmd-check-logfile": {
             "arguments": {
+                "--after-context": {
+                    "value": "$logfile_after_context$"
+                },
                 "--alarm-duration": {
                     "value": "$logfile_alarm_duration$"
                 },
                 "--always-ok": {
                     "set_if": "$logfile_always_ok$"
+                },
+                "--before-context": {
+                    "value": "$logfile_before_context$"
+                },
+                "--context": {
+                    "value": "$logfile_context$"
                 },
                 "--critical": {
                     "value": "$logfile_critical$"
@@ -111,7 +120,7 @@
                 },
                 {
                     "datafield_id": 6,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -126,7 +135,7 @@
                 },
                 {
                     "datafield_id": 9,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -203,6 +212,21 @@
                     "datafield_id": 24,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 25,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 26,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 27,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -234,11 +258,20 @@
         },
         "cmd-check-logfile-windows": {
             "arguments": {
+                "--after-context": {
+                    "value": "$logfile_windows_after_context$"
+                },
                 "--alarm-duration": {
                     "value": "$logfile_windows_alarm_duration$"
                 },
                 "--always-ok": {
                     "set_if": "$logfile_windows_always_ok$"
+                },
+                "--before-context": {
+                    "value": "$logfile_windows_before_context$"
+                },
+                "--context": {
+                    "value": "$logfile_windows_context$"
                 },
                 "--critical": {
                     "value": "$logfile_windows_critical$"
@@ -317,21 +350,6 @@
             "disabled": false,
             "fields": [
                 {
-                    "datafield_id": 25,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 26,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
-                    "datafield_id": 27,
-                    "is_required": "n",
-                    "var_filter": null
-                },
-                {
                     "datafield_id": 28,
                     "is_required": "n",
                     "var_filter": null
@@ -343,7 +361,7 @@
                 },
                 {
                     "datafield_id": 30,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -373,7 +391,7 @@
                 },
                 {
                     "datafield_id": 36,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
@@ -433,6 +451,36 @@
                 },
                 {
                     "datafield_id": 48,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 49,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 50,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 51,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 52,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 53,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 54,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -495,7 +543,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Only the lines added since the previous run are scanned, and the whole file is rescanned whenever it was rotated, truncated or rewritten in place. Optionally asks the monitoring server whether the service running this check is acknowledged, and suppresses repeated alerts for known issues where it is. Configurable alarm duration limits how long matches trigger alerts. `--filename` accepts time macros, so logfiles whose name contains the current date (`20260422.log`, `app-2026-04-22.log`, etc.) can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact file does not exist. Read offset and pending matches carry over when the filename changes on the next day, no wrapper script needed. Requires root or sudo.",
+            "notes": "Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Only the lines added since the previous run are scanned, and the whole file is rescanned whenever it was rotated, truncated or rewritten in place. Optionally asks the monitoring server whether the service running this check is acknowledged, and suppresses repeated alerts for known issues where it is. Configurable alarm duration limits how long matches trigger alerts. `--filename` accepts time macros, so logfiles whose name contains the current date (`20260422.log`, `app-2026-04-22.log`, etc.) can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact file does not exist. Read offset and pending matches carry over when the filename changes on the next day, no wrapper script needed. Prints the lines around each match on request, like `grep --context`, including lines the logfile only receives after the run that found the match. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/",
             "object_name": "tpl-service-logfile",
             "object_type": "template",
@@ -508,6 +556,7 @@
                 "criticality": "C",
                 "logfile_alarm_duration": 60,
                 "logfile_always_ok": false,
+                "logfile_context": 0,
                 "logfile_critical": 1,
                 "logfile_critical_pattern": [],
                 "logfile_critical_regex": [],
@@ -603,7 +652,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Only the lines added since the previous run are scanned, and the whole file is rescanned whenever it was rotated, truncated or rewritten in place. Optionally asks the monitoring server whether the service running this check is acknowledged, and suppresses repeated alerts for known issues where it is. Configurable alarm duration limits how long matches trigger alerts. `--filename` accepts time macros, so logfiles whose name contains the current date (`20260422.log`, `app-2026-04-22.log`, etc.) can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact file does not exist. Read offset and pending matches carry over when the filename changes on the next day, no wrapper script needed. Requires root or sudo.",
+            "notes": "Scans a logfile for matching patterns or regular expressions and alerts based on the number of matches found. Only the lines added since the previous run are scanned, and the whole file is rescanned whenever it was rotated, truncated or rewritten in place. Optionally asks the monitoring server whether the service running this check is acknowledged, and suppresses repeated alerts for known issues where it is. Configurable alarm duration limits how long matches trigger alerts. `--filename` accepts time macros, so logfiles whose name contains the current date (`20260422.log`, `app-2026-04-22.log`, etc.) can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly: compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact file does not exist. Read offset and pending matches carry over when the filename changes on the next day, no wrapper script needed. Prints the lines around each match on request, like `grep --context`, including lines the logfile only receives after the run that found the match. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/logfile/",
             "object_name": "tpl-service-logfile-windows",
             "object_type": "template",
@@ -616,6 +665,7 @@
                 "criticality": "C",
                 "logfile_windows_alarm_duration": 60,
                 "logfile_windows_always_ok": false,
+                "logfile_windows_context": 0,
                 "logfile_windows_critical": 1,
                 "logfile_windows_critical_pattern": [],
                 "logfile_windows_critical_regex": [],
@@ -704,6 +754,17 @@
     },
     "Datafield": {
         "1": {
+            "varname": "logfile_after_context",
+            "caption": "Logfile: After Context",
+            "description": "Print this many lines that follow a matching line along with it, like `grep --after-context`. Lines the logfile does not hold yet are added on the following runs. Applies to matches found from then on. Takes precedence over `--context`. Takes 0 to 10. Default: the value of `--context`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "3c115ed7-b948-4a91-9c2e-d252f9840fe2"
+        },
+        "2": {
             "varname": "logfile_alarm_duration",
             "caption": "Logfile: Alarm Duration",
             "description": "Duration in minutes for how long new matches trigger an alert. Overwritten by `--icinga-callback`.",
@@ -714,7 +775,7 @@
             },
             "uuid": "c081f55f-6bb2-44d9-ae49-05af8459bce4"
         },
-        "2": {
+        "3": {
             "varname": "logfile_always_ok",
             "caption": "Logfile: Always OK?",
             "description": "Always returns OK.",
@@ -723,7 +784,29 @@
             "settings": {},
             "uuid": "44fb86ec-3677-404d-abe8-9a5efdb721b9"
         },
-        "3": {
+        "4": {
+            "varname": "logfile_before_context",
+            "caption": "Logfile: Before Context",
+            "description": "Print this many lines that precede a matching line along with it, like `grep --before-context`. Lines read by the previous run count as well. Applies to matches found from then on. Takes precedence over `--context`. Takes 0 to 10. Default: the value of `--context`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "6a1c3a71-39d7-4d1d-b484-4c9f0d78522b"
+        },
+        "5": {
+            "varname": "logfile_context",
+            "caption": "Logfile: Context",
+            "description": "Print this many lines before and after a matching line along with it, like `grep --context`. Sets `--before-context` and `--after-context` where they are not given. Applies to matches found from then on. Takes 0 to 10.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "90a21dee-4227-4f91-a1cc-ef3665260c67"
+        },
+        "6": {
             "varname": "logfile_critical",
             "caption": "Logfile: Critical",
             "description": "CRIT threshold for the number of found critical matches.",
@@ -734,7 +817,7 @@
             },
             "uuid": "3a4b75ad-0dab-4b30-9413-6f3b1f592839"
         },
-        "4": {
+        "7": {
             "varname": "logfile_critical_pattern",
             "caption": "Logfile: Critical Pattern",
             "description": "Any line containing this pattern will count as a critical. Can be specified multiple times.",
@@ -745,7 +828,7 @@
             },
             "uuid": "5d43329c-3212-408d-92a9-aa24daddea27"
         },
-        "5": {
+        "8": {
             "varname": "logfile_critical_regex",
             "caption": "Logfile: Critical Regex",
             "description": "Any line matching this Python regex will count as a critical. Can be specified multiple times.",
@@ -756,7 +839,7 @@
             },
             "uuid": "af125597-7cc8-4ac5-a056-20b229ce0d49"
         },
-        "6": {
+        "9": {
             "varname": "logfile_filename",
             "caption": "Logfile: Filename",
             "description": "Path to the logfile. Supports time macros that are expanded on every run: `{today}` / `{yesterday}` first try the compact form `YYYYMMDD`, then fall back to `YYYY-MM-DD` if that file does not exist. `{%Y}`, `{%y}`, `{%m}`, `{%d}`, `{%H}`, `{%M}`, `{%S}` render the matching strftime component of the current time. Example: `/var/log/app/{today}.log`. Example: `/var/log/app/app-{today}.log`. Example: `/var/log/app/{%Y}{%m}{%d}.log`.",
@@ -767,7 +850,7 @@
             },
             "uuid": "6ffdb5ed-e951-4c39-a66d-e435bb72cdd5"
         },
-        "7": {
+        "10": {
             "varname": "logfile_icinga_callback",
             "caption": "Logfile: Icinga Callback?",
             "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
@@ -776,7 +859,7 @@
             "settings": {},
             "uuid": "5dbd4a2b-7300-4e63-9849-5ba02f3d45e7"
         },
-        "8": {
+        "11": {
             "varname": "logfile_icinga_password",
             "caption": "Logfile: Icinga Password",
             "description": "Monitoring server API password.",
@@ -787,7 +870,7 @@
             },
             "uuid": "674defda-6308-481d-9657-0fb5bdcd24a7"
         },
-        "9": {
+        "12": {
             "varname": "logfile_icinga_service_name",
             "caption": "Logfile: Icinga Service Name",
             "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
@@ -798,7 +881,7 @@
             },
             "uuid": "03b903eb-5a01-49c1-be18-c8a190798b16"
         },
-        "10": {
+        "13": {
             "varname": "logfile_icinga_url",
             "caption": "Logfile: Icinga URL",
             "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
@@ -809,7 +892,7 @@
             },
             "uuid": "319a49be-8587-431d-9d27-846fb08c7913"
         },
-        "11": {
+        "14": {
             "varname": "logfile_icinga_username",
             "caption": "Logfile: Icinga Username",
             "description": "Monitoring server API username.",
@@ -820,7 +903,7 @@
             },
             "uuid": "8a762725-323b-4e71-9bd3-ec7ae17bb51b"
         },
-        "12": {
+        "15": {
             "varname": "logfile_ignore",
             "caption": "Logfile: Ignore",
             "description": "Ignore a line matching this Python regular expression, whichever warning or critical pattern it also matches. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
@@ -831,7 +914,7 @@
             },
             "uuid": "64b4b43e-d6cc-4cf5-ab30-cc398356a819"
         },
-        "13": {
+        "16": {
             "varname": "logfile_insecure",
             "caption": "Logfile: Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
@@ -840,7 +923,7 @@
             "settings": {},
             "uuid": "f48bff31-77f6-4c82-93c3-ad3d3cacbf1e"
         },
-        "14": {
+        "17": {
             "varname": "logfile_match",
             "caption": "Logfile: Match",
             "description": "Only consider a line matching this Python regular expression. Applied before the warning and critical patterns decide the severity, so it narrows what is looked at rather than what counts as a problem. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='^\\[prod\\]'`.",
@@ -851,7 +934,7 @@
             },
             "uuid": "4776daf0-1a7f-4869-b77d-cbd234e8c465"
         },
-        "15": {
+        "18": {
             "varname": "logfile_no_insecure",
             "caption": "Logfile: No Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -860,7 +943,7 @@
             "settings": {},
             "uuid": "087505e0-36d7-4fe8-8c0a-646927a05da6"
         },
-        "16": {
+        "19": {
             "varname": "logfile_no_match_severity",
             "caption": "Logfile: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -873,7 +956,7 @@
             },
             "uuid": "5336a6a3-b85a-42d2-9f14-32c0ad9b0847"
         },
-        "17": {
+        "20": {
             "varname": "logfile_no_perfdata",
             "caption": "Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -882,7 +965,7 @@
             "settings": {},
             "uuid": "8106fd90-944b-42ba-b4a8-37228e4640f2"
         },
-        "18": {
+        "21": {
             "varname": "logfile_no_proxy",
             "caption": "Logfile: No Proxy?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -891,7 +974,7 @@
             "settings": {},
             "uuid": "80fbd760-e4b2-4537-98c0-eabb0635abf7"
         },
-        "19": {
+        "22": {
             "varname": "logfile_proxy",
             "caption": "Logfile: Proxy",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -902,7 +985,7 @@
             },
             "uuid": "0014c535-8204-4bb7-a907-7486c74fa64e"
         },
-        "20": {
+        "23": {
             "varname": "logfile_suppress_lines",
             "caption": "Logfile: Suppress Lines?",
             "description": "Suppress the found lines in the output and only report the number of findings.",
@@ -911,7 +994,7 @@
             "settings": {},
             "uuid": "770d9fa1-cea4-4573-aaf4-c0a160a130c9"
         },
-        "21": {
+        "24": {
             "varname": "logfile_timeout",
             "caption": "Logfile: Timeout",
             "description": "Network timeout in seconds.",
@@ -922,7 +1005,7 @@
             },
             "uuid": "d6493c74-27ed-4560-b131-3c9faa22bbc3"
         },
-        "22": {
+        "25": {
             "varname": "logfile_warning",
             "caption": "Logfile: Warning",
             "description": "WARN threshold for the number of found warning matches.",
@@ -933,7 +1016,7 @@
             },
             "uuid": "dde310e5-ea71-4a8e-9fe1-2ad42c96e9d0"
         },
-        "23": {
+        "26": {
             "varname": "logfile_warning_pattern",
             "caption": "Logfile: Warning Pattern",
             "description": "Any line containing this pattern will count as a warning. Can be specified multiple times.",
@@ -944,7 +1027,7 @@
             },
             "uuid": "0e3bea0f-c764-42d9-9776-f8795f7cf3e1"
         },
-        "24": {
+        "27": {
             "varname": "logfile_warning_regex",
             "caption": "Logfile: Warning Regex",
             "description": "Any line matching this Python regex will count as a warning. Can be specified multiple times.",
@@ -955,7 +1038,18 @@
             },
             "uuid": "f04ab723-35f8-440c-9588-aa3e3a265411"
         },
-        "25": {
+        "28": {
+            "varname": "logfile_windows_after_context",
+            "caption": "Logfile: After Context",
+            "description": "Print this many lines that follow a matching line along with it, like `grep --after-context`. Lines the logfile does not hold yet are added on the following runs. Applies to matches found from then on. Takes precedence over `--context`. Takes 0 to 10. Default: the value of `--context`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "5add5337-7479-4b50-b080-6165bc5bac45"
+        },
+        "29": {
             "varname": "logfile_windows_alarm_duration",
             "caption": "Logfile: Alarm Duration",
             "description": "Duration in minutes for how long new matches trigger an alert. Overwritten by `--icinga-callback`.",
@@ -966,7 +1060,7 @@
             },
             "uuid": "8aed0043-b412-422d-a36b-d19dbab0afbb"
         },
-        "26": {
+        "30": {
             "varname": "logfile_windows_always_ok",
             "caption": "Logfile: Always OK?",
             "description": "Always returns OK.",
@@ -975,7 +1069,29 @@
             "settings": {},
             "uuid": "c19ce97d-3af2-4feb-9146-985bdbe98a60"
         },
-        "27": {
+        "31": {
+            "varname": "logfile_windows_before_context",
+            "caption": "Logfile: Before Context",
+            "description": "Print this many lines that precede a matching line along with it, like `grep --before-context`. Lines read by the previous run count as well. Applies to matches found from then on. Takes precedence over `--context`. Takes 0 to 10. Default: the value of `--context`",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "e89cf493-dde1-4f52-b940-02cd288bf733"
+        },
+        "32": {
+            "varname": "logfile_windows_context",
+            "caption": "Logfile: Context",
+            "description": "Print this many lines before and after a matching line along with it, like `grep --context`. Sets `--before-context` and `--after-context` where they are not given. Applies to matches found from then on. Takes 0 to 10.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "c22d3aa5-3bfa-4854-b016-132288b15fdc"
+        },
+        "33": {
             "varname": "logfile_windows_critical",
             "caption": "Logfile: Critical",
             "description": "CRIT threshold for the number of found critical matches.",
@@ -986,7 +1102,7 @@
             },
             "uuid": "b1a369bc-a99a-458b-9ebd-01bcfe4ad30a"
         },
-        "28": {
+        "34": {
             "varname": "logfile_windows_critical_pattern",
             "caption": "Logfile: Critical Pattern",
             "description": "Any line containing this pattern will count as a critical. Can be specified multiple times.",
@@ -997,7 +1113,7 @@
             },
             "uuid": "1421a4e0-4108-4b8d-990e-41482590021e"
         },
-        "29": {
+        "35": {
             "varname": "logfile_windows_critical_regex",
             "caption": "Logfile: Critical Regex",
             "description": "Any line matching this Python regex will count as a critical. Can be specified multiple times.",
@@ -1008,7 +1124,7 @@
             },
             "uuid": "9438a6eb-a1f1-4bb0-8bf7-89d2f1b65bfc"
         },
-        "30": {
+        "36": {
             "varname": "logfile_windows_filename",
             "caption": "Logfile: Filename",
             "description": "Path to the logfile. Supports time macros that are expanded on every run: `{today}` / `{yesterday}` first try the compact form `YYYYMMDD`, then fall back to `YYYY-MM-DD` if that file does not exist. `{%Y}`, `{%y}`, `{%m}`, `{%d}`, `{%H}`, `{%M}`, `{%S}` render the matching strftime component of the current time. Example: `/var/log/app/{today}.log`. Example: `/var/log/app/app-{today}.log`. Example: `/var/log/app/{%Y}{%m}{%d}.log`.",
@@ -1019,7 +1135,7 @@
             },
             "uuid": "c23ca409-1a25-479c-9a5d-5e9c2f51dd34"
         },
-        "31": {
+        "37": {
             "varname": "logfile_windows_icinga_callback",
             "caption": "Logfile: Icinga Callback?",
             "description": "Ask the monitoring server whether the service running this check is acknowledged. Where it is, what this run reports is remembered as already handled, so it no longer raises an alert on the following runs. Requires `--icinga-url`, `--icinga-username`, `--icinga-password` and `--icinga-service-name`.",
@@ -1028,7 +1144,7 @@
             "settings": {},
             "uuid": "96ba809b-8074-44eb-9bf9-39734984521a"
         },
-        "32": {
+        "38": {
             "varname": "logfile_windows_icinga_password",
             "caption": "Logfile: Icinga Password",
             "description": "Monitoring server API password.",
@@ -1039,7 +1155,7 @@
             },
             "uuid": "99702c70-930a-4963-88cc-a7d11c759c0d"
         },
-        "33": {
+        "39": {
             "varname": "logfile_windows_icinga_service_name",
             "caption": "Logfile: Icinga Service Name",
             "description": "Unique name of the service running this check, as the monitoring server knows it. Take it from the `__name` service attribute. Example: `monitoring-server!my-service-name`.",
@@ -1050,7 +1166,7 @@
             },
             "uuid": "495d6fe2-a92d-4675-b73d-fcbb0efdce37"
         },
-        "34": {
+        "40": {
             "varname": "logfile_windows_icinga_url",
             "caption": "Logfile: Icinga URL",
             "description": "Monitoring server API URL. Example: `https://monitoring.example.com:5665`.",
@@ -1061,7 +1177,7 @@
             },
             "uuid": "f55b5640-eec5-4706-85c9-9f38042a7a45"
         },
-        "35": {
+        "41": {
             "varname": "logfile_windows_icinga_username",
             "caption": "Logfile: Icinga Username",
             "description": "Monitoring server API username.",
@@ -1072,7 +1188,7 @@
             },
             "uuid": "642b9c70-d9cf-4a54-a22e-11db23201de7"
         },
-        "36": {
+        "42": {
             "varname": "logfile_windows_ignore",
             "caption": "Logfile: Ignore",
             "description": "Ignore a line matching this Python regular expression, whichever warning or critical pattern it also matches. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. Example: `--ignore='(?i)linuxfabrik'`.",
@@ -1083,7 +1199,7 @@
             },
             "uuid": "f1a83eb5-0560-428e-8f3d-4304e5e29831"
         },
-        "37": {
+        "43": {
             "varname": "logfile_windows_insecure",
             "caption": "Logfile: Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. This option explicitly allows insecure SSL connections.",
@@ -1092,7 +1208,7 @@
             "settings": {},
             "uuid": "d95a5bd7-3ae5-4817-9dad-a52f9bf9e9d4"
         },
-        "38": {
+        "44": {
             "varname": "logfile_windows_match",
             "caption": "Logfile: Match",
             "description": "Only consider a line matching this Python regular expression. Applied before the warning and critical patterns decide the severity, so it narrows what is looked at rather than what counts as a problem. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Example: `--match='^\\[prod\\]'`.",
@@ -1103,7 +1219,7 @@
             },
             "uuid": "cf2b2312-3071-4570-ad6e-df1c9c41f0ee"
         },
-        "39": {
+        "45": {
             "varname": "logfile_windows_no_insecure",
             "caption": "Logfile: No Insecure?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -1112,7 +1228,7 @@
             "settings": {},
             "uuid": "ae6702b9-b70a-479a-babf-ecd59845a812"
         },
-        "40": {
+        "46": {
             "varname": "logfile_windows_no_match_severity",
             "caption": "Logfile: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -1125,7 +1241,7 @@
             },
             "uuid": "28fb18ee-8291-4261-b58d-f0d858fa0d51"
         },
-        "41": {
+        "47": {
             "varname": "logfile_windows_no_perfdata",
             "caption": "Logfile: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -1134,7 +1250,7 @@
             "settings": {},
             "uuid": "b2113fe9-5f6a-4b11-867f-abe7614fb7af"
         },
-        "42": {
+        "48": {
             "varname": "logfile_windows_no_proxy",
             "caption": "Logfile: No Proxy?",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -1143,7 +1259,7 @@
             "settings": {},
             "uuid": "22958325-6eab-4f99-95e4-f8da93f9d8f5"
         },
-        "43": {
+        "49": {
             "varname": "logfile_windows_proxy",
             "caption": "Logfile: Proxy",
             "description": "Applies to the connection to the monitoring server that `--icinga-callback` makes, which is the only network connection this check opens. Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -1154,7 +1270,7 @@
             },
             "uuid": "62001e9c-6217-4b42-88da-58e2fc5828ea"
         },
-        "44": {
+        "50": {
             "varname": "logfile_windows_suppress_lines",
             "caption": "Logfile: Suppress Lines?",
             "description": "Suppress the found lines in the output and only report the number of findings.",
@@ -1163,7 +1279,7 @@
             "settings": {},
             "uuid": "6089b8bd-a99a-4837-bcc1-d65bc6e36bb2"
         },
-        "45": {
+        "51": {
             "varname": "logfile_windows_timeout",
             "caption": "Logfile: Timeout",
             "description": "Network timeout in seconds.",
@@ -1174,7 +1290,7 @@
             },
             "uuid": "3cdaee8b-2d41-4ef4-bd20-3fd042d02bb9"
         },
-        "46": {
+        "52": {
             "varname": "logfile_windows_warning",
             "caption": "Logfile: Warning",
             "description": "WARN threshold for the number of found warning matches.",
@@ -1185,7 +1301,7 @@
             },
             "uuid": "b17197e7-bd80-404f-8161-c386f17eed96"
         },
-        "47": {
+        "53": {
             "varname": "logfile_windows_warning_pattern",
             "caption": "Logfile: Warning Pattern",
             "description": "Any line containing this pattern will count as a warning. Can be specified multiple times.",
@@ -1196,7 +1312,7 @@
             },
             "uuid": "7772b169-2eb6-4a4a-8f30-ecf7b9ded91f"
         },
-        "48": {
+        "54": {
             "varname": "logfile_windows_warning_regex",
             "caption": "Logfile: Warning Regex",
             "description": "Any line matching this Python regex will count as a warning. Can be specified multiple times.",

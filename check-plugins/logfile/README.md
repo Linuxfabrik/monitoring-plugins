@@ -31,6 +31,7 @@ object ApiUser "linuxfabrik-check-logfile" {
 * Keeps its state in a SQLite database. Each combination of logfile and pattern set gets its own database, so two services watching the same logfile for different things do not interfere. Changing a pattern starts a new database, and the next run therefore reports every match the logfile still holds
 * `--warning-pattern` and `--critical-pattern` search for plain substrings and are faster than their regex counterparts
 * Matches keep alerting across runs, even once the logfile stops growing: for `--alarm-duration` minutes (default 60), or, with `--icinga-callback`, until the service is acknowledged in Icinga. They appear in the output as "Unacknowledged warning/critical matches from previous runs" and count towards the thresholds like new matches do
+* `--before-context`, `--after-context` and `--context` print up to 10 lines around each match, like grep. The lines are shown in the order the logfile holds them, with the matching line marked by `>>>`. Because only new lines are read, the lines in front of a match often come from the previous run, and the lines after it often only arrive on the following runs; the check keeps the former back and adds the latter to the match as they are written. As in grep, no line is printed twice, so a line between two matches belongs to the first one. Context lines are taken from the logfile as it is, regardless of `--match` and `--ignore`, and a rotation discards what was kept back. The context applies to matches found from then on: a match that was already reported keeps the text it was found with, and the lines around it cannot be added later
 
 
 ## Fact Sheet
@@ -49,10 +50,12 @@ object ApiUser "linuxfabrik-check-logfile" {
 ## Help
 
 ```text
-usage: logfile [-h] [-V] [--alarm-duration ALARM_DURATION] [--always-ok]
-               [-c CRIT] [--critical-pattern CRIT_PATTERN]
-               [--critical-regex CRIT_REGEX] --filename FILENAME
-               [--icinga-callback] [--icinga-password ICINGA_PASSWORD]
+usage: logfile [-h] [-V] [--after-context AFTER_CONTEXT]
+               [--alarm-duration ALARM_DURATION] [--always-ok]
+               [--before-context BEFORE_CONTEXT] [--context CONTEXT] [-c CRIT]
+               [--critical-pattern CRIT_PATTERN] [--critical-regex CRIT_REGEX]
+               --filename FILENAME [--icinga-callback]
+               [--icinga-password ICINGA_PASSWORD]
                [--icinga-service-name ICINGA_SERVICE_NAME]
                [--icinga-url ICINGA_URL] [--icinga-username ICINGA_USERNAME]
                [--ignore IGNORE] [--insecure] [--match MATCH] [--no-insecure]
@@ -72,17 +75,38 @@ name contains the current date (`20260422.log`, `app-2026-04-22.log`, etc.)
 can be monitored directly. `{today}` / `{yesterday}` resolve tolerantly:
 compact (`YYYYMMDD`) first, ISO 8601 (`YYYY-MM-DD`) as fallback if the compact
 file does not exist. Read offset and pending matches carry over when the
-filename changes on the next day, no wrapper script needed. Requires root or
+filename changes on the next day, no wrapper script needed. Prints the lines
+around each match on request, like `grep --context`, including lines the
+logfile only receives after the run that found the match. Requires root or
 sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
+  --after-context AFTER_CONTEXT
+                        Print this many lines that follow a matching line
+                        along with it, like `grep --after-context`. Lines the
+                        logfile does not hold yet are added on the following
+                        runs. Applies to matches found from then on. Takes
+                        precedence over `--context`. Takes 0 to 10. Default:
+                        the value of `--context`
   --alarm-duration ALARM_DURATION
                         Duration in minutes for how long new matches trigger
                         an alert. Overwritten by `--icinga-callback`. Default:
                         60
   --always-ok           Always returns OK.
+  --before-context BEFORE_CONTEXT
+                        Print this many lines that precede a matching line
+                        along with it, like `grep --before-context`. Lines
+                        read by the previous run count as well. Applies to
+                        matches found from then on. Takes precedence over
+                        `--context`. Takes 0 to 10. Default: the value of
+                        `--context`
+  --context CONTEXT     Print this many lines before and after a matching line
+                        along with it, like `grep --context`. Sets `--before-
+                        context` and `--after-context` where they are not
+                        given. Applies to matches found from then on. Takes 0
+                        to 10. Default: 0
   -c, --critical CRIT   CRIT threshold for the number of found critical
                         matches. Default: 1
   --critical-pattern CRIT_PATTERN
@@ -217,6 +241,25 @@ Critical matches:
 ```
 
 The `(N lines)` figure counts the lines that are **new** since the previous run, not the length of the logfile. Both are the same on the first run and after a rotation.
+
+With the lines around each match:
+
+```bash
+./logfile --filename=/var/log/myapp/app.log --critical-regex=' ERROR ' --context=2
+```
+
+Output:
+
+```text
+Scanned /var/log/myapp/app.log (9 lines) using patterns ' ERROR ' (matched 1 line) [CRITICAL].
+
+Critical matches:
+* 2026-09-21 10:00:00 INFO GET /
+  2026-09-21 10:00:01 INFO POST /api/order
+  >>> 2026-09-21 10:00:02 ERROR Request failed
+  Traceback (most recent call last):
+    File "app.py", line 12, in handle
+```
 
 
 ## States
