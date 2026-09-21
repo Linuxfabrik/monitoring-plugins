@@ -135,6 +135,7 @@ Build, CI/CD:
 Monitoring Plugins:
 
 * about-me: recognises a KVM host running the modular libvirt daemons again
+* all checks over HTTP: honour network ranges in `no_proxy` and the proxy exceptions of Windows
 * all plugins: a command stuck on storage that has gone away no longer runs past the check's `--timeout`
 * all `*-version` checks: a release endoflife.date has not catalogued yet no longer reports UNKNOWN, and a version whose cycle is marked end of life without a date warns instead of taking the check down with a Python error
 * apache-httpd-security, nginx-security: read a configuration file, `/etc/shadow` or `/etc/shells` that is not valid UTF-8 instead of going UNKNOWN over it
@@ -187,6 +188,8 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* all checks over HTTP: a password in `--url` no longer shows in an error, and an answer larger than 64 MiB is refused instead of filling the memory
+* all checks over HTTP: a redirect can no longer send a login password to another host ([GHSA-pq9x-4pp3-p5r9](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-pq9x-4pp3-p5r9))
 * fail2ban: `--socket` is confined to `/run` and `/var/run`, closing a local root code-execution via a crafted socket
 * kdump: `--path` no longer discloses a file outside the crash-dump directory through a symlink ([GHSA-q8c8-wxhc-3h4c](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-q8c8-wxhc-3h4c))
 
