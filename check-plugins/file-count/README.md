@@ -16,7 +16,7 @@ This plugin is part of the file plugin group. Selecting files with globs, readin
 
 * Uses Python's `pathlib.Path.glob()` for local files and `lib.smb` for SMB shares
 * Applies `os.stat()` once per item to determine type and modification time, minimizing syscalls
-* When both `--warning` and `--critical` thresholds are simple numeric values, the check breaks early once the threshold is exceeded (to save time and resources on directories with millions of files)
+* When both `--warning` and `--critical` thresholds are simple numeric values, the check breaks early once the threshold is exceeded (to save time and resources on directories with millions of files). The output then reads "Found more than N matching files", and the `file_count` perfdata stops at the highest threshold + 1. Use `--no-early-break` to count every file, for example to graph the real number of files
 
 
 ## Fact Sheet
@@ -36,8 +36,8 @@ This plugin is part of the file plugin group. Selecting files with globs, readin
 
 ```text
 usage: file-count [-h] [-V] [--always-ok] [-c CRIT] [--filename FILENAME]
-                  [--no-perfdata] [--only-dirs] [--only-files]
-                  [--password PASSWORD] [--pattern PATTERN]
+                  [--no-early-break] [--no-perfdata] [--only-dirs]
+                  [--only-files] [--password PASSWORD] [--pattern PATTERN]
                   [--timeout TIMEOUT] [--timerange TIMERANGE] [-u URL]
                   [--username USERNAME] [-w WARN]
 
@@ -53,6 +53,10 @@ options:
   --filename FILENAME   File or directory name to check (supports glob
                         patterns). Beware of recursive globs. Mutually
                         exclusive with --url.
+  --no-early-break      Count every matching file instead of stopping as soon
+                        as the count exceeds the thresholds. Makes the
+                        `file_count` perfdata exact, at the cost of runtime on
+                        directories with many files.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -115,7 +119,7 @@ Found 1 matching file, in (0..1)
 
 | Name | Type | Description |
 |----|----|----|
-| file_count | Number | Count of files matching the glob pattern and filters. |
+| file_count | Number | Count of files matching the glob pattern and filters. Capped at the highest threshold + 1 unless `--no-early-break` is given. |
 
 
 ## Credits, License

@@ -31,7 +31,7 @@ except ModuleNotFoundError as e:
     missing_lib = e.name
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026092101'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
@@ -77,6 +77,17 @@ def parse_args():
         'Beware of recursive globs. '
         'Mutually exclusive with --url.',
         dest='FILENAME',
+    )
+
+    parser.add_argument(
+        '--no-early-break',
+        help='Count every matching file instead of stopping as soon as the count '
+        'exceeds the thresholds. '
+        'Makes the `file_count` perfdata exact, at the cost of runtime on '
+        'directories with many files.',
+        dest='NO_EARLY_BREAK',
+        action='store_true',
+        default=False,
     )
 
     parser.add_argument(
@@ -213,8 +224,11 @@ def main():
     file_count = 0
     exceeded_threshold = False
 
-    # Determine if we can break early for performance
-    early_break_at = get_early_break_threshold(args.WARN, args.CRIT)
+    # Determine if we can break early for performance. Breaking early caps the
+    # count, and with it the perfdata, at the highest threshold + 1.
+    early_break_at = None
+    if not args.NO_EARLY_BREAK:
+        early_break_at = get_early_break_threshold(args.WARN, args.CRIT)
 
     if args.FILENAME:
         for item in lib.disk.glob(args.FILENAME):

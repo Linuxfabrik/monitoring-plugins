@@ -84,6 +84,7 @@ Monitoring Plugins:
 * deb-updates, rpm-updates: the output says per package whether it is overdue or how long its grace period still has to run, and marks the packages the alert hangs on
 * disk-io: reports IOPS, and no longer warns falsely after a reboot ([#677](https://github.com/Linuxfabrik/monitoring-plugins/issues/677))
 * dmesg: fewer false alarms on physical servers and in virtual machines
+* file-count: `--no-early-break` counts every matching file, so the performance data no longer stops at the threshold (derived from [PR #1141](https://github.com/Linuxfabrik/monitoring-plugins/pull/1141), thanks to [Sascha Bay](https://github.com/TheCry))
 * kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`

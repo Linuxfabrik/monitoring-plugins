@@ -70,6 +70,22 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_WARN)
         self.assertIn('Found 3 matching files, not in (5..inf) [WARNING]', stdout)
 
+    def test_warn_early_break_caps_the_count(self):
+        tmpdir = tmpdir_with_files(5)
+        stdout, retc = self._run(f'{tmpdir}/*.log', '--warning', '2')
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('Found more than 2 matching files', stdout)
+        self.assertIn("'file_count'=3;", stdout)
+
+    def test_warn_no_early_break_counts_every_file(self):
+        tmpdir = tmpdir_with_files(5)
+        stdout, retc = self._run(
+            f'{tmpdir}/*.log', '--warning', '2', '--no-early-break'
+        )
+        self.assertEqual(retc, STATE_WARN)
+        self.assertIn('Found 5 matching files, not in (0..2) [WARNING]', stdout)
+        self.assertIn("'file_count'=5;", stdout)
+
     def test_an_empty_glob_counts_nothing(self):
         tmpdir = tempfile.mkdtemp()
         stdout, retc = self._run(f'{tmpdir}/*.log', '--warning', '5')
