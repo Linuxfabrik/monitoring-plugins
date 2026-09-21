@@ -1,8 +1,11 @@
 # Base image: Fedora 43
 FROM registry.fedoraproject.org/fedora:43
 
-# NUT server with dummy driver. Fedora ships /etc/ups as the config dir.
-RUN dnf --assumeyes install --setopt=install_weak_deps=False nut && \
+# NUT server with dummy driver. Fedora ships /etc/ups as the config dir, and keeps the
+# drivers themselves in nut-client: nut alone installs the dummy-ups man page but not
+# the binary, and upsdrvctl then fails with "Can't start /usr/libexec/nut/dummy-ups"
+# (verified with nut 2.8.5-3.fc43).
+RUN dnf --assumeyes install --setopt=install_weak_deps=False nut nut-client && \
     dnf clean all
 
 RUN echo 'MODE=netserver' > /etc/ups/nut.conf && \
