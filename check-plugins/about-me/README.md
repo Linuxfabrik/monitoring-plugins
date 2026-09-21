@@ -77,8 +77,9 @@ options:
   --public-ip-url PUBLIC_IP_URL
                         One or more comma-separated URLs to "what is my ip"
                         online services for fetching the public IP address.
-                        Example: `https://ipv4.icanhazip.com,https://ipecho.ne
-                        t/plain,https://ipinfo.io/ip`. Default: None
+                        Example: `https://ip.linuxfabrik.ch,https://ipv4.icanh
+                        azip.com,https://ipecho.net/plain,https://ipinfo.io/ip
+                        `. Default: None
   --tags                Guess a list of tags to apply in Icinga Director
                         (Linuxfabrik Basket config).
   --timeout TIMEOUT     Network timeout in seconds. Default: 2 (seconds)
