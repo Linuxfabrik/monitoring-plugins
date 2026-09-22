@@ -140,12 +140,14 @@ TESTS = [
         'assert-not-in': ['20000008', '20000009', '20000010', '20000011'],
     },
     {
-        # an offset written as `Z` is parsed like one written as `+02:00`
+        # an offset written as `Z` is parsed like one written as `+02:00`. The
+        # column is padded to its longest "... ago", whose length changes as the
+        # fixture ages, so the space before the separator is not a fixed one.
         'id': 'warn-all-statuses-parses-utc-timestamp',
         'test': 'stdout/all-statuses,,0',
         'params': CREDENTIALS,
         'assert-retc': STATE_WARN,
-        'assert-regex': r'20000007 ! \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(.+ ago\) ! ',
+        'assert-regex': r'20000007 ! \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \(.+ ago\) +! ',
     },
     {
         'id': 'warn-all-statuses-suppressed-raised',
