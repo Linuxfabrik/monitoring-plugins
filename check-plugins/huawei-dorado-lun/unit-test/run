@@ -96,9 +96,10 @@ TESTS = [
         'assert-in': ['No LUNs matched `nonexistent`.'],
     },
     {
-        # The appliance carries its own fill threshold per LUN. Honouring it keeps the
-        # check and the management GUI from each having their own opinion.
-        'id': 'warn-lun-reaches-device-threshold',
+        # The appliance carries its own capacity alarm threshold per LUN (documented
+        # for thin LUNs mounted to Windows Server 2012 hosts). It only counts when its
+        # switch is on.
+        'id': 'ok-lun-below-device-threshold',
         'test': 'stdout/luns-healthy,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
@@ -112,6 +113,36 @@ TESTS = [
         'params': '--password=linuxfabrik --url=https://localhost --username=admin'
         ' --unmapped-severity=crit',
         'assert-retc': STATE_OK,
+    },
+    {
+        # Real-shape LUNs (V700R001C10SPH128, Dorado 6000 V6), two mapped and one
+        # unmapped. The unmapped LUN raises the state through --unmapped-severity
+        # alone, so the default table has to show the Mapped column that says why.
+        'id': 'warn-unmapped-lun-shows-why',
+        'test': 'stdout/luns-v700-one-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --include-unmapped --unmapped-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings. Checked 3 LUNs.',
+            'UUID   ! Name   ! Pool           ! Mapped       ! Allocated ! Capacity '
+            '! Usage ! Health     ! Running     ! State',
+            '11:0   ! lun-01 ! StoragePool001 ! yes          ! 1.7GiB    ! 30.0GiB  '
+            '! 5%    ! Normal (1) ! Online (27) ! [OK]',
+            '11:129 ! lun-03 ! StoragePool001 ! no [WARNING] ! 0.0B      ! 15.0GiB  '
+            '! 0%    ! Normal (1) ! Online (27) ! [WARNING]',
+        ],
+    },
+    {
+        # Without --include-unmapped the unmapped LUN is not checked, and a Mapped
+        # column reading "yes" on every row would be noise.
+        'id': 'ok-mapped-column-only-with-include-unmapped',
+        'test': 'stdout/luns-v700-one-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --unmapped-severity=warn',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Checked 2 LUNs.'],
+        'assert-not-in': ['Mapped', 'lun-03'],
     },
 ]
 

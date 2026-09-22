@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
@@ -43,7 +43,7 @@ DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
-DEFAULT_TIMEOUT = 3
+DEFAULT_TIMEOUT = 30
 DEFAULT_UNUSED_DISK_SEVERITY = 'ok'
 DEFAULT_WARN = '180:'
 DEFAULT_WARN_HEALTH_MARK = ''
@@ -358,14 +358,17 @@ def parse_args():
 
 def get_remaining_life_days(disk):
     """Return a disk's remaining life in days, or `None` if it does not report one."""
-    # The appliance reports the remaining life only for media that wear out. A spinning
-    # disk has nothing to report and answers with zero, which must not be read as "this
-    # disk is at its end" - that would alert on every HDD forever.
+    # A Dorado carries flash media only (SSD, SED, NVMe and SCM disk types), all of
+    # which wear out, so a remaining life of 0 is a real reading: the disk is at its
+    # end and the thresholds have to fire. Only a negative value is the "not
+    # reported" marker. The appliance caps the value at 3660 days, which means "ten
+    # years or more". Verified against V700R001C10SPH128 on a Dorado 6000 V6: all 384
+    # NVMe disks (DISKTYPE 14) report 3660.
     try:
         days = int(disk.get('REMAINLIFE'))
     except (TypeError, ValueError):
         return None
-    if days <= 0:
+    if days < 0:
         return None
     return days
 
@@ -603,17 +606,30 @@ def main():
         disk['running'] = lib.huawei_dorado.get_running_status(
             disk.get('RUNNINGSTATUS')
         )
-        # One state per row, in the last column. IcingaWeb replaces a state with an
-        # icon, which shifts everything to the right of it, so a second one mid-row
-        # would break the table. What decided it stays readable in the two columns
-        # in front of it.
-        disk['state'] = lib.base.state2str(
-            lib.base.get_worst(health_state, running_state), empty_ok=False
-        )
+        # The row's State column is the worst of everything evaluated for the disk,
+        # so a row never reads [OK] while it raises the overall state. A threshold
+        # that fired is also marked on the value that crossed it, the way Health and
+        # Running name the code that decided them.
+        disk['state'] = lib.base.state2str(disk['row_state'], empty_ok=False)
         # The performance data is written above, so what is left here is the display
         # value. A drive without a temperature sensor prints the appliance's own
         # placeholder rather than the raw one it happens to use.
-        disk['TEMPERATURE'] = '--' if temperature is None else temperature
+        disk['TEMPERATURE'] = (
+            '--'
+            if temperature is None
+            else f'{temperature}{lib.base.state2str(temperature_state, prefix=" ")}'
+        )
+        # A disk that does not report its remaining life gets a dash, as everywhere
+        # else in the family. `seconds2human()` has no unit for zero, so a disk at its
+        # end reads "0D" rather than "0s".
+        if remaining_life_days is None:
+            disk['remaining_life'] = '--'
+        else:
+            disk['remaining_life'] = (
+                lib.human.seconds2human(remaining_life_days * 24 * 60 * 60)
+                if remaining_life_days
+                else '0D'
+            ) + lib.base.state2str(life_state, prefix=' ')
         disk['ABRASIONRATE'] = (
             '--'
             if abrasion_rate is None
@@ -672,6 +688,7 @@ def main():
                 'health_mark',
                 'PROGRESS',
                 'RUNTIME',
+                'remaining_life',
                 'TEMPERATURE',
                 'health',
                 'running',
@@ -688,6 +705,7 @@ def main():
                 'Health#',
                 'Progress%',
                 'Runtime',
+                'Remain',
                 'Temp',
                 'Health',
                 'Running',
@@ -700,6 +718,7 @@ def main():
                 'LOGICTYPE',
                 'ABRASIONRATE',
                 'health_mark',
+                'remaining_life',
                 'TEMPERATURE',
                 'health',
                 'running',
@@ -711,6 +730,7 @@ def main():
                 'Usage',
                 'Wear%',
                 'Health#',
+                'Remain',
                 'Temp',
                 'Health',
                 'Running',

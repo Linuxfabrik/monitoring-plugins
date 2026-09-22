@@ -15,46 +15,56 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 TESTS = [
     {
-        # A HyperMetro domain numbers its RUNNINGSTATUS from 0 up rather than
-        # sharing the enumeration the other objects use, so 0 is its normal
-        # state. Read through the shared enumeration this fixture used to be
-        # pinned with code 1, which means 'Recovering' on a domain.
+        # A HyperMetro domain has an enumeration of its own, in which 1 is its
+        # normal state. The first record has the shape a healthy domain reports:
+        # verified against V700R001C10SPH128 on a Dorado 6000 V6.
         'id': 'ok-domains-healthy',
         'test': 'stdout/domains-healthy,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
-            'UUID                   ! Name               ! QuorumSrv ! QuorumType    '
-            '! Running',
-            '-----------------------+--------------------+-----------+---------------'
-            '+--------',
-            '15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server '
-            '! [OK]   ',
+            'UUID                   ! Name                      ! QuorumSrv '
+            '! QuorumType    ! Running    ! State',
+            '15362:3f2e1d0c9b80100  ! BlockHyperMetroDomain_000 ! quorum01  '
+            '! Quorum Server ! Normal (1) ! [OK] ',
             # Last row of the table: the trailing padding is stripped, because
             # the performance data is appended right behind it.
-            '15362:8038bc14bd750100 ! test               !           ! None          '
-            '! [OK]',
+            '15362:8038bc14bd750100 ! test                      !           '
+            '! None          ! Normal (1) ! [OK]',
+            "'15362_3f2e1d0c9b80100_running_status'=1;;;0",
         ],
     },
     {
-        # A faulty domain no longer mirrors, so it has to reach CRITICAL. Read
-        # through the shared enumeration code 2 would render as 'Running (2)'
-        # and pass unnoticed.
-        'id': 'crit-domains-one-faulty',
-        'test': 'stdout/domains-one-faulty,,0',
+        # The appliance works its way back to a mirrored state on its own, so
+        # a domain to be recovered warns rather than going critical.
+        'id': 'warn-domains-one-to-be-recovered',
+        'test': 'stdout/domains-one-to-be-recovered,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            '15362:3f2e1d0c9b80100  ! BlockHyperMetroDomain_000 ! quorum01  '
+            '! Quorum Server ! Normal (1)           ! [OK]     ',
+            '15362:8038bc14bd750100 ! test                      !           '
+            '! None          ! To be recovered (33) ! [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-domains-one-invalid',
+        'test': 'stdout/domains-one-invalid,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
-            '15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server '
-            '! [OK]      ',
-            '15362:8038bc14bd750100 ! test               !           ! None          '
-            '! [CRITICAL]',
+            '15362:3f2e1d0c9b80100  ! BlockHyperMetroDomain_000 ! quorum01  '
+            '! Quorum Server ! Normal (1)   ! [OK]      ',
+            '15362:8038bc14bd750100 ! test                      !           '
+            '! None          ! Invalid (35) ! [CRITICAL]',
         ],
     },
 ]

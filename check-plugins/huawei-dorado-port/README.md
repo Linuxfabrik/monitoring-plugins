@@ -25,7 +25,7 @@ Checks the health and link status of the front-end ports of a Huawei OceanStor D
 * Each endpoint is read in a single request, because unlike the other list endpoints these do not implement the `range` parameter
 * Authenticates via session tokens (iBaseToken + cookie), cached in a SQLite database to avoid repeated logins
 * If the appliance rejects a request, the check logs in again and retries, up to three attempts one second apart
-* Stores the previous link error counter reading in a local SQLite database, so the ever-growing totals can be reported as per-second rates ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320))
+* Stores the previous link error counter reading in a local SQLite database, so the ever-growing totals can be reported as per-second rates ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). FC, Ethernet and SAS ports count different errors, so each kind of port has a database of its own
 
 
 ## Fact Sheet
@@ -38,7 +38,7 @@ Checks the health and link status of the front-end ports of a Huawei OceanStor D
 | Can be called without parameters      | No (`--device-id`, `--password`, `--url` and `--username` are required) |
 | Runs on                               | Cross-platform |
 | Compiled for Windows                  | No (runs with Python interpreter) |
-| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` (API session), `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado-port.db` (link error counters) |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado.db` (API session), `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado-port-eth.db`, `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado-port-fc.db` and `$TEMP/linuxfabrik-monitoring-plugins-huawei-dorado-port-sas.db` (link error counters) |
 
 
 ## Help

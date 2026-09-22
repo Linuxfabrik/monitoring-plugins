@@ -7,10 +7,13 @@ Checks the health, link status and optical power of the optical modules (SFP) of
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
 * The `/sfp` endpoint is documented from V700R001C10 on. Older firmware does not serve it, and the check then reports OK with "No optical modules found."
-* This endpoint is the odd one out: it reports its fields in camelCase (`id`, `healthStatus`, `location`) where every other object uses upper case, and it carries no `TYPE`. Modules are therefore identified by their location, not by the `TYPE:ID` the rest of the checks use
+* The API documentation spells the fields of this endpoint in camelCase in its parameter table (`healthStatus`, `location`) and in upper case in its response example (`HEALTHSTATUS`, `LOCATION`). The firmware answers in upper case, as every other object does, and the check reads both spellings
+* This endpoint carries no `TYPE`. Modules are therefore identified by their location, not by the `TYPE:ID` the rest of the checks use
 * A module whose link is down reports exactly what an uncabled one reports, so this does not alert by default. Set `--link-down-severity` on an array where every module is expected to be connected
+* A module whose link is down receives no light and reports -40 dBm, so its receive power is shown and graphed but not held against its operating range. Its transmit power still is
+* A QSFP can report no optical power readings and no mode at all. The check then shows `--` and `unknown` for them and graphs nothing
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -224,6 +227,7 @@ Alert on a module that lost its link, and look at one vendor's modules only:
 * WARN if a module reports a degraded health status, or one this check does not know.
 * WARN if a module reports a link state this check does not know.
 * CRIT if a module reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if the receive or transmit power of a module leaves the operating range the module reports for itself, or the range given by `--rx-power-critical` / `--tx-power-critical`. WARN if it leaves `--rx-power-warning` / `--tx-power-warning`. The receive power of a module whose link is down is not judged.
 * `--link-down-severity` decides what a module whose link is down reports (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--match` limits the check to the modules whose identifier, location, vendor, model or serial number matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
@@ -236,7 +240,9 @@ Alert on a module that lost its link, and look at one vendor's modules only:
 |----|----|----|
 | \<Location\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty, 9: inconsistent. |
 | \<Location\>\_running_status | Number | 0: unknown, 10: link up, 11: link down. |
+| \<Location\>\_rx_power | Number | Receive power of the first lane that reports one, in dBm. Warn and crit carry the range the reading is judged against. |
 | \<Location\>\_speed | Number | Working speed in Mbit/s. |
+| \<Location\>\_tx_power | Number | Transmit power of the first lane that reports one, in dBm. Warn and crit carry the range the reading is judged against. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

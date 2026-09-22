@@ -28,10 +28,10 @@ TESTS = [
             'Everything is ok.',
             'UUID         ! Location ! Manufacturer ! Model            '
             '! SerialNumber         ! Usage  ! Wear% ! Progress% ! Runtime '
-            '! Temp ! Health     ! Running     ! State',
+            '! Remain ! Temp ! Health     ! Running     ! State',
             '10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E '
             '! 12345678             ! in use ! 67    ! 0         ! 4M 2W   '
-            '! 36   ! Normal (1) ! Online (27) ! [OK]',
+            '! 10Y 1W ! 36   ! Normal (1) ! Online (27) ! [OK]',
         ],
     },
     {
@@ -42,8 +42,10 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'UUID         ! Location ! Usage  ! Wear% ! Temp ! Health     ! Running     ! State',
-            '10:134234112 ! DAE000.0 ! in use ! 67    ! 36   ! Normal (1) ! Online (27) ! [OK]',
+            'UUID         ! Location ! Usage  ! Wear% ! Remain ! Temp ! Health     '
+            '! Running     ! State',
+            '10:134234112 ! DAE000.0 ! in use ! 67    ! 10Y 1W ! 36   ! Normal (1) '
+            '! Online (27) ! [OK]',
         ],
         'assert-not-in': ['Manufacturer', 'SerialNumber', 'Progress%', 'Runtime'],
     },
@@ -95,13 +97,55 @@ TESTS = [
         'assert-in': ['There are critical errors.'],
     },
     {
-        # A spinning disk reports a remaining life of 0 because it has none to
-        # report. Read as a measurement that would alert on every HDD forever.
-        'id': 'ok-hdd-without-remaining-life',
+        # A disk that does not report its remaining life answers with -1. It gets a
+        # dash and stays out of the check and out of the performance data.
+        'id': 'ok-disk-without-remaining-life',
         'test': 'stdout/disks-healthy,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
+        'assert-in': [
+            '10:0         ! CTE0.0   ! free   ! 0     ! --     ! 37   ! Normal (1) '
+            '! Online (27) ! [OK]',
+        ],
         'assert-not-in': ['10_0_remaining_life'],
+    },
+    {
+        # Real NVMe disks (V700R001C10SPH128, Dorado 6000 V6, DISKTYPE 14), which all
+        # report 3660 days, the appliance's cap for "ten years or more". Two of them
+        # lowered to 10 and 0 days. A Dorado carries flash only, so 0 is a disk at its
+        # end, not a disk without a reading. The threshold that fired has to show up
+        # on the remaining life and in the row's State.
+        'id': 'crit-disk-remaining-life-marks-row',
+        'test': 'stdout/disks-v700-remaining-life,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'UUID         ! Location ! Usage  ! Wear% ! Remain           ! Temp '
+            '! Health     ! Running     ! State',
+            '10:134217728 ! CTE0.0   ! in use ! 172   ! 10Y 1W           ! 32   '
+            '! Normal (1) ! Online (27) ! [OK]',
+            '10:134217729 ! CTE0.1   ! in use ! 173   ! 1W 3D [CRITICAL] ! 32   '
+            '! Normal (1) ! Online (27) ! [CRITICAL]',
+            '10:134217730 ! CTE0.2   ! in use ! 172   ! 0D [CRITICAL]    ! 34   '
+            '! Normal (1) ! Online (27) ! [CRITICAL]',
+            "'10_134217730_remaining_life'=0s;;;0",
+        ],
+    },
+    {
+        # --brief keeps exactly the rows whose State is not OK.
+        'id': 'crit-disk-remaining-life-brief',
+        'test': 'stdout/disks-v700-remaining-life,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --brief --critical=5: --warning=30:',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '10:134217729 ! CTE0.1   ! in use ! 173   ! 1W 3D [WARNING] ! 32   '
+            '! Normal (1) ! Online (27) ! [WARNING]',
+            '10:134217730 ! CTE0.2   ! in use ! 172   ! 0D [CRITICAL]   ! 34   '
+            '! Normal (1) ! Online (27) ! [CRITICAL]',
+        ],
+        'assert-not-in': ['CTE0.0'],
     },
     {
         # Temperature thresholds are off unless the operator sets them.
@@ -110,7 +154,11 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
         ' --warning-temperature=35 --critical-temperature=50',
         'assert-retc': STATE_WARN,
-        'assert-in': ['There are warnings.'],
+        'assert-in': [
+            'There are warnings.',
+            '10:134234113 ! DAE000.1 ! in use ! 70    ! 10Y 1W ! 37 [WARNING] '
+            '! Normal (1) ! Online (27) ! [WARNING]',
+        ],
     },
     {
         # The filter selects a subset; the disks it drops must not be checked.

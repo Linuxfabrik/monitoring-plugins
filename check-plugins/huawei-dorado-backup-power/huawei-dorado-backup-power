@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
@@ -284,6 +284,7 @@ def get_remaining_life_days(power):
     """Return a module's remaining life in days, or `None` if it does not report one."""
     # A module that does not track its remaining life answers with zero or a negative
     # value. Read as a measurement that would alert on every such module forever.
+    # Verified against V700R001C10SPH128 on a Dorado 6000 V6: its BBUs report -1.
     try:
         days = int(power.get('REMAINLIFEDAYS'))
     except (TypeError, ValueError):
@@ -381,13 +382,12 @@ def main():
         state = lib.base.get_worst(state, running_state)
 
         remaining_life_days = get_remaining_life_days(power)
+        remaining_life_state = STATE_OK
         if remaining_life_days is not None:
-            state = lib.base.get_worst(
-                state,
-                lib.base.get_state(
-                    remaining_life_days, args.WARN, args.CRIT, _operator='range'
-                ),
+            remaining_life_state = lib.base.get_state(
+                remaining_life_days, args.WARN, args.CRIT, _operator='range'
             )
+            state = lib.base.get_worst(state, remaining_life_state)
             power['REMAINLIFEDAYS'] = remaining_life_days * 24 * 60 * 60
         else:
             power['REMAINLIFEDAYS'] = None
@@ -445,12 +445,15 @@ def main():
         power['running'] = lib.huawei_dorado.get_running_status(
             power.get('RUNNINGSTATUS')
         )
-        # One state per row, in the last column. IcingaWeb replaces a state with an
-        # icon, which shifts everything to the right of it, so a second one mid-row
-        # would break the table. What decided it stays readable in the two columns
-        # in front of it.
+        # The row's State column is the worst of everything evaluated for the module,
+        # so a row never reads [OK] while it raises the overall state. A threshold that
+        # fired is also marked on the value that crossed it, the way Health and Running
+        # name the code that decided them.
         power['state'] = lib.base.state2str(
-            lib.base.get_worst(health_state, running_state), empty_ok=False
+            lib.base.get_worst(
+                health_state, running_state, remaining_life_state, voltage_state
+            ),
+            empty_ok=False,
         )
         power['VOLTAGE'] = (
             '--'
@@ -463,6 +466,7 @@ def main():
             '--'
             if not power['REMAINLIFEDAYS']
             else lib.human.seconds2human(power['REMAINLIFEDAYS'])
+            + lib.base.state2str(remaining_life_state, prefix=' ')
         )
 
         table_data.append(power)

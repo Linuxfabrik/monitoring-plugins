@@ -8,6 +8,7 @@ Checks the health, running status, and synchronization state of all HyperMetro p
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* The host access state only applies to block (LUN) pairs. A file system pair reports none, so its `Access` columns show `--` and it has no host access state metrics
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -204,9 +205,9 @@ UUID                                   ! Last Sync                        ! Dura
 | \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
 | \<UUID\>\_link_status | Number | 1: connected, 2: disconnected. |
 | \<UUID\>\_local_data_state | Number | 1: consistent, 2: inconsistent. |
-| \<UUID\>\_local_host_access_state | Number | 1: access forbidden, 2: read-only, 3: read/write. |
+| \<UUID\>\_local_host_access_state | Number | 1: access forbidden, 2: read-only, 3: read/write. Block pairs only. |
 | \<UUID\>\_remote_data_state | Number | 1: consistent, 2: inconsistent. |
-| \<UUID\>\_remote_host_access_state | Number | 1: access forbidden, 2: read-only, 3: read/write, 5: unknown. |
+| \<UUID\>\_remote_host_access_state | Number | 1: access forbidden, 2: read-only, 3: read/write. Block pairs only. |
 | \<UUID\>\_running_status | Number | 1: normal, 23: synchronizing, 35: invalid, 41: paused, 93: forcibly started, 100: to be synchronized. |
 | \<UUID\>\_sync_progress | Percentage | Synchronization progress. |
 

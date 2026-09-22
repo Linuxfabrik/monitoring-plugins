@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health and running status of all power modules on a Huawei OceanStor Dorado
 storage system via the REST API (/power endpoint). Alerts when any module reports a
@@ -269,13 +269,15 @@ def millivolts2volts(millivolts):
     Returns
     -------
     float or None
-        The voltage in volts, or `None` for a value that cannot be
-        used.
+        The voltage in volts, or `None` for a value that is not a reading.
 
     Notes
     -----
-    - A power supply that is not powered reports `0`, which is a reading rather than a
-      missing value and stays as it is.
+    - `0` is not a reading. Some firmware reports `0` for both voltages of every power
+      supply, healthy ones included (verified against V700R001C10SPH128 on a Dorado 6000
+      V6, 24 supplies of the models PAC2000S12-B1 and PAC2000S12-BG), so a graph of it
+      would be a flat line that looks like a dead feed. A supply that really lost its
+      feed says so in its status: health 11 (no input) and running status 28 (offline).
 
     Examples
     --------
@@ -283,7 +285,7 @@ def millivolts2volts(millivolts):
     230.0
     """
     value = lib.huawei_dorado.as_code(millivolts)
-    if value is None or value < 0:
+    if value is None or value <= 0:
         return None
     return round(value / 1000, 2)
 
@@ -405,7 +407,8 @@ def main():
         )
         # The API counts both voltages in millivolts. They go out in volts, which is
         # what an operator reads off the label of the power supply and what the backup
-        # power modules of the same appliance are reported in.
+        # power modules of the same appliance are reported in. A supply that reports no
+        # voltage reading is neither graphed nor printed.
         power['INPUTVOLTAGE'] = millivolts2volts(power.get('INPUTVOLTAGE'))
         power['OUTPUTVOLTAGE'] = millivolts2volts(power.get('OUTPUTVOLTAGE'))
         perfdata += lib.base.get_perfdata(
@@ -441,8 +444,8 @@ def main():
             lib.base.get_worst(health_state, running_state), empty_ok=False
         )
         # The performance data is written above, so what is left here is the display
-        # value. A supply that reports neither reading prints the appliance's own
-        # placeholder rather than a literal "None".
+        # value. A missing reading prints a placeholder rather than a literal "None",
+        # and a column no supply reports a reading for is left out of the table.
         power['TEMPERATURE'] = '--' if temperature is None else temperature
         for field in ('INPUTVOLTAGE', 'OUTPUTVOLTAGE'):
             if power[field] is None:

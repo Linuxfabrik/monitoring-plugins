@@ -47,9 +47,9 @@ usage: huawei-dorado-hypermetrodomain [-h] [-V] [--always-ok]
                                       [--timeout TIMEOUT] -u URL
                                       --username USERNAME [-v]
 
-Checks the health and running status of all HyperMetro domains on a Huawei
-OceanStor Dorado storage system via the REST API (/hypermetrodomain endpoint).
-Alerts when any domain reports a non-normal state.
+Checks the running status of all HyperMetro domains on a Huawei OceanStor
+Dorado storage system via the REST API (/hypermetrodomain endpoint). Alerts
+when any domain reports a non-normal running state.
 
 options:
   -h, --help            show this help message and exit
@@ -145,19 +145,19 @@ Output:
 ```text
 Everything is ok.
 
-UUID                   ! Name               ! QuorumSrv ! QuorumType    ! Running
------------------------+--------------------+-----------+---------------+--------
-15362:f4b78d046ec60100 ! HyperMetroDomain01 ! xyz       ! Quorum Server ! [OK]
-15362:8038bc14bd750100 ! test               !           ! None          ! [OK]
+UUID                   ! Name                      ! QuorumSrv ! QuorumType    ! Running    ! State
+-----------------------+---------------------------+-----------+---------------+------------+------
+15362:3f2e1d0c9b80100  ! BlockHyperMetroDomain_000 ! quorum01  ! Quorum Server ! Normal (1) ! [OK]
+15362:8038bc14bd750100 ! test                      !           ! None          ! Normal (1) ! [OK]
 ```
 
 
 ## States
 
 * OK if all HyperMetro domains report normal running status.
-* WARN if any HyperMetro domain is recovering, split or force started, or reports a running status this check does not know.
-* CRIT if any HyperMetro domain is faulty or invalid.
-* `--match` limits the check to the HyperMetro domains whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
+* WARN if any HyperMetro domain is to be recovered, or reports a running status this check does not know.
+* CRIT if any HyperMetro domain is invalid.
+* `--match` limits the check to the HyperMetro domains whose identifier or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -166,7 +166,7 @@ UUID                   ! Name               ! QuorumSrv ! QuorumType    ! Runnin
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_running_status | Number | 0: normal, 1: recovering, 2: faulty, 3: split, 4: force started, 5: invalid. A HyperMetro domain numbers these codes from 0 up and does not share the enumeration the other objects on the same appliance use. |
+| \<UUID\>\_running_status | Number | 1: normal, 33: to be recovered, 35: invalid. A HyperMetro domain does not share the running status enumeration the other objects on the same appliance use. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

@@ -7,8 +7,8 @@ Checks the health and running status of all controllers on a Huawei OceanStor Do
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* A controller that does not report a temperature answers with 0, which is left out of the temperature check and out of the performance data
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
+* A controller board without a temperature sensor answers with -1 (the boards of a Dorado 6000 V6 do). It is shown as `--`, left out of the temperature check and out of the performance data.
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -210,6 +210,7 @@ UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) ! Mem (%) 
 * CRIT if any controller's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * WARN or CRIT if a controller's CPU or memory usage reaches `--warning` or `--critical`. Both are off by default.
 * WARN or CRIT if a controller's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
+* A CPU, memory or temperature threshold that fires is marked on the value that crossed it, and the row's State column always shows the worst state of that controller.
 * UNKNOWN if the appliance lists no controllers at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the controllers whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.

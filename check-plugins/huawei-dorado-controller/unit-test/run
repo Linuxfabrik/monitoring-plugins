@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -73,6 +73,51 @@ TESTS = [
             '207:0E ! CTE0.E   ! Unknown ! Unknown ! Normal (1) ! Online (27) ! [OK]'
         ],
         'assert-not-in': ['Unknown column'],
+    },
+    {
+        # Real controllers (V700R001C10SPH128, Dorado 6000 V6) at 75 to 83% memory.
+        # The usage threshold that fired has to show up on the value that crossed it
+        # and in the row's State, not only in the overall state above a table of
+        # [OK] rows.
+        'id': 'warn-controller-memory-usage-marks-row',
+        'test': 'stdout/controllers-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --warning=80 --critical=90',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            '207:0A ! CTE0.A   ! x      ! 36      ! 78           ! Normal (1) '
+            '! Online (27) ! [OK]',
+            '207:0B ! CTE0.B   ! -      ! 40      ! 83 [WARNING] ! Normal (1) '
+            '! Online (27) ! [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-controller-memory-usage-marks-row',
+        'test': 'stdout/controllers-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --critical=80 --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            '207:0B ! CTE0.B   ! 2U2C PALM control board ! Secondary ! -      ! 40      '
+            '! 83 [CRITICAL] ! 12.0 ! Normal (1) ! Online (27) ! [CRITICAL]',
+        ],
+    },
+    {
+        # The same listing with one board given a temperature reading of 48 C (the
+        # real boards report -1, no sensor).
+        'id': 'warn-controller-temperature-marks-row',
+        'test': 'stdout/controllers-v700-one-temperature-sensor,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --warning-temperature=45',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '207:0A ! CTE0.A   ! x      ! 36      ! 78      ! --           '
+            '! Normal (1) ! Online (27) ! [OK]',
+            '207:1B ! CTE1.B   ! -      ! 36      ! 80      ! 48 [WARNING] '
+            '! Normal (1) ! Online (27) ! [WARNING]',
+        ],
     },
     {
         # An appliance always has controllers. An empty list means the query

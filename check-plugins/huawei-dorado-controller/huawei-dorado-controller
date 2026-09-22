@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
@@ -406,7 +406,8 @@ def main():
         state = lib.base.get_worst(state, running_state)
 
         # A controller board without a temperature sensor reports -1, which is not a
-        # reading: it is neither compared against a threshold nor graphed.
+        # reading: it is neither compared against a threshold nor graphed. Verified
+        # against V700R001C10SPH128 on a Dorado 6000 V6: all four boards report -1.
         controller['TEMPERATURE'] = lib.huawei_dorado.as_temperature(
             controller.get('TEMPERATURE')
         )
@@ -421,34 +422,32 @@ def main():
         # All three thresholds are off unless the operator sets them. A controller under
         # load is doing its job, and what counts as hot depends on the model and on where
         # the array stands, so there is no default that would be right everywhere.
+        usage_states = {'CPUUSAGE': STATE_OK, 'MEMORYUSAGE': STATE_OK}
         if args.WARN or args.CRIT:
-            for field in ('CPUUSAGE', 'MEMORYUSAGE'):
+            for field in usage_states:
                 usage = lib.huawei_dorado.as_code(controller.get(field))
                 if usage is None:
                     # A firmware that does not report this reading has nothing to
                     # compare, and comparing the missing value would alert on it.
                     continue
-                state = lib.base.get_worst(
-                    state,
-                    lib.base.get_state(
-                        usage,
-                        args.WARN or None,
-                        args.CRIT or None,
-                        _operator='range',
-                    ),
+                usage_states[field] = lib.base.get_state(
+                    usage,
+                    args.WARN or None,
+                    args.CRIT or None,
+                    _operator='range',
                 )
+                state = lib.base.get_worst(state, usage_states[field])
+        temperature_state = STATE_OK
         if controller['TEMPERATURE'] and (
             args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE
         ):
-            state = lib.base.get_worst(
-                state,
-                lib.base.get_state(
-                    controller['TEMPERATURE'],
-                    args.WARN_TEMPERATURE or None,
-                    args.CRIT_TEMPERATURE or None,
-                    _operator='range',
-                ),
+            temperature_state = lib.base.get_state(
+                controller['TEMPERATURE'],
+                args.WARN_TEMPERATURE or None,
+                args.CRIT_TEMPERATURE or None,
+                _operator='range',
             )
+            state = lib.base.get_worst(state, temperature_state)
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
@@ -526,13 +525,21 @@ def main():
         controller['running'] = lib.huawei_dorado.get_running_status(
             controller.get('RUNNINGSTATUS')
         )
-        # One state per row, in the last column. IcingaWeb replaces a state with an
-        # icon, which shifts everything to the right of it, so a second one mid-row
-        # would break the table. What decided it stays readable in the two columns
-        # in front of it.
+        # The row's State column is the worst of everything evaluated for the
+        # controller, so a row never reads [OK] while it raises the overall state. A
+        # threshold that fired is also marked on the value that crossed it, the way
+        # Health and Running name the code that decided them.
         controller['state'] = lib.base.state2str(
-            lib.base.get_worst(health_state, running_state), empty_ok=False
+            lib.base.get_worst(
+                health_state, running_state, temperature_state, *usage_states.values()
+            ),
+            empty_ok=False,
         )
+        for field, usage_state in usage_states.items():
+            if usage_state != STATE_OK:
+                controller[field] = (
+                    f'{controller[field]}{lib.base.state2str(usage_state, prefix=" ")}'
+                )
         controller['ISMASTER'] = (
             'x' if str(controller.get('ISMASTER')).strip().lower() == 'true' else '-'
         )
@@ -547,6 +554,11 @@ def main():
         # placeholder rather than a literal "None".
         if controller['TEMPERATURE'] is None:
             controller['TEMPERATURE'] = '--'
+        else:
+            controller['TEMPERATURE'] = (
+                f'{controller["TEMPERATURE"]}'
+                f'{lib.base.state2str(temperature_state, prefix=" ")}'
+            )
         if controller['VOLTAGE'] is None:
             controller['VOLTAGE'] = '--'
 

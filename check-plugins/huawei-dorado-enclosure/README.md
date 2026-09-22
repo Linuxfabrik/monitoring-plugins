@@ -7,8 +7,8 @@ Checks the health and running status of all enclosures (controller enclosures an
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* A part that reports no temperature or no remaining life answers with 0 or -1, which is left out of the check and out of the performance data
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
+* An enclosure without a temperature reading answers with 0 or -1. It is shown as `--`, left out of the temperature check and out of the performance data.
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -194,7 +194,7 @@ UUID   ! Location ! Name   ! Model                                 ! SerialNumbe
 * WARN if any enclosure's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
 * CRIT if any enclosure reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any enclosure's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
-* WARN or CRIT if an enclosure's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
+* WARN or CRIT if an enclosure's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default. A threshold that fires is marked on the temperature value, and the row's State column always shows the worst state of that enclosure.
 * UNKNOWN if the appliance lists no enclosures at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the enclosures whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.

@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health and running status of all expansion boards on a Huawei OceanStor
 Dorado storage system via the REST API (/expboard endpoint). Alerts when any board reports a
@@ -48,6 +48,8 @@ MATCH_FIELDS = ('UUID', 'LOCATION')
 
 # RUNNINGSTATUS codes a healthy expansion board reports: normal (1), running (2) and
 # online (27). The enumeration also knows powering on (12) and powered off (13).
+# Verified against V700R001C10SPH128 on a Dorado 6000 V6: healthy boards report
+# running (2).
 OK_RUNNING_STATUS = (1, 2, 27)
 
 
@@ -327,6 +329,9 @@ def main():
             _min=0,
         )
 
+        # MODEL is a code, not a name. Verified against V700R001C10SPH128 on a
+        # Dorado 6000 V6: the boards of its NVMe enclosures report 7 (Smart NVMe).
+        expboard['MODEL'] = lib.huawei_dorado.get_expboard_model(expboard.get('MODEL'))
         expboard['health'] = lib.huawei_dorado.get_health_status(
             expboard.get('HEALTHSTATUS')
         )

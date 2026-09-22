@@ -23,11 +23,11 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092201'
 
-DESCRIPTION = """Checks the health and running status of all HyperMetro domains on a Huawei OceanStor
-Dorado storage system via the REST API (/hypermetrodomain endpoint). Alerts when any
-domain reports a non-normal state."""
+DESCRIPTION = """Checks the running status of all HyperMetro domains on a Huawei OceanStor Dorado
+storage system via the REST API (/hypermetrodomain endpoint). Alerts when any domain reports
+a non-normal running state."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
@@ -289,9 +289,10 @@ def main():
         ):
             continue
 
-        # The domain renumbers RUNNINGSTATUS from 0 up rather than sharing the
-        # enumeration the other objects use, so it needs its own mapping. Read
-        # through the shared one a faulty domain would come out as 'Running (2)'.
+        # A HyperMetro domain knows only normal (1), to be recovered (33) and
+        # invalid (35), and does not share the enumeration the other objects use,
+        # so it needs its own mapping. Verified against V700R001C10SPH128 on a
+        # Dorado 6000 V6: a healthy domain reports 1.
         running_state = lib.huawei_dorado.get_hypermetro_domain_running_status_state(
             hypermetrodomain.get('RUNNINGSTATUS')
         )
@@ -303,9 +304,16 @@ def main():
             _min=0,
         )
 
-        hypermetrodomain['running_state'] = lib.base.state2str(
-            running_state, empty_ok=False
+        hypermetrodomain['running'] = (
+            lib.huawei_dorado.get_hypermetro_domain_running_status(
+                hypermetrodomain.get('RUNNINGSTATUS')
+            )
         )
+        # One state per row, in the last column. IcingaWeb replaces a state with an
+        # icon, which shifts everything to the right of it, so a second one mid-row
+        # would break the table. What decided it stays readable in the column in
+        # front of it.
+        hypermetrodomain['state'] = lib.base.state2str(running_state, empty_ok=False)
         hypermetrodomain['CPTYPE'] = lib.huawei_dorado.get_cp_type(
             hypermetrodomain.get('CPTYPE')
         )
@@ -348,8 +356,8 @@ def main():
 
     # build table output
     if table_data:
-        keys = ['UUID', 'NAME', 'CPSNAME', 'CPTYPE', 'running_state']
-        headers = ['UUID', 'Name', 'QuorumSrv', 'QuorumType', 'Running']
+        keys = ['UUID', 'NAME', 'CPSNAME', 'CPTYPE', 'running', 'state']
+        headers = ['UUID', 'Name', 'QuorumSrv', 'QuorumType', 'Running', 'State']
 
         msg += lib.base.get_table(
             table_data, keys, header=headers, missing='--', hide_empty=True

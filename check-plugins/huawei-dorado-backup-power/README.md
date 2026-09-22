@@ -7,8 +7,8 @@ Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* A part that reports no temperature or no remaining life answers with 0 or -1, which is left out of the check and out of the performance data
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
+* A backup power module that does not track its remaining life answers with 0 or -1 (the BBUs of a Dorado 6000 V6 report -1). It is shown as `--`, left out of the remaining life check and out of the performance data.
 * Create a read-only API user that can perform query only.
 * Sometimes the API returns "This operation fails to be performed because of the unauthorized REST. Before performing this operation, ensure that REST is authorized.", although everything is fine. In this case, the check retries the request, a maximum of 9 times within 9 seconds.
 * `--insecure` is enabled by default because Huawei OceanStor Dorado typically uses self-signed certificates.
@@ -202,6 +202,7 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Vol
 * WARN or CRIT if a backup power module's voltage reaches `--warning-voltage` or `--critical-voltage`. Both are off by default, because the healthy range depends on the module and on how many cells it has. A module that has lost a cell, or one being trickle-charged back up, leaves its normal band long before its health status changes.
 * WARN if a backup power module's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a backup power module's remaining life falls below `--critical` (default: less than 30 days).
+* A remaining life or voltage threshold that fires is marked on the value that crossed it, and the row's State column always shows the worst state of that module.
 * UNKNOWN if the appliance lists no backup power modules at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the backup power modules whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.

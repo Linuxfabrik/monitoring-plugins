@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -52,6 +52,45 @@ TESTS = [
             '206:0  ! 0.1      ! CTE0   ! 30   ! Normal (1) ! Online (27) ! [OK] ',
         ],
         'assert-not-in': ['MacAddress', 'SerialNumber'],
+    },
+    {
+        # Real-shape enclosures (V700R001C10SPH128, Dorado 6000 V6), one controller
+        # and two disk enclosures reporting 22, 21 and 25 C. The temperature
+        # threshold that fired has to show up on the Temp value and in the row's
+        # State, not only in the overall state above a table of [OK] rows.
+        'id': 'warn-enclosure-temperature-marks-row',
+        'test': 'stdout/enclosures-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --warning-temperature=24 --critical-temperature=40',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            '206:0  ! CTE0   ! 22           ! Normal (1) ! Online (27) ! [OK]',
+            '206:73 ! DAE050 ! 25 [WARNING] ! Normal (1) ! Online (27) ! [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-enclosure-temperature-marks-row',
+        'test': 'stdout/enclosures-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --critical-temperature=24',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            '206:73 ! DAE050 ! 25 [CRITICAL] ! Normal (1) ! Online (27) ! [CRITICAL]',
+        ],
+    },
+    {
+        # Without temperature thresholds the same enclosures are fine.
+        'id': 'ok-enclosure-temperature-no-thresholds',
+        'test': 'stdout/enclosures-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            '206:73 ! DAE050 ! 25   ! Normal (1) ! Online (27) ! [OK]',
+        ],
     },
     {
         # An appliance always has enclosures. An empty list means the query

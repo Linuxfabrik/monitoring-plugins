@@ -144,10 +144,10 @@ Output:
 ```text
 Everything is ok.
 
-UUID  ! Location ! Model       ! Health     ! Running     ! State
-------+----------+-------------+------------+-------------+------
-208:0 ! DAE000.A ! EXP-12G-SAS ! Normal (1) ! Online (27) ! [OK]
-208:1 ! DAE000.B ! EXP-12G-SAS ! Normal (1) ! Online (27) ! [OK]
+UUID     ! Location ! Model      ! Health     ! Running     ! State
+---------+----------+------------+------------+-------------+------
+208:64.0 ! DAE020.A ! Smart NVMe ! Normal (1) ! Running (2) ! [OK]
+208:64.1 ! DAE020.B ! Smart NVMe ! Normal (1) ! Running (2) ! [OK]
 ```
 
 
@@ -159,7 +159,7 @@ UUID  ! Location ! Model       ! Health     ! Running     ! State
 * WARN if any board's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
 * CRIT if any board reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any board's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
-* `--match` limits the check to the boards whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
+* `--match` limits the check to the boards whose identifier or location matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
 * `--always-ok` suppresses all alerts and always returns OK.
 

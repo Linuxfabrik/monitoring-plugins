@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health and running status of all enclosures on a Huawei OceanStor Dorado
 storage system via the REST API (/enclosure endpoint). Alerts when any enclosure
@@ -352,18 +352,19 @@ def main():
         # The temperature thresholds are off unless the operator sets them: what counts as
         # hot depends on the model and on where the array stands. A part without a
         # temperature sensor reports a placeholder rather than a reading, which is neither
-        # compared against a threshold nor graphed.
+        # compared against a threshold nor graphed. Verified against V700R001C10SPH128
+        # on a Dorado 6000 V6: controller and disk enclosures report whole degrees
+        # Celsius as a string ("22").
         temperature = lib.huawei_dorado.as_temperature(enclosure.get('TEMPERATURE'))
+        temperature_state = STATE_OK
         if temperature and (args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE):
-            state = lib.base.get_worst(
-                state,
-                lib.base.get_state(
-                    temperature,
-                    args.WARN_TEMPERATURE or None,
-                    args.CRIT_TEMPERATURE or None,
-                    _operator='range',
-                ),
+            temperature_state = lib.base.get_state(
+                temperature,
+                args.WARN_TEMPERATURE or None,
+                args.CRIT_TEMPERATURE or None,
+                _operator='range',
             )
+            state = lib.base.get_worst(state, temperature_state)
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
@@ -399,12 +400,13 @@ def main():
         enclosure['running'] = lib.huawei_dorado.get_running_status(
             enclosure.get('RUNNINGSTATUS')
         )
-        # One state per row, in the last column. IcingaWeb replaces a state with an
-        # icon, which shifts everything to the right of it, so a second one mid-row
-        # would break the table. What decided it stays readable in the two columns
-        # in front of it.
+        # The row's State column is the worst of everything evaluated for the
+        # enclosure, so a row never reads [OK] while it raises the overall state. A
+        # threshold that fired is also marked on the value that crossed it, the way
+        # Health and Running name the code that decided them.
         enclosure['state'] = lib.base.state2str(
-            lib.base.get_worst(health_state, running_state), empty_ok=False
+            lib.base.get_worst(health_state, running_state, temperature_state),
+            empty_ok=False,
         )
         enclosure['LOGICTYPE'] = lib.huawei_dorado.get_enclosure_logic_type(
             enclosure.get('LOGICTYPE')
@@ -418,7 +420,11 @@ def main():
         # The performance data is written above, so what is left here is the display
         # value. A part without a temperature sensor prints the appliance's own
         # placeholder rather than the raw one it happens to use.
-        enclosure['TEMPERATURE'] = '--' if temperature is None else temperature
+        enclosure['TEMPERATURE'] = (
+            '--'
+            if temperature is None
+            else f'{temperature}{lib.base.state2str(temperature_state, prefix=" ")}'
+        )
 
         table_data.append(enclosure)
 

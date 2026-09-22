@@ -7,8 +7,10 @@ Checks the health and running status of all disks on a Huawei OceanStor Dorado s
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* A spinning disk has no wear-out life to report and answers with 0. Such a disk is left out of the remaining-life check and out of the performance data, instead of being read as a drive at its end
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
+* A Dorado carries flash media only, so a remaining life of 0 days is a disk at its end and alerts. A disk that does not report its remaining life answers with -1; it is shown as `--` and left out of the remaining-life check and out of the performance data.
+* The appliance caps the remaining life at 3660 days, so `10Y 1W` in the table means "ten years or more".
+* On a large array the `/disk` endpoint takes tens of seconds to answer (33 seconds for 384 disks on a Dorado 6000 V6), so `--timeout` defaults to 30 seconds and the Icinga Director basket raises the command timeout to 120 seconds. Keep the monitoring server's own check timeout above the time a run takes.
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -151,7 +153,7 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 30 (seconds)
   --unused-disk-severity {ok,warn,crit,unknown}
                         State to report for a disk that sits in the chassis
                         without belonging to a pool. Worth raising on an array
@@ -206,11 +208,11 @@ Output:
 ```text
 Everything is ok.
 
-UUID         ! Location ! Usage  ! Wear% ! Temp ! Health     ! Running     ! State
--------------+----------+--------+-------+------+------------+-------------+------
-10:134234112 ! DAE000.0 ! in use ! 67    ! 36   ! Normal (1) ! Online (27) ! [OK]
-10:134234113 ! DAE000.1 ! in use ! 70    ! 37   ! Normal (1) ! Online (27) ! [OK]
-10:0         ! CTE0.0   ! free   ! 0     ! 37   ! Normal (1) ! Online (27) ! [OK]
+UUID         ! Location ! Usage  ! Wear% ! Remain ! Temp ! Health     ! Running     ! State
+-------------+----------+--------+-------+--------+------+------------+-------------+------
+10:134234112 ! DAE000.0 ! in use ! 67    ! 10Y 1W ! 36   ! Normal (1) ! Online (27) ! [OK]
+10:134234113 ! DAE000.1 ! in use ! 70    ! 10Y 1W ! 37   ! Normal (1) ! Online (27) ! [OK]
+10:0         ! CTE0.0   ! free   ! 0     ! --     ! 37   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 `--lengthy` adds the model, the serial number and the rebuild progress, which is what an RMA case and a running rebuild need:
@@ -224,11 +226,11 @@ Output:
 ```text
 Everything is ok.
 
-UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Usage  ! Wear% ! Progress% ! Runtime ! Temp ! Health     ! Running     ! State
--------------+----------+--------------+------------------+----------------------+--------+-------+-----------+---------+------+------------+-------------+------
-10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! in use ! 67    ! 0         ! 4M 2W   ! 36   ! Normal (1) ! Online (27) ! [OK]
-10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! in use ! 70    ! 0         ! 4M 2W   ! 37   ! Normal (1) ! Online (27) ! [OK]
-10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! free   ! 0     ! 0         ! 1Y 4M   ! 37   ! Normal (1) ! Online (27) ! [OK]
+UUID         ! Location ! Manufacturer ! Model            ! SerialNumber         ! Usage  ! Wear% ! Progress% ! Runtime ! Remain ! Temp ! Health     ! Running     ! State
+-------------+----------+--------------+------------------+----------------------+--------+-------+-----------+---------+--------+------+------------+-------------+------
+10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345678             ! in use ! 67    ! 0         ! 4M 2W   ! 10Y 1W ! 36   ! Normal (1) ! Online (27) ! [OK]
+10:134234113 ! DAE000.1 ! HUAWEI       ! HSSD-D7294DL7T6E ! 12345679             ! in use ! 70    ! 0         ! 4M 2W   ! 10Y 1W ! 37   ! Normal (1) ! Online (27) ! [OK]
+10:0         ! CTE0.0   ! Seagate      ! ST2000NM0023     ! Z1X2F480000094381WYN ! free   ! 0     ! 0         ! 1Y 4M   ! --     ! 37   ! Normal (1) ! Online (27) ! [OK]
 ```
 
 
@@ -245,6 +247,7 @@ UUID         ! Location ! Manufacturer ! Model            ! SerialNumber        
 * WARN if a disk's remaining life falls below `--warning` (default: less than 180 days).
 * CRIT if a disk's remaining life falls below `--critical` (default: less than 30 days).
 * WARN or CRIT if a disk's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
+* A threshold that fires is marked on the value that crossed it (remaining life, temperature, wear, health score, usage), and the row's State column always shows the worst state of that disk.
 * UNKNOWN if the appliance lists no disks at all, which points at the query rather than at the hardware.
 * `--match` limits the check to the disks whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.

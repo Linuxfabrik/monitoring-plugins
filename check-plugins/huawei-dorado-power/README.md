@@ -9,6 +9,7 @@ Checks the health and running status of all power supply units (PSUs) on a Huawe
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
 * A part that reports no temperature or no remaining life answers with 0 or -1, which is left out of the check and out of the performance data
+* Some firmware reports no voltage reading at all and answers with 0 for the input and output voltage of every PSU, healthy ones included. That is left out of the table and out of the performance data instead of being graphed as a dead feed. A PSU that really lost its feed says so in its status: health "No Input" (11) and running status "Offline" (28)
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -158,12 +159,12 @@ Output:
 ```text
 There are critical errors.
 
-UUID       ! Location    ! In (V) ! Out (V) ! Health        ! Running      ! State
------------+-------------+--------+---------+---------------+--------------+-----------
-23:23.0.0  ! CTE0.PSU0   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
-23:23.0.1  ! CTE0.PSU1   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
-23:23.0.2  ! CTE0.PSU2   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
-23:23.0.3  ! CTE0.PSU3   ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+UUID       ! Location    ! Health        ! Running      ! State
+-----------+-------------+---------------+--------------+-----------
+23:23.0.0  ! CTE0.PSU0   ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.1  ! CTE0.PSU1   ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.2  ! CTE0.PSU2   ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.3  ! CTE0.PSU3   ! Normal (1)    ! Online (27)  ! [OK]
 ```
 
 `--lengthy` adds the manufacturer, the model, the serial number and the manufacturing date, which is what an RMA case needs:
@@ -177,12 +178,12 @@ Output:
 ```text
 There are critical errors.
 
-UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! In (V) ! Out (V) ! Health        ! Running      ! State
------------+-------------+--------------+---------------+----------------------+------------+--------+---------+---------------+--------------+-----------
-23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
-23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
-23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-21 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
-23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! 0.0    ! 0.0     ! Normal (1)    ! Online (27)  ! [OK]
+UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         ! Produced   ! Health        ! Running      ! State
+-----------+-------------+--------------+---------------+----------------------+------------+---------------+--------------+-----------
+23:23.0.0  ! CTE0.PSU0   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.1  ! CTE0.PSU1   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.2  ! CTE0.PSU2   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-21 ! Normal (1)    ! Online (27)  ! [OK]
+23:23.0.3  ! CTE0.PSU3   ! HUAWEI       ! PAC2000S12-BG ! 12345678             ! 2020-08-20 ! Normal (1)    ! Online (27)  ! [OK]
 ```
 
 
@@ -205,8 +206,8 @@ UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         !
 | Name | Type | Description |
 |----|----|----|
 | \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty, 9: inconsistent, 11: no input. |
-| \<UUID\>\_input_voltage | Number | Input voltage (millivolts). |
-| \<UUID\>\_output_voltage | Number | Output voltage (millivolts). |
+| \<UUID\>\_input_voltage | Number | Input voltage in volts. Left out for a PSU whose firmware reports no reading. |
+| \<UUID\>\_output_voltage | Number | Output voltage in volts. Left out for a PSU whose firmware reports no reading. |
 | \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline. |
 | \<UUID\>\_temperature | Number | Temperature. |
 

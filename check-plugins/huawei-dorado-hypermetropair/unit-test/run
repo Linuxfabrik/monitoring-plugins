@@ -122,6 +122,31 @@ TESTS = [
         'assert-not-in': ['1970-01-01'],
     },
     {
+        # A file system pair (HCRESOURCETYPE 2) next to a block pair. The file system
+        # pair answers with 255 for both host access states, which is not an access
+        # state but "does not apply". It must neither read as "Unknown" nor be graphed
+        # above the metric's maximum of 3. Verified against V700R001C10SPH128 on a
+        # Dorado 6000 V6.
+        'id': 'ok-file-system-pair-without-access-state',
+        'test': 'stdout/pairs-block-and-file-system,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            '! LUN01    ! Read/write ! LUN01     ! Read/write !',
+            '! FS01     ! --         ! FS01      ! --         !',
+            "'15361_2100f4b78d046ec60000000000000000_local_host_access_state'=3;;;0;3",
+            "'15361_2100f4b78d046ec60000000000000000_remote_host_access_state'=3;;;0;3",
+            "'15361_2100f4b78d046ec600000000000001a8_local_data_state'=1;;;0;2",
+        ],
+        'assert-not-in': [
+            'Unknown',
+            '15361_2100f4b78d046ec600000000000001a8_local_host_access_state',
+            '15361_2100f4b78d046ec600000000000001a8_remote_host_access_state',
+        ],
+    },
+    {
         'id': 'ok-no-pairs-configured',
         'test': 'stdout/no-pairs,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',

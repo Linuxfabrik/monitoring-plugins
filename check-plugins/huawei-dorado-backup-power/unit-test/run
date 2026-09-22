@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -58,6 +58,37 @@ TESTS = [
             '210:0.0A.0 ! CTE0.PSU 0 ! 5Y 4M  ! 16.1 ! Normal (1) ! Discharging (50) ! [WARNING]',
         ],
         'assert-not-in': ['ControllerID', '#Discharged'],
+    },
+    {
+        # Real-shape BBUs (V700R001C10SPH128, Dorado 6000 V6) with REMAINLIFEDAYS
+        # lowered to 100 and 20 days. The threshold that fired has to show up on the
+        # Remain value and in the row's State, not only in the overall state above a
+        # table of [OK] rows. A module reporting -1 keeps its dash and stays OK.
+        'id': 'crit-bbu-remaining-life-marks-row',
+        'test': 'stdout/bbu-remaining-life-low,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            '210:0.0A.0 ! CTE0.BBU0 ! 3M 1W [WARNING]  ! 15.9 ! Normal (1) '
+            '! Online (27) ! [WARNING]',
+            '210:0.0B.0 ! CTE0.BBU1 ! 2W 6D [CRITICAL] ! 15.9 ! Normal (1) '
+            '! Online (27) ! [CRITICAL]',
+            '210:1.1A.0 ! CTE1.BBU0 ! --               ! 15.9 ! Normal (1) '
+            '! Online (27) ! [OK]',
+        ],
+    },
+    {
+        # A voltage threshold that fired decides the row's State as well.
+        'id': 'warn-bbu-voltage-marks-row',
+        'test': 'stdout/bbu-remaining-life-low,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --critical=10: --warning=10: --warning-voltage=16:',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '210:1.1A.0 ! CTE1.BBU0 ! --     ! 15.9 [WARNING] ! Normal (1) '
+            '! Online (27) ! [WARNING]',
+        ],
     },
     {
         # An appliance always has backup power modules. An empty list means the query

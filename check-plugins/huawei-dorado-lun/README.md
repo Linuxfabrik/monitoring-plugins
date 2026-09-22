@@ -7,9 +7,10 @@ Checks the health and running status of the LUNs of a Huawei OceanStor Dorado st
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
-* Only LUNs mapped to a host are checked. An unmapped LUN is not serving anything; add `--include-unmapped` to cover those as well, and `--unmapped-severity` to decide what they report
-* The appliance carries its own fill threshold per thin LUN, together with a switch saying whether it is in use. The check honours it, so it and the management GUI agree on when a LUN is full; `--device-threshold-severity` tunes what that reports
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
+* Only LUNs mapped to a host are checked. An unmapped LUN is not serving anything; add `--include-unmapped` to cover those as well, and `--unmapped-severity` to decide what they report. With `--include-unmapped` the table shows a Mapped column, so an unmapped LUN that alerts says why
+* The LUN list is read page by page, and a large array needs tens of seconds per run (82 seconds for 697 LUNs in 7 pages on a Dorado 6000 V6). `--timeout` defaults to 30 seconds, and the Icinga Director basket raises the command timeout to 180 seconds and runs the check every 15 minutes. Keep the monitoring server's own check timeout above the time a run takes
+* The appliance carries a capacity alarm threshold per thin LUN, together with a switch saying whether it is in use. The vendor documents it as the capacity alarm for thin LUNs mounted to Windows Server 2012 hosts (50 to 99%, 90 by default). When the switch is on, the check alerts once a thin LUN reaches it; `--device-threshold-severity` tunes what that reports
 * A thick LUN has its whole capacity allocated by definition, so it reports no usage and is never checked against the thresholds. Reading its allocation as "100% full" would alert on every thick LUN forever
 * The capacity thresholds are off by default. A thin LUN that is full is doing what it was created for; what actually runs out is the pool behind it, which `huawei-dorado-storagepool` watches
 * On an array with many LUNs, `--brief` keeps the output readable by listing only the LUNs that alert
@@ -83,13 +84,13 @@ options:
                         appliance reports its own at login, so this is only
                         needed to override that answer.
   --device-threshold-severity {ok,warn,crit,unknown}
-                        State to report for a thin LUN that reached the fill
-                        threshold configured on the appliance itself. That
-                        threshold is what the storage administrator set in the
-                        management GUI, so the check and the appliance agree
-                        on when a LUN is full instead of each having their own
-                        opinion. A LUN whose threshold is switched off is not
-                        affected. Default: warn
+                        State to report for a thin LUN that reached the
+                        capacity alarm threshold the appliance keeps for it.
+                        The vendor documents that threshold as the capacity
+                        alarm for thin LUNs mounted to Windows Server 2012
+                        hosts (50 to 99 percent, 90 by default), with a
+                        separate switch that turns it on. A LUN whose switch
+                        is off is not affected. Default: warn
   --ignore IGNORE       Skip LUNs. Any item matching this Python regex will be
                         ignored. Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match. The
@@ -153,7 +154,7 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 3 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 30 (seconds)
   --unmapped-severity {ok,warn,crit,unknown}
                         State to report for a LUN that is not mapped to any
                         host. Only takes effect together with `--include-
@@ -211,7 +212,8 @@ On an array with many LUNs, list only the ones that alert, and watch how full th
 
 * OK if all checked LUNs report normal health and are online.
 * WARN if a LUN reports a degraded health status, or one this check does not know.
-* WARN if a LUN's running status is one this check does not know.
+* WARN if a LUN reports health status "Write-protected".
+* WARN if a LUN is "Initializing" or "Deleting", or reports a running status this check does not know.
 * CRIT if a LUN reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if a LUN's running status is "Offline".
 * WARN or CRIT if a thin LUN's used capacity reaches `--warning` or `--critical`. Both are off by default.
@@ -228,8 +230,8 @@ On an array with many LUNs, list only the ones that alert, and watch how full th
 |----|----|----|
 | \<UUID\>\_allocated_capacity | Bytes | Capacity actually allocated to the LUN. |
 | \<UUID\>\_capacity | Bytes | Configured capacity of the LUN. |
-| \<UUID\>\_health_status | Number | 1: normal, 2: faulty. |
-| \<UUID\>\_running_status | Number | 27: online, 28: offline. |
+| \<UUID\>\_health_status | Number | 1: normal, 2: faulty, 15: write protected. |
+| \<UUID\>\_running_status | Number | 27: online, 28: offline, 53: initializing, 106: deleting. |
 | \<UUID\>\_usage_percent | Percentage | Used capacity of a thin LUN. Not reported for a thick LUN. |
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.

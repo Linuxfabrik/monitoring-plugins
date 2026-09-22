@@ -150,6 +150,17 @@ Monitoring Plugins:
 * gitlab-version: `--check-security` no longer forces UNKNOWN when the version-check service cannot be reached, it follows `--unreachable-severity` and still says so in the output
 * grassfish-players: the warning line in the player-count graphs matches when the check warns
 * haproxy-status: the performance data no longer breaks when a health check fails or a server is tracked
+* huawei-dorado-backup-power, huawei-dorado-controller, huawei-dorado-disk, huawei-dorado-enclosure: a threshold that fires marks its value and its row instead of leaving every row `[OK]`
+* huawei-dorado-controller, huawei-dorado-lun, huawei-dorado-port, huawei-dorado-storagepool: `--performance` reports the average I/O size in bytes instead of 1024 times too large
+* huawei-dorado-disk: an SSD that reports no remaining life left alerts instead of passing unnoticed
+* huawei-dorado-disk, huawei-dorado-lun: no longer run into their timeout on a large array
+* huawei-dorado-expboard: names the board model instead of printing a bare number
+* huawei-dorado-hypermetrodomain: a healthy domain no longer warns, and an invalid one is critical
+* huawei-dorado-hypermetropair: file system pairs no longer show an unknown host access state
+* huawei-dorado-lun: an alert on an unmapped LUN names the cause in the default table
+* huawei-dorado-port: reports error rates on an array that has both Fibre Channel and Ethernet ports
+* huawei-dorado-power: a power supply that reports no voltage no longer shows 0 V
+* huawei-dorado-sfp: reads the fields current firmware sends, and an unused port with its link down is no longer critical
 * huawei-pacific-quota, huawei-pacific-storagepool: the thresholds sit inside the sentence that names them instead of between two sentences
 * icinga-topflap-services, kubectl-get-pods: two runs at the same time no longer report each other's rows
 * keycloak-memory-usage, keycloak-stats, keycloak-version: name the missing "manage-realm" role instead of crashing
@@ -174,6 +185,7 @@ Icinga Director:
 * the Apache and MySQL Logfile services read the logs the server writes again instead of only its systemd unit
 * the By WinRM service template processes the performance data its remote command returns
 * the Huawei Dorado Service Set runs all of its checks again
+* the Huawei Dorado Disk and LUN service templates allow for the runtime of a large array: re-import the basket
 * the Postfix MTA Service Sets no longer abort `basket restore` with a duplicate UUID; `Postfix Logfile` starts its history over
 
 Grafana:

@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
 Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
@@ -46,10 +46,19 @@ DEFAULT_SLOW_PORT_SEVERITY = 'warn'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN_ERRORS = ''
 
-# Local database holding the previous error counter reading, so the counters can be
+# Local databases holding the previous error counter reading, so the counters can be
 # reported as per-second rates rather than as the ever-growing totals the appliance
 # keeps ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)).
-DB_FILENAME = 'linuxfabrik-monitoring-plugins-huawei-dorado-port.db'
+# One database per kind of port: `lib.db_sqlite.per_second_deltas()` derives the table
+# from the counter names and rebuilds it whenever a row does not fit, and FC, Ethernet
+# and SAS ports count different errors. In one shared table every kind wiped the
+# baseline of the others, so no port ever got a rate. Verified against
+# V700R001C10SPH128 on a Dorado 6000 V6 with 32 FC and 144 Ethernet ports.
+DB_FILENAMES = {
+    'Ethernet': 'linuxfabrik-monitoring-plugins-huawei-dorado-port-eth.db',
+    'FC': 'linuxfabrik-monitoring-plugins-huawei-dorado-port-fc.db',
+    'SAS': 'linuxfabrik-monitoring-plugins-huawei-dorado-port-sas.db',
+}
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
 # bounds the metric so a graph scales to the whole enumeration; the thresholds stay
@@ -446,6 +455,8 @@ def get_error_rates(port, label, testing):
       ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)).
     - A counter the port does not report is left out rather than stored as zero, so a
       firmware without it does not produce a rate of zero that looks like a healthy link.
+    - Each kind of port keeps its readings in a database of its own, because the kinds
+      count different errors and one table holds one set of columns only.
     """
     fields = PORT_FIELDS.get(port.get('kind'), {})
     counters = {}
@@ -455,7 +466,10 @@ def get_error_rates(port, label, testing):
             counters[name] = value
     if not counters or testing:
         return {}
-    return lib.db_sqlite.per_second_deltas(DB_FILENAME, label, counters) or {}
+    return (
+        lib.db_sqlite.per_second_deltas(DB_FILENAMES[port['kind']], label, counters)
+        or {}
+    )
 
 
 def get_ports(args):

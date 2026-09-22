@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082902'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
 Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
@@ -49,7 +49,7 @@ DEFAULT_TX_POWER_WARN = ''
 
 # The optical power fields are counted in units of 0.1 microwatt, and the appliance
 # reports this value for a reading it does not have. It is the largest 32-bit unsigned
-# integer, not a measurement.
+# integer, not a measurement. The same marker turns up in `SPEED` and `SFPMODETYPE`.
 INVALID_VALUE32 = 4294967295
 
 # Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
@@ -63,15 +63,24 @@ HEALTH_STATUS_MAX = 18
 # Ethernet ports.
 LINK_DOWN = 11
 
-# Fields `--match` is applied to. Unlike every other object on this appliance, an SFP
-# reports its fields in camelCase and has no `TYPE`, so `lib.huawei_dorado.get_uuid()`
-# does not apply here and the module is identified by its location.
-MATCH_FIELDS = ('id', 'location', 'vendor', 'model', 'sn')
+# Fields `--match` is applied to, each as the spellings to try. The REST Interface
+# Reference lists the SFP fields in camelCase in its parameter table and in upper case
+# in its response example, and the firmware answers in upper case, so every field is
+# read in both spellings. An SFP has no `TYPE`, so `lib.huawei_dorado.get_uuid()` does
+# not apply here and the module is identified by its location.
+# Verified against V700R001C10SPH128 on a Dorado 6000 V6: upper case throughout.
+MATCH_FIELDS = (
+    ('id', 'ID'),
+    ('location', 'LOCATION'),
+    ('model', 'MODEL'),
+    ('sn', 'SN'),
+    ('vendor', 'VENDOR'),
+)
 
 # RUNNINGSTATUS code a healthy port reports: link up (10).
 OK_RUNNING_STATUS = (10,)
 
-# What the `parentType` of a module names, so the output says what the module sits in
+# What the `PARENTTYPE` of a module names, so the output says what the module sits in
 # rather than repeating a number.
 PARENT_TYPES = {
     207: 'controller',
@@ -96,7 +105,7 @@ POWER_FIELDS = {
     ),
 }
 
-# `sfpModeType` values.
+# `SFPMODETYPE` values. A QSFP reports `4294967295` here, which stays "unknown".
 SFP_MODE_TYPES = {
     0: 'single-mode',
     1: 'multi-mode',
@@ -492,57 +501,76 @@ def main():
     # analyze data
     table_data = []
     for module in modules:
+        # Every field is read in both spellings the vendor documents (see
+        # `MATCH_FIELDS`). The firmware pads the text fields with blanks to a fixed
+        # width ("Hisense         "), which would widen the table and defeat a
+        # `--match` anchored with `$`, so they are stripped.
+        texts = {
+            names[0]: str(lib.huawei_dorado.field(module, *names, default='')).strip()
+            for names in MATCH_FIELDS
+        }
+        health_status = lib.huawei_dorado.field(module, 'healthStatus', 'HEALTHSTATUS')
+        running_status = lib.huawei_dorado.field(
+            module, 'runningStatus', 'RUNNINGSTATUS'
+        )
+
         # An SFP carries no TYPE, so there is no TYPE:ID to build a label from. Its
         # location is the only stable identifier it has, and it is also what an
         # engineer reads off the chassis.
-        label = re.sub(r'\W+', '_', str(module.get('location', module.get('id', ''))))
+        label = re.sub(r'\W+', '_', texts['location'] or texts['id'])
 
         if args.MATCH and not any(
-            lib.base.coe(lib.txt.match_regex(pattern, str(module.get(field, ''))))
+            lib.base.coe(lib.txt.match_regex(pattern, value))
             for pattern in compiled_match_regex
-            for field in MATCH_FIELDS
+            for value in texts.values()
         ):
             continue
 
         if args.IGNORE and any(
-            lib.base.coe(lib.txt.match_regex(pattern, str(module.get(field, ''))))
+            lib.base.coe(lib.txt.match_regex(pattern, value))
             for pattern in compiled_ignore_regex
-            for field in MATCH_FIELDS
+            for value in texts.values()
         ):
             continue
 
-        health_state = lib.huawei_dorado.get_health_status_state(
-            module.get('healthStatus')
-        )
+        health_state = lib.huawei_dorado.get_health_status_state(health_status)
         state = lib.base.get_worst(state, health_state)
 
         # A module whose link is down looks exactly like one nobody cabled, so how
         # loud that should be is the operator's call rather than this check's.
-        if lib.huawei_dorado.as_code(module.get('runningStatus')) == LINK_DOWN:
+        link_down = lib.huawei_dorado.as_code(running_status) == LINK_DOWN
+        if link_down:
             running_state = link_down_state
         else:
             running_state = lib.huawei_dorado.get_running_status_state(
-                module.get('runningStatus'), OK_RUNNING_STATUS
+                running_status, OK_RUNNING_STATUS
             )
         state = lib.base.get_worst(state, running_state)
 
         perfdata += lib.base.get_perfdata(
             f'{label}_health_status',
-            module.get('healthStatus'),
+            health_status,
             uom=None,
             _min=0,
             _max=HEALTH_STATUS_MAX,
         )
         perfdata += lib.base.get_perfdata(
             f'{label}_running_status',
-            module.get('runningStatus'),
+            running_status,
             uom=None,
             _min=0,
         )
 
+        # The vendor's response example reports `4294967295` here, the marker for a
+        # value the appliance does not have, which would graph as 4.29e9 Mbit/s.
+        speed = lib.huawei_dorado.as_code(
+            lib.huawei_dorado.field(module, 'speed', 'SPEED')
+        )
+        if speed is not None and speed >= INVALID_VALUE32:
+            speed = None
         perfdata += lib.base.get_perfdata(
             f'{label}_speed',
-            lib.huawei_dorado.as_code(module.get('speed')),
+            speed,
             uom=None,
             _min=0,
         )
@@ -565,8 +593,17 @@ def main():
             if not crit and lower is not None and upper is not None and lower < upper:
                 crit = f'{lower}:{upper}'
 
+            # A module whose link is down receives no light, and reports the lowest
+            # value it can (`[1]`, -40 dBm), so its receive power says nothing about
+            # the transceiver. `--link-down-severity` alone decides about such a
+            # module; the reading is still shown and graphed. Its transmit power is
+            # independent of the link and is still judged.
+            # Verified against V700R001C10SPH128 on a Dorado 6000 V6: all 8 link-down
+            # FC ports reported `RXPOWER` `[1]` and had no initiator logged in.
+            judged = not (direction == 'rx' and link_down)
+
             power_state = STATE_OK
-            if reading is not None and (warn or crit):
+            if judged and reading is not None and (warn or crit):
                 power_state = lib.base.get_state(
                     reading, warn or None, crit or None, _operator='range'
                 )
@@ -586,22 +623,29 @@ def main():
                 else f'{reading}{lib.base.state2str(power_state, prefix=" ")}'
             )
 
+        # The table reads the normalised values, whichever spelling the firmware used.
+        module['location'] = texts['location'] or texts['id']
+        module['model'] = texts['model']
+        module['vendor'] = texts['vendor']
+        module['speed'] = '--' if speed is None else speed
         module['row_state'] = module_state
-        module['health'] = lib.huawei_dorado.get_health_status(
-            module.get('healthStatus')
-        )
-        module['link'] = lib.huawei_dorado.get_running_status(
-            module.get('runningStatus')
-        )
+        module['health'] = lib.huawei_dorado.get_health_status(health_status)
+        module['link'] = lib.huawei_dorado.get_running_status(running_status)
         module['mode'] = SFP_MODE_TYPES.get(
-            lib.huawei_dorado.as_code(module.get('sfpModeType')), 'unknown'
+            lib.huawei_dorado.as_code(
+                lib.huawei_dorado.field(module, 'sfpModeType', 'SFPMODETYPE')
+            ),
+            'unknown',
         )
         # One state per row, in the last column. IcingaWeb replaces a state with an
         # icon, which shifts everything to the right of it, so a second one mid-row
         # would break the table.
         module['state'] = lib.base.state2str(module['row_state'], empty_ok=False)
         module['sits_in'] = PARENT_TYPES.get(
-            lib.huawei_dorado.as_code(module.get('parentType')), 'unknown'
+            lib.huawei_dorado.as_code(
+                lib.huawei_dorado.field(module, 'parentType', 'PARENTTYPE')
+            ),
+            'unknown',
         )
 
         table_data.append(module)

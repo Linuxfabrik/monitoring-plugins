@@ -19,13 +19,19 @@ from lib.globals import STATE_CRIT, STATE_OK
 
 TESTS = [
     {
+        # The shape the boards of an NVMe enclosure report: verified against
+        # V700R001C10SPH128 on a Dorado 6000 V6. MODEL is a code (7), not a name.
         'id': 'ok-expboards-healthy',
         'test': 'stdout/expboards-healthy,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
         'assert-in': [
             'Everything is ok.',
-            '208:0 ! DAE000.A ! EXP-12G-SAS ! Normal (1) ! Online (27) ! [OK]',
+            '208:64.0 ! DAE020.A ! Smart NVMe ! Normal (1) ! Running (2) ! [OK] ',
+            # Last row of the table: the trailing padding is stripped, because
+            # the performance data is appended right behind it.
+            '208:64.1 ! DAE020.B ! Smart NVMe ! Normal (1) ! Running (2) ! [OK]',
+            "'208_64_0_health_status'=1;;;0;18 '208_64_0_running_status'=2;;;0",
         ],
     },
     {
@@ -33,7 +39,11 @@ TESTS = [
         'test': 'stdout/expboards-one-faulty,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['There are critical errors.', '[CRITICAL]'],
+        'assert-in': [
+            'There are critical errors.',
+            '208:64.0 ! DAE020.A ! Smart NVMe ! Normal (1) ! Running (2)  ! [OK]      ',
+            '208:64.1 ! DAE020.B ! Smart NVMe ! Faulty (2) ! Offline (28) ! [CRITICAL]',
+        ],
     },
     {
         # An array without expansion enclosures has no expansion board. Reading

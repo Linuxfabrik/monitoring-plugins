@@ -19,9 +19,85 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 TESTS = [
     {
-        # The SFP endpoint reports its fields in camelCase and carries no TYPE,
-        # so the modules are identified by their location rather than by the
-        # TYPE:ID every other object on this appliance has.
+        # The fields as the firmware sends them: upper case, padded with blanks to a
+        # fixed width. One healthy 10G module, one FC port with its link down and no
+        # light (`RXPOWER` `[1]`, -40 dBm), and one 4-lane QSFP reporting the "no
+        # value" marker in every lane and in `SFPMODETYPE`.
+        # Verified against V700R001C10SPH128 on a Dorado 6000 V6.
+        'id': 'ok-sfps-upper-case-fields',
+        'test': 'stdout/sfps-upper-case-fields,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'Location ',
+            'CTE0.A.IOM0.P0 ! interface module ! Hisense      ! LTF8502-BC+   ! '
+            'multi-mode ! 10000  ! -2.51',
+            'CTE0.A.P0      ! controller       ! LUXSHARE-ICT ! L99QF029-SD-R ! '
+            'unknown    ! 100000 ! --',
+            "'CTE0_A_IOM0_P0_health_status'=1;",
+            "'CTE0_A_IOM0_P0_rx_power'=-2.51;",
+        ],
+        'assert-not-in': ['Unknown', "'_", '[CRITICAL]', 'CTE0_A_P0_rx_power'],
+    },
+    {
+        # A port whose link is down receives no light, so its receive power is shown
+        # and graphed but not judged: an unused port must not go CRIT.
+        'id': 'ok-link-down-rx-power-not-judged',
+        'test': 'stdout/sfps-upper-case-fields,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'CTE0\.A\.IOM1\.P3 .* -40\.0    ! -1\.44 .* Link down \(11\)'
+        r' .* \[OK\]',
+        'assert-in': ["'CTE0_A_IOM1_P3_rx_power'=-40.0;;-13.2:5.0"],
+    },
+    {
+        # --link-down-severity alone decides about such a port.
+        'id': 'warn-link-down-severity-upper-case-fields',
+        'test': 'stdout/sfps-upper-case-fields,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --link-down-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings.', '[WARNING]'],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        # The filter reaches the location the firmware reports in upper case.
+        'id': 'ok-match-on-upper-case-location',
+        'test': 'stdout/sfps-upper-case-fields,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        "--username=admin --match='CTE0\\.A\\.IOM1\\.P3$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['CTE0.A.IOM1.P3'],
+        'assert-not-in': ['CTE0.A.IOM0.P0', 'CTE0.A.P0 '],
+    },
+    {
+        # The blank padding is stripped, so an anchored filter on the vendor works.
+        'id': 'ok-match-on-padded-vendor',
+        'test': 'stdout/sfps-upper-case-fields,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        "--username=admin --match='Hisense$'",
+        'assert-retc': STATE_OK,
+        'assert-in': ['CTE0.A.IOM0.P0'],
+        'assert-not-in': ['CTE0.A.IOM1.P3', 'CTE0.A.P0 '],
+    },
+    {
+        # The vendor's response example reports the "no value" marker as the speed,
+        # which must not be graphed as 4.29e9 Mbit/s.
+        'id': 'ok-speed-not-reported',
+        'test': 'stdout/sfp-speed-not-reported,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['_speed', '4294967295'],
+    },
+    {
+        # The spelling of the REST Interface Reference's parameter table: camelCase.
+        # Both spellings are read. An SFP carries no TYPE, so the modules are
+        # identified by their location rather than by the TYPE:ID every other
+        # object on this appliance has.
         'id': 'ok-sfps-healthy',
         'test': 'stdout/sfps-healthy,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '

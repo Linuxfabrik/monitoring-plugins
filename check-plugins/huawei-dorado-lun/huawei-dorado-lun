@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082903'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and
@@ -45,7 +45,7 @@ DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
-DEFAULT_TIMEOUT = 3
+DEFAULT_TIMEOUT = 30
 DEFAULT_UNMAPPED_SEVERITY = 'ok'
 DEFAULT_WARN = ''
 
@@ -68,8 +68,10 @@ MATCH_FIELDS = ('UUID', 'NAME', 'PARENTNAME')
 PAGE_SIZE = 100
 MAX_PAGES = 200
 
-# RUNNINGSTATUS code a healthy LUN reports: online (27). The enumeration knows
-# offline (28) as the only other value for this object.
+# RUNNINGSTATUS code a healthy LUN reports: online (27). Both REST Interface
+# References list offline (28), initializing (53) and deleting (106) as the other
+# values for this object, next to HEALTHSTATUS normal (1), faulty (2) and write
+# protected (15).
 OK_RUNNING_STATUS = (27,)
 
 
@@ -133,10 +135,10 @@ def parse_args():
 
     parser.add_argument(
         '--device-threshold-severity',
-        help='State to report for a thin LUN that reached the fill threshold configured '
-        'on the appliance itself. That threshold is what the storage administrator set in '
-        'the management GUI, so the check and the appliance agree on when a LUN is full '
-        'instead of each having their own opinion. A LUN whose threshold is switched off '
+        help='State to report for a thin LUN that reached the capacity alarm threshold '
+        'the appliance keeps for it. The vendor documents that threshold as the capacity '
+        'alarm for thin LUNs mounted to Windows Server 2012 hosts (50 to 99 percent, 90 '
+        'by default), with a separate switch that turns it on. A LUN whose switch is off '
         'is not affected. '
         'Default: %(default)s',
         dest='DEVICE_THRESHOLD_SEVERITY',
@@ -465,8 +467,11 @@ def main():
             )
             state = lib.base.get_worst(state, usage_state)
 
-        # The appliance carries the fill threshold the storage administrator set for
-        # this LUN, and a switch saying whether it is in use at all.
+        # The appliance carries a capacity alarm threshold per LUN, which the REST
+        # Interface References describe as the one for thin LUNs mounted to Windows
+        # Server 2012 hosts (50 to 99, default 90), and a switch saying whether it is
+        # in use at all. Verified against V700R001C10SPH128 on a Dorado 6000 V6: all
+        # 697 LUNs report the default 90 with the switch off.
         device_state = STATE_OK
         device_threshold = lib.huawei_dorado.as_code(lun.get('ISCSITHINLUNTHRESHOLD'))
         if (
@@ -556,9 +561,9 @@ def main():
             if mapped
             else f'no{lib.base.state2str(unmapped_lun_state, prefix=" ")}'
         )
-        # One state per row, in the last column. IcingaWeb replaces a state with an
-        # icon, which shifts everything to the right of it, so a second one mid-row
-        # would break the table.
+        # The row's State column is the worst of everything evaluated for the LUN. A
+        # threshold that fired is also marked on the value that caused it (Usage,
+        # Mapped), the way Health and Running name the code that decided them.
         lun['running'] = lib.huawei_dorado.get_running_status(lun.get('RUNNINGSTATUS'))
         lun['state'] = lib.base.state2str(lun['row_state'], empty_ok=False)
         lun['thin'] = (
@@ -672,6 +677,12 @@ def main():
                 'Running',
                 'State',
             ]
+            # Unmapped LUNs only reach the table with --include-unmapped. Their row
+            # can be raised by --unmapped-severity alone, so the column that says why
+            # has to be there; without them it would read "yes" on every row.
+            if args.INCLUDE_UNMAPPED:
+                keys.insert(3, 'mapped')
+                headers.insert(3, 'Mapped')
         msg += lib.base.get_table(
             display_rows, keys, header=headers, missing='--', hide_empty=True
         )
