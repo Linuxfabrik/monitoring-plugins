@@ -41,6 +41,7 @@ Monitoring Plugins:
 * cpu-vulnerabilities: a CPU vulnerability no mitigation is holding off
 * file-growth: a file growing or shrinking faster than a set rate ([#48](https://github.com/Linuxfabrik/monitoring-plugins/issues/48))
 * fs-mounts: a filesystem from `/etc/fstab` that is not mounted
+* huawei-dorado-quota: a share filling up its quota
 * kvm-cpu-usage: the CPU each virtual machine of a libvirt host uses, and its steal time ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-disk-io: what each virtual machine reads and writes, and its storage latency ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))
 * kvm-memory-usage: the memory each virtual machine has, needs and occupies ([#644](https://github.com/Linuxfabrik/monitoring-plugins/issues/644))

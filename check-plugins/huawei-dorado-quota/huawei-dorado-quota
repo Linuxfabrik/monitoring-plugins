@@ -1,0 +1,618 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+import urllib.parse
+
+import lib.args
+import lib.base
+import lib.huawei_dorado
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026092201'
+
+DESCRIPTION = """Checks how full the quotas of a Huawei OceanStor Dorado storage system are via the
+REST API (/FS_QUOTA endpoint). Walks all file systems and reports the used space of every quota,
+the quotas of their dtrees (the directories a share is usually created on) included, relative to
+its configured hard quota. Quotas without a hard quota are skipped, because there is no limit to
+compare against. Alerts when the used space in percent reaches the warning or critical threshold.
+Supports extended reporting via --lengthy."""
+
+DEFAULT_BRIEF = False
+DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
+DEFAULT_CRIT = '90'
+DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
+DEFAULT_INSECURE = True
+DEFAULT_NO_MATCH_SEVERITY = 'ok'
+DEFAULT_NO_PROXY = False
+DEFAULT_QUOTA_TYPE = ['directory']
+DEFAULT_SCOPE = '0'
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = '80'
+
+# Placeholder the appliance reports in a quota or usage field that carries no value, for
+# example a soft quota nobody configured. Both REST Interface References call it
+# INVALID_VALUE64 without spelling out the number; it is the largest unsigned 64-bit value.
+INVALID_VALUE64 = 18446744073709551615
+
+# Type number of the object a quota belongs to.
+PARENT_TYPE_DTREE = 16445
+PARENT_TYPE_FILESYSTEM = 40
+
+# Quota types as returned in the QUOTATYPE field.
+QUOTA_TYPES = {
+    'directory': 1,
+    'user': 2,
+    'user-group': 3,
+}
+QUOTA_TYPE_NAMES = {code: name for name, code in QUOTA_TYPES.items()}
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--brief',
+        help=lib.args.help('--brief')
+        + ' Worth setting on an appliance with many quotas.',
+        dest='BRIEF',
+        action='store_true',
+        default=DEFAULT_BRIEF,
+    )
+
+    parser.add_argument(
+        '--cache-expire',
+        help=lib.args.help('--cache-expire') + ' Default: %(default)s',
+        dest='CACHE_EXPIRE',
+        type=int,
+        default=DEFAULT_CACHE_EXPIRE,
+    )
+
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--device-id',
+        help='Huawei OceanStor Dorado API device ID. '
+        'Optional: the appliance reports its own at login, so this is only '
+        'needed to override that answer.',
+        dest='DEVICE_ID',
+        default=DEFAULT_DEVICE_ID,
+    )
+
+    parser.add_argument(
+        '--ignore',
+        help='Skip quotas. '
+        + lib.args.help('--ignore-regex')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against the share name, including the owner of a user or user group '
+        'quota, so prefix with `.*` to match anywhere.',
+        dest='IGNORE',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--match',
+        help='Limit to quotas. '
+        + lib.args.help('--match')
+        + ' The regex is anchored at the start of the string (Python `re.match`) and is '
+        'matched against the share name, including the owner of a user or user group '
+        'quota, so prefix with `.*` to match anywhere.',
+        dest='MATCH',
+        action='append',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--no-insecure',
+        help=lib.args.help('--no-insecure'),
+        dest='INSECURE',
+        action='store_false',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-match-severity',
+        help=lib.args.help('--no-match-severity') + ' Default: %(default)s',
+        dest='NO_MATCH_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_NO_MATCH_SEVERITY,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--password',
+        help='Huawei OceanStor Dorado API password.',
+        dest='PASSWORD',
+    )
+
+    parser.add_argument(
+        '--password-file',
+        help=lib.args.help('--password-file'),
+        dest='PASSWORD_FILE',
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--quota-type',
+        help='Type of quota to check. '
+        'Can be specified multiple times. '
+        'Example: `--quota-type=directory --quota-type=user`. '
+        # An append parameter defaults to None so that user values do not pile
+        # up on the default list, so %(default)s cannot be used here.
+        f'Default: {", ".join(DEFAULT_QUOTA_TYPE)}',
+        dest='QUOTA_TYPE',
+        action='append',
+        choices=sorted(QUOTA_TYPES),
+        default=None,
+    )
+
+    parser.add_argument(
+        '--scope',
+        help='Huawei OceanStor Dorado API scope.',
+        dest='SCOPE',
+        default=DEFAULT_SCOPE,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '-u',
+        '--url',
+        help='Huawei OceanStor Dorado API URL.',
+        dest='URL',
+        required=True,
+    )
+
+    parser.add_argument(
+        '--username',
+        help='Huawei OceanStor Dorado API username.',
+        dest='USERNAME',
+        required=True,
+    )
+
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        help=lib.args.help('--verbose')
+        + " Appends what every API request returned, so the appliance's own answers "
+        'can be read while working out how it reports something. Session tokens are '
+        'redacted. The output is as long as those answers are, so this is a debugging '
+        'aid rather than something to leave switched on.',
+        dest='VERBOSE',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges. Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def as_value(value):
+    """Return a quota or usage field as an `int`, or `None` where it carries no value.
+
+    The appliance reports these as strings. A quota nobody configured comes back as
+    `-1`, which is what a Dorado 6.1 answers for every unset soft quota and file quota;
+    both REST Interface References also name INVALID_VALUE64 for the same purpose.
+    """
+    code = lib.huawei_dorado.as_code(value)
+    if code is None or code < 0 or code == INVALID_VALUE64:
+        return None
+    return code
+
+
+def fetch(endpoint, args, what, test_path=None):
+    """Return every object of a list endpoint, and whether the walk was cut short.
+
+    In test mode the fixture stands in for the whole paged walk.
+    """
+    if test_path is None:
+        result, truncated = lib.huawei_dorado.get_all_data(endpoint, args)
+    else:
+        result, truncated = lib.lftest.test_json(args.TEST, test_path), False
+    lib.huawei_dorado.assert_ok(result, what)
+    return result.get('data') or [], truncated
+
+
+def get_owner(quota):
+    """Return the user or user group a quota applies to, or `''` for a directory quota.
+
+    A directory quota reports `--` here, which is the appliance's way of saying "none".
+    """
+    owner = quota.get('USRGRPOWNERNAME') or ''
+    return '' if owner == '--' else owner
+
+
+def has_quotas(file_system):
+    """Tell whether a file system carries any quota, so that the ones without are not
+    queried.
+
+    `quotaCfgCount` of a file system counts every quota inside it, those of its dtrees
+    included. A firmware that does not report the field is queried anyway: an extra
+    request is cheaper than a quota that is never looked at.
+    """
+    count = lib.huawei_dorado.as_code(file_system.get('quotaCfgCount'))
+    return count is None or count > 0
+
+
+def collect_quotas(args):
+    """Return every quota of every file system, tagged with the share it belongs to,
+    and whether any walk was cut short.
+
+    Querying the quotas of a file system returns the quotas of all its dtrees as well,
+    so one request per file system covers everything. Verified against a Dorado 6.1
+    with 76 file systems and 204 dtree quotas: the per-dtree queries returned exactly
+    the same records.
+    """
+    quotas = []
+    test_base = args.TEST[0] if args.TEST else None
+
+    file_systems, truncated = fetch(
+        'filesystem',
+        args,
+        'the file systems',
+        test_path=f'{test_base}-file-systems' if test_base else None,
+    )
+    for file_system in file_systems:
+        if not has_quotas(file_system):
+            continue
+        file_system_id = file_system.get('ID')
+        file_system_name = file_system.get('NAME') or str(file_system_id)
+
+        # The unit is requested as bytes explicitly. Both REST Interface References
+        # document bytes as the default, but asking costs nothing and does not depend
+        # on a firmware keeping that default.
+        query = urllib.parse.urlencode(
+            {
+                'PARENTTYPE': PARENT_TYPE_FILESYSTEM,
+                'PARENTID': file_system_id,
+                'SPACEUNITTYPE': 0,
+            }
+        )
+        fs_quotas, fs_truncated = fetch(
+            f'FS_QUOTA?{query}',
+            args,
+            f'the quotas of file system {file_system_name}',
+            test_path=f'{test_base}-quotas-{file_system_id}' if test_base else None,
+        )
+        truncated = truncated or fs_truncated
+        for quota in fs_quotas:
+            # A dtree quota names its dtree in RESUSENAME, a quota on the file system
+            # itself leaves it empty.
+            dtree_name = quota.get('RESUSENAME')
+            is_dtree = (
+                lib.huawei_dorado.as_code(quota.get('PARENTTYPE')) == PARENT_TYPE_DTREE
+            )
+            quota['share'] = (
+                f'{file_system_name}/{dtree_name}'
+                if is_dtree and dtree_name
+                else file_system_name
+            )
+            quota['vstore'] = quota.get('vstoreName') or file_system.get('vstoreName')
+            quotas.append(quota)
+
+    return quotas, truncated
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.PASSWORD_FILE:
+        args.PASSWORD = lib.args.load_secret(args.PASSWORD_FILE)
+    if not args.PASSWORD:
+        lib.base.cu('Provide the API password via --password or --password-file.')
+
+    # set default values for append parameters that were not specified
+    if args.IGNORE is None:
+        args.IGNORE = []
+    if args.MATCH is None:
+        args.MATCH = []
+    if args.QUOTA_TYPE is None:
+        args.QUOTA_TYPE = DEFAULT_QUOTA_TYPE
+
+    if not args.URL.startswith('http'):
+        lib.base.cu('--url parameter has to start with "http://" or https://".')
+
+    # fetch data
+    quotas, truncated = collect_quotas(args)
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    table_data = []
+    compiled_match_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
+    ]
+    compiled_ignore_regex = [
+        lib.base.coe(item) for item in lib.txt.compile_regex(args.IGNORE, '--ignore')
+    ]
+    wanted_types = {QUOTA_TYPES[item] for item in args.QUOTA_TYPE}
+
+    # analyze data
+    for quota in quotas:
+        quota_type = lib.huawei_dorado.as_code(quota.get('QUOTATYPE'))
+        if quota_type not in wanted_types:
+            continue
+
+        share = quota['share']
+        owner = get_owner(quota)
+        if owner:
+            # user and user group quotas repeat per share, so the owner is what
+            # tells them apart
+            share = f'{share} ({owner})'
+
+        if args.MATCH and not any(
+            lib.base.coe(lib.txt.match_regex(pattern, share))
+            for pattern in compiled_match_regex
+        ):
+            continue
+
+        if args.IGNORE and any(
+            lib.base.coe(lib.txt.match_regex(pattern, share))
+            for pattern in compiled_ignore_regex
+        ):
+            continue
+
+        hard_quota = as_value(quota.get('SPACEHARDQUOTA'))
+        used = as_value(quota.get('SPACEUSED'))
+        if not hard_quota or used is None:
+            # no hard quota configured, or no usable measurement: there is
+            # nothing to calculate a fill level from
+            continue
+
+        # The appliance computes the fill level itself and rounds it the way its own
+        # GUI shows it. Preferring it keeps the check and the GUI in agreement.
+        used_percent = lib.huawei_dorado.as_code(quota.get('SPACEUSEDRATE'))
+        if used_percent is None or used_percent < 0 or used_percent > 100:
+            used_percent = round(used / hard_quota * 100)
+        quota_state = lib.base.get_state(
+            used_percent,
+            args.WARN,
+            args.CRIT,
+            _operator='range',
+        )
+        state = lib.base.get_worst(state, quota_state)
+
+        label = re.sub(r'\W+', '_', share).strip('_')
+        perfdata += lib.base.get_perfdata(
+            f'{label}_usage_percent',
+            used_percent,
+            uom='%',
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+            _max=100,
+        )
+
+        # The soft quota and the file quota are reported for context only and do not
+        # alert: the check is about the hard limit on space.
+        soft_quota = as_value(quota.get('SPACESOFTQUOTA'))
+        files = '-'
+        file_used = as_value(quota.get('FILEUSED'))
+        file_hard_quota = as_value(quota.get('FILEHARDQUOTA'))
+        if file_used is not None and file_hard_quota:
+            files = (
+                f'{lib.human.number2human(file_used)}'
+                f'/{lib.human.number2human(file_hard_quota)}'
+            )
+
+        table_data.append(
+            {
+                'share': share,
+                'vstore': quota.get('vstore') or '',
+                'quota_type': QUOTA_TYPE_NAMES.get(quota_type, 'unknown'),
+                'used': lib.human.bytes2human(used),
+                'soft_quota': lib.human.bytes2human(soft_quota) if soft_quota else '-',
+                'quota': lib.human.bytes2human(hard_quota),
+                'used_percent': f'{used_percent}%',
+                'files': files,
+                'state': lib.base.state2str(quota_state, empty_ok=False),
+                'quota_state': quota_state,
+            }
+        )
+
+    # The truncated walk raises the state before the summary is written, so a
+    # partially read appliance does not open with "Everything is ok." and then exit
+    # WARNING.
+    if truncated:
+        state = lib.base.get_worst(state, STATE_WARN)
+
+    # build the message
+    if not table_data and not truncated:
+        # An appliance whose shares simply carry no hard quota is a healthy appliance.
+        # Only a filter that excluded everything is worth the configured severity.
+        filtered = (
+            bool(args.MATCH)
+            or bool(args.IGNORE)
+            or args.QUOTA_TYPE != DEFAULT_QUOTA_TYPE
+        )
+        msg = (
+            'No quota matched the filters.'
+            if filtered
+            else 'No share carries a hard quota.'
+        )
+        if args.VERBOSE:
+            msg += '\n\n' + lib.huawei_dorado.format_responses()
+        lib.base.oao(
+            msg,
+            lib.base.str2state(args.NO_MATCH_SEVERITY) if filtered else STATE_OK,
+            always_ok=args.ALWAYS_OK,
+            no_perfdata=args.NO_PERFDATA,
+        )
+
+    thresholds = f'warn={args.WARN} crit={args.CRIT}'
+    if state == STATE_CRIT:
+        msg += 'There are critical errors.'
+    elif state == STATE_WARN:
+        msg += 'There are warnings.'
+    else:
+        msg += 'Everything is ok.'
+    msg += (
+        f' Checked {len(table_data)}'
+        f' {lib.txt.pluralize("quota", len(table_data))}'
+        f' ({thresholds}).'
+    )
+    if truncated:
+        # A walk hit its page cap, so this is a floor on the quota count, not the count.
+        msg += (
+            '\nThe appliance reports more objects than this check reads in one run;'
+            ' the list below is incomplete.'
+        )
+
+    # build table output
+    display_rows = table_data
+    if args.BRIEF:
+        display_rows = [row for row in table_data if row['quota_state'] != STATE_OK]
+    if args.LENGTHY:
+        keys = [
+            'share',
+            'vstore',
+            'quota_type',
+            'used',
+            'soft_quota',
+            'quota',
+            'used_percent',
+            'files',
+            'state',
+        ]
+        headers = [
+            'Share',
+            'vStore',
+            'Type',
+            'Used',
+            'Soft Quota',
+            'Quota',
+            'Use%',
+            'Files',
+            'State',
+        ]
+    else:
+        keys = ['share', 'used', 'quota', 'used_percent', 'state']
+        headers = ['Share', 'Used', 'Quota', 'Use%', 'State']
+    if display_rows:
+        msg += '\n\n' + lib.base.get_table(
+            display_rows, keys, header=headers, hide_empty=True
+        )
+
+    if args.VERBOSE:
+        msg += '\n\n' + lib.huawei_dorado.format_responses()
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

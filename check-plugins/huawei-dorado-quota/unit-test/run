@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The plugin walks the API in two steps and appends `-file-systems` (the file
+# system collection) and `-quotas-<ID>` (the quotas of the file system with that
+# ID) to the --test path. A file system whose `quotaCfgCount` is 0 is not queried,
+# so it has no quota fixture: querying it anyway would abort on the missing file.
+#
+# The records are taken from a Dorado 6.1 with the names anonymised. The
+# three-file-systems set holds dtree quotas filled to 85%, 9% and 99%, spread
+# over two file systems, plus a third file system without any quota.
+COMMON = '--url=https://example.com --username=linuxfabrik --password=linuxfabrik'
+
+TESTS = [
+    {
+        'id': 'ok-below-warn',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --warning=100 --critical=100',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked 3 quotas',
+            'fs_nfs_01/share_a',
+            'fs_nfs_01/share_b',
+            'fs_smb_01/share_c',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]', 'fs_smb_audit'],
+    },
+    {
+        'id': 'warn-above-warn',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --match=fs_nfs_01',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are warnings. Checked 2 quotas'],
+        'assert-regex': r'85%.*\[WARNING\]',
+    },
+    {
+        # Default thresholds: 85% warns, 99% is critical.
+        'id': 'crit-above-crit',
+        'test': 'stdout/three-file-systems,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['There are critical errors. Checked 3 quotas (warn=80 crit=90).'],
+        'assert-regex': r'fs_smb_01/share_c .*99%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'99%.*\[CRITICAL\]',
+    },
+    {
+        # Perfdata is emitted per share, sanitized into a snake_case label.
+        'id': 'crit-perfdata-per-share',
+        'test': 'stdout/three-file-systems,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            "'fs_nfs_01_share_a_usage_percent'=85%;80;90;0;100",
+            "'fs_nfs_01_share_b_usage_percent'=9%;80;90;0;100",
+            "'fs_smb_01_share_c_usage_percent'=99%;80;90;0;100",
+        ],
+    },
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        # The appliance reports an unset soft quota and file quota as -1, so those
+        # columns stay empty and are hidden, and nothing reads as 0% or as 16 EiB.
+        'id': 'crit-lengthy-adds-columns',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --lengthy',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['vStore', 'Type', 'vstore_nfs', 'directory', '2.0TiB'],
+        'assert-not-in': ['Soft Quota', 'Files', '16.0EiB', '(--)'],
+    },
+    {
+        # --brief hides the rows within the thresholds, but the hidden shares still
+        # emit perfdata and still count as checked.
+        'id': 'crit-brief-hides-ok-rows',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --brief',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Checked 3 quotas (warn=',
+            'fs_smb_01/share_c',
+            "'fs_nfs_01_share_b_usage_percent'=9%",
+        ],
+        'assert-not-in': ['fs_nfs_01/share_b '],
+    },
+    {
+        'id': 'ok-brief-hides-everything',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --warning=100 --critical=100 --brief',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Checked 3 quotas (warn='],
+        'assert-not-in': ['Share', 'fs_nfs_01/share_a'],
+    },
+    {
+        # The regex is anchored at the start of the share name, as in every sibling
+        # check, so matching anywhere needs a leading `.*`.
+        'id': 'warn-ignore-skips-share',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --ignore=.*share_c$',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Checked 2 quotas (warn='],
+        'assert-not-in': ['share_c'],
+    },
+    {
+        'id': 'crit-match-limits-to-one-share',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --match=.*share_c$',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 1 quota (warn=', 'fs_smb_01/share_c'],
+        'assert-not-in': ['share_a', 'share_b'],
+    },
+    {
+        'id': 'ok-match-nothing',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --match=doesnotexist',
+        'assert-retc': STATE_OK,
+        'assert-in': ['No quota matched the filters.'],
+    },
+    {
+        'id': 'warn-no-match-severity',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --match=doesnotexist --no-match-severity=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['No quota matched the filters.'],
+    },
+    {
+        'id': 'unknown-invalid-regex',
+        'test': 'stdout/three-file-systems,,0',
+        'params': f'{COMMON} --match=(',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['contains one or more errors'],
+    },
+    {
+        # Shares without a hard quota are a healthy appliance, not an empty filter.
+        'id': 'ok-no-quota-configured',
+        'test': 'stdout/no-quota-configured,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No share carries a hard quota.'],
+    },
+    {
+        # An appliance that only serves block storage has no file systems at all.
+        'id': 'ok-no-file-systems',
+        'test': 'stdout/no-file-systems,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['No share carries a hard quota.'],
+    },
+    {
+        # By default only directory quotas are checked, so the user quota next to
+        # the dtree quota is left out.
+        'id': 'ok-user-quota-skipped-by-default',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Checked 1 quota (warn=', 'fs_nfs_01/share_b'],
+        'assert-not-in': ['alice'],
+    },
+    {
+        # A user quota carries its owner in brackets, a directory quota does not.
+        'id': 'crit-user-quota-with-owner',
+        'test': 'stdout/directory-and-user-quotas,,0',
+        'params': f'{COMMON} --quota-type=directory --quota-type=user',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked 2 quotas (warn=', 'fs_nfs_01 (alice)'],
+        'assert-regex': r'fs_nfs_01 \(alice\) .*95%.*\[CRITICAL\]',
+    },
+    {
+        'id': 'unknown-quota-query-fails',
+        'test': 'stdout/quota-query-fails,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Failed to query the quotas of file system fs_nfs_01 (code 1077949002)',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../huawei-dorado-quota'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()
