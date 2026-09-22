@@ -205,11 +205,11 @@ UUID       ! Location    ! Manufacturer ! Model         ! SerialNumber         !
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty, 9: inconsistent, 11: no input. |
 | \<UUID\>\_input_voltage | Number | Input voltage in volts. Left out for a PSU whose firmware reports no reading. |
 | \<UUID\>\_output_voltage | Number | Output voltage in volts. Left out for a PSU whose firmware reports no reading. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline. |
 | \<UUID\>\_temperature | Number | Temperature. |
+
+The health and running status codes stay out of the performance data. The state already carries them, and a code does not read as a curve.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

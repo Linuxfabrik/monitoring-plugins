@@ -243,8 +243,6 @@ Alert earlier than the defaults, and only on the pools of one disk domain:
 |----|----|----|
 | \<UUID\>\_data_reduction_ratio | Number | Space reduction the pool achieves, for example 3.2 for 3.2:1. |
 | \<UUID\>\_free_capacity | Bytes | Free capacity of the pool. |
-| \<UUID\>\_health_status | Number | 1: normal, 2: faulty, 5: degraded. |
-| \<UUID\>\_running_status | Number | 14: pre-copy, 16: rebuilding, 27: online, 28: offline, 32: balancing, 53: initializing, 106: deleting. |
 | \<UUID\>\_total_capacity | Bytes | Total capacity of the pool. |
 | \<UUID\>\_lun_configured_capacity | Bytes | Capacity handed out to LUNs. Routinely exceeds the capacity the pool actually has. |
 | \<UUID\>\_overprovisioning_percent | Percentage | Capacity handed out to LUNs, relative to the pool total. |

@@ -24,20 +24,25 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092204'
 
-DESCRIPTION = """Checks the health and link status of the front-end ports of a Huawei OceanStor
-Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port endpoints).
+DESCRIPTION = """Checks the health and link status of the front-end and cluster ports of a Huawei
+OceanStor Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and /bond_port
+endpoints).
 Alerts when a port reports a non-normal health status, when it negotiated a speed below the one
 it is configured or built for, and optionally when a link is down. Reports the link error
-counters the appliance keeps as per-second rates.
-Supports reporting the I/O counters via --performance."""
+counters the appliance keeps as per-second rates. Expansion, management, maintenance and
+internal ports are checked on request via --include-backend.
+Supports reporting the I/O counters via --performance.
+Supports extended reporting via --lengthy."""
 
 DEFAULT_BRIEF = False
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT_ERRORS = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
+DEFAULT_INCLUDE_BACKEND = False
 DEFAULT_INSECURE = True
+DEFAULT_LENGTHY = False
 DEFAULT_LINK_DOWN_SEVERITY = 'ok'
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
@@ -60,16 +65,44 @@ DB_FILENAMES = {
     'SAS': 'linuxfabrik-monitoring-plugins-huawei-dorado-port-sas.db',
 }
 
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
+# `LOGICTYPE` codes this check covers by default. Taken from the port enumerations of
+# the REST Interface References for 6.1.0 and V700R001C10: 0 host port/service port,
+# 5 management/service port, 6 maintenance/service port and 13 front-end container
+# port serve hosts; 5 and 6 carry host I/O next to their other role. 11 cluster port
+# links the controller enclosures of a scale-out array, and losing it matters as much
+# as losing a host link.
+DEFAULT_LOGIC_TYPES = (0, 5, 6, 11, 13)
 
 # RUNNINGSTATUS code of a port whose link is down. These endpoints use their own
 # enumeration: 0 unknown, 10 link up, 11 link down, and 33 to be recovered on
 # Ethernet ports.
 LINK_DOWN = 11
+
+# What a port's `LOGICTYPE` code means. All port endpoints share one enumeration,
+# and each documents the part of it that applies: `fc_port` only 0, `sas_port` only 1,
+# `eth_port` 0 to 6, 13 and 14, `serial_port` 0 to 6 and 11. Every code listed here
+# other than those in DEFAULT_LOGIC_TYPES is left out unless --include-backend is
+# given; a code missing from this list is checked, because a port nothing lets us
+# classify must not disappear silently.
+#
+# 11 is documented for `serial_port` only, but it is what the Ethernet ports of the
+# scale-out interconnect report. Verified against V700R001C10SPH128 on a Dorado 6000 V6
+# with two controller enclosures: the 16 ports carrying it sit in the same slot of
+# every controller (CTE*.IOM2.P0 to P3), name the same port on the other controller
+# enclosure as their peer, have no initiator and report a scale-out switching plane
+# (`zoneId`, `dswId`), which the reference says is valid only on IP scale-out ports.
+LOGIC_TYPES = {
+    0: 'Host port',
+    1: 'Expansion port',
+    2: 'Management port',
+    3: 'Internal port',
+    4: 'Maintenance port',
+    5: 'Management/service port',
+    6: 'Maintenance/service port',
+    11: 'Cluster port',
+    13: 'Front-end container port',
+    14: 'Back-end container port',
+}
 
 # Performance indicators this object supports, from the vendor's performance
 # indicator tables. Read only when --performance is given.
@@ -81,7 +114,7 @@ MATCH_FIELDS = ('UUID', 'LOCATION', 'NAME')
 # RUNNINGSTATUS code a healthy port reports: link up (10).
 OK_RUNNING_STATUS = (10,)
 
-# The four front-end port endpoints, in the order they are queried. They answer
+# The four port endpoints, in the order they are queried. They answer
 # with the same fields, so one walk covers all of them. Unlike the other list
 # endpoints they do not implement the `range` parameter, which is why they are read
 # in one request each.
@@ -218,11 +251,32 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--include-backend',
+        help='Also check the ports that neither serve hosts nor link the controller '
+        'enclosures: the expansion ports towards the disk enclosures, and the '
+        'management, maintenance and internal ports. '
+        'By default only front-end and cluster ports are checked, because the unused '
+        'expansion ports of every disk enclosure report their link as down. '
+        'Combine with `--ignore` to leave out the disk enclosures.',
+        dest='INCLUDE_BACKEND',
+        action='store_true',
+        default=DEFAULT_INCLUDE_BACKEND,
+    )
+
+    parser.add_argument(
         '--insecure',
         help=lib.args.help('--insecure'),
         dest='INSECURE',
         action='store_true',
         default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--lengthy',
+        help=lib.args.help('--lengthy'),
+        dest='LENGTHY',
+        action='store_true',
+        default=DEFAULT_LENGTHY,
     )
 
     parser.add_argument(
@@ -291,7 +345,7 @@ def parse_args():
 
     parser.add_argument(
         '--performance',
-        help='Additionally report the I/O counters of every front-end port. '
+        help='Additionally report the I/O counters of every checked port. '
         'Costs one API request per object, so a large appliance may need a '
         'higher --timeout.',
         dest='PERFORMANCE',
@@ -384,6 +438,64 @@ def parse_args():
     return args
 
 
+def get_logic_type(port):
+    """
+    Describe what a port is used for, from its `LOGICTYPE` code.
+
+    Parameters
+    ----------
+    port : dict
+        One port as the API returned it.
+
+    Returns
+    -------
+    str
+        The label from LOGIC_TYPES, `'Unknown (<code>)'` for a code the vendor documents
+        nowhere, or an empty string for a port without the field, such as a bond port.
+
+    Examples
+    --------
+    >>> get_logic_type({'LOGICTYPE': '1'})
+    'Expansion port'
+
+    >>> get_logic_type({'LOGICTYPE': '12'})
+    'Unknown (12)'
+    """
+    if port.get('LOGICTYPE') in (None, ''):
+        return ''
+    code = lib.huawei_dorado.as_code(port.get('LOGICTYPE'))
+    return LOGIC_TYPES.get(code, f'Unknown ({port.get("LOGICTYPE")})')
+
+
+def is_backend(port):
+    """
+    Tell whether a port is one this check leaves out unless --include-backend is given.
+
+    Parameters
+    ----------
+    port : dict
+        One port as the API returned it.
+
+    Returns
+    -------
+    bool
+        True for a documented `LOGICTYPE` code outside DEFAULT_LOGIC_TYPES.
+        False for a front-end or cluster port, for a code nothing documents and for a
+        port without the field: a bond port aggregates front-end ports, and a port this
+        check cannot classify is better shown than silently dropped.
+
+    Examples
+    --------
+    >>> is_backend({'LOGICTYPE': '1'})
+    True
+
+    >>> is_backend({'LOGICTYPE': '12'})
+    False
+    """
+    code = lib.huawei_dorado.as_code(port.get('LOGICTYPE'))
+    return code in LOGIC_TYPES and code not in DEFAULT_LOGIC_TYPES
+
+
 def get_speeds(port):
     """
     Read a port's operating, configured and maximum speed, all in Mbit/s.
@@ -474,7 +586,7 @@ def get_error_rates(port, label, testing):
 
 def get_ports(args):
     """
-    Read the four front-end port endpoints and return their ports as one list.
+    Read the four port endpoints and return their ports as one list.
 
     Parameters
     ----------
@@ -544,15 +656,15 @@ def main():
         ports = json.loads(stdout).get('data') or []
 
     # no valuable result?
-    # An array always has front-end ports, so an empty list is a query that never
-    # reached them rather than an inventory that is genuinely empty. Where an endpoint
+    # An array always has ports, so an empty list is a query that never reached them
+    # rather than an inventory that is genuinely empty. Where an endpoint
     # said why it refused, that is what the operator needs to read - a guess at the
     # permissions sends them looking in the wrong place.
     if not ports and failed:
-        lib.huawei_dorado.assert_ok(failed, 'the front-end ports')
+        lib.huawei_dorado.assert_ok(failed, 'the ports')
     if not ports:
         lib.base.oao(
-            f'{args.URL} reported no front-end ports.'
+            f'{args.URL} reported no ports.'
             ' Verify that the API user is allowed to query them.',
             STATE_UNKNOWN,
         )
@@ -572,7 +684,15 @@ def main():
 
     # analyze data
     table_data = []
+    backend_count = 0
     for port in ports:
+        # Expansion ports, the scale-out interconnect and the management ports do not
+        # serve hosts. The expansion ports alone outnumber the front-end ports on an
+        # array with disk enclosures, and every unused one reports its link as down.
+        if not args.INCLUDE_BACKEND and is_backend(port):
+            backend_count += 1
+            continue
+
         port['UUID'] = lib.huawei_dorado.get_uuid(port)
         # Perfdata labels carry the object's own TYPE:ID, which stays the same when
         # a port is re-cabled, unlike its location.
@@ -631,19 +751,6 @@ def main():
             )
             state = lib.base.get_worst(state, error_state)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            port.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            port.get('RUNNINGSTATUS'),
-            uom=None,
-            _min=0,
-        )
         # In Mbit/s, the unit the appliance reports both speeds in and the one
         # huawei-dorado-sfp already graphs its modules at.
         perfdata += lib.base.get_perfdata(
@@ -674,6 +781,7 @@ def main():
             lib.base.get_worst(speed_state, error_state),
         )
         port['health'] = lib.huawei_dorado.get_health_status(port.get('HEALTHSTATUS'))
+        port['logic_type'] = get_logic_type(port)
         port['link'] = lib.huawei_dorado.get_running_status(port.get('RUNNINGSTATUS'))
         # One state per row, in the last column. IcingaWeb replaces a state with an
         # icon, which shifts everything to the right of it, so a second one mid-row
@@ -695,10 +803,19 @@ def main():
 
         table_data.append(port)
 
-    # The appliance listed ports and the filter selected none of them.
+    # The appliance listed ports and the filters selected none of them.
     if not table_data:
+        if args.MATCH:
+            msg = f'No ports matched `{", ".join(args.MATCH)}`.'
+        else:
+            msg = 'Nothing checked.'
+        if backend_count:
+            msg += (
+                f' {backend_count} {lib.txt.pluralize("port", backend_count)}'
+                ' checked with `--include-backend` only.'
+            )
         lib.base.oao(
-            f'No ports matched `{", ".join(args.MATCH)}`.',
+            msg,
             lib.base.str2state(args.NO_MATCH_SEVERITY),
             always_ok=args.ALWAYS_OK,
             no_perfdata=args.NO_PERFDATA,
@@ -738,6 +855,9 @@ def main():
             'Health',
             'State',
         ]
+        if args.LENGTHY:
+            keys.insert(2, 'logic_type')
+            headers.insert(2, 'Logic')
 
         msg += lib.base.get_table(
             display_rows, keys, header=headers, missing='--', hide_empty=True

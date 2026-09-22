@@ -3,17 +3,22 @@
 
 ## Overview
 
-Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (`/lun` endpoint). Alerts when a LUN reports a non-normal state, and optionally when a thin LUN fills up. Only LUNs mapped to a host are checked by default. Reports the allocated and the configured capacity, the usage of a thin LUN and the storage pool each LUN lives in. Supports extended reporting via `--lengthy`, and reporting the I/O counters via `--performance`.
+Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (`/lun` endpoint). Alerts when a LUN reports a non-normal state or when a HyperMetro LUN is not mapped to any host, and optionally when a thin LUN fills up. Only LUNs mapped to a host and HyperMetro LUNs are checked by default. Reports the allocated and the configured capacity, the usage of a thin LUN and the storage pool each LUN lives in. Supports extended reporting via `--lengthy`, and reporting the I/O counters via `--performance`.
 
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
-* Only LUNs mapped to a host are checked. An unmapped LUN is not serving anything; add `--include-unmapped` to cover those as well, and `--unmapped-severity` to decide what they report. With `--include-unmapped` the table shows a Mapped column, so an unmapped LUN that alerts says why
-* The LUN list is read page by page, and a large array needs tens of seconds per run (82 seconds for 697 LUNs in 7 pages on a Dorado 6000 V6). `--timeout` defaults to 30 seconds, and the Icinga Director basket raises the command timeout to 180 seconds and runs the check every 15 minutes. Keep the monitoring server's own check timeout above the time a run takes
+* Only LUNs mapped to a host are checked, plus HyperMetro LUNs. An unmapped LUN is usually a leftover or a snapshot and is not serving anything; add `--include-unmapped` to cover those as well, and `--unmapped-severity` to decide what they report
+* A HyperMetro LUN that is not mapped to any host on this array is checked even without `--include-unmapped` and reports WARN by default (`--unmapped-hypermetro-severity`). Its hosts reach it only through the remote array, so losing that array or the link to it cuts them off. The appliance raises the alarm "The Local Array Has HyperMetro LUNs That Are Not Mapped To The Host" for the same condition
+* As soon as an unmapped LUN is listed, the table shows a Mapped column, so an unmapped LUN that alerts says why: `no (HyperMetro)` for the local side of a HyperMetro pair, `no` for any other
+* The LUN list is read in pages of 1000 LUNs, and a large array can need tens of seconds per run. `--timeout` defaults to 30 seconds, and the Icinga Director basket raises the command timeout to 180 seconds and runs the check every 15 minutes. Keep the monitoring server's own check timeout above the time a run takes
 * The appliance carries a capacity alarm threshold per thin LUN, together with a switch saying whether it is in use. The vendor documents it as the capacity alarm for thin LUNs mounted to Windows Server 2012 hosts (50 to 99%, 90 by default). When the switch is on, the check alerts once a thin LUN reaches it; `--device-threshold-severity` tunes what that reports
+* `--lengthy` shows the capacity alarm level the appliance reports for each thin LUN (`CAPACITYALARMLEVEL`, documented as the VASA thin LUN capacity alarm severity: Normal, Warning or Critical). It is shown for information only and never changes the state; `--warning` and `--critical` are the thresholds this check applies. On a Dorado 6000 V6 running V700R001C10SPH128 the appliance reported Warning from 80% and Critical from 90% usage
 * A thick LUN has its whole capacity allocated by definition, so it reports no usage and is never checked against the thresholds. Reading its allocation as "100% full" would alert on every thick LUN forever
 * The capacity thresholds are off by default. A thin LUN that is full is doing what it was created for; what actually runs out is the pool behind it, which `huawei-dorado-storagepool` watches
 * On an array with many LUNs, `--brief` keeps the output readable by listing only the LUNs that alert
+* The performance data summarizes the checked LUNs instead of reporting each one, which keeps it small on an array with hundreds of LUNs. Per-LUN detail is in the plugin output table, not in the performance data
+* `--performance` is the exception: it costs one extra API request per checked LUN and adds 12 metrics per LUN, so on an array with hundreds of LUNs it multiplies both the run time and the metric count
 * The API counts every capacity in 512-byte sectors. The per-LUN `SECTORSIZE` field is the block size the LUN exposes to the host and is a different thing
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
@@ -52,13 +57,15 @@ usage: huawei-dorado-lun [-h] [-V] [--always-ok] [--brief]
                          [--no-perfdata] [--no-proxy] [--password PASSWORD]
                          [--password-file PASSWORD_FILE] [--performance]
                          [--proxy PROXY] [--scope SCOPE] [--timeout TIMEOUT]
+                         [--unmapped-hypermetro-severity {ok,warn,crit,unknown}]
                          [--unmapped-severity {ok,warn,crit,unknown}] -u URL
                          --username USERNAME [-v] [-w WARN]
 
 Checks the health and running status of the LUNs of a Huawei OceanStor Dorado
 storage system via the REST API (/lun endpoint). Alerts when a LUN reports a
-non-normal state, and optionally when a thin LUN fills up. Only LUNs mapped to
-a host are checked by default. Supports extended reporting via --lengthy, and
+non-normal state or when a HyperMetro LUN is not mapped to any host, and
+optionally when a thin LUN fills up. Only LUNs mapped to a host and HyperMetro
+LUNs are checked by default. Supports extended reporting via --lengthy, and
 reporting the I/O counters via --performance.
 
 options:
@@ -100,7 +107,8 @@ options:
                         prefix with `.*` to match anywhere. Default: None
   --include-unmapped    Also check LUNs that are not mapped to any host. Those
                         are not serving anything, so they are left out by
-                        default.
+                        default. HyperMetro LUNs are always checked, see
+                        `--unmapped-hypermetro-severity`.
   --insecure            This option explicitly allows insecure SSL
                         connections.
   --lengthy             Extended reporting.
@@ -155,14 +163,23 @@ options:
                         `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
   --timeout TIMEOUT     Network timeout in seconds. Default: 30 (seconds)
+  --unmapped-hypermetro-severity {ok,warn,crit,unknown}
+                        State to report for a HyperMetro LUN that is not
+                        mapped to any host on this array. Hosts then reach the
+                        LUN only through the remote array, so losing that
+                        array or the link to it cuts them off, and the
+                        appliance raises an alarm for it as well. Such LUNs
+                        are checked even without `--include-unmapped`.
+                        Default: warn
   --unmapped-severity {ok,warn,crit,unknown}
                         State to report for a LUN that is not mapped to any
                         host. Only takes effect together with `--include-
                         unmapped`, which is what brings those LUNs into the
                         check in the first place. Worth raising on an array
                         where every LUN is meant to be in use, so a LUN that
-                        dropped out of its mapping view is noticed. Default:
-                        ok
+                        dropped out of its mapping view is noticed. Does not
+                        apply to HyperMetro LUNs, see `--unmapped-hypermetro-
+                        severity`. Default: ok
   -u, --url URL         Huawei OceanStor Dorado API URL.
   --username USERNAME   Huawei OceanStor Dorado API username.
   -v, --verbose         Makes this plugin verbose during the operation. Useful
@@ -217,6 +234,9 @@ On an array with many LUNs, list only the ones that alert, and watch how full th
 * CRIT if a LUN reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if a LUN's running status is "Offline".
 * WARN or CRIT if a thin LUN's used capacity reaches `--warning` or `--critical`. Both are off by default.
+* WARN if a HyperMetro LUN is not mapped to any host on this array. `--unmapped-hypermetro-severity` sets the state.
+* With `--include-unmapped`, any other unmapped LUN reports the state set by `--unmapped-severity` (default: OK).
+* The capacity alarm level shown with `--lengthy` is never evaluated.
 * WARN if the appliance reports more LUNs than the check reads in one run, because the list is then incomplete.
 * OK with "No mapped LUNs found." if the array has no mapped LUN, which is unusual but legitimate while an array is being set up.
 * UNKNOWN on invalid API responses or responses with error codes.
@@ -228,11 +248,13 @@ On an array with many LUNs, list only the ones that alert, and watch how full th
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_allocated_capacity | Bytes | Capacity actually allocated to the LUN. |
-| \<UUID\>\_capacity | Bytes | Configured capacity of the LUN. |
-| \<UUID\>\_health_status | Number | 1: normal, 2: faulty, 15: write protected. |
-| \<UUID\>\_running_status | Number | 27: online, 28: offline, 53: initializing, 106: deleting. |
-| \<UUID\>\_usage_percent | Percentage | Used capacity of a thin LUN. Not reported for a thick LUN. |
+| allocated_capacity | Bytes | Sum of the capacity actually allocated to the checked LUNs. |
+| capacity | Bytes | Sum of the configured capacity of the checked LUNs. |
+| luns | Number | Number of LUNs checked, after `--include-unmapped`, `--match` and `--ignore`. |
+| luns_not_ok | Number | Number of checked LUNs in a WARN or CRIT state. |
+| usage_percent_max | Percentage | Highest used capacity of a checked thin LUN, with the `--warning` and `--critical` thresholds. Not reported if no thin LUN is checked. |
+
+With `--performance`, every checked LUN additionally reports its I/O counters as \<UUID\>\_\<counter\>: `avg_io_response_time`, `avg_read_io_response_time`, `avg_read_io_size`, `avg_write_io_response_time`, `avg_write_io_size`, `block_bandwidth`, `queue_length`, `read_bandwidth`, `read_iops`, `total_iops`, `write_bandwidth` and `write_iops`.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 
@@ -244,6 +266,14 @@ Have a look at the [API documentation](https://support.huawei.com/enterprise/en/
 `Got no valuable response from https://...`
 
 Check the `--url`, `--device-id`, `--username` and `--password` parameters. Verify that the API user has query permissions and that the storage system REST API is reachable.
+
+### HyperMetro LUN not mapped to any host
+
+The check reports `no (HyperMetro) [WARNING]` in the Mapped column.
+
+1. Find the LUN in DeviceManager. It is one side of a HyperMetro pair, and the appliance shows the alarm "The Local Array Has HyperMetro LUNs That Are Not Mapped To The Host" for it.
+2. Map it to the same hosts on this array as on the remote one. A LUN can be in a LUN group and still be unmapped, when that LUN group is not part of a mapping view. Until it is mapped, those hosts depend on the remote array alone.
+3. If the LUN is deliberately left unmapped on this array, exclude it with `--ignore`, or set `--unmapped-hypermetro-severity=ok` for the whole array.
 
 ### `This operation fails to be performed because of the unauthorized REST.`
 

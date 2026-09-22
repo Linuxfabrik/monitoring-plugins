@@ -67,15 +67,32 @@ TESTS = [
             'Everything is ok.',
             'UUID       ! Location    ! Health     ! Running     ! State',
             '23:23.72.0 ! DAE040.PSU0 ! Normal (1) ! Online (27) ! [OK]',
-            "'23_23_72_0_health_status'=1;;;0;18",
         ],
+        # With no reading and no status code in the performance data, nothing is
+        # left to report there, and no stray pipe may follow the table.
         'assert-not-in': [
             '! 0.0 ',
             'In (V)',
             'Out (V)',
             '_input_voltage=',
             '_output_voltage=',
+            '|',
         ],
+    },
+    {
+        # The performance data carries the voltages and the temperature with its
+        # thresholds, never a status code: the state already reports those.
+        'id': 'ok-power-supply-perfdata-without-status-codes',
+        'test': 'stdout/power-supply-with-readings,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin '
+        '--warning-temperature=40',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'23_23_0_0_input_voltage'=230.0;;;0 ",
+            "'23_23_0_0_output_voltage'=12.2;;;0 ",
+            "'23_23_0_0_temperature'=31;40;;0",
+        ],
+        'assert-not-in': ['_health_status', '_running_status'],
     },
     {
         # A power supply whose feed is dead answers with health 11 (no input). That is

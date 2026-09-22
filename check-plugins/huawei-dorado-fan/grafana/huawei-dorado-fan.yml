@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: Run Level
+  - title: Fans
     type: timeseries
     gridPos:
       h: 8
@@ -66,12 +66,12 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 0
-        unit: short
+        min: 0
+        unit: none
     options:
       legend:
         calcs:
         - min
-        - mean
         - max
         - last
         displayMode: table
@@ -83,15 +83,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
-      refId: run_level
+    - alias: fans
+      refId: fans
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -113,54 +110,15 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_run_level$/
+        operator: '='
+        value: fans
 
-  - title: Status Codes
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 12
-      y: 0
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        unit: short
-    options:
-      legend:
-        calcs:
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: $tag_metric
-      refId: status
+    - alias: fans_not_ok
+      refId: fans_not_ok
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -182,5 +140,5 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_health_status$|_running_status$/
+        operator: '='
+        value: fans_not_ok

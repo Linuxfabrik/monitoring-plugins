@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 TESTS = [
     {
@@ -28,11 +28,12 @@ TESTS = [
         'assert-in': [
             'Everything is ok.',
             '208:64.0 ! DAE020.A ! Smart NVMe ! Normal (1) ! Running (2) ! [OK] ',
-            # Last row of the table: the trailing padding is stripped, because
-            # the performance data is appended right behind it.
+            # Last row of the table: the trailing padding is stripped.
             '208:64.1 ! DAE020.B ! Smart NVMe ! Normal (1) ! Running (2) ! [OK]',
-            "'208_64_0_health_status'=1;;;0;18 '208_64_0_running_status'=2;;;0",
         ],
+        # Status codes are all a board has, and the state already carries them, so
+        # there is no performance data and no pipe that would introduce it.
+        'assert-not-in': ['_health_status', '_running_status', '|'],
     },
     {
         'id': 'crit-expboard-faulty',
@@ -43,6 +44,19 @@ TESTS = [
             'There are critical errors.',
             '208:64.0 ! DAE020.A ! Smart NVMe ! Normal (1) ! Running (2)  ! [OK]      ',
             '208:64.1 ! DAE020.B ! Smart NVMe ! Faulty (2) ! Offline (28) ! [CRITICAL]',
+        ],
+    },
+    {
+        # A board that stays in power-on is not serving its enclosure. Real records
+        # (V700R001C10SPH128, Dorado 6000 V6), the second one set to powering on (12).
+        'id': 'warn-expboard-powering-on',
+        'test': 'stdout/expboards-one-powering-on,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            '208:64.1 ! DAE020.B ! Smart NVMe ! Normal (1) ! Powering on (12) '
+            '! [WARNING]',
         ],
     },
     {

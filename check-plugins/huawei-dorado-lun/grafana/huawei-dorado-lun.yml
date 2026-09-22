@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: Usage
+  - title: LUNs
     type: timeseries
     gridPos:
       h: 8
@@ -66,12 +66,12 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 0
-        unit: percent
+        min: 0
+        unit: none
     options:
       legend:
         calcs:
         - min
-        - mean
         - max
         - last
         displayMode: table
@@ -83,15 +83,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
-      refId: usage
+    - alias: luns
+      refId: luns
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -113,8 +110,38 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_usage_percent$/
+        operator: '='
+        value: luns
+
+    - alias: luns_not_ok
+      refId: luns_not_ok
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: luns_not_ok
 
   - title: Capacity
     type: timeseries
@@ -152,15 +179,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
+    - alias: capacity
       refId: capacity
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -182,10 +206,40 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_capacity$/
+        operator: '='
+        value: capacity
 
-  - title: Status Codes
+    - alias: allocated_capacity
+      refId: allocated_capacity
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: allocated_capacity
+
+  - title: Usage
     type: timeseries
     gridPos:
       h: 8
@@ -204,7 +258,9 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 0
-        unit: short
+        max: 100
+        min: 0
+        unit: percent
     options:
       legend:
         calcs:
@@ -221,15 +277,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
-      refId: status
+    - alias: usage_percent_max
+      refId: usage_percent_max
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -251,8 +304,8 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_health_status$|_running_status$/
+        operator: '='
+        value: usage_percent_max
 
   - title: IOPS
     type: timeseries

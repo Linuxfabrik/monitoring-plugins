@@ -75,14 +75,52 @@ TESTS = [
         'assert-not-in': ['Unknown column'],
     },
     {
-        # Real controllers (V700R001C10SPH128, Dorado 6000 V6) at 75 to 83% memory.
-        # The usage threshold that fired has to show up on the value that crossed it
-        # and in the row's State, not only in the overall state above a table of
-        # [OK] rows.
+        # Real controllers (V700R001C10SPH128, Dorado 6000 V6) at 75 to 83% memory,
+        # which is normal operation for them. The memory thresholds are off by
+        # default, so this reads as healthy.
+        'id': 'ok-controller-memory-usage-defaults',
+        'test': 'stdout/controllers-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            '207:0B ! CTE0.B   ! -      ! 40      ! 83      ! Normal (1) '
+            '! Online (27) ! [OK]',
+        ],
+    },
+    {
+        # `--warning` and `--critical` cover the CPU usage only. At 32 to 40% CPU
+        # none of these boards crosses them, and the memory at 75 to 83% is no
+        # longer compared against them.
+        'id': 'ok-controller-cpu-thresholds-leave-memory-alone',
+        'test': 'stdout/controllers-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --warning=70 --critical=80',
+        'assert-retc': STATE_OK,
+        'assert-regex': r"207_0B_memory_usage'=83%;;;0;100 ",
+    },
+    {
+        'id': 'warn-controller-cpu-usage-marks-row',
+        'test': 'stdout/controllers-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --warning=38',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '207:0A ! CTE0.A   ! x      ! 36           ! 78      ! Normal (1) '
+            '! Online (27) ! [OK]',
+            '207:0B ! CTE0.B   ! -      ! 40 [WARNING] ! 83      ! Normal (1) '
+            '! Online (27) ! [WARNING]',
+        ],
+    },
+    {
+        # The memory threshold that fired has to show up on the value that crossed
+        # it and in the row's State, not only in the overall state above a table of
+        # [OK] rows. The performance data carries the memory thresholds.
         'id': 'warn-controller-memory-usage-marks-row',
         'test': 'stdout/controllers-v700,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
-        '--username=admin --warning=80 --critical=90',
+        '--username=admin --warning-mem=80 --critical-mem=90',
         'assert-retc': STATE_WARN,
         'assert-in': [
             'There are warnings.',
@@ -91,12 +129,13 @@ TESTS = [
             '207:0B ! CTE0.B   ! -      ! 40      ! 83 [WARNING] ! Normal (1) '
             '! Online (27) ! [WARNING]',
         ],
+        'assert-regex': r"207_0B_memory_usage'=83%;80;90;0;100 ",
     },
     {
         'id': 'crit-controller-memory-usage-marks-row',
         'test': 'stdout/controllers-v700,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
-        '--username=admin --critical=80 --lengthy',
+        '--username=admin --critical-mem=80 --lengthy',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'There are critical errors.',
@@ -117,6 +156,27 @@ TESTS = [
             '! Normal (1) ! Online (27) ! [OK]',
             '207:1B ! CTE1.B   ! -      ! 36      ! 80      ! 48 [WARNING] '
             '! Normal (1) ! Online (27) ! [WARNING]',
+        ],
+    },
+    {
+        # The performance data carries what can be trended and alerted on per board,
+        # never a status code: the state already reports those.
+        'id': 'ok-controller-perfdata-without-status-codes',
+        'test': 'stdout/controllers-v700-one-temperature-sensor,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'207_1B_cpu_usage'=36%;;;0;100 ",
+            "'207_1B_memory_usage'=80%;;;0;100 ",
+            "'207_1B_temperature'=48;;;0 ",
+            "'207_1B_voltage'=12.0;;;0",
+        ],
+        'assert-not-in': [
+            '_dirty_data_rate',
+            '_health_status',
+            '_light_status',
+            '_running_status',
         ],
     },
     {

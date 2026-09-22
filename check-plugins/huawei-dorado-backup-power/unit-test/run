@@ -79,6 +79,19 @@ TESTS = [
         ],
     },
     {
+        # The performance data carries the remaining life and the voltage, never a
+        # status code: the state already reports those.
+        'id': 'crit-bbu-perfdata-without-status-codes',
+        'test': 'stdout/bbu-remaining-life-low,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            "'210_0_0A_0_remaining_life'=8640000s;;;0 ",
+            "'210_0_0A_0_voltage'=15.9;;;0 ",
+        ],
+        'assert-not-in': ['_health_status', '_running_status'],
+    },
+    {
         # A voltage threshold that fired decides the row's State as well.
         'id': 'warn-bbu-voltage-marks-row',
         'test': 'stdout/bbu-remaining-life-low,,0',

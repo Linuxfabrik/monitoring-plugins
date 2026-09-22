@@ -28,8 +28,13 @@ TESTS = [
         'assert-in': [
             'Everything is ok. Checked 2 LUNs.',
             '11:0 ! LUN001 ! StoragePool001 ! 30.0GiB   ! 100.0GiB ! 30%   ! Normal (1) ! Online (27) ! [OK]',
+            # Two LUNs of 100 GiB, 30 GiB and 10 GiB of it allocated.
+            "'luns'=2;;;0 'luns_not_ok'=0;;;0 'capacity'=214748364800B;;;0 "
+            "'allocated_capacity'=42949672960B;;;0;214748364800 "
+            "'usage_percent_max'=30.0%;;;0;100",
         ],
-        'assert-not-in': ['LUN003-unmapped'],
+        # The performance data summarizes the LUNs, nothing is reported per LUN.
+        'assert-not-in': ['LUN003-unmapped', "'11_"],
     },
     {
         # A LUN over the operator's own threshold has to be marked in the row that
@@ -40,7 +45,13 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
         ' --warning=1 --critical=99',
         'assert-retc': STATE_WARN,
-        'assert-in': ['30% [WARNING]', '10% [WARNING]'],
+        'assert-in': [
+            '30% [WARNING]',
+            '10% [WARNING]',
+            # The thresholds that judge each LUN travel with the highest usage.
+            "'luns_not_ok'=2;;;0",
+            "'usage_percent_max'=30.0%;1;99;0;100",
+        ],
     },
     {
         'id': 'ok-include-unmapped',
@@ -55,7 +66,11 @@ TESTS = [
         'test': 'stdout/luns-one-faulty,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['There are critical errors. Checked 2 LUNs.', '[CRITICAL]'],
+        'assert-in': [
+            'There are critical errors. Checked 2 LUNs.',
+            '[CRITICAL]',
+            "'luns'=2;;;0 'luns_not_ok'=1;;;0",
+        ],
     },
     {
         # A thick LUN has its whole capacity allocated by definition, so reading
@@ -65,7 +80,13 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
         ' --warning=80 --critical=90',
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok. Checked 1 LUN.', '! n/a   !'],
+        'assert-in': [
+            'Everything is ok. Checked 1 LUN.',
+            '! n/a   !',
+            "'allocated_capacity'=107374182400B;;;0;107374182400",
+        ],
+        # Without a thin LUN there is no usage to report.
+        'assert-not-in': ['usage_percent'],
     },
     {
         # The thresholds are off by default, so a full thin LUN only alerts once
@@ -136,13 +157,98 @@ TESTS = [
     {
         # Without --include-unmapped the unmapped LUN is not checked, and a Mapped
         # column reading "yes" on every row would be noise.
-        'id': 'ok-mapped-column-only-with-include-unmapped',
+        'id': 'ok-mapped-column-only-with-unmapped-rows',
         'test': 'stdout/luns-v700-one-unmapped,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin'
         ' --unmapped-severity=warn',
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok. Checked 2 LUNs.'],
         'assert-not-in': ['Mapped', 'lun-03'],
+    },
+    {
+        # Real LUNs (V700R001C10SPH128, Dorado 6000 V6): lun-05 is the unmapped local
+        # side of a HyperMetro pair, which the appliance itself alarms on. It is checked
+        # without --include-unmapped and warns by default, while the unmapped leftover
+        # (lun-07) and the unmapped snapshot (lun-04) stay out. lun-02 is a record the
+        # appliance sends without CAPABILITY, OWNINGCONTROLLER and several other fields.
+        # The performance data summarizes the five checked LUNs: no status codes and
+        # nothing per LUN. The highest usage is lun-06 (92%), which is mapped.
+        'id': 'warn-unmapped-hypermetro-lun-by-default',
+        'test': 'stdout/luns-v700-hypermetro-snapshot-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings. Checked 5 LUNs. 1 HyperMetro LUN is not mapped to any '
+            'host on this array.',
+            '11:57   ! lun-02 ! StoragePool001 ! yes                       ! 3.5TiB    '
+            '! 16.0TiB  ! 21%   ! Normal (1) ! Online (27) ! [OK]',
+            '11:915  ! lun-05 ! StoragePool001 ! no (HyperMetro) [WARNING] ! 1.8TiB    '
+            '! 2.0TiB   ! 91%   ! Normal (1) ! Online (27) ! [WARNING]',
+            "'luns'=5;;;0 'luns_not_ok'=1;;;0 'capacity'=24758338977792B;;;0 "
+            "'allocated_capacity'=10168055988224B;;;0;24758338977792 "
+            "'usage_percent_max'=92.0%;;;0;100",
+        ],
+        'assert-not-in': [
+            'lun-04',
+            'lun-07',
+            'Capacity Alarm',
+            "'11_",
+            '_health_status',
+            '_running_status',
+        ],
+    },
+    {
+        'id': 'crit-unmapped-hypermetro-severity',
+        'test': 'stdout/luns-v700-hypermetro-snapshot-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --unmapped-hypermetro-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['no (HyperMetro) [CRITICAL]'],
+    },
+    {
+        # Muted, the unmapped HyperMetro LUN is still listed, and the Mapped column
+        # still says why it differs from the others.
+        'id': 'ok-unmapped-hypermetro-severity-ok',
+        'test': 'stdout/luns-v700-hypermetro-snapshot-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --unmapped-hypermetro-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Checked 5 LUNs.\n', '! no (HyperMetro) !'],
+        'assert-not-in': ['is not mapped to any host'],
+    },
+    {
+        # --unmapped-severity covers the leftover and the snapshot, not the HyperMetro
+        # LUN, which has a knob of its own.
+        'id': 'warn-unmapped-severity-leaves-hypermetro-alone',
+        'test': 'stdout/luns-v700-hypermetro-snapshot-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --include-unmapped --unmapped-severity=warn'
+        ' --unmapped-hypermetro-severity=ok',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings. Checked 7 LUNs.\n',
+            '11:347  ! lun-04 ! StoragePool001 ! no [WARNING]    ! 0.0B      ',
+            '11:915  ! lun-05 ! StoragePool001 ! no (HyperMetro) ! 1.8TiB    ',
+            '11:1391 ! lun-07 ! StoragePool001 ! no [WARNING]    ! 0.0B      ',
+        ],
+    },
+    {
+        # The appliance's own VASA capacity alarm level is shown with --lengthy, but it
+        # is not evaluated: lun-03 reports Warning (3) and lun-06 Critical (6), and the
+        # check stays OK. lun-02 lacks several fields and must still render.
+        'id': 'ok-capacity-alarm-level-shown-not-evaluated',
+        'test': 'stdout/luns-v700-hypermetro-snapshot-unmapped,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin'
+        ' --lengthy --unmapped-hypermetro-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '! Usage ! Capacity Alarm !',
+            '11:57   ! lun-02 ! StoragePool001 ! thin ! yes             ! 3.5TiB    '
+            '! 16.0TiB  ! 21%   ! Normal (2)     !',
+            '! 84%   ! Warning (3)    !',
+            '! 92%   ! Critical (6)   !',
+        ],
+        'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
 ]
 

@@ -238,8 +238,6 @@ Alert on a module that lost its link, and look at one vendor's modules only:
 
 | Name | Type | Description |
 |----|----|----|
-| \<Location\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty, 9: inconsistent. |
-| \<Location\>\_running_status | Number | 0: unknown, 10: link up, 11: link down. |
 | \<Location\>\_rx_power | Number | Receive power of the first lane that reports one, in dBm. Warn and crit carry the range the reading is judged against. |
 | \<Location\>\_speed | Number | Working speed in Mbit/s. |
 | \<Location\>\_tx_power | Number | Transmit power of the first lane that reports one, in dBm. Warn and crit carry the range the reading is judged against. |

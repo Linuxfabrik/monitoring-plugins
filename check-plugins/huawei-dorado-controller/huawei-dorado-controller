@@ -23,17 +23,18 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092203'
 
 DESCRIPTION = """Checks the health and running status of all controllers on a Huawei OceanStor Dorado
 storage system via the REST API (/controller endpoint). Alerts when any controller
-reports a non-normal health or running state, and optionally when its CPU, memory or
-temperature exceeds the configured thresholds.
+reports a non-normal health or running state, and optionally when its CPU usage,
+memory usage or temperature exceeds the configured thresholds.
 Supports extended reporting via --lengthy, and reporting the I/O and cache counters
 via --performance."""
 
 DEFAULT_CACHE_EXPIRE = 15  # minutes; default session timeout period is 20 minutes
 DEFAULT_CRIT = ''
+DEFAULT_CRIT_MEM = ''
 DEFAULT_CRIT_TEMPERATURE = ''
 DEFAULT_DEVICE_ID = ''  # the appliance reports its own at login
 DEFAULT_INSECURE = True
@@ -42,13 +43,8 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = ''
+DEFAULT_WARN_MEM = ''
 DEFAULT_WARN_TEMPERATURE = ''
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
 
 # Performance indicators this object supports, from the vendor's performance
 # indicator tables. Read only when --performance is given.
@@ -121,11 +117,22 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help='CRIT threshold for CPU and memory usage, as a Nagios range in percent. '
+        help='CRIT threshold for CPU usage, as a Nagios range in percent. '
         'Off by default, because a controller under load is doing its job; set it once '
         'you know what your array normally sits at. Example: `--critical=90`',
         dest='CRIT',
         default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--critical-mem',
+        help='CRIT threshold for memory usage, as a Nagios range in percent. '
+        'Off by default, because a controller keeps its memory well filled in normal '
+        "operation; the vendor's own example of a healthy controller reports 96%%. "
+        'Set it once you know what your array normally sits at. '
+        'Example: `--critical-mem=99`',
+        dest='CRIT_MEM',
+        default=DEFAULT_CRIT_MEM,
     )
 
     parser.add_argument(
@@ -298,11 +305,22 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help='WARN threshold for CPU and memory usage, as a Nagios range in percent. '
+        help='WARN threshold for CPU usage, as a Nagios range in percent. '
         'Off by default, because a controller under load is doing its job; set it once '
         'you know what your array normally sits at. Example: `--warning=80`',
         dest='WARN',
         default=DEFAULT_WARN,
+    )
+
+    parser.add_argument(
+        '--warning-mem',
+        help='WARN threshold for memory usage, as a Nagios range in percent. '
+        'Off by default, because a controller keeps its memory well filled in normal '
+        "operation; the vendor's own example of a healthy controller reports 96%%. "
+        'Set it once you know what your array normally sits at. '
+        'Example: `--warning-mem=97`',
+        dest='WARN_MEM',
+        default=DEFAULT_WARN_MEM,
     )
 
     parser.add_argument(
@@ -419,24 +437,33 @@ def main():
         voltage = lib.huawei_dorado.as_code(controller.get('VOLTAGE'))
         controller['VOLTAGE'] = None if voltage is None else round(voltage / 10, 1)
 
-        # All three thresholds are off unless the operator sets them. A controller under
-        # load is doing its job, and what counts as hot depends on the model and on where
-        # the array stands, so there is no default that would be right everywhere.
-        usage_states = {'CPUUSAGE': STATE_OK, 'MEMORYUSAGE': STATE_OK}
-        if args.WARN or args.CRIT:
-            for field in usage_states:
-                usage = lib.huawei_dorado.as_code(controller.get(field))
-                if usage is None:
-                    # A firmware that does not report this reading has nothing to
-                    # compare, and comparing the missing value would alert on it.
-                    continue
-                usage_states[field] = lib.base.get_state(
-                    usage,
-                    args.WARN or None,
-                    args.CRIT or None,
-                    _operator='range',
-                )
-                state = lib.base.get_worst(state, usage_states[field])
+        # All thresholds are off unless the operator sets them. A controller under load
+        # is doing its job, its memory sits well filled in normal operation (75 to 83%
+        # on a Dorado 6000 V6, V700R001C10SPH128, and 89 and 96% in the vendor's own
+        # example of a healthy controller), and what counts as hot depends on the model
+        # and on where the array stands, so there is no default that would be right
+        # everywhere. CPU and memory have their own pair, because a threshold that
+        # suits the one alerts on the other.
+        usage_thresholds = {
+            'CPUUSAGE': (args.WARN, args.CRIT),
+            'MEMORYUSAGE': (args.WARN_MEM, args.CRIT_MEM),
+        }
+        usage_states = dict.fromkeys(usage_thresholds, STATE_OK)
+        for field, (warn, crit) in usage_thresholds.items():
+            if not warn and not crit:
+                continue
+            usage = lib.huawei_dorado.as_code(controller.get(field))
+            if usage is None:
+                # A firmware that does not report this reading has nothing to
+                # compare, and comparing the missing value would alert on it.
+                continue
+            usage_states[field] = lib.base.get_state(
+                usage,
+                warn or None,
+                crit or None,
+                _operator='range',
+            )
+            state = lib.base.get_worst(state, usage_states[field])
         temperature_state = STATE_OK
         if controller['TEMPERATURE'] and (
             args.WARN_TEMPERATURE or args.CRIT_TEMPERATURE
@@ -449,18 +476,9 @@ def main():
             )
             state = lib.base.get_worst(state, temperature_state)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            controller.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            controller.get('RUNNINGSTATUS'),
-            _min=0,
-        )
+        # Status codes (health, running, location indicator) stay out of the
+        # performance data. The state already carries them, and nobody reads a code
+        # as a curve.
         perfdata += lib.base.get_perfdata(
             f'{label}_cpu_usage',
             controller.get('CPUUSAGE'),
@@ -471,29 +489,11 @@ def main():
             _max=100,
         )
         perfdata += lib.base.get_perfdata(
-            f'{label}_dirty_data_rate',
-            controller.get('DIRTYDATARATE'),
-            uom='%',
-            _min=0,
-            _max=100,
-        )
-        # The bare code, not a label. The vendor documents this field both ways round in
-        # the same document (the batch query as `1: off, 2: on`, the single-object query
-        # as `1: on, 2: off`), and appliances additionally send a 0 that neither table
-        # lists, so a readable state cannot be derived from it. See
-        # `lib.huawei_dorado.get_led_status()`, which covers the other spelling.
-        perfdata += lib.base.get_perfdata(
-            f'{label}_light_status',
-            controller.get('LIGHT_STATUS'),
-            _min=0,
-            _max=2,
-        )
-        perfdata += lib.base.get_perfdata(
             f'{label}_memory_usage',
             controller.get('MEMORYUSAGE'),
             uom='%',
-            warn=args.WARN or None,
-            crit=args.CRIT or None,
+            warn=args.WARN_MEM or None,
+            crit=args.CRIT_MEM or None,
             _min=0,
             _max=100,
         )

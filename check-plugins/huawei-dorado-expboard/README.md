@@ -156,7 +156,7 @@ UUID     ! Location ! Model      ! Health     ! Running     ! State
 * OK if all expansion boards report normal health and running status.
 * OK with "No expansion boards found." if the array has no expansion enclosure.
 * WARN if any board reports a degraded health status, or one this check does not know.
-* WARN if any board's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
+* WARN if any board's running status is not "Normal", "Running" or "Online", unless it reports an outright failure. This includes "Powering on", so a board that is stuck powering on is noticed.
 * CRIT if any board reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any board's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * `--match` limits the check to the boards whose identifier or location matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
@@ -166,10 +166,7 @@ UUID     ! Location ! Model      ! Health     ! Running     ! State
 
 ## Perfdata / Metrics
 
-| Name | Type | Description |
-|----|----|----|
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 12: powering on, 13: powered off, 27: online. |
+There is no perfdata. All this check has per board are status codes, which the state already carries and which do not read as a curve.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

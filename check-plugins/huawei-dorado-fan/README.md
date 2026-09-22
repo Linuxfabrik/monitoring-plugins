@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and running status of all fans on a Huawei OceanStor Dorado storage system via the REST API (`/fan` endpoint). Alerts when any fan reports a non-normal health or running state. Reports the run level (low, normal, high) per fan.
+Checks the health and running status of all fans on a Huawei OceanStor Dorado storage system via the REST API (`/fan` endpoint). Alerts when any fan reports a non-normal health or running state. Reports the run level (low, normal, high) per fan in the output table, and summarizes the fans in the performance data.
 
 **Important Notes:**
 
@@ -166,9 +166,10 @@ UUID            ! Location      ! Runlevel   ! Health     ! Running     ! State
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_run_level | Number | 0: low, 1: normal, 2: high. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 3: not running, 8: spin down, 27: online, 28: offline. |
+| fans | Number | Number of fans checked, after `--match` and `--ignore`. |
+| fans_not_ok | Number | Number of checked fans whose state is not OK. |
+
+The performance data summarizes the fans, because an array can hold over a hundred of them. The per-fan detail is in the plugin output table, not in the performance data.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

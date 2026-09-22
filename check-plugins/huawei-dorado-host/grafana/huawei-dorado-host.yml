@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: Allocated Capacity
+  - title: Hosts
     type: timeseries
     gridPos:
       h: 8
@@ -65,82 +65,13 @@ spec:
           pointSize: 3
           showPoints: always
           spanNulls: false
-        decimals: 1
-        unit: bytes
-    options:
-      legend:
-        calcs:
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: $tag_metric
-      refId: allocated
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - metric
-        type: tag
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '=~'
-        value: /_allocated_capacity$/
-
-  - title: Status Codes
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 12
-      y: 0
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
         decimals: 0
-        unit: short
+        min: 0
+        unit: none
     options:
       legend:
         calcs:
         - min
-        - mean
         - max
         - last
         displayMode: table
@@ -152,15 +83,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
-      refId: status
+    - alias: hosts
+      refId: hosts
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -182,5 +110,35 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_health_status$|_running_status$/
+        operator: '='
+        value: hosts
+
+    - alias: hosts_not_ok
+      refId: hosts_not_ok
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: hosts_not_ok

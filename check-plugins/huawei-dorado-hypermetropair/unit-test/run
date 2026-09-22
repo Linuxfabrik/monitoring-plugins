@@ -62,8 +62,35 @@ TESTS = [
             'Health',
             'Running',
             'Connected (1)',
+            "'pairs'=22;;;0 'pairs_not_ok'=0;;;0 'sync_progress_min'=100%;;;0;100",
         ],
-        'assert-not-in': ['Duration', 'Local Data', 'Remote Data'],
+        # The performance data summarizes the pairs. Status codes are judged, not
+        # graphed, and nothing is reported per pair: on an array with hundreds of
+        # pairs that multiplied the metric count.
+        'assert-not-in': [
+            'Duration',
+            'Local Data',
+            'Remote Data',
+            '15361_',
+            '_data_state',
+            '_health_status',
+            '_host_access_state',
+            '_link_status',
+            '_running_status',
+            '_sync_progress',
+        ],
+    },
+    {
+        # The pair that lags furthest behind decides `sync_progress_min`. A pair that
+        # is still synchronizing is doing what it should, so the check stays OK.
+        'id': 'ok-one-pair-synchronizing',
+        'test': 'stdout/pairs-one-synchronizing,,0',
+        'params': '--password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Synchronizing (23)',
+            "'pairs'=2;;;0 'pairs_not_ok'=0;;;0 'sync_progress_min'=42%;;;0;100",
+        ],
     },
     {
         # A link the appliance reports as disconnected is a pair that no longer
@@ -77,6 +104,7 @@ TESTS = [
             'There are warnings.',
             'Disconnected (2)',
             '[WARNING]',
+            "'pairs'=1;;;0 'pairs_not_ok'=1;;;0 'sync_progress_min'=100%;;;0;100",
         ],
     },
     {
@@ -109,7 +137,8 @@ TESTS = [
         'test': 'stdout/pair-never-synchronized-minus-one,,0',
         'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
         'assert-retc': STATE_OK,
-        'assert-in': ['never'],
+        # `-1` is no progress, so there is no lowest one to report either.
+        'assert-in': ['never', "'pairs'=1;;;0 'pairs_not_ok'=0;;;0"],
         'assert-not-in': ['1970-01-01', 'sync_progress'],
     },
     {
@@ -124,9 +153,8 @@ TESTS = [
     {
         # A file system pair (HCRESOURCETYPE 2) next to a block pair. The file system
         # pair answers with 255 for both host access states, which is not an access
-        # state but "does not apply". It must neither read as "Unknown" nor be graphed
-        # above the metric's maximum of 3. Verified against V700R001C10SPH128 on a
-        # Dorado 6000 V6.
+        # state but "does not apply". It must not read as "Unknown". Verified against
+        # V700R001C10SPH128 on a Dorado 6000 V6.
         'id': 'ok-file-system-pair-without-access-state',
         'test': 'stdout/pairs-block-and-file-system,,0',
         'params': '--password=linuxfabrik --url=https://localhost --username=admin '
@@ -136,15 +164,8 @@ TESTS = [
             'Everything is ok.',
             '! LUN01    ! Read/write ! LUN01     ! Read/write !',
             '! FS01     ! --         ! FS01      ! --         !',
-            "'15361_2100f4b78d046ec60000000000000000_local_host_access_state'=3;;;0;3",
-            "'15361_2100f4b78d046ec60000000000000000_remote_host_access_state'=3;;;0;3",
-            "'15361_2100f4b78d046ec600000000000001a8_local_data_state'=1;;;0;2",
         ],
-        'assert-not-in': [
-            'Unknown',
-            '15361_2100f4b78d046ec600000000000001a8_local_host_access_state',
-            '15361_2100f4b78d046ec600000000000001a8_remote_host_access_state',
-        ],
+        'assert-not-in': ['Unknown'],
     },
     {
         'id': 'ok-no-pairs-configured',

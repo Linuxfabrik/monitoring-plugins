@@ -164,9 +164,7 @@ UUID                   ! Name                      ! QuorumSrv ! QuorumType    !
 
 ## Perfdata / Metrics
 
-| Name | Type | Description |
-|----|----|----|
-| \<UUID\>\_running_status | Number | 1: normal, 33: to be recovered, 35: invalid. A HyperMetro domain does not share the running status enumeration the other objects on the same appliance use. |
+This check emits no performance data. The running status of each HyperMetro domain is shown in the table and drives the state of the check.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

@@ -32,6 +32,22 @@ TESTS = [
             '10:134234112 ! DAE000.0 ! HUAWEI       ! HSSD-D7294DL7T6E '
             '! 12345678             ! in use ! 67    ! 0         ! 4M 2W   '
             '! 10Y 1W ! 36   ! Normal (1) ! Online (27) ! [OK]',
+            "'disks'=3;;;0 'disks_not_ok'=0;;;0 'temperature_max'=37;;;0 "
+            "'remaining_life_min'=316224000s;15552000:;2592000:;0 "
+            "'capacity_usage_max'=95%;;;0;100",
+        ],
+        # The performance data summarizes the disks instead of graphing each one. The
+        # wear level is not reported at all, because its scale is unresolved.
+        'assert-not-in': [
+            "'10_",
+            'abrasion_rate',
+            '_health_mark',
+            '_health_status',
+            '_progress',
+            '_running_status',
+            "_capacity_usage'",
+            "_remaining_life'",
+            "_temperature'",
         ],
     },
     {
@@ -76,7 +92,11 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
         ' --unused-disk-severity=warn',
         'assert-retc': STATE_WARN,
-        'assert-in': ['There are warnings.', 'free [WARNING]'],
+        'assert-in': [
+            'There are warnings.',
+            'free [WARNING]',
+            "'disks'=3;;;0 'disks_not_ok'=1;;;0",
+        ],
     },
     {
         # An appliance always has disks. An empty list means the query
@@ -94,11 +114,15 @@ TESTS = [
         'test': 'stdout/disks-worn,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['There are critical errors.'],
+        'assert-in': [
+            'There are critical errors.',
+            "'disks'=3;;;0 'disks_not_ok'=1;;;0",
+            "'remaining_life_min'=1728000s;15552000:;2592000:;0",
+        ],
     },
     {
         # A disk that does not report its remaining life answers with -1. It gets a
-        # dash and stays out of the check and out of the performance data.
+        # dash and stays out of the check and out of `remaining_life_min`.
         'id': 'ok-disk-without-remaining-life',
         'test': 'stdout/disks-healthy,,0',
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
@@ -106,8 +130,8 @@ TESTS = [
         'assert-in': [
             '10:0         ! CTE0.0   ! free   ! 0     ! --     ! 37   ! Normal (1) '
             '! Online (27) ! [OK]',
+            "'remaining_life_min'=316224000s;15552000:;2592000:;0",
         ],
-        'assert-not-in': ['10_0_remaining_life'],
     },
     {
         # Real NVMe disks (V700R001C10SPH128, Dorado 6000 V6, DISKTYPE 14), which all
@@ -129,7 +153,11 @@ TESTS = [
             '! Normal (1) ! Online (27) ! [CRITICAL]',
             '10:134217730 ! CTE0.2   ! in use ! 172   ! 0D [CRITICAL]    ! 34   '
             '! Normal (1) ! Online (27) ! [CRITICAL]',
-            "'10_134217730_remaining_life'=0s;;;0",
+            # The shortest remaining life, with the thresholds in days carried over
+            # in seconds.
+            "'disks'=3;;;0 'disks_not_ok'=2;;;0 'temperature_max'=34;;;0 "
+            "'remaining_life_min'=0s;15552000:;2592000:;0 "
+            "'capacity_usage_max'=97%;;;0;100",
         ],
     },
     {
@@ -144,6 +172,9 @@ TESTS = [
             '! Normal (1) ! Online (27) ! [WARNING]',
             '10:134217730 ! CTE0.2   ! in use ! 172   ! 0D [CRITICAL]   ! 34   '
             '! Normal (1) ! Online (27) ! [CRITICAL]',
+            # --brief only reshapes the table, the performance data covers all disks.
+            "'disks'=3;;;0 'disks_not_ok'=2;;;0",
+            "'remaining_life_min'=0s;2592000:;432000:;0",
         ],
         'assert-not-in': ['CTE0.0'],
     },
@@ -158,6 +189,7 @@ TESTS = [
             'There are warnings.',
             '10:134234113 ! DAE000.1 ! in use ! 70    ! 10Y 1W ! 37 [WARNING] '
             '! Normal (1) ! Online (27) ! [WARNING]',
+            "'temperature_max'=37;35;50;0",
         ],
     },
     {
@@ -167,7 +199,7 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
         " --match='.*DAE'",
         'assert-retc': STATE_OK,
-        'assert-in': ['DAE000.0'],
+        'assert-in': ['DAE000.0', "'disks'=2;;;0"],
         'assert-not-in': ['CTE0.0'],
     },
     {
@@ -178,8 +210,10 @@ TESTS = [
         'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
         " --match='10:0$'",
         'assert-retc': STATE_OK,
-        'assert-in': ['10:0 ! CTE0.0'],
-        'assert-not-in': ['DAE000.0'],
+        'assert-in': ['10:0 ! CTE0.0', "'disks'=1;;;0"],
+        # The only disk left does not report its remaining life, so there is no
+        # shortest one to report.
+        'assert-not-in': ['DAE000.0', 'remaining_life_min'],
     },
     {
         # A filter that matches nothing reports OK by default, and whatever

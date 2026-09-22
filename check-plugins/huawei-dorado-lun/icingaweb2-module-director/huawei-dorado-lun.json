@@ -67,6 +67,9 @@
                 "--timeout": {
                     "value": "$huawei_dorado_lun_timeout$"
                 },
+                "--unmapped-hypermetro-severity": {
+                    "value": "$huawei_dorado_lun_unmapped_hypermetro_severity$"
+                },
                 "--unmapped-severity": {
                     "value": "$huawei_dorado_lun_unmapped_severity$"
                 },
@@ -198,7 +201,7 @@
                 },
                 {
                     "datafield_id": 23,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -208,11 +211,16 @@
                 },
                 {
                     "datafield_id": 25,
-                    "is_required": "n",
+                    "is_required": "y",
                     "var_filter": null
                 },
                 {
                     "datafield_id": 26,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 27,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -258,7 +266,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state, and optionally when a thin LUN fills up. Only LUNs mapped to a host are checked by default. Supports extended reporting via --lengthy, and reporting the I/O counters via --performance.",
+            "notes": "Checks the health and running status of the LUNs of a Huawei OceanStor Dorado storage system via the REST API (/lun endpoint). Alerts when a LUN reports a non-normal state or when a HyperMetro LUN is not mapped to any host, and optionally when a thin LUN fills up. Only LUNs mapped to a host and HyperMetro LUNs are checked by default. Supports extended reporting via --lengthy, and reporting the I/O counters via --performance.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/huawei-dorado-lun/",
             "object_name": "tpl-service-huawei-dorado-lun",
             "object_type": "template",
@@ -278,7 +286,7 @@
                 "huawei_dorado_lun_ignore": [],
                 "huawei_dorado_lun_include_unmapped": false,
                 "huawei_dorado_lun_insecure": true,
-                "huawei_dorado_lun_lengthy": false,
+                "huawei_dorado_lun_lengthy": true,
                 "huawei_dorado_lun_match": [],
                 "huawei_dorado_lun_no_match_severity": "ok",
                 "huawei_dorado_lun_no_perfdata": false,
@@ -286,6 +294,7 @@
                 "huawei_dorado_lun_performance": false,
                 "huawei_dorado_lun_scope": "0",
                 "huawei_dorado_lun_timeout": 30,
+                "huawei_dorado_lun_unmapped_hypermetro_severity": "warn",
                 "huawei_dorado_lun_unmapped_severity": "ok",
                 "huawei_dorado_lun_verbose": false,
                 "huawei_dorado_lun_warning": ""
@@ -357,6 +366,37 @@
                 }
             ],
             "uuid": "7b3b520e-3b52-44b4-9c14-be977379078a"
+        },
+        "huawei_dorado_lun_unmapped_hypermetro_severity_list": {
+            "list_name": "huawei_dorado_lun_unmapped_hypermetro_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "6198c3b8-7a33-436a-9bb4-d13375b16b39"
         },
         "huawei_dorado_lun_unmapped_severity_list": {
             "list_name": "huawei_dorado_lun_unmapped_severity_list",
@@ -469,7 +509,7 @@
         "8": {
             "varname": "huawei_dorado_lun_include_unmapped",
             "caption": "Huawei Dorado Lun: Include Unmapped?",
-            "description": "Also check LUNs that are not mapped to any host. Those are not serving anything, so they are left out by default.",
+            "description": "Also check LUNs that are not mapped to any host. Those are not serving anything, so they are left out by default. HyperMetro LUNs are always checked, see `--unmapped-hypermetro-severity`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
             "format": null,
             "settings": {},
@@ -609,9 +649,22 @@
             "uuid": "cc0dda20-aa07-4d37-8d9b-978240b42dbe"
         },
         "22": {
+            "varname": "huawei_dorado_lun_unmapped_hypermetro_severity",
+            "caption": "Huawei Dorado Lun: Unmapped Hypermetro Severity",
+            "description": "State to report for a HyperMetro LUN that is not mapped to any host on this array. Hosts then reach the LUN only through the remote array, so losing that array or the link to it cuts them off, and the appliance raises an alarm for it as well. Such LUNs are checked even without `--include-unmapped`.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_dorado_lun_unmapped_hypermetro_severity_list"
+            },
+            "uuid": "f048e6c1-edeb-4d42-bc5d-ab7bad5d39cf"
+        },
+        "23": {
             "varname": "huawei_dorado_lun_unmapped_severity",
             "caption": "Huawei Dorado Lun: Unmapped Severity",
-            "description": "State to report for a LUN that is not mapped to any host. Only takes effect together with `--include-unmapped`, which is what brings those LUNs into the check in the first place. Worth raising on an array where every LUN is meant to be in use, so a LUN that dropped out of its mapping view is noticed.",
+            "description": "State to report for a LUN that is not mapped to any host. Only takes effect together with `--include-unmapped`, which is what brings those LUNs into the check in the first place. Worth raising on an array where every LUN is meant to be in use, so a LUN that dropped out of its mapping view is noticed. Does not apply to HyperMetro LUNs, see `--unmapped-hypermetro-severity`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -621,7 +674,7 @@
             },
             "uuid": "faa92a46-dee9-4798-a7a9-9ad31753ddd0"
         },
-        "23": {
+        "24": {
             "varname": "huawei_dorado_lun_url",
             "caption": "Huawei Dorado Lun: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -632,7 +685,7 @@
             },
             "uuid": "ff26a4ee-8b24-4848-ae53-e3d581d162ba"
         },
-        "24": {
+        "25": {
             "varname": "huawei_dorado_lun_username",
             "caption": "Huawei Dorado Lun: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -643,7 +696,7 @@
             },
             "uuid": "d849d82b-2228-4f59-9a4a-b3af122c7258"
         },
-        "25": {
+        "26": {
             "varname": "huawei_dorado_lun_verbose",
             "caption": "Huawei Dorado Lun: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",
@@ -652,7 +705,7 @@
             "settings": {},
             "uuid": "f96b9888-a968-4379-a7e2-2ebaa393341d"
         },
-        "26": {
+        "27": {
             "varname": "huawei_dorado_lun_warning",
             "caption": "Huawei Dorado Lun: Warning",
             "description": "WARN threshold for the used capacity of a thin LUN, as a Nagios range in percent. Off by default, because a thin LUN that is full is doing what it was created for; what runs out is the pool behind it. Example: `--warning=85`",

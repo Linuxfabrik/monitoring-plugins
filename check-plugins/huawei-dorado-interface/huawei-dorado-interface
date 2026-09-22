@@ -12,7 +12,6 @@
 
 import argparse
 import json
-import re
 import sys
 
 import lib.args
@@ -23,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the health and running status of all interface modules on a Huawei OceanStor
 Dorado storage system via the REST API (/intf_module endpoint). Alerts when any
@@ -37,18 +36,14 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
-
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
 
-# RUNNINGSTATUS codes a healthy interface module reports: normal (1), running (2),
-# powering on (12) and online (27).
-OK_RUNNING_STATUS = (1, 2, 12, 27)
+# RUNNINGSTATUS codes a healthy interface module reports: normal (1), running (2) and
+# online (27). Powering on (12) warns, because a module that stays in power-on is not
+# carrying traffic; huawei-dorado-expboard treats powering on the same way. Verified
+# against V700R001C10SPH128 on a Dorado 6000 V6: healthy modules report running (2).
+OK_RUNNING_STATUS = (1, 2, 27)
 
 
 def parse_args():
@@ -273,7 +268,6 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
-    perfdata = ''
     compiled_match_regex = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -285,9 +279,6 @@ def main():
     table_data = []
     for iface in result.get('data') or []:
         iface['UUID'] = lib.huawei_dorado.get_uuid(iface)
-        # Perfdata labels carry the object's own TYPE:ID, which stays the same
-        # when hardware is moved between slots, unlike its location.
-        label = re.sub(r'\W+', '_', iface['UUID'])
 
         if args.MATCH and not any(
             lib.base.coe(lib.txt.match_regex(pattern, str(iface.get(field, ''))))
@@ -312,19 +303,6 @@ def main():
             iface.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
         )
         state = lib.base.get_worst(state, running_state)
-
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            iface.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            iface.get('RUNNINGSTATUS'),
-            _min=0,
-        )
 
         iface['health'] = lib.huawei_dorado.get_health_status(iface.get('HEALTHSTATUS'))
         iface['running'] = lib.huawei_dorado.get_running_status(
@@ -394,9 +372,9 @@ def main():
         msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
-    lib.base.oao(
-        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
-    )
+    # No performance data: all this check has per object are status codes, which
+    # the state already carries and which nobody reads as a curve.
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

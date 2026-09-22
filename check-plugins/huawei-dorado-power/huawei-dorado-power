@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the health and running status of all power modules on a Huawei OceanStor Dorado
 storage system via the REST API (/power endpoint). Alerts when any module reports a
@@ -39,12 +39,6 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN_TEMPERATURE = ''
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -393,18 +387,9 @@ def main():
         )
         state = lib.base.get_worst(state, running_state)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            power.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            power.get('RUNNINGSTATUS'),
-            _min=0,
-        )
+        # Status codes stay out of the performance data. The state already carries
+        # them, and nobody reads a code as a curve.
+        #
         # The API counts both voltages in millivolts. They go out in volts, which is
         # what an operator reads off the label of the power supply and what the backup
         # power modules of the same appliance are reported in. A supply that reports no

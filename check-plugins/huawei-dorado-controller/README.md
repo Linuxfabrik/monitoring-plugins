@@ -8,6 +8,7 @@ Checks the health and running status of all controllers on a Huawei OceanStor Do
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
+* CPU and memory usage have their own thresholds: `--warning` and `--critical` for the CPU, `--warning-mem` and `--critical-mem` for the memory. All of them are off by default. A controller keeps its memory well filled in normal operation (75 to 83% on a Dorado 6000 V6, and 89 and 96% in the vendor's own example of a healthy controller), so a memory threshold only makes sense once you know what your array normally sits at.
 * A controller board without a temperature sensor answers with -1 (the boards of a Dorado 6000 V6 do). It is shown as `--`, left out of the temperature check and out of the performance data.
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
@@ -37,6 +38,7 @@ Checks the health and running status of all controllers on a Huawei OceanStor Do
 ```text
 usage: huawei-dorado-controller [-h] [-V] [--always-ok]
                                 [--cache-expire CACHE_EXPIRE] [-c CRIT]
+                                [--critical-mem CRIT_MEM]
                                 [--critical-temperature CRIT_TEMPERATURE]
                                 [--device-id DEVICE_ID] [--ignore IGNORE]
                                 [--insecure] [--lengthy] [--match MATCH]
@@ -48,14 +50,15 @@ usage: huawei-dorado-controller [-h] [-V] [--always-ok]
                                 [--performance] [--proxy PROXY]
                                 [--scope SCOPE] [--timeout TIMEOUT] -u URL
                                 --username USERNAME [-v] [-w WARN]
+                                [--warning-mem WARN_MEM]
                                 [--warning-temperature WARN_TEMPERATURE]
 
 Checks the health and running status of all controllers on a Huawei OceanStor
 Dorado storage system via the REST API (/controller endpoint). Alerts when any
 controller reports a non-normal health or running state, and optionally when
-its CPU, memory or temperature exceeds the configured thresholds. Supports
-extended reporting via --lengthy, and reporting the I/O and cache counters via
---performance.
+its CPU usage, memory usage or temperature exceeds the configured thresholds.
+Supports extended reporting via --lengthy, and reporting the I/O and cache
+counters via --performance.
 
 options:
   -h, --help            show this help message and exit
@@ -64,10 +67,17 @@ options:
   --cache-expire CACHE_EXPIRE
                         The amount of time after which the credential/data
                         cache expires, in minutes. Default: 15
-  -c, --critical CRIT   CRIT threshold for CPU and memory usage, as a Nagios
-                        range in percent. Off by default, because a controller
-                        under load is doing its job; set it once you know what
-                        your array normally sits at. Example: `--critical=90`
+  -c, --critical CRIT   CRIT threshold for CPU usage, as a Nagios range in
+                        percent. Off by default, because a controller under
+                        load is doing its job; set it once you know what your
+                        array normally sits at. Example: `--critical=90`
+  --critical-mem CRIT_MEM
+                        CRIT threshold for memory usage, as a Nagios range in
+                        percent. Off by default, because a controller keeps
+                        its memory well filled in normal operation; the
+                        vendor's own example of a healthy controller reports
+                        96%. Set it once you know what your array normally
+                        sits at. Example: `--critical-mem=99`
   --critical-temperature CRIT_TEMPERATURE
                         CRIT threshold in degrees Celsius. Off by default,
                         because a healthy operating temperature depends on the
@@ -147,10 +157,17 @@ options:
                         The output is as long as those answers are, so this is
                         a debugging aid rather than something to leave
                         switched on.
-  -w, --warning WARN    WARN threshold for CPU and memory usage, as a Nagios
-                        range in percent. Off by default, because a controller
-                        under load is doing its job; set it once you know what
-                        your array normally sits at. Example: `--warning=80`
+  -w, --warning WARN    WARN threshold for CPU usage, as a Nagios range in
+                        percent. Off by default, because a controller under
+                        load is doing its job; set it once you know what your
+                        array normally sits at. Example: `--warning=80`
+  --warning-mem WARN_MEM
+                        WARN threshold for memory usage, as a Nagios range in
+                        percent. Off by default, because a controller keeps
+                        its memory well filled in normal operation; the
+                        vendor's own example of a healthy controller reports
+                        96%. Set it once you know what your array normally
+                        sits at. Example: `--warning-mem=97`
   --warning-temperature WARN_TEMPERATURE
                         WARN threshold in degrees Celsius. Off by default,
                         because a healthy operating temperature depends on the
@@ -208,7 +225,8 @@ UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) ! Mem (%) 
 * WARN if any controller's running status is not "Normal", "Running" or "Online", unless it reports an outright failure.
 * CRIT if any controller reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any controller's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
-* WARN or CRIT if a controller's CPU or memory usage reaches `--warning` or `--critical`. Both are off by default.
+* WARN or CRIT if a controller's CPU usage reaches `--warning` or `--critical`. Both are off by default.
+* WARN or CRIT if a controller's memory usage reaches `--warning-mem` or `--critical-mem`. Both are off by default.
 * WARN or CRIT if a controller's temperature reaches `--warning-temperature` or `--critical-temperature`. Both are off by default.
 * A CPU, memory or temperature threshold that fires is marked on the value that crossed it, and the row's State column always shows the worst state of that controller.
 * UNKNOWN if the appliance lists no controllers at all, which points at the query rather than at the hardware.
@@ -222,13 +240,11 @@ UUID   ! Location ! Model              ! Role      ! Master ! CPU (%) ! Mem (%) 
 | Name | Type | Description |
 |----|----|----|
 | \<UUID\>\_cpu_usage | Percentage | CPU utilization. |
-| \<UUID\>\_dirty_data_rate | Percentage | Dirty page usage. |
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_light_status | Number | Location indicator, as the bare code the appliance sends. The vendor documents it both ways round for the same field, so it cannot be translated into on/off reliably. |
 | \<UUID\>\_memory_usage | Percentage | Memory utilization. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 5: sleep in high temperature, 27: online, 28: offline, 105: abnormal. |
 | \<UUID\>\_temperature | Number | Temperature in degrees Celsius. A board without a sensor reports -1 and is left out. |
 | \<UUID\>\_voltage | Number | Board voltage in volts. The appliance counts it in tenths of a volt. |
+
+The health, running and location indicator status codes stay out of the performance data. The state already carries them, and a code does not read as a curve.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

@@ -12,7 +12,6 @@
 
 import argparse
 import json
-import re
 import sys
 
 import lib.args
@@ -23,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092203'
 
 DESCRIPTION = """Checks the health and running status of all expansion boards on a Huawei OceanStor
 Dorado storage system via the REST API (/expboard endpoint). Alerts when any board reports a
@@ -37,19 +36,14 @@ DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
-
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
 
 # RUNNINGSTATUS codes a healthy expansion board reports: normal (1), running (2) and
-# online (27). The enumeration also knows powering on (12) and powered off (13).
-# Verified against V700R001C10SPH128 on a Dorado 6000 V6: healthy boards report
-# running (2).
+# online (27). The enumeration also knows powering on (12) and powered off (13); both
+# warn, because a board that stays in power-on is not serving its enclosure, and
+# huawei-dorado-interface treats powering on the same way. Verified against
+# V700R001C10SPH128 on a Dorado 6000 V6: healthy boards report running (2).
 OK_RUNNING_STATUS = (1, 2, 27)
 
 
@@ -275,7 +269,6 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
-    perfdata = ''
     compiled_match_regex = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -287,9 +280,6 @@ def main():
     table_data = []
     for expboard in result.get('data') or []:
         expboard['UUID'] = lib.huawei_dorado.get_uuid(expboard)
-        # Perfdata labels carry the object's own TYPE:ID, which stays the same
-        # when hardware is moved between slots, unlike its location.
-        label = re.sub(r'\W+', '_', expboard['UUID'])
 
         if args.MATCH and not any(
             lib.base.coe(lib.txt.match_regex(pattern, str(expboard.get(field, ''))))
@@ -314,20 +304,6 @@ def main():
             expboard.get('RUNNINGSTATUS'), OK_RUNNING_STATUS
         )
         state = lib.base.get_worst(state, running_state)
-
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            expboard.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            expboard.get('RUNNINGSTATUS'),
-            uom=None,
-            _min=0,
-        )
 
         # MODEL is a code, not a name. Verified against V700R001C10SPH128 on a
         # Dorado 6000 V6: the boards of its NVMe enclosures report 7 (Smart NVMe).
@@ -379,9 +355,9 @@ def main():
         msg += '\n\n' + lib.huawei_dorado.format_responses()
 
     # over and out
-    lib.base.oao(
-        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
-    )
+    # No performance data: all this check has per object are status codes, which
+    # the state already carries and which nobody reads as a curve.
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA)
 
 
 if __name__ == '__main__':

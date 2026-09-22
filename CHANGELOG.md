@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * file-age, file-size: no longer run through sudo, so a path only root may read now fails: grant the monitoring user access to it
+* huawei-dorado-controller: `--warning` and `--critical` apply to CPU usage only; set `--warning-mem` and `--critical-mem` to keep alerting on memory
+* huawei-dorado-port: checks only front-end and cluster ports; add `--include-backend` to keep alerting on expansion and management ports
 * podman-stats: block and network I/O are reported as bytes per second instead of totals since the containers started, under new metric names (`read_bytes_per_second`, `rx_bytes_per_second`, `tx_bytes_per_second`, `write_bytes_per_second`). Adjust graphs built on `block_input`, `block_output`, `net_rx` and `net_tx`. Network traffic of a pod is counted once and reported on Podman 4 as well, and a container on `--network host` or `--network none` no longer crashes the check ([#1519](https://github.com/Linuxfabrik/monitoring-plugins/issues/1519))
 * the sudoers drop-in is split in two, so sudo-rs stops warning on every `sudo` call: a host whose sudoers you deploy by hand now also needs `*-logging.sudoers` to keep the plugin calls out of the authentication log ([#1493](https://github.com/Linuxfabrik/monitoring-plugins/issues/1493))
 * whmcs-status: `--url` is required now, because its old default named a port no WHMCS listens on: set it on every service that relied on the default
@@ -86,6 +88,9 @@ Monitoring Plugins:
 * disk-io: reports IOPS, and no longer warns falsely after a reboot ([#677](https://github.com/Linuxfabrik/monitoring-plugins/issues/677))
 * dmesg: fewer false alarms on physical servers and in virtual machines
 * file-count: `--no-early-break` counts every matching file, so the performance data no longer stops at the threshold (derived from [PR #1141](https://github.com/Linuxfabrik/monitoring-plugins/pull/1141), thanks to [Sascha Bay](https://github.com/TheCry))
+* huawei-dorado-host: an offline host warns instead of going critical
+* huawei-dorado-interface: a module that is still powering on warns instead of counting as healthy
+* huawei-dorado-lun: warns on HyperMetro LUNs that are not mapped to any host on this array
 * kvm-vm: reports a machine that crashed or did not start with the host instead of counting it as switched off, and no longer needs root
 * lynis: alerts when no host was audited
 * mysql-database-metrics, mysql-storage-engines, mysql-table-indexes: `--ignore-schemas` and `--ignore-tables` are deprecated in favour of `--match` and `--ignore`
@@ -104,6 +109,7 @@ Icinga Director:
 * the Apache apache2 Service Set for Ubuntu is renamed to "(Ubuntu 22+)"
 * the Basic Service Sets alert on excluded and pinned packages, except the monitoring plugins, Grafana and InfluxData
 * the Huawei Dorado Service Set runs the storage pool check
+* the Huawei Dorado and Pacific service templates show the full table with all columns by default (`--lengthy`)
 * the Needs Restarting service runs hourly and waits four hours before alerting; it covers Debian hosts now, so tag them
 * the Nextcloud Enterprise service checks hourly instead of daily and waits three days before it alerts on the account count
 * the WHMCS Status service checks every 15 minutes instead of every minute, as its documentation always said
@@ -114,12 +120,13 @@ Grafana:
 * apache-httpd-security, nginx-security: the findings panel graphs the checks `--ignore` excluded, too
 * Icinga Web 2 shows all graphs of a check instead of only the first one, on 27 checks: re-deploy the `icingaweb2-module-grafana` assets
 * import the new nextcloud-enterprise dashboard, which graphs the account counts against their limits
-* re-import the dashboards of apache-httpd-status, cpu-usage, disk-io, Icinga overview, keycloak-memory-usage, kvm-vm, load, memory-usage, mysql-logfile, network-io, php-status, ping, procs and swap-usage: panels and metric names changed, and series hidden from a panel no longer show up in its tooltip
+* re-import the dashboards of apache-httpd-status, cpu-usage, disk-io, huawei-dorado-hypermetropair, huawei-dorado-lun, Icinga overview, keycloak-memory-usage, kvm-vm, load, memory-usage, mysql-logfile, network-io, php-status, ping, procs and swap-usage: panels and metric names changed, and series hidden from a panel no longer show up in its tooltip
 
 ### Removed
 
 Monitoring Plugins:
 
+* huawei-dorado-hypermetropair, huawei-dorado-lun: the per-object status code metrics are gone
 * swap-usage: the cumulative `sin` and `sout` metrics are gone, memory-paging reports the paging traffic as a rate
 
 Icinga Director:

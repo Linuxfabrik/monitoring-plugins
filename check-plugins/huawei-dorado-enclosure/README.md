@@ -205,10 +205,9 @@ UUID   ! Location ! Name   ! Model                                 ! SerialNumbe
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 5: sleep in high temperature, 27: online, 28: offline, 105: abnormal. |
-| \<UUID\>\_switch_status | Number | 1: on, 2: off. |
 | \<UUID\>\_temperature | Number | Temperature. |
+
+The health, running and location indicator status codes stay out of the performance data. The state already carries them, and a code does not read as a curve.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

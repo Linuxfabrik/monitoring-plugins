@@ -36,10 +36,20 @@ TESTS = [
             'multi-mode ! 10000  ! -2.51',
             'CTE0.A.P0      ! controller       ! LUXSHARE-ICT ! L99QF029-SD-R ! '
             'unknown    ! 100000 ! --',
-            "'CTE0_A_IOM0_P0_health_status'=1;",
             "'CTE0_A_IOM0_P0_rx_power'=-2.51;",
+            "'CTE0_A_IOM0_P0_speed'=10000;",
+            "'CTE0_A_IOM0_P0_tx_power'=",
         ],
-        'assert-not-in': ['Unknown', "'_", '[CRITICAL]', 'CTE0_A_P0_rx_power'],
+        # The health and link states are in the table and drive the state, never
+        # perfdata.
+        'assert-not-in': [
+            'Unknown',
+            "'_",
+            '[CRITICAL]',
+            'CTE0_A_P0_rx_power',
+            '_health_status',
+            '_running_status',
+        ],
     },
     {
         # A port whose link is down receives no light, so its receive power is shown

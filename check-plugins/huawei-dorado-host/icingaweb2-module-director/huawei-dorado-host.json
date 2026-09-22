@@ -14,6 +14,9 @@
                 "--device-id": {
                     "value": "$huawei_dorado_host_device_id$"
                 },
+                "--host-offline-severity": {
+                    "value": "$huawei_dorado_host_host_offline_severity$"
+                },
                 "--ignore": {
                     "value": "$huawei_dorado_host_ignore$",
                     "repeat_key": true
@@ -147,7 +150,7 @@
                 },
                 {
                     "datafield_id": 17,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -157,6 +160,11 @@
                 },
                 {
                     "datafield_id": 19,
+                    "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 20,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -217,6 +225,7 @@
                 "huawei_dorado_host_brief": true,
                 "huawei_dorado_host_cache_expire": 15,
                 "huawei_dorado_host_device_id": "",
+                "huawei_dorado_host_host_offline_severity": "warn",
                 "huawei_dorado_host_ignore": [],
                 "huawei_dorado_host_insecure": true,
                 "huawei_dorado_host_match": [],
@@ -233,6 +242,37 @@
         }
     },
     "DataList": {
+        "huawei_dorado_host_host_offline_severity_list": {
+            "list_name": "huawei_dorado_host_host_offline_severity_list",
+            "owner": "icinga-admin",
+            "entries": [
+                {
+                    "entry_name": "ok",
+                    "entry_value": "OK",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "warn",
+                    "entry_value": "Warn",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "crit",
+                    "entry_value": "Crit",
+                    "format": "string",
+                    "allowed_roles": null
+                },
+                {
+                    "entry_name": "unknown",
+                    "entry_value": "Unknown",
+                    "format": "string",
+                    "allowed_roles": null
+                }
+            ],
+            "uuid": "76411c1d-6531-4f2a-a013-d2e5432c8d51"
+        },
         "huawei_dorado_host_no_match_severity_list": {
             "list_name": "huawei_dorado_host_no_match_severity_list",
             "owner": "icinga-admin",
@@ -307,6 +347,19 @@
             "uuid": "d3e5e84d-315a-4e41-9e09-2724e71d4611"
         },
         "5": {
+            "varname": "huawei_dorado_host_host_offline_severity",
+            "caption": "Huawei Dorado Host: Host Offline Severity",
+            "description": "State to report for a host whose health status is \"Offline\". A decommissioned or powered-off server that is still configured on the array reports the same, and the array raises no alarm for it. Every other health status keeps its own state.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
+            "format": null,
+            "settings": {
+                "behavior": "strict",
+                "data_type": "string",
+                "datalist": "huawei_dorado_host_host_offline_severity_list"
+            },
+            "uuid": "80db74d7-c7b5-40e8-a640-2feda73732d9"
+        },
+        "6": {
             "varname": "huawei_dorado_host_ignore",
             "caption": "Huawei Dorado Host: Ignore",
             "description": "Skip hosts. Any item matching this Python regex will be ignored. Can be specified multiple times. Example: `(?i)linuxfabrik` for a case-insensitive match. The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.",
@@ -317,7 +370,7 @@
             },
             "uuid": "b1eca47d-6121-40c4-a608-70b91abc15d4"
         },
-        "6": {
+        "7": {
             "varname": "huawei_dorado_host_insecure",
             "caption": "Huawei Dorado Host: Insecure?",
             "description": "This option explicitly allows insecure SSL connections.",
@@ -326,7 +379,7 @@
             "settings": {},
             "uuid": "2c291265-29d8-4c61-a6be-bbd5ff90ffd0"
         },
-        "7": {
+        "8": {
             "varname": "huawei_dorado_host_match",
             "caption": "Huawei Dorado Host: Match",
             "description": "Limit to hosts. Filter by this Python regular expression. Case-sensitive by default; use `(?i)` for case-insensitive matching. Can be specified multiple times. If both `--match` and `--ignore` are given, an item must match `--match` AND not match `--ignore` to be reported (include first, exclude second). Examples: `(?i)example` to match \"example\" regardless of case. `^(?!.*example).*$` to match any string except \"example\" (negative lookahead). The regex is anchored at the start of the string (Python `re.match`) and is matched against `UUID`, `NAME`, so prefix with `.*` to match anywhere.",
@@ -337,7 +390,7 @@
             },
             "uuid": "1ec911d6-37c4-43d5-8eee-0849b11da233"
         },
-        "8": {
+        "9": {
             "varname": "huawei_dorado_host_no_insecure",
             "caption": "Huawei Dorado Host: No Insecure?",
             "description": "Verify the TLS certificate against the system trust store, overriding the insecure default of this check. Use it once the endpoint presents a publicly trusted certificate, or once its CA has been added to the system trust store.",
@@ -346,7 +399,7 @@
             "settings": {},
             "uuid": "fe9fac5a-3bea-4d85-bd31-c38442037b6e"
         },
-        "9": {
+        "10": {
             "varname": "huawei_dorado_host_no_match_severity",
             "caption": "Huawei Dorado Host: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -359,7 +412,7 @@
             },
             "uuid": "b63a52e7-d25c-432a-be58-b7bf16859432"
         },
-        "10": {
+        "11": {
             "varname": "huawei_dorado_host_no_perfdata",
             "caption": "Huawei Dorado Host: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -368,7 +421,7 @@
             "settings": {},
             "uuid": "fb962b02-a19b-4cbe-aa14-252f0fd0a2a1"
         },
-        "11": {
+        "12": {
             "varname": "huawei_dorado_host_no_proxy",
             "caption": "Huawei Dorado Host: No Proxy?",
             "description": "Do not use a proxy, not even one the environment names. Overrides `--proxy`.",
@@ -377,7 +430,7 @@
             "settings": {},
             "uuid": "ed343c8d-d9f5-490a-8738-dbc09ecde1e2"
         },
-        "12": {
+        "13": {
             "varname": "huawei_dorado_host_password",
             "caption": "Huawei Dorado Host: Password",
             "description": "Huawei OceanStor Dorado API password.",
@@ -388,7 +441,7 @@
             },
             "uuid": "224d1e6c-d8ac-4382-b3ea-1883b30c8078"
         },
-        "13": {
+        "14": {
             "varname": "huawei_dorado_host_password_file",
             "caption": "Huawei Dorado Host: Password File",
             "description": "Path to a file holding the password, read from its first line. Keeps the password out of the process list, where a command-line argument is visible to every user on the host. Takes precedence over `--password`. Keep the file readable only by the monitoring user. Example: `--password-file=/etc/icinga2/secrets/storage`.",
@@ -399,7 +452,7 @@
             },
             "uuid": "5c581b41-a3fe-498d-aec5-fcc991cf5858"
         },
-        "14": {
+        "15": {
             "varname": "huawei_dorado_host_proxy",
             "caption": "Huawei Dorado Host: Proxy",
             "description": "Proxy to reach the target through. The scheme defaults to `http` when omitted. Overrides the proxy the environment names (`http_proxy`, `https_proxy`, `all_proxy`) together with the exceptions it lists in `no_proxy`, and is itself overridden by `--no-proxy`. Without either parameter the environment applies. Credentials belong into the environment variable rather than here, because a command-line argument is visible to every user on the host. Example: `--proxy=http://proxy.example.com:3128`.",
@@ -410,7 +463,7 @@
             },
             "uuid": "0aa7c704-9666-429e-a108-a13548d3a3fb"
         },
-        "15": {
+        "16": {
             "varname": "huawei_dorado_host_scope",
             "caption": "Huawei Dorado Host: Scope",
             "description": "Huawei OceanStor Dorado API scope.",
@@ -421,7 +474,7 @@
             },
             "uuid": "b0ba32b4-9431-407f-95fe-7a0ceb742dbb"
         },
-        "16": {
+        "17": {
             "varname": "huawei_dorado_host_timeout",
             "caption": "Huawei Dorado Host: Timeout",
             "description": "Network timeout in seconds.",
@@ -432,7 +485,7 @@
             },
             "uuid": "47913fc1-cfdf-4591-bdf4-df04cae77bcd"
         },
-        "17": {
+        "18": {
             "varname": "huawei_dorado_host_url",
             "caption": "Huawei Dorado Host: URL",
             "description": "Huawei OceanStor Dorado API URL.",
@@ -443,7 +496,7 @@
             },
             "uuid": "5cc1848c-e8e1-4abe-8394-faefbe76e889"
         },
-        "18": {
+        "19": {
             "varname": "huawei_dorado_host_username",
             "caption": "Huawei Dorado Host: Username",
             "description": "Huawei OceanStor Dorado API username.",
@@ -454,7 +507,7 @@
             },
             "uuid": "10561c31-c4c1-4149-8831-36dac54a2c61"
         },
-        "19": {
+        "20": {
             "varname": "huawei_dorado_host_verbose",
             "caption": "Huawei Dorado Host: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood. Appends what every API request returned, so the appliance's own answers can be read while working out how it reports something. Session tokens are redacted. The output is as long as those answers are, so this is a debugging aid rather than something to leave switched on.",

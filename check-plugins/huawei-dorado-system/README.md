@@ -153,10 +153,8 @@ Capacity: Total 1% used (8.8TiB/726.4TiB), Storage Pool 1% used (8.8TiB/612.2TiB
 | Name | Type | Description |
 |----|----|----|
 | free_disks_capacity | Bytes | Total raw capacity of all free disks (0 if none exist). |
-| health_status | Number | 1: normal, 2: faulty. |
 | hot_spare_disks_capacity | Bytes | Total raw capacity of all hot spare disks (0 if none exist; always 0 on XVE architecture). |
 | mapped_luns_capacity | Bytes | Total capacity of mapped LUNs. |
-| running_status | Number | 1: normal, 3: not running, 12: powering on, 47: powering off, 51: upgrading. |
 | storage_pool_free_capacity | Bytes | Total free capacity of all storage pools (after RAID). |
 | storage_pool_hot_spare_capacity | Bytes | Total hot spare capacity of all storage pools (after RAID). |
 | storage_pool_raw_capacity | Bytes | Total raw capacity of disks in all storage pools. |

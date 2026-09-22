@@ -12,7 +12,6 @@
 
 import argparse
 import json
-import re
 import sys
 
 import lib.args
@@ -23,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the running status of all HyperMetro domains on a Huawei OceanStor Dorado
 storage system via the REST API (/hypermetrodomain endpoint). Alerts when any domain reports
@@ -126,14 +125,6 @@ def parse_args():
         dest='NO_MATCH_SEVERITY',
         choices=['ok', 'warn', 'crit', 'unknown'],
         default=DEFAULT_NO_MATCH_SEVERITY,
-    )
-
-    parser.add_argument(
-        '--no-perfdata',
-        help=lib.args.help('--no-perfdata'),
-        dest='NO_PERFDATA',
-        action='store_true',
-        default=False,
     )
 
     parser.add_argument(
@@ -255,7 +246,6 @@ def main():
     # init some vars
     msg = ''
     state = STATE_OK
-    perfdata = ''
     compiled_match_regex = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -267,9 +257,6 @@ def main():
     table_data = []
     for hypermetrodomain in result.get('data') or []:
         hypermetrodomain['UUID'] = lib.huawei_dorado.get_uuid(hypermetrodomain)
-        # Perfdata labels carry the object's own TYPE:ID, which stays the same
-        # when hardware is moved between slots, unlike its location.
-        label = re.sub(r'\W+', '_', hypermetrodomain['UUID'])
 
         if args.MATCH and not any(
             lib.base.coe(
@@ -298,12 +285,6 @@ def main():
         )
         state = lib.base.get_worst(state, running_state)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            hypermetrodomain.get('RUNNINGSTATUS'),
-            _min=0,
-        )
-
         hypermetrodomain['running'] = (
             lib.huawei_dorado.get_hypermetro_domain_running_status(
                 hypermetrodomain.get('RUNNINGSTATUS')
@@ -329,7 +310,6 @@ def main():
             else 'No HyperMetro domains configured.',
             lib.base.str2state(args.NO_MATCH_SEVERITY) if args.MATCH else STATE_OK,
             always_ok=args.ALWAYS_OK,
-            no_perfdata=args.NO_PERFDATA,
         )
 
     # The truncated walk raises the state before the summary is written, so a
@@ -366,10 +346,9 @@ def main():
     if args.VERBOSE:
         msg += '\n\n' + lib.huawei_dorado.format_responses()
 
-    # over and out
-    lib.base.oao(
-        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
-    )
+    # over and out. The running status is the only thing a domain reports, and it is
+    # in the table and drives the state, so there is no performance data to emit.
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the health and running status of all enclosures on a Huawei OceanStor Dorado
 storage system via the REST API (/enclosure endpoint). Alerts when any enclosure
@@ -40,19 +40,8 @@ DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN_TEMPERATURE = ''
 
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
-
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION', 'NAME')
-
-# Highest `SWITCHSTATUS` code the REST Interface References document: 1 on, 2 off. It
-# bounds the metric so a graph scales to the whole enumeration. The location indicator
-# is not a fault either way, so it carries no threshold.
-SWITCH_STATUS_MAX = 2
 
 # RUNNINGSTATUS codes a healthy enclosure reports: normal (1), running (2) and
 # online (27).
@@ -366,25 +355,9 @@ def main():
             )
             state = lib.base.get_worst(state, temperature_state)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            enclosure.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            enclosure.get('RUNNINGSTATUS'),
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_switch_status',
-            enclosure.get('SWITCHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=SWITCH_STATUS_MAX,
-        )
+        # Status codes (health, running, location indicator) stay out of the
+        # performance data. The state already carries them, and nobody reads a code
+        # as a curve.
         perfdata += lib.base.get_perfdata(
             f'{label}_temperature',
             temperature,

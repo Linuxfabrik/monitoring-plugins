@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092201'
 
 DESCRIPTION = """Checks the health, running status and capacity usage of all storage pools on a
 Huawei OceanStor Dorado storage system via the REST API (/storagepool endpoint). Alerts when a pool
@@ -47,12 +47,6 @@ DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '92'
 DEFAULT_WARN_OVERPROVISIONING = ''
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
 
 # Performance indicators this object supports, from the vendor's performance
 # indicator tables. Read only when --performance is given.
@@ -499,19 +493,6 @@ def main():
         free_capacity = lib.huawei_dorado.sectors2bytes(pool.get('USERFREECAPACITY'))
         reduction_ratio = get_reduction_ratio(pool)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            pool.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            pool.get('RUNNINGSTATUS'),
-            uom=None,
-            _min=0,
-        )
         if usage_percent is not None:
             perfdata += lib.base.get_perfdata(
                 f'{label}_usage_percent',

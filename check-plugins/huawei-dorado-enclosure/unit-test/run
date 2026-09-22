@@ -93,6 +93,20 @@ TESTS = [
         ],
     },
     {
+        # The performance data carries the temperature with its thresholds, never a
+        # status code: the state already reports those.
+        'id': 'warn-enclosure-perfdata-without-status-codes',
+        'test': 'stdout/enclosures-v700,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost '
+        '--username=admin --warning-temperature=24',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'206_0_temperature'=22;24;;0 ",
+            "'206_73_temperature'=25;24;;0",
+        ],
+        'assert-not-in': ['_health_status', '_running_status', '_switch_status'],
+    },
+    {
         # An appliance always has enclosures. An empty list means the query
         # never reached them, which must not read as a healthy inventory.
         'id': 'unknown-no-enclosures',

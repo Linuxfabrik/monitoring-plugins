@@ -30,7 +30,17 @@ TESTS = [
             '! Device Limit ! Overprov ! Reduction ! Health     ! Running     ! State',
             '216:0 ! StoragePool001 ! DiskDomain000 ! 303.3GiB ! 1.5TiB   ! 20%   '
             '! 80%          ! 100%     ! 3.2:1     ! Normal (1) ! Online (27) ! [OK]',
+            "'216_0_usage_percent'=20.0%;92;95;0;100",
+            "'216_0_overprovisioning_percent'=100.0%;;;0",
+            "'216_0_total_capacity'=1628454256640B;;;0",
+            "'216_0_lun_configured_capacity'=1628454256640B;;;0",
+            "'216_0_used_capacity'=325690851328B;;;0;1628454256640",
+            "'216_0_free_capacity'=1302763405312B;;;0;1628454256640",
+            "'216_0_data_reduction_ratio'=3.2;;;0",
         ],
+        # The health and running states are in the table and drive the state, never
+        # perfdata.
+        'assert-not-in': ['_health_status', '_running_status'],
     },
     {
         # Without --lengthy the table keeps the columns that decide the state and

@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -40,11 +40,66 @@ TESTS = [
             '21:0  ! site01-01 ! VMware ESX',
             '21:11 ! site02-06 ! VMware ESX',
             '[WARNING]',
+            # The allocated capacity is a sector count in the response and is shown
+            # in bytes. 54858341776 sectors of 512 bytes is about 25 TiB.
+            '21:0  ! site01-01 ! VMware ESX ! 25.5TiB',
+            "'hosts'=14;;;0 'hosts_not_ok'=1;;;0",
         ],
-        # The allocated capacity is a sector count in the response and goes out in
-        # bytes, like every other capacity in this plugin family. 54858341776 sectors
-        # of 512 bytes is about 25 TiB, not the 55 G a raw sector count would graph.
-        'assert-regex': r'_allocated_capacity' "'" '=28087470989312B',
+        # The performance data summarizes the hosts instead of graphing each one.
+        'assert-not-in': [
+            "'21_",
+            '_allocated_capacity',
+            '_health_status',
+            '_running_status',
+        ],
+    },
+    {
+        # A host that is still configured on the array but whose server is gone reports
+        # health status 18 (Offline), and the array raises no alarm for it. Record taken
+        # from a Dorado 6000 V6, V700R001C10SPH128.
+        'id': 'warn-host-offline-by-default',
+        'test': 'stdout/hosts-one-offline,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            'Offline (18) ! Normal (1) ! [WARNING]',
+            "'hosts'=2;;;0 'hosts_not_ok'=1;;;0",
+        ],
+    },
+    {
+        'id': 'crit-host-offline-severity-crit',
+        'test': 'stdout/hosts-one-offline,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin '
+        '--host-offline-severity=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'Offline (18) ! Normal (1) ! [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'ok-host-offline-severity-ok',
+        'test': 'stdout/hosts-one-offline,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin '
+        '--host-offline-severity=ok',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'Offline (18) ! Normal (1) ! [OK]',
+            # A host whose state is set to OK is not counted as not OK.
+            "'hosts'=2;;;0 'hosts_not_ok'=0;;;0",
+        ],
+    },
+    {
+        # `--host-offline-severity` only covers "Offline". A host without a redundant
+        # link (17) still warns when offline hosts are set to OK.
+        'id': 'warn-host-offline-severity-leaves-other-codes',
+        'test': 'stdout/hosts-one-warning,,0',
+        'params': '--device-id=1 --password=pass --url=https://localhost --username=admin '
+        '--host-offline-severity=ok',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Single link / No redundant link (17) ! Normal (1) ! [WARNING]'],
     },
     {
         # An appliance may legitimately have no hosts configured. Without a filter

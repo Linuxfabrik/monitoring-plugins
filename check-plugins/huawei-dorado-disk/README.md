@@ -3,14 +3,14 @@
 
 ## Overview
 
-Checks the health and running status of all disks on a Huawei OceanStor Dorado storage system via the REST API (`/disk` endpoint). Alerts when any disk reports a non-normal health or running state. Reports abrasion rate, capacity usage, runtime, temperature and remaining service life per disk.
+Checks the health and running status of all disks on a Huawei OceanStor Dorado storage system via the REST API (`/disk` endpoint). Alerts when any disk reports a non-normal health or running state. Reports abrasion rate, capacity usage, runtime, temperature and remaining service life per disk in the output table, and summarizes the disks in the performance data.
 
 **Important Notes:**
 
 * Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10SPH128
-* A Dorado carries flash media only, so a remaining life of 0 days is a disk at its end and alerts. A disk that does not report its remaining life answers with -1; it is shown as `--` and left out of the remaining-life check and out of the performance data.
+* A Dorado carries flash media only, so a remaining life of 0 days is a disk at its end and alerts. A disk that does not report its remaining life answers with -1; it is shown as `--` and left out of the remaining-life check and out of `remaining_life_min`.
 * The appliance caps the remaining life at 3660 days, so `10Y 1W` in the table means "ten years or more".
-* On a large array the `/disk` endpoint takes tens of seconds to answer (33 seconds for 384 disks on a Dorado 6000 V6), so `--timeout` defaults to 30 seconds and the Icinga Director basket raises the command timeout to 120 seconds. Keep the monitoring server's own check timeout above the time a run takes.
+* On a large array the `/disk` endpoint takes tens of seconds to answer (30 to 36 seconds for 384 disks on a Dorado 6000 V6), so `--timeout` defaults to 60 seconds and the Icinga Director basket raises the command timeout to 150 seconds. An array that does not answer within 60 seconds ends UNKNOWN. Keep the monitoring server's own check timeout above the time a run takes.
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 
@@ -258,14 +258,13 @@ UUID         ! Location ! Manufacturer ! Model            ! SerialNumber        
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_abrasion_rate | Percentage | Wear rate (percentage of used service life to total service life). |
-| \<UUID\>\_capacity_usage | Percentage | Capacity usage. |
-| \<UUID\>\_health_mark | Number | Health score of the disk. |
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 17: single link. |
-| \<UUID\>\_progress | Percentage | Progress of reconstruction, copyback, pre-copy, or destruction. |
-| \<UUID\>\_remaining_life | Seconds | Remaining service life. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 14: pre-copy, 16: reconstruction, 27: online, 28: offline, 114: erasing, 115: verifying. |
-| \<UUID\>\_temperature | Number | Temperature. |
+| capacity_usage_max | Percentage | Highest capacity usage of all checked disks. |
+| disks | Number | Number of disks checked, after `--match` and `--ignore`. |
+| disks_not_ok | Number | Number of checked disks whose state is not OK. |
+| remaining_life_min | Seconds | Shortest remaining service life of all checked disks. Not reported if no disk reports one. |
+| temperature_max | Number | Highest temperature of all checked disks. |
+
+The performance data summarizes the disks, because an array can hold hundreds of them. The per-disk detail is in the plugin output table, not in the performance data.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

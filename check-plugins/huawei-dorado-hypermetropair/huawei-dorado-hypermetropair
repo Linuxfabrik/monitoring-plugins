@@ -12,7 +12,6 @@
 
 import argparse
 import json
-import re
 import sys
 
 import lib.args
@@ -25,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092203'
 
 DESCRIPTION = """Checks the health and running status of all HyperMetro pairs on a Huawei OceanStor
 Dorado storage system via the REST API (/hypermetropair endpoint). Alerts when any
@@ -48,7 +47,6 @@ LINK_STATUS = {
     1: 'Connected (1)',
     2: 'Disconnected (2)',
 }
-LINK_STATUS_MAX = 2
 
 # `LOCALDATASTATE` and `REMOTEDATASTATE` of a side whose data matches the other one, and
 # the readable form of both documented codes.
@@ -57,24 +55,12 @@ DATA_STATE = {
     1: 'Consistent (1)',
     2: 'Inconsistent (2)',
 }
-DATA_STATE_MAX = 2
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
-
-# Highest `SECRESACCESS` code the REST Interface References document (read/write). Both
-# the local and the remote side use the same enumeration, so both metrics carry the same
-# maximum.
-HOST_ACCESS_STATE_MAX = 3
 
 # `LOCALHOSTACCESSSTATE` and `REMOTEHOSTACCESSSTATE` codes the REST Interface References
 # document: access denied (1), read-only (2) and read/write (3). A file system pair
 # (`HCRESOURCETYPE` 2) answers with 255 for both, just as for `RECOVERYPOLICY`, which the
 # references describe as decided by the HyperMetro domain for such pairs. The setting
-# does not apply to it, so a code outside this set is neither graphed nor named.
+# does not apply to it, so a code outside this set is not named.
 # Verified against V700R001C10SPH128 on a Dorado 6000 V6 (73 file system pairs).
 HOST_ACCESS_STATES = (1, 2, 3)
 
@@ -330,6 +316,8 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    pairs_not_ok = 0
+    sync_progress_min = None
     compiled_match_regex = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -341,9 +329,6 @@ def main():
     table_data = []
     for hypermetropair in result.get('data') or []:
         hypermetropair['UUID'] = lib.huawei_dorado.get_uuid(hypermetropair)
-        # Perfdata labels carry the object's own TYPE:ID, which stays the same
-        # when hardware is moved between slots, unlike its location.
-        label = re.sub(r'\W+', '_', hypermetropair['UUID'])
 
         if args.MATCH and not any(
             lib.base.coe(
@@ -407,8 +392,7 @@ def main():
             None if end_time is None or start_time is None else end_time - start_time
         )
 
-        # 255 on a file system pair is not an access state but "does not apply". Graphed,
-        # it would sit far above the metric's own maximum.
+        # 255 on a file system pair is not an access state but "does not apply".
         local_access = lib.huawei_dorado.as_code(
             hypermetropair.get('LOCALHOSTACCESSSTATE')
         )
@@ -420,63 +404,20 @@ def main():
         if remote_access not in HOST_ACCESS_STATES:
             remote_access = None
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            hypermetropair.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            hypermetropair.get('RUNNINGSTATUS'),
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_link_status',
-            hypermetropair.get('LINKSTATUS'),
-            uom=None,
-            _min=0,
-            _max=LINK_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_local_data_state',
-            hypermetropair.get('LOCALDATASTATE'),
-            uom=None,
-            _min=0,
-            _max=DATA_STATE_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_local_host_access_state',
-            local_access,
-            uom=None,
-            _min=0,
-            _max=HOST_ACCESS_STATE_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_remote_data_state',
-            hypermetropair.get('REMOTEDATASTATE'),
-            uom=None,
-            _min=0,
-            _max=DATA_STATE_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_remote_host_access_state',
-            remote_access,
-            uom=None,
-            _min=0,
-            _max=HOST_ACCESS_STATE_MAX,
-        )
-        # `-1` on a pair that has never synchronized. Graphing it would put a point
+        # The performance data summarizes the pairs instead of graphing each one: an
+        # array can hold hundreds of them, and their status codes (health, running,
+        # link, data and host access states) are judged above already. Per-pair detail
+        # is in the table. `pairs_not_ok` trends the status codes, `sync_progress_min`
+        # the pair that lags furthest behind.
+
+        # `-1` on a pair that has never synchronized. Counting it would put a point
         # below the metric's own minimum, so the pair simply reports no progress.
         sync_progress = lib.huawei_dorado.as_code(hypermetropair.get('SYNCPROGRESS'))
         if sync_progress is not None and sync_progress >= 0:
-            perfdata += lib.base.get_perfdata(
-                f'{label}_sync_progress',
-                sync_progress,
-                uom='%',
-                _min=0,
-                _max=100,
+            sync_progress_min = (
+                sync_progress
+                if sync_progress_min is None
+                else min(sync_progress_min, sync_progress)
             )
 
         hypermetropair['row_state'] = lib.base.get_worst(
@@ -486,6 +427,8 @@ def main():
                 lib.base.get_worst(localdata_state, remotedata_state),
             ),
         )
+        if hypermetropair['row_state'] != STATE_OK:
+            pairs_not_ok += 1
         hypermetropair['health'] = lib.huawei_dorado.get_health_status(
             hypermetropair.get('HEALTHSTATUS')
         )
@@ -565,6 +508,26 @@ def main():
     else:
         msg += 'Everything is ok.'
     msg += '\n'
+    perfdata += lib.base.get_perfdata(
+        'pairs',
+        len(table_data),
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'pairs_not_ok',
+        pairs_not_ok,
+        uom=None,
+        _min=0,
+    )
+    if sync_progress_min is not None:
+        perfdata += lib.base.get_perfdata(
+            'sync_progress_min',
+            sync_progress_min,
+            uom='%',
+            _min=0,
+            _max=100,
+        )
     if truncated:
         # The walk hit its page cap, so pairs beyond it were never looked at.
         msg += (

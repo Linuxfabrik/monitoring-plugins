@@ -156,7 +156,7 @@ UUID       ! Location     ! Model                                 ! RunMode   ! 
 
 * OK if all interface modules report normal health and running status.
 * WARN if any interface module reports a degraded health status, or one this check does not know.
-* WARN if any interface module's running status is not "Normal", "Running", "Powering on" or "Online", unless it reports an outright failure.
+* WARN if any interface module's running status is not "Normal", "Running" or "Online", unless it reports an outright failure. This includes "Powering on", so a module that is stuck powering on is noticed.
 * CRIT if any interface module reports health status "Faulty", "No Input", "Invalid" or "Offline".
 * CRIT if any interface module's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * UNKNOWN if the appliance lists no interface modules at all, which points at the query rather than at the hardware.
@@ -167,10 +167,7 @@ UUID       ! Location     ! Model                                 ! RunMode   ! 
 
 ## Perfdata / Metrics
 
-| Name | Type | Description |
-|----|----|----|
-| \<UUID\>\_health_status | Number | 0: unknown, 1: normal, 2: faulty. |
-| \<UUID\>\_running_status | Number | 0: unknown, 1: normal, 2: running, 12: powering on, 13: powered off, 27: online, 28: offline, 103: power-on failed. |
+There is no perfdata. All this check has per module are status codes, which the state already carries and which do not read as a curve.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

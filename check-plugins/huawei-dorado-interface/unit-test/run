@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -44,6 +44,9 @@ TESTS = [
             '209:0.141  ! CTE0.IOM.H13 ! 2 ports FE 100 Gbit/s ETH I/O module  '
             '! Ethernet  ! Off ! Normal (1) ! Running (2) ! [OK] ',
         ],
+        # Status codes are all a module has, and the state already carries them, so
+        # there is no performance data and no pipe that would introduce it.
+        'assert-not-in': ['_health_status', '_running_status', '|'],
     },
     {
         # LIGHTSTATUS and RUNMODE are optional fields. A firmware that leaves them out
@@ -55,6 +58,19 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok.', 'Unknown'],
         'assert-not-in': ['Unknown column', 'Traceback'],
+    },
+    {
+        # A module that stays in power-on is not carrying traffic. Real records
+        # (V700R001C10SPH128, Dorado 6000 V6), the second one set to powering on (12).
+        'id': 'warn-interface-powering-on',
+        'test': 'stdout/interfaces-one-powering-on,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            '! Normal (1) ! Running (2)      ! [OK]',
+            '! Normal (1) ! Powering on (12) ! [WARNING]',
+        ],
     },
     {
         # An appliance always has interface modules. An empty list means the query

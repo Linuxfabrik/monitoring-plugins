@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the health status of all backup power modules (BBU) on a Huawei OceanStor
 Dorado storage system via the REST API (/backup_power endpoint). Alerts when any
@@ -43,12 +43,6 @@ DEFAULT_SCOPE = '0'
 DEFAULT_TIMEOUT = 3
 DEFAULT_WARN = '180:'
 DEFAULT_WARN_VOLTAGE = ''
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
 
 # Fields `--match` is applied to.
 MATCH_FIELDS = ('UUID', 'LOCATION')
@@ -407,18 +401,9 @@ def main():
             )
             state = lib.base.get_worst(state, voltage_state)
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            power.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            power.get('RUNNINGSTATUS'),
-            _min=0,
-        )
+        # Status codes stay out of the performance data. The state already carries
+        # them, and nobody reads a code as a curve.
+        #
         # No performance data for CHARGETIMES, the number of discharge cycles the module
         # has been through. It only ever counts up, and a cumulative counter aggregates
         # wrong in every Grafana panel that touches it

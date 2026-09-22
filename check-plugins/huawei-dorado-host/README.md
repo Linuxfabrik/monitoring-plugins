@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks the health and running status of all hosts attached to a Huawei OceanStor Dorado storage system via the REST API (`/host` endpoint). Alerts when any host reports a non-normal health or running state. Reports operating system type and allocated capacity per host.
+Checks the health and running status of all hosts attached to a Huawei OceanStor Dorado storage system via the REST API (`/host` endpoint). Alerts when any host reports a non-normal health or running state. Reports operating system type and allocated capacity per host in the output table, and summarizes the hosts in the performance data.
 
 **Important Notes:**
 
@@ -11,6 +11,7 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 * Create a read-only API user that can perform queries only
 * The default session timeout period on the storage system is 20 minutes; `--cache-expire` defaults to 15 minutes to stay within that window
 * The host list reflects host objects configured on the storage system, not necessarily their actual online/offline status on the network
+* A decommissioned or powered-off server that is still configured on the array reports the health status "Offline", and the array raises no alarm for it. This check reports such a host as WARN by default; set `--host-offline-severity` to change that, for example to `crit` on an array where every configured host is expected to be up, or to `ok` while old host objects are still waiting to be cleaned up
 
 **Data Collection:**
 
@@ -37,8 +38,10 @@ Checks the health and running status of all hosts attached to a Huawei OceanStor
 ```text
 usage: huawei-dorado-host [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE]
-                          [--device-id DEVICE_ID] [--ignore IGNORE]
-                          [--insecure] [--match MATCH] [--no-insecure]
+                          [--device-id DEVICE_ID]
+                          [--host-offline-severity {ok,warn,crit,unknown}]
+                          [--ignore IGNORE] [--insecure] [--match MATCH]
+                          [--no-insecure]
                           [--no-match-severity {ok,warn,crit,unknown}]
                           [--no-perfdata] [--no-proxy] [--password PASSWORD]
                           [--password-file PASSWORD_FILE] [--proxy PROXY]
@@ -66,6 +69,12 @@ options:
                         Huawei OceanStor Dorado API device ID. Optional: the
                         appliance reports its own at login, so this is only
                         needed to override that answer.
+  --host-offline-severity {ok,warn,crit,unknown}
+                        State to report for a host whose health status is
+                        "Offline". A decommissioned or powered-off server that
+                        is still configured on the array reports the same, and
+                        the array raises no alarm for it. Every other health
+                        status keeps its own state. Default: warn
   --ignore IGNORE       Skip hosts. Any item matching this Python regex will
                         be ignored. Can be specified multiple times. Example:
                         `(?i)linuxfabrik` for a case-insensitive match. The
@@ -161,8 +170,9 @@ UUID  ! Name      ! OS         ! Allocated ! Health                             
 
 * OK if all hosts report normal health and running status.
 * WARN if any host reports a degraded health status, or one this check does not know.
+* WARN if any host reports health status "Offline"; `--host-offline-severity` sets a different state for it.
 * WARN if any host's running status is not "Normal", unless it reports an outright failure.
-* CRIT if any host reports health status "Faulty", "No Input", "Invalid" or "Offline".
+* CRIT if any host reports health status "Faulty", "No Input" or "Invalid".
 * CRIT if any host's running status reports a failure ("Not running", "Sleep in High Temperature", "Offline", "Invalid", "Migration fault", "Error/Faulty", "To be synchronized", "Power-on failed", "Abnormal" or "Rollback failure").
 * `--match` limits the check to the hosts whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * UNKNOWN on invalid API responses or responses with error codes.
@@ -173,9 +183,10 @@ UUID  ! Name      ! OS         ! Allocated ! Health                             
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_allocated_capacity | Number | Used (allocated) capacity. |
-| \<UUID\>\_health_status | Number | 1: normal, 17: no redundant link, 18: offline. |
-| \<UUID\>\_running_status | Number | 1: normal. |
+| hosts | Number | Number of hosts checked, after `--match` and `--ignore`. |
+| hosts_not_ok | Number | Number of checked hosts whose state is not OK. |
+
+The performance data summarizes the hosts, because an array can hold hundreds of them. The per-host detail is in the plugin output table, not in the performance data.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

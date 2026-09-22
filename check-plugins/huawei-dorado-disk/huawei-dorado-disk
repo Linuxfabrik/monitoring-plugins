@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the health status of all disks on a Huawei OceanStor Dorado storage system
 via the REST API (/disk endpoint). Alerts when any disk reports a non-normal health
@@ -43,7 +43,10 @@ DEFAULT_INSECURE = True
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_NO_PROXY = False
 DEFAULT_SCOPE = '0'
-DEFAULT_TIMEOUT = 30
+# A single GET of /disk on a Dorado 6000 V6 with 384 disks took 30 to 36 seconds end
+# to end (measured twice), so 30 seconds left no margin. An array that does not answer
+# within 60 seconds ends UNKNOWN.
+DEFAULT_TIMEOUT = 60
 DEFAULT_UNUSED_DISK_SEVERITY = 'ok'
 DEFAULT_WARN = '180:'
 DEFAULT_WARN_HEALTH_MARK = ''
@@ -53,12 +56,6 @@ DEFAULT_WARN_WEAR = ''
 # Highest health score a disk reports. A disk whose media does not report one answers
 # with 255, which is a "not applicable" marker rather than a score.
 HEALTH_MARK_MAX = 100
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
 
 # `LOGICTYPE` of a disk that is in the chassis but not in a pool. The rest of the
 # enumeration is 2 member disk, 3 hot spare disk and 4 cache disk, all of which are
@@ -356,6 +353,21 @@ def parse_args():
     return args
 
 
+def days2seconds_range(spec):
+    """Return a Nagios range in days as the same range in seconds.
+
+    Every number in a range is a bound, so scaling each of them scales the range, and
+    `@`, `~` and `:` stay as they are. An unset range stays unset.
+    """
+    if not spec:
+        return None
+    return re.sub(
+        r'\d+(?:\.\d+)?',
+        lambda match: str(round(float(match.group()) * 24 * 60 * 60)),
+        spec,
+    )
+
+
 def get_remaining_life_days(disk):
     """Return a disk's remaining life in days, or `None` if it does not report one."""
     # A Dorado carries flash media only (SSD, SED, NVMe and SCM disk types), all of
@@ -421,6 +433,10 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    capacity_usage_max = None
+    disks_not_ok = 0
+    remaining_life_min = None
+    temperature_max = None
     compiled_match_regex = [
         lib.base.coe(item) for item in lib.txt.compile_regex(args.MATCH, '--match')
     ]
@@ -433,9 +449,6 @@ def main():
     table_data = []
     for disk in result.get('data') or []:
         disk['UUID'] = lib.huawei_dorado.get_uuid(disk)
-        # Perfdata labels carry the object's own TYPE:ID, which stays the same
-        # when hardware is moved between slots, unlike its location.
-        label = re.sub(r'\W+', '_', disk['UUID'])
 
         if args.MATCH and not any(
             lib.base.coe(lib.txt.match_regex(pattern, str(disk.get(field, ''))))
@@ -527,71 +540,32 @@ def main():
         runtime_days = lib.huawei_dorado.as_code(disk.get('RUNTIME'))
         disk['RUNTIME'] = None if runtime_days is None else runtime_days * 24 * 60 * 60
 
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            disk.get('HEALTHSTATUS'),
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            disk.get('RUNNINGSTATUS'),
-            _min=0,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_abrasion_rate',
-            abrasion_rate,
-            uom='%',
-            warn=args.WARN_WEAR or None,
-            crit=args.CRIT_WEAR or None,
-            _min=0,
-            _max=100,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_capacity_usage',
-            disk.get('CAPACITYUSAGE'),
-            uom='%',
-            _min=0,
-            _max=100,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_mark',
-            health_mark,
-            uom=None,
-            warn=args.WARN_HEALTH_MARK or None,
-            crit=args.CRIT_HEALTH_MARK or None,
-            _min=0,
-            _max=HEALTH_MARK_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_progress',
-            disk.get('PROGRESS'),
-            uom='%',
-            _min=0,
-            _max=100,
-        )
-        if remaining_life_days is not None:
-            perfdata += lib.base.get_perfdata(
-                f'{label}_remaining_life',
-                remaining_life_days * 24 * 60 * 60,
-                uom='s',
-                # No thresholds in the performance data: they are ranges in days and the
-                # value is in seconds. huawei-pacific-disk reports it the same way.
-                _min=0,
-            )
-        # No performance data for RUNTIME. It only ever counts up, and a cumulative
-        # counter aggregates wrong in every Grafana panel that touches it
+        # The performance data summarizes the disks instead of graphing each one: an
+        # array holds hundreds of them, and their status codes are judged above
+        # already. Per-disk detail is in the table. No performance data for the wear
+        # level: the appliance reports values above 100 (132 to 187 on a Dorado 6000
+        # V6, V700R001C10SPH128), so its scale is unresolved. None for RUNTIME
+        # either, which only ever counts up
         # ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)).
-        # The value stays in the table, where it reads as the age of the disk.
-        perfdata += lib.base.get_perfdata(
-            f'{label}_temperature',
-            temperature,
-            uom=None,
-            warn=args.WARN_TEMPERATURE or None,
-            crit=args.CRIT_TEMPERATURE or None,
-            _min=0,
-        )
+        capacity_usage = lib.huawei_dorado.as_code(disk.get('CAPACITYUSAGE'))
+        if capacity_usage is not None:
+            capacity_usage_max = (
+                capacity_usage
+                if capacity_usage_max is None
+                else max(capacity_usage_max, capacity_usage)
+            )
+        if remaining_life_days is not None:
+            remaining_life_min = (
+                remaining_life_days
+                if remaining_life_min is None
+                else min(remaining_life_min, remaining_life_days)
+            )
+        if temperature is not None:
+            temperature_max = (
+                temperature
+                if temperature_max is None
+                else max(temperature_max, temperature)
+            )
 
         disk['row_state'] = lib.base.get_worst(
             lib.base.get_worst(health_state, running_state),
@@ -602,6 +576,8 @@ def main():
                 ),
             ),
         )
+        if disk['row_state'] != STATE_OK:
+            disks_not_ok += 1
         disk['health'] = lib.huawei_dorado.get_health_status(disk.get('HEALTHSTATUS'))
         disk['running'] = lib.huawei_dorado.get_running_status(
             disk.get('RUNNINGSTATUS')
@@ -670,6 +646,43 @@ def main():
     else:
         msg += 'Everything is ok.'
     msg += '\n\n'
+    perfdata += lib.base.get_perfdata(
+        'disks',
+        len(table_data),
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'disks_not_ok',
+        disks_not_ok,
+        uom=None,
+        _min=0,
+    )
+    perfdata += lib.base.get_perfdata(
+        'temperature_max',
+        temperature_max,
+        uom=None,
+        warn=args.WARN_TEMPERATURE or None,
+        crit=args.CRIT_TEMPERATURE or None,
+        _min=0,
+    )
+    if remaining_life_min is not None:
+        perfdata += lib.base.get_perfdata(
+            'remaining_life_min',
+            remaining_life_min * 24 * 60 * 60,
+            uom='s',
+            # The thresholds are ranges in days, the value is in seconds.
+            warn=days2seconds_range(args.WARN),
+            crit=days2seconds_range(args.CRIT),
+            _min=0,
+        )
+    perfdata += lib.base.get_perfdata(
+        'capacity_usage_max',
+        capacity_usage_max,
+        uom='%',
+        _min=0,
+        _max=100,
+    )
 
     # build table output
     display_rows = table_data

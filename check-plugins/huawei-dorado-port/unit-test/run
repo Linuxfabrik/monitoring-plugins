@@ -33,8 +33,9 @@ TESTS = [
             'Link down (11) ! Normal (1) ! [OK]',
             "'212_0A_0_speed'=32000;;;0;32000",
         ],
-        # A port with no link reports no rate, so it must not be graphed at zero.
-        'assert-not-in': ["'213_0A_3_speed'="],
+        # A port with no link reports no rate, so it must not be graphed at zero. The
+        # health and link states are in the table and drive the state, never perfdata.
+        'assert-not-in': ["'213_0A_3_speed'=", '_health_status', '_running_status'],
     },
     {
         # A 32 Gbit/s FC port that negotiated 8 Gbit/s still carries traffic, so
@@ -88,6 +89,62 @@ TESTS = [
         " --match='nonexistent' --no-match-severity=crit",
         'assert-retc': STATE_CRIT,
         'assert-in': ['No ports matched `nonexistent`.'],
+    },
+    {
+        # Anonymised from a Dorado 6000 V6: a front-end FC and Ethernet port, an unused
+        # expansion port of a disk enclosure with its link down (LOGICTYPE 1), and a
+        # port of the scale-out interconnect (LOGICTYPE 11). The expansion port is left
+        # out, so its link does not alert even when asked to; the cluster port is
+        # checked like a front-end port.
+        'id': 'ok-backend-ports-left-out',
+        'test': 'stdout/ports-logic-types,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --link-down-severity=warn',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'CTE0.A.IOM1.P0',
+            'CTE0.A.IOM0.P0',
+            'CTE0.A.IOM2.P0',
+            "'213_281474976842240_",
+        ],
+        'assert-not-in': ['DAE010.A.P1', "'213_3459050842110435329_"],
+    },
+    {
+        'id': 'warn-include-backend',
+        'test': 'stdout/ports-logic-types,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --include-backend --link-down-severity=warn --lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            'Ethernet ! Host port      ! CTE0.A.IOM0.P0',
+            'Ethernet ! Expansion port ! DAE010.A.P1    ! --     ! Link down (11)',
+            'Ethernet ! Cluster port   ! CTE0.A.IOM2.P0',
+        ],
+        'assert-not-in': ['_health_status', '_running_status'],
+    },
+    {
+        # A code no REST Interface Reference lists cannot be classified, so the port
+        # stays in rather than disappearing. The code is synthesised: the real
+        # front-end Ethernet port with LOGICTYPE 12.
+        'id': 'ok-undocumented-logic-type-kept',
+        'test': 'stdout/ports-logic-type-undocumented,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        ' --lengthy',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Unknown (12) ! CTE0.A.IOM0.P0'],
+    },
+    {
+        # A filter that leaves nothing says what the logic type filter held back.
+        'id': 'ok-nothing-checked-names-backend-ports',
+        'test': 'stdout/ports-logic-types,,0',
+        'params': '--device-id=1 --password=linuxfabrik --url=https://localhost --username=admin'
+        " --match='DAE'",
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'No ports matched `DAE`. 1 port checked with `--include-backend` only.'
+        ],
     },
 ]
 

@@ -213,10 +213,10 @@ UUID       ! Location   ! Produced   ! ControllerID ! #Discharged ! Remain ! Vol
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>_health_status | Number | 0: unknown, 1: normal, 2: faulty, 3: about to fail, 12: low battery. |
 | \<UUID\>_remaining_life | Seconds | Remaining service life. Only reported for a module that states one. |
-| \<UUID\>_running_status | Number | 0: unknown, 1: normal, 2: running, 27: online, 28: offline, 48: charging, 49: charging completed, 50: discharging. |
 | \<UUID\>_voltage | Number | Current voltage, in volts. The appliance counts it in tenths of a volt. |
+
+The health and running status codes stay out of the performance data. The state already carries them, and a code does not read as a curve.
 
 The discharge count stays out of the performance data. It only ever counts up, and a cumulative counter aggregates wrong in every Grafana panel that touches it ([#320](https://github.com/Linuxfabrik/monitoring-plugins/issues/320)). It is in the table instead, where it reads as the wear of the module.
 

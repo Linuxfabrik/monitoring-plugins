@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092201'
+__version__ = '2026092202'
 
 DESCRIPTION = """Checks the health, link status and optical power of the optical modules (SFP) of a
 Huawei OceanStor Dorado storage system via the REST API (/sfp endpoint). Alerts when a module
@@ -51,12 +51,6 @@ DEFAULT_TX_POWER_WARN = ''
 # reports this value for a reading it does not have. It is the largest 32-bit unsigned
 # integer, not a measurement. The same marker turns up in `SPEED` and `SFPMODETYPE`.
 INVALID_VALUE32 = 4294967295
-
-# Highest `HEALTHSTATUS` code the REST Interface References document (offline). It
-# bounds the metric so a graph scales to the whole enumeration; the thresholds stay
-# out of the performance data, because whether a code is a fault depends on the
-# object and is decided in `lib.huawei_dorado.get_health_status_state()`.
-HEALTH_STATUS_MAX = 18
 
 # RUNNINGSTATUS code of a port whose link is down. These endpoints use their own
 # enumeration: 0 unknown, 10 link up, 11 link down, and 33 to be recovered on
@@ -546,20 +540,6 @@ def main():
                 running_status, OK_RUNNING_STATUS
             )
         state = lib.base.get_worst(state, running_state)
-
-        perfdata += lib.base.get_perfdata(
-            f'{label}_health_status',
-            health_status,
-            uom=None,
-            _min=0,
-            _max=HEALTH_STATUS_MAX,
-        )
-        perfdata += lib.base.get_perfdata(
-            f'{label}_running_status',
-            running_status,
-            uom=None,
-            _min=0,
-        )
 
         # The vendor's response example reports `4294967295` here, the marker for a
         # value the appliance does not have, which would graph as 4.29e9 Mbit/s.

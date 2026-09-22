@@ -3,11 +3,13 @@
 
 ## Overview
 
-Checks the health and link status of the front-end ports of a Huawei OceanStor Dorado storage system via the REST API (`/fc_port`, `/eth_port`, `/sas_port` and `/bond_port` endpoints). Alerts when a port reports a non-normal health status, when it negotiated a speed below the one it is configured or built for, and optionally when a link is down. Reports the link error counters the appliance keeps as per-second rates, together with the port type, its location, its link state and its operating speed. Supports reporting the I/O counters via `--performance`.
+Checks the health and link status of the front-end and cluster ports of a Huawei OceanStor Dorado storage system via the REST API (`/fc_port`, `/eth_port`, `/sas_port` and `/bond_port` endpoints). Alerts when a port reports a non-normal health status, when it negotiated a speed below the one it is configured or built for, and optionally when a link is down. Reports the link error counters the appliance keeps as per-second rates, together with the port type, its location, its link state and its operating speed. Expansion, management, maintenance and internal ports are checked on request via `--include-backend`. Supports reporting the I/O counters via `--performance`. Supports extended reporting via `--lengthy`, which adds what each port is used for.
 
 **Important Notes:**
 
-* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0
+* Tested on Huawei OceanStor Dorado 8000 V6 6.1.0 and Dorado 6000 V6 V700R001C10
+* By default only the ports that serve hosts, including those that double as a management or maintenance port, and the cluster ports that link the controller enclosures of a scale-out array are checked. The endpoints also list the expansion ports towards the disk enclosures and the management and maintenance ports, which on an array with disk enclosures outnumber the front-end ports and report every unused expansion port as link down. `--include-backend` checks them too; `--ignore='DAE'` then leaves out the disk enclosures. SAS ports are expansion ports by definition, so they are checked with `--include-backend` only
+* A port whose logic type no REST Interface Reference documents is checked, so a port this check cannot classify does not disappear silently. `--lengthy` shows it as `Unknown (<code>)`
 * A port whose link is down reports exactly what an uncabled port reports, so this does not alert by default. Set `--link-down-severity` on an array where every port is expected to be connected
 * A port that negotiated below its configured or maximum speed still carries traffic, so nothing else in this check notices it. It is what a dirty connector, the wrong transceiver or a mismatched switch port look like, which is why `--slow-port-severity` defaults to WARN
 * The appliance counts its link errors as totals since it started counting. The check stores the previous reading in a local database and reports the difference as a per-second rate, so the **first run after an update or a reboot reports no error rates at all**. The second run has a baseline to compare against
@@ -48,7 +50,7 @@ usage: huawei-dorado-port [-h] [-V] [--always-ok] [--brief]
                           [--cache-expire CACHE_EXPIRE]
                           [--critical-errors CRIT_ERRORS]
                           [--device-id DEVICE_ID] [--ignore IGNORE]
-                          [--insecure]
+                          [--include-backend] [--insecure] [--lengthy]
                           [--link-down-severity {ok,warn,crit,unknown}]
                           [--match MATCH] [--no-insecure]
                           [--no-match-severity {ok,warn,crit,unknown}]
@@ -59,13 +61,15 @@ usage: huawei-dorado-port [-h] [-V] [--always-ok] [--brief]
                           [--timeout TIMEOUT] -u URL --username USERNAME [-v]
                           [--warning-errors WARN_ERRORS]
 
-Checks the health and link status of the front-end ports of a Huawei OceanStor
-Dorado storage system via the REST API (/fc_port, /eth_port, /sas_port and
-/bond_port endpoints). Alerts when a port reports a non-normal health status,
-when it negotiated a speed below the one it is configured or built for, and
-optionally when a link is down. Reports the link error counters the appliance
-keeps as per-second rates. Supports reporting the I/O counters via
---performance.
+Checks the health and link status of the front-end and cluster ports of a
+Huawei OceanStor Dorado storage system via the REST API (/fc_port, /eth_port,
+/sas_port and /bond_port endpoints). Alerts when a port reports a non-normal
+health status, when it negotiated a speed below the one it is configured or
+built for, and optionally when a link is down. Reports the link error counters
+the appliance keeps as per-second rates. Expansion, management, maintenance
+and internal ports are checked on request via --include-backend. Supports
+reporting the I/O counters via --performance. Supports extended reporting via
+--lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -99,8 +103,17 @@ options:
                         `re.match`) and is matched against the port
                         identifier, its location and its name, so prefix with
                         `.*` to match anywhere. Default: None
+  --include-backend     Also check the ports that neither serve hosts nor link
+                        the controller enclosures: the expansion ports towards
+                        the disk enclosures, and the management, maintenance
+                        and internal ports. By default only front-end and
+                        cluster ports are checked, because the unused
+                        expansion ports of every disk enclosure report their
+                        link as down. Combine with `--ignore` to leave out the
+                        disk enclosures.
   --insecure            This option explicitly allows insecure SSL
                         connections.
+  --lengthy             Extended reporting.
   --link-down-severity {ok,warn,crit,unknown}
                         State to report for a port whose link is down. A port
                         that is simply not cabled reports the same thing,
@@ -142,8 +155,8 @@ options:
                         `--password`. Keep the file readable only by the
                         monitoring user. Example: `--password-
                         file=/etc/icinga2/secrets/storage`.
-  --performance         Additionally report the I/O counters of every front-
-                        end port. Costs one API request per object, so a large
+  --performance         Additionally report the I/O counters of every checked
+                        port. Costs one API request per object, so a large
                         appliance may need a higher --timeout.
   --proxy PROXY         Proxy to reach the target through. The scheme defaults
                         to `http` when omitted. Overrides the proxy the
@@ -213,6 +226,12 @@ On an array where every front-end port is cabled, alert on a lost link, and look
 ./huawei-dorado-port --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --link-down-severity=crit --match='^212'
 ```
 
+Also check the expansion and management ports, but leave out the disk enclosures, and show what each port is used for:
+
+```bash
+./huawei-dorado-port --url=https://oceanstor:8088 --device-id=123456789 --username=monitoring --password=linuxfabrik --include-backend --ignore='DAE' --lengthy
+```
+
 
 ## States
 
@@ -223,8 +242,9 @@ On an array where every front-end port is cabled, alert on a lost link, and look
 * `--link-down-severity` decides what a port whose link is down reports (default: OK).
 * `--slow-port-severity` decides what a port that negotiated below its configured speed reports, or below its maximum speed where it is set to auto-negotiate (default: WARN).
 * WARN or CRIT if a port's link errors per second, summed over every counter that port keeps, reach `--warning-errors` or `--critical-errors`. Both are off by default.
-* UNKNOWN if the appliance lists no front-end ports at all, which points at the query rather than at the array.
+* UNKNOWN if the appliance lists no ports at all, which points at the query rather than at the array.
 * UNKNOWN on invalid API responses or responses with error codes.
+* Expansion, management, maintenance and internal ports are not checked and do not alert unless `--include-backend` is given.
 * `--match` limits the check to the ports whose identifier, location or name matches the regex; `--no-match-severity` sets what to report when nothing matches (default: OK).
 * `--always-ok` suppresses all alerts and always returns OK.
 
@@ -233,8 +253,6 @@ On an array where every front-end port is cabled, alert on a lost link, and look
 
 | Name | Type | Description |
 |----|----|----|
-| \<UUID\>\_health_status | Number | 1: normal, 2: faulty, 5: degraded, 9: inconsistent. |
-| \<UUID\>\_running_status | Number | 0: unknown, 10: link up, 11: link down, 33: to be recovered. |
 | \<UUID\>\_speed | Number | Operating speed in Mbit/s. A port with no link reports none and is left out. |
 | \<UUID\>\_bad_characters_per_second | Number | FC ports: invalid characters received, per second. |
 | \<UUID\>\_crc_errors_per_second | Number | FC and Ethernet ports: CRC errors, per second. |
@@ -252,7 +270,7 @@ On an array where every front-end port is cabled, alert on a lost link, and look
 | \<UUID\>\_overflowed_packets_per_second | Number | Ethernet ports: overflowed packets, per second. |
 | \<UUID\>\_phy_reset_errors_per_second | Number | SAS ports: failed PHY resets, per second. |
 
-Every port reports only the counters its own kind keeps, and the rates appear from the second check run onwards.
+Every port reports only the counters its own kind keeps, and the rates appear from the second check run onwards. Ports that are not checked, such as the expansion ports without `--include-backend`, report no performance data.
 
 Have a look at the [API documentation](https://support.huawei.com/enterprise/en/doc/EDOC1100144155/387d790e/overview) for details.
 

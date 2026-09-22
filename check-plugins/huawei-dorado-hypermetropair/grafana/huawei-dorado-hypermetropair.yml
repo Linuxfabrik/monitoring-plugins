@@ -47,7 +47,7 @@ spec:
 
   panels:
 
-  - title: Synchronization Progress
+  - title: Pairs
     type: timeseries
     gridPos:
       h: 8
@@ -66,12 +66,12 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 0
-        unit: percent
+        min: 0
+        unit: none
     options:
       legend:
         calcs:
         - min
-        - mean
         - max
         - last
         displayMode: table
@@ -83,15 +83,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
-      refId: sync_progress
+    - alias: pairs
+      refId: pairs
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -113,10 +110,40 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_sync_progress$/
+        operator: '='
+        value: pairs
 
-  - title: Status Codes
+    - alias: pairs_not_ok
+      refId: pairs_not_ok
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: pairs_not_ok
+
+  - title: Sync Progress
     type: timeseries
     gridPos:
       h: 8
@@ -135,7 +162,9 @@ spec:
           showPoints: always
           spanNulls: false
         decimals: 0
-        unit: short
+        max: 100
+        min: 0
+        unit: percent
     options:
       legend:
         calcs:
@@ -152,15 +181,12 @@ spec:
 
     targets:
 
-    - alias: $tag_metric
-      refId: status
+    - alias: sync_progress_min
+      refId: sync_progress_min
       groupBy:
       - params:
         - $interval
         type: time
-      - params:
-        - metric
-        type: tag
       - params:
         - previous
         type: fill
@@ -182,74 +208,5 @@ spec:
         value: $service
       - condition: AND
         key: metric
-        operator: '=~'
-        value: /_health_status$|_running_status$|_link_status$/
-
-  - title: Data and Access States
-    type: timeseries
-    gridPos:
-      h: 8
-      w: 12
-      x: 0
-      y: 8
-    fieldConfig:
-      defaults:
-        color:
-          mode: palette-classic
-        custom:
-          drawStyle: line
-          lineInterpolation: smooth
-          lineWidth: 1
-          pointSize: 3
-          showPoints: always
-          spanNulls: false
-        decimals: 0
-        unit: short
-    options:
-      legend:
-        calcs:
-        - min
-        - mean
-        - max
-        - last
-        displayMode: table
-        placement: bottom
-        showLegend: true
-      tooltip:
-        mode: multi
-        sort: none
-
-    targets:
-
-    - alias: $tag_metric
-      refId: data_states
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - metric
-        type: tag
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
         operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '=~'
-        value: /_data_state$|_host_access_state$/
+        value: sync_progress_min
