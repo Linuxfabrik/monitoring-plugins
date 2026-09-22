@@ -77,16 +77,21 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: 'python.exe -m pip install --upgrade pip wheel setuptools'
-        run: 'python.exe -m pip install --upgrade pip wheel setuptools'
+      # Every tool and library of the build comes from a hash-pinned requirements
+      # file. setuptools and wheel go first: Nuitka is published as a source
+      # distribution only, and so is PySmbClient in the plugins' lockfile. Both are
+      # built without isolation, by the pinned setuptools and wheel, instead of by
+      # whatever an isolated build would fetch.
+      - name: 'Install the build backend (setuptools, wheel)'
+        run: 'python.exe -m pip install --require-hashes --requirement ${{ github.workspace }}\repos\monitoring-plugins\.github\setuptools\requirements.txt'
 
       # ordered-set is for nuitka: "Nuitka:WARNING: Using very slow fallback for ordered sets, please install 'ordered-set' or 'orderedset' PyPI packages for best Python compile time performance."
-      - name: 'python.exe -m pip install --upgrade ordered-set Nuitka'
-        run: 'python.exe -m pip install --upgrade ordered-set Nuitka'
+      - name: 'Install Nuitka and ordered-set'
+        run: 'python.exe -m pip install --require-hashes --no-build-isolation --requirement ${{ github.workspace }}\repos\monitoring-plugins\.github\nuitka\requirements.txt'
 
       # install 3rd party libraries for all check plugins
-      - name: 'python.exe -m pip install --requirement ${{ github.workspace }}\repos\monitoring-plugins\lockfiles/py313-windows/requirements.txt --require-hashes'
-        run: 'python.exe -m pip install --requirement ${{ github.workspace }}\repos\monitoring-plugins\lockfiles/py313-windows/requirements.txt --require-hashes'
+      - name: 'Install the libraries of the check plugins'
+        run: 'python.exe -m pip install --require-hashes --no-build-isolation --requirement ${{ github.workspace }}\repos\monitoring-plugins\lockfiles\py313-windows\requirements.txt'
 
       - name: 'Verify Python installation'
         run: 'python.exe -m pip list'
