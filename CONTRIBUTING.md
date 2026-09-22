@@ -1169,7 +1169,7 @@ For that case, use a `Containerfile` per target distro under `unit-test/containe
 
 ```text
 archlinux-vlatest
-debian-v11 / v12 / v13
+debian-v12 / v13
 fedora-v43
 rhel-v8 / v9 / v10
 sles-v15 / v16
