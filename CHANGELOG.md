@@ -102,6 +102,7 @@ Monitoring Plugins:
 * openstack-nova-list: alerts on an ACTIVE instance that is not running and reports the compute host; a password reset or rescue image is no longer CRITICAL, and a slow cloud no longer kills the check
 * openstack-swift-stat: alerts on the container and account quotas, and a slow cloud no longer kills the check
 * procs: reports the fork rate (Linux only)
+* scanrootkit: detects 13 further rootkits and implants, among them Fire Ant, PoisonedRefresh, Quasar Linux and SPECTRE
 * wordpress-security-scan: warns when the vulnerability lookup fails, and scans wider where a local database makes it free
 
 Icinga Director:
