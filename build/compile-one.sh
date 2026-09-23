@@ -28,12 +28,19 @@ fi
 
 echo "✅ Compiling $PLUGIN into $COMPILE_DIR/$PLUGINS/..."
 # --no-deployment-flag=self-execution: https://github.com/Linuxfabrik/monitoring-plugins/issues/864
+# --noinclude-unittest-mode=nofollow: lib.lftest imports unittest only inside its test
+# harness, which a compiled plugin never runs. Without it, Nuitka warns and bundles
+# unittest into every plugin.
+# --update-check=never: the Nuitka version is pinned on purpose and bumped by Dependabot,
+# so the build does not need to ask PyPI for the latest release.
 python3 -m nuitka \
     --assume-yes-for-downloads \
     --no-deployment-flag=self-execution \
+    --noinclude-unittest-mode=nofollow \
     --output-dir=$COMPILE_DIR/$PLUGINS/ \
     --remove-output \
     --standalone \
+    --update-check=never \
     $ADDITIONAL_PARAMS \
     $REPO_DIR/monitoring-plugins/$PLUGINS/$PLUGIN/$PLUGIN
 
