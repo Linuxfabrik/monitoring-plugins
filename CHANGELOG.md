@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+tbd
+
+
+## [v8.0.0] - 2026-09-23
+
 **Highlights:** A hung network filesystem no longer takes a check down with it: `disk-usage`, `path-rw-test` and every other check give up at their `--timeout`. More than thirty new checks cover LVM, software RAID, multipath, NFS clients and servers, KVM guests, acme.sh certificates, the kernel's pressure stall information, the Apache httpd, PHP-FPM and OpenSSH server logs and the hardening of Apache httpd and NGINX. Several changes need attention before updating: the KVM Host Service Set expects a `libvirtd` or `virtqemud` host tag, the `rpm-updates` tag is gone, the ignore parameters of the logfile and MySQL checks take regular expressions now, `file-age` and `file-size` no longer run through sudo, and the Service Sets for Debian 10, RHEL 7 and Ubuntu 16 to 20 are removed together with their host tags. Two root-run checks close a local privilege escalation: `fail2ban` stops trusting a caller-supplied `--socket` and `kdump` no longer follows a symlink out of its crash-dump directory.
 
 ### Breaking Changes
@@ -118,7 +123,6 @@ Icinga Director:
 
 Grafana:
 
-* apache-httpd-security, nginx-security: the findings panel graphs the checks `--ignore` excluded, too
 * Icinga Web 2 shows all graphs of a check instead of only the first one, on 27 checks: re-deploy the `icingaweb2-module-grafana` assets
 * import the new nextcloud-enterprise dashboard, which graphs the account counts against their limits
 * re-import the dashboards of apache-httpd-status, cpu-usage, disk-io, huawei-dorado-hypermetropair, huawei-dorado-lun, Icinga overview, keycloak-memory-usage, kvm-vm, load, memory-usage, mysql-logfile, network-io, php-status, ping, procs and swap-usage: panels and metric names changed, and series hidden from a panel no longer show up in its tooltip
@@ -198,8 +202,8 @@ Icinga Director:
 
 Grafana:
 
-* file-growth shows its graph in Icinga Web 2 at all, and mysql-innodb-buffer-pool-size, network-io and swap-usage no longer put an empty "Panel not found" next to theirs: re-deploy the `icingaweb2-module-grafana` assets
-* keycloak-stats, and the sudo and Windows variants of acmesh-status, apache-httpd-security, dns, graylog-version, ipmi-sensor, lvm-snapshots, lvm-thin-pools, lvm-volume-groups, lvm-volumes and nginx-security, show their graphs in Icinga Web 2: re-deploy the `icingaweb2-module-grafana` assets
+* mysql-innodb-buffer-pool-size, network-io and swap-usage no longer put an empty "Panel not found" next to their graphs in Icinga Web 2: re-deploy the `icingaweb2-module-grafana` assets
+* keycloak-stats, and the sudo and Windows variants of dns, graylog-version and ipmi-sensor, show their graphs in Icinga Web 2: re-deploy the `icingaweb2-module-grafana` assets
 
 Build, CI/CD:
 
@@ -1753,7 +1757,8 @@ Monitoring Plugins:
 Initial release for the general public.
 
 
-[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v7.0.0...HEAD
+[Unreleased]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v8.0.0...HEAD
+[v8.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v7.0.0...v8.0.0
 [v7.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v6.0.0...v7.0.0
 [v6.0.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.2.0...v6.0.0
 [v5.2.0]: https://github.com/Linuxfabrik/monitoring-plugins/compare/v5.1.0...v5.2.0
