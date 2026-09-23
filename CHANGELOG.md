@@ -313,6 +313,7 @@ Assets:
 
 Monitoring Plugins:
 
+* all checks over HTTP: API keys and session tokens no longer follow a redirect to another host ([GHSA-4jc5-g844-4x33](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-4jc5-g844-4x33))
 * all plugins: `--test` can no longer read root-owned files via sudo ([GHSA-rh9c-rqvg-f7pr](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-rh9c-rqvg-f7pr))
 * keycloak-memory-usage, keycloak-stats, keycloak-version: admin credentials no longer leak to another host ([GHSA-88fj-95f7-w68m](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-88fj-95f7-w68m))
 * logfile: closed a local privilege escalation (only with `fs.protected_symlinks=0`) ([GHSA-w2gg-hx6w-24w3](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-w2gg-hx6w-24w3))
