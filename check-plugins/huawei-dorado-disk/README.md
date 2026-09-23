@@ -153,7 +153,7 @@ options:
                         visible to every user on the host. Example:
                         `--proxy=http://proxy.example.com:3128`.
   --scope SCOPE         Huawei OceanStor Dorado API scope.
-  --timeout TIMEOUT     Network timeout in seconds. Default: 30 (seconds)
+  --timeout TIMEOUT     Network timeout in seconds. Default: 60 (seconds)
   --unused-disk-severity {ok,warn,crit,unknown}
                         State to report for a disk that sits in the chassis
                         without belonging to a pool. Worth raising on an array

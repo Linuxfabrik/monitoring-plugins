@@ -40,8 +40,7 @@ usage: huawei-dorado-hypermetrodomain [-h] [-V] [--always-ok]
                                       [--ignore IGNORE] [--insecure]
                                       [--match MATCH] [--no-insecure]
                                       [--no-match-severity {ok,warn,crit,unknown}]
-                                      [--no-perfdata] [--no-proxy]
-                                      [--password PASSWORD]
+                                      [--no-proxy] [--password PASSWORD]
                                       [--password-file PASSWORD_FILE]
                                       [--proxy PROXY] [--scope SCOPE]
                                       [--timeout TIMEOUT] -u URL
@@ -91,10 +90,6 @@ options:
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: ok
-  --no-perfdata         Suppress the performance data section from the output.
-                        The status message and the exit code are unaffected,
-                        so alerting keeps working while trending data is
-                        dropped.
   --no-proxy            Do not use a proxy, not even one the environment
                         names. Overrides `--proxy`.
   --password PASSWORD   Huawei OceanStor Dorado API password.
