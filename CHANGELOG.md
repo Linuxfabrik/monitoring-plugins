@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-tbd
+### Fixed
+
+Build, CI/CD:
+
+* RPM: plugins no longer fail with `EOFError: marshal data too short` ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
 
 
 ## [v8.0.0] - 2026-09-23

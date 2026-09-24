@@ -52,8 +52,22 @@ LFMP_DIR_SOURCES=%{_builddir} \
 LFMP_VENV_PIP=%{buildroot}%{_libdir}/%{name}/venv/bin/pip \
 bash build/install-vendor.sh
 
-# Fix absolute paths in venv
-find %{buildroot}%{_libdir}/%{name}/venv -type f -exec sed --in-place 's|%{buildroot}|/|g' {} \;
+# Fix absolute paths in venv, in text files only. Every .pyc stores its source path as a
+# length-prefixed string, so rewriting it in place leaves a length that no longer fits and
+# the import fails with "EOFError: marshal data too short" (#1543). Python usually ignores
+# such a .pyc because the rewrite also bumps the mtime of its .py, but not when both land
+# in the same second, which makes the breakage depend on the timing of each build.
+grep --recursive --files-with-matches --binary-files=without-match --fixed-strings \
+    '%{buildroot}' %{buildroot}%{_libdir}/%{name}/venv \
+    | xargs --no-run-if-empty sed --in-place 's|%{buildroot}|/|g'
+
+# Rebuild the bytecode pip wrote, with the paths the files have on the target host. Ship it
+# instead of leaving it out: the monitoring user cannot write below %{_libdir}, so without it
+# every check run would compile the imported modules again. `-s` strips the buildroot
+# including its leading slash, `-p /` puts the slash back. Verified with Python 3.9 on
+# Rocky 9: every .pyc loads, matches its .py and names the path on the host.
+find %{buildroot}%{_libdir}/%{name}/venv -name '*.pyc' -delete
+$LFMP_PYTHON -m compileall -q -s %{buildroot} -p / %{buildroot}%{_libdir}/%{name}/venv/lib
 
 LFMP_DIR_TARGET=%{buildroot}%{_libdir}/nagios/plugins bash build/install-plugins.sh
 
