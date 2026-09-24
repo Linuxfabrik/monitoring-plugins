@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import glob
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.human
+import lib.lftest
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN
+
+PYTHON_MOD = None
+try:
+    import lib.smb
+
+    HAVE_SMB = True
+except ModuleNotFoundError as e:
+    HAVE_SMB = False
+    PYTHON_MOD = e.name
+
+__author__ = "Linuxfabrik GmbH, Zurich/Switzerland"
+__version__ = "2026042001"
+
+DESCRIPTION = """Checks directory sizes against configurable thresholds using human-readable units (e.g.
+25M, 1G). Supports glob patterns and SMB shares.
+Alerts when any directory exceeds the configured size thresholds.
+Requires root or sudo."""
+
+
+DEFAULT_CRIT = "1G"
+DEFAULT_PATTERN = "*"
+DEFAULT_TIMEOUT = 3
+DEFAULT_WARN = "25M"
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="version",
+        version=f"%(prog)s: v{__version__} by {__author__}",
+    )
+
+    parser.add_argument(
+        "--always-ok",
+        help=lib.args.help("--always-ok"),
+        dest="ALWAYS_OK",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
+        "-c",
+        "--critical",
+        help="CRIT threshold for the directory size in human-readable format "
+        "(base is always 1024; valid qualifiers are "
+        "b, k/kb/kib, m/mb/mib, g/gb/gib etc.). "
+        "Supports Nagios ranges. "
+        "Example: `:1G` alerts if size is greater than 1 GiB. "
+        "Default: %(default)s",
+        dest="CRIT",
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        "--dirname",
+        help="Path of the directory to check. "
+        "Supports glob patterns according to https://docs.python.org/3/library/glob.html. "
+        "Recursive globs can cause high memory usage. "
+        "Mutually exclusive with `-u` / `--url`. "
+        "Example: `--dirname /tmp/*`.",
+        dest="DIRNAME",
+    )
+
+    parser.add_argument(
+        "--pattern",
+        help="Search string to match against SMB directory or directory names. "
+        "Use `*` as a wildcard for multiple characters and `?` for a single character. "
+        "Does not support regex patterns. "
+        "Default: %(default)s",
+        dest="PATTERN",
+        default=DEFAULT_PATTERN,
+    )
+
+    parser.add_argument(
+        "--password",
+        help="Password for SMB authentication.",
+        dest="PASSWORD",
+    )
+
+    parser.add_argument(
+        "--timeout",
+        help=lib.args.help("--timeout") + " Default: %(default)s (seconds)",
+        dest="TIMEOUT",
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        "-u",
+        "--url",
+        help="URL of the directory to check, starting with `smb://`. "
+        "Mutually exclusive with `--dirname`. "
+        "Example: `--url smb://server/share/path`.",
+        dest="URL",
+        type=str,
+    )
+
+    parser.add_argument(
+        "--username",
+        help="Username for SMB authentication.",
+        dest="USERNAME",
+    )
+
+    parser.add_argument(
+        "-w",
+        "--warning",
+        help="WARN threshold for the directory size in human-readable format "
+        "(base is always 1024; valid qualifiers are "
+        "b, k/kb/kib, m/mb/mib, g/gb/gib etc.). "
+        "Supports Nagios ranges. "
+        "Example: `:1G` alerts if size is greater than 1 GiB. "
+        "Default: %(default)s",
+        dest="WARN",
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_dir_size(path):
+    """Return total size of files in directory recursively."""
+    total = 0
+    for dirpath, dirnames, filenames in os.walk(path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            try:
+                total += os.path.getsize(fp)
+            except OSError:
+                pass
+    return total
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line, exit with UNKNOWN if it fails
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.DIRNAME and args.URL:
+        lib.base.cu(
+            "The `--dirname` and `-u` / `--url` parameters are mutually exclusive. Please use only one."
+        )
+
+    # init some vars
+    state = STATE_OK
+    msg = ""
+    table_data = []
+    alert_count = 0
+    perfdata = ""
+
+    # convert human readable nagios ranges to something that the Linuxfabrik libraries
+    # can understand
+    CRIT = lib.human.humanrange2bytes(args.CRIT)
+    WARN = lib.human.humanrange2bytes(args.WARN)
+
+    # fetch data from local
+    if args.DIRNAME:
+        for item in sorted(glob.iglob(args.DIRNAME)):
+            if not os.path.isdir(item):
+                continue
+            table_data.append(
+                {
+                    "dirname": item,
+                    "size": get_dir_size(item),
+                }
+            )
+
+    # or fetch data from remote
+    if args.URL:
+        split_url = args.URL.split("://")
+        if len(split_url) != 2:
+            lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
+        proto, url = split_url
+        if proto == "smb":
+            if not HAVE_SMB:
+                lib.base.cu(f'Python module "{PYTHON_MOD}" is not installed.')
+            for item in lib.base.coe(
+                lib.smb.glob(
+                    url,
+                    args.USERNAME,
+                    args.PASSWORD,
+                    args.TIMEOUT,
+                    pattern=args.PATTERN,
+                )
+            ):
+                if item.is_dir():
+                    continue
+                table_data.append(
+                    {
+                        "dirname": item,
+                        "size": item.stat().st_size,
+                    }
+                )
+        else:
+            lib.base.cu(f'The protocol "{proto}" is not supported.')
+
+    if len(table_data) == 0:
+        msg = "No directories found."
+        lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    # analyze data
+    for i, item in enumerate(table_data):
+        table_data[i]["size_hr"] = lib.human.bytes2human(table_data[i]["size"])
+        table_data[i]["state"] = lib.base.get_state(
+            item["size"],
+            WARN,
+            CRIT,
+            _operator="range",
+        )
+        table_data[i]["state_hr"] = lib.base.state2str(
+            table_data[i]["state"], empty_ok=False
+        )
+        if table_data[i]["state"]:
+            alert_count += 1
+        state = lib.base.get_worst(state, table_data[i]["state"])
+
+        # add perfdata for each directory
+        perfdata += lib.base.get_perfdata(
+            item["dirname"],
+            item["size"],
+            warn=WARN,
+            crit=CRIT,
+            uom="B",
+        )
+
+    # build the message
+    msg += (
+        f"{len(table_data)} {lib.txt.pluralize('directory', len(table_data))} checked. "
+    )
+    if state == STATE_OK:
+        msg += (
+            f"{lib.txt.pluralize('', len(table_data), 'It is,All are')}"
+            f" within the given size thresholds"
+            f" ({args.WARN}/{args.CRIT})."
+        )
+    else:
+        msg += (
+            f"{alert_count}"
+            f" {lib.txt.pluralize('', alert_count, 'is,are')}"
+            f" outside the given size thresholds"
+            f" ({args.WARN}/{args.CRIT})."
+        )
+    if len(table_data) == 1:
+        # show info on first line when there is only one hit
+        msg += (
+            f" Checked {table_data[0]['dirname']}:"
+            f" {table_data[0]['size_hr']}"
+            f"{lib.base.state2str(table_data[0]['state'], prefix=' ')}"
+        )
+    else:
+        msg += "\n\n" + lib.base.get_table(
+            table_data,
+            [
+                "dirname",
+                "size_hr",
+                "state_hr",
+            ],
+            header=[
+                "Directory",
+                "Size",
+                "State",
+            ],
+        )
+
+    # over and out
+    lib.base.oao(msg, state, perfdata, always_ok=args.ALWAYS_OK)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
