@@ -43,11 +43,13 @@ lf-build-linux-x86_64.yml  /  lf-build-linux-aarch64.yml
 ├── install-podman.sh                   # installs podman on the runner
 └── matrix-package.sh                   # one container per target distro
     ├── verify-version.sh               # checkout must contain vLFMP_VERSION
-    └── create-package.sh               # branches on $LFMP_TARGET_DISTRO
-        ├── create-src-tarball.sh       # upstream source archive
-        ├── create-vendor-tarball.sh    # pinned third-party deps
-        ├── create-deb.sh               # Debian/Ubuntu target
-        └── create-rpm.sh               # RHEL/SLE target
+    ├── create-package.sh               # branches on $LFMP_TARGET_DISTRO
+    │   ├── create-src-tarball.sh       # upstream source archive
+    │   ├── create-vendor-tarball.sh    # pinned third-party deps
+    │   ├── create-deb.sh               # Debian/Ubuntu target
+    │   └── create-rpm.sh               # RHEL/SLE target
+    └── smoke-test-package.sh           # installs and starts the package
+        └── check-bytecode.py           # every .pyc loads and is used
 ```
 
 Every workflow run takes three inputs: `target-distros` (space-separated list;
@@ -68,6 +70,12 @@ hash-pinned third-party wheels) are produced once per workflow run.
 `/usr/lib64/linuxfabrik-monitoring-plugins/venv/` inside the container and
 rewrite plugin shebangs to point at that venv's `python`, so the final
 package is self-contained.
+
+After each distro's build, `smoke-test-package.sh` installs the package into a
+fresh container of the plain distro image and, as the unprivileged user
+`nobody`, starts every plugin with `--version` and checks every `.pyc` in the
+venv with `check-bytecode.py`. A plugin that fails to start, or a `.pyc` that is
+corrupt or no longer matches its source, fails the build.
 
 
 ### Reproducing a Release Build Locally
