@@ -15,23 +15,55 @@ import sys
 
 import lib.args
 import lib.base
-import lib.human
 import lib.lftest
 import lib.shell
-import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
-servers.
-Alerts when the clock offset exceeds the configured thresholds."""
+servers. Reads the output in English and German.
+Alerts when the time since the last successful synchronization exceeds the configured
+thresholds, when no time source is used or its stratum is too high, when a leap second
+is announced, and when the last synchronization failed."""
 
 DEFAULT_CRIT = 129600  # s (36h)
 DEFAULT_STRATUM = 6
 DEFAULT_WARN = 28800  # s (8h)
+
+# w32tm prints its labels in the display language of the account it runs as. The values
+# keep their format in every language ("0.0070272s", "2 (...)"), so only the labels need
+# a translation. There is no way to ask for English per call, as LC_ALL does on Linux:
+# SetProcessPreferredUILanguages(), SetThreadPreferredUILanguages() and
+# SetThreadUILanguage() are not inherited by the child, and neither `chcp` nor the
+# process creation flags change its language. Only the system preferred UI language
+# does (LocalSystem follows it after a reboot). Verified with Icinga 2 v2.16.5 running
+# w32tm as LocalSystem on Windows Server 2025 with the de-DE and en-US language packs;
+# the labels below are from that host.
+LABELS = {
+    'ClockRate': 'clock_rate',
+    'Last Sync Error': 'last_sync_error',
+    'Leap Indicator': 'leap_indicator',
+    'Phase Offset': 'phase_offset',
+    'Precision': 'precision',
+    'Root Delay': 'root_delay',
+    'Root Dispersion': 'root_dispersion',
+    'Stratum': 'stratum',
+    'Time since Last Good Sync Time': 'time_since_last_good_sync_time',
+    # de-DE
+    'Letzter Synchronierungsfehler': 'last_sync_error',
+    'Phasendifferenz': 'phase_offset',
+    'Präzision': 'precision',
+    'Sprungindikator': 'leap_indicator',
+    'Stammabweichung': 'root_dispersion',
+    'Stammverzögerung': 'root_delay',
+    'Taktfrequenz': 'clock_rate',
+    'Zeit seit der letzten erfolgr. Synchronisierungszeit': (
+        'time_since_last_good_sync_time'
+    ),
+}
 
 
 def parse_args():
@@ -133,67 +165,70 @@ def main():
 
     clock_rate = 0
     leap_indicator = 0
-    peer_used = False
     phase_offset = 0
     precision = 0
     root_delay = 0
     root_dispersion = 0
-    stratum = 0
-    time_since_last_good_sync_time = 0
+    stratum = None
+    time_since_last_good_sync_time = None
 
     # analyze data
     for line in stdout.splitlines():
         line = line.strip()
-        if line.startswith('Stratum'):
-            stratum = int(line.split()[1])
-            peer_used = stratum != 0
-            if not peer_used:
+        label, _, value = line.partition(':')
+        key = LABELS.get(label.strip())
+        if key is None:
+            continue
+        value = value.strip()
+        # the number in front of an explanation, as in "2 (Sync)" or "0(no warning)"
+        number = value.split('(')[0].split()[0] if value else ''
+        if key == 'stratum':
+            stratum = int(number)
+            if stratum == 0:
                 msg.append(f'No NTP server used {lib.base.state2str(STATE_WARN)}')
                 state = STATE_WARN
             if stratum >= args.STRATUM:
                 msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
                 state = STATE_WARN
-            continue
-        if line.startswith('Leap Indicator'):
-            leap_indicator = lib.txt.extract_str(line, ': ', '(')
-            if line != 'Leap Indicator: 0(no warning)':
+        elif key == 'leap_indicator':
+            leap_indicator = int(number)
+            if leap_indicator != 0:
                 msg.append(line.replace('(', ' ('))
                 state = STATE_WARN
-        if line.startswith('Precision'):
-            precision = lib.txt.extract_str(line, ': ', '(').strip()
-        if line.startswith('Root Delay'):
-            root_delay = (
-                float(line.split()[-1].replace('s', '')) * 1000
-            )  # convert to ms
-            continue
-        if line.startswith('Root Dispersion'):
-            root_dispersion = (
-                float(line.split()[-1].replace('s', '')) * 1000
-            )  # convert to ms
-            continue
-        if line.startswith('Phase Offset'):
-            phase_offset = (
-                float(line.split()[-1].replace('s', '')) * 1000
-            )  # convert to ms
-            continue
-        if line.startswith('ClockRate'):
-            clock_rate = (
-                float(line.split()[-1].replace('s', '')) * 1000
-            )  # convert to ms
-            continue
-        if line.startswith('Last Sync Error'):
-            if 'Last Sync Error: 0' not in line:
+        elif key == 'precision':
+            precision = int(number)
+        elif key == 'last_sync_error':
+            if int(number) != 0:
                 msg.append(line)
                 state = STATE_WARN
-            continue
-        if line.startswith('Time since Last Good Sync Time'):
-            time_since_last_good_sync_time = float(line.split()[-1].replace('s', ''))
+        elif key == 'time_since_last_good_sync_time':
+            time_since_last_good_sync_time = float(number.rstrip('s'))
             local_state = lib.base.get_state(
                 time_since_last_good_sync_time, args.WARN, args.CRIT
             )
             if local_state != STATE_OK:
                 msg.append(f'{line} {lib.base.state2str(local_state)}')
             state = lib.base.get_worst(local_state, state)
+        else:
+            # clock_rate, phase_offset, root_delay, root_dispersion: seconds, as ms
+            milliseconds = float(number.rstrip('s')) * 1000
+            if key == 'clock_rate':
+                clock_rate = milliseconds
+            elif key == 'phase_offset':
+                phase_offset = milliseconds
+            elif key == 'root_delay':
+                root_delay = milliseconds
+            else:
+                root_dispersion = milliseconds
+
+    # Without these two lines there is nothing to judge the synchronization by. Say so
+    # instead of reporting a host whose output could not be read as healthy.
+    if stratum is None or time_since_last_good_sync_time is None:
+        lib.base.cu(
+            'Unable to read the output of `w32tm /query /status /verbose`. It is'
+            ' printed in a display language this check does not know. Supported:'
+            ' English, German.\n\n' + stdout
+        )
 
     # build the message
     if state == STATE_OK:

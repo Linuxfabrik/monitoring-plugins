@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+Monitoring Plugins:
+
+* ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
+
 Build, CI/CD:
 
 * RPM: plugins no longer fail with `EOFError: marshal data too short` ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))

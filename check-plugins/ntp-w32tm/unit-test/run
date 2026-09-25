@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
@@ -257,6 +257,79 @@ TESTS = [
             'Last Sync Error: 1 (The computer did not resync because no time data was available.)',
             'Time since Last Good Sync Time: 19.4881785s',
         ],
+    },
+    # German fixtures: captured through the Icinga 2 agent (LocalSystem) on Windows
+    # Server 2025 with the de-DE display language. w32tm writes them in the OEM code
+    # page (cp850); they are stored as the text the plugin gets after decoding.
+    {
+        # the perfdata prove that the German labels were read, not defaulted to 0
+        'id': 'ok-de-stratum-5-synced',
+        'test': 'stdout/de-stratum-5-synced,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok.',
+            'Stratum: 5 (Sekundärreferenz - synchr. über (S)NTP)',
+            "'leap_indicator'=0;",
+            "'precision'=-23 ",
+            "'stratum'=5;6;",
+            "'time_since_last_good_sync_time'=51.6640258s",
+        ],
+        'assert-regex': (
+            r"'clock_rate'=15\.625\d*ms.*'phase_offset'=-0\.0433\d*ms"
+            r".*'root_delay'=16\.535\d*ms.*'root_dispersion'=7771\.366\d*ms"
+        ),
+    },
+    {
+        'id': 'warn-de-last-sync-too-old',
+        'test': 'stdout/de-stratum-5-synced,,0',
+        'params': '--warning=30 --critical=3600',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Zeit seit der letzten erfolgr. Synchronisierungszeit: 51.6640258s'
+            ' [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-de-last-sync-too-old',
+        'test': 'stdout/de-stratum-5-synced,,0',
+        'params': '--warning=10 --critical=30',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Zeit seit der letzten erfolgr. Synchronisierungszeit: 51.6640258s'
+            ' [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'warn-de-stratum-too-high',
+        'test': 'stdout/de-stratum-5-synced,,0',
+        'params': '--stratum=5',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Stratum: 5 (Sekundärreferenz - synchr. über (S)NTP) [WARNING]',
+        ],
+    },
+    {
+        'id': 'warn-de-unsynced-local-cmos',
+        'test': 'stdout/de-unsynced-local-cmos,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Sprungindikator: 3 (nicht synchronisiert), No NTP server used [WARNING],'
+            ' Letzter Synchronierungsfehler: 1 (Der Computer wurde nicht'
+            ' synchronisiert, da keine Zeitdaten verfügbar waren.)',
+            "'leap_indicator'=3;",
+            "'stratum'=0;6;",
+        ],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        # Synthetic: stands in for output in a display language the check does not
+        # know, which could not be captured. Nothing in it can be read, so nothing
+        # may be reported as healthy.
+        'id': 'unknown-unreadable-output',
+        'test': 'stdout/empty-output,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the output of `w32tm /query /status /verbose`'],
+        'assert-not-in': ['Everything is ok.'],
     },
 ]
 

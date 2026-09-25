@@ -7,12 +7,12 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 
 **Important Notes:**
 
-* Make sure that `cmd.exe` is set to English output. Otherwise this check plugin may not work.
+* `w32tm` prints its output in the display language of the host, and Windows offers no way to request another language for a single call. The check reads English and German output. On a host with any other display language it reports UNKNOWN instead of guessing.
 
 **Data Collection:**
 
 * Executes `w32tm /query /status /verbose` to obtain detailed time synchronization status
-* Parses Leap Indicator, Stratum, Precision, Root Delay, Root Dispersion, Phase Offset, Clock Rate, Last Sync Error, and Time since Last Good Sync Time
+* Parses Leap Indicator, Stratum, Precision, Root Delay, Root Dispersion, Phase Offset, Clock Rate, Last Sync Error, and Time since Last Good Sync Time, in English or German (for example "Stammverzögerung" for "Root Delay")
 
 
 ## Fact Sheet
@@ -35,8 +35,10 @@ usage: ntp-w32tm [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
 
 Checks the Windows Time Service (w32tm) status, including clock offset,
 stratum, and time source. Useful for diagnosing time synchronization issues on
-Windows servers. Alerts when the clock offset exceeds the configured
-thresholds.
+Windows servers. Reads the output in English and German. Alerts when the time
+since the last successful synchronization exceeds the configured thresholds,
+when no time source is used or its stratum is too high, when a leap second is
+announced, and when the last synchronization failed.
 
 options:
   -h, --help           show this help message and exit
@@ -98,10 +100,12 @@ Time since Last Good Sync Time: 19.2218793s
 * OK if all checks pass and "Time since Last Good Sync Time" is within thresholds.
 * WARN if no NTP server is used (Stratum 0).
 * WARN if stratum is >= `--stratum` (default: 6).
-* WARN if "Leap Indicator" is not "0(no warning)".
-* WARN if "Last Sync Error" is not "0".
+* WARN if "Leap Indicator" is not 0.
+* WARN if "Last Sync Error" is not 0.
 * WARN if "Time since Last Good Sync Time" is >= `--warning` (default: 28800s).
 * CRIT if "Time since Last Good Sync Time" is >= `--critical` (default: 129600s).
+* UNKNOWN if `w32tm` fails, or if its output lacks the stratum or the time since the last good sync, for example because the host uses a display language other than English or German.
+* `--always-ok` suppresses all alerts and always returns OK.
 
 
 ## Perfdata / Metrics
@@ -116,6 +120,15 @@ Time since Last Good Sync Time: 19.2218793s
 | root_dispersion | Milliseconds | Total dispersion accumulated through all computers back to the stratum-1 source. |
 | stratum | Number | Number of hops away from a computer with an attached reference clock. |
 | time_since_last_good_sync_time | Seconds | Time elapsed since the last successful synchronization. |
+
+
+## Troubleshooting
+
+### Output in an unsupported display language
+
+``Unable to read the output of `w32tm /query /status /verbose`.``
+
+`w32tm` prints its output in a display language the check does not know. The check reads English and German. Either install the English language pack and make English the display language of the account the monitoring agent runs as (for LocalSystem, set the system preferred UI language with `Set-SystemPreferredUILanguage -Language en-US` and reboot), or open an issue with the output shown below the message, so that the labels of that language can be added.
 
 
 ## Credits, License
