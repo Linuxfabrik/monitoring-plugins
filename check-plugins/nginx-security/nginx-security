@@ -29,7 +29,7 @@ import lib.user
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091401'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks the local security posture of an NGINX installation: which dynamic
 modules it loads, which account its worker processes run under, whether that account can be
@@ -58,9 +58,10 @@ DEFAULT_UID_MIN = 1000
 BINARY_CANDIDATES = ('nginx',)
 
 # --command names the binary this root process executes. It is confined to the
-# standard system binary directories so a caller cannot point the check at an
-# executable they planted (for example under /tmp or their home): those trusted
-# roots are not writable by the unprivileged monitoring user.
+# standard system binary directories, and find_binary() additionally requires that
+# nobody but root can change the file or any directory above it: a location is not
+# trusted because of its prefix, a vendor tree below /opt often belongs to a
+# service account.
 ALLOWED_BINARY_ROOTS = ('/bin', '/opt', '/sbin', '/usr')
 
 # Accounts that exist on practically every system and are shared by unrelated
@@ -170,7 +171,8 @@ def parse_args():
         '--command',
         help='Path to the NGINX binary. '
         'Probed automatically in the PATH if not given. '
-        'Must resolve within a standard binary directory (/bin, /opt, /sbin, /usr). '
+        'Must resolve within a standard binary directory (/bin, /opt, /sbin, /usr), '
+        'and nobody but root may be able to change it or a directory above it. '
         'Example: `--command=/usr/local/nginx/sbin/nginx`',
         dest='COMMAND',
         default=None,
@@ -248,25 +250,37 @@ def parse_args():
 
 
 def find_binary(command):
-    """Return the NGINX binary to interrogate."""
+    """Return the NGINX binary to interrogate.
+
+    The binary runs as root, so it has to be one that nobody but root can change:
+    a file or directory a service account or the caller can write to would let them
+    run their own code as root. The resolved path is returned and executed, so a
+    symlink swapped after the check changes nothing.
+    """
     if command:
-        if not os.path.isfile(command):
-            return (False, f'Command "{command}" not found.')
-        if not lib.disk.is_within(os.path.realpath(command), ALLOWED_BINARY_ROOTS):
+        # Confinement first: a "not found" for a path outside the roots would tell
+        # the caller which files exist there.
+        if not lib.disk.is_within(command, ALLOWED_BINARY_ROOTS):
             return (
                 False,
                 f'Refusing to run "{command}": it resolves outside '
                 f'{", ".join(ALLOWED_BINARY_ROOTS)}.',
             )
-        return (True, command)
-    for candidate in BINARY_CANDIDATES:
-        path = lib.shell.which(candidate)
-        if path:
-            return (True, path)
-    return (
-        False,
-        'NGINX does not seem to be installed: "nginx" was not found in PATH.',
-    )
+        if not os.path.isfile(command):
+            return (False, f'Command "{command}" not found.')
+        candidate = command
+    else:
+        candidate = None
+        for name in BINARY_CANDIDATES:
+            candidate = lib.shell.which(name)
+            if candidate:
+                break
+        if not candidate:
+            return (
+                False,
+                'NGINX does not seem to be installed: "nginx" was not found in PATH.',
+            )
+    return lib.disk.resolve_trusted_path(candidate)
 
 
 def run_binary(binary, cli_args, timeout, on_stderr=False):

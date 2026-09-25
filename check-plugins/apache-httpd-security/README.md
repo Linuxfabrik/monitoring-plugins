@@ -82,8 +82,9 @@ options:
   --command COMMAND     Path to the Apache httpd control binary. Probed
                         automatically if not given: `httpd` first, then
                         `apachectl`. Must resolve within a standard binary
-                        directory (/bin, /opt, /sbin, /usr). Example:
-                        `--command=/usr/sbin/httpd`
+                        directory (/bin, /opt, /sbin, /usr), and nobody but
+                        root may be able to change it or a directory above it.
+                        Example: `--command=/usr/sbin/httpd`
   --ignore IGNORE       Any check whose name matches this Python regex will be
                         dropped from the report. The name is the one in the
                         `Check Name` column of the table, not a module or a
@@ -173,7 +174,7 @@ sudo ./apache-httpd-security --brief
 ```text
 11 of 16 checks failed.
 
-Check Name          ! Result                    ! Detail                                                   ! State    
+Check Name          ! Result                    ! Detail                                                   ! State
 --------------------+---------------------------+----------------------------------------------------------+----------
 Worker account      ! nobody:nobody (uid 65534) ! `nobody` is a shared account; uid 65534 >= UID_MIN 1000. ! [WARNING]
 Config other write  ! 1 of 16 files             ! 1 file writable by other.                                ! [WARNING]
@@ -208,7 +209,7 @@ WebDAV modules          ! WebDAV modules not loaded    ! [OK]
     * a configuration file is not owned by `root:root`, or is writable by other,
     * the core dump directory, the lock file directory, the process ID file directory or the scoreboard file directory sits inside the document root, is not owned by root, or is writable beyond its owner,
     * a request limit is above the value the benchmark recommends, or is zero, which lifts the limit for `LimitRequestBody` and `LimitRequestFields` and breaks every request for `LimitRequestLine` and `LimitRequestFieldSize`.
-* Returns UNKNOWN if neither `httpd` nor `apachectl` is found, if the binary given via `--command` does not exist or resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`), or if the configuration does not parse, in which case the binary produces no output at all.
+* Returns UNKNOWN if neither `httpd` nor `apachectl` is found, if the binary given via `--command` does not exist, resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`) or could be changed by anybody but root, or if the configuration does not parse, in which case the binary produces no output at all.
 * A check that cannot be carried out, because a directory could not be read for example, is reported as not evaluated. It does not count towards the result and does not drive the state.
 * A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
 * If `--match` and `--ignore` between them exclude every check, the plugin prints "Nothing checked." and returns the state given by `--no-match-severity` (OK by default).

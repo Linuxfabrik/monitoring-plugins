@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026090701'
+__version__ = '2026092501'
 
 DESCRIPTION = """Monitors an installed Nextcloud Enterprise subscription and the number of accounts
 it has to cover, reporting license level, expiration date, per-feature subscriptions and
@@ -238,7 +238,11 @@ def get_build(path):
 
     Returns `(enterprise, build_date)`. Anything that cannot be read leaves both empty.
     """
-    success, content = lib.disk.read_file(os.path.join(path, 'version.php'))
+    # This check runs as root, so the file is read only if it really lies inside the
+    # installation, not through a symlink its owner placed there.
+    success, content = lib.disk.read_file(
+        os.path.join(path, 'version.php'), allowed_roots=[path], nofollow=True
+    )
     if not success:
         return (False, None)
     version = re.search(r"\$OC_VersionString\s*=\s*'([^']*)'", content)

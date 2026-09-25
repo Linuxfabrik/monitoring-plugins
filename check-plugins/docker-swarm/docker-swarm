@@ -17,14 +17,13 @@ import sys
 import lib.args
 import lib.base
 import lib.container
-import lib.disk
 import lib.lftest
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091703'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks whether the local node participates in a Docker Swarm and whether the
 cluster is healthy. On every node the local swarm state is verified (active, pending,
@@ -132,15 +131,14 @@ def load_fixture(test_args, suffix):
     A missing stdout fixture comes back as None, which stands in for a source the plugin
     never called (a worker node has no `docker node ls` output).
     """
-    stdout = None
-    path = f'{test_args[0]}{suffix}'
-    if lib.disk.file_exists(path, allow_empty=True):
-        local_args = [path]
-        stdout, _, _ = lib.lftest.test(local_args)
+    # Only lib.lftest reads a fixture: it confines the read to the unit-test
+    # directory. Looking at the path first would tell a caller of this root check
+    # which files exist anywhere on the host.
+    stdout = lib.lftest.test_text([f'{test_args[0]}{suffix}'], missing_ok=True)
     stderr = ''
     path = f'{test_args[1]}{suffix}' if len(test_args) > 1 and test_args[1] else ''
-    if path and lib.disk.file_exists(path, allow_empty=True):
-        _, stderr, _ = lib.lftest.test(['', path])
+    if path:
+        stderr = lib.lftest.test_text([path], missing_ok=True) or ''
     return (stdout, stderr)
 
 

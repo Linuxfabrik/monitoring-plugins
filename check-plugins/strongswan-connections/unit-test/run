@@ -9,7 +9,11 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import os
+import shutil
+import socket
+import subprocess
 import sys
+import tempfile
 import time
 
 # testcontainers-python normally starts a Ryuk side-car that cleans
@@ -212,6 +216,81 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestSecurity(unittest.TestCase):
+    """This check runs as root and parses whatever the VICI socket answers, so
+    --socket must name a socket nobody but root can replace, and --test must not
+    tell a caller which files exist outside the fixtures.
+    """
+
+    check = '../strongswan-connections'
+
+    def test_socket_in_a_directory_anybody_can_write_is_refused(self):
+        base = tempfile.mkdtemp(prefix='lftest-socket-')
+        path = os.path.join(base, 'planted.vici')
+        server = socket.socket(socket.AF_UNIX)
+        try:
+            server.bind(path)
+            server.listen(1)
+            try:
+                result = subprocess.run(
+                    [sys.executable, self.check, f'--socket={path}'],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+            except subprocess.TimeoutExpired:
+                self.fail('the check connected to the planted socket and hung')
+        finally:
+            server.close()
+            shutil.rmtree(base, ignore_errors=True)
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('Refusing', result.stdout)
+
+    def test_socket_in_a_run_directory_of_another_account_is_refused(self):
+        # A directory below /run is not trusted because of its prefix: the
+        # monitoring user owns one on every host that runs an Icinga agent
+        # (/run/icinga2), and /run/user/<uid> exists for every session. A socket
+        # planted there would feed the root process a reply of their choosing.
+        run_dir = f'/run/user/{os.getuid()}'
+        if os.getuid() == 0 or not os.path.isdir(run_dir):
+            self.skipTest(f'{run_dir} does not exist for the test user')
+        base = tempfile.mkdtemp(prefix='lftest-socket-', dir=run_dir)
+        path = os.path.join(base, 'planted.sock')
+        server = socket.socket(socket.AF_UNIX)
+        try:
+            server.bind(path)
+            server.listen(1)
+            try:
+                result = subprocess.run(
+                    [sys.executable, self.check, f'--socket={path}'],
+                    capture_output=True,
+                    text=True,
+                    timeout=20,
+                )
+            except subprocess.TimeoutExpired:
+                self.fail('the check connected to the planted socket and hung')
+        finally:
+            server.close()
+            shutil.rmtree(base, ignore_errors=True)
+        self.assertEqual(result.returncode, STATE_UNKNOWN)
+        self.assertIn('Refusing', result.stdout)
+
+    def test_test_fixture_outside_the_fixtures_reads_like_a_missing_one(self):
+        # An existing file elsewhere must not answer differently from a missing
+        # one, or --test becomes a probe for which files exist.
+        results = [
+            subprocess.run(
+                [sys.executable, self.check, f'--test={path}'],
+                capture_output=True,
+                text=True,
+            )
+            for path in ('/etc/hostname', '/nonexistent/linuxfabrik')
+        ]
+        for result in results:
+            self.assertEqual(result.returncode, STATE_UNKNOWN)
+            self.assertIn('Test fixture not found', result.stdout)
 
 
 # Container-based smoke tests across the same Linux distribution

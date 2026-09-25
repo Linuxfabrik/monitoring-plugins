@@ -478,8 +478,7 @@ Hints:
 
 ```python
 def parse_args():
-    """Parse command line arguments using argparse.
-    """
+    """Parse command line arguments using argparse."""
     parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         epilog=lib.args.epilog(__file__),
@@ -645,24 +644,32 @@ Two questions decide most of this section. Ask both for every plugin that runs a
 * **Temporary files**: Avoid temporary files where possible. Prefer a local SQLite database via `lib.db_sqlite` or `lib.cache`. If temp files are unavoidable, fail cleanly if the file cannot be created, and delete it when done.
 * **Confining a path a privileged plugin was pointed at**: When a plugin runs as root (it ships in `assets/sudoers/`, or its README tells the admin to grant sudo) and it opens, reads, stats, globs or lists a location that any caller-supplied value can steer (`--path`, `--filename`, `--socket`, a directory it scans, or a file it discovers *inside* such a directory), the unprivileged monitoring user can plant a symlink there and make the root process read a file of their choosing (`/etc/shadow`, a private key). A caller-chosen root cannot be trusted just because the plugin would legitimately read the default location: `--path=/var/crash` is fine, `--path=/tmp/attacker` is not, and the plugin cannot tell them apart without a containment check. Confine every such access, at **every** edge (the directory scanned, each file found inside it, and the final read), not just the first one:
 
+There are two kinds of access, and each has its own guard.
+
+**Reading a file.** Let `lib.disk` do the open, with `allowed_roots` and `nofollow`:
+
 ```python
-import os
-import lib.disk
-
-# 1. Reject anything that resolves outside the trusted root. is_within()
-#    canonicalizes both sides with realpath(), so a symlink or `..` that
-#    escapes the root is rejected.
-if not lib.disk.is_within(os.path.realpath(candidate), [os.path.realpath(root)]):
-    lib.base.cu(f'Refusing to read "{candidate}": outside {root}.')
-
-# 2. Open the final file with symlink following disabled. is_within() alone is
-#    check-then-open: a second local process can swap the name for a symlink
-#    between the check and the open() (TOCTOU). O_NOFOLLOW is the atomic guard;
-#    the containment check narrows what is reachable in the first place.
-fd = os.open(candidate, os.O_RDONLY | os.O_NOFOLLOW)
+success, content = lib.disk.read_file(candidate, allowed_roots=[root], nofollow=True)
 ```
 
-Do not weaken this to a filename check (`if name == 'vmcore-dmesg.txt'`): that binds the symlink's name, never its target. Where a shared `lib` function does the reading, the guard belongs in the `lib` so every consumer inherits it (see `lib.logsource` reading log files only within its `allowed_roots`). As defense in depth, pin the arguments in the sudoers entry so the monitoring user cannot pass an arbitrary value at all (see the `LF_LIBRENMS_VALIDATE` alias in `assets/sudoers/`), but never rely on the sudoers file as the only guard. The same care applies to a `--socket` a root plugin connects to: a socket under an attacker-writable path lets them feed the root process a crafted response, which is a remote-code-execution primitive when the client deserializes it.
+A containment check followed by an `open()` of your own is check-then-use, and `O_NOFOLLOW` guards only the last path component: a second local process can swap a directory higher up for a symlink between the check and the open. `lib.disk.open_file()`, which `read_file()` and `read_env()` use, therefore compares the handle it opened with what the path names afterwards, and refuses anything but a regular file (a FIFO would block the check, a device can have side effects). Take everything you need from that one handle; a second look at the path (`os.stat()`, `file_exists()`, another `open()`) can see a different file. For a stream of log lines, `lib.logsource.read(..., allowed_roots=...)` does the same.
+
+**Executing a file, connecting to a socket, or taking an account from the owner of a file.** None of these can be checked on a handle afterwards, so the path has to be out of everybody else's reach before it is used:
+
+```python
+success, resolved = lib.disk.resolve_trusted_path(candidate)
+if not success:
+    lib.base.cu(resolved)
+# execute or connect to `resolved`, never to `candidate`
+```
+
+`resolve_trusted_path()` accepts the path only if root (and the accounts passed as `owners`) alone can change the object and every directory above it, and returns the resolved path. Use that path: a symlink on the way is then already resolved, and swapping it afterwards changes nothing. Reference implementations: `--command` in `apache-httpd-security` and `nginx-security`, `--socket` in `fail2ban` and `strongswan-connections`, and `lib.nextcloud.run_occ()`, which runs `occ` as the owner of `config/config.php` and therefore also refuses a `config.php` that is a symlink.
+
+A location is never trusted because of its prefix. The monitoring user owns directories below `/run` and `/var/log` on every host that runs the Icinga agent (`/run/icinga2`, `/var/log/icinga2`), `/run/user/<uid>` exists for every session, and a vendor tree below `/opt` often belongs to a service account. A prefix check such as `is_within(path, ['/run'])` narrows what can be named, but only the ownership check decides whether it can be trusted.
+
+Answer "does not exist" and "not allowed" the same way for a path outside the roots, and check the roots first: a plugin that reports "not found" for `/root/.ssh/id_ed25519` but something else for `/root/.ssh/nope` tells the caller which files exist. The same holds for `--test`: read fixtures through `lib.lftest.test_text()` or `lib.lftest.test_json()` only, never with `file_exists()` first.
+
+Do not weaken this to a filename check (`if name == 'vmcore-dmesg.txt'`): that binds the symlink's name, never its target. Where a shared `lib` function does the reading, the guard belongs in the `lib` so every consumer inherits it. As defense in depth, pin the arguments in the sudoers entry so the monitoring user cannot pass an arbitrary value at all (see the `LF_LIBRENMS_VALIDATE` alias in `assets/sudoers/`), but never rely on the sudoers file as the only guard. A socket a root plugin connects to deserves the same care as a binary it runs: whoever can put a socket in its place feeds the root process a response of their choosing, which is a remote-code-execution primitive when the client deserializes it (`fail2ban-client` uses `pickle`).
 * **Credentials**: Never log or print passwords, tokens, or other secrets in plugin output - not even in verbose mode.
 * **Network communication**: Use HTTPS by default. Support `--insecure` to allow self-signed certificates where needed, but never make insecure the default.
 * **Internal management endpoints**: Checks that talk to an internal management endpoint are the one exception to the rule above. An Icinga API port, a BMC, a storage controller or a backup appliance practically always presents a certificate signed by its own CA, which no host trusts out of the box, so verifying by default would break every deployment of the check. Those plugins may set `DEFAULT_INSECURE = True`, and then must offer `--no-insecure` as the counterpart so an admin who added the CA to the system trust store can enforce verification:
@@ -960,6 +967,7 @@ Define a `TESTS` list and use `lib.lftest.attach_tests()` to materialise one rea
 ```python
 #!/usr/bin/env python3
 import sys
+
 sys.path.insert(0, '..')
 
 import unittest
@@ -1002,7 +1010,6 @@ TESTS = [
 
 
 class TestCheck(unittest.TestCase):
-
     check = '../my-check'
 
 
@@ -1131,17 +1138,24 @@ def _check_image(test, image_pair):
     ) as container:
         url = f'http://{container.get_container_host_ip()}:{container.get_exposed_port(8080)}'
         result = subprocess.run(
-            ['python3', '../keycloak-version',
-             f'--url={url}', '--username=admin', '--password=admin',
-             '--path=/nonexistent'],
-            capture_output=True, text=True,
+            [
+                'python3',
+                '../keycloak-version',
+                f'--url={url}',
+                '--username=admin',
+                '--password=admin',
+                '--path=/nonexistent',
+            ],
+            capture_output=True,
+            text=True,
         )
         test.assertRegex(
             result.stdout + result.stderr,
             rf'Keycloak\s+{version_tag}',
         )
         test.assertIn(
-            result.returncode, (STATE_OK, STATE_WARN, STATE_CRIT),
+            result.returncode,
+            (STATE_OK, STATE_WARN, STATE_CRIT),
         )
 
 

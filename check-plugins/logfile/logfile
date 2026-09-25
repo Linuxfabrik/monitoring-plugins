@@ -19,6 +19,7 @@ import uuid
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.disk
 import lib.logmatch
 import lib.logsource
 import lib.time
@@ -26,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092101'
+__version__ = '2026092501'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -586,10 +587,22 @@ def main():
     # (issue #678). For {today} / {yesterday}, try the compact form
     # (`20260422`) first because that is what most rotated logfiles use, and
     # fall back to ISO 8601 (`2026-04-22`) if no compact file exists.
+    # The unit-test directory is an allowed root so the fixture-based tests work;
+    # see the confinement below. The existence probe for the macro variants stays
+    # inside the roots too, or it would tell a caller of this root check which
+    # files exist elsewhere.
+    allowed_roots = [
+        *ALLOWED_LOG_ROOTS,
+        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
+    ]
     scan_path = lib.time.macro2timestr(args.FILENAME, format='%Y%m%d')
-    if not os.path.exists(scan_path):
+    if not (lib.disk.is_within(scan_path, allowed_roots) and os.path.exists(scan_path)):
         iso_path = lib.time.macro2timestr(args.FILENAME, format='%Y-%m-%d')
-        if iso_path != scan_path and os.path.exists(iso_path):
+        if (
+            iso_path != scan_path
+            and lib.disk.is_within(iso_path, allowed_roots)
+            and os.path.exists(iso_path)
+        ):
             scan_path = iso_path
 
     # This check reads a file, and only a file. The library also resolves
@@ -639,10 +652,6 @@ def main():
     # deployed host that directory does not exist next to the flat, root-owned
     # plugin, so it grants nothing (and needs no environment flag that a
     # misconfigured sudoers could leak).
-    allowed_roots = [
-        *ALLOWED_LOG_ROOTS,
-        os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
-    ]
     success, result = lib.logsource.read(
         scan_path,
         position=position,

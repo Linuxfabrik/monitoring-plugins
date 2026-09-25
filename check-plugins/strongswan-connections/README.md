@@ -36,7 +36,7 @@ Checks IPSec connection states on a strongSwan VPN gateway by connecting to the 
 ```text
 usage: strongswan-connections [-h] [-V] [--always-ok] [--ignore IGNORE]
                               [--lengthy] [--match MATCH] [--no-perfdata]
-                              [--socket SOCKET]
+                              [--socket SOCKET] [--timeout TIMEOUT]
 
 Checks IPSec connection states on a strongSwan VPN gateway. Connects to the
 charon daemon via the VICI interface to retrieve IKE SA and CHILD SA states.
@@ -47,33 +47,36 @@ clients where only the site-to-site peers should drive the alert. Supports
 extended reporting via --lengthy. Requires root or sudo.
 
 options:
-  -h, --help       show this help message and exit
-  -V, --version    show program's version number and exit
-  --always-ok      Always returns OK.
-  --ignore IGNORE  Ignore connections whose VICI key matches this Python
-                   regular expression. Case-sensitive by default; use `(?i)`
-                   for case-insensitive matching. Can be specified multiple
-                   times. Example: `--ignore="^RA_"` to skip transient remote-
-                   access clients on a VPN gateway that also carries permanent
-                   site-to-site peers. Example: `--ignore="(?i)test"` (case-
-                   insensitive) to skip any connection with "test" in its
-                   name. Default: None
-  --lengthy        Extended reporting.
-  --match MATCH    Only check connections whose VICI key matches this Python
-                   regular expression. Case-sensitive by default; use `(?i)`
-                   for case-insensitive matching. Can be specified multiple
-                   times. If both `--match` and `--ignore` are given, an item
-                   must match `--match` AND not match `--ignore` to be
-                   reported (include first, exclude second). Example:
-                   `--match="^S2S_SITE-XY$"` to pin an Icinga service to one
-                   specific site-to-site peer. Example: `--match="(?i)^s2s_"`
-                   (case-insensitive) to check every site-to-site peer on a
-                   gateway. Default: None
-  --no-perfdata    Suppress the performance data section from the output. The
-                   status message and the exit code are unaffected, so
-                   alerting keeps working while trending data is dropped.
-  --socket SOCKET  Path to the Versatile IKE Control Interface (VICI) socket.
-                   Default: /run/strongswan/charon.vici
+  -h, --help         show this help message and exit
+  -V, --version      show program's version number and exit
+  --always-ok        Always returns OK.
+  --ignore IGNORE    Ignore connections whose VICI key matches this Python
+                     regular expression. Case-sensitive by default; use `(?i)`
+                     for case-insensitive matching. Can be specified multiple
+                     times. Example: `--ignore="^RA_"` to skip transient
+                     remote-access clients on a VPN gateway that also carries
+                     permanent site-to-site peers. Example:
+                     `--ignore="(?i)test"` (case-insensitive) to skip any
+                     connection with "test" in its name. Default: None
+  --lengthy          Extended reporting.
+  --match MATCH      Only check connections whose VICI key matches this Python
+                     regular expression. Case-sensitive by default; use `(?i)`
+                     for case-insensitive matching. Can be specified multiple
+                     times. If both `--match` and `--ignore` are given, an
+                     item must match `--match` AND not match `--ignore` to be
+                     reported (include first, exclude second). Example:
+                     `--match="^S2S_SITE-XY$"` to pin an Icinga service to one
+                     specific site-to-site peer. Example:
+                     `--match="(?i)^s2s_"` (case-insensitive) to check every
+                     site-to-site peer on a gateway. Default: None
+  --no-perfdata      Suppress the performance data section from the output.
+                     The status message and the exit code are unaffected, so
+                     alerting keeps working while trending data is dropped.
+  --socket SOCKET    Path to the Versatile IKE Control Interface (VICI)
+                     socket. Must resolve within /run or /var/run, and nobody
+                     but root may be able to replace it. Default:
+                     /run/strongswan/charon.vici
+  --timeout TIMEOUT  Network timeout in seconds. Default: 8 (seconds)
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/strongswan-connections/
@@ -117,7 +120,9 @@ acme      ! EST   ! 2022-05-10 15:03:43 ! 2022-05-11 14:57:14 ! v2  ! 198.51.100
 * WARN if there are no active connections at all.
 * WARN if configured connections do not match active connections.
 * WARN if any child SA is not connected.
+* WARN if charon does not answer on the VICI socket within `--timeout`.
 * UNKNOWN if no connections are configured.
+* UNKNOWN if `--socket` resolves outside `/run` or `/var/run`, or if anybody but root could replace the socket or a directory above it.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

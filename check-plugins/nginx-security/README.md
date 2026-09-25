@@ -72,8 +72,9 @@ options:
                         state, so this is safe to leave on.
   --command COMMAND     Path to the NGINX binary. Probed automatically in the
                         PATH if not given. Must resolve within a standard
-                        binary directory (/bin, /opt, /sbin, /usr). Example:
-                        `--command=/usr/local/nginx/sbin/nginx`
+                        binary directory (/bin, /opt, /sbin, /usr), and nobody
+                        but root may be able to change it or a directory above
+                        it. Example: `--command=/usr/local/nginx/sbin/nginx`
   --ignore IGNORE       Any check whose name matches this Python regex will be
                         dropped from the report. The name is the one in the
                         `Check Name` column of the table, not a module or a
@@ -126,15 +127,15 @@ sudo ./nginx-security
 Recommendations:
 * Config tree access: `chmod o= /etc/nginx /etc/nginx/conf.d ...` (currently /etc/nginx (0755), /etc/nginx/conf.d (0755), ...)
 
-Check Name         ! Result                ! Detail                                                                        ! State    
+Check Name         ! Result                ! Detail                                                                        ! State
 -------------------+-----------------------+-------------------------------------------------------------------------------+----------
-Dynamic modules    ! none loaded           ! No dynamic module adds to the attack surface.                                 ! [OK]     
-Worker account     ! nginx (uid 101)       ! Not root, uid below UID_MIN, no privileged group, not a known shared account. ! [OK]     
-Account shell      ! nginx: `/bin/false`   ! A shell that exits instead of opening a session.                              ! [OK]     
-Account locked     ! nginx: locked         ! The password is locked.                                                       ! [OK]     
-Config tree owner  ! 9 paths               ! Everything belongs to `root:root`.                                            ! [OK]     
+Dynamic modules    ! none loaded           ! No dynamic module adds to the attack surface.                                 ! [OK]
+Worker account     ! nginx (uid 101)       ! Not root, uid below UID_MIN, no privileged group, not a known shared account. ! [OK]
+Account shell      ! nginx: `/bin/false`   ! A shell that exits instead of opening a session.                              ! [OK]
+Account locked     ! nginx: locked         ! The password is locked.                                                       ! [OK]
+Config tree owner  ! 9 paths               ! Everything belongs to `root:root`.                                            ! [OK]
 Config tree access ! 9 of 9 paths          ! 9 paths readable by other.                                                    ! [WARNING]
-Pid file           ! /run/nginx.pid (0644) ! Owned by `root:root` and not writable by others.                              ! [OK]     
+Pid file           ! /run/nginx.pid (0644) ! Owned by `root:root` and not writable by others.                              ! [OK]
 ```
 
 The same host with the distribution default accepted:
@@ -156,7 +157,7 @@ sudo ./nginx-security --brief
 ```text
 3 of 7 checks failed.
 
-Check Name         ! Result            ! Detail                                                        ! State    
+Check Name         ! Result            ! Detail                                                        ! State
 -------------------+-------------------+---------------------------------------------------------------+----------
 Worker account     ! root (uid 0)      ! runs as root; member of root; processes run as nginx.         ! [WARNING]
 Account shell      ! root: `/bin/bash` ! Not one of the shells that exit instead of opening a session. ! [WARNING]
@@ -175,7 +176,7 @@ Config tree access ! 9 of 9 paths      ! 1 path writable by other, 8 paths reada
     * something below the configuration directory is not owned by `root:root`, or is readable or writable by other,
     * the process ID file is not owned by `root:root`, or its mode is wider than `0644`,
     * `client_max_body_size` is not configured anywhere, or is set to `0`, which removes the limit.
-* Returns UNKNOWN if `nginx` is not found, if the binary given via `--command` does not exist or resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`), or if the configuration does not parse, in which case `nginx -T` produces no dump at all.
+* Returns UNKNOWN if `nginx` is not found, if the binary given via `--command` does not exist, resolves outside a standard binary directory (`/bin`, `/opt`, `/sbin`, `/usr`) or could be changed by anybody but root, or if the configuration does not parse, in which case `nginx -T` produces no dump at all.
 * A check that cannot be carried out is reported as not evaluated and neither counts nor drives the state. That covers an account served by a directory service rather than by local files, a shadow database the check may not read, and a process ID file that does not exist because the server is not running.
 * A check `--ignore` excludes is reported as `overridden [OK]` and counted in the summary. It drives neither the state nor the recommendations.
 * If `--match` and `--ignore` between them exclude every check, the plugin prints "Nothing checked." and returns the state given by `--no-match-severity` (OK by default).

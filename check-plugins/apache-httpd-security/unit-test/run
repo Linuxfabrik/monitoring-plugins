@@ -6,8 +6,11 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+import importlib.machinery
+import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -15,6 +18,7 @@ import tempfile
 sys.path.insert(0, '..')
 
 import unittest
+import unittest.mock
 
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -391,6 +395,83 @@ class TestSecurity(unittest.TestCase):
             )
         self.assertEqual(result.returncode, STATE_UNKNOWN)
         self.assertIn('Refusing to run', result.stdout)
+
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', 'apache-httpd-security'
+    )
+    loader = importlib.machinery.SourceFileLoader('apache_httpd_security', path)
+    spec = importlib.util.spec_from_loader('apache_httpd_security', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+@unittest.skipUnless(os.name == 'posix', 'ownership is a POSIX concept here')
+class TestTrustedBinary(unittest.TestCase):
+    """The binary this check runs as root has to be one nobody but root can
+    change, and the path that was checked is the one that runs.
+
+    One test per way the binary could be somebody else's: a symlink that can be
+    swapped after the check, a directory anybody can write to, a file that
+    belongs to another account.
+    """
+
+    def setUp(self):
+        self.plugin = _load_plugin_module()
+        self.work = tempfile.mkdtemp(prefix='lftest-apache-httpd-security-')
+        self.system_binary = shutil.which('env')
+
+    def tearDown(self):
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def allow_work_dir(self):
+        return unittest.mock.patch.object(
+            self.plugin,
+            'ALLOWED_BINARY_ROOTS',
+            (*self.plugin.ALLOWED_BINARY_ROOTS, self.work),
+        )
+
+    def test_symlink_is_resolved_before_it_runs(self):
+        # Returning the symlink would run whatever it points to by the time the
+        # binary is started, not what was checked.
+        link = os.path.join(self.work, 'binary')
+        os.symlink(self.system_binary, link)
+        self.assertEqual(
+            self.plugin.find_binary(link),
+            (True, os.path.realpath(self.system_binary)),
+        )
+
+    def test_binary_in_a_directory_anybody_can_write_is_refused(self):
+        planted = os.path.join(self.work, 'binary')
+        shutil.copy(self.system_binary, planted)
+        os.chmod(self.work, 0o777)
+        with self.allow_work_dir():
+            success, result = self.plugin.find_binary(planted)
+        self.assertFalse(success)
+        self.assertIn('Refusing', result)
+
+    def test_binary_of_another_account_is_refused(self):
+        if os.getuid() == 0:
+            self.skipTest('the test user is root')
+        planted = os.path.join(self.work, 'binary')
+        shutil.copy(self.system_binary, planted)
+        with self.allow_work_dir():
+            success, result = self.plugin.find_binary(planted)
+        self.assertFalse(success)
+        self.assertIn('Refusing', result)
+
+    def test_probed_binary_is_resolved_and_trusted(self):
+        with unittest.mock.patch.object(
+            self.plugin.lib.shell, 'which', return_value=self.system_binary
+        ):
+            self.assertEqual(
+                self.plugin.find_binary(None),
+                (True, os.path.realpath(self.system_binary)),
+            )
 
 
 if __name__ == '__main__':

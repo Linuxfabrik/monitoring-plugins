@@ -6,7 +6,11 @@
 #          https://www.linuxfabrik.ch/
 # License: The Unlicense, see LICENSE file.
 
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -137,6 +141,37 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestFixtureConfinement(unittest.TestCase):
+    """--test is accepted in production and this check runs as root, so a fixture
+    path must not tell a caller which files exist outside the fixtures: a file
+    there has to answer exactly like a missing one.
+    """
+
+    check = '../nextcloud-app-updates'
+
+    def run_check(self, base):
+        result = subprocess.run(
+            [sys.executable, self.check, f'--test={base},,0'],
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode, result.stdout.replace(base, '<base>')
+
+    def test_file_outside_the_fixtures_reads_like_a_missing_one(self):
+        work = tempfile.mkdtemp(prefix='lftest-fixture-')
+        try:
+            planted = os.path.join(work, 'planted')
+            for suffix in ['-applist']:
+                with open(planted + suffix, 'w') as handle:
+                    handle.write('{}\n')
+            self.assertEqual(
+                self.run_check(planted),
+                self.run_check(os.path.join(work, 'missing')),
+            )
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 if __name__ == '__main__':

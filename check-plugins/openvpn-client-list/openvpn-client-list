@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092501'
 
 DESCRIPTION = """Lists all clients currently connected to an OpenVPN server by parsing the status
 log file. Reports client name, remote address, bytes received and sent, and connection
@@ -122,15 +122,20 @@ def main():
         # The plugin runs as root via sudo, so an unconfined path would be an
         # arbitrary root file read. is_within() resolves symlinks and `..`, so
         # neither can escape; bind-mount an external location under /var/log.
+        # The read repeats the confinement on the file it actually opened, since
+        # a directory below /var/log can belong to an unprivileged account that
+        # swaps a path component between this check and the open.
         if not lib.disk.is_within(args.FILENAME, ALLOWED_LOG_ROOTS):
             lib.base.cu(
                 f'Refusing to read "{args.FILENAME}": resolved path is outside the allowed '
                 f'log directory {ALLOWED_LOG_ROOTS[0]}; bind-mount it under '
                 f'{ALLOWED_LOG_ROOTS[0]} if intended.'
             )
-        success, content = lib.disk.read_file(args.FILENAME)
+        success, content = lib.disk.read_file(
+            args.FILENAME, allowed_roots=ALLOWED_LOG_ROOTS, nofollow=True
+        )
         if not success:
-            lib.base.cu(f'Failed to read file {args.FILENAME}.')
+            lib.base.cu(content)
         lines = content.splitlines(keepends=True)
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)

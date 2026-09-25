@@ -12,6 +12,7 @@
 
 import argparse
 import json
+import os
 import re
 import socket
 import sys
@@ -33,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks IPSec connection states on a strongSwan VPN gateway. Connects to the charon
 daemon via the VICI interface to retrieve IKE SA and CHILD SA states. Alerts on
@@ -45,6 +46,15 @@ Requires root or sudo."""
 
 DEFAULT_LENGTHY = False
 DEFAULT_SOCKET = '/run/strongswan/charon.vici'
+DEFAULT_TIMEOUT = 8
+
+# This check runs as root and parses whatever the VICI socket answers, so a socket
+# an unprivileged user can put in place would let them decide the result. A custom
+# socket has to live in the system runtime directories, and in addition nobody but
+# root may be able to replace it: the prefix alone proves nothing, an unprivileged
+# account can own a directory below /run (the Icinga agent's /run/icinga2,
+# /run/user/<uid>).
+ALLOWED_SOCKET_ROOTS = ('/run', '/var/run')
 
 # IKE SA algorithm keys that VICI only sends once the SA has a
 # negotiated proposal, or that depend on the cipher suite in use.
@@ -122,6 +132,8 @@ def parse_args():
     parser.add_argument(
         '--socket',
         help='Path to the Versatile IKE Control Interface (VICI) socket. '
+        'Must resolve within /run or /var/run, and nobody but root may be able to '
+        'replace it. '
         'Default: %(default)s',
         dest='SOCKET',
         default=DEFAULT_SOCKET,
@@ -132,6 +144,14 @@ def parse_args():
         help=lib.args.help('--test'),
         dest='TEST',
         type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
     )
 
     args, _ = parser.parse_known_args()
@@ -439,15 +459,29 @@ def main():
 
     # fetch data
     if args.TEST is None:
+        if not lib.disk.is_within(args.SOCKET, ALLOWED_SOCKET_ROOTS):
+            lib.base.cu(
+                f'Refusing to use socket "{args.SOCKET}": it resolves outside '
+                f'{" and ".join(ALLOWED_SOCKET_ROOTS)}.'
+            )
+        success, vici_socket = lib.disk.resolve_trusted_path(args.SOCKET)
+        if not success:
+            if not os.path.exists(args.SOCKET):
+                # A socket that is not there is what a host without a running
+                # strongSwan looks like, not a defect worth a Python stack trace.
+                lib.base.cu(
+                    f'No VICI socket at {args.SOCKET}. Check that strongSwan runs '
+                    'and that its vici plugin is loaded.'
+                )
+            lib.base.cu(vici_socket)
         s = socket.socket(socket.AF_UNIX)
+        s.settimeout(args.TIMEOUT)
         try:
-            s.connect(args.SOCKET)
+            s.connect(vici_socket)
         except OSError as e:
             s.close()
-            # A socket that is not there is what a host without a running strongSwan
-            # looks like, not a defect worth a Python stack trace.
             lib.base.cu(
-                f'Failed to connect to the VICI socket at {args.SOCKET}: {e}. '
+                f'Failed to connect to the VICI socket at {vici_socket}: {e}. '
                 'Check that strongSwan runs and that its vici plugin is loaded.',
                 traceback=False,
             )
@@ -458,6 +492,12 @@ def main():
             # socket; materialise it to a list now so we can close
             # the socket cleanly before processing the data.
             list_sas = list(session.list_sas())
+        except socket.timeout:
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while waiting for charon on the VICI '
+                f'socket at {vici_socket}.',
+                STATE_WARN,
+            )
         finally:
             s.close()
     else:
@@ -468,7 +508,13 @@ def main():
         # helper the production path uses, so the test and the
         # production paths cannot drift.
         fixture_path = args.TEST[0] if args.TEST else ''
-        if not fixture_path or not lib.disk.file_exists(fixture_path, allow_empty=True):
+        # Read through lib.lftest only: it confines fixtures to the unit-test
+        # directory, while a look at the path itself would tell a caller which
+        # files exist anywhere on the host.
+        stdout = (
+            lib.lftest.test_text(args.TEST, missing_ok=True) if fixture_path else None
+        )
+        if stdout is None:
             hint = ''
             for legacy in (
                 '-possible_connection_keys',
@@ -483,7 +529,6 @@ def main():
                     )
                     break
             lib.base.cu(f'Test fixture not found: {fixture_path}{hint}')
-        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
         try:
             fixture = json.loads(stdout)
         except json.JSONDecodeError as e:
