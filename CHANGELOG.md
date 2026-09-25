@@ -24,7 +24,9 @@ Monitoring Plugins:
 * fail2ban: `--socket` accepts only a root-owned socket, closing a local root code execution
 * logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer redirect the read out of `/var/log`
 * mastodon-version: `--path` no longer follows a symlink out of the installation
+* mysql-logfile: a `--defaults-file` that is not a regular file no longer blocks the check
 * nextcloud-\*: `--path` no longer lets a local user run code as root or probe for files
+* php-status: `--config` compares whole values (by default only an unset `date.timezone` warns), FPM configs must be root-owned
 * podman-\*: `--user` accepts only an account with a subordinate UID range, as rootless Podman needs
 * strongswan-connections: `--socket` accepts only a root-owned socket, and a hung charon yields WARN instead of a hang ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` accepts only a container name, so a local user can no longer act for another account

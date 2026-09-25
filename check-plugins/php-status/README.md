@@ -10,7 +10,7 @@ Checks PHP configuration and health, including startup errors, missing modules, 
 * The `monitoring.php` helper script is optional. Without it, the plugin still reports CLI-side health (startup errors, modules, CLI php.ini), but cannot report OPcache statistics or the web server's php.ini runtime settings.
 * OPcache is shared per PHP-FPM master, so a separate PHP-FPM service (a different PHP version, or a dedicated service for one app) needs its own helper and its own check. See the Background and [Deploying the monitoring.php helper](#deploying-the-monitoringphp-helper) sections.
 * If the output is missing directives or whole sections, the `monitoring.php` deployed on the web server is older than the plugin. Update `monitoring.php`; the plugin only displays what the helper reports.
-* The `--config` parameter uses startswith matching against `php --info` output.
+* The `--config` parameter compares the whole value against the local value in the `php --info` output, case-insensitive. Without `--config`, the check only warns if `date.timezone` is not set.
 * The `--module` parameter uses startswith matching against `php --modules` output.
 
 **Data Collection:**
@@ -164,9 +164,10 @@ options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
-  --config CONFIG       PHP ini "key=value" pair to check (startswith match).
-                        Can be specified multiple times. Example: `--config
-                        "memory_limit=128M"`
+  --config CONFIG       PHP ini "key=value" pair to check. The whole value is
+                        compared, case-insensitive. Can be specified multiple
+                        times. Without it, only an unset `date.timezone` is
+                        reported. Example: `--config "memory_limit=128M"`
   -c, --critical CRIT   CRIT threshold for OPcache memory and key usage, in
                         percent. Default: >= None
   --dev                 Development mode. Tolerates `display_errors=On` and
@@ -290,7 +291,7 @@ On a host with several PHP-FPM masters the first line confirms the read and then
 
 * OK if there are no startup errors, all expected modules are present, the checked php.ini values match, OPcache is healthy and its memory and key usage are below the thresholds.
 * WARN on PHP startup errors.
-* WARN if a checked php.ini value does not match the given `--config`.
+* WARN if a checked php.ini value does not match the given `--config`, or, without `--config`, if `date.timezone` is not set.
 * WARN if a required `--module` is missing.
 * WARN if `display_errors` or `display_startup_errors` (both tolerated with `--dev`) or `expose_php` are enabled.
 * WARN if OPcache is not installed or not enabled.
@@ -389,9 +390,13 @@ So size `pm.max_children` so that `max_children x per-request peak` fits in RAM 
 
 Not an alert. When the buffer fills, OPcache stops deduplicating new strings but keeps working; the cost is marginally more memory and a negligible CPU hit. To reclaim it, raise `opcache.interned_strings_buffer` (megabytes).
 
-### `Config expected but not found: date.timezone = Europe`
+### `Config not as expected: date.timezone is not set`
 
-The default `--config` check expects `date.timezone` to start with `Europe`. On a host configured for another region this warns; pass your own expectation, for example `--config "date.timezone=UTC"`, or set the directive. Run the plugin via sudo (as the basket does): a non-root run reads PHP's compiled defaults instead of the configured php.ini, so the comparison would use the wrong values.
+PHP has no time zone configured and falls back to a guess. Set `date.timezone` in the php.ini, for example `date.timezone = Europe/Zurich`. Run the plugin via sudo (as the basket does): a non-root run reads PHP's compiled defaults instead of the configured php.ini, so the check would report the wrong values.
+
+### `Config not as expected: <directive> = <value>`
+
+The local value of a directive given with `--config` differs from the expected one. The whole value is compared, so `--config=date.timezone=Europe` does not match `Europe/Zurich`; pass the full value.
 
 ### `PHP Warning: PHP Startup: Unable to load dynamic library ...`
 

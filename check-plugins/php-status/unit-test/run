@@ -23,13 +23,18 @@ functions directly, by importing the hyphen-named plugin as a module:
     its upstream default only when the two differ
 """
 
+import argparse
 import importlib.machinery
 import importlib.util
+import os
+import shutil
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
 import unittest
+import unittest.mock
 
 import lib.base
 from lib.globals import STATE_WARN
@@ -105,6 +110,68 @@ class TestParseFpmTopology(unittest.TestCase):
 
     def test_empty_input(self):
         self.assertEqual(php_status.parse_fpm_topology(''), [])
+
+
+class TestParseFpmPools(unittest.TestCase):
+    """The FPM master config comes from the process list, which any local user can
+    write to by naming a process, so this root check reads only a config nobody
+    but root can change, and only include files of the same kind.
+    """
+
+    def setUp(self):
+        self.work = tempfile.mkdtemp(prefix='lftest-php-status-')
+
+    def tearDown(self):
+        shutil.rmtree(self.work, ignore_errors=True)
+
+    def test_config_anybody_can_change_is_not_read(self):
+        master = os.path.join(self.work, 'php-fpm.conf')
+        with open(master, 'w') as handle:
+            handle.write('[www]\nlisten = /run/php-fpm/www.sock\n')
+        self.assertEqual(php_status.parse_fpm_pools(master), {})
+
+
+PHP_INFO = """Directive => Local Value => Master Value
+date.timezone => Europe/Zurich => Europe/Zurich
+memory_limit => 128M => 128M
+PCRE (Perl Compatible Regular Expressions) Support => enabled
+"""
+
+
+class TestGetConfigErrors(unittest.TestCase):
+    """--config compares the whole value, so the result says nothing about how a
+    value this root check can read begins. Without --config, only an unset
+    date.timezone is reported.
+    """
+
+    def errors(self, config, php_info=PHP_INFO):
+        args = argparse.Namespace(CONFIG=config)
+        with unittest.mock.patch.object(php_status.os, 'geteuid', return_value=0):
+            return php_status.get_config_errors(args, php_info)
+
+    def test_exact_value_matches(self):
+        self.assertEqual(self.errors(['date.timezone=Europe/Zurich']), '')
+
+    def test_comparison_ignores_case(self):
+        self.assertEqual(self.errors(['Memory_Limit=128m']), '')
+
+    def test_prefix_of_the_value_does_not_match(self):
+        self.assertIn('date.timezone = Europe', self.errors(['date.timezone=Europe']))
+
+    def test_prefix_of_the_key_does_not_match(self):
+        self.assertIn('memory = 128M', self.errors(['memory=128M']))
+
+    def test_unknown_directive_does_not_match(self):
+        self.assertIn('nonexistent = 1', self.errors(['nonexistent=1']))
+
+    def test_without_config_a_set_timezone_is_fine(self):
+        self.assertEqual(self.errors([]), '')
+
+    def test_without_config_an_unset_timezone_is_reported(self):
+        php_info = PHP_INFO.replace(
+            'Europe/Zurich => Europe/Zurich', 'no value => no value'
+        )
+        self.assertIn('date.timezone', self.errors([], php_info))
 
 
 class TestHumanBytesShorthand(unittest.TestCase):

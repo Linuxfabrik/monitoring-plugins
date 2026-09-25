@@ -24,7 +24,7 @@ import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks PHP configuration and health, including startup errors, missing modules, and
 misconfigured php.ini directives. Optionally reads extended PHP information from a
@@ -32,7 +32,7 @@ monitoring helper script deployed in the web server context: OPcache statistics,
 largest cached scripts, and the active php.ini directives. Alerts on startup errors,
 missing modules, or insecure settings. Requires root or sudo."""
 
-DEFAULT_CONFIG = ['date.timezone=Europe']
+DEFAULT_CONFIG = []
 DEFAULT_CRIT = None
 DEFAULT_INSECURE = False
 DEFAULT_MODULES = [
@@ -186,8 +186,10 @@ def parse_args():
     )
     parser.add_argument(
         '--config',
-        help='PHP ini "key=value" pair to check (startswith match). '
+        help='PHP ini "key=value" pair to check. The whole value is compared, '
+        'case-insensitive. '
         'Can be specified multiple times. '
+        'Without it, only an unset `date.timezone` is reported. '
         'Example: `--config "memory_limit=128M"`',
         dest='CONFIG',
         action='append',
@@ -308,8 +310,22 @@ def get_startup_errors():
 
 
 def get_config_errors(args, php_info):
-    php_config = php_info.lower()
+    """Compare the `--config` pairs with the local values `php --info` reports.
+
+    The whole value is compared, not its beginning: this check runs as root and reads
+    a php.ini the caller may not, so a match on the beginning would let a caller learn
+    a value piece by piece. Without `--config`, only an unset `date.timezone` is
+    reported, the one directive whose absence makes PHP guess.
+    """
+    values = {}
+    for line in php_info.splitlines():
+        parts = [part.strip() for part in line.split('=>')]
+        if len(parts) >= 2 and parts[0]:
+            values.setdefault(parts[0].lower(), parts[1])
     result = ''
+    if not args.CONFIG:
+        if values.get('date.timezone', 'no value').lower() in ('', 'no value'):
+            result += 'date.timezone is not set, '
     for config in args.CONFIG:
         try:
             key, value = config.split('=')
@@ -317,7 +333,8 @@ def get_config_errors(args, php_info):
             value = value.strip()
         except Exception:
             continue
-        if f'{key.lower()} => {value.lower()}' not in php_config:
+        actual = values.get(key.lower())
+        if actual is None or actual.lower() != value.lower():
             result += f'{key} = {value}, '
     if result:
         result = result[:-2]
@@ -399,7 +416,16 @@ def parse_fpm_pools(master_config):
     check that pool's service separately.
     """
     listens = {}
-    success, master_text = lib.disk.read_file(master_config)
+    # The config path comes from the process list, where any local user can name a
+    # process as they like, and this check runs as root. So a file is read only if
+    # nobody but root can change it or a directory above it, the master config and
+    # every file it includes alike.
+    success, master_config = lib.disk.resolve_trusted_path(master_config)
+    if not success:
+        return listens
+    success, master_text = lib.disk.read_file(
+        master_config, allowed_roots=[os.sep], nofollow=True
+    )
     if not success:
         return listens
     files = [master_config]
@@ -410,7 +436,12 @@ def parse_fpm_pools(master_config):
             if key.strip() == 'include':
                 files.extend(lib.disk.glob(pattern.strip()))
     for path in files:
-        success, pool_text = lib.disk.read_file(path)
+        success, path = lib.disk.resolve_trusted_path(path)
+        if not success:
+            continue
+        success, pool_text = lib.disk.read_file(
+            path, allowed_roots=[os.sep], nofollow=True
+        )
         if not success:
             continue
         current = None
@@ -969,7 +1000,7 @@ def main():
     config_errors = get_config_errors(args, php_info)
     if config_errors:
         msg += (
-            f'Config expected but not found: {config_errors[:-2]} '
+            f'Config not as expected: {config_errors[:-2]} '
             f'{lib.base.state2str(STATE_WARN, prefix="")}. '
         )
         state = lib.base.get_worst(state, STATE_WARN)

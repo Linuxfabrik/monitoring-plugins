@@ -412,6 +412,30 @@ class TestPathConfinement(unittest.TestCase):
         self.assertNotIn('secret', combined)
 
 
+class TestDefaultsFile(unittest.TestCase):
+    """pymysql opens --defaults-file itself, as root, so anything but a regular
+    file must be passed over: a FIFO would block the check until it is killed."""
+
+    @unittest.skipUnless(hasattr(os, 'mkfifo'), 'no FIFOs on this platform')
+    def test_fifo_does_not_block(self):
+        scratch = tempfile.mkdtemp(prefix='mysql-logfile-defaults-')
+        try:
+            fifo = os.path.join(scratch, 'my.cnf')
+            os.mkfifo(fifo)
+            try:
+                subprocess.run(
+                    [PLUGIN, f'--defaults-file={fifo}'],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=30,
+                )
+            except subprocess.TimeoutExpired:
+                self.fail('the check blocked on a FIFO given as --defaults-file')
+        finally:
+            shutil.rmtree(scratch, ignore_errors=True)
+
+
 class TestSourceAddress(unittest.TestCase):
     """Which host a denied login is counted under."""
 

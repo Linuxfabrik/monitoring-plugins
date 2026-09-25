@@ -32,7 +32,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092501'
 
 DESCRIPTION = """Scans the MySQL/MariaDB error log for errors, warnings, startups and
 shutdowns. On MySQL 8.0.22+ the plugin prefers the `performance_schema.error_log` table
@@ -634,7 +634,18 @@ def main():
             'defaults_group': args.DEFAULTS_GROUP,
             'timeout': args.TIMEOUT,
         }
-        success, conn = lib.db_mysql.connect(mysql_connection)
+        # pymysql opens the option file itself, and this check runs as root. Pass
+        # over anything but a regular file: a FIFO would block the check until it
+        # is killed, and a device can have side effects. A missing file is left to
+        # pymysql, which then connects with its defaults.
+        try:
+            defaults_ok = stat.S_ISREG(os.stat(args.DEFAULTS_FILE).st_mode)
+        except (OSError, TypeError, ValueError):
+            defaults_ok = True
+        if defaults_ok:
+            success, conn = lib.db_mysql.connect(mysql_connection)
+        else:
+            success = False
         if success:
             lib.base.coe(lib.db_mysql.check_privileges(conn))
             myvar = lib.db_mysql.lod2dict(get_vars(conn))
