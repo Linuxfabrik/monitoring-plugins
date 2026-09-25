@@ -11,6 +11,8 @@
 """See the check's README for more details."""
 
 import argparse
+import os
+import re
 import sys
 
 import lib.args
@@ -21,7 +23,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks the installed Mastodon version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -158,20 +160,20 @@ def get_installed_version(path):
     # which will cause problems when running this plugin in various nagios or icinga environments.
     # Instead, we do a low-level hack and just check the docker-compose file for the current
     # version - until someone has a robust solution.
-    compose_file = path + '/live/docker-compose.yml'
-    # A file that is not there means Mastodon is not installed here, which the caller
-    # says in one sentence. Handing the reader's I/O error to the caller instead made
-    # that error the answer of the check.
-    if not lib.disk.file_exists(compose_file):
-        return (True, False)
-    try:
-        success, version = lib.disk.grep_file(compose_file, r'mastodon/mastodon:v(.*)')
-    except Exception:
-        return (False, 'Unable to get Mastodon version information.')
+    compose_file = os.path.join(path, 'live', 'docker-compose.yml')
+    # This check runs as root, so the file is read only if it really lies inside
+    # --path, not through a symlink placed there. A file that is not there, or
+    # not one that may be read, means Mastodon is not installed here, which the
+    # caller says in one sentence; the two cases answer alike, so the check does
+    # not tell which files exist elsewhere.
+    success, content = lib.disk.read_file(
+        compose_file, allowed_roots=[path], nofollow=True, max_bytes=1024 * 1024
+    )
     if not success:
-        return (success, version)
-    if version:
-        return (True, version)
+        return (True, False)
+    version = re.search(r'mastodon/mastodon:v(.*)', content)
+    if version and version.group(1):
+        return (True, version.group(1))
     return (True, False)
 
 

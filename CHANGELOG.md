@@ -18,10 +18,12 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* acmesh-status: follows install paths only from a configuration nobody else can change
 * apache-httpd-security, nginx-security: `--command` runs only a root-owned binary, closing a local root code execution
 * docker-service, docker-swarm: `--test` no longer reveals which files exist on the host
 * fail2ban: `--socket` accepts only a root-owned socket, closing a local root code execution
 * logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer redirect the read out of `/var/log`
+* mastodon-version: `--path` no longer follows a symlink out of the installation
 * nextcloud-\*: `--path` no longer lets a local user run code as root or probe for files
 * strongswan-connections: `--socket` accepts only a root-owned socket, and a hung charon yields WARN instead of a hang ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` accepts only a container name, so a local user can no longer act for another account

@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
+import lib.disk
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -535,8 +536,24 @@ class TestCheck(unittest.TestCase):
     check = '../acmesh-status'
 
 
+def _trusted_base():
+    """Return a directory nobody but root and the test user can change, or None.
+
+    The check follows `Le_RealCertPath` and an absolute `CERT_HOME` only from a
+    configuration nobody else can change, and /tmp is writable by everyone, so the
+    scenarios are built below the home directory instead.
+    """
+    home = os.path.expanduser('~')
+    if lib.disk.resolve_trusted_path(home, owners=[os.geteuid()])[0]:
+        return home
+    return None
+
+
 def _run_scenario(test, scenario):
-    root = tempfile.mkdtemp(prefix='lfmp-acmesh-status-')
+    base = _trusted_base()
+    if base is None:
+        test.skipTest('no directory on this host is trusted for the test user')
+    root = tempfile.mkdtemp(prefix='.lfmp-acmesh-status-', dir=base)
     try:
         _build(scenario, root)
         params = scenario['params']
@@ -582,6 +599,61 @@ class TestSecurity(unittest.TestCase):
             )
         self.assertNotIn(sentinel, result.stdout)
         self.assertIn('outside the allowed roots', result.stdout)
+
+    def run_check(self, path):
+        result = subprocess.run(
+            [sys.executable, self.check, f'--path={path}'],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return result.returncode, result.stdout.replace(path, '<path>')
+
+    def test_install_path_from_a_changeable_config_is_not_probed(self):
+        # A configuration anybody can change must not make this root check look
+        # at a path of their choosing: an existing file and a missing one have to
+        # answer alike.
+        results = []
+        for target in ('/etc/hostname', '/nonexistent/linuxfabrik'):
+            base = tempfile.mkdtemp(prefix='lfmp-acmesh-status-')
+            try:
+                os.chmod(base, 0o777)
+                _build(
+                    {
+                        'build': lambda root, target=target: _add_store(
+                            root, 'www.example.com', install_to=target
+                        )
+                    },
+                    base,
+                )
+                results.append(self.run_check(base))
+            finally:
+                shutil.rmtree(base, ignore_errors=True)
+        self.assertEqual(results[0], results[1])
+        self.assertEqual(results[0][0], STATE_OK)
+
+    @unittest.skipUnless(hasattr(os, 'mkfifo'), 'no FIFOs on this platform')
+    def test_certificate_that_is_a_fifo_does_not_block(self):
+        base = tempfile.mkdtemp(prefix='lfmp-acmesh-status-')
+        try:
+            _build(
+                {
+                    'build': lambda root: _add_store(
+                        root, 'www.example.com', with_cert=False
+                    )
+                },
+                base,
+            )
+            fifo = os.path.join(
+                base, 'certs', 'www.example.com_ecc', 'www.example.com.cer'
+            )
+            os.mkfifo(fifo)
+            try:
+                self.run_check(base)
+            except subprocess.TimeoutExpired:
+                self.fail('the check blocked on a FIFO')
+        finally:
+            shutil.rmtree(base, ignore_errors=True)
 
 
 if __name__ == '__main__':
