@@ -121,8 +121,10 @@ options:
                         storage, so root (the monitoring user runs the check
                         via sudo) does not see them. With --user, the check
                         runs podman as that user. Requires the right to `sudo
-                        -u <user>` (root has this by default). Example:
-                        `--user=rocketchat`. Default: None
+                        -u <user>` (root has this by default), and the user
+                        needs a subordinate UID range in /etc/subuid, as
+                        rootless Podman does. Example: `--user=rocketchat`.
+                        Default: None
   --warning-restarts WARN_RESTARTS
                         WARN threshold for the number of automatic restarts a
                         container has performed, compared as a Nagios range.
@@ -195,6 +197,7 @@ app-unhealthy      ! running ! unhealthy ! 3        ! [CRITICAL]
 * CRIT if `podman ps` fails, or if `podman inspect` returns nothing that can be read. A container that is removed while the check runs makes `podman inspect` fail as well; the containers it did report are checked as usual.
 * WARN if the Podman commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
+* UNKNOWN if the user given with `--user` has no subordinate UID range in `/etc/subuid`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

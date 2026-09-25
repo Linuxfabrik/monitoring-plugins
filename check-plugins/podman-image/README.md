@@ -93,8 +93,9 @@ options:
                         root (the monitoring user runs the check via sudo)
                         does not see them. With --user, the check runs podman
                         as that user. Requires the right to `sudo -u <user>`
-                        (root has this by default). Example: `--user=webapp`.
-                        Default: None
+                        (root has this by default), and the user needs a
+                        subordinate UID range in /etc/subuid, as rootless
+                        Podman does. Example: `--user=webapp`. Default: None
   -w, --warning WARN    WARN threshold for the image age in a human-readable
                         format (s = seconds, m = minutes, h = hours, D = days,
                         W = weeks, M = months, Y = years). Supports Nagios
@@ -145,6 +146,7 @@ docker.io/library/postgres:16 ! 1Y 6M ! 405.3MiB ! [CRITICAL]
 * CRIT if `podman images` fails, or if `podman image inspect` returns nothing that can be read. An image that is removed while the check runs makes `podman image inspect` fail as well; the images it did report are checked as usual.
 * WARN if the Podman commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
+* UNKNOWN if the user given with `--user` has no subordinate UID range in `/etc/subuid`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

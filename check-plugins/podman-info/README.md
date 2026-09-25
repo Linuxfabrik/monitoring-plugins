@@ -63,8 +63,9 @@ options:
                      storage, so root (the monitoring user runs the check via
                      sudo) does not see them. With --user, the check runs
                      podman as that user. Requires the right to `sudo -u
-                     <user>` (root has this by default). Example:
-                     `--user=rocketchat`. Default: None
+                     <user>` (root has this by default), and the user needs a
+                     subordinate UID range in /etc/subuid, as rootless Podman
+                     does. Example: `--user=rocketchat`. Default: None
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/podman-info/
@@ -92,6 +93,7 @@ Output:
 * WARN if the Podman commands do not finish within `--timeout` (default: 8 seconds).
 * UNKNOWN if the check may not talk to the container engine. The engine is answering, this check is only not allowed to ask, so it says nothing about it and names the sudoers file instead.
 * UNKNOWN if the answer cannot be read, or reports no version at all.
+* UNKNOWN if the user given with `--user` has no subordinate UID range in `/etc/subuid`.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
