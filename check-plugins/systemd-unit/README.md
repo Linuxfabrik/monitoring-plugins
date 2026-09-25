@@ -9,7 +9,7 @@ Checks the state of a specific systemd unit (service, socket, device, mount, tim
 
 * Best practice: specify `--activestate` and `--substate` at least
 * The `.service` suffix is optional for service units, but recommended
-* The `--machine` parameter connects to a local container, optionally prefixed by a user name and `@` (e.g. `linus@.host`)
+* The `--machine` parameter connects to a local container by its name. A user name prefix (`user@container`) is refused, because it would let the caller of this root check act on behalf of any account
 
 **Data Collection:**
 
@@ -62,15 +62,10 @@ options:
                         unit definition was properly loaded. If omitted or set
                         to "None", the unit's load state will not be checked.
                         Default: loaded
-  --machine MACHINE     Execute operation on a local container. Specify a
-                        container name to connect to, optionally prefixed by a
-                        user name and a separating "@" character. The special
-                        string ".host" connects to the local system (useful
-                        for reaching a specific user's bus: `--user
-                        --machine=lennart@.host`). Without "@" syntax, the
-                        connection is made as root. With "@" syntax, either
-                        side may be omitted (but not both), defaulting to the
-                        local user name and ".host".
+  --machine MACHINE     Execute operation on a local container. Specify the
+                        name of the container to connect to. A user name
+                        prefix (`user@container`) is not accepted. Example:
+                        `--machine=mycontainer`
   --severity {warn,crit}
                         Severity for alerting. Default: warn
   --substate {None,abandoned,activating,activating-done,active,auto-restart,cleaning,condition,deactivating,deactivating-sigkill,deactivating-sigterm,dead,elapsed,exited,failed,final-sigkill,final-sigterm,final-watchdog,listening,mounted,mounting,mounting-done,plugged,reload,remounting,remounting-sigkill,remounting-sigterm,running,start,start-chown,start-post,start-pre,stop,stop-post,stop-pre,stop-pre-sigkill,stop-pre-sigterm,stop-sigkill,stop-sigterm,stop-watchdog,tentative,unmounting,unmounting-sigkill,unmounting-sigterm,waiting}
@@ -164,7 +159,7 @@ Check a service depending on a timer (has two activestates and two substates)?
 Use the `--machine` parameter:
 
 ```bash
-./systemd-unit --machine=linus@.host --unit=sshd
+./systemd-unit --machine=mycontainer --unit=sshd
 ```
 
 Output (mismatch):
@@ -179,6 +174,7 @@ firewalld.service - LoadState is "loaded", but should be set to "not-found"
 * OK if all checked states match the expected values.
 * WARN (default) if any checked state does not match the expected value.
 * CRIT if `--severity=crit` is set and any checked state does not match.
+* UNKNOWN if `--machine` carries a user name part (`user@container`).
 
 
 ## Perfdata / Metrics

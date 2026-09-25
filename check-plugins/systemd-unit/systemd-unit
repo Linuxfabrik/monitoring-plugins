@@ -21,7 +21,7 @@ import lib.version
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks the state of a specific systemd unit (service, socket, device, mount, timer,
 scope, etc.) via systemctl. Verifies the active state, sub-state, load state, and
@@ -104,13 +104,9 @@ def parse_args():
     parser.add_argument(
         '--machine',
         help='Execute operation on a local container. '
-        'Specify a container name to connect to, optionally prefixed by a user name '
-        'and a separating "@" character. '
-        'The special string ".host" connects to the local system '
-        "(useful for reaching a specific user's bus: `--user --machine=lennart@.host`). "
-        'Without "@" syntax, the connection is made as root. '
-        'With "@" syntax, either side may be omitted (but not both), '
-        'defaulting to the local user name and ".host".',
+        'Specify the name of the container to connect to. '
+        'A user name prefix (`user@container`) is not accepted. '
+        'Example: `--machine=mycontainer`',
         dest='MACHINE',
     )
 
@@ -251,6 +247,18 @@ def main():
 
     # init some vars
     options = []
+    # This check typically runs as root via sudo. The `user@container` form of
+    # --machine makes systemd act on behalf of the named account, which is not
+    # something a caller of this check may choose, so only a container name is
+    # accepted. Checked before the test branch so the unit tests cover it.
+    if args.MACHINE is not None and ('@' in args.MACHINE or not args.MACHINE):
+        lib.base.cu(
+            f'Refusing `--machine={args.MACHINE}`: only a container name is '
+            'accepted, without a user name part.'
+        )
+    if args.MACHINE:
+        lib.base.coe(lib.shell.safe_cli_value(args.MACHINE, '--machine'))
+
     if args.MACHINE and args.TEST is None:
         stdout, _, _ = lib.base.coe(lib.shell.shell_exec(['systemctl', '--version']))
 

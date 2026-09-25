@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # All fixtures are `systemctl show -p LoadState,ActiveState,SubState,
 # UnitFileState <unit>` output captured on Rocky 9 (systemd 252). The same
@@ -24,6 +24,23 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 # .scope or a .device has.
 
 TESTS = [
+    # --machine takes a container name only. The `user@container` form makes
+    # this root check act for an arbitrary account, so it is refused before
+    # anything is run, fixture or not.
+    {
+        'id': 'unknown-machine-with-user-part',
+        'test': 'stdout/loaded-active-running-enabled,,0',
+        'params': '--unit=lftest.service --machine=linuxfabrik@.host',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--machine'],
+        'assert-not-in': ['lftest.service is loaded'],
+    },
+    {
+        'id': 'ok-machine-with-container-name',
+        'test': 'stdout/loaded-active-running-enabled,,0',
+        'params': '--unit=lftest.service --machine=lftest',
+        'assert-retc': STATE_OK,
+    },
     # Without --activestate and --substate only the load state is checked,
     # which is why the README asks for both to be set.
     {

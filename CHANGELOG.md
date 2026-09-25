@@ -24,6 +24,7 @@ Monitoring Plugins:
 * logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer redirect the read out of `/var/log`
 * nextcloud-\*: `--path` no longer lets a local user run code as root or probe for files
 * strongswan-connections: `--socket` accepts only a root-owned socket, and a hung charon yields WARN instead of a hang ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
+* systemd-unit: `--machine` accepts only a container name, so a local user can no longer act for another account
 
 
 ## [v8.0.0] - 2026-09-23
