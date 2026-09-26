@@ -17,11 +17,12 @@ import sys
 import lib.args
 import lib.base
 import lib.lftest
+import lib.restic
 import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026092501'
 
 DESCRIPTION = """Verifies the integrity of a restic backup repository by running "restic check". Alerts
 when the repository contains errors or inconsistencies.
@@ -53,15 +54,27 @@ def parse_args():
 
     parser.add_argument(
         '--password-file',
-        help='Path to the file containing the repository password.',
+        help='Path to the file containing the repository password. '
+        'Must be a file that only root can change.',
         dest='PASSWORD_FILE',
     )
 
     parser.add_argument(
         '--repo',
-        help='Restic repository location.',
+        help='Restic repository location. '
+        'Give exactly one of --repo and --repository-file.',
         dest='REPO',
-        required=True,
+        default=None,
+    )
+
+    parser.add_argument(
+        '--repository-file',
+        help='Path to a file whose first line is the repository location. '
+        'Use this instead of --repo for a repository whose location selects an '
+        'external helper (an `rclone:` repository): the file must be one that only '
+        'root can change, so an unprivileged caller cannot choose what runs. '
+        'Give exactly one of --repo and --repository-file.',
+        dest='REPOSITORY_FILE',
     )
 
     parser.add_argument(
@@ -89,8 +102,8 @@ def main():
         cmd = [
             'restic',
             '--json',
-            f'--repo={args.REPO}',
-            f'--password-file={args.PASSWORD_FILE}',
+            *lib.base.coe(lib.restic.repo_args(args.REPO, args.REPOSITORY_FILE)),
+            *lib.base.coe(lib.restic.password_file_arg(args.PASSWORD_FILE)),
             'check',
         ]
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))

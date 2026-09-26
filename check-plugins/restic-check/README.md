@@ -33,7 +33,7 @@ Verifies the integrity of a restic backup repository by running `restic check`. 
 
 ```text
 usage: restic-check [-h] [-V] [--always-ok] [--password-file PASSWORD_FILE]
-                    --repo REPO
+                    [--repo REPO] [--repository-file REPOSITORY_FILE]
 
 Verifies the integrity of a restic backup repository by running "restic
 check". Alerts when the repository contains errors or inconsistencies.
@@ -45,7 +45,17 @@ options:
   --always-ok           Always returns OK.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
-  --repo REPO           Restic repository location.
+                        Must be a file that only root can change.
+  --repo REPO           Restic repository location. Give exactly one of --repo
+                        and --repository-file.
+  --repository-file REPOSITORY_FILE
+                        Path to a file whose first line is the repository
+                        location. Use this instead of --repo for a repository
+                        whose location selects an external helper (an
+                        `rclone:` repository): the file must be one that only
+                        root can change, so an unprivileged caller cannot
+                        choose what runs. Give exactly one of --repo and
+                        --repository-file.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-check/
@@ -81,6 +91,7 @@ Fatal: repository contains errors
 * OK if `restic check` exits with 0 and the output contains "no errors".
 * WARN if exit status of `restic check` != 0.
 * WARN if output of `restic check` does not contain "no errors".
+* UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
 
 
 ## Perfdata / Metrics

@@ -10,6 +10,9 @@
                 },
                 "--repo": {
                     "value": "$restic_check_repo$"
+                },
+                "--repository-file": {
+                    "value": "$restic_check_repository_file$"
                 }
             },
             "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/restic-check",
@@ -27,7 +30,12 @@
                 },
                 {
                     "datafield_id": 3,
-                    "is_required": "y",
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
                     "var_filter": null
                 }
             ],
@@ -103,7 +111,7 @@
         "2": {
             "varname": "restic_check_password_file",
             "caption": "Restic Check: Password File",
-            "description": "Path to the file containing the repository password.",
+            "description": "Path to the file containing the repository password. Must be a file that only root can change.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -114,13 +122,24 @@
         "3": {
             "varname": "restic_check_repo",
             "caption": "Restic Check: Repo",
-            "description": "Restic repository location.",
+            "description": "Restic repository location. Give exactly one of --repo and --repository-file.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "69c6896f-82e0-4c78-b4c7-186a8ad4357f"
+        },
+        "4": {
+            "varname": "restic_check_repository_file",
+            "caption": "Restic Check: Repository File",
+            "description": "Path to a file whose first line is the repository location. Use this instead of --repo for a repository whose location selects an external helper (an `rclone:` repository): the file must be one that only root can change, so an unprivileged caller cannot choose what runs. Give exactly one of --repo and --repository-file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "759f165a-6e1f-4aff-818e-15651d1dee7c"
         }
     }
 }

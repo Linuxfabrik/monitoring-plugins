@@ -8,14 +8,18 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_OK, STATE_WARN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 BASE_PARAMS = '--repo=test --password-file=test'
 
@@ -43,6 +47,41 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestRepositorySafety(unittest.TestCase):
+    """This check runs as root via sudo, so the caller must not be able to make
+    restic run a program of their choosing or read a file only root should.
+    """
+
+    check = '../restic-check'
+
+    def run_check(self, *params):
+        result = subprocess.run(
+            [sys.executable, self.check, '--password-file=/etc/hostname', *params],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        return result.returncode, result.stdout
+
+    def test_rclone_repository_is_refused(self):
+        retc, stdout = self.run_check('--repo=rclone:remote:backups')
+        self.assertEqual(retc, STATE_UNKNOWN)
+        self.assertIn('rclone', stdout)
+
+    def test_repository_file_anybody_can_change_is_refused(self):
+        work = tempfile.mkdtemp(prefix='lftest-restic-repo-')
+        try:
+            os.chmod(work, 0o777)
+            repofile = os.path.join(work, 'repo')
+            with open(repofile, 'w') as handle:
+                handle.write('rclone:remote:backups\n')
+            retc, stdout = self.run_check(f'--repository-file={repofile}')
+            self.assertEqual(retc, STATE_UNKNOWN)
+            self.assertNotIn('Created', stdout)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
 
 
 if __name__ == '__main__':

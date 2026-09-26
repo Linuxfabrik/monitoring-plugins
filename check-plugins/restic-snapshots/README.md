@@ -39,7 +39,8 @@ usage: restic-snapshots [-h] [-V] [--always-ok] [-c CRIT]
                         [--group-by GROUP_BY] [--host HOST] [--latest LATEST]
                         [--lengthy] [--no-perfdata]
                         [--password-file PASSWORD_FILE] [--path PATH]
-                        --repo REPO [--tag TAG] [-w WARN]
+                        [--repo REPO] [--repository-file REPOSITORY_FILE]
+                        [--tag TAG] [-w WARN]
 
 Checks the age of the newest snapshot in a restic repository. Alerts when the
 most recent backup is older than the configured thresholds. Useful for
@@ -65,9 +66,19 @@ options:
                         dropped.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
+                        Must be a file that only root can change.
   --path PATH           Only consider snapshots for this path. Can be
                         specified multiple times.
-  --repo REPO           Restic repository location.
+  --repo REPO           Restic repository location. Give exactly one of --repo
+                        and --repository-file.
+  --repository-file REPOSITORY_FILE
+                        Path to a file whose first line is the repository
+                        location. Use this instead of --repo for a repository
+                        whose location selects an external helper (an
+                        `rclone:` repository): the file must be one that only
+                        root can change, so an unprivileged caller cannot
+                        choose what runs. Give exactly one of --repo and
+                        --repository-file.
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
@@ -133,6 +144,7 @@ A restic snapshot check via SFTP:
 * WARN if the age of the newest snapshot exceeds `--warning` (default: 24 hours).
 * CRIT if the age of the newest snapshot exceeds `--critical`.
 * UNKNOWN if no snapshots match the filter criteria.
+* UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
 
 
 ## Perfdata / Metrics

@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+Monitoring Plugins:
+
+* php-status: `--config` compares the whole value; without it, only an unset `date.timezone` warns
+
 ### Fixed
 
 Monitoring Plugins:
@@ -23,18 +29,19 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
-* acmesh-status: follows install paths only from a configuration nobody else can change
-* apache-httpd-security, nginx-security: `--command` runs only a root-owned binary, closing a local root code execution
-* docker-service, docker-swarm: `--test` no longer reveals which files exist on the host
-* fail2ban: `--socket` accepts only a root-owned socket, closing a local root code execution
-* logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer redirect the read out of `/var/log`
+* acmesh-status: `--path` can no longer probe which files exist
+* apache-httpd-security, nginx-security: `--command` runs only a root-owned binary
+* docker-service, docker-swarm: `--test` can no longer probe which files exist
+* fail2ban: `--socket` must be root-owned
+* logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`
 * mastodon-version: `--path` no longer follows a symlink out of the installation
-* mysql-logfile: a `--defaults-file` that is not a regular file no longer blocks the check
-* nextcloud-\*: `--path` no longer lets a local user run code as root or probe for files
-* php-status: `--config` compares whole values (by default only an unset `date.timezone` warns), FPM configs must be root-owned
-* podman-\*: `--user` accepts only an account with a subordinate UID range, as rootless Podman needs
-* strongswan-connections: `--socket` accepts only a root-owned socket, and a hung charon yields WARN instead of a hang ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
-* systemd-unit: `--machine` accepts only a container name, so a local user can no longer act for another account
+* mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
+* nextcloud-\*: `--path` no longer runs code as root or probes for files
+* php-status: FPM pool configs must be root-owned
+* podman-\*: `--user` needs an account with a subordinate UID range
+* restic-\*: `--repo` can no longer run a program; repo and password files must be root-owned
+* strongswan-connections: `--socket` must be root-owned, and a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
+* systemd-unit: `--machine` takes only a container name
 
 
 ## [v8.0.0] - 2026-09-23

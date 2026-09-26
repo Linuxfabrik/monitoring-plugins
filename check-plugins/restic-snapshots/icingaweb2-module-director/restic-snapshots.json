@@ -34,6 +34,9 @@
                 "--repo": {
                     "value": "$restic_snapshots_repo$"
                 },
+                "--repository-file": {
+                    "value": "$restic_snapshots_repository_file$"
+                },
                 "--tag": {
                     "value": "$restic_snapshots_tag$",
                     "repeat_key": true
@@ -92,7 +95,7 @@
                 },
                 {
                     "datafield_id": 10,
-                    "is_required": "y",
+                    "is_required": "n",
                     "var_filter": null
                 },
                 {
@@ -102,6 +105,11 @@
                 },
                 {
                     "datafield_id": 12,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
                     "is_required": "n",
                     "var_filter": null
                 }
@@ -248,7 +256,7 @@
         "8": {
             "varname": "restic_snapshots_password_file",
             "caption": "Restic Snapshots: Password File",
-            "description": "Path to the file containing the repository password.",
+            "description": "Path to the file containing the repository password. Must be a file that only root can change.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -270,7 +278,7 @@
         "10": {
             "varname": "restic_snapshots_repo",
             "caption": "Restic Snapshots: Repo",
-            "description": "Restic repository location.",
+            "description": "Restic repository location. Give exactly one of --repo and --repository-file.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -279,6 +287,17 @@
             "uuid": "67690ac7-b505-4470-bff7-bd3b73877782"
         },
         "11": {
+            "varname": "restic_snapshots_repository_file",
+            "caption": "Restic Snapshots: Repository File",
+            "description": "Path to a file whose first line is the repository location. Use this instead of --repo for a repository whose location selects an external helper (an `rclone:` repository): the file must be one that only root can change, so an unprivileged caller cannot choose what runs. Give exactly one of --repo and --repository-file.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "a87235d7-b381-4545-b779-d3ef309ae314"
+        },
+        "12": {
             "varname": "restic_snapshots_tag",
             "caption": "Restic Snapshots: Tag",
             "description": "Only consider snapshots matching this taglist in the format `tag[,tag,...]`. Can be specified multiple times.",
@@ -289,7 +308,7 @@
             },
             "uuid": "56596688-9aea-43b5-9b89-c5f3aad5a126"
         },
-        "12": {
+        "13": {
             "varname": "restic_snapshots_warning",
             "caption": "Restic Snapshots: Warning",
             "description": "WARN threshold for the age of the newest snapshot in each group, in hours.",

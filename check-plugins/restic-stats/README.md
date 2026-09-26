@@ -39,7 +39,8 @@ Collects statistics across multiple snapshots in a restic repository, including 
 usage: restic-stats [-h] [-V] [--always-ok] [--host HOST]
                     [--mode {restore-size,files-by-contents,blobs-per-file,raw-data}]
                     [--no-perfdata] [--password-file PASSWORD_FILE]
-                    [--path PATH] --repo REPO [--tag TAG]
+                    [--path PATH] [--repo REPO]
+                    [--repository-file REPOSITORY_FILE] [--tag TAG]
 
 Collects statistics across multiple snapshots in a restic repository,
 including the number of unique files and their total size. Supports different
@@ -61,9 +62,19 @@ options:
                         dropped.
   --password-file PASSWORD_FILE
                         Path to the file containing the repository password.
+                        Must be a file that only root can change.
   --path PATH           Only consider snapshots for this path. Can be
                         specified multiple times.
-  --repo REPO           Restic repository location.
+  --repo REPO           Restic repository location. Give exactly one of --repo
+                        and --repository-file.
+  --repository-file REPOSITORY_FILE
+                        Path to a file whose first line is the repository
+                        location. Use this instead of --repo for a repository
+                        whose location selects an external helper (an
+                        `rclone:` repository): the file must be one that only
+                        root can change, so an unprivileged caller cannot
+                        choose what runs. Give exactly one of --repo and
+                        --repository-file.
   --tag TAG             Only consider snapshots matching this taglist in the
                         format `tag[,tag,...]`. Can be specified multiple
                         times.
@@ -89,6 +100,7 @@ Output:
 ## States
 
 * Always returns OK.
+* UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
 
 
 ## Perfdata / Metrics
