@@ -10,6 +10,7 @@
 
 import os
 import shutil
+import socket
 import sys
 
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
@@ -40,14 +41,15 @@ class TestCheck(unittest.TestCase):
 
     def tearDown(self):
         for path in self._tmp_paths:
-            if os.path.isfile(path) or os.path.islink(path):
-                try:
-                    os.remove(path)
-                except OSError:
-                    pass
-            elif os.path.isdir(path):
+            if os.path.isdir(path) and not os.path.islink(path):
                 try:
                     shutil.rmtree(path)
+                except OSError:
+                    pass
+            elif os.path.lexists(path):
+                # regular files, symlinks, sockets and FIFOs
+                try:
+                    os.remove(path)
                 except OSError:
                     pass
         for sig in self._tmp_signatures:
@@ -66,6 +68,19 @@ class TestCheck(unittest.TestCase):
     def _touch(self, path):
         with open(path, 'w', encoding='utf-8') as fh:
             fh.write('')
+        self._tmp_paths.append(path)
+        return path
+
+    def _mkfifo(self, path):
+        os.mkfifo(path)
+        self._tmp_paths.append(path)
+        return path
+
+    def _mksocket(self, path):
+        # binding a UNIX socket creates the socket file; it stays on disk after
+        # the socket is closed
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+            sock.bind(path)
         self._tmp_paths.append(path)
         return path
 
@@ -137,6 +152,42 @@ class TestCheck(unittest.TestCase):
         self.assertIn('Test Directory Rootkit', stdout)
         self.assertIn(f'{target_dir} (Dir)', stdout)
         self.assertEqual(retc, STATE_CRIT)
+
+    def test_socket_and_fifo_indicators_are_detected(self):
+        socket_target = self._mksocket(TMP_PREFIX + 'socket')
+        fifo_target = self._mkfifo(TMP_PREFIX + 'fifo')
+        self._add_signature(
+            'socket-fifo',
+            (
+                "name: 'Test Socket Rootkit'\n"
+                f"files:\n  - '{socket_target}'\n  - '{fifo_target}'\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 100\n'
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertIn('Found 1 rootkit.', stdout)
+        self.assertIn(f'{socket_target} (Socket)', stdout)
+        self.assertIn(f'{fifo_target} (FIFO)', stdout)
+        self.assertEqual(retc, STATE_CRIT)
+
+    def test_device_node_is_not_a_file_indicator(self):
+        # several historic signatures name paths under /dev; a device node
+        # there belongs to udev and must not count as a rootkit file
+        self._add_signature(
+            'device-node',
+            (
+                "name: 'Test Device Node Rootkit'\n"
+                "files:\n  - '/dev/null'\n"
+                'dirs: []\n'
+                'ksyms: []\n'
+                'cl: 100\n'
+            ),
+        )
+        stdout, _, retc = lib.base.coe(lib.shell.shell_exec([self.check]))
+        self.assertNotIn('Test Device Node Rootkit', stdout)
+        self.assertEqual(retc, STATE_OK)
 
     def test_kernel_symbol_indicator_is_detected(self):
         # Pick any real, exported symbol from /proc/kallsyms so the test does

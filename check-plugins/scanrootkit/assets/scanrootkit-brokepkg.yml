@@ -1,0 +1,18 @@
+# Source: https://github.com/R3tr074/brokepkg (commit 250f132f0d856cb46449de7a6d0dadd878309fb3, src/backdoor.c, src/main.c, src/module_hide.c)
+# Published: 2021 GitHub (LKM rootkit, Elastic YARA rule Linux_Rootkit_BrokePKG)
+# The module hides itself from the module list unless built with DEBUG, which
+# also removes its symbols from /proc/kallsyms; the ksyms only match while the
+# module is visible. hook_tcp4_seq_show and give_root are shared with other
+# signatures. Left out: /usr/bin/brokecli (only constructed from two Makefile
+# lines).
+name: 'brokepkg LKM rootkit'
+files: []
+dirs: []
+ksyms:
+  - 'hook_ip_rcv'
+  - 'invoke_nc_shell'
+  - 'invoke_socat_shell'
+  - 'magic_packet_parse'
+  - 'switch_module_hide'
+discovered: '2021'
+cl: 100

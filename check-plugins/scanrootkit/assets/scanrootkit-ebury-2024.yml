@@ -1,5 +1,8 @@
 # Source: https://github.com/eset/malware-ioc/blob/master/windigo/README.adoc, https://www.welivesecurity.com/en/eset-research/ebury-alive-unseen-400k-linux-servers-compromised-cryptotheft-financial-gain/
 # Published: 2024 ESET (supplements existing scanrootkit-ebury.yml with newer 1.7/1.8 variants)
+# /usr/lib64/pmtad (HelimodProxy 3proxy build) and the KernelRedirect ksyms come from
+# https://web-assets.esetstatic.com/wls/en/papers/white-papers/ebury-is-alive-but-unseen.pdf
+# (2024-05-14). PowerMTA itself runs as /usr/sbin/pmtad.
 name: 'Ebury 1.7/1.8 additional OpenSSH backdoor libraries'
 files:
   - '/lib/libkeyctl.so'
@@ -14,7 +17,10 @@ files:
   - '/lib64/libstz.so'
   - '/lib64/libtsq.so'
   - '/lib64/libtsr.so'
+  - '/usr/lib64/pmtad'
 dirs: []
-ksyms: []
+ksyms:
+  - 'pkt_mangle_begin'
+  - 'replacer_info'
 discovered: '2024'
 cl: 100

@@ -13,6 +13,7 @@
 import argparse
 import os
 import os.path
+import stat
 import sys
 
 import lib.args
@@ -29,9 +30,9 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092301'
+__version__ = '2026092601'
 
-DESCRIPTION = """Scans the system for approximately 190 known rootkits by checking for their
+DESCRIPTION = """Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes the year
 the rootkit was first publicly disclosed when known. New rootkit definitions can be
 added by dropping YAML files into the assets folder.
@@ -83,6 +84,25 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+def get_file_type(path):
+    """Return 'File', 'Socket' or 'FIFO' if a file indicator exists at `path`,
+    `None` otherwise. Implants like Exaramel leave UNIX sockets or named pipes
+    instead of regular files, which `os.path.isfile()` would miss. Device nodes
+    are deliberately not matched: several historic rkhunter signatures name
+    paths under /dev, and udev owns what lives there.
+    """
+    st = lib.disk.stat(path)
+    if st is None:
+        return None
+    if stat.S_ISREG(st.st_mode):
+        return 'File'
+    if stat.S_ISSOCK(st.st_mode):
+        return 'Socket'
+    if stat.S_ISFIFO(st.st_mode):
+        return 'FIFO'
+    return None
 
 
 def load_kernel_symbols():
@@ -157,15 +177,14 @@ def main():
             target = rkfound if confirmed else rkpossible
             hit = False
 
-            # see if any of the known files exists
+            # see if any of the known files, sockets or FIFOs exists
             for item in rk['files']:
-                if lib.disk.file_exists(item, allow_empty=True):
-                    target.append(f'* {label}: {item} (File)')
+                file_type = get_file_type(item)
+                if file_type:
+                    target.append(f'* {label}: {item} ({file_type})')
                     hit = True
 
-            # see if any of the directories exist. We use os.path.isdir directly
-            # because lib.disk.file_exists is os.path.isfile under the hood and
-            # would silently return False for every directory indicator.
+            # see if any of the directories exist
             for item in rk['dirs']:
                 if lib.disk.dir_exists(item):
                     target.append(f'* {label}: {item} (Dir)')

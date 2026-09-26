@@ -3,7 +3,7 @@
 
 ## Overview
 
-Scans the system for approximately 190 known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
+Scans the system for numerous known rootkits by checking for their characteristic files, directories, and kernel symbols. New rootkit definitions can be added by dropping YAML files into the `assets` folder.
 
 **Important Notes:**
 
@@ -27,13 +27,23 @@ Scans the system for approximately 190 known rootkits by checking for their char
 
 * `cl` is the confidence level in percent. Signatures with `cl < 100` are reported as "possible" rootkit items (state WARN) instead of confirmed findings. If `cl` is omitted, the signature is treated as 100% confident.
 * Kernel symbol matching is exact per symbol (using `/proc/kallsyms`), so a signature like `is_invisible` will not accidentally match an unrelated legitimate symbol named `is_invisible_helper`.
+* To test the whole alerting chain on a live host, create the harmless trigger file `/tmp/.cinik`. It matches two historic rkhunter signatures (CiNIK Worm and Slapper Worm), so the next check run reports CRIT (or WARN with `--severity=warn`). Remove the file afterwards. This does not work if the monitoring agent runs with systemd `PrivateTmp=yes`, because the agent then does not see the host's `/tmp`.
+
+    ```bash
+    touch /tmp/.cinik
+    ```
+
+    ```bash
+    rm /tmp/.cinik
+    ```
+
 * Feel free to add more rootkit definitions by submitting a pull request.
 * Inspired by the [Rootkit Hunter Project](https://rkhunter.sourceforge.net/), which has been inactive since 2018. All rkhunter rootkit definitions have been translated to YAML and made available with this check plugin.
 
 **Data Collection:**
 
 * Loads rootkit definitions from YAML files in the `assets` directory
-* Checks for rootkit-specific files and directories on the filesystem
+* Checks for rootkit-specific files, UNIX sockets, named pipes (FIFOs) and directories on the filesystem. Device nodes do not count as file indicators.
 * Scans kernel symbols (`/proc/kallsyms` or `/proc/ksyms`) for rootkit indicators
 
 
@@ -56,7 +66,7 @@ Scans the system for approximately 190 known rootkits by checking for their char
 usage: scanrootkit [-h] [-V] [--always-ok] [--no-perfdata]
                    [--severity {warn,crit}]
 
-Scans the system for approximately 190 known rootkits by checking for their
+Scans the system for numerous known rootkits by checking for their
 characteristic files, directories, and kernel symbols. Each finding includes
 the year the rootkit was first publicly disclosed when known. New rootkit
 definitions can be added by dropping YAML files into the assets folder. Alerts
@@ -91,7 +101,7 @@ Output:
 Found 4 rootkits. 2 possible rootkits found. [CRITICAL]
 
 Rootkits:
-* Diamorphine LKM (2013): diamorphine_init (Kernel Symbol)
+* Diamorphine LKM (2013): hacked_kill (Kernel Symbol)
 * KBeast Rootkit (2012): /usr/_h4x_ (Dir)
 * PUMAKIT LKM rootkit with Kitsune userland component (2024): /usr/share/zov_f/zov_latest (File)
 * Reptile LKM rootkit (2018): /lib/udev/reptile (File)
@@ -101,7 +111,7 @@ Possible Rootkits:
 * Symbiote userland Linux rootkit (2022): /usr/include/certbot.h (File)
 ```
 
-Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
+Each finding lists the rootkit name followed by the year it was first publicly disclosed in parentheses (when known), the matched indicator, and the indicator type (`File`, `Socket`, `FIFO`, `Dir`, or `Kernel Symbol`). The summary line counts distinct rootkits, so two indicator hits for the same rootkit count once. Possible findings (signatures with `cl < 100`, e.g. broad component groups or modern rootkits whose paths could collide with legitimate software) are listed in a separate section and produce a WARN state instead of CRIT, regardless of `--severity`.
 
 
 ## States
@@ -141,6 +151,14 @@ Sources for new rootkit signatures: because rkhunter is no longer updated, file-
 * [Sandfly Security blog](https://sandflysecurity.com/blog) - specializes in Linux forensics, regularly publishes file-path IoCs
 * [Sysdig threat research](https://sysdig.com/blog/topic/threat-research/), [CrowdStrike](https://www.crowdstrike.com/en-us/blog/category/threat-intel-research/), [Mandiant](https://cloud.google.com/security/resources/insights) - mixed IoC quality, worth checking
 * [Volexity blog](https://www.volexity.com/blog/) - APT and Linux implant analyses with concrete on-disk indicators
+
+GitHub repositories complement the blogs: their commit history shows exactly what changed since the last review of the signature set. In alphabetical order:
+
+* [elastic/protections-artifacts](https://github.com/elastic/protections-artifacts) - Elastic's YARA rules, including `yara/rules/Linux_Rootkit_*`; mostly strings rather than paths, but a reliable early indicator of new rootkit names
+* [eset/malware-ioc](https://github.com/eset/malware-ioc) - the IoC appendices of the ESET welivesecurity reports as plain files
+* [fkie-cad/linux-rootkit-iocs](https://github.com/fkie-cad/linux-rootkit-iocs) - Fraunhofer FKIE's file-path, string and network IoCs for 24 Linux rootkits, backed by a research paper
+* [milabs/awesome-linux-rootkits](https://github.com/milabs/awesome-linux-rootkits) - curated list of Linux rootkits and their capabilities; no indicators, but useful to discover rootkit names worth researching
+* [Neo23x0/signature-base](https://github.com/Neo23x0/signature-base) - YARA rules and `iocs/filename-iocs.txt` with file-name IoCs and their source; filter for Linux
 
 Signatures should be strong enough to avoid false positives on a clean system. Prefer uncommon, rootkit-specific file paths (e.g. `/usr/_h4x_/`) over generic ones (`/tmp/.X11-unix`) and exact kernel symbol names over substrings. If a signature is only partially reliable, set `cl` below 100 so the plugin reports it as "possible" instead of "confirmed".
 

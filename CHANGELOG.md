@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Monitoring Plugins:
 
 * php-status: `--config` compares the whole value; without it, only an unset `date.timezone` warns
+* scanrootkit: detects 23 more rootkits and implants, also when they leave sockets or named pipes
 
 ### Fixed
 
@@ -20,6 +21,7 @@ Monitoring Plugins:
 
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
+* scanrootkit: detects rkhunter rootkit paths that contain spaces, and the Dreams and Vampire rootkits in full
 
 Build, CI/CD:
 

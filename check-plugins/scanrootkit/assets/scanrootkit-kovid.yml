@@ -1,0 +1,25 @@
+# Source: https://github.com/carloslack/KoviD (commit e17749536215c691b6dd539fce6510852f435c37, src/persist.S, src/sock.c, src/pid.c, src/util.c)
+# Published: 2022 GitHub (LKM rootkit, Elastic YARA rule Linux_Rootkit_Kovid)
+# The /var/.lm.sh and /var/.kv.ko names are defaults that "make persist"
+# replaces with a UUID, and /var/.socat and /var/.openssl are alternative tool
+# locations. In release mode the module hides itself, and an OBFUSCATE build
+# renames the symbols, so the ksyms only match unhidden debug builds. Left out:
+# the build-time /proc/<PROCNAME> interface and all randomized /tmp names.
+name: 'KoviD LKM rootkit'
+files:
+  - '/var/.kv.ko'
+  - '/var/.lm.sh'
+  - '/var/.openssl'
+  - '/var/.socat'
+dirs: []
+ksyms:
+  - 'kv_bd_search_iph_source'
+  - 'kv_find_hidden_pid'
+  - 'kv_find_hidden_task'
+  - 'kv_for_each_hidden_backdoor_data'
+  - 'kv_for_each_hidden_backdoor_task'
+  - 'kv_hide_task_by_pid'
+  - 'kv_unhide_task_by_pid_exit_group'
+  - 'kv_util_random_AZ_string'
+discovered: '2022'
+cl: 100
