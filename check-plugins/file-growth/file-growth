@@ -20,21 +20,13 @@ import lib.base
 import lib.db_sqlite
 import lib.disk
 import lib.human
+import lib.smb
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-PYTHON_MOD = None
-try:
-    import lib.smb
-
-    HAVE_SMB = True
-except ModuleNotFoundError as e:
-    HAVE_SMB = False
-    PYTHON_MOD = e.name
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks how fast files grow or shrink, by comparing their size against
 the previous check runs and reporting the change as a rate per second. Supports glob
@@ -277,8 +269,6 @@ def main():
             lib.base.cu(f'Could not parse the protocol of the url "{args.URL}".')
         proto, url = split_url
         if proto == 'smb':
-            if not HAVE_SMB:
-                lib.base.cu(f'Python module "{PYTHON_MOD}" is not installed.')
             for item in lib.base.coe(
                 lib.smb.glob(
                     url,

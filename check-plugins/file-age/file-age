@@ -19,28 +19,13 @@ import lib.args
 import lib.base
 import lib.disk
 import lib.human
+import lib.smb
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-missing_lib = None
-try:
-    import lib.smb
-
-    HAVE_SMB = True
-except ModuleNotFoundError as e:
-    HAVE_SMB = False
-    missing_lib = e.name
-
-missing_smb_lib = False
-try:
-    import smbprotocol.exceptions
-except ImportError:
-    missing_smb_lib = 'smbclient'
-
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082401'
+__version__ = '2026092501'
 
 DESCRIPTION = """Checks the time since last modification of one or more files or directories. Supports
 glob patterns (including recursive), SMB shares, and optional aggregation (mean or
@@ -267,8 +252,6 @@ def main():
             items.append({'name': str(item), 'mtime': st.st_mtime})
 
     if args.URL:
-        if not HAVE_SMB:
-            lib.base.cu(f'Python module "{missing_lib}" is not installed.')
         for item in lib.base.coe(
             lib.smb.glob(
                 url, args.USERNAME, args.PASSWORD, args.TIMEOUT, pattern=args.PATTERN
@@ -280,7 +263,7 @@ def main():
                 if item.is_dir() and args.ONLY_FILES:
                     continue
                 items.append({'name': item.name, 'mtime': item.stat().st_mtime})
-            except smbprotocol.exceptions.SMBOSError:
+            except OSError:
                 # it is normal that files disappear while reading
                 pass
 

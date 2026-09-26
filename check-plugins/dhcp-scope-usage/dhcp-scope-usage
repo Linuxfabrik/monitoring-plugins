@@ -18,11 +18,10 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.powershell
-import lib.winrm
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092501'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and
 queries scope statistics using PowerShell. On servers with thousands of scopes, --brief
@@ -153,6 +152,18 @@ def parse_args():
     return args
 
 
+def run_ps_via_winrm(args, cmd):
+    """Run a PowerShell command on the host named by --winrm-hostname.
+
+    lib.winrm and the WinRM clients behind it take about 75 ms to import, so they are
+    loaded here instead of at the top, where a local run on the DHCP server would pay
+    for them without using them.
+    """
+    import lib.winrm
+
+    return lib.winrm.run_ps(args, cmd)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -167,7 +178,7 @@ def main():
         # https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics
         cmd = f'Get-DhcpServerv4ScopeStatistics -ComputerName "{args.HOSTNAME}"'
         if args.WINRM_HOSTNAME:
-            result = lib.winrm.run_ps(args, cmd)
+            result = run_ps_via_winrm(args, cmd)
         else:
             if lib.base.LINUX:
                 lib.base.cu(

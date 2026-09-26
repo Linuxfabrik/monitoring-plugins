@@ -17,21 +17,13 @@ import sys
 import lib.args
 import lib.base
 import lib.disk
+import lib.smb
 import lib.time
 import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-missing_lib = None
-try:
-    import lib.smb
-
-    HAVE_SMB = True
-except ModuleNotFoundError as e:
-    HAVE_SMB = False
-    missing_lib = e.name
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092101'
+__version__ = '2026092501'
 
 DESCRIPTION = """Counts the number of files matching a glob pattern and alerts when the count exceeds
 the configured thresholds. Can filter by modification time range, restrict to files
@@ -265,8 +257,6 @@ def main():
         proto, url = split_url
 
         if proto == 'smb':
-            if not HAVE_SMB:
-                lib.base.cu(f'Python module "{missing_lib}" is not installed.')
             for item in lib.base.coe(
                 lib.smb.glob(
                     url,

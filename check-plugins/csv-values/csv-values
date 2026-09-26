@@ -18,21 +18,13 @@ import lib.args
 import lib.base
 import lib.db_sqlite
 import lib.disk
+import lib.smb
 import lib.txt
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
-missing_lib = None
-try:
-    import lib.smb
-
-    HAVE_SMB = True
-except ModuleNotFoundError as e:
-    HAVE_SMB = False
-    missing_lib = e.name
-
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092501'
 
 DESCRIPTION = """Imports a CSV file (local, remote via URL, or from an SMB share) into a temporary
 SQLite database and runs configurable SQL queries against it. Separate queries can be
@@ -318,11 +310,6 @@ def main():
                 )
             )
         else:
-            if not HAVE_SMB:
-                lib.base.oao(
-                    f'Python module "{missing_lib}" is not installed.',
-                    STATE_UNKNOWN,
-                )
             with lib.base.coe(
                 lib.smb.open_file(url, args.USERNAME, args.PASSWORD, args.TIMEOUT)
             ) as fd:
