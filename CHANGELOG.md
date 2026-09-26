@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* metabase-stats: no longer aborts every run with a Python error
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
 
 Build, CI/CD:
