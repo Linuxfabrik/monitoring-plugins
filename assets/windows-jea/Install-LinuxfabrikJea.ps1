@@ -66,6 +66,15 @@ foreach ($p in $Plugin) {
     }
 }
 
+# Work directory for secedit and the session configuration file. Run as SYSTEM, for
+# example by a deployment tool, TEMP is C:\Windows\Temp, where every user may create
+# files: a predictable name there could be planted beforehand and the file changed
+# before it is registered. A random name, readable only by SYSTEM and Administrators,
+# rules that out.
+$work = Join-Path ([IO.Path]::GetTempPath()) ('lfmp-jea-' + [IO.Path]::GetRandomFileName())
+New-Item -ItemType Directory -Path $work | Out-Null
+icacls $work /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
+
 # The endpoint is reached over WinRM, even from the same host.
 try {
     Test-WSMan -ComputerName localhost | Out-Null
@@ -99,20 +108,17 @@ if ($null -eq $service) {
 
     # the right to log on as a service, which `sc.exe config` does not grant by itself
     $sid = (Get-LocalUser -Name $User).SID.Value
-    $tmp = Join-Path $env:TEMP "lfmp-jea-$PID"
-    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
-    secedit /export /cfg "$tmp\export.inf" /areas USER_RIGHTS | Out-Null
-    $inf = Get-Content "$tmp\export.inf"
+    secedit /export /cfg "$work\export.inf" /areas USER_RIGHTS | Out-Null
+    $inf = Get-Content "$work\export.inf"
     if (-not ($inf | Where-Object { $_ -match "^SeServiceLogonRight .*\*$sid(,|$)" })) {
         if ($inf | Where-Object { $_ -like 'SeServiceLogonRight*' }) {
             $inf = $inf -replace '^(SeServiceLogonRight = .*)$', "`$1,*$sid"
         } else {
             $inf = $inf -replace '^\[Privilege Rights\]$', "[Privilege Rights]`r`nSeServiceLogonRight = *$sid"
         }
-        $inf | Set-Content "$tmp\import.inf" -Encoding Unicode
-        secedit /configure /db "$tmp\secedit.sdb" /cfg "$tmp\import.inf" /areas USER_RIGHTS | Out-Null
+        $inf | Set-Content "$work\import.inf" -Encoding Unicode
+        secedit /configure /db "$work\secedit.sdb" /cfg "$work\import.inf" /areas USER_RIGHTS | Out-Null
     }
-    Remove-Item -Recurse -Force $tmp
 
     # the agent keeps its configuration, state and logs below ProgramData
     icacls (Join-Path $env:ProgramData 'icinga2') /grant "${User}:(OI)(CI)M" /T /Q | Out-Null
@@ -138,11 +144,11 @@ New-PSRoleCapabilityFile -Path (Join-Path $moduleDir "RoleCapabilities\$name.psr
 
 # 3. endpoint
 Write-Host "[*] registering the JEA endpoint $name for $env:COMPUTERNAME\$User"
-$pssc = Join-Path $env:TEMP "$name.pssc"
+$pssc = Join-Path $work "$name.pssc"
 New-PSSessionConfigurationFile -Path $pssc -SessionType RestrictedRemoteServer -RunAsVirtualAccount `
     -RoleDefinitions @{ "$env:COMPUTERNAME\$User" = @{ RoleCapabilities = $name } }
 Register-PSSessionConfiguration -Name $name -Path $pssc -Force -NoServiceRestart | Out-Null
-Remove-Item $pssc
+Remove-Item -Recurse -Force $work
 
 # 4. WinRM picks up the endpoint only after a restart
 Write-Host '[*] restarting WinRM'
