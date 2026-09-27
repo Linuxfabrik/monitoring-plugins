@@ -40,6 +40,7 @@ Monitoring Plugins:
 * pip-updates: names a missing pip instead of printing a raw Python error
 * procs: says how many processes `--argument` and `--username` skipped because the account running the check may not read them
 * restic-check, restic-stats: work with restic v0.18 and newer, restic-stats no longer crashes in the `raw-data` and `blobs-per-file` modes
+* tuned-profile: names a stopped tuned or a missing profile instead of a garbled profile name, and accepts a post-loaded profile
 * updates: warns when the Windows Update service is disabled, names a missing permission instead of a raw PowerShell error, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 
 Build, CI/CD:

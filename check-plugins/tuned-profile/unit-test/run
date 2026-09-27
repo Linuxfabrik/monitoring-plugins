@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+# Fixtures captured with `tuned-adm active` from tuned 2.27 on Rocky 9.
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        'id': 'ok-expected-profile',
+        'test': 'stdout/active-virtual-guest,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['tuned profile is "virtual-guest" (as expected).'],
+    },
+    {
+        'id': 'ok-expected-profile-case-insensitive',
+        'test': 'stdout/active-virtual-guest,,0',
+        'params': '--profile=Virtual-Guest',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-other-profile',
+        'test': 'stdout/active-virtual-guest,,0',
+        'params': '--profile=throughput-performance',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'tuned profile is "virtual-guest", but supposed to be '
+            '"throughput-performance".'
+        ],
+    },
+    {
+        'id': 'ok-merged-profiles',
+        'test': 'stdout/active-merged-profiles,,0',
+        'params': '--profile="balanced powersave"',
+        'assert-retc': STATE_OK,
+        'assert-in': ['tuned profile is "balanced powersave" (as expected).'],
+    },
+    {
+        'id': 'ok-post-loaded-profile-not-part-of-the-expected-one',
+        'test': 'stdout/active-with-post-loaded,,0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'tuned profile is "virtual-guest intel-sst" (post-loaded: "intel-sst")'
+            ' (as expected).'
+        ],
+        'assert-not-in': ['Current post-loaded profile'],
+    },
+    {
+        'id': 'ok-post-loaded-profile-part-of-the-expected-one',
+        'test': 'stdout/active-with-post-loaded,,0',
+        'params': '--profile="virtual-guest intel-sst"',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'warn-post-loaded-profile-with-other-expected-profile',
+        'test': 'stdout/active-with-post-loaded,,0',
+        'params': '--profile=balanced',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'tuned profile is "virtual-guest intel-sst" (post-loaded: "intel-sst"),'
+            ' but supposed to be "balanced".'
+        ],
+    },
+    {
+        'id': 'warn-no-active-profile',
+        'test': 'stdout/no-active-profile,,1',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'No tuned profile is active, but supposed to be "virtual-guest".',
+            '`tuned-adm profile virtual-guest`',
+        ],
+    },
+    {
+        'id': 'warn-daemon-stopped',
+        'test': 'stdout/daemon-stopped,stderr/daemon-stopped,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'tuned is not running, so the profile "virtual-guest" is not applied.',
+            '`systemctl enable --now tuned`',
+        ],
+    },
+    {
+        'id': 'ok-always-ok-masks-daemon-stopped',
+        'test': 'stdout/daemon-stopped,stderr/daemon-stopped,0',
+        'params': '--always-ok',
+        'assert-retc': STATE_OK,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../tuned-profile'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

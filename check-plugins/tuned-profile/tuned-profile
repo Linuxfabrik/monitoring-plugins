@@ -15,15 +15,17 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092701'
 
-DESCRIPTION = """Verifies that the current tuned profile matches the expected setting. Alerts when the
-profile in force is not the expected one. Useful for ensuring consistent performance
-tuning across a fleet of servers."""
+DESCRIPTION = """Verifies that the current tuned profile matches the expected setting.
+Alerts when the profile in force is not the expected one, when no profile is active,
+or when the tuned daemon is not running and the profile is therefore not applied.
+Useful for ensuring consistent performance tuning across a fleet of servers."""
 
 CMD = ['tuned-adm', 'active']
 DEFAULT_TUNED_PROFILE = 'virtual-guest'
@@ -61,6 +63,13 @@ def parse_args():
         'Default: %(default)s',
     )
 
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
@@ -75,24 +84,66 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    success, result = lib.shell.shell_exec(CMD)
-    if not success:
-        lib.base.cu('tuned is not applicable to your system.')
-    stdout, _stderr, _retc = result
-    tuned_profile = stdout.strip()
+    if args.TEST is None:
+        success, result = lib.shell.shell_exec(CMD)
+        if not success:
+            lib.base.cu('tuned is not applicable to your system.')
+        stdout, _stderr, _retc = result
+    else:
+        # do not call the command, put in test data
+        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+
+    # analyze data
+    # `tuned-adm active` prints one of these (tuned-adm/admin.py, verified with
+    # tuned 2.27 on Rocky 9):
+    #   Current active profile: <profile> [<post-loaded profile>]
+    #   Current post-loaded profile: <post-loaded profile>     (optional second line)
+    #   No current active profile.                              (exit code 1)
+    #   It seems that tuned daemon is not running, ...          (exit code 0)
+    #   Preset profile: <profile>
+    active = post_loaded = preset = None
+    for line in stdout.splitlines():
+        key, _, value = line.partition(':')
+        if key == 'Current active profile':
+            active = value.strip()
+        elif key == 'Current post-loaded profile':
+            post_loaded = value.strip()
+        elif key == 'Preset profile':
+            preset = value.strip()
+    expected = args.TUNED_PROFILE.lower()
+
+    # build the message
+    if 'tuned daemon is not running' in stdout:
+        msg = (
+            f'tuned is not running, so the profile "{preset}" is not applied. Start'
+            ' it with `systemctl enable --now tuned`.'
+        )
+        state = STATE_WARN
+    elif active is None:
+        msg = (
+            f'No tuned profile is active, but supposed to be "{args.TUNED_PROFILE}".'
+            f' Activate it with `tuned-adm profile {args.TUNED_PROFILE}`.'
+        )
+        state = STATE_WARN
+    else:
+        # The active profile includes the post-loaded one, and both forms are what an
+        # admin may have configured as expected.
+        candidates = [active.lower()]
+        if post_loaded and active.endswith(f' {post_loaded}'):
+            candidates.append(active[: -len(post_loaded) - 1].lower())
+        suffix = f' (post-loaded: "{post_loaded}")' if post_loaded else ''
+        if expected in candidates:
+            msg = f'tuned profile is "{active}"{suffix} (as expected).'
+            state = STATE_OK
+        else:
+            msg = (
+                f'tuned profile is "{active}"{suffix}, but supposed to be'
+                f' "{args.TUNED_PROFILE}".'
+            )
+            state = STATE_WARN
 
     # over and out
-    # calculating the final check state
-    tuned_profile = tuned_profile.lower().replace('current active profile: ', '')
-    if tuned_profile == args.TUNED_PROFILE.lower():
-        lib.base.oao(f'tuned profile is "{tuned_profile}" (as expected).', STATE_OK)
-    else:
-        lib.base.oao(
-            f'tuned profile is "{tuned_profile}",'
-            f' but supposed to be "{args.TUNED_PROFILE}".',
-            STATE_WARN,
-            always_ok=args.ALWAYS_OK,
-        )
+    lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':
