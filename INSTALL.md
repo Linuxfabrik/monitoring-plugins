@@ -21,7 +21,7 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
 
 ### One-Liner: Source Zip
 
-For hosts that need a released version without the package repository. Installs a released source zip from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) into a self-contained venv. Preferred over the GitHub source: the zip is sha256- and GPG-verified, carries exactly the library the release was tested with, and does not depend on GitHub, so it can be mirrored or copied to hosts without internet access. `latest` is the newest release, `<version>-<iteration>` pins one. Not managed by the package manager, so upgrades mean re-running it.
+For hosts that need a released version but may not use the RPM or DEB packages. Installs a released source zip from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) into a self-contained venv. Preferred over the GitHub source: the zip is sha256- and GPG-verified, carries exactly the library the release was tested with, and does not depend on GitHub, so it can be mirrored or copied to hosts without internet access. `latest` is the newest release, `<version>-<iteration>` pins one. Not managed by the package manager, so upgrades mean re-running it.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=latest
@@ -31,19 +31,21 @@ curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s
 
 ### One-Liner: Source from GitHub
 
-For hosts that need a fix or plugin that is not yet released, and can reach GitHub. Installs the current `main` into a self-contained venv. Not managed by the package manager, so upgrades mean re-running it.
+For hosts that need a fix or plugin that is not yet released, and can reach GitHub. Installs the current `main` (or a branch or tag with `--ref`) into a self-contained venv. Not managed by the package manager, so upgrades mean re-running it.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source --ref=<branch-or-tag>
 ```
 
 
 ### One-Liner: Options
 
-* `--uninstall`: reverses any of the installs above.
-* `--python=python3.12`: interpreter for the `--source` and `--zip` venv. Needed where the system `python3` is older than 3.9 (RHEL 8, SLE 15) and no newer one is found automatically.
-* `--plugin-dir=DIR`: installs somewhere other than `/usr/lib64/nagios/plugins`.
 * `--help`: shows all options.
+* `--plugin-dir=DIR`: installs somewhere other than `/usr/lib64/nagios/plugins`.
+* `--python=python3.12`: interpreter for the `--source` and `--zip` venv. Needed where the system `python3` is older than 3.9 (RHEL 8, SLE 15) and no newer one is found automatically.
+* `--ref=<branch-or-tag>`: picks what `--source` installs. A release tag such as `v8.0.0` comes with the library release it was tested with, a branch with the library's `main`.
+* `--uninstall`: reverses any of the installs above.
 
 To read the script before running it as root:
 
@@ -144,12 +146,12 @@ unzip -q monitoring-plugins.zip && mv monitoring-plugins-*/ monitoring-plugins
 unzip -q lib.zip && mv lib-*/ lib
 src=monitoring-plugins
 libsrc=lib
-for dir in ${src}/check-plugins/*/ ${src}/notification-plugins/*/; do
+for dir in ${src}/check-plugins/*/ ${src}/event-plugins/*/ ${src}/notification-plugins/*/; do
     name=$(basename "${dir}")
     [ -f "${dir}${name}" ] && echo "${dir}${name}"
 done > plugins.txt
-find ${src}/check-plugins -mindepth 3 -type f -path '*/assets/*' \
-    -not -path '*/example/assets/*' > assets.txt
+find ${src}/check-plugins ${src}/event-plugins ${src}/notification-plugins \
+    -mindepth 3 -type f -path '*/assets/*' -not -path '*/example/assets/*' > assets.txt
 ```
 
 **Step 2: Install plugins, plugin assets and library.** Some plugins read data files from `assets/` next to them, for example the rootkit signatures of `scanrootkit`.
@@ -285,7 +287,7 @@ For most hosts, with access to the internet. Downloads the signed MSI, verifies 
 
 ### One-Liner: Source from GitHub
 
-For hosts that need a fix or plugin that is not yet in a released MSI. Installs the current `main` into a venv below `-TargetDir`. Requires Python 3.13 (the version the Windows lockfile targets), no elevation and no git client:
+For hosts that need a fix or plugin that is not yet in a released MSI. Installs the current `main` (or a branch or tag with `-Ref`) into a venv below `-TargetDir`. Requires Python 3.13 (the version the Windows lockfile targets), no elevation and no git client:
 
 ```powershell
 & ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1))) -Source -TargetDir C:\path\to\workdir
@@ -300,8 +302,9 @@ Run the plugins with the venv's Python:
 
 ### One-Liner: Options
 
-* `-Version <version>-<iteration>`: pins a release (MSI).
 * `-DryRun`: prints every action without executing it.
+* `-Ref <branch-or-tag>`: picks what `-Source` installs. A release tag such as `v8.0.0` comes with the library release it was tested with, a branch with the library's `main`.
+* `-Version <version>-<iteration>`: pins a release (MSI).
 
 To read the script before running it:
 

@@ -181,6 +181,25 @@ function Expand-GitHubZip {
     return $cleanDir
 }
 
+function Get-LibRef {
+    # The two repositories are versioned independently, so a monitoring-plugins
+    # release tag has no lib tag of the same name. A release tag pairs with the
+    # lib release its lockfile pins. Branches pair with lib 'main', which is how
+    # both are developed, and a branch may already rely on unreleased lib code.
+    param([string]$MpDir)
+
+    if ($Ref -notmatch '^v\d') { return 'main' }
+    if ($DryRun) { return '<lib release pinned by the lockfile>' }
+    $lockfile = Join-Path $MpDir 'lockfiles\py313-windows\requirements.txt'
+    if (Test-Path $lockfile) {
+        $pin = Select-String -Path $lockfile -Pattern '^linuxfabrik-lib==(\S+)' |
+            Select-Object -First 1
+        if ($pin) { return 'v' + $pin.Matches[0].Groups[1].Value }
+    }
+    Write-Warning "No linuxfabrik-lib pin in monitoring-plugins@$Ref, using lib@main."
+    'main'
+}
+
 function Install-Source {
     Assert-Command 'python'
 
@@ -216,7 +235,7 @@ function Install-Source {
     # `import lib` work without relying on symlinks, which need Developer Mode
     # or elevation on Windows.
     $mpDir = Expand-GitHubZip -Repo 'monitoring-plugins' -Ref $Ref -DestDir $TargetDir
-    $libDir = Expand-GitHubZip -Repo 'lib' -Ref $Ref -DestDir $TargetDir
+    $libDir = Expand-GitHubZip -Repo 'lib' -Ref (Get-LibRef -MpDir $mpDir) -DestDir $TargetDir
 
     Invoke-Step "creating virtual environment in $venvDir" {
         & python -m venv $venvDir

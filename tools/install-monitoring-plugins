@@ -347,6 +347,26 @@ flatten_plugins() {
     log "flattened ${count} plugins from ${src##*/}"
 }
 
+# Copy the data files some plugins read from an assets/ folder next to them (the scanrootkit
+# signatures, for example), flat into <plugin-dir>/assets/, as the packages place them.
+# <mp_dir> is the repository root; the lookup mirrors build/install-plugins.sh.
+install_plugin_assets() {
+    local mp_dir="$1" tree trees=''
+    if [ "${DRY_RUN}" = '1' ]; then
+        printf '    [dry-run] install %s/*-plugins/<name>/assets/* -> %s/assets/\n' \
+            "${mp_dir}" "${PLUGIN_DIR}" >&2
+        return 0
+    fi
+    for tree in check-plugins event-plugins notification-plugins; do
+        [ -d "${mp_dir}/${tree}" ] && trees="${trees} ${mp_dir}/${tree}"
+    done
+    mkdir -p "${PLUGIN_DIR}/assets"
+    record "${PLUGIN_DIR}/assets"
+    # shellcheck disable=SC2086
+    find ${trees} -mindepth 3 -type f -path '*/assets/*' -not -path '*/example/assets/*' \
+        -exec install -m 0644 {} "${PLUGIN_DIR}/assets/" \;
+}
+
 # Copy the shared lib package next to the flattened plugins, dropping development cruft.
 install_lib() {
     local lib_src="$1"
@@ -837,11 +857,42 @@ import sys, tarfile
 kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
 tarfile.open(sys.argv[1]).extractall(sys.argv[2], **kwargs)
 ' "${tarball}" "${workdir}" || die "could not extract ${tarball}"
-    # ref may contain slashes (e.g. release branches); GitHub flattens them with '-'.
+    # GitHub names the top-level folder '<repo>-<ref>', but flattens slashes in the ref to '-'
+    # and strips the leading 'v' of a tag ('v8.0.0' extracts to '<repo>-8.0.0'). Locate it by
+    # pattern instead of predicting the name. The two repos extract to distinct prefixes, and
+    # the tarball itself is not a directory, so the pattern matches exactly one entry.
     FETCHED_DIR="${workdir}/${repo}-${ref//\//-}"
     [ "${DRY_RUN}" = '1' ] && return 0
-    [ -d "${FETCHED_DIR}" ] || die "the ${repo} tarball did not contain ${FETCHED_DIR##*/}"
+    local candidate
+    for candidate in "${workdir}/${repo}"-*/; do
+        [ -d "${candidate}" ] && FETCHED_DIR="${candidate%/}"
+    done
+    [ -d "${FETCHED_DIR}" ] || die "the ${repo} tarball did not contain a ${repo}-* directory"
     return 0
+}
+
+# The two repositories are versioned independently, so a monitoring-plugins release tag has
+# no lib tag of the same name. A release tag pairs with the lib release its lockfiles pin, the
+# same lib the release zip bundles. Branches pair with lib `main`, which is how both are
+# developed, and a branch may already rely on lib code that is not released yet.
+pick_lib_ref() {
+    local mp_dir="$1" pin
+    case "${SOURCE_REF}" in
+        v[0-9]*) ;;
+        *) echo 'main'; return 0 ;;
+    esac
+    if [ "${DRY_RUN}" = '1' ]; then
+        echo '<lib release pinned by the lockfiles>'
+        return 0
+    fi
+    pin="$(sed -n 's/^linuxfabrik-lib==\([^ ]*\).*/\1/p' \
+        "${mp_dir}"/lockfiles/py3*/requirements.txt 2>/dev/null | head -1 || true)"
+    if [ -z "${pin}" ]; then
+        warn "no linuxfabrik-lib pin in ${GH_MP_REPO}@${SOURCE_REF}, using ${GH_LIB_REPO}@main"
+        echo 'main'
+        return 0
+    fi
+    echo "v${pin}"
 }
 
 install_from_source() {
@@ -854,17 +905,24 @@ install_from_source() {
     # shellcheck disable=SC2064
     trap "rm -rf '${workdir}'" EXIT
 
-    log "downloading ${GH_MP_REPO}@${SOURCE_REF} and ${GH_LIB_REPO}@${SOURCE_REF} from GitHub"
-    local mp_dir lib_dir
+    log "downloading ${GH_MP_REPO}@${SOURCE_REF} from GitHub"
+    local mp_dir lib_dir lib_ref
     fetch_and_extract "${GH_MP_REPO}" "${SOURCE_REF}" "${workdir}"
     mp_dir="${FETCHED_DIR}"
-    fetch_and_extract "${GH_LIB_REPO}" "${SOURCE_REF}" "${workdir}"
+    lib_ref="$(pick_lib_ref "${mp_dir}")"
+    log "downloading ${GH_LIB_REPO}@${lib_ref} from GitHub"
+    fetch_and_extract "${GH_LIB_REPO}" "${lib_ref}" "${workdir}"
     lib_dir="${FETCHED_DIR}"
 
     log "installing plugins into ${PLUGIN_DIR}"
     run mkdir -p "${PLUGIN_DIR}/lib"
     flatten_plugins "${mp_dir}/check-plugins"
     flatten_plugins "${mp_dir}/notification-plugins"
+    # Older refs predate the event plugins.
+    if [ -d "${mp_dir}/event-plugins" ] || [ "${DRY_RUN}" = '1' ]; then
+        flatten_plugins "${mp_dir}/event-plugins"
+    fi
+    install_plugin_assets "${mp_dir}"
     install_lib "${lib_dir}"
 
     # Pass the extracted lib tree, not the installed copy: install_lib() strips the lockfiles
@@ -899,12 +957,18 @@ verify_download() {
         die 'refusing to install unverified code'
     fi
     if [ "${DRY_RUN}" = '1' ]; then
-        printf '    [dry-run] sha256sum -c %s.sha256 && gpg --verify %s.asc %s\n' \
-            "${file}" "${file}" "${file}" >&2
+        printf '    [dry-run] compare sha256 of %s with %s.sha256 && gpg --verify %s.asc %s\n' \
+            "${file}" "${file}" "${file}" "${file}" >&2
         return 0
     fi
+    # Compare the hash only. The `lfmp-latest.*` aliases are symlinks on the download server, so
+    # their checksum file names the versioned zip, and `sha256sum -c` would look for a file that
+    # was never downloaded under that name.
     log 'verifying sha256 checksum'
-    ( cd "${workdir}" && sha256sum -c "$(basename "${file}").sha256" >/dev/null ) \
+    local expected actual
+    expected="$(cut -d ' ' -f 1 "${file}.sha256")"
+    actual="$(sha256sum "${file}" | cut -d ' ' -f 1)"
+    [ -n "${expected}" ] && [ "${expected}" = "${actual}" ] \
         || die 'sha256 checksum verification failed'
     log 'verifying GPG signature'
     local gnupghome
@@ -942,8 +1006,9 @@ install_from_zip() {
     verify_download "${zip}" "${zip_url}" "${workdir}"
 
     # The source zip is pre-assembled (plugins flat, plus lib/, lockfiles/ and assets/). Extract
-    # it to a staging dir with python's zipfile (no external unzip), then copy each top-level
-    # entry into the plugin directory, recording it for a clean uninstall.
+    # it to a staging dir with python's zipfile (no external unzip), then copy each entry of its
+    # single top-level folder (linuxfabrik-monitoring-plugins/) into the plugin directory,
+    # recording it for a clean uninstall. The bundled INSTALL.md is not a plugin.
     local staging="${workdir}/staging"
     log "extracting and installing into ${PLUGIN_DIR}"
     if [ "${DRY_RUN}" = '1' ]; then
@@ -953,9 +1018,12 @@ install_from_zip() {
         run mkdir -p "${staging}" "${PLUGIN_DIR}"
         "${PYBIN}" -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' \
             "${zip}" "${staging}"
-        local entry base
-        for entry in "${staging}"/*; do
+        local root="${staging}" entry base
+        set -- "${staging}"/*
+        [ "$#" -eq 1 ] && [ -d "$1" ] && root="$1"
+        for entry in "${root}"/*; do
             base="$(basename "${entry}")"
+            case "${base}" in *.md) continue ;; esac
             if [ -f "${entry}" ]; then
                 install -m 0755 "${entry}" "${PLUGIN_DIR}/${base}"
                 record "${PLUGIN_DIR}/${base}"
