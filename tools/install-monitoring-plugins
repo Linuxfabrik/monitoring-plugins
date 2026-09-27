@@ -972,14 +972,15 @@ verify_download() {
     [ -n "${expected}" ] && [ "${expected}" = "${actual}" ] \
         || die 'sha256 checksum verification failed'
     log 'verifying GPG signature'
-    local gnupghome
-    gnupghome="$(mktemp -d)"
+    # A throwaway keyring inside the work directory, so the EXIT trap removes it on every
+    # path, a failed download or import included.
+    local gnupghome="${workdir}/gnupg"
+    mkdir -m 0700 "${gnupghome}"
     download "${KEY_URL}" "${workdir}/linuxfabrik.key"
     GNUPGHOME="${gnupghome}" gpg --quiet --import "${workdir}/linuxfabrik.key" 2>/dev/null \
         || die 'could not import the Linuxfabrik signing key'
     GNUPGHOME="${gnupghome}" gpg --quiet --verify "${file}.asc" "${file}" 2>/dev/null \
-        || { rm -rf "${gnupghome}"; die 'GPG signature verification failed'; }
-    rm -rf "${gnupghome}"
+        || die 'GPG signature verification failed'
 }
 
 install_from_zip() {
