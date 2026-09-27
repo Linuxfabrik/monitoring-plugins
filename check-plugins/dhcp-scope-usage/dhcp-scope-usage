@@ -21,7 +21,7 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026092701'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and
 queries scope statistics using PowerShell. On servers with thousands of scopes, --brief
@@ -172,6 +172,16 @@ def main():
         args = parse_args()
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
+
+    # --hostname ends up in the PowerShell script that runs on the WinRM host, so only
+    # the characters of a DNS name or an IP address are let through; a quote or a
+    # `$(...)` would otherwise turn the rest of the value into code. Checked before the
+    # test branch so the unit tests cover it.
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.:_-]*', args.HOSTNAME):
+        lib.base.cu(
+            '--hostname accepts a DNS name, an IPv4 or an IPv6 address only.',
+            traceback=False,
+        )
 
     # fetch data
     if args.TEST is None:

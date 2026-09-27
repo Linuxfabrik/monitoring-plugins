@@ -15,7 +15,7 @@ sys.path.insert(0, '..')
 import unittest
 
 import lib.lftest
-from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 COMMON = '--winrm-hostname=dummy --winrm-password=dummy'
 
@@ -92,6 +92,20 @@ TESTS = [
             '* 192.0.2.122: 91% used [WARNING]',
         ],
         'assert-not-in': ['* 192.0.2.120: '],
+    },
+    {
+        # the value reaches a PowerShell script on the WinRM host
+        'id': 'unknown-hostname-with-powershell-code',
+        'test': 'stdout/three-scopes-two-high-usage,,0',
+        'params': COMMON + ' --hostname=\'x"$(Remove-Item C:\\x)"\'',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--hostname accepts a DNS name'],
+    },
+    {
+        'id': 'ok-hostname-ipv6',
+        'test': 'stdout/eight-scopes-all-healthy,,0',
+        'params': COMMON + ' --hostname=2001:db8::1',
+        'assert-retc': STATE_OK,
     },
 ]
 
