@@ -27,6 +27,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
+* fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
 * restic-check: works with restic v0.18 and newer, which changed `check` to JSON output

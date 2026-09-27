@@ -108,6 +108,8 @@ Fedora Linux 37 (Workstation Edition) (EOL 2023-12-15 -30d, major 38 available)
 
 The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch` alerts, `--offset-eol`, `--always-ok` and what happens when endoflife.date cannot be reached work the same way in every endoflife.date-based version plugin. They are described in [Version Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-version/).
 
+UNKNOWN on anything other than Fedora, whose releases do not follow this lifecycle.
+
 
 ## Perfdata / Metrics
 

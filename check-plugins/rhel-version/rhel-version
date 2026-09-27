@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks the installed Red Hat Enterprise Linux version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -172,6 +172,13 @@ def main():
         lib.base.cu(
             f'{installed_version} does not follow the Red Hat Enterprise Linux'
             ' lifecycle. Use the fedora-version check on this host.'
+        )
+    # Outside the family the lifecycle data would be compared with an unrelated
+    # version number, Debian 12 against RHEL 12 for example.
+    if facts.get('os_family') != 'RedHat':
+        lib.base.cu(
+            f'{installed_version} is not a Red Hat Enterprise Linux family'
+            ' distribution, so its lifecycle is not the one this check knows.'
         )
 
     # init some vars

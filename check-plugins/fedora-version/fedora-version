@@ -20,7 +20,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks the installed Fedora version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
@@ -152,7 +152,16 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.distro.get_distribution_facts().get('os_info')
+    facts = lib.distro.get_distribution_facts()
+    installed_version = facts.get('os_info')
+
+    # Any other distribution would be judged against the Fedora lifecycle data:
+    # Rocky Linux 9.4 matched Fedora 9 and was reported as end of life since 2009.
+    if facts.get('distribution') != 'Fedora':
+        lib.base.cu(
+            f'{installed_version} is not Fedora. Use the check that matches the'
+            ' distribution of this host, rhel-version on the Red Hat family.'
+        )
 
     # init some vars
     perfdata = lib.base.get_perfdata(
