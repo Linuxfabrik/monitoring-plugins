@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026090301'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks for available RPM package updates on RHEL, CentOS, Fedora, and compatible
 systems. Reports the number and type of available advisories (bugfix, enhancement,
@@ -570,6 +570,12 @@ def main():
             args.TEST.append('')
 
     # fetch data
+    # Without this, a host without yum got a bare "No such file or directory".
+    if args.TEST is None and not lib.shell.which('yum'):
+        lib.base.cu(
+            'yum not found. This check belongs on a host that installs its packages'
+            ' with yum or dnf.'
+        )
 
     # get the list of installed software
     yum_upgrades, yum_installed = get_updates(args)
