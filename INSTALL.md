@@ -461,14 +461,19 @@ as EPEL's `nagios-selinux`, brings the labels and the remaining rule into effect
 `restorecon -Rv /usr/lib64/nagios/plugins`; nothing about this package needs to change
 for that.
 
-For the source-zip and GitHub source installs, apply the minimal settings manually:
+The one-line installer does the same for its `--source` and `--zip` installs. A
+deployment you drive yourself loads the module from
+[assets/selinux/linuxfabrik-monitoring-plugins.cil](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.cil)
+and applies the settings the package applies on its first install:
 
 ```bash
+sudo semodule --install linuxfabrik-monitoring-plugins.cil
 sudo restorecon -Fvr /usr/lib64/nagios /usr/lib64/linuxfabrik-monitoring-plugins
 sudo setsebool -P nagios_run_sudo on
 ```
 
-Both calls do nothing on a host without a nagios policy: there is no file context to
+The module is CIL, so `semodule` loads it without a policy compiler on the host. The
+last two calls do nothing on a host without a nagios policy: there is no file context to
 apply and no such boolean.
 
 

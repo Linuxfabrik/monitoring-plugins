@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2026072501
+# 2026092601
 
 # This script can run in a container (absolute paths) or in a Windows-VM.
 
@@ -63,21 +63,10 @@ for PLUGINS in event-plugins notification-plugins check-plugins ; do
             continue
         fi
         if [[ -d "$REPO_DIR/monitoring-plugins/$PLUGINS/$PLUGIN" ]]; then
-            bash $(dirname "$0")/compile-one.sh $PLUGINS $PLUGIN
+            bash "$(dirname "$0")/compile-one.sh" "$PLUGINS" "$PLUGIN"
         else
             echo "✅ Directory $REPO_DIR/$PLUGINS/$PLUGIN does not exist. Ignoring..."
         fi
     done
     LFMP_COMPILE_PLUGINS=""
 done
-
-# On RHEL? Then also compile the Linuxfabrik Type Enforcement Policy
-if ! command -v getenforce &> /dev/null; then
-    exit 0
-fi
-mkdir /tmp/selinux
-cp $REPO_DIR/monitoring-plugins/assets/selinux/linuxfabrik-monitoring-plugins.te /tmp/selinux/
-cd /tmp/selinux/
-make --file /usr/share/selinux/devel/Makefile linuxfabrik-monitoring-plugins.pp
-mkdir -p /compiled/check-plugins/assets/
-\cp --archive linuxfabrik-monitoring-plugins.pp /compiled/check-plugins/assets/

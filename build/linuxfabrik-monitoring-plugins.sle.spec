@@ -127,10 +127,12 @@ if [ "$1" -eq "0" ]; then
 fi
 
 %files
+%dir %{_libdir}/%{name}
 %{_libdir}/%{name}/venv/
 %{_libdir}/nagios/plugins/
 %{_sysconfdir}/bash_completion.d/%{name}
 %{_sysconfdir}/sudoers.d/%{name}
+%dir %{_datadir}/%{name}
 %{_datadir}/%{name}/sudoers/
 %license LICENSE
 

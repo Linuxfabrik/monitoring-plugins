@@ -76,6 +76,9 @@ BASH_COMPLETION_DEST='/etc/bash_completion.d/linuxfabrik-monitoring-plugins'
 # They are removed on install and on uninstall so a host never carries the LF_NAGIOS Cmnd_Alias
 # twice, which makes sudo warn about a duplicate Cmnd_Alias on every invocation.
 LEGACY_SUDOERS_DESTS='/etc/sudoers.d/monitoring-plugins /etc/sudoers.d/icinga2-plugins'
+# The SELinux policy module the -selinux sub-package loads. Source and zip installs load the
+# same file from the tree they install.
+SELINUX_MODULE='linuxfabrik-monitoring-plugins'
 
 # --- defaults (overridable via flags / env) ----------------------------------------------
 
@@ -445,6 +448,28 @@ install_bash_completion() {
             "${BASH_COMPLETION_DEST}"
     fi
     record "${BASH_COMPLETION_DEST}"
+}
+
+# Load the SELinux policy module shipped in the source tree, mirroring what the -selinux
+# sub-package does on the RHEL family. It is CIL, which semodule loads as it is, so the host needs
+# no policy compiler. Like the other SELinux steps it only warns: a host whose policy refuses the
+# module still runs the plugins, just not every one of them in enforcing mode.
+install_selinux_module() {
+    local mp_dir="$1"
+    [ "${OS_FAMILY}" = 'rhel' ] || return 0
+    command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled || return 0
+    if ! command -v semodule >/dev/null 2>&1; then
+        warn 'semodule not found (policycoreutils not installed); skipping the SELinux module'
+        return 0
+    fi
+    local src="${mp_dir}/assets/selinux/${SELINUX_MODULE}.cil"
+    if [ "${DRY_RUN}" != '1' ] && [ ! -f "${src}" ]; then
+        warn "SELinux module ${src} not found; skipping"
+        return 0
+    fi
+    log "loading SELinux policy module ${SELINUX_MODULE}"
+    run semodule --install "${src}" || warn 'could not load the SELinux policy module'
+    return 0
 }
 
 # Final ownership, mode and SELinux fix-ups, mirroring the package: root owns the plugins, the
@@ -835,6 +860,7 @@ install_from_source() {
     install_dependencies "${mp_dir}" "${lib_dir}"
     install_sudoers "${mp_dir}"
     install_bash_completion "${mp_dir}"
+    install_selinux_module "${mp_dir}"
     finalize_permissions
     smoke_test
 
@@ -931,6 +957,7 @@ install_from_zip() {
     install_dependencies "${PLUGIN_DIR}" "${PLUGIN_DIR}/lib"
     install_sudoers "${PLUGIN_DIR}"
     install_bash_completion "${PLUGIN_DIR}"
+    install_selinux_module "${PLUGIN_DIR}"
     finalize_permissions
     smoke_test
 
@@ -977,6 +1004,14 @@ uninstall() {
         did_something=1
     fi
     run rm -f "${SUDOERS_DEST}" "${SUDOERS_LOGGING_DEST}" "${BASH_COMPLETION_DEST}"
+    # The SELinux module a source or zip install loaded. The -selinux sub-package takes its own
+    # copy on removal, so this only acts where no package owns it any more.
+    if command -v semodule >/dev/null 2>&1 \
+        && ! rpm -q "${PKG_NAME_SELINUX}" >/dev/null 2>&1 \
+        && semodule --list 2>/dev/null | grep -q "^${SELINUX_MODULE}\b"; then
+        run semodule --remove "${SELINUX_MODULE}" 2>/dev/null \
+            || warn 'could not remove the SELinux policy module'
+    fi
     # also drop any sudoers drop-ins shipped under earlier names
     for p in ${LEGACY_SUDOERS_DESTS}; do
         run rm -f "${p}"

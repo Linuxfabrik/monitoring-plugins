@@ -25,10 +25,6 @@ Packager:       info@linuxfabrik.ch
 Source0:        https://github.com/Linuxfabrik/monitoring-plugins/archive/refs/tags/v%{version}.tar.gz
 Source1:        vendor.tar.gz
 
-BuildRequires:  make
-
-BuildRequires:  checkpolicy, policycoreutils, selinux-policy-devel
-
 Recommends:     %{name}-selinux = %{version}-%{release}
 
 %if 0%{rhel} < 9
@@ -112,27 +108,11 @@ install --mode 0440 --no-target-directory assets/sudoers/RedHat-logging.sudoers 
 install --directory %{buildroot}%{_sysconfdir}/bash_completion.d
 install --mode 0644 --no-target-directory assets/bash-completion/linuxfabrik-monitoring-plugins.bash %{buildroot}%{_sysconfdir}/bash_completion.d/%{name}
 
-# Build SELinux support
-mkdir selinux
-cp assets/selinux/%{name}.te selinux
-
-pushd selinux
-%if 0%{?rhel} >= 10
-# Pin the modular policy version instead of taking whatever the build host's checkmodule
-# defaults to. On EL10 that default is 24, which only libsepol 3.10 and newer can read back,
-# while a host still on the GA libsepol 3.8 refuses the module with "policydb module version
-# 24 does not match my version range 4-22". The sub-package then installs and loads nothing.
-# 22 is the highest that GA libsepol accepts, newer ones read it just as well, and the policy
-# below uses nothing that needs a later version.
-# Verified against libsepol 3.8 on Rocky 10.0 and libsepol 3.10 on Rocky 10.1.
-checkmodule -M -m -c 22 -o %{name}.mod %{name}.te
-semodule_package -o %{name}.pp -m %{name}.mod
-%else
-make --file %{_datadir}/selinux/devel/Makefile
-%endif
+# The SELinux policy module is CIL, which semodule loads as it is: nothing to compile here,
+# and no module policy version for the build toolchain to raise beyond what an older host of
+# the same major release can read.
 install --directory %{buildroot}%{_datadir}/selinux/packages
-install --preserve-context --mode 0644 linuxfabrik-monitoring-plugins.pp %{buildroot}%{_datadir}/selinux/packages
-popd
+install --mode 0644 assets/selinux/%{name}.cil %{buildroot}%{_datadir}/selinux/packages/%{name}.cil
 
 %define sudoers_logging_src %{_datadir}/%{name}/sudoers/RedHat-logging.sudoers
 %define sudoers_logging_dest %{_sysconfdir}/sudoers.d/%{name}-logging
@@ -171,37 +151,34 @@ fi
 # contexts below `%{_libdir}/nagios/plugins` come from the distribution's nagios
 # policy, which EL10 does not carry, so both calls are allowed to do nothing.
 %post selinux
-if [ "$1" -le "1" ]; then
+# Load the module on every install and upgrade, not only the first one: on an upgrade rpm runs
+# the postun scriptlet of the package being replaced, which cannot know this file.
+semodule --install %{_datadir}/selinux/packages/%{name}.cil || \
+    echo "%{name}-selinux: could not load the SELinux policy module, see above" >&2
+if [ "$1" -eq "1" ]; then
     # First install
-    semodule --install %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp || \
-        echo "%{name}-selinux: could not load the SELinux policy module, see above" >&2
     setsebool -P nagios_run_sudo on || :
     restorecon -r %{_libdir}/nagios/plugins || :
 fi
 
 %preun selinux
-if [ "$1" -lt "0" ]; then
-    # Uninstall
+if [ "$1" -eq "0" ]; then
+    # Uninstall. `nagios_run_sudo` stays as it is: it belongs to the distribution's nagios
+    # policy, and a source install of the plugins or other sudo-based checks may rely on it.
     semodule --remove linuxfabrik-monitoring-plugins 2>/dev/null || :
-    setsebool -P nagios_run_sudo off || :
-fi
-
-%postun selinux
-if [ "$1" -ge "1" ]; then
-    # Upgrade
-    semodule --install %{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp || \
-        echo "%{name}-selinux: could not load the SELinux policy module, see above" >&2
 fi
 
 %files
+%dir %{_libdir}/%{name}
 %{_libdir}/%{name}/venv/
 %{_libdir}/nagios/plugins/
 %{_sysconfdir}/bash_completion.d/%{name}
 %{_sysconfdir}/sudoers.d/%{name}
+%dir %{_datadir}/%{name}
 %{_datadir}/%{name}/sudoers/
 %license LICENSE
 
 %files selinux
-%{_datadir}/selinux/packages/linuxfabrik-monitoring-plugins.pp
+%{_datadir}/selinux/packages/%{name}.cil
 
 %changelog

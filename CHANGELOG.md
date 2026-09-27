@@ -26,6 +26,7 @@ Monitoring Plugins:
 Build, CI/CD:
 
 * RPM: plugins no longer fail with `EOFError: marshal data too short` ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
+* RPM: removing the `-selinux` package unloads its SELinux module again
 
 ### Security
 
