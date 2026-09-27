@@ -107,7 +107,7 @@ Output:
 
 | Name | Type | Description |
 |----|----|----|
-| total_file_count | Number | Number of unique files, according to the counting mode given by `--mode`. |
+| total_file_count | Number | Number of unique files, according to the counting mode given by `--mode`. Only reported in the `restore-size` and `files-by-contents` modes; `raw-data` and `blobs-per-file` count no files. |
 | total_size | Number | Size of unique files, according to the counting mode given by `--mode`. |
 
 

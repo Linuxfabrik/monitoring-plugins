@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+Monitoring Plugins:
+
+* windows-version: end of life of the installed Windows or Windows Server release
+
 ### Changed
 
 Monitoring Plugins:
@@ -21,6 +27,8 @@ Monitoring Plugins:
 
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
+* restic-check: works with restic v0.18 and newer, which changed `check` to JSON output
+* restic-stats: no longer crashes in the `raw-data` and `blobs-per-file` modes
 * scanrootkit: detects rkhunter rootkit paths that contain spaces, and the Dreams and Vampire rootkits in full
 
 Build, CI/CD:

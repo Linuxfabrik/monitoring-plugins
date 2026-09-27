@@ -24,20 +24,37 @@ from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 BASE_PARAMS = '--repo=test --password-file=test'
 
 
+# restic prints plain text for `check` before v0.18 and a JSON summary since
+# v0.18. The fixtures are real output captured from restic 0.16.5 (text) and
+# 0.18.1 (json), on a healthy and on a damaged repository.
 TESTS = [
     {
-        'id': 'ok-check-passed',
-        'test': 'stdout/check-passed,,',
+        'id': 'ok-text-no-errors',
+        'test': 'stdout/text-no-errors,,0',
         'params': BASE_PARAMS,
         'assert-retc': STATE_OK,
         'assert-in': ['Everything is ok'],
     },
     {
-        'id': 'warn-check-with-warnings',
-        'test': 'stdout/check-with-warnings,,',
+        'id': 'warn-text-damaged',
+        'test': 'stdout/text-damaged,stderr/text-damaged,1',
         'params': BASE_PARAMS,
         'assert-retc': STATE_WARN,
-        'assert-in': ['There are warnings'],
+        'assert-in': ['There are errors', 'does not exist'],
+    },
+    {
+        'id': 'ok-json-no-errors',
+        'test': 'stdout/json-no-errors,,0',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok'],
+    },
+    {
+        'id': 'warn-json-damaged',
+        'test': 'stdout/json-damaged,stderr/json-damaged,1',
+        'params': BASE_PARAMS,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['There are errors', 'does not exist'],
     },
 ]
 

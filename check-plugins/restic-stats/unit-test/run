@@ -32,6 +32,16 @@ TESTS = [
             '(total stats in restore-size mode over all snapshots)',
         ],
     },
+    {
+        # raw-data (and blobs-per-file) carry no file count, so the plugin reports
+        # only the size. Real output captured from restic 0.18.1.
+        'id': 'ok-raw-data-without-file-count',
+        'test': 'stdout/raw-data,,',
+        'params': '--repo=test --password-file=test --mode=raw-data',
+        'assert-retc': STATE_OK,
+        'assert-in': ['size (total stats in raw-data mode over all snapshots)'],
+        'assert-not-in': ['files'],
+    },
 ]
 
 

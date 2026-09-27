@@ -68,29 +68,28 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/restic-check/
 ./restic-check --repo=/path/to/restic-repo --password-file=/path/to/restic-pwd
 ```
 
-Output:
+Output on a healthy repository:
 
 ```text
-There are warnings.
+Everything is ok.
+```
 
-pack 74f3c4c9: does not exist
-pack 590110aa: does not exist
-pack 3a551e0f: does not exist
-pack 1c9901af: does not exist
-pack e577c6b0: does not exist
-...
-Load(<data/74f3c4c9f6>, 484, 616018) returned error, retrying after 13.811796615s: open /path/to/restic-repo/data/74/74f3c4c9f6d2c5d2d85acd07b7c72dc53926002f234fb4f8e161e51e2cd67ab7: no such file or directory
+Output on a damaged repository:
+
+```text
+There are errors.
+
+pack 764fcd1a: does not exist
 error for tree 5e730b1a:
-  ReadFull(<data/74f3c4c9f6>): open /path/to/restic-repo/data/74/74f3c4c9f6d2c5d2d85acd07b7c72dc53926002f234fb4f8e161e51e2cd67ab7: no such file or directory
+  ReadFull(<data/764fcd1a>): open /path/to/restic-repo/data/76/764fcd1a...: no such file or directory
 Fatal: repository contains errors
 ```
 
 
 ## States
 
-* OK if `restic check` exits with 0 and the output contains "no errors".
-* WARN if exit status of `restic check` != 0.
-* WARN if output of `restic check` does not contain "no errors".
+* OK if the repository has no errors.
+* WARN if the repository has errors. With restic v0.18 and newer this is read from the `num_errors` field of restic's JSON summary; on older restic, which prints plain text for `check`, it is read from the exit code and the absence of "no errors" in the output.
 * UNKNOWN if `--repo` names an `rclone:` repository, or if `--repository-file` or `--password-file` can be changed by anybody but root.
 
 

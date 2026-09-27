@@ -22,7 +22,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026092701'
 
 DESCRIPTION = """Verifies the integrity of a restic backup repository by running "restic check". Alerts
 when the repository contains errors or inconsistencies.
@@ -88,6 +88,51 @@ def parse_args():
     return args
 
 
+def get_check_summary(stdout):
+    """Return the summary `restic check --json` prints, or None for plain text.
+
+    Since restic v0.18 `check --json` writes a single `summary` object to stdout,
+    carrying `num_errors` and the repair hints. Older versions ignore `--json` for
+    `check` and print human-readable text, which is recognised here by not parsing
+    as JSON.
+    """
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line)
+        except ValueError:
+            return None
+        if isinstance(message, dict) and message.get('message_type') == 'summary':
+            return message
+    return None
+
+
+def get_error_lines(stderr):
+    """Return restic's human-readable error lines from stderr.
+
+    Before v0.18 they are plain text; since v0.18 they are one JSON object per line
+    carrying the text in `message`. Both shapes come back as a list of plain lines,
+    capped so a damaged repository cannot flood the output.
+    """
+    lines = []
+    for line in stderr.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line)
+        except ValueError:
+            lines.append(line)
+            continue
+        if isinstance(message, dict) and message.get('message'):
+            lines.append(message['message'].strip())
+    if len(lines) > 10:
+        lines = [*lines[:5], '...', *lines[-5:]]
+    return lines
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -111,31 +156,40 @@ def main():
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
-    is_json = True
-    try:
-        json.loads(stdout)
-    except ValueError:
-        # cmd is not json-capable in restic v0.13.1, but maybe in the future
-        is_json = False
-    if is_json:
-        lib.base.cu('JSON is currently not implemented.')
-
     # init some vars
     msg = ''
     state = STATE_OK
+    summary = get_check_summary(stdout)
 
     # analyze data and build the message
-    if retc == 0 and 'no errors' in stdout:
-        msg = 'Everything is ok.'
+    if summary is not None:
+        # restic >= v0.18: the JSON summary decides the state
+        num_errors = summary.get('num_errors', 0)
+        if retc == 0 and num_errors == 0:
+            msg = 'Everything is ok.'
+        else:
+            state = STATE_WARN
+            msg = 'There are errors.'
+            hints = []
+            if summary.get('suggest_repair_index'):
+                hints.append('restic repair index')
+            if summary.get('suggest_prune'):
+                hints.append('restic prune')
+            details = get_error_lines(stderr)
+            if details:
+                msg += '\n\n' + '\n'.join(details)
+            if hints:
+                msg += '\n\nSuggested: ' + ', '.join(f'`{hint}`' for hint in hints)
     else:
-        cnt = stderr.count('\n') + 1
-        if cnt > 10:
-            # shorten the message
-            stderr = stderr.split('\n')
-            stderr = [*stderr[0:5], '...', *stderr[-5:]]
-            stderr = '\n'.join(stderr)
-        msg = f'There are warnings.\n\n{stderr}'
-        state = STATE_WARN
+        # restic < v0.18: `check` ignores --json and prints human-readable text
+        if retc == 0 and 'no errors' in stdout:
+            msg = 'Everything is ok.'
+        else:
+            state = STATE_WARN
+            msg = 'There are errors.'
+            details = get_error_lines(stderr) or get_error_lines(stdout)
+            if details:
+                msg += '\n\n' + '\n'.join(details)
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
