@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks the number of pending Windows updates. Alerts when the update count exceeds the
 configured thresholds."""
@@ -123,6 +123,15 @@ def main():
     if args.TEST is None:
         result = lib.powershell.run_ps(cmd)
         if result['retc']:
+            # E_ACCESSDENIED from the search, measured with the Icinga 2 agent running
+            # as NetworkService (its MSI default) on Windows Server 2025
+            if '0x80070005' in result['stderr']:
+                lib.base.cu(
+                    'Access denied while searching for Windows updates. The account the'
+                    ' check runs as may not search for them; NetworkService, which the'
+                    ' Icinga 2 agent uses by default, may not. Run the agent as'
+                    ' LocalSystem.'
+                )
             lib.base.cu(result['stderr'])
         result = result['stdout'].strip()
     else:
