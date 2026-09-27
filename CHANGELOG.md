@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* php-status: `--config` compares the whole value (`date.timezone=Europe/Zurich`, not `Europe`), and FPM pool configs must be root-owned
+* restic-\*: `--repo` can no longer run a program as root; password and repository files must be root-owned, an `rclone:` repository needs `--repository-file`
+
 ### Added
 
 Monitoring Plugins:
@@ -22,8 +29,7 @@ Assets:
 
 Monitoring Plugins:
 
-* php-status: `--config` compares the whole value; without it, only an unset `date.timezone` warns
-* scanrootkit: detects 23 more rootkits and implants, also when they leave sockets or named pipes
+* scanrootkit: detects 23 more rootkits and implants, also by their sockets and named pipes, and no longer raises a false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 
 ### Fixed
@@ -38,15 +44,12 @@ Monitoring Plugins:
 * ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages, no longer hangs
 * procs: says how many processes `--argument` and `--username` skipped because the account running the check may not read them
-* restic-check: works with restic v0.18 and newer, which changed `check` to JSON output
-* restic-stats: no longer crashes in the `raw-data` and `blobs-per-file` modes
-* scanrootkit: no false SunOS Rootkit alarm on Fedora 44, detects rkhunter rootkit paths that contain spaces, and the Dreams and Vampire rootkits in full
+* restic-check, restic-stats: work with restic v0.18 and newer, restic-stats no longer crashes in the `raw-data` and `blobs-per-file` modes
 * updates: warns when the Windows Update service is disabled, names a missing permission instead of a raw PowerShell error, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 
 Build, CI/CD:
 
-* RPM: plugins no longer fail with `EOFError: marshal data too short` ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
-* RPM: removing the `-selinux` package unloads its SELinux module again
+* RPM: plugins no longer fail with `EOFError: marshal data too short`, removing the `-selinux` package unloads its SELinux module again ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
 
 ### Security
 
@@ -60,9 +63,7 @@ Monitoring Plugins:
 * mastodon-version: `--path` no longer follows a symlink out of the installation
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
 * nextcloud-\*: `--path` no longer runs code as root or probes for files
-* php-status: FPM pool configs must be root-owned
 * podman-\*: `--user` needs an account with a subordinate UID range
-* restic-\*: `--repo` can no longer run a program; repo and password files must be root-owned
 * strongswan-connections: `--socket` must be root-owned, and a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 
