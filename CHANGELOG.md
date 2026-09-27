@@ -27,6 +27,7 @@ Monitoring Plugins:
 Monitoring Plugins:
 
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
+* HTTPS requests on Windows no longer fail on a host that has not yet downloaded the root certificate of the site, Let's Encrypt for example, on all plugins
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
