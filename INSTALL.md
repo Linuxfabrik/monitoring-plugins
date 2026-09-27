@@ -161,8 +161,7 @@ done < plugins.txt
 while read -r f; do
     sudo install -m 0644 "${f}" /usr/lib64/nagios/plugins/assets/
 done < assets.txt
-sudo cp -a ${libsrc}/. /usr/lib64/nagios/plugins/lib/
-sudo rm -rf /usr/lib64/nagios/plugins/lib/{.github,lockfiles,tests}
+sudo install -m 0644 ${libsrc}/*.py ${libsrc}/LICENSE /usr/lib64/nagios/plugins/lib/
 ```
 
 **Step 3: Install the Python dependencies.** Pick the lockfile that matches the host Python:

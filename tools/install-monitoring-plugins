@@ -367,17 +367,18 @@ install_plugin_assets() {
         -exec install -m 0644 {} "${PLUGIN_DIR}/assets/" \;
 }
 
-# Copy the shared lib package next to the flattened plugins, dropping development cruft.
+# Install the shared lib package next to the flattened plugins: its modules and LICENSE, the
+# same set the release zip bundles. The rest of the repository (docs, tests, lockfiles, CI) is
+# not needed at runtime.
 install_lib() {
     local lib_src="$1"
     if [ "${DRY_RUN}" = '1' ]; then
-        printf '    [dry-run] copy %s/. -> %s/lib/\n' "${lib_src}" "${PLUGIN_DIR}" >&2
+        printf '    [dry-run] install %s/{*.py,LICENSE} -> %s/lib/\n' "${lib_src}" "${PLUGIN_DIR}" >&2
         return 0
     fi
-    [ -d "${lib_src}" ] || die "no library source at ${lib_src}"
-    cp -a "${lib_src}/." "${PLUGIN_DIR}/lib/"
-    rm -rf "${PLUGIN_DIR}/lib/tests" "${PLUGIN_DIR}/lib/.github" \
-           "${PLUGIN_DIR}/lib/lockfiles" "${PLUGIN_DIR}/lib/.git"
+    [ -f "${lib_src}/__init__.py" ] || die "no library source at ${lib_src}"
+    mkdir -p "${PLUGIN_DIR}/lib"
+    install -m 0644 "${lib_src}"/*.py "${lib_src}/LICENSE" "${PLUGIN_DIR}/lib/"
     record "${PLUGIN_DIR}/lib"
 }
 
