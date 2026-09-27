@@ -280,6 +280,12 @@ For most hosts, with access to the internet. Downloads the signed MSI, verifies 
 & ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1))) -Version <version>-<iteration>
 ```
 
+On Windows Server 2016, Windows PowerShell offers no TLS 1.2 by default, and every one-liner on this page fails with "Could not create SSL/TLS secure channel" before the installer starts. Enable TLS 1.2 in the same PowerShell first:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+```
+
 
 ### One-Liner: Source from GitHub
 
