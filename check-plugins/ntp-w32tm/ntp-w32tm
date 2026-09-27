@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092702'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
@@ -199,46 +199,54 @@ def main():
         if key is None:
             continue
         value = value.strip()
-        # the number in front of an explanation, as in "2 (Sync)" or "0(no warning)"
-        number = value.split('(')[0].split()[0] if value else ''
-        if key == 'stratum':
-            stratum = int(number)
-            if stratum == 0:
-                msg.append(f'No NTP server used {lib.base.state2str(STATE_WARN)}')
-                state = STATE_WARN
-            if stratum >= args.STRATUM:
-                msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
-                state = STATE_WARN
-        elif key == 'leap_indicator':
-            leap_indicator = int(number)
-            if leap_indicator != 0:
-                msg.append(line.replace('(', ' ('))
-                state = STATE_WARN
-        elif key == 'precision':
-            precision = int(number)
-        elif key == 'last_sync_error':
-            if int(number) != 0:
-                msg.append(line)
-                state = STATE_WARN
-        elif key == 'time_since_last_good_sync_time':
-            time_since_last_good_sync_time = float(number.rstrip('s'))
-            local_state = lib.base.get_state(
-                time_since_last_good_sync_time, args.WARN, args.CRIT
-            )
-            if local_state != STATE_OK:
-                msg.append(f'{line} {lib.base.state2str(local_state)}')
-            state = lib.base.get_worst(local_state, state)
-        else:
-            # clock_rate, phase_offset, root_delay, root_dispersion: seconds, as ms
-            milliseconds = float(number.rstrip('s')) * 1000
-            if key == 'clock_rate':
-                clock_rate = milliseconds
-            elif key == 'phase_offset':
-                phase_offset = milliseconds
-            elif key == 'root_delay':
-                root_delay = milliseconds
+        try:
+            # the number in front of an explanation, as in "2 (Sync)" or "0(no warning)"
+            number = value.split('(')[0].split()[0] if value else ''
+            if key == 'stratum':
+                stratum = int(number)
+                if stratum == 0:
+                    msg.append(f'No NTP server used {lib.base.state2str(STATE_WARN)}')
+                    state = STATE_WARN
+                if stratum >= args.STRATUM:
+                    msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
+                    state = STATE_WARN
+            elif key == 'leap_indicator':
+                leap_indicator = int(number)
+                if leap_indicator != 0:
+                    msg.append(line.replace('(', ' ('))
+                    state = STATE_WARN
+            elif key == 'precision':
+                precision = int(number)
+            elif key == 'last_sync_error':
+                if int(number) != 0:
+                    msg.append(line)
+                    state = STATE_WARN
+            elif key == 'time_since_last_good_sync_time':
+                time_since_last_good_sync_time = float(number.rstrip('s'))
+                local_state = lib.base.get_state(
+                    time_since_last_good_sync_time, args.WARN, args.CRIT
+                )
+                if local_state != STATE_OK:
+                    msg.append(f'{line} {lib.base.state2str(local_state)}')
+                state = lib.base.get_worst(local_state, state)
             else:
-                root_dispersion = milliseconds
+                # clock_rate, phase_offset, root_delay, root_dispersion: seconds, as ms
+                milliseconds = float(number.rstrip('s')) * 1000
+                if key == 'clock_rate':
+                    clock_rate = milliseconds
+                elif key == 'phase_offset':
+                    phase_offset = milliseconds
+                elif key == 'root_delay':
+                    root_delay = milliseconds
+                else:
+                    root_dispersion = milliseconds
+        except (IndexError, ValueError):
+            # a known label without the number in front, as in "Stratum: (x)"
+            lib.base.cu(
+                'Unable to read the output of `w32tm /query /status /verbose`,'
+                f' the line "{line}" carries no number.\n\n{stdout}',
+                traceback=False,
+            )
 
     # Without these two lines there is nothing to judge the synchronization by. Say so
     # instead of reporting a host whose output could not be read as healthy.
