@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092702'
 
 DESCRIPTION = """Checks the installed Windows or Windows Server version against the
 endoflife.date API and alerts if the version is end-of-life. The lifecycle is chosen by
@@ -318,7 +318,17 @@ def main():
 
     # fetch data
     if args.TEST is None:
-        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(REG_QUERY))
+        success, result = lib.shell.shell_exec(REG_QUERY, timeout=args.TIMEOUT)
+        if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while reading the Windows version'
+                    ' from the registry.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
+            lib.base.cu(result)
+        stdout, stderr, retc = result
     else:
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)

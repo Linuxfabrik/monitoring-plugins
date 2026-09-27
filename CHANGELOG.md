@@ -36,12 +36,12 @@ Monitoring Plugins:
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error
-* ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
+* ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages, no longer hangs
 * procs: says how many processes `--argument` and `--username` skipped because the account running the check may not read them
 * restic-check: works with restic v0.18 and newer, which changed `check` to JSON output
 * restic-stats: no longer crashes in the `raw-data` and `blobs-per-file` modes
 * scanrootkit: no false SunOS Rootkit alarm on Fedora 44, detects rkhunter rootkit paths that contain spaces, and the Dreams and Vampire rootkits in full
-* updates: names the missing permission of the agent account instead of printing a raw PowerShell error ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
+* updates: names the missing permission of the agent account instead of a raw PowerShell error, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 
 Build, CI/CD:
 

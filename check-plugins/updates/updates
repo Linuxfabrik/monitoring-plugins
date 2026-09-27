@@ -18,10 +18,10 @@ import lib.base
 import lib.lftest
 import lib.powershell
 import lib.txt
-from lib.globals import STATE_OK, STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092702'
+__version__ = '2026092703'
 
 DESCRIPTION = """Checks the number of pending Windows updates. Alerts when the update count exceeds the
 configured thresholds."""
@@ -121,7 +121,13 @@ def main():
     }
     """
     if args.TEST is None:
-        result = lib.powershell.run_ps(cmd)
+        result = lib.powershell.run_ps(cmd, timeout=args.TIMEOUT)
+        if result['retc'] and result['stderr'].startswith('Timeout after'):
+            lib.base.oao(
+                f'Timeout after {args.TIMEOUT}s while searching for Windows updates.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         if result['retc']:
             # E_ACCESSDENIED from the search, measured with the Icinga 2 agent running
             # as NetworkService (its MSI default) on Windows Server 2025
@@ -140,7 +146,14 @@ def main():
         stdout, _, _ = lib.lftest.test(args.TEST)
         result = stdout.strip()
 
+    # init some vars
     count = sum(1 for line in result.splitlines())
+
+    # analyze data
+    # no pending update is always OK, whatever the thresholds say
+    state = lib.base.get_state(count, args.WARN, args.CRIT) if count else STATE_OK
+
+    # build the message
     perfdata = lib.base.get_perfdata(
         'pending_updates',
         count,
@@ -148,9 +161,7 @@ def main():
         crit=args.CRIT,
         _min=0,
     )
-
     if count:
-        state = lib.base.get_state(count, args.WARN, args.CRIT)
         bullet_list = result.replace('\n', '\n* ')
         lib.base.oao(
             (
