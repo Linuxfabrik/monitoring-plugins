@@ -73,6 +73,7 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
+* other local users can no longer plant the state files of a check running as LocalSystem on Windows, on all plugins
 * acmesh-status: `--path` can no longer probe which files exist
 * apache-httpd-security, nginx-security: `--command` runs only a root-owned binary
 * docker-service, docker-swarm: `--test` can no longer probe which files exist
