@@ -65,8 +65,7 @@ Debian 11, 12, 13:
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
-sudo wget https://repo.linuxfabrik.ch/linuxfabrik.key \
-    --output-document=/etc/apt/keyrings/linuxfabrik.asc
+sudo curl -fsSL https://repo.linuxfabrik.ch/linuxfabrik.key --output /etc/apt/keyrings/linuxfabrik.asc
 source /etc/os-release
 echo "deb [signed-by=/etc/apt/keyrings/linuxfabrik.asc] \
 https://repo.linuxfabrik.ch/monitoring-plugins/debian/ $VERSION_CODENAME-release main" \
@@ -79,9 +78,8 @@ RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux):
 
 ```bash
 sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
-sudo dnf install wget
-sudo wget https://repo.linuxfabrik.ch/monitoring-plugins/rhel/linuxfabrik-monitoring-plugins-release.repo \
-    --output-document=/etc/yum.repos.d/linuxfabrik-monitoring-plugins.repo
+sudo curl -fsSL https://repo.linuxfabrik.ch/monitoring-plugins/rhel/linuxfabrik-monitoring-plugins-release.repo \
+    --output /etc/yum.repos.d/linuxfabrik-monitoring-plugins.repo
 sudo dnf install linuxfabrik-monitoring-plugins-selinux
 ```
 
@@ -99,8 +97,7 @@ Ubuntu 22.04, 24.04, 26.04:
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
-sudo wget https://repo.linuxfabrik.ch/linuxfabrik.key \
-    --output-document=/etc/apt/keyrings/linuxfabrik.asc
+sudo curl -fsSL https://repo.linuxfabrik.ch/linuxfabrik.key --output /etc/apt/keyrings/linuxfabrik.asc
 source /etc/os-release
 echo "deb [signed-by=/etc/apt/keyrings/linuxfabrik.asc] \
 https://repo.linuxfabrik.ch/monitoring-plugins/ubuntu/ $VERSION_CODENAME-release main" \
@@ -126,8 +123,8 @@ umask 022
 
 ```bash
 release=latest
-wget https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip
-wget https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip.sha256
+curl -fsSL --remote-name https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip
+curl -fsSL --remote-name https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip.sha256
 echo "$(cut -d ' ' -f 1 lfmp-${release}.source.noarch.zip.sha256)  lfmp-${release}.source.noarch.zip" \
     | sha256sum --check
 unzip -q lfmp-${release}.source.noarch.zip
@@ -140,8 +137,8 @@ find ${src}/assets -maxdepth 1 -type f > assets.txt
 **Step 1b: Or get the source from GitHub.** Both repositories are needed, because the library lives in a separate one. They are versioned independently, so a tag has to be picked per repository; `main` works for both.
 
 ```bash
-curl -fsSL -o monitoring-plugins.zip https://github.com/Linuxfabrik/monitoring-plugins/archive/main.zip
-curl -fsSL -o lib.zip https://github.com/Linuxfabrik/lib/archive/main.zip
+curl -fsSL https://github.com/Linuxfabrik/monitoring-plugins/archive/main.zip --output monitoring-plugins.zip
+curl -fsSL https://github.com/Linuxfabrik/lib/archive/main.zip --output lib.zip
 unzip -q monitoring-plugins.zip && mv monitoring-plugins-*/ monitoring-plugins
 unzip -q lib.zip && mv lib-*/ lib
 src=monitoring-plugins
