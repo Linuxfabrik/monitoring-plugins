@@ -578,9 +578,13 @@ class TestOffsetSurvivesAcrossRuns(unittest.TestCase):
         # offset to 0 — regardless of the string-cast safety net.
         self._run(expected_new_lines=3)
         self._run(expected_new_lines=0)
-        # Simulate rotation: unlink + recreate gives a new inode.
-        os.unlink(self.scratch_file)
+        # Rotate like logrotate does: move the file away, create a new one.
+        # Unlink + recreate is not enough, ext4 and XFS hand the freed inode
+        # straight to the next file, and the test then sees no rotation.
+        inode_before = os.stat(self.scratch_file).st_ino
+        os.rename(self.scratch_file, f'{self.scratch_file}.1')
         shutil.copy(self.source_fixture, self.scratch_file)
+        self.assertNotEqual(os.stat(self.scratch_file).st_ino, inode_before)
         self._run(expected_new_lines=3)
 
 
