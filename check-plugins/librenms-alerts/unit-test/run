@@ -255,6 +255,9 @@ class TestCheck(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # skips the class on a fast pass (`LFTEST_NO_CONTAINER`), which would
+        # otherwise start the whole LibreNMS stack or die on a missing podman
+        lib.lftest.require_container_runtime()
         cls.network, cls.db, cls.app, cls.port = _start_stack()
         cls.defaults_file = _write_defaults_file(cls.port)
         _load_seed(cls.db, 'seed-all-alert-states.sql')
