@@ -168,7 +168,7 @@ A: Many plugins support `--no-perfdata`, which suppresses the performance data s
 
 ## Troubleshooting
 
-For installation-related issues (sudoers drop-ins, SELinux, Windows `0x80070005` under the Icinga Agent) see [INSTALL.md](https://linuxfabrik.github.io/monitoring-plugins/install/). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](https://linuxfabrik.github.io/monitoring-plugins/icinga/).
+For installation-related issues (sudoers drop-ins, SELinux) see [INSTALL.md](https://linuxfabrik.github.io/monitoring-plugins/install/). For Windows plugins that fail with `0x80070005` under the Icinga Agent see [Windows Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-windows/). For Icinga-specific quirks (passing `http_proxy` through Icinga, escaping special characters like `$` and leading `-` in Director-dispatched parameters) see [ICINGA.md](https://linuxfabrik.github.io/monitoring-plugins/icinga/).
 
 Q: **A log-reading check (`logfile`, `mysql-logfile`, `openvpn-client-list`) exits UNKNOWN with "Refusing to read ...: resolved path is outside the allowed log directory". How do I monitor a log stored elsewhere?**
 
