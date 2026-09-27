@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026092701'
 
 DESCRIPTION = """Monitors running processes and alerts on process count, aggregated memory usage, or
 aggregated CPU usage. Processes can be filtered by name, command-line arguments, and
@@ -325,6 +325,7 @@ def main():
     kthreadd_pid = 0
     my_pid = os.getpid()
     procs_count, procs_mem, procs_mem_percent, procs_age = 0, 0, 0, 0
+    unreadable = 0
     procs_cpu_percent = 0
     proc_states = defaultdict(lambda: 0)
     uninterruptibles, running, zombies = {}, {}, {}
@@ -446,10 +447,18 @@ def main():
         if process.pid == my_pid:
             continue
 
-        # Filter: username regex
+        # Filter: username regex. psutil hands out the ad_value '' where the
+        # account the check runs as may not read the attribute: on Windows the
+        # NetworkService account of the monitoring agent cannot read the user or the
+        # command line of a process running as SYSTEM. Such a process can neither
+        # match nor be ruled out, so it is counted and named in the output instead
+        # of being dropped without a word.
         if need_username:
-            uname = info.get('username') or ''
-            if not re_username.search(uname):
+            uname = info.get('username')
+            if uname == '':
+                unreadable += 1
+                continue
+            if not re_username.search(uname or ''):
                 continue
 
         # Filter: command name regex
@@ -460,8 +469,11 @@ def main():
 
         # Filter: command line argument regex
         if need_argument:
-            cmdline = info.get('cmdline') or []
-            cmdline_str = ' '.join(part or '' for part in cmdline)
+            cmdline = info.get('cmdline')
+            if cmdline == '':
+                unreadable += 1
+                continue
+            cmdline_str = ' '.join(part or '' for part in cmdline or [])
             if not re_argument.search(cmdline_str):
                 continue
 
@@ -754,6 +766,11 @@ def main():
     if forks_per_second is not None:
         msg += f', {lib.human.number2human(forks_per_second)} forks/s system-wide'
     msg += f', up {lib.human.seconds2human(uptime)}'
+    if unreadable:
+        msg += (
+            f'. {unreadable} {lib.txt.pluralize("proc", unreadable)} skipped,'
+            ' the account the check runs as may not read their user or arguments'
+        )
 
     # build --top table
     if show_top_table and top_procs:

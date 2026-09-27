@@ -12,6 +12,7 @@ On Linux, also reports how many processes the whole system creates per second. A
 * Some process names in psutil do not match the ones from `ps aux`. Use the troubleshooting section below to get the correct process names.
 * Memory fields vary by platform. On Linux: rss, vms, shared, text, lib, data, dirty. On Windows: rss, vms, num_page_faults, peak_rss, peak_paged_pool, paged_pool, peak_nonpaged_pool, nonpaged_pool, peak_vms, private. Fields not available on the current platform are automatically omitted.
 * The fork rate is system-wide and not affected by `--argument`, `--command`, `--status` or `--username`. Every service of this check on a host therefore reports the same number.
+* `--argument` and `--username` can only filter processes whose command line and user the account running the check may read. On Windows, the NetworkService account, which the Icinga 2 agent runs as by default, cannot read them for processes of SYSTEM and other accounts. Those processes are left out of the count, and the output says how many were skipped. Run the agent as LocalSystem to include them.
 * The fork rate is reported on Linux only. It is absent on the very first run, because there is no earlier reading to measure against, and on the first run after a reboot, because the kernel counter it is calculated from starts over at zero.
 
 **Data Collection:**
