@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Highlights:** Every plugin was run against real hosts in one sweep, from Debian 11 to 13, Ubuntu 22.04 to 26.04 and Rocky 8 to 10 up to Windows Server 2016 to 2025, above all Windows Server 2025 including the new JEA endpoint, and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis` now audits the local host by default and lists its findings and suggestions.
+
 ### Added
 
 Monitoring Plugins:
@@ -16,24 +18,24 @@ Monitoring Plugins:
 
 Assets:
 
-* windows-jea: a JEA endpoint that gives `procs`, `scheduled-task` and `updates` the rights they need on Windows, without running the agent as LocalSystem, shipped in the MSI and the ZIP
+* windows-jea: JEA endpoint that gives `procs`, `scheduled-task` and `updates` the rights they need without LocalSystem, shipped in MSI and ZIP
 
 ### Changed
 
 Monitoring Plugins:
 
-* about-me: always proposes the `lynis` tag, like `scanrootkit`
-* lynis: audits the local host by default and always lists all findings (`--lengthy` is ignored); the network scan needs `--host`, `--network` or `--interface`
-* scanrootkit: detects 23 more rootkits and implants, also by their sockets and named pipes, and no longer raises a false SunOS Rootkit alarm on Fedora 44
-* scheduled-task: alerts on a failed last run and names its cause in words, works on non-English Windows, `--status` replaces the default list
+* about-me: always proposes the `lynis` tag
+* lynis: audits the local host by default and lists all findings, the network scan needs `--host`, `--network` or `--interface`
+* scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
+* scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 
 Icinga Director:
 
-* Lynis Service Set: audits every tagged host locally via sudo, once a day and without retries
+* Lynis Service Set: audits each tagged host locally, once a day
 
 Grafana:
 
-* lynis: re-import the dashboard, the `warnings` metric is now `findings` and the hardening index has its own panel
+* lynis: re-import the dashboard, `warnings` is now `findings`
 
 Assets:
 
@@ -43,25 +45,22 @@ Assets:
 
 Monitoring Plugins:
 
-* a missing command-line tool is named, with a hint to install it, instead of a raw OS error, on all plugins
+* a missing command-line tool is named with an install hint instead of a raw OS error, on all plugins
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
-* HTTPS requests on Windows no longer fail on a host that has not yet downloaded the root certificate of the site, Let's Encrypt for example, on all plugins
+* HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
-* journald-query, journald-usage: name missing rights to read the journal instead of printing the raw journalctl error
+* journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * logfile: reads logfiles on Windows again
-* lynis: more than one `--lynis-test` or `--lynis-test-group` no longer breaks the audit
 * metabase-stats: no longer aborts every run with a Python error
-* ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error
-* ntp-w32tm: evaluates German output instead of always reporting OK, warns when the Windows Time service is not running, no longer hangs
-* pip-updates: names a missing pip instead of printing a raw Python error
-* procs: says how many processes `--argument` and `--username` skipped because the account running the check may not read them
-* restic-check, restic-stats: work with restic v0.18 and newer, restic-stats no longer crashes in the `raw-data` and `blobs-per-file` modes
-* tuned-profile: names a stopped tuned or a missing profile instead of a garbled profile name, and accepts a post-loaded profile
-* updates: warns when the Windows Update service is disabled, names a missing permission instead of a raw PowerShell error, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
+* ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, no longer hangs
+* procs: says how many processes `--argument` and `--username` could not inspect
+* restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
+* tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
+* updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 
 Build, CI/CD:
 
-* RPM: plugins no longer fail with `EOFError: marshal data too short`, removing the `-selinux` package unloads its SELinux module again ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
+* RPM: no more `EOFError: marshal data too short`, removing `-selinux` unloads its SELinux module ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
 
 ### Security
 
@@ -78,7 +77,7 @@ Monitoring Plugins:
 * php-status: reads only FPM pool configs that root owns, and `--config` checks the exact value
 * podman-\*: `--user` needs an account with a subordinate UID range
 * restic-\*: `--repo` can no longer run a program as root, and password and repository files have to be root-owned
-* strongswan-connections: `--socket` must be root-owned, and a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
+* strongswan-connections: `--socket` must be root-owned, a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 
 
