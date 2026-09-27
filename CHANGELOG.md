@@ -23,7 +23,7 @@ Assets:
 Monitoring Plugins:
 
 * scanrootkit: detects 23 more rootkits and implants, also by their sockets and named pipes, and no longer raises a false SunOS Rootkit alarm on Fedora 44
-* scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
+* scheduled-task: alerts on a failed last run and names its cause in words, works on non-English Windows, `--status` replaces the default list
 
 ### Fixed
 

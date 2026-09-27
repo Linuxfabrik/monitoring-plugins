@@ -21,7 +21,7 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092703'
+__version__ = '2026092704'
 
 DESCRIPTION = """Checks the state of a Windows Scheduled Task and the result of its last run. Alerts
 when the task is not in one of the expected states, or when its last run failed, for
@@ -90,6 +90,47 @@ RESULTS_OK = {
     0x00041308,  # SCHED_S_EVENT_TRIGGER
     0x00041325,  # SCHED_S_TASK_QUEUED
 }
+
+
+# What a failed last run means, in words, for the results an administrator meets in
+# practice. The code follows in parentheses, so it can still be looked up.
+RESULT_TEXTS = {
+    # SCHED_S_TASK_TERMINATED, measured for all three causes on Windows Server 2025
+    0x00041306: (
+        'was stopped before it finished, by a user, by its execution time limit or'
+        ' by a shutdown'
+    ),
+    # SCHED_S_SOME_TRIGGERS_FAILED and SCHED_S_BATCH_LOGON_PROBLEM, from winerror.h
+    0x0004131B: 'ran, but some of its triggers failed',
+    0x0004131C: (
+        'may fail to start, its account lacks the right to log on as a batch job'
+    ),
+    # DBG_TERMINATE_PROCESS, measured for a task that runs in a user session
+    # (\Microsoft\Windows\Wininet\CacheTask) after the host was shut down
+    0x40010004: 'was ended by Windows, still running at logoff or shutdown',
+    # SCHED_E_ALREADY_RUNNING, from winerror.h
+    0x8004131F: 'did not start, an instance of the task was still running',
+    # ERROR_FILE_NOT_FOUND as HRESULT, measured
+    0x80070002: 'could not start its program, the file does not exist',
+    # E_ACCESSDENIED
+    0x80070005: 'was denied access',
+    # ERROR_REQUEST_REFUSED, measured on built-in tasks of Windows Server 2025 whose
+    # conditions (idle time, for example) were not met
+    0x800710E0: 'was refused by the Task Scheduler',
+}
+
+
+def describe_result(code):
+    """Put the result of a failed last run into words. `code` is unsigned."""
+    if code in RESULT_TEXTS:
+        return RESULT_TEXTS[code]
+    # a small positive number is the exit code of the program the task started
+    if code <= 0xFFFF:
+        return f'ended with exit code {code}'
+    # an HRESULT of the Win32 facility wraps a Windows error code
+    if code & 0xFFFF0000 == 0x80070000:
+        return f'failed with Windows error {code & 0xFFFF}'
+    return 'failed'
 
 
 def parse_args():
@@ -245,8 +286,8 @@ def main():
         else:
             state = problem_state
             msg += (
-                f', last run {task["last_run"]} returned 0x{last_result:X}'
-                f' {lib.base.state2str(problem_state)}'
+                f', last run {task["last_run"]} {describe_result(last_result)}'
+                f' (0x{last_result:X}){lib.base.state2str(problem_state, prefix=" ")}'
             )
 
     # over and out

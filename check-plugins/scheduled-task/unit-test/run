@@ -40,7 +40,8 @@ TESTS = [
         'params': r"--task='\LF\LF-Fail'",
         'assert-retc': STATE_WARN,
         'assert-in': [
-            r'\LF\LF-Fail is Ready, last run 2026-09-27 02:53:12 returned 0x1 [WARNING]'
+            r'\LF\LF-Fail is Ready, last run 2026-09-27 02:53:12 ended with exit code 1 (0x1)'
+            ' [WARNING]'
         ],
     },
     {
@@ -48,7 +49,7 @@ TESTS = [
         'test': FIXTURE,
         'params': r"--task='\LF\LF-Fail' --severity=crit",
         'assert-retc': STATE_CRIT,
-        'assert-in': ['returned 0x1 [CRITICAL]'],
+        'assert-in': ['ended with exit code 1 (0x1) [CRITICAL]'],
     },
     {
         # the COM object reports 0x80070002 as a negative number
@@ -56,14 +57,55 @@ TESTS = [
         'test': FIXTURE,
         'params': r"--task='\LF\LF-Missing'",
         'assert-retc': STATE_WARN,
-        'assert-in': ['returned 0x80070002 [WARNING]'],
+        'assert-in': [
+            'could not start its program, the file does not exist (0x80070002)'
+            ' [WARNING]'
+        ],
     },
     {
         'id': 'warn-stopped-by-execution-time-limit',
         'test': FIXTURE,
         'params': r"--task='\LF\LF-Timeout'",
         'assert-retc': STATE_WARN,
-        'assert-in': ['returned 0x41306 [WARNING]'],
+        'assert-in': [
+            'was stopped before it finished, by a user, by its execution time limit'
+            ' or by a shutdown (0x41306) [WARNING]'
+        ],
+    },
+    {
+        # Captured on Windows Server 2025 (German UI): \LF\reboot was running when the
+        # host restarted, CacheTask runs in a user session and was ended by a shutdown.
+        'id': 'warn-stopped-by-a-reboot',
+        'test': 'stdout/de-winsrv2025-interrupted-runs,,0',
+        'params': r"--task='\LF\reboot'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['by a shutdown (0x41306) [WARNING]'],
+    },
+    {
+        'id': 'warn-ended-at-logoff-or-shutdown',
+        'test': 'stdout/de-winsrv2025-interrupted-runs,,0',
+        'params': r"--task='\Microsoft\Windows\Wininet\CacheTask'",
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'was ended by Windows, still running at logoff or shutdown (0x40010004)'
+        ],
+    },
+    {
+        'id': 'warn-refused-by-the-task-scheduler',
+        'test': 'stdout/de-winsrv2025-interrupted-runs,,0',
+        'params': r"--task='\Microsoft\Windows\DiskCleanup\SilentCleanup'",
+        'assert-retc': STATE_WARN,
+        'assert-in': ['was refused by the Task Scheduler (0x800710E0)'],
+    },
+    {
+        # 0x80072EFE is WinINet error 12030 wrapped into an HRESULT
+        'id': 'warn-unlisted-windows-error',
+        'test': 'stdout/de-winsrv2025-interrupted-runs,,0',
+        'params': (
+            r"--task='\Microsoft\Windows\CertificateServicesClient\AikCertEnrollTask'"
+        ),
+        'assert-retc': STATE_WARN,
+        'assert-in': ['failed with Windows error 12030 (0x80072EFE)'],
     },
     {
         'id': 'ok-has-not-run-yet',
@@ -136,7 +178,7 @@ TESTS = [
         'test': FIXTURE,
         'params': r"--task='\LF\LF-Fail' --always-ok",
         'assert-retc': STATE_OK,
-        'assert-in': ['returned 0x1 [WARNING]'],
+        'assert-in': ['ended with exit code 1 (0x1) [WARNING]'],
     },
     {
         'id': 'unknown-task-not-found',
