@@ -14,6 +14,10 @@ Monitoring Plugins:
 
 * windows-version: end of life of the installed Windows or Windows Server release
 
+Assets:
+
+* windows-jea: a JEA endpoint that gives `procs`, `scheduled-task` and `updates` the rights they need on Windows, without running the agent as LocalSystem
+
 ### Changed
 
 Monitoring Plugins:

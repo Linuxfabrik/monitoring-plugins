@@ -1,0 +1,151 @@
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+<#
+.SYNOPSIS
+Sets up the JEA endpoint `LinuxfabrikMonitoringPlugins`, through which the Icinga 2 agent
+runs the plugins that need more rights than its own account has. See PLUGINS-WINDOWS.md.
+
+.DESCRIPTION
+1. Runs the Icinga 2 agent service as the local account `-User`, creating the account if
+   needed. A JEA endpoint is reached over WinRM, and the agent's default account
+   NetworkService authenticates there as the computer account, which cannot be granted a
+   role. An account the agent already runs as, for example the one that Icinga for
+   Windows' `Install-IcingaSecurity` created, is left alone.
+2. Installs the module `LinuxfabrikMonitoringPlugins` and the wrapper
+   `Invoke-LinuxfabrikPlugin.ps1` below `C:\Program Files\WindowsPowerShell\Modules`,
+   where only administrators may change them.
+3. Registers the endpoint. It runs the plugins listed in `-Plugin`, and nothing else, as a
+   virtual account with administrative rights, and only `-User` may connect.
+4. Restarts WinRM, which ends every open WinRM session, a remote PowerShell running this
+   script included. Run it in a local console, over RDP or over SSH.
+
+Run it again after changing `-Plugin`. Needs an elevated Windows PowerShell 5.1.
+
+.PARAMETER User
+Local account the Icinga 2 agent runs as. Default: icinga
+
+.PARAMETER Plugin
+Plugins the endpoint may run. Default: procs, scheduled-task, updates
+
+.EXAMPLE
+.\Install-LinuxfabrikJea.ps1
+
+.EXAMPLE
+.\Install-LinuxfabrikJea.ps1 -User icinga -Plugin procs, scheduled-task, updates
+#>
+
+param(
+    [string]$User = 'icinga',
+    [string[]]$Plugin = @('procs', 'scheduled-task', 'updates')
+)
+
+$ErrorActionPreference = 'Stop'
+$name = 'LinuxfabrikMonitoringPlugins'
+$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+$pluginDir = Join-Path $programFiles 'ICINGA2\sbin\linuxfabrik'
+$moduleDir = Join-Path $programFiles "WindowsPowerShell\Modules\$name"
+
+$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Run this script in an elevated PowerShell.'
+}
+
+# Plugin names end up in the module source and in a path, so only accept the shape of one
+# that exists.
+foreach ($p in $Plugin) {
+    if ($p -notmatch '^[a-z0-9-]+$') {
+        throw "Not a plugin name: $p"
+    }
+    if (-not (Test-Path -LiteralPath (Join-Path $pluginDir "$p.exe") -PathType Leaf)) {
+        throw "Plugin $p is not installed in $pluginDir."
+    }
+}
+
+# The endpoint is reached over WinRM, even from the same host.
+try {
+    Test-WSMan -ComputerName localhost | Out-Null
+} catch {
+    throw 'WinRM does not answer on this host. Enable it with `Enable-PSRemoting`, then run this script again.'
+}
+
+# 1. service account of the Icinga 2 agent
+$service = Get-CimInstance Win32_Service -Filter "Name='icinga2'"
+if ($null -eq $service) {
+    Write-Warning 'The Icinga 2 agent is not installed. Let it run as the account the endpoint admits.'
+} elseif (
+    $service.StartName -in @(".\$User", "$env:COMPUTERNAME\$User") -and
+    (Get-LocalUser -Name $User -ErrorAction SilentlyContinue)
+) {
+    Write-Host "[*] the Icinga 2 agent already runs as $User"
+} else {
+    # a random password nobody needs to know; the service is the only one using it
+    $bytes = New-Object byte[] 30
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $password = [Convert]::ToBase64String($bytes) + 'a1!'
+    $secure = ConvertTo-SecureString $password -AsPlainText -Force
+    if (Get-LocalUser -Name $User -ErrorAction SilentlyContinue) {
+        Write-Host "[*] setting a new random password on the local account $User"
+        Set-LocalUser -Name $User -Password $secure
+    } else {
+        Write-Host "[*] creating the local account $User"
+        New-LocalUser -Name $User -Password $secure -PasswordNeverExpires -UserMayNotChangePassword `
+            -Description 'Icinga 2 agent service' | Out-Null
+    }
+
+    # the right to log on as a service, which `sc.exe config` does not grant by itself
+    $sid = (Get-LocalUser -Name $User).SID.Value
+    $tmp = Join-Path $env:TEMP "lfmp-jea-$PID"
+    New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+    secedit /export /cfg "$tmp\export.inf" /areas USER_RIGHTS | Out-Null
+    $inf = Get-Content "$tmp\export.inf"
+    if (-not ($inf | Where-Object { $_ -match "^SeServiceLogonRight .*\*$sid(,|$)" })) {
+        if ($inf | Where-Object { $_ -like 'SeServiceLogonRight*' }) {
+            $inf = $inf -replace '^(SeServiceLogonRight = .*)$', "`$1,*$sid"
+        } else {
+            $inf = $inf -replace '^\[Privilege Rights\]$', "[Privilege Rights]`r`nSeServiceLogonRight = *$sid"
+        }
+        $inf | Set-Content "$tmp\import.inf" -Encoding Unicode
+        secedit /configure /db "$tmp\secedit.sdb" /cfg "$tmp\import.inf" /areas USER_RIGHTS | Out-Null
+    }
+    Remove-Item -Recurse -Force $tmp
+
+    # the agent keeps its configuration, state and logs below ProgramData
+    icacls (Join-Path $env:ProgramData 'icinga2') /grant "${User}:(OI)(CI)M" /T /Q | Out-Null
+
+    Write-Host "[*] running the Icinga 2 agent as $User"
+    sc.exe config icinga2 obj= ".\$User" password= "$password" | Out-Null
+    $password = $null
+    Restart-Service icinga2
+}
+
+# 2. module, role capability and wrapper, where only administrators may change them
+Write-Host "[*] installing the module to $moduleDir"
+New-Item -ItemType Directory -Path (Join-Path $moduleDir 'RoleCapabilities') -Force | Out-Null
+$validateSet = ($Plugin | Sort-Object -Unique | ForEach-Object { "'$_'" }) -join ', '
+(Get-Content (Join-Path $here "$name.psm1") -Raw) `
+    -replace "\[ValidateSet\([^)]*\)\]", "[ValidateSet($validateSet)]" |
+    Set-Content (Join-Path $moduleDir "$name.psm1") -Encoding UTF8
+Copy-Item (Join-Path $here 'Invoke-LinuxfabrikPlugin.ps1') $moduleDir -Force
+New-ModuleManifest -Path (Join-Path $moduleDir "$name.psd1") -RootModule "$name.psm1" `
+    -FunctionsToExport 'Invoke-LinuxfabrikPlugin'
+New-PSRoleCapabilityFile -Path (Join-Path $moduleDir "RoleCapabilities\$name.psrc") `
+    -ModulesToImport $name -VisibleFunctions 'Invoke-LinuxfabrikPlugin'
+
+# 3. endpoint
+Write-Host "[*] registering the JEA endpoint $name for $env:COMPUTERNAME\$User"
+$pssc = Join-Path $env:TEMP "$name.pssc"
+New-PSSessionConfigurationFile -Path $pssc -SessionType RestrictedRemoteServer -RunAsVirtualAccount `
+    -RoleDefinitions @{ "$env:COMPUTERNAME\$User" = @{ RoleCapabilities = $name } }
+Register-PSSessionConfiguration -Name $name -Path $pssc -Force -NoServiceRestart | Out-Null
+Remove-Item $pssc
+
+# 4. WinRM picks up the endpoint only after a restart
+Write-Host '[*] restarting WinRM'
+Restart-Service WinRM
+
+Write-Host "[*] done. Plugins available through the endpoint: $($Plugin -join ', ')"
+Write-Host "[*] command: powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$moduleDir\Invoke-LinuxfabrikPlugin.ps1`" <plugin> [<argument> ...]"

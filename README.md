@@ -86,6 +86,7 @@ Plugins that share setup steps:
 * [MySQL / MariaDB plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-mysql/)
 * [Rocket.Chat plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-rocketchat/)
 * [WildFly / JBoss EAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-wildfly/)
+* [Windows plugins that need more rights](https://linuxfabrik.github.io/monitoring-plugins/plugins-windows/)
 
 
 ## OS Compatibility

@@ -355,9 +355,9 @@ The plugins are the files `monitoring-plugins-main\check-plugins\<name>\<name>`,
 ### Post-Install
 
 
-#### Icinga Agent and JEA Profile
+#### Icinga Agent and JEA
 
-The Icinga for Windows agent runs as `Network Service` by default. Some plugins fail with `0x80070005 (E_ACCESSDENIED)` under that account. Enable the [JEA profile for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/) ([installation](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/)).
+The Icinga 2 agent runs as `NetworkService` by default. `procs`, `scheduled-task` and `updates` need more rights than that account has for part of what they do, `updates` for example fails with `0x80070005 (E_ACCESSDENIED)`. [Windows Plugins](PLUGINS-WINDOWS.md) shows how to grant them those rights through a JEA endpoint, without running the agent as `LocalSystem`.
 
 Environment variables set in Icinga Director do not reach Windows agents. Configure proxy and other variables in `/etc/icinga2/icinga2.conf` on the master (`env.http_proxy`, `env.https_proxy`, ...).
 

@@ -7,7 +7,7 @@ Checks the number of pending Windows updates using the Windows Update COM API.
 
 **Important Notes:**
 
-* The account the monitoring agent runs as has to be allowed to search for updates. `NT AUTHORITY\NetworkService`, which the Icinga 2 MSI package uses by default, is not; the check then reports "Access denied while searching for Windows updates". Running the agent as `LocalSystem` works.
+* The account the monitoring agent runs as has to be allowed to search for updates. `NT AUTHORITY\NetworkService`, which the Icinga 2 MSI package uses by default, is not; the check then reports "Access denied while searching for Windows updates". Run the check through the JEA endpoint described in [Windows Plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-windows/).
 
 **Data Collection:**
 
