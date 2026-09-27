@@ -21,7 +21,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092703'
+__version__ = '2026092704'
 
 DESCRIPTION = """Checks the number of pending Windows updates. Alerts when the update count exceeds the
 configured thresholds."""
@@ -111,13 +111,22 @@ def main():
         lib.base.cu('This check runs on Windows only.')
 
     # fetch data
+    # The HRESULT tells the causes apart in every display language, the message of
+    # the exception is translated.
     cmd = """
-    $WindowsUpdates = New-Object -ComObject 'Microsoft.Update.Session';
-    $SearchIndex = $WindowsUpdates.CreateUpdateSearcher();
-    $Pending = $SearchIndex.Search('IsInstalled=0');
-    foreach ($update in $Pending.Updates) {
-        $name = "{0} [{1}]" -f $update.Title, $update.LastDeploymentChangeTime;
-        Write-Output $name;
+    try {
+        $WindowsUpdates = New-Object -ComObject 'Microsoft.Update.Session';
+        $SearchIndex = $WindowsUpdates.CreateUpdateSearcher();
+        $Pending = $SearchIndex.Search('IsInstalled=0');
+        foreach ($update in $Pending.Updates) {
+            $name = "{0} [{1}]" -f $update.Title, $update.LastDeploymentChangeTime;
+            Write-Output $name;
+        }
+    } catch {
+        [Console]::Error.WriteLine(
+            ('0x{0:X8} {1}' -f $_.Exception.HResult, $_.Exception.Message)
+        );
+        exit 1;
     }
     """
     if args.TEST is None:
@@ -131,13 +140,23 @@ def main():
         if result['retc']:
             # E_ACCESSDENIED from the search, measured with the Icinga 2 agent running
             # as NetworkService (its MSI default) on Windows Server 2025
-            if '0x80070005' in result['stderr']:
+            if result['stderr'].startswith('0x80070005'):
                 lib.base.cu(
                     'Access denied while searching for Windows updates. The account the'
                     ' check runs as may not search for them; NetworkService, which the'
                     ' Icinga 2 agent uses by default, may not. Run the check through a'
                     ' JEA endpoint, see'
                     ' https://linuxfabrik.github.io/monitoring-plugins/plugins-windows/'
+                )
+            # ERROR_SERVICE_DISABLED, measured on Windows Server 2022 with wuauserv
+            # disabled. A host that cannot search for updates does not install them
+            # either, which is worth a warning rather than an UNKNOWN.
+            if result['stderr'].startswith('0x80070422'):
+                lib.base.oao(
+                    'The Windows Update service (wuauserv) is disabled, so this host'
+                    ' neither searches for nor installs updates.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
                 )
             lib.base.cu(result['stderr'])
         result = result['stdout'].strip()

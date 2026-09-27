@@ -73,6 +73,9 @@ There are 3 pending updates:
 * OK if no pending updates or the count is below the warning threshold.
 * WARN if the number of pending updates is >= `--warning` (default: 2).
 * CRIT if the number of pending updates is >= `--critical` (default: 50).
+* WARN if the Windows Update service (wuauserv) is disabled: the host then neither searches for nor installs updates.
+* WARN if the search for updates takes longer than five minutes.
+* UNKNOWN if the account the check runs as may not search for updates (see Important Notes).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
