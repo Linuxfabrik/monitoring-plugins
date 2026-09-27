@@ -281,7 +281,7 @@ If you do not want to use baskets at all, you can re-create one Command by hand.
 
 * Under *Fields*, expose the arguments as user-facing fields (`CPU Usage: Warning`, etc.).
 
-Run the plugin's `--help` to see the full option list. This path is tedious for ~230 plugins: we mention it for completeness, but recommend the basket workflow.
+Run the plugin's `--help` to see the full option list. This path is tedious across the whole collection: we mention it for completeness, but recommend the basket workflow.
 
 
 ## Day-to-Day Operations

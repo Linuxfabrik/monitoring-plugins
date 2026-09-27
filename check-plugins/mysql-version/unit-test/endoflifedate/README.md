@@ -1,8 +1,8 @@
 # endoflife.date Fixtures
 
 Every `*-version` plugin runs the same `lib.version.check_eol()`, so the
-endoflife.date answer shapes are covered once here rather than in thirty
-places. The files are real `https://endoflife.date/api/mysql.json` entries
+endoflife.date answer shapes are covered once here rather than in each of
+them. The files are real `https://endoflife.date/api/mysql.json` entries
 from `lib/endoflifedate.py`; where a constellation does not occur in the
 MySQL data, the field carrying it is taken verbatim from the product that
 does have it, and only the dates a case hangs on are pinned to 1999 / 2099 /

@@ -9,7 +9,7 @@ once here rather than in every README.
 
 ## endoflife.date-based Version Plugins
 
-These 29 plugins share the same verdict logic. Each one reads the installed
+These plugins share the same verdict logic. Each one reads the installed
 version its own way and hands it to the same routine, so everything below
 applies to all of them:
 
@@ -123,7 +123,7 @@ plugin picks the correction up on its next run.
 
 ## Version Plugins with their own source
 
-Five plugins ask the vendor rather than endoflife.date, because there is no
+These plugins ask the vendor rather than endoflife.date, because there is no
 endoflife.date product for them. They alert on an available update, not on an
 end of life date, and their READMEs describe them in full:
 
