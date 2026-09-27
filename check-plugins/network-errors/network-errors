@@ -32,7 +32,7 @@ if lib.base.WINDOWS:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082901'
+__version__ = '2026092701'
 
 DESCRIPTION = """Monitors network interface errors per interface and alerts on receive and transmit
 errors. On Linux it additionally shows the receive and transmit error breakdown (the
@@ -65,7 +65,6 @@ NETDEV_COLUMN = {
 # Metrics collected per platform. Windows (psutil) only exposes the error totals.
 LINUX_METRICS = sorted(NETDEV_COLUMN.keys())
 WINDOWS_METRICS = ['rx_errs', 'tx_errs']
-METRICS = WINDOWS_METRICS if lib.base.WINDOWS else LINUX_METRICS
 
 # Metrics summed into the per-interface alert value. Only the kernel error totals,
 # to avoid double-counting the fifo/frame/carrier breakdown they already contain.
@@ -238,10 +237,13 @@ def main():
     # fetch data
     if args.TEST is None:
         interfaces = lib.base.coe(get_netdev())
+        metrics = WINDOWS_METRICS if lib.base.WINDOWS else LINUX_METRICS
     else:
-        # do not read /proc, put in test data (Linux /proc/net/dev format)
+        # do not read /proc, put in test data (Linux /proc/net/dev format, on
+        # every platform)
         stdout, _, _ = lib.lftest.test(args.TEST)
         interfaces = parse_netdev(stdout)
+        metrics = LINUX_METRICS
 
     # --match/--ignore: filter interfaces by name
     filtered = {}
@@ -283,7 +285,7 @@ def main():
             lib.base.oao('Waiting for more data.', STATE_OK)
     else:
         for name, counters in interfaces.items():
-            rates[name] = {metric: float(counters[metric]) for metric in METRICS}
+            rates[name] = {metric: float(counters[metric]) for metric in metrics}
 
     # analyze data
     for name in sorted(rates):
@@ -297,7 +299,7 @@ def main():
         state = lib.base.get_worst(state, iface_state)
 
         safe_name = re.sub(r'\W+', '_', name)
-        for metric in METRICS:
+        for metric in metrics:
             perfdata += lib.base.get_perfdata(
                 f'{safe_name}_{metric}_per_second',
                 round(iface_rates[metric], 4),
@@ -316,7 +318,7 @@ def main():
         analyzed.append({'name': name, 'state': iface_state, 'rate': total_rate})
 
         row = {'name': name}
-        row.update({metric: round(iface_rates[metric], 4) for metric in METRICS})
+        row.update({metric: round(iface_rates[metric], 4) for metric in metrics})
         row['errors'] = (
             f'{round(total_rate, 4)}{lib.base.state2str(iface_state, prefix=" ")}'
         )
@@ -336,10 +338,10 @@ def main():
             f'{lib.base.state2str(worst["state"], prefix=" ")}'
         )
 
-    keys = ['name', *METRICS, 'errors']
+    keys = ['name', *metrics, 'errors']
     headers = [
         'Interface',
-        *[m.replace('_', ' ').title() + '/s' for m in METRICS],
+        *[m.replace('_', ' ').title() + '/s' for m in metrics],
         'Errors/s',
     ]
 
