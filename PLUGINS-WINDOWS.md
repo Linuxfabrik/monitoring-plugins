@@ -92,7 +92,7 @@ The wrapper takes the plugin's arguments through `-File`, so they reach the plug
 
 ### Security Considerations
 
-* The allowed plugins run with administrative rights, and the endpoint cannot restrict their arguments. Whoever can run checks as the agent's account can call them with any argument. Allow only plugins that read and never write, and never one that opens a file or runs a program a parameter names (`logfile`, `file-*`, `csv-values`, ...). The plugins listed above only read.
+* The allowed plugins run with administrative rights, and the endpoint cannot restrict their arguments. Whoever can run checks as the agent's account can call them with any argument. The setup script therefore accepts only the plugins listed above, which read and never open a file or run a program a parameter names (as `logfile`, `file-*` or `csv-values` do).
 * The endpoint needs WinRM. `Enable-PSRemoting` also opens WinRM to the network; the endpoint itself admits only the agent's account, and the Windows firewall decides who can reach WinRM at all.
 * An update of the Linuxfabrik Monitoring Plugins replaces the plugins, while the endpoint stays as it is. Run the setup script again after adding a plugin to `-Plugin`.
 

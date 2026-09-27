@@ -28,7 +28,8 @@ Run it again after changing `-Plugin`. Needs an elevated Windows PowerShell 5.1.
 Local account the Icinga 2 agent runs as. Default: icinga
 
 .PARAMETER Plugin
-Plugins the endpoint may run. Default: procs, scheduled-task, updates
+Plugins the endpoint may run. Only plugins that read and never open a file or run a program
+a parameter names are accepted: procs, scheduled-task, updates. Default: all three
 
 .EXAMPLE
 .\Install-LinuxfabrikJea.ps1
@@ -39,6 +40,11 @@ Plugins the endpoint may run. Default: procs, scheduled-task, updates
 
 param(
     [string]$User = 'icinga',
+    # The endpoint cannot restrict a plugin's arguments, and the plugins run with
+    # administrative rights. A plugin that opens a file or runs a program a parameter
+    # names (logfile, file-*, csv-values, ...) would hand the agent's account every file
+    # on the host, so only these read-only plugins are accepted.
+    [ValidateSet('procs', 'scheduled-task', 'updates')]
     [string[]]$Plugin = @('procs', 'scheduled-task', 'updates')
 )
 
@@ -54,12 +60,7 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
     throw 'Run this script in an elevated PowerShell.'
 }
 
-# Plugin names end up in the module source and in a path, so only accept the shape of one
-# that exists.
 foreach ($p in $Plugin) {
-    if ($p -notmatch '^[a-z0-9-]+$') {
-        throw "Not a plugin name: $p"
-    }
     if (-not (Test-Path -LiteralPath (Join-Path $pluginDir "$p.exe") -PathType Leaf)) {
         throw "Plugin $p is not installed in $pluginDir."
     }
