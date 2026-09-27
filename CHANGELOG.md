@@ -59,6 +59,10 @@ Monitoring Plugins:
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
 
+Icinga Director:
+
+* Windows service sets: each service check matches its service by exact name, so a stopped DNS Server is no longer hidden by the running DNS Client
+
 Build, CI/CD:
 
 * RPM: no more `EOFError: marshal data too short`, removing `-selinux` unloads its SELinux module ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
