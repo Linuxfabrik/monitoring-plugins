@@ -620,8 +620,15 @@ class TestSecurity(unittest.TestCase):
                 os.chmod(base, 0o777)
                 _build(
                     {
+                        # Half a day of slack on both dates: the two runs read
+                        # the clock at different moments, and without it the
+                        # floor to whole days can tell them apart (59d vs 60d).
                         'build': lambda root, target=target: _add_store(
-                            root, 'www.example.com', install_to=target
+                            root,
+                            'www.example.com',
+                            days_valid=60.5,
+                            install_to=target,
+                            renew_in_days=8.5,
                         )
                     },
                     base,
