@@ -106,6 +106,7 @@ Time since Last Good Sync Time: 19.2218793s
 * WARN if "Time since Last Good Sync Time" is >= `--warning` (default: 28800s).
 * CRIT if "Time since Last Good Sync Time" is >= `--critical` (default: 129600s).
 * WARN on a timeout while querying the Windows Time Service.
+* WARN if the Windows Time service (w32time) is not running. On a host outside a domain it starts on demand only.
 * UNKNOWN if `w32tm` fails, or if its output lacks the stratum or the time since the last good sync, for example because the host uses a display language other than English or German.
 * `--always-ok` suppresses all alerts and always returns OK.
 

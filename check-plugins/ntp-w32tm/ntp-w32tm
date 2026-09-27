@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092702'
+__version__ = '2026092703'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
@@ -175,6 +175,17 @@ def main():
         # do not call the command, put in test data
         stdout, _, retc = lib.lftest.test(args.TEST)
     if retc != 0:
+        # ERROR_SERVICE_NOT_ACTIVE, measured on a Windows 10 Pro 22H2 host outside a
+        # domain: w32time starts on domain join only, otherwise just briefly for the
+        # weekly SynchronizeTime task. The code stays the same in every display language.
+        if '0x80070426' in stdout:
+            lib.base.oao(
+                'The Windows Time service (w32time) is not running, so this host does'
+                ' not keep its clock in sync. Set it to start automatically'
+                ' (`sc.exe config w32time start= auto`) and start it.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
         lib.base.cu(stdout)  # Windows prints the error to stdout
 
     # init some vars

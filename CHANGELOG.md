@@ -35,7 +35,7 @@ Monitoring Plugins:
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error
-* ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages, no longer hangs
+* ntp-w32tm: evaluates German output instead of always reporting OK, warns when the Windows Time service is not running, no longer hangs
 * pip-updates: names a missing pip instead of printing a raw Python error
 * procs: says how many processes `--argument` and `--username` skipped because the account running the check may not read them
 * restic-check, restic-stats: work with restic v0.18 and newer, restic-stats no longer crashes in the `raw-data` and `blobs-per-file` modes
