@@ -20,6 +20,7 @@ Monitoring Plugins:
 
 * php-status: `--config` compares the whole value; without it, only an unset `date.timezone` warns
 * scanrootkit: detects 23 more rootkits and implants, also when they leave sockets or named pipes
+* scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 
 ### Fixed
 

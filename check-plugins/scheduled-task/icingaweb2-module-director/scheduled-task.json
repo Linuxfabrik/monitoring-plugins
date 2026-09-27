@@ -14,6 +14,9 @@
                 },
                 "--task": {
                     "value": "$scheduled_task_windows_task$"
+                },
+                "--timeout": {
+                    "value": "$scheduled_task_windows_timeout$"
                 }
             },
             "command": "C:\\Program Files\\icinga2\\sbin\\linuxfabrik\\scheduled-task.exe",
@@ -37,6 +40,11 @@
                 {
                     "datafield_id": 4,
                     "is_required": "y",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
                     "var_filter": null
                 }
             ],
@@ -98,7 +106,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the status and last result of a Windows Scheduled Task. Alerts when the task has failed or returned a non-zero exit code.",
+            "notes": "Checks the state of a Windows Scheduled Task and the result of its last run. Alerts when the task is not in one of the expected states, or when its last run failed, for example because the program returned a non-zero exit code, could not be started, or was stopped for running too long. Works regardless of the display language of the host.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/scheduled-task/",
             "object_name": "tpl-service-scheduled-task-windows",
             "object_type": "template",
@@ -111,10 +119,8 @@
                 "criticality": "C",
                 "scheduled_task_windows_always_ok": false,
                 "scheduled_task_windows_severity": "warn",
-                "scheduled_task_windows_status": [
-                    "Ready",
-                    "Running"
-                ]
+                "scheduled_task_windows_status": [],
+                "scheduled_task_windows_timeout": 8
             },
             "volatile": null,
             "zone": null,
@@ -192,7 +198,7 @@
         "2": {
             "varname": "scheduled_task_windows_severity",
             "caption": "Scheduled Task: Severity",
-            "description": "Severity when the task is not in the expected status.",
+            "description": "Severity when the task is not in an expected state or its last run failed.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -205,7 +211,7 @@
         "3": {
             "varname": "scheduled_task_windows_status",
             "caption": "Scheduled Task: Status",
-            "description": "Expected task status. Can be specified multiple times.",
+            "description": "Expected task state. Can be specified multiple times. Default: Ready, Running",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeDatalist",
             "format": null,
             "settings": {
@@ -218,13 +224,24 @@
         "4": {
             "varname": "scheduled_task_windows_task",
             "caption": "Scheduled Task: Task",
-            "description": "Name of the Windows scheduled task to check.",
+            "description": "Path of the Windows scheduled task to check, its folder followed by its name, as the Task Scheduler shows it. Case-insensitive. Example: `--task=\\Microsoft\\Windows\\Defrag\\ScheduledDefrag`.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
                 "visibility": "visible"
             },
             "uuid": "3a365e0d-0cf9-4d47-8904-d1918162a3a2"
+        },
+        "5": {
+            "varname": "scheduled_task_windows_timeout",
+            "caption": "Scheduled Task: Timeout",
+            "description": "Network timeout in seconds.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "f01a1874-6052-4663-801c-5384f6e1c102"
         }
     }
 }
