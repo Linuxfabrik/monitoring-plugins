@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import errno
 import ipaddress
 import socket
 import struct
@@ -23,7 +24,7 @@ import lib.base
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026092701'
 
 DESCRIPTION = """Tests if a DHCP server can offer IPv4 addresses by emulating a DHCP client. Sends a
 DHCPDISCOVER packet and verifies that the server responds with a valid DHCPOFFER. Only
@@ -337,6 +338,15 @@ def main():
         )
     except OSError as e:
         dhcps.close()
+        if e.errno == errno.EADDRINUSE:
+            # a DHCP client of the host itself (systemd-networkd, dhclient, NetworkManager)
+            # holds the port, which is the usual cause on a machine that is not statically
+            # addressed
+            lib.base.oao(
+                f'Port 68/udp on {args.BIND_ADDRESS} is already in use, usually by a DHCP'
+                ' client of this host. Run the check on a host with a static address.',
+                STATE_UNKNOWN,
+            )
         lib.base.oao(f'OS error "{e.strerror}"', STATE_UNKNOWN)
 
     # handle MAC address
