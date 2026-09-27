@@ -13,7 +13,9 @@ import sys
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
 
 
+import os
 import tempfile
+import time
 import unittest
 
 import lib.base
@@ -21,17 +23,25 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
 
+def touch(tmpdir, name, seconds_ago):
+    """Create `name` in `tmpdir` with an mtime `seconds_ago` seconds in the past.
+
+    Done in Python rather than with `touch -d`, so the test runs on Windows too.
+    """
+    path = os.path.join(tmpdir, name)
+    with open(path, 'ab'):
+        pass
+    mtime = time.time() - seconds_ago
+    os.utime(path, (mtime, mtime))
+
+
 class TestCheck(unittest.TestCase):
     def test_case1_success(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '3 seconds ago' {tmpdir}/file
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file', 3)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/file',
@@ -48,6 +58,7 @@ class TestCheck(unittest.TestCase):
         tmpdir = tempfile.mkdtemp()
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/file',
@@ -62,14 +73,10 @@ class TestCheck(unittest.TestCase):
 
     def test_case1_warning(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '7 seconds ago' {tmpdir}/file
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file', 7)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/file',
@@ -84,14 +91,10 @@ class TestCheck(unittest.TestCase):
 
     def test_case1_critical(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '12 seconds ago' {tmpdir}/file
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file', 12)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/file',
@@ -113,18 +116,14 @@ class TestCheck(unittest.TestCase):
     # Application working correctly
     def test_scenario1_success(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '5 seconds ago' {tmpdir}/file1
-        touch -d '2 seconds ago' {tmpdir}/file2
-        touch -d '12 seconds ago' {tmpdir}/file3
-        touch -d '18 seconds ago' {tmpdir}/file4
-        touch -d '25 seconds ago' {tmpdir}/file5
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file1', 5)
+        touch(tmpdir, 'file2', 2)
+        touch(tmpdir, 'file3', 12)
+        touch(tmpdir, 'file4', 18)
+        touch(tmpdir, 'file5', 25)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -145,6 +144,7 @@ class TestCheck(unittest.TestCase):
         tmpdir = tempfile.mkdtemp()
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -165,18 +165,14 @@ class TestCheck(unittest.TestCase):
     # Application not working correctly, should result in a warning
     def test_scenario1_warning(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '10 seconds ago' {tmpdir}/file1
-        touch -d '18 seconds ago' {tmpdir}/file2
-        touch -d '25 seconds ago' {tmpdir}/file3
-        touch -d '28 seconds ago' {tmpdir}/file4
-        touch -d '30 seconds ago' {tmpdir}/file5
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file1', 10)
+        touch(tmpdir, 'file2', 18)
+        touch(tmpdir, 'file3', 25)
+        touch(tmpdir, 'file4', 28)
+        touch(tmpdir, 'file5', 30)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -196,18 +192,14 @@ class TestCheck(unittest.TestCase):
     # Application not working correctly, should result in a critical
     def test_scenario1_critical(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '18 seconds ago' {tmpdir}/file1
-        touch -d '25 seconds ago' {tmpdir}/file2
-        touch -d '28 seconds ago' {tmpdir}/file3
-        touch -d '30 seconds ago' {tmpdir}/file4
-        touch -d '40 seconds ago' {tmpdir}/file5
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file1', 18)
+        touch(tmpdir, 'file2', 25)
+        touch(tmpdir, 'file3', 28)
+        touch(tmpdir, 'file4', 30)
+        touch(tmpdir, 'file5', 40)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -233,20 +225,16 @@ class TestCheck(unittest.TestCase):
     # Application working correctly
     def test_scenario2_success(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '6 seconds ago' {tmpdir}/file1
-        touch -d '7 seconds ago' {tmpdir}/file2
-        touch -d '18 seconds ago' {tmpdir}/file3
-        touch -d '25 seconds ago' {tmpdir}/file5
-        touch -d '28 seconds ago' {tmpdir}/file7
-        touch -d '30 seconds ago' {tmpdir}/file9
-        touch -d '40 seconds ago' {tmpdir}/file11
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file1', 6)
+        touch(tmpdir, 'file2', 7)
+        touch(tmpdir, 'file3', 18)
+        touch(tmpdir, 'file5', 25)
+        touch(tmpdir, 'file7', 28)
+        touch(tmpdir, 'file9', 30)
+        touch(tmpdir, 'file11', 40)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -267,6 +255,7 @@ class TestCheck(unittest.TestCase):
         tmpdir = tempfile.mkdtemp()
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -280,6 +269,7 @@ class TestCheck(unittest.TestCase):
             '3',
         ]
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -300,21 +290,17 @@ class TestCheck(unittest.TestCase):
     # Application not working correctly, should result in a warning
     def test_scenario2_warning(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '6 seconds ago' {tmpdir}/file1
-        touch -d '7 seconds ago' {tmpdir}/file2
-        touch -d '8 seconds ago' {tmpdir}/file3
-        touch -d '18 seconds ago' {tmpdir}/file4
-        touch -d '25 seconds ago' {tmpdir}/file6
-        touch -d '28 seconds ago' {tmpdir}/file8
-        touch -d '30 seconds ago' {tmpdir}/file10
-        touch -d '40 seconds ago' {tmpdir}/file12
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file1', 6)
+        touch(tmpdir, 'file2', 7)
+        touch(tmpdir, 'file3', 8)
+        touch(tmpdir, 'file4', 18)
+        touch(tmpdir, 'file6', 25)
+        touch(tmpdir, 'file8', 28)
+        touch(tmpdir, 'file10', 30)
+        touch(tmpdir, 'file12', 40)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -335,21 +321,17 @@ class TestCheck(unittest.TestCase):
     # Application not working correctly, should result in a critical
     def test_scenario2_critical(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '6 seconds ago' {tmpdir}/file1
-        touch -d '7 seconds ago' {tmpdir}/file2
-        touch -d '10 seconds ago' {tmpdir}/file3
-        touch -d '14 seconds ago' {tmpdir}/file4
-        touch -d '18 seconds ago' {tmpdir}/file5
-        touch -d '25 seconds ago' {tmpdir}/file6
-        touch -d '28 seconds ago' {tmpdir}/file7
-        touch -d '30 seconds ago' {tmpdir}/file8
-        """
-        _stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec(['bash'], stdin=bash.encode())
-        )
+        touch(tmpdir, 'file1', 6)
+        touch(tmpdir, 'file2', 7)
+        touch(tmpdir, 'file3', 10)
+        touch(tmpdir, 'file4', 14)
+        touch(tmpdir, 'file5', 18)
+        touch(tmpdir, 'file6', 25)
+        touch(tmpdir, 'file7', 28)
+        touch(tmpdir, 'file8', 30)
 
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -368,15 +350,12 @@ class TestCheck(unittest.TestCase):
 
     def test_scenario3_perfdata(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '10 seconds ago' {tmpdir}/file1
-        touch -d '25 seconds ago' {tmpdir}/file2
-        touch -d '100 seconds ago' {tmpdir}/file3
-        """
-        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
+        touch(tmpdir, 'file1', 10)
+        touch(tmpdir, 'file2', 25)
+        touch(tmpdir, 'file3', 100)
 
         # Perfdata ages are checked against a loose range because real
-        # elapsed time between the `touch` command and the plugin call
+        # elapsed time between `touch()` and the plugin call
         # drifts the reported age upwards on slow runners, and some
         # file systems round the mtime. The ranges are intentionally
         # wide enough (~5s) to survive a CI container under load; a
@@ -385,6 +364,7 @@ class TestCheck(unittest.TestCase):
 
         # check mean uneven (expected ~45.0s = (10+25+100)/3)
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -406,6 +386,7 @@ class TestCheck(unittest.TestCase):
 
         # check median uneven (expected ~25.0s)
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -426,13 +407,11 @@ class TestCheck(unittest.TestCase):
         self.assertTrue(23.0 < age < 30.0)
 
         # add one file to make it an even file list
-        bash = f"""
-        touch -d '200 seconds ago' {tmpdir}/file4
-        """
-        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
+        touch(tmpdir, 'file4', 200)
 
         # check mean even (expected ~83.75s = (10+25+100+200)/4)
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -454,6 +433,7 @@ class TestCheck(unittest.TestCase):
 
         # check median even (expected ~62.5s = (25+100)/2)
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*',
@@ -481,15 +461,13 @@ class TestVerbositySwitches(unittest.TestCase):
 
     def _tmpdir_with_one_old_and_one_new_file(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '2 hours ago' {tmpdir}/old.log
-        touch {tmpdir}/new.log
-        """
-        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
+        touch(tmpdir, 'old.log', 7200)
+        touch(tmpdir, 'new.log', 0)
         return tmpdir
 
     def _run(self, tmpdir, *extra):
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*.log',
@@ -532,6 +510,7 @@ class TestVerbositySwitches(unittest.TestCase):
     def test_brief_prints_no_empty_table(self):
         tmpdir = self._tmpdir_with_one_old_and_one_new_file()
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*.log',
@@ -552,15 +531,13 @@ class TestMessage(unittest.TestCase):
 
     def _tmpdir_with_one_old_and_one_new_file(self):
         tmpdir = tempfile.mkdtemp()
-        bash = f"""
-        touch -d '2 hours ago' {tmpdir}/old.log
-        touch {tmpdir}/new.log
-        """
-        lib.base.coe(lib.shell.shell_exec(['bash'], stdin=bash.encode()))
+        touch(tmpdir, 'old.log', 7200)
+        touch(tmpdir, 'new.log', 0)
         return tmpdir
 
     def _run(self, tmpdir, *extra):
         cmd = [
+            sys.executable,
             '../file-age',
             '--filename',
             f'{tmpdir}/*.log',

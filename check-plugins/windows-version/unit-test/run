@@ -39,7 +39,9 @@ sys.path.insert(0, '..')
 
 import unittest
 
+import lib.base
 import lib.cache
+import lib.db_sqlite
 import lib.lftest
 import lib.time
 from lib.globals import STATE_UNKNOWN, STATE_WARN
@@ -231,8 +233,8 @@ class TestCheck(unittest.TestCase):
         self.assertTrue(
             os.path.isfile(
                 os.path.join(
-                    self.tmpdir,
-                    f'linuxfabrik-monitoring-plugins-uid{os.geteuid()}',
+                    # the per-user subdirectory on POSIX, `self.tmpdir` itself on Windows
+                    lib.base.coe(lib.db_sqlite.get_db_dir(self.tmpdir)),
                     'linuxfabrik-lib-version.db',
                 )
             )
