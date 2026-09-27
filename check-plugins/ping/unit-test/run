@@ -84,10 +84,14 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_ping_1_2_3_4_5_6(self):
+        # The trailing dot makes the name fully qualified, so the resolver does not
+        # try it against the search list. With `search network` (libvirt's default
+        # NAT network) `1.2.3.4.5.6.network` resolves publicly, and the test would
+        # ping that host instead of failing the lookup.
         stdout, stderr, retc = lib.base.coe(
-            lib.shell.shell_exec([self.check, '--hostname', '1.2.3.4.5.6'])
+            lib.shell.shell_exec([self.check, '--hostname', '1.2.3.4.5.6.'])
         )
-        self.assertRegex(stdout, r'^ping: 1.2.3.4.5.6: Name or service not known')
+        self.assertRegex(stdout, r'^ping: 1\.2\.3\.4\.5\.6\.: Name or service not known')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
