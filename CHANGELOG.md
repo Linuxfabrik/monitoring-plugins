@@ -22,7 +22,6 @@ Assets:
 
 Monitoring Plugins:
 
-* php-status: `--config` checks the exact value, and without it only an unset `date.timezone` warns
 * scanrootkit: detects 23 more rootkits and implants, also by their sockets and named pipes, and no longer raises a false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 
@@ -58,8 +57,8 @@ Monitoring Plugins:
 * mastodon-version: `--path` no longer follows a symlink out of the installation
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
 * nextcloud-\*: `--path` no longer runs code as root or probes for files
+* php-status: reads only FPM pool configs that root owns, and `--config` checks the exact value
 * podman-\*: `--user` needs an account with a subordinate UID range
-* php-status: reads only FPM pool configs that root owns
 * restic-\*: `--repo` can no longer run a program as root, and password and repository files have to be root-owned
 * strongswan-connections: `--socket` must be root-owned, and a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
