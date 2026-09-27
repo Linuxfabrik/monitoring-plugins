@@ -12,6 +12,7 @@ import importlib.machinery
 import importlib.util
 import os
 import re
+import shutil
 import sys
 import types
 
@@ -40,6 +41,9 @@ def load_plugin_module():
     return module
 
 
+# These testcases ping for real, and a minimal installation may come without ping
+# (Ubuntu 22.04).
+@unittest.skipUnless(shutil.which('ping'), 'ping is not installed')
 class TestCheck(unittest.TestCase):
     check = '../ping'
 
