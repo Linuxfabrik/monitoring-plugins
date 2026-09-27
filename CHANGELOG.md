@@ -29,6 +29,7 @@ Monitoring Plugins:
 
 Monitoring Plugins:
 
+* a missing command-line tool is named, with a hint to install it, instead of a raw OS error, on all plugins
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS requests on Windows no longer fail on a host that has not yet downloaded the root certificate of the site, Let's Encrypt for example, on all plugins
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
