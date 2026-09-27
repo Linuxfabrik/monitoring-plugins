@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026090301'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks for available APT package updates on Debian, Ubuntu, and compatible
 systems. Reports the number of pending updates and how many of them come from a security
@@ -203,6 +203,13 @@ def main():
 
     # fetch data
     if args.TEST is None:
+        # Without this, a host without APT got the `apt-get update` error below,
+        # which sends the admin after the sudo permissions.
+        if not lib.shell.which('apt'):
+            lib.base.cu(
+                'APT not found. This check belongs on a host that installs its'
+                ' packages with APT.'
+            )
         if not args.NO_UPDATE:
             # try to update the package cache first
             _, stderr, retc = lib.base.coe(
