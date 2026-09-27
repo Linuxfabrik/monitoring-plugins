@@ -105,6 +105,15 @@ jobs:
           /bin/bash
           $LFMP_DIR_REPOS/monitoring-plugins/build/compile-multiple.sh
 
+      # The JEA endpoint setup ships with the plugins, in a folder of its own, so the ZIP
+      # and the MSI (which takes check-plugins/** with its subfolders) both carry it.
+      # See PLUGINS-WINDOWS.md.
+      - name: 'Add the JEA endpoint setup'
+        shell: 'bash'
+        run: >
+          mkdir -p $LFMP_DIR_COMPILED/check-plugins/jea &&
+          cp $LFMP_DIR_REPOS/monitoring-plugins/assets/windows-jea/* $LFMP_DIR_COMPILED/check-plugins/jea/
+
       - name: 'Upload the unsigned compiled plugins'
         uses: 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' # v7.0.1
         id: 'upload-unsigned-compiled'

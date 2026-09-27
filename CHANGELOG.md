@@ -16,7 +16,7 @@ Monitoring Plugins:
 
 Assets:
 
-* windows-jea: a JEA endpoint that gives `procs`, `scheduled-task` and `updates` the rights they need on Windows, without running the agent as LocalSystem
+* windows-jea: a JEA endpoint that gives `procs`, `scheduled-task` and `updates` the rights they need on Windows, without running the agent as LocalSystem, shipped in the MSI and the ZIP
 
 ### Changed
 

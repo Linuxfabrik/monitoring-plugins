@@ -305,6 +305,7 @@ Run the plugins with the venv's Python:
 ### One-Liner: Options
 
 * `-DryRun`: prints every action without executing it.
+* `-Jea`: after the MSI, sets up the JEA endpoint through which the Icinga 2 agent runs `procs`, `scheduled-task` and `updates` with the rights they need. Restarts WinRM. See [Windows Plugins](PLUGINS-WINDOWS.md).
 * `-Ref <branch-or-tag>`: picks what `-Source` installs. A release tag such as `v8.0.0` comes with the library release it was tested with, a branch with the library's `main`.
 * `-Version <version>-<iteration>`: pins a release (MSI).
 

@@ -28,6 +28,10 @@
       .\install.ps1 -Version 2.3.0-1       # pinned release
       .\install.ps1 -Source -TargetDir C:\Users\me\lf
 
+    Set -Jea to set up, after the MSI, the JEA endpoint through which the Icinga 2 agent
+    runs the plugins that need more rights than its own account (procs, scheduled-task,
+    updates). See https://linuxfabrik.github.io/monitoring-plugins/plugins-windows/
+
     Set -DryRun to print every action without executing it.
 #>
 
@@ -46,6 +50,10 @@ param(
     # Source path: parent directory that receives the two clones and the venv.
     # Default: a 'linuxfabrik' folder in the current directory.
     [string]$TargetDir,
+
+    # MSI path: afterwards set up the JEA endpoint for the plugins that need more rights,
+    # with the setup script the MSI installs. Restarts WinRM.
+    [switch]$Jea,
 
     [switch]$DryRun
 )
@@ -262,8 +270,34 @@ function Install-Source {
     }
 }
 
+function Install-Jea {
+    $script = 'C:\Program Files\ICINGA2\sbin\linuxfabrik\jea\Install-LinuxfabrikJea.ps1'
+    if ($DryRun) {
+        Write-Host "[dry-run] run: $script"
+        return
+    }
+    if (-not (Test-Path -LiteralPath $script -PathType Leaf)) {
+        throw ("This release ships no JEA setup ($script is missing). Install a newer " +
+            'release, or take the files from ' +
+            'https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/windows-jea')
+    }
+    Write-Info 'setting up the JEA endpoint, this restarts WinRM'
+    # -File instead of calling the script directly, so an execution policy that forbids
+    # script files does not stop it
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script
+    if ($LASTEXITCODE -ne 0) {
+        throw "The JEA setup failed with exit code $LASTEXITCODE."
+    }
+}
+
 if ($Source) {
+    if ($Jea) {
+        throw '-Jea needs the compiled plugins of the MSI and cannot be combined with -Source.'
+    }
     Install-Source
 } else {
     Install-Msi
+    if ($Jea) {
+        Install-Jea
+    }
 }

@@ -26,28 +26,36 @@ The JEA profile of Icinga for Windows (`Install-IcingaSecurity`, `Install-Icinga
 * The Icinga 2 agent runs as a local account without administrative rights, `icinga` by default. A JEA endpoint is reached over WinRM, even from the same host, and `NetworkService` authenticates there as the computer account, which cannot be given a role. An account the agent already runs as, for example the one `Install-IcingaSecurity` created, is kept.
 * The endpoint admits only that account. It exposes a single command, which starts one of the allowed plugins and returns its output and exit code.
 * The agent calls a wrapper script instead of the plugin. The wrapper connects to the endpoint, runs the plugin there and passes on output and exit code. A plugin that is not allowed ends as UNKNOWN.
-* Module, wrapper and endpoint definition live below `C:\Program Files\WindowsPowerShell\Modules\LinuxfabrikMonitoringPlugins`, where only administrators may change them.
+* Module, wrapper and endpoint definition live below `C:\Program Files\WindowsPowerShell\Modules\LinuxfabrikMonitoringPlugins`, where only administrators may change them. The plugins keep their state files in its `state` folder, which only SYSTEM and administrators can read or write.
+* The endpoint stops a plugin that is still running after 600 seconds.
 
 
 ### Requirements
 
-* Windows PowerShell 5.1.
+* Windows Server 2016 or Windows 10 and later, the same versions the plugins support. JEA is part of the Windows PowerShell 5.1 they ship with.
 * WinRM enabled. It is on by default on Windows Server. On Windows 10 and 11, run `Enable-PSRemoting` in an elevated PowerShell first.
-* The Linuxfabrik Monitoring Plugins installed from the MSI or the ZIP to `C:\Program Files\ICINGA2\sbin\linuxfabrik`.
+* The Linuxfabrik Monitoring Plugins installed from the MSI or the ZIP to `C:\Program Files\ICINGA2\sbin\linuxfabrik`. Both ship the setup in its `jea` folder.
+* Not a domain controller. There the virtual account the endpoint runs the plugins as is a member of Domain Admins instead of the local Administrators, and the setup script refuses to run unless `-DomainController` is given.
 
 
 ### Setup
 
-Download the three files from [assets/windows-jea](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/windows-jea) into one directory and run the setup script in an elevated PowerShell:
+Install the MSI and set up the endpoint in one go, in an elevated PowerShell:
 
 ```powershell
-.\Install-LinuxfabrikJea.ps1
+& ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1))) -Jea
 ```
 
-To allow a different set of plugins or to use another account:
+On a host that already has the plugins, run the setup script from the installation in an elevated PowerShell (`-ExecutionPolicy Bypass`, because Windows 10 and 11 refuse script files by default, and `-Command`, because `-File` would pass `-Plugin procs, updates` as `procs` alone):
 
 ```powershell
-.\Install-LinuxfabrikJea.ps1 -Plugin procs, scheduled-task, updates -User icinga
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Program Files\ICINGA2\sbin\linuxfabrik\jea\Install-LinuxfabrikJea.ps1'"
+```
+
+To allow fewer plugins or to use another account:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Program Files\ICINGA2\sbin\linuxfabrik\jea\Install-LinuxfabrikJea.ps1' -Plugin procs, updates -User icinga"
 ```
 
 The script restarts WinRM at the end, which ends every open WinRM session, including a remote PowerShell that runs the script. Run it in a local console, over RDP or over SSH. It can be run again, for example after changing `-Plugin`.
@@ -55,9 +63,17 @@ The script restarts WinRM at the end, which ends every open WinRM session, inclu
 The script:
 
 1. Creates the local account (with a random password nobody needs to know), grants it the right to log on as a service and write access to `C:\ProgramData\icinga2`, and switches the Icinga 2 agent to it.
-2. Installs the module `LinuxfabrikMonitoringPlugins` and the wrapper `Invoke-LinuxfabrikPlugin.ps1`.
+2. Installs the module `LinuxfabrikMonitoringPlugins`, the wrapper `Invoke-LinuxfabrikPlugin.ps1` and the `state` folder.
 3. Registers the endpoint `LinuxfabrikMonitoringPlugins` for that account.
 4. Restarts WinRM.
+
+To remove the endpoint, the module and the state again, before uninstalling the MSI for example:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Program Files\ICINGA2\sbin\linuxfabrik\jea\Install-LinuxfabrikJea.ps1' -Uninstall"
+```
+
+The Icinga 2 agent keeps running as the local account; switch it back with `sc.exe config icinga2 obj= <account>` if needed.
 
 
 ### Check Command

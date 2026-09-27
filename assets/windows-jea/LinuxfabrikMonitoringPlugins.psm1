@@ -35,6 +35,16 @@ function Invoke-LinuxfabrikPlugin {
     # $env:ProgramFiles is empty in the virtual account of a JEA session
     $programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
     $exe = Join-Path -Path $programFiles -ChildPath "ICINGA2\sbin\linuxfabrik\$Plugin.exe"
+    # The TEMP of the virtual account is C:\Windows\Temp, where every user may create
+    # files, so a state database there could be planted beforehand. The state directory
+    # next to this module is writable by SYSTEM and Administrators only.
+    $state = Join-Path -Path $PSScriptRoot -ChildPath 'state'
+    if (-not (Test-Path -LiteralPath $state -PathType Container)) {
+        return [pscustomobject]@{
+            ExitCode = 3
+            Output   = "The state directory $state is missing. Run Install-LinuxfabrikJea.ps1 again."
+        }
+    }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $exe
     $psi.Arguments = ($Arguments | ForEach-Object { ConvertTo-LinuxfabrikArgument $_ }) -join ' '
@@ -44,15 +54,26 @@ function Invoke-LinuxfabrikPlugin {
     # the plugins write UTF-8
     $psi.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
     $psi.StandardErrorEncoding = New-Object System.Text.UTF8Encoding($false)
+    $psi.EnvironmentVariables['TEMP'] = $state
+    $psi.EnvironmentVariables['TMP'] = $state
     $process = [System.Diagnostics.Process]::Start($psi)
-    # read stderr asynchronously, so that a full stderr pipe cannot block the plugin while
-    # stdout is read
+    # read both streams asynchronously, so that neither a full pipe nor a hanging plugin
+    # can block the session
+    $stdout = $process.StandardOutput.ReadToEndAsync()
     $stderr = $process.StandardError.ReadToEndAsync()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $process.WaitForExit()
+    # The agent stops waiting for the check at its own timeout, but the plugin would go
+    # on running in the endpoint. The plugins time out on their own well before this
+    # (`updates` after 300 seconds); it is the safety net for one that does not.
+    if (-not $process.WaitForExit(600 * 1000)) {
+        taskkill.exe /T /F /PID $process.Id | Out-Null
+        return [pscustomobject]@{
+            ExitCode = 3
+            Output   = "$Plugin did not finish within 600 seconds and was stopped."
+        }
+    }
     [pscustomobject]@{
         ExitCode = $process.ExitCode
-        Output   = $stdout + $stderr.Result
+        Output   = $stdout.Result + $stderr.Result
     }
 }
 
