@@ -76,6 +76,11 @@ BASH_COMPLETION_DEST='/etc/bash_completion.d/linuxfabrik-monitoring-plugins'
 # They are removed on install and on uninstall so a host never carries the LF_NAGIOS Cmnd_Alias
 # twice, which makes sudo warn about a duplicate Cmnd_Alias on every invocation.
 LEGACY_SUDOERS_DESTS='/etc/sudoers.d/monitoring-plugins /etc/sudoers.d/icinga2-plugins'
+# The dnf repository file, under the name the LFOps role uses as well. Both carry the same repo
+# IDs, so a host holding the file under two names would see every repository twice. The name
+# this installer used before is removed on install and on uninstall.
+YUM_REPO_DEST="/etc/yum.repos.d/${PKG_NAME}.repo"
+LEGACY_YUM_REPO_DEST="/etc/yum.repos.d/${PKG_NAME}-release.repo"
 # The SELinux policy module the -selinux sub-package loads. Source and zip installs load the
 # same file from the tree they install.
 SELINUX_MODULE='linuxfabrik-monitoring-plugins'
@@ -272,9 +277,16 @@ ${REPO_BASE_URL}/monitoring-plugins/${variant}/ ${VERSION_CODENAME}-release main
 
 setup_repo_rhel() {
     run rpm --import "${KEY_URL}"
-    download \
-        "${REPO_BASE_URL}/monitoring-plugins/rhel/${PKG_NAME}-release.repo" \
-        "/etc/yum.repos.d/${PKG_NAME}-release.repo"
+    # An existing file is kept: the LFOps role writes it with mirror and credential settings of
+    # its own, which a plain download would throw away.
+    if [ -f "${YUM_REPO_DEST}" ]; then
+        log "keeping the existing ${YUM_REPO_DEST}"
+    else
+        download \
+            "${REPO_BASE_URL}/monitoring-plugins/rhel/${PKG_NAME}-release.repo" \
+            "${YUM_REPO_DEST}"
+    fi
+    run rm -f "${LEGACY_YUM_REPO_DEST}"
     # The -selinux sub-package pulls in the base package via Recommends.
     run dnf install --assumeyes "${PKG_NAME_SELINUX}"
 }
@@ -976,7 +988,7 @@ uninstall() {
         did_something=1
         if command -v dnf >/dev/null 2>&1; then
             run dnf remove --assumeyes "${PKG_NAME}" "${PKG_NAME_SELINUX}"
-            run rm -f "/etc/yum.repos.d/${PKG_NAME}-release.repo"
+            run rm -f "${YUM_REPO_DEST}" "${LEGACY_YUM_REPO_DEST}"
         elif command -v zypper >/dev/null 2>&1; then
             run zypper --non-interactive remove "${PKG_NAME}"
             run zypper --non-interactive removerepo "${PKG_NAME}-release" || true
@@ -984,7 +996,9 @@ uninstall() {
     fi
     if command -v dpkg >/dev/null 2>&1 && dpkg -s "${PKG_NAME}" >/dev/null 2>&1; then
         did_something=1
-        apt_get remove --yes "${PKG_NAME}"
+        # Purge rather than remove: a plain remove keeps the package in dpkg's `rc` state and
+        # leaves its conffiles in place, the sudoers drop-in among them.
+        apt_get purge --yes "${PKG_NAME}"
         run rm -f "/etc/apt/sources.list.d/${PKG_NAME}.list" \
                   /etc/apt/keyrings/linuxfabrik.asc
     fi
