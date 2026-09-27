@@ -8,7 +8,6 @@ Checks the state of a Windows Scheduled Task and the result of its last run. Ale
 **Important Notes:**
 
 * The account the monitoring agent runs as has to be allowed to see the task. `NT AUTHORITY\NetworkService`, which the Icinga 2 MSI package uses by default, does not see tasks that an administrator created in a folder of their own; the check then reports the task as not found. Running the agent as `LocalSystem` sees every task.
-* The Icinga 2 agent for Windows hands the arguments to the plugin in the ANSI code page of the host, so a task path with characters outside of ASCII (for example `Prüfung`) does not arrive intact and is reported as not found.
 * A disabled task keeps the result of its last run from before it was disabled. The check does not evaluate that result.
 
 **Data Collection:**
@@ -114,7 +113,7 @@ There is no perfdata.
 
 ### A task that exists is reported as not found
 
-The account the monitoring agent runs as cannot see the task. See the Important Notes above: run the agent as `LocalSystem`, or grant its account read access to the task. A task path with characters outside of ASCII is reported as not found as well, because it does not reach the plugin intact.
+The account the monitoring agent runs as cannot see the task. See the Important Notes above: run the agent as `LocalSystem`, or grant its account read access to the task.
 
 ### `returned 0x1`
 
