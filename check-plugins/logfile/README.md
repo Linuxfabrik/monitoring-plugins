@@ -8,7 +8,7 @@ Scans a logfile for matching patterns or regular expressions and alerts based on
 **Important Notes:**
 
 * Requires root or sudo to access most system logfiles
-* `--filename` is confined to `/var/log`. The check runs as root via sudo, so it refuses a path that resolves outside the system log directory, which stops it from being turned into an arbitrary root file read. To monitor a log stored elsewhere, bind-mount that location under `/var/log` (a symlink is rejected); see the [Troubleshooting section](https://github.com/Linuxfabrik/monitoring-plugins#troubleshooting).
+* On Linux, `--filename` is confined to `/var/log`. The check runs as root via sudo, so it refuses a path that resolves outside the system log directory, which stops it from being turned into an arbitrary root file read. To monitor a log stored elsewhere, bind-mount that location under `/var/log` (a symlink is rejected); see the [Troubleshooting section](https://github.com/Linuxfabrik/monitoring-plugins#troubleshooting). On Windows, where the check runs as the account of the monitoring agent's service and there is no sudo, it reads any path.
 * At least one `--warning-pattern`, `--warning-regex`, `--critical-pattern`, or `--critical-regex` must be specified
 * When using `--icinga-callback`, the parameters `--icinga-url`, `--icinga-password`, `--icinga-username`, and `--icinga-service-name` are all required. Create an Icinga API user like so:
 

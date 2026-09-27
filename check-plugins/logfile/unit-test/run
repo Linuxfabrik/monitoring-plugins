@@ -979,6 +979,7 @@ class TestPathConfinement(unittest.TestCase):
             },
         )
 
+    @unittest.skipIf(os.name == 'nt', 'Windows has no sudo, and nothing is confined')
     def test_filename_outside_var_log_is_refused(self):
         lib.lftest.run(
             self,
@@ -990,6 +991,20 @@ class TestPathConfinement(unittest.TestCase):
                 'assert-retc': STATE_UNKNOWN,
                 'assert-in': ['Refusing to read'],
                 'assert-not-in': ['secret line'],
+            },
+        )
+
+    @unittest.skipUnless(os.name == 'nt', 'the confinement applies elsewhere')
+    def test_windows_reads_a_logfile_anywhere(self):
+        lib.lftest.run(
+            self,
+            self.check,
+            {
+                'id': 'windows-reads-outside-var-log',
+                'test': f'{self.scratch_file},,0',
+                'params': f'--filename={self.scratch_file} --warning-regex=secret',
+                'assert-retc': STATE_WARN,
+                'assert-in': ['secret line'],
             },
         )
 

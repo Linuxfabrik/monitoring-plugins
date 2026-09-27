@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026092701'
 
 DESCRIPTION = """Scans a logfile for matching patterns or regular expressions and alerts based on the
 number of matches found. Only the lines added since the previous run are scanned, and the
@@ -595,12 +595,22 @@ def main():
         *ALLOWED_LOG_ROOTS,
         os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'unit-test'),
     ]
+    if lib.base.WINDOWS:
+        # Windows has no sudo and no /var/log. The check runs as the account of the
+        # monitoring agent's service, and its arguments come from the monitoring
+        # configuration, which can run any command on the host anyway, so there is
+        # nothing to confine. With the roots in place, every logfile was refused.
+        allowed_roots = None
+
+    def within_roots(path):
+        return allowed_roots is None or lib.disk.is_within(path, allowed_roots)
+
     scan_path = lib.time.macro2timestr(args.FILENAME, format='%Y%m%d')
-    if not (lib.disk.is_within(scan_path, allowed_roots) and os.path.exists(scan_path)):
+    if not (within_roots(scan_path) and os.path.exists(scan_path)):
         iso_path = lib.time.macro2timestr(args.FILENAME, format='%Y-%m-%d')
         if (
             iso_path != scan_path
-            and lib.disk.is_within(iso_path, allowed_roots)
+            and within_roots(iso_path)
             and os.path.exists(iso_path)
         ):
             scan_path = iso_path
