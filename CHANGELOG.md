@@ -33,7 +33,7 @@ Monitoring Plugins:
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages
 * restic-check: works with restic v0.18 and newer, which changed `check` to JSON output
 * restic-stats: no longer crashes in the `raw-data` and `blobs-per-file` modes
-* scanrootkit: detects rkhunter rootkit paths that contain spaces, and the Dreams and Vampire rootkits in full
+* scanrootkit: no false SunOS Rootkit alarm on Fedora 44, detects rkhunter rootkit paths that contain spaces, and the Dreams and Vampire rootkits in full
 
 Build, CI/CD:
 
