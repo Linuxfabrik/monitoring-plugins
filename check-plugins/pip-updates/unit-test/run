@@ -19,6 +19,15 @@ from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
+        # captured with `python3 -m pip list --outdated --format=json` on Rocky 9 without
+        # python3-pip (exit code 1, empty stdout)
+        'id': 'unknown-pip-not-installed',
+        'test': ',stderr/python3-without-pip,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['pip is not installed for `python3`'],
+        'assert-not-in': ['No module named pip'],
+    },
+    {
         'id': 'unknown-malformed-json',
         'test': 'stdout/malformed-json,,0',
         'assert-retc': STATE_UNKNOWN,

@@ -8,13 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking Changes
-
-Monitoring Plugins:
-
-* php-status: `--config` compares the whole value (`date.timezone=Europe/Zurich`, not `Europe`), and FPM pool configs must be root-owned
-* restic-\*: `--repo` can no longer run a program as root; password and repository files must be root-owned, an `rclone:` repository needs `--repository-file`
-
 ### Added
 
 Monitoring Plugins:
@@ -29,6 +22,7 @@ Assets:
 
 Monitoring Plugins:
 
+* php-status: `--config` checks the exact value, and without it only an unset `date.timezone` warns
 * scanrootkit: detects 23 more rootkits and implants, also by their sockets and named pipes, and no longer raises a false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 
@@ -43,6 +37,7 @@ Monitoring Plugins:
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error
 * ntp-w32tm: evaluates German output instead of always reporting OK, UNKNOWN for other display languages, no longer hangs
+* pip-updates: names a missing pip instead of printing a raw Python error
 * procs: says how many processes `--argument` and `--username` skipped because the account running the check may not read them
 * restic-check, restic-stats: work with restic v0.18 and newer, restic-stats no longer crashes in the `raw-data` and `blobs-per-file` modes
 * updates: warns when the Windows Update service is disabled, names a missing permission instead of a raw PowerShell error, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
@@ -59,11 +54,13 @@ Monitoring Plugins:
 * apache-httpd-security, nginx-security: `--command` runs only a root-owned binary
 * docker-service, docker-swarm: `--test` can no longer probe which files exist
 * fail2ban: `--socket` must be root-owned
-* logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`
+* logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`, nor a caller probe which files exist
 * mastodon-version: `--path` no longer follows a symlink out of the installation
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
 * nextcloud-\*: `--path` no longer runs code as root or probes for files
 * podman-\*: `--user` needs an account with a subordinate UID range
+* php-status: reads only FPM pool configs that root owns
+* restic-\*: `--repo` can no longer run a program as root, and password and repository files have to be root-owned
 * strongswan-connections: `--socket` must be root-owned, and a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 

@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks for outdated Python packages installed via pip. Reports the number of packages
 with available updates and lists them. Alerts when the count exceeds the configured
@@ -226,6 +226,15 @@ def main():
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
     if retc != 0:
+        if 'No module named pip' in stderr:
+            # Distributions ship pip as a separate package, and the interpreter found
+            # in PATH (sudo resets it to secure_path) is often not the one the admin
+            # has in mind.
+            lib.base.cu(
+                f'pip is not installed for `{cmd[0]}`, so the outdated packages cannot '
+                f'be listed. Install the pip package of the distribution '
+                f'(`python3-pip`), or point --virtualenv at the venv to check.'
+            )
         lib.base.cu(stderr)
 
     # analyze data

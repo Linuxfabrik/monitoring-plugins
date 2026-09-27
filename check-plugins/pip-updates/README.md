@@ -126,6 +126,12 @@ pyspnego ! 0.7.0   ! 0.8.0   ! wheel
 
 ## Troubleshooting
 
+### pip is not installed
+
+``pip is not installed for `python3`, so the outdated packages cannot be listed.``
+
+The distributions ship pip as a separate package, and a minimal installation does not have it. The check uses the `python3` found in `PATH`, which under `sudo` is the system interpreter. Install the pip package of the distribution (`dnf install python3-pip`, `apt install python3-pip`, `zypper install python3-pip`), or point `--virtualenv` at the venv whose packages you want to check.
+
 ### `TypeError: '>' not supported between instances of 'Version' and 'Version'`
 
 Your version of `pip` is below 20.3. Upgrade by running `python3 -m pip install --upgrade pip`.
