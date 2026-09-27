@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
@@ -31,6 +31,7 @@ is announced, and when the last synchronization failed."""
 
 DEFAULT_CRIT = 129600  # s (36h)
 DEFAULT_STRATUM = 6
+DEFAULT_TIMEOUT = 8
 DEFAULT_WARN = 28800  # s (8h)
 
 # w32tm prints its labels in the display language of the account it runs as. The values
@@ -123,6 +124,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '-w',
         '--warning',
         help='WARN threshold for the time since "Last Good Sync", in seconds. '
@@ -151,7 +160,17 @@ def main():
     # fetch data
     if args.TEST is None:
         cmd = ['w32tm', '/query', '/status', '/verbose']
-        stdout, _, retc = lib.base.coe(lib.shell.shell_exec(cmd))
+        success, result = lib.shell.shell_exec(cmd, timeout=args.TIMEOUT)
+        if not success:
+            if result.startswith('Timeout after'):
+                lib.base.oao(
+                    f'Timeout after {args.TIMEOUT}s while querying the Windows Time'
+                    ' Service.',
+                    STATE_WARN,
+                    always_ok=args.ALWAYS_OK,
+                )
+            lib.base.cu(result)
+        stdout, _, retc = result
     else:
         # do not call the command, put in test data
         stdout, _, retc = lib.lftest.test(args.TEST)

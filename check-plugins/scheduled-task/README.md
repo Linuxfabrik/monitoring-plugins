@@ -113,6 +113,8 @@ There is no perfdata.
 
 ### A task that exists is reported as not found
 
+``Scheduled task `<task>` not found. The account the check runs as may not be allowed to see it.``
+
 The account the monitoring agent runs as cannot see the task. See the Important Notes above: run the agent as `LocalSystem`, or grant its account read access to the task.
 
 ### `returned 0x1`

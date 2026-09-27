@@ -31,7 +31,7 @@ Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 
 ```text
 usage: ntp-w32tm [-h] [-V] [--always-ok] [-c CRIT] [--no-perfdata]
-                 [--stratum STRATUM] [-w WARN]
+                 [--stratum STRATUM] [--timeout TIMEOUT] [-w WARN]
 
 Checks the Windows Time Service (w32tm) status, including clock offset,
 stratum, and time source. Useful for diagnosing time synchronization issues on
@@ -56,6 +56,7 @@ options:
                        computer is at stratum 2. A computer that is
                        synchronised to a stratum 2 computer is at stratum 3,
                        and so on. Default: 6
+  --timeout TIMEOUT    Network timeout in seconds. Default: 8 (seconds)
   -w, --warning WARN   WARN threshold for the time since "Last Good Sync", in
                        seconds. Default: 28800
 
@@ -104,6 +105,7 @@ Time since Last Good Sync Time: 19.2218793s
 * WARN if "Last Sync Error" is not 0.
 * WARN if "Time since Last Good Sync Time" is >= `--warning` (default: 28800s).
 * CRIT if "Time since Last Good Sync Time" is >= `--critical` (default: 129600s).
+* WARN on a timeout while querying the Windows Time Service.
 * UNKNOWN if `w32tm` fails, or if its output lacks the stratum or the time since the last good sync, for example because the host uses a display language other than English or German.
 * `--always-ok` suppresses all alerts and always returns OK.
 
