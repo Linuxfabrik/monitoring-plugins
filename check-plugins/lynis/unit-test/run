@@ -22,47 +22,128 @@ import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 # In --test mode the plugin treats the fixture as one host's lynis report.dat
-# (the SSH/audit transport is skipped). The fixtures in stdout/ are anonymised,
-# RFC-5737 sample reports:
+# (the local lynis run and the SSH transport are skipped). Without --host the
+# plugin reports it as the local audit, with --host as a network scan of that one
+# host. The fixtures in stdout/ are anonymised, RFC-5737 sample reports:
 #   report-warn  hardening_index 68, one warning, three suggestions (myhost)
 #   report-ok    hardening_index 80, no warnings (otherhost)
 # The expected state lives in the testcase id and depends on the fixture plus
-# the thresholds: the per-host state is the worst of the hardening index against
+# the thresholds: the state is the worst of the hardening index against
 # --warning/--critical and "any lynis warning -> at least WARNING".
 TESTS = [
+    # the local audit
     {
         'id': 'ok-clean-report',
         'test': 'stdout/report-ok,,0',
-        'params': '--lengthy',
         'assert-retc': STATE_OK,
-        'assert-in': ['otherhost', '192.0.2.28'],
+        'assert-in': [
+            'Hardening index 80, 0 findings, 1 suggestion',
+            # a suggestion is advice, it carries no state
+            'Suggestions:\n* BOOT-5264: Consider hardening system services.\n',
+        ],
+        'assert-not-in': ['[WARNING]', 'Findings:'],
     },
     {
         'id': 'warn-lynis-warning-present',
         'test': 'stdout/report-warn,,0',
         'assert-retc': STATE_WARN,
-        'assert-regex': r'myhost.*\[WARNING\]',
+        'assert-in': [
+            '1 finding [WARNING]',
+            'Findings:\n* MAIL-8818: Found some information disclosure in SMTP '
+            'banner (OS or software name). [WARNING]\n\nSuggestions:',
+            '`lynis show details MAIL-8818`',
+            '`skip-test=MAIL-8818`',
+            # suggestions as a plain list, with their details
+            '* BOOT-5264: Consider hardening system services. Run '
+            "'/usr/bin/systemd-analyze security SERVICE' for each service.",
+            '* KRNL-5820: If not required, consider explicit disabling of core dump.',
+        ],
+        # sorted by test ID, not in the order lynis ran the tests
+        'assert-regex': r'Suggestions:\n\* AUTH-9230: .*\n\* BOOT-5264: .*\n'
+        r'\* KRNL-5820: ',
+        # the index is fine
+        'assert-not-in': ['Hardening index 68 ['],
+    },
+    {
+        # deprecated, still accepted so that existing service definitions keep
+        # working
+        'id': 'warn-lengthy-is-ignored',
+        'test': 'stdout/report-warn,,0',
+        'params': '--lengthy',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Suggestions:\n* AUTH-9230'],
     },
     {
         'id': 'warn-index-below-threshold',
         'test': 'stdout/report-ok,,0',
         'params': '--warning 90:',
         'assert-retc': STATE_WARN,
-        'assert-regex': r'80.*\[WARNING\]',
+        'assert-in': ['Hardening index 80 [WARNING]'],
     },
     {
         'id': 'crit-index-below-critical',
         'test': 'stdout/report-ok,,0',
         'params': '--warning 90: --critical 85:',
         'assert-retc': STATE_CRIT,
-        'assert-regex': r'80.*\[CRITICAL\]',
+        'assert-in': ['Hardening index 80 [CRITICAL]'],
     },
     {
         'id': 'ok-always-ok-masks-warning',
         'test': 'stdout/report-warn,,0',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-regex': r'myhost.*\[WARNING\]',
+        'assert-in': ['1 finding [WARNING]'],
+    },
+    # the network scan, reduced to one host
+    {
+        'id': 'ok-network-clean-report',
+        'test': 'stdout/report-ok,,0',
+        'params': '--host=otherhost',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1/1 host audited', 'otherhost', '192.0.2.28'],
+    },
+    {
+        'id': 'warn-network-names-the-host-of-a-finding',
+        'test': 'stdout/report-warn,,0',
+        'params': '--host=myhost',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'myhost:/var/log/lynis-report.dat.*\[WARNING\]'
+        r'(?s:.*)\* myhost: MAIL-8818: .*\[WARNING\]'
+        r'(?s:.*)\* myhost: AUTH-9230: .*\n\* myhost: BOOT-5264: ',
+    },
+    # values that would reach a root-run lynis as something else than a name
+    {
+        'id': 'unknown-skip-test-with-newline',
+        'test': 'stdout/report-ok,,0',
+        'params': "'--lynis-skip-test=MAIL-8818\nplugindir=/tmp'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['is not a lynis test ID'],
+    },
+    {
+        'id': 'unknown-skip-test-with-trailing-newline',
+        'test': 'stdout/report-ok,,0',
+        'params': "'--lynis-skip-test=MAIL-8818\n'",
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['is not a lynis test ID'],
+    },
+    {
+        'id': 'unknown-test-group-with-path',
+        'test': 'stdout/report-ok,,0',
+        'params': '--lynis-test-group=../../tmp/x',
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-auditor-with-quote',
+        'test': 'stdout/report-ok,,0',
+        'params': """'--lynis-auditor=a"$(id)"'""",
+        'assert-retc': STATE_UNKNOWN,
+    },
+    {
+        'id': 'unknown-more-than-one-category',
+        'test': 'stdout/report-ok,,0',
+        'params': '--lynis-test-category=security --lynis-test-category=performance',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['--lynis-test-category can only be given once.'],
     },
 ]
 
@@ -132,11 +213,13 @@ class TestNothingAudited(unittest.TestCase):
 # Each Containerfile under containerfiles/ installs lynis (the distro package,
 # or the upstream self-contained tree on SLES, which has no package), an SSH
 # server and client, sudo and rsync, and sets up password-less root SSH to
-# itself. The test then runs the plugin inside the container, auditing
-# 127.0.0.1 over its normal SSH transport: the container is both the management
-# host (where the lynis copy is assembled from the distro layout) and the audit
-# target. All images are built and audited in parallel; one assertion method
-# per distro then checks that the audit produced a report.
+# itself. The test then runs the plugin inside the container twice: once as
+# root for the local audit of the container, and once as an unprivileged user
+# (the network scan refuses to run as root) auditing 127.0.0.1 over its normal
+# SSH transport, where the container is both the management host (where the
+# lynis copy is assembled from the distro layout) and the audit target. All
+# images are built and audited in parallel; one assertion method per distro
+# then checks that both audits produced a report.
 CONTAINERFILES = [
     'archlinux-vlatest',
     'debian-v12',
@@ -156,14 +239,27 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'lynis'))
 
-# The plugin audits the container itself. StrictHostKeyChecking/known-hosts are
-# disabled because the throwaway host key changes on every build.
-PLUGIN_CMD = (
-    'cd /tmp && python3 ./lynis '
-    '--host=127.0.0.1 --username=root --identity=/root/.ssh/id_ed25519 '
+# The local audit, as root.
+LOCAL_CMD = 'cd /tmp && python3 ./lynis'
+
+# The network scan runs as an unprivileged user that holds a copy of root's key.
+# StrictHostKeyChecking/known-hosts are disabled because the throwaway host key
+# changes on every build.
+NETWORK_USER_SETUP = (
+    'useradd --create-home lfmp 2>/dev/null; '
+    'install -d -o lfmp -m 700 /home/lfmp/.ssh && '
+    'install -o lfmp -m 600 /root/.ssh/id_ed25519 /home/lfmp/.ssh/id_ed25519'
+)
+NETWORK_CMD = (
+    # sudo rather than su, which the SLES 16 image does not ship. The interpreter
+    # is looked up as root, because sudo's secure_path does not reach the one SLES
+    # installs.
+    'PY=$(command -v python3); '
+    'sudo --user=lfmp --set-home sh -c "cd /tmp && $PY ./lynis '
+    '--host=127.0.0.1 --username=root --identity=/home/lfmp/.ssh/id_ed25519 '
     '--ssh-option=StrictHostKeyChecking=no '
     '--ssh-option=UserKnownHostsFile=/dev/null '
-    '--connect-timeout=10 --lengthy --verbose'
+    '--connect-timeout=10 --verbose"'
 )
 
 # Start sshd (path differs between distros) and wait until a key-based
@@ -181,8 +277,9 @@ _RESULTS = {}
 
 
 def _audit_in_container(containerfile):
-    """Build one distro image, start its sshd and run the plugin auditing
-    127.0.0.1 inside it. Returns a dict with the plugin exit code and output.
+    """Build one distro image, run the local audit, start its sshd and run the
+    network scan of 127.0.0.1 inside it. Returns a dict with the exit code and
+    output of both runs.
     """
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.image import DockerImage
@@ -208,10 +305,16 @@ def _audit_in_container(containerfile):
             .with_volume_mapping(PLUGIN, '/tmp/lynis', mode='ro,z')
         )
         with container:
+            local = container.exec(['sh', '-c', LOCAL_CMD])
             container.exec(['sh', '-c', SSHD_START])
-            result = container.exec(['sh', '-c', PLUGIN_CMD])
-            output = (result.output or b'').decode('utf-8', errors='replace')
-            return {'exit_code': result.exit_code, 'output': output}
+            container.exec(['sh', '-c', NETWORK_USER_SETUP])
+            network = container.exec(['sh', '-c', NETWORK_CMD])
+            return {
+                'local_exit_code': local.exit_code,
+                'local_output': (local.output or b'').decode('utf-8', 'replace'),
+                'exit_code': network.exit_code,
+                'output': (network.output or b'').decode('utf-8', 'replace'),
+            }
 
 
 def setUpModule():
@@ -239,9 +342,22 @@ def _assert_audit(test, containerfile):
         test.skipTest('container did not run')
     if 'error' in result:
         test.fail(f'{containerfile}: container run errored: {result["error"]}')
+    local_output = result['local_output']
+    print(
+        f'\n=== {containerfile} local (exit {result["local_exit_code"]}) ===\n'
+        f'{local_output.strip()}',
+        flush=True,
+    )
+    # The local audit runs the distro's own lynis as root. A fresh container is
+    # not hardened, so it is OK, WARN or CRIT, but never UNKNOWN (UNKNOWN means
+    # the audit itself failed).
+    test.assertIn('Hardening index', local_output)
+    test.assertNotEqual(result['local_exit_code'], STATE_UNKNOWN)
+
     output = result['output']
     print(
-        f'\n=== {containerfile} (exit {result["exit_code"]}) ===\n{output.strip()}',
+        f'\n=== {containerfile} network (exit {result["exit_code"]}) ===\n'
+        f'{output.strip()}',
         flush=True,
     )
     # The plugin pins the pushed copy with --usecwd, which lynis only supports

@@ -27,8 +27,8 @@ spec:
       name: command
       query: SHOW MEASUREMENTS WITH MEASUREMENT =~ /.*lynis.*/
       current:
-        text: cmd-check-lynis
-        value: cmd-check-lynis
+        text: cmd-check-lynis-sudo
+        value: cmd-check-lynis-sudo
       refresh: 1
       sort: 1
       type: query
@@ -47,13 +47,180 @@ spec:
 
   panels:
 
-  - title: Lynis - Hosts and Findings
+  - title: Lynis - Hardening Index
     type: timeseries
     gridPos:
       h: 8
       w: 24
       x: 0
       y: 0
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        max: 100
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: hardening_index
+      refId: hardening_index
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: hardening_index
+
+  - title: Lynis - Findings and Suggestions
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 8
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 0
+        min: 0
+        unit: short
+    options:
+      legend:
+        calcs:
+        - first
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: findings
+      refId: findings
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: findings
+
+    - alias: suggestions
+      refId: suggestions
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '='
+        value: suggestions
+
+  - title: Lynis - Hosts
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 24
+      x: 0
+      y: 16
     fieldConfig:
       defaults:
         color:
@@ -174,63 +341,3 @@ spec:
         key: metric
         operator: '='
         value: hosts_audited
-
-    - alias: warnings
-      refId: warnings
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: warnings
-
-    - alias: suggestions
-      refId: suggestions
-      groupBy:
-      - params:
-        - $interval
-        type: time
-      - params:
-        - previous
-        type: fill
-      measurement: $command
-      resultFormat: time_series
-      select:
-      - - params:
-          - value
-          type: field
-        - params: []
-          type: mean
-      tags:
-      - key: hostname
-        operator: '='
-        value: $hostname
-      - condition: AND
-        key: service
-        operator: '='
-        value: $service
-      - condition: AND
-        key: metric
-        operator: '='
-        value: suggestions

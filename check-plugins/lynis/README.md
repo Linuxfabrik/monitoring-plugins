@@ -3,25 +3,30 @@
 
 ## Overview
 
-Runs a full security audit across the hosts of a subnet and reports each host's hardening posture. From a single management host it discovers the targets (the subnet of the default interface, a chosen interface, or an explicit host list), connects to each one over SSH, copies a self-contained copy of the audit tool over, runs a privileged system audit (root via password-less sudo by default), retrieves the machine-readable report, and removes its temporary files. A host that does not answer within the connect timeout is skipped, and the summary keeps the addresses probed apart from the hosts that answered. The check is meant to run at most once per day; the worst per-host result determines the overall state. Alerts when a host is below the hardening index threshold or reports a lynis warning, and when the scan audited no host at all, naming why the targets did not answer. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Hosts are audited in parallel.
+Runs a lynis security audit on the local host and reports its hardening index, its findings (the lynis warnings) and the hardening suggestions of lynis. Alerts when the hardening index is below the threshold or lynis reports a finding. Alternatively audits the hosts of a subnet or a host list from a single management host (`--host`, `--network`, `--interface`): it connects to each target over SSH, copies a self-contained copy of lynis over, runs the audit there via password-less sudo, retrieves the report and removes its temporary files. The worst per-host result then determines the overall state, and the check also alerts when the scan audited no host at all, naming why the targets did not answer. The network scan runs as an unprivileged user and refuses to run as root. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. The check is meant to run at most once per day.
 
 **Important Notes:**
 
-* Requires SSH access to every target host. Without parameters the plugin assumes password-less public key authentication and password-less `sudo` on the targets. Host aliases from `~/.ssh/config` are honored.
-* Requires `lynis` on the management host (where the plugin runs); a self-contained copy is assembled and pushed to the targets, so `lynis` does not need to be installed on them. The management host's `lynis` must support the `--usecwd` option (lynis 2.7+); distributions that still ship lynis 2.6 or older are not supported.
-* The audit runs privileged (via `sudo`) so the hardening index reflects a complete scan. The report is left on each target at `/var/log/lynis-report.dat` for the admin to inspect.
-* `lynis` is a script that must be executed, so the plugin uses the first target partition that is writable and not mounted `noexec` (hardened hosts often mount `/var/tmp` and `/tmp` `noexec`).
-* The copy is pushed with `rsync` when it is available on the management host (faster), otherwise with `scp -r`; neither requires `tar` on the target.
-* A security audit is posture drift, not a time-critical availability event, so by default only WARNING is raised. The default critical threshold is empty on purpose, to avoid paging someone at night for a hardening drop.
+* Without `--host`, `--network` or `--interface`, the check audits the host it runs on. That needs `lynis` on the host (the `lynis` package, from EPEL on the RHEL family, or the upstream tree in `/usr/local/lynis`) and root, so run it via `sudo` (see the sudoers files in `assets/sudoers`). The `Lynis Service Set` in the Icinga Director does exactly that on every host tagged `lynis`.
+* A local audit takes about two minutes (measured on Rocky Linux 8 and Fedora). `--audit-timeout` (default 600 seconds) ends a run that takes longer and reports WARNING; keep it below the timeout of the check command, which the Director basket sets to 3600 seconds, or the monitoring system kills the check before it can report anything. A run cut off this way leaves the lynis PID file and a `/tmp/lynis.*` directory behind; the next run notices that the PID file belongs to no running audit and removes it.
+* If another lynis audit is running (a lynis cron job, for example), the check does not start a second one and reports UNKNOWN; the next run tries again.
+* The report stays at `/var/log/lynis-report.dat` and the log at `/var/log/lynis.log`, on the audited host, for the admin to inspect. `lynis show details <test>` prints the details of a finding or suggestion from that log.
+* On the local host lynis runs as root, so nothing the caller passes may redirect it: `--lynis-profile` has to name a `.prf` file that only root can change, `--lynis-option` accepts only options that change the output or skip work, and lynis starts in `/` so that it does not pick up profiles from the caller's working directory.
+* The network scan requires SSH access to every target host, with password-less public key authentication and password-less `sudo` on the targets by default. Host aliases from `~/.ssh/config` are honored. Run it as an unprivileged user: as root, its SSH parameters would hand root to whoever may run the check, so it refuses.
+* The network scan requires `lynis` on the management host; a self-contained copy is assembled from it and pushed to the targets, so `lynis` does not need to be installed there. The management host's `lynis` must support the `--usecwd` option (lynis 2.7+).
+* The network scan uses the first target partition that is writable and not mounted `noexec` (hardened hosts often mount `/var/tmp` and `/tmp` `noexec`), and pushes the copy with `rsync` when it is available on the management host, otherwise with `scp -r`.
 * Auto-discovery hands over every address of the subnet, so a /24 means 254 probed addresses and only a handful of hosts. The summary reports both numbers, and a scan that audited nothing raises WARNING instead of reporting an empty success (`--no-match-severity`).
-* The management host is audited like every other target, over SSH to itself (`--host=127.0.0.1`), so it needs a running `sshd` and working key authentication for the account that runs the check.
+* The hardening index sums up a full audit. With `--lynis-test`, `--lynis-test-group` or `--lynis-test-category` only a part of the tests runs, and the index drops accordingly; set `--warning` to match or rely on the warnings alone.
+* A security audit is posture drift, not a time-critical availability event, so by default only WARNING is raised. The default critical threshold is empty on purpose, to avoid paging someone at night for a hardening drop.
 
 **Data Collection:**
 
-* The per-host state is the worst of: the hardening index against `--warning` / `--critical` (Nagios ranges, default warns below 65), and the presence of any lynis warning.
-* Every lynis warning raises at least WARNING. A warning is a concrete finding, not noise; accept it on the host (see Troubleshooting), not in this plugin.
+* The state is the worst of: the hardening index against `--warning` / `--critical` (Nagios ranges, default warns below 65), and the presence of any lynis warning.
+* Every lynis warning is listed under "Findings" with its test ID, its details where lynis gives any (the interface behind a `NETW-3015`, for example) and a `[WARNING]` marker, so nobody has to collect the reports by hand. A warning is a concrete finding, not noise; accept it on the host (see Troubleshooting), not in this plugin.
+* lynis suggestions are hardening advice. They are listed under "Suggestions" and do not change the state.
+* Both lists are sorted by test ID. In the network scan the same finding on several hosts therefore stands together.
+* In the network scan every finding names its host, and addresses that do not answer on SSH are not listed one by one but counted by reason (`254 x Connection timed out`). This separates an address with no host behind it from a target the check cannot reach because of a configuration problem.
 * Auto-discovery probes raw IP addresses, which do not match per-host `~/.ssh/config` aliases. For `--network` / `--interface` discovery, provide working credentials with `--username` and `--identity`.
-* Addresses that do not answer on SSH are not listed one by one, but their reasons are counted and reported (`254 x Connection timed out`). This separates an address with no host behind it from a target the check cannot reach because of a configuration problem, for example a changed host key or a name that does not resolve.
 
 
 ## Fact Sheet
@@ -34,7 +39,7 @@ Runs a full security audit across the hosts of a subnet and reports each host's 
 | Can be called without parameters      | Yes |
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
-| Requirements                          | command-line tools `ssh`, `lynis`, and `rsync` or `scp` on the management host |
+| Requirements                          | command-line tool `lynis`; User with higher permissions (local audit); command-line tools `ssh`, `rsync` or `scp` (network scan) |
 
 
 ## Help
@@ -44,8 +49,8 @@ usage: lynis [-h] [-V] [--always-ok] [--audit-timeout AUDIT_TIMEOUT]
              [--configfile CONFIGFILE] [--connect-timeout CONNECT_TIMEOUT]
              [-c CRIT] [--disable-pseudo-terminal] [-H HOST]
              [--identity IDENTITY] [--interface INTERFACE] [--ipv4] [--ipv6]
-             [--lengthy] [--lynis-auditor LYNIS_AUDITOR]
-             [--lynis-option LYNIS_OPTION] [--lynis-profile LYNIS_PROFILE]
+             [--lynis-auditor LYNIS_AUDITOR] [--lynis-option LYNIS_OPTION]
+             [--lynis-profile LYNIS_PROFILE]
              [--lynis-skip-test LYNIS_SKIP_TEST] [--lynis-source LYNIS_SOURCE]
              [--lynis-test LYNIS_TEST]
              [--lynis-test-category LYNIS_TEST_CATEGORY]
@@ -54,29 +59,27 @@ usage: lynis [-h] [-V] [--always-ok] [--audit-timeout AUDIT_TIMEOUT]
              [--no-perfdata] [-p PASSWORD] [--port PORT] [--quiet]
              [--ssh-option SSH_OPTION] [-u USERNAME] [--verbose] [-w WARN]
 
-Runs a full security audit across the hosts of a subnet and reports each
-host's hardening posture. From a single management host it discovers the
-targets (the subnet of the default interface, a chosen interface, or an
-explicit host list), connects to each one over SSH, copies a self-contained
-copy of the audit tool over, runs a privileged system audit (root via
-password-less sudo by default), retrieves the machine-readable report, and
-removes its temporary files. A host that does not answer within the connect
-timeout is skipped, and the summary keeps the addresses probed apart from the
-hosts that answered. The check is meant to run at most once per day; the worst
-per-host result determines the overall state. Alerts when a host is below the
-hardening index threshold or reports a lynis warning, and when the scan
-audited no host at all, naming why the targets did not answer. Security
-posture is informational drift rather than a time-critical availability event,
-so by default only WARNING is raised. Supports extended reporting via
---lengthy.
+Runs a lynis security audit on the local host and reports its hardening index,
+its findings (the lynis warnings) and the hardening suggestions of lynis.
+Alerts when the hardening index is below the threshold or lynis reports a
+finding. Alternatively audits the hosts of a subnet or a host list from a
+single management host (--host, --network, --interface): it connects to each
+target over SSH, copies a self-contained copy of lynis over, runs the audit
+there via password-less sudo, retrieves the report and removes its temporary
+files. The worst per-host result then determines the overall state, and the
+check also alerts when the scan audited no host at all, naming why the targets
+did not answer. The network scan runs as an unprivileged user and refuses to
+run as root. Security posture is informational drift rather than a
+time-critical availability event, so by default only WARNING is raised. The
+check is meant to run at most once per day. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --audit-timeout AUDIT_TIMEOUT
-                        Seconds to wait for the remote audit of a single host
-                        to finish. Default: 600 (seconds)
+                        Seconds to wait for the audit of a single host to
+                        finish. Default: 600 (seconds)
   --configfile CONFIGFILE
                         SSH: Alternative per-user configuration file. If a
                         configuration file is given on the command line, the
@@ -94,9 +97,10 @@ options:
                         Default: (no critical)
   --disable-pseudo-terminal
                         SSH: Disable pseudo-terminal allocation.
-  -H, --host HOST       Target host to audit. Overrides subnet auto-discovery.
-                        Can be specified multiple times. If not specified, the
-                        subnet of the default interface is scanned.
+  -H, --host HOST       Target host to audit over SSH instead of the local
+                        host. Can be specified multiple times. Takes
+                        precedence over --network and --interface. If none of
+                        the three is specified, the local host is audited.
   --identity IDENTITY   SSH: File from which the identity (private key) for
                         public key authentication is read. You can also
                         specify a public key file to use the corresponding
@@ -114,63 +118,70 @@ options:
                         the filename obtained by appending `-cert.pub` to
                         identity filenames.
   --interface INTERFACE
-                        Network interface whose subnet is scanned. Ignored
-                        when --host is given. If not specified, the default
-                        interface (the one carrying the default route) is
-                        used.
+                        Network interface whose subnet is scanned over SSH
+                        instead of auditing the local host. Ignored when
+                        --host or --network is given. Example:
+                        `--interface=eth0`
   --ipv4                SSH: Forces ssh to use IPv4 addresses only.
   --ipv6                SSH: Forces ssh to use IPv6 addresses only.
-  --lengthy             Extended reporting.
   --lynis-auditor LYNIS_AUDITOR
                         Name of the auditor to record in the report (lynis
                         `--auditor`). If not specified, lynis uses its own
                         default.
   --lynis-option LYNIS_OPTION
-                        Additional raw option to pass to the remote `lynis
-                        audit system` call, for options that have no dedicated
-                        parameter here. Can be specified multiple times.
-                        Example: `--lynis-option=--no-plugins`
+                        Additional raw option to pass to `lynis audit system`,
+                        for options that have no dedicated parameter here. On
+                        the local host lynis runs as root, so only these
+                        options are accepted there: `--debug`, `--developer`,
+                        `--devops`, `--no-log`, `--no-plugins`, `--pentest`,
+                        `--quiet`, `--verbose`, `--warnings-only`. Can be
+                        specified multiple times. Example: `--lynis-
+                        option=--no-plugins`
   --lynis-profile LYNIS_PROFILE
-                        Profile file to use for the audit (lynis `--profile`).
-                        The path is resolved on the target host. If not
-                        specified, lynis uses the bundled default profile.
+                        Additional profile file for the audit (lynis
+                        `--profile`), read on top of lynis' own `default.prf`
+                        and `custom.prf`. On the local host the file and every
+                        directory above it must be writable by root only. In
+                        the network scan the path is resolved on the target
+                        host. If not specified, lynis uses only its own
+                        profiles.
   --lynis-skip-test LYNIS_SKIP_TEST
-                        Lynis test ID to skip on every target (injected as
-                        `skip-test` into the pushed profile), for fleet-wide
-                        exceptions controlled from the monitoring
+                        Lynis test ID to skip (passed to lynis as `skip-
+                        test`), for exceptions controlled from the monitoring
                         configuration. Can be specified multiple times. Host-
-                        specific exceptions belong in the target's own
+                        specific exceptions belong in the host's own
                         `/etc/lynis/custom.prf` instead. Example: `--lynis-
                         skip-test=MAIL-8818`
   --lynis-source LYNIS_SOURCE
-                        Path to a self-contained lynis directory (the
-                        directory that contains the `lynis` executable next to
-                        its `include`, `db` and `plugins` subdirectories).
-                        This is the copy that gets pushed to and run on every
-                        target host. If not specified, a self-contained copy
-                        is assembled from the local lynis installation.
+                        Network scan only. Path to a self-contained lynis
+                        directory (the directory that contains the `lynis`
+                        executable next to its `include`, `db` and `plugins`
+                        subdirectories). This is the copy that gets pushed to
+                        and run on every target host. If not specified, a
+                        self-contained copy is assembled from the local lynis
+                        installation.
   --lynis-test LYNIS_TEST
                         Only run these lynis tests (lynis `--tests`). Can be
                         specified multiple times. If not specified, all tests
                         are run. Example: `--lynis-test=SSH-7408 --lynis-
                         test=KRNL-5820`
   --lynis-test-category LYNIS_TEST_CATEGORY
-                        Only run lynis tests of these categories (lynis
-                        `--tests-from-category`). Can be specified multiple
-                        times. If not specified, all categories are run.
-                        Example: `--lynis-test-category=security`
+                        Only run lynis tests of this category (lynis `--tests-
+                        from-category`). lynis runs one category at a time. If
+                        not specified, all categories are run. Example:
+                        `--lynis-test-category=security`
   --lynis-test-group LYNIS_TEST_GROUP
                         Only run lynis tests of these groups (lynis `--tests-
                         from-group`). Can be specified multiple times. If not
                         specified, all groups are run. Example: `--lynis-test-
                         group=ssh --lynis-test-group=kernel`
   --max-workers MAX_WORKERS
-                        Maximum number of hosts to audit in parallel. Default:
-                        10
-  --network NETWORK     Network in CIDR notation to scan for targets via auto-
-                        discovery. Can be specified multiple times. Takes
-                        precedence over --interface. Example:
-                        `--network=192.0.2.0/24`
+                        Maximum number of hosts to audit in parallel in the
+                        network scan. Default: 10
+  --network NETWORK     Network in CIDR notation whose hosts are audited over
+                        SSH instead of the local host. Can be specified
+                        multiple times. Takes precedence over --interface.
+                        Example: `--network=192.0.2.0/24`
   --no-match-severity {ok,warn,crit,unknown}
                         State to report when no item matches the filters and
                         nothing is checked. Default: warn
@@ -213,81 +224,92 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis/
 
 ## Usage Examples
 
-Audit a single host (using a `~/.ssh/config` alias):
+Audit the local host:
 
 ```bash
-./lynis --host=myhost
+sudo ./lynis
 ```
 
-Audit every reachable host in a subnet, logging in as `linuxfabrik` with an explicit key, 20 hosts at a time:
+```text
+Hardening index 61 [WARNING], 1 finding [WARNING], 29 suggestions
 
-```bash
-./lynis --network=192.0.2.0/24 --username=linuxfabrik --identity=~/.ssh/id_ed25519 --max-workers=20
-```
+Findings:
+* LOGG-2138: klogd is not running, which could lead to missing kernel messages in log files. [WARNING]
 
-Show the per-host details and follow what the plugin is doing:
+Suggestions:
+* ACCT-9622: Enable process accounting.
+* ACCT-9626: Enable sysstat to collect accounting (no results).
+* ACCT-9628: Enable auditd to collect audit information.
+...
+* USB-1000: Disable drivers like USB storage when not used, to prevent unauthorized storage or data theft.
 
-```bash
-./lynis --host=myhost --lengthy --verbose
+To look up an item, run `lynis show details LOGG-2138` on the host. To accept it, add `skip-test=LOGG-2138` to `/etc/lynis/custom.prf`.
 ```
 
 Warn below a hardening index of 70, critical below 50:
 
 ```bash
-./lynis --host=myhost --warning=70: --critical=50:
+sudo ./lynis --warning=70: --critical=50:
 ```
 
-Accept a finding on every target (fleet-wide), controlled from the monitoring configuration:
+Accept a finding on every host, controlled from the monitoring configuration:
 
 ```bash
-./lynis --network=192.0.2.0/24 --lynis-skip-test=MAIL-8818
+sudo ./lynis --lynis-skip-test=MAIL-8818
 ```
 
-Output of a subnet scan (without `--lengthy` parameter):
+Audit every reachable host in a subnet from a management host, as an unprivileged user, logging in as `linuxfabrik` with an explicit key, 20 hosts at a time:
+
+```bash
+./lynis --network=192.0.2.0/24 --username=linuxfabrik --identity=~/.ssh/id_ed25519 --max-workers=20
+```
 
 ```text
 16/16 hosts audited (254 addresses probed)
 
 Not reachable over SSH: 238 x Connection timed out
-
-Host:Report                            ! Warn ! HIdx ! State
----------------------------------------+------+------+----------
-app01:/var/log/lynis-report.dat        ! 0    ! 71   !
-app02:/var/log/lynis-report.dat        ! 0    ! 72   !
-proxy01:/var/log/lynis-report.dat      ! 0    ! 73   !
-mon01:/var/log/lynis-report.dat        ! 2    ! 70   ! [WARNING]
-mariadb01:/var/log/lynis-report.dat    ! 0    ! 71   !
-postgresql01:/var/log/lynis-report.dat ! 0    ! 71   !
-redis01:/var/log/lynis-report.dat      ! 0    ! 71   !
-web01:/var/log/lynis-report.dat        ! 0    ! 71   !
-matomo01:/var/log/lynis-report.dat     ! 0    ! 72   !
-deploy01:/var/log/lynis-report.dat     ! 0    ! 71   !
-web02:/var/log/lynis-report.dat        ! 0    ! 71   !
-cache01:/var/log/lynis-report.dat      ! 2    ! 70   ! [WARNING]
-vault01:/var/log/lynis-report.dat      ! 2    ! 70   ! [WARNING]
-backup01:/var/log/lynis-report.dat     ! 0    ! 73   !
-dns01:/var/log/lynis-report.dat        ! 0    ! 73   !
-mail01:/var/log/lynis-report.dat       ! 0    ! 72   !
+...
 ```
 
-A full audit takes roughly one minute per host (measured on Rocky Linux 9). Because hosts are audited in parallel (`--max-workers`, default 10), wall-clock time for a subnet is far lower: the scan above audited 16 reachable hosts out of a /24 in about 3 minutes.
-
-A scan that reached nothing, with the reason the addresses gave:
+For each host, the table shows its IP address, the number of warnings and suggestions and the hardening index. The findings and suggestions follow, each with the host it was found on (here the output for a single host, `--host=myhost`):
 
 ```text
-0/0 hosts audited (254 addresses probed)
+1/1 host audited (1 address probed)
 
-Not reachable over SSH: 254 x Connection timed out
+Host:Report                      ! IP         ! Warn ! Sugg ! HIdx ! State
+---------------------------------+------------+------+------+------+----------
+myhost:/var/log/lynis-report.dat ! 192.0.2.27 ! 1    ! 3    ! 68   ! [WARNING]
+
+Findings:
+* myhost: MAIL-8818: Found some information disclosure in SMTP banner (OS or software name). [WARNING]
+
+Suggestions:
+* myhost: AUTH-9230: Configure password hashing rounds in /etc/login.defs.
+* myhost: BOOT-5264: Consider hardening system services. Run '/usr/bin/systemd-analyze security SERVICE' for each service.
+* myhost: KRNL-5820: If not required, consider explicit disabling of core dump.
+
+To look up an item, run `lynis show details MAIL-8818` on the host. To accept it, add `skip-test=MAIL-8818` to `/etc/lynis/custom.prf`.
+```
+
+A full audit takes roughly one to two minutes per host. Because the network scan audits hosts in parallel (`--max-workers`, default 10), the scan above audited 16 reachable hosts out of a /24 in about 3 minutes.
+
+Audit a single host over SSH (using a `~/.ssh/config` alias), and follow what the plugin is doing:
+
+```bash
+./lynis --host=myhost --verbose
 ```
 
 
 ## States
 
-* OK if the hardening index is within the `--warning` / `--critical` range and the host reports no lynis warnings.
-* WARN if the hardening index drops below `--warning` (default: 65), or the host reports at least one lynis warning.
-* WARN if not a single host was audited, so that a scan which checked nothing is not reported as a clean result. The reasons the addresses gave are listed with the summary. Use `--no-match-severity` to report OK, CRITICAL or UNKNOWN instead.
+* OK if the hardening index is within the `--warning` / `--critical` range and lynis reports no warning.
+* WARN if the hardening index drops below `--warning` (default: 65), or lynis reports at least one warning.
+* WARN if `lynis` is not installed on a host that runs the local audit, because the host is then not being audited.
+* WARN if the local audit does not finish within `--audit-timeout`.
+* WARN if the network scan did not audit a single host, so that a scan which checked nothing is not reported as a clean result. The reasons the addresses gave are listed with the summary. Use `--no-match-severity` to report OK, CRITICAL or UNKNOWN instead.
 * CRIT if the hardening index drops below `--critical` (empty by default, so CRIT is never raised unless a threshold is set).
-* UNKNOWN for a reachable host that could not be audited (SSH authentication failed, no executable work directory, audit produced no report, ...).
+* UNKNOWN if the local audit runs without root, another lynis audit is running, a parameter is refused, or lynis wrote no report.
+* UNKNOWN for a reachable host in the network scan that could not be audited (SSH authentication failed, no executable work directory, audit produced no report, ...), and if the network scan is started as root.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -295,19 +317,48 @@ Not reachable over SSH: 254 x Connection timed out
 
 | Name | Type | Description |
 |----|----|----|
-| hosts_total | Number | Number of addresses probed. |
-| hosts_reachable | Number | Number of addresses that answered on SSH. |
-| hosts_audited | Number | Number of hosts that were successfully audited. |
-| warnings | Number | Total number of lynis warnings across all audited hosts. |
-| suggestions | Number | Total number of lynis suggestions across all audited hosts. |
+| findings | Number | Number of findings (lynis warnings), across all audited hosts in the network scan. |
+| hardening_index | Number | Hardening index of the local host (0-100). Local audit only. |
+| hosts_audited | Number | Number of hosts that were successfully audited. Network scan only. |
+| hosts_reachable | Number | Number of addresses that answered on SSH. Network scan only. |
+| hosts_total | Number | Number of addresses probed. Network scan only. |
+| suggestions | Number | Number of lynis suggestions, across all audited hosts in the network scan. |
 
 
 ## Lynis Profiles
 
-Lynis reads its settings from profile files. `default.prf` is the default profile and ships with lynis; it defines which tests run, their thresholds, and which tests to skip. `custom.prf` is the place for site-specific overrides and survives package upgrades. Lynis discovers both automatically (searching `/etc/lynis` and the current directory) and merges them, so you do not need to edit `default.prf`. Use `--lynis-profile` to point at a specific profile file on the target instead.
+Lynis reads its settings from profile files. `default.prf` is the default profile and ships with lynis; it defines which tests run, their thresholds, and which tests to skip. `custom.prf` is the place for site-specific overrides and survives package upgrades. Lynis discovers both automatically in `/etc/lynis` and merges them, so you do not need to edit `default.prf`. `--lynis-profile` adds one more profile on top of these two. On the local host it has to be a `.prf` file that only root can change, because a profile can tell lynis where to load its plugins from, and lynis runs them as root.
 
 
 ## Troubleshooting
+
+### `The local lynis audit needs root.`
+
+The check runs the audit on the host itself, which needs root. Call it via `sudo`, as the `Lynis Service Set` and the `tpl-service-lynis-sudo` template in the Icinga Director do, and deploy the sudoers file from `assets/sudoers`. To audit other hosts instead, pass `--host`, `--network` or `--interface`.
+
+### `The command-line tool "lynis" was not found`
+
+lynis is not installed, or not where the check looks for it: in the `PATH` and in `/usr/local/lynis`. Install the `lynis` package (from EPEL on the RHEL family, from the distribution on Debian and Ubuntu) or put the upstream tree into `/usr/local/lynis`. A lynis installed somewhere else is not found when the check runs via `sudo`, because `sudo` replaces the `PATH` with its own `secure_path`.
+
+### `Another lynis audit is running`
+
+A lynis audit started elsewhere, a lynis cron job for example, is still running. lynis refuses to run twice at the same time, so this run did not start; the next check run tries again. If this shows up every day, move the cron job or the check to another time of day.
+
+### `lynis did not finish within`
+
+The local audit took longer than `--audit-timeout` and was stopped. Raise `--audit-timeout`, and keep it below the timeout of the check command. The next run removes the PID file the stopped audit left behind.
+
+### `The network scan does not run as root`
+
+The network scan was started as root, most likely via `sudo` or with the `-sudo` Director template. Its SSH parameters (`--configfile`, `--identity`, `--ssh-option`) would hand root to whoever may run the check, so it refuses. Run it as the unprivileged account of the monitoring agent, with the plain `tpl-service-lynis` template.
+
+### `--lynis-profile has to name an existing .prf file`
+
+On the local host lynis runs as root, and a profile can tell it where to load plugins from. The profile, and every directory above it, therefore has to be changeable by root only, and it has to be a `.prf` file. Put it under `/etc/lynis` (owned by root, mode `0644`) or use the host's `/etc/lynis/custom.prf`, which lynis reads anyway.
+
+### `--lynis-option ... is not accepted on the local host`
+
+On the local host only options that change the output or skip work are passed to lynis. Options that make lynis load, run or write files elsewhere (`--plugin-dir`, `--bindirs`, `--logfile`, `--report-file`, `--rootdir`, `--usecwd`, `--upload`) are refused, and the ones with a dedicated parameter here (`--profile`, `--tests`, `--tests-from-group`, `--tests-from-category`, `--auditor`) are used through that parameter.
 
 ### The scan audited no host
 
@@ -331,7 +382,7 @@ Every candidate partition on the target is mounted `noexec`, so the pushed `lyni
 
 ### `audit produced no report`
 
-The remote audit ran but lynis wrote no report. The plugin appends the underlying lynis error to this message, so read it first. Common causes are a target that asks for a password on `sudo` (the audit needs password-less `sudo`), or a tool that lynis depends on being absent from a stripped-down host (for example `awk`). Grant password-less `sudo` or install the missing tool, then re-run.
+The audit ran but lynis wrote no report. The plugin appends the underlying lynis error to this message, so read it first. Common causes are a target that asks for a password on `sudo` (the audit needs password-less `sudo`), or a tool that lynis depends on being absent from a stripped-down host (for example `awk`). Grant password-less `sudo` or install the missing tool, then re-run.
 
 ### Accepting a finding you do not want to fix
 
@@ -340,7 +391,7 @@ The plugin never silences individual lynis warnings; every warning raises at lea
 For a single host, add the test ID to the host's `custom.prf`. For example, to accept this warning:
 
 ```text
-warning[]=MAIL-8818|Found some information disclosure in SMTP banner (OS or software name)|-|-|
+* MAIL-8818: Found some information disclosure in SMTP banner (OS or software name). [WARNING]
 ```
 
 Run on the affected host:
@@ -351,10 +402,10 @@ mkdir --parents /etc/lynis && echo 'skip-test=MAIL-8818' >> /etc/lynis/custom.pr
 
 The next audit no longer reports `MAIL-8818`.
 
-Fleet-wide, pass `--lynis-skip-test`, which is injected into the pushed profile on every host and merged with each host's `custom.prf`:
+Fleet-wide, pass `--lynis-skip-test` in the monitoring configuration, for example on the service template. lynis reads it as one more profile, merged with each host's `custom.prf`:
 
 ```bash
-./lynis --network=192.0.2.0/24 --lynis-skip-test=MAIL-8818
+sudo ./lynis --lynis-skip-test=MAIL-8818
 ```
 
 As a best practice, silence recurring, host- or runtime-dependent noise centrally instead of changing host roles. Findings such as `ACCT-9622` / `ACCT-9626` (process accounting / `sysstat` not installed), `HRDN-7222` (a compiler is present), `FIRE-4513` (iptables has no rules), `LOGG-2190` (deleted files still in use), `BOOT-5264` and `AUTH-9282` / `AUTH-9284` (password aging) are often not worth a configuration change just to satisfy the audit. Rather than installing packages, rebuilding firewall rules or reworking roles only to lift the index, decide once which of these your organisation accepts and skip them fleet-wide with `--lynis-skip-test` (or a shared `custom.prf`). Keep `skip-test` for consciously accepted findings; fix the rest.

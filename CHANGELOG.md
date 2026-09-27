@@ -22,8 +22,22 @@ Assets:
 
 Monitoring Plugins:
 
+* about-me: always proposes the `lynis` tag, like `scanrootkit`
+* lynis: audits the local host by default and always lists all findings (`--lengthy` is ignored); the network scan needs `--host`, `--network` or `--interface`
 * scanrootkit: detects 23 more rootkits and implants, also by their sockets and named pipes, and no longer raises a false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run and names its cause in words, works on non-English Windows, `--status` replaces the default list
+
+Icinga Director:
+
+* Lynis Service Set: audits every tagged host locally via sudo, once a day and without retries
+
+Grafana:
+
+* lynis: re-import the dashboard, the `warnings` metric is now `findings` and the hardening index has its own panel
+
+Assets:
+
+* sudoers: allow the `lynis` check
 
 ### Fixed
 
@@ -35,6 +49,7 @@ Monitoring Plugins:
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * journald-query, journald-usage: name missing rights to read the journal instead of printing the raw journalctl error
 * logfile: reads logfiles on Windows again
+* lynis: more than one `--lynis-test` or `--lynis-test-group` no longer breaks the audit
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error
 * ntp-w32tm: evaluates German output instead of always reporting OK, warns when the Windows Time service is not running, no longer hangs

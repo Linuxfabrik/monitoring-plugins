@@ -37,9 +37,6 @@
                 "--ipv6": {
                     "set_if": "$lynis_ipv6$"
                 },
-                "--lengthy": {
-                    "set_if": "$lynis_lengthy$"
-                },
                 "--lynis-auditor": {
                     "value": "$lynis_lynis_auditor$"
                 },
@@ -257,11 +254,6 @@
                     "datafield_id": 30,
                     "is_required": "n",
                     "var_filter": null
-                },
-                {
-                    "datafield_id": 31,
-                    "is_required": "n",
-                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -273,6 +265,23 @@
             "vars": {},
             "zone": null,
             "uuid": "0658c041-f14a-495b-8103-181dadd9e52d"
+        },
+        "cmd-check-lynis-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lynis",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-lynis"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-lynis-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "ad7dc2f1-a341-4334-b038-fa45d00fc5f9"
         }
     },
     "ServiceTemplate": {
@@ -304,12 +313,12 @@
             "imports": [
                 "tpl-service-generic"
             ],
-            "max_check_attempts": 5,
-            "notes": "Runs a full security audit across the hosts of a subnet and reports each host's hardening posture. From a single management host it discovers the targets (the subnet of the default interface, a chosen interface, or an explicit host list), connects to each one over SSH, copies a self-contained copy of the audit tool over, runs a privileged system audit (root via password-less sudo by default), retrieves the machine-readable report, and removes its temporary files. A host that does not answer within the connect timeout is skipped, and the summary keeps the addresses probed apart from the hosts that answered. The check is meant to run at most once per day; the worst per-host result determines the overall state. Alerts when a host is below the hardening index threshold or reports a lynis warning, and when the scan audited no host at all, naming why the targets did not answer. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Supports extended reporting via --lengthy.",
+            "max_check_attempts": 1,
+            "notes": "Runs a lynis security audit on the local host and reports its hardening index, its findings (the lynis warnings) and the hardening suggestions of lynis. Alerts when the hardening index is below the threshold or lynis reports a finding. Alternatively audits the hosts of a subnet or a host list from a single management host (--host, --network, --interface): it connects to each target over SSH, copies a self-contained copy of lynis over, runs the audit there via password-less sudo, retrieves the report and removes its temporary files. The worst per-host result then determines the overall state, and the check also alerts when the scan audited no host at all, naming why the targets did not answer. The network scan runs as an unprivileged user and refuses to run as root. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. The check is meant to run at most once per day. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis/",
             "object_name": "tpl-service-lynis",
             "object_type": "template",
-            "retry_interval": 15,
+            "retry_interval": 3600,
             "service_set": null,
             "template_choice": null,
             "use_agent": null,
@@ -325,7 +334,6 @@
                 "lynis_identity": [],
                 "lynis_ipv4": false,
                 "lynis_ipv6": false,
-                "lynis_lengthy": true,
                 "lynis_lynis_option": [],
                 "lynis_lynis_skip_test": [],
                 "lynis_lynis_test": [],
@@ -344,6 +352,51 @@
             "volatile": null,
             "zone": null,
             "uuid": "5dff85a4-d547-4bdf-ab99-0f102d0168e7"
+        },
+        "tpl-service-lynis-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lynis-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-lynis"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-lynis-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "c8481530-bab0-4c23-9fca-020129423722"
         }
     },
     "DataList": {
@@ -392,7 +445,7 @@
         "2": {
             "varname": "lynis_audit_timeout",
             "caption": "Lynis: Audit Timeout",
-            "description": "Seconds to wait for the remote audit of a single host to finish.",
+            "description": "Seconds to wait for the audit of a single host to finish.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -445,7 +498,7 @@
         "7": {
             "varname": "lynis_host",
             "caption": "Lynis: Host",
-            "description": "Target host to audit. Overrides subnet auto-discovery. Can be specified multiple times. If not specified, the subnet of the default interface is scanned.",
+            "description": "Target host to audit over SSH instead of the local host. Can be specified multiple times. Takes precedence over --network and --interface. If none of the three is specified, the local host is audited.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -467,7 +520,7 @@
         "9": {
             "varname": "lynis_interface",
             "caption": "Lynis: Interface",
-            "description": "Network interface whose subnet is scanned. Ignored when --host is given. If not specified, the default interface (the one carrying the default route) is used.",
+            "description": "Network interface whose subnet is scanned over SSH instead of auditing the local host. Ignored when --host or --network is given. Example: `--interface=eth0`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -494,15 +547,6 @@
             "uuid": "7d608326-47ee-4c4b-a70a-cb5b57739c44"
         },
         "12": {
-            "varname": "lynis_lengthy",
-            "caption": "Lynis: Lengthy?",
-            "description": "Extended reporting.",
-            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
-            "format": null,
-            "settings": {},
-            "uuid": "21600611-4b0e-4a02-9a7b-ff7beb057109"
-        },
-        "13": {
             "varname": "lynis_lynis_auditor",
             "caption": "Lynis: Lynis Auditor",
             "description": "Name of the auditor to record in the report (lynis `--auditor`). If not specified, lynis uses its own default.",
@@ -513,10 +557,10 @@
             },
             "uuid": "06604f2e-31d5-41d1-88af-f9ec64a742fd"
         },
-        "14": {
+        "13": {
             "varname": "lynis_lynis_option",
             "caption": "Lynis: Lynis Option",
-            "description": "Additional raw option to pass to the remote `lynis audit system` call, for options that have no dedicated parameter here. Can be specified multiple times. Example: `--lynis-option=--no-plugins`",
+            "description": "Additional raw option to pass to `lynis audit system`, for options that have no dedicated parameter here. On the local host lynis runs as root, so only these options are accepted there: `--debug`, `--developer`, `--devops`, `--no-log`, `--no-plugins`, `--pentest`, `--quiet`, `--verbose`, `--warnings-only`. Can be specified multiple times. Example: `--lynis-option=--no-plugins`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -524,10 +568,10 @@
             },
             "uuid": "14b64c46-2678-4031-b35b-cd2977698025"
         },
-        "15": {
+        "14": {
             "varname": "lynis_lynis_profile",
             "caption": "Lynis: Lynis Profile",
-            "description": "Profile file to use for the audit (lynis `--profile`). The path is resolved on the target host. If not specified, lynis uses the bundled default profile.",
+            "description": "Additional profile file for the audit (lynis `--profile`), read on top of lynis' own `default.prf` and `custom.prf`. On the local host the file and every directory above it must be writable by root only. In the network scan the path is resolved on the target host. If not specified, lynis uses only its own profiles.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -535,10 +579,10 @@
             },
             "uuid": "95822760-504d-4739-8836-e02d295c3a3e"
         },
-        "16": {
+        "15": {
             "varname": "lynis_lynis_skip_test",
             "caption": "Lynis: Lynis Skip Test",
-            "description": "Lynis test ID to skip on every target (injected as `skip-test` into the pushed profile), for fleet-wide exceptions controlled from the monitoring configuration. Can be specified multiple times. Host-specific exceptions belong in the target's own `/etc/lynis/custom.prf` instead. Example: `--lynis-skip-test=MAIL-8818`",
+            "description": "Lynis test ID to skip (passed to lynis as `skip-test`), for exceptions controlled from the monitoring configuration. Can be specified multiple times. Host-specific exceptions belong in the host's own `/etc/lynis/custom.prf` instead. Example: `--lynis-skip-test=MAIL-8818`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -546,10 +590,10 @@
             },
             "uuid": "12babf81-1627-4635-a81f-c49bd5a9769c"
         },
-        "17": {
+        "16": {
             "varname": "lynis_lynis_source",
             "caption": "Lynis: Lynis Source",
-            "description": "Path to a self-contained lynis directory (the directory that contains the `lynis` executable next to its `include`, `db` and `plugins` subdirectories). This is the copy that gets pushed to and run on every target host. If not specified, a self-contained copy is assembled from the local lynis installation.",
+            "description": "Network scan only. Path to a self-contained lynis directory (the directory that contains the `lynis` executable next to its `include`, `db` and `plugins` subdirectories). This is the copy that gets pushed to and run on every target host. If not specified, a self-contained copy is assembled from the local lynis installation.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -557,7 +601,7 @@
             },
             "uuid": "8e4807b1-5468-4bf5-8c47-9cb830689878"
         },
-        "18": {
+        "17": {
             "varname": "lynis_lynis_test",
             "caption": "Lynis: Lynis Test",
             "description": "Only run these lynis tests (lynis `--tests`). Can be specified multiple times. If not specified, all tests are run. Example: `--lynis-test=SSH-7408 --lynis-test=KRNL-5820`",
@@ -568,10 +612,10 @@
             },
             "uuid": "82462008-d8a3-40e7-9a6e-e68db08fbab9"
         },
-        "19": {
+        "18": {
             "varname": "lynis_lynis_test_category",
             "caption": "Lynis: Lynis Test Category",
-            "description": "Only run lynis tests of these categories (lynis `--tests-from-category`). Can be specified multiple times. If not specified, all categories are run. Example: `--lynis-test-category=security`",
+            "description": "Only run lynis tests of this category (lynis `--tests-from-category`). lynis runs one category at a time. If not specified, all categories are run. Example: `--lynis-test-category=security`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -579,7 +623,7 @@
             },
             "uuid": "35d5eb83-f6b1-43b4-b9d0-1a04b078a362"
         },
-        "20": {
+        "19": {
             "varname": "lynis_lynis_test_group",
             "caption": "Lynis: Lynis Test Group",
             "description": "Only run lynis tests of these groups (lynis `--tests-from-group`). Can be specified multiple times. If not specified, all groups are run. Example: `--lynis-test-group=ssh --lynis-test-group=kernel`",
@@ -590,10 +634,10 @@
             },
             "uuid": "51cd49ab-b86a-4bf3-9c34-fac60a38fe01"
         },
-        "21": {
+        "20": {
             "varname": "lynis_max_workers",
             "caption": "Lynis: Max Workers",
-            "description": "Maximum number of hosts to audit in parallel.",
+            "description": "Maximum number of hosts to audit in parallel in the network scan.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -601,10 +645,10 @@
             },
             "uuid": "27c5404a-cf4e-4a93-9b8f-d66498581f2e"
         },
-        "22": {
+        "21": {
             "varname": "lynis_network",
             "caption": "Lynis: Network",
-            "description": "Network in CIDR notation to scan for targets via auto-discovery. Can be specified multiple times. Takes precedence over --interface. Example: `--network=192.0.2.0/24`",
+            "description": "Network in CIDR notation whose hosts are audited over SSH instead of the local host. Can be specified multiple times. Takes precedence over --interface. Example: `--network=192.0.2.0/24`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -612,7 +656,7 @@
             },
             "uuid": "fae8b947-8786-4124-92d8-c92495550bc5"
         },
-        "23": {
+        "22": {
             "varname": "lynis_no_match_severity",
             "caption": "Lynis: No Match Severity",
             "description": "State to report when no item matches the filters and nothing is checked.",
@@ -625,7 +669,7 @@
             },
             "uuid": "0b86e91f-3148-466e-a940-22c2390dd86c"
         },
-        "24": {
+        "23": {
             "varname": "lynis_no_perfdata",
             "caption": "Lynis: No Perfdata?",
             "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
@@ -634,7 +678,7 @@
             "settings": {},
             "uuid": "00b6b1d1-a213-48cd-b544-7da050655147"
         },
-        "25": {
+        "24": {
             "varname": "lynis_password",
             "caption": "Lynis: Password",
             "description": "SSH: Password authentication. NOT RECOMMENDED. Requires `sshpass`. If you need to use password-based SSH login, run this plugin only on trusted hosts. `ps` will expose the SSH password.",
@@ -645,7 +689,7 @@
             },
             "uuid": "8fbbb1e1-54e8-49dc-994f-7c7f7b816639"
         },
-        "26": {
+        "25": {
             "varname": "lynis_port",
             "caption": "Lynis: Port",
             "description": "SSH: Port to connect to on the remote host. This can be specified on a per-host basis in the configuration file.",
@@ -656,7 +700,7 @@
             },
             "uuid": "1ec01918-ad5f-4b85-848b-fd84fc9d98fc"
         },
-        "27": {
+        "26": {
             "varname": "lynis_quiet",
             "caption": "Lynis: Quiet?",
             "description": "SSH: Quiet mode. Causes most warning and diagnostic messages to be suppressed.",
@@ -665,7 +709,7 @@
             "settings": {},
             "uuid": "b3d140d6-940c-4118-8a7b-c5f5c9ef1481"
         },
-        "28": {
+        "27": {
             "varname": "lynis_ssh_option",
             "caption": "Lynis: SSH Option",
             "description": "SSH: Can be used to give options in the format used in the configuration file. This is useful for specifying options for which there is no separate command-line flag. For full details of the options, and their possible values, see ssh_config(5). Can be specified multiple times.",
@@ -676,7 +720,7 @@
             },
             "uuid": "76b872f4-e4dd-4905-83f7-9bfbb4ea46ce"
         },
-        "29": {
+        "28": {
             "varname": "lynis_username",
             "caption": "Lynis: Username",
             "description": "SSH: Username. If not specified, ssh determines the user from `~/.ssh/config` or falls back to the current local user.",
@@ -687,7 +731,7 @@
             },
             "uuid": "df220ea1-3745-482f-8afd-4929fd491ccb"
         },
-        "30": {
+        "29": {
             "varname": "lynis_verbose",
             "caption": "Lynis: Verbose?",
             "description": "Makes this plugin verbose during the operation. Useful for debugging and seeing what is going on under the hood.",
@@ -696,7 +740,7 @@
             "settings": {},
             "uuid": "ae9b931d-be94-468b-9d4a-fe25b4066a35"
         },
-        "31": {
+        "30": {
             "varname": "lynis_warning",
             "caption": "Lynis: Warning",
             "description": "WARN threshold for the per-host hardening index (0-100). Supports Nagios ranges. The default alerts when the index drops below 65.",

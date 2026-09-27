@@ -1,5 +1,18 @@
+---
+# linux: the network scan, run as an unprivileged user from a management host.
+# sudo: the local audit, which needs root.
+variants:
+  - linux
+  - sudo
+
 overwrites:
+  # A network scan audits many hosts, one to two minutes each. The local audit ends
+  # much earlier on its own, at --audit-timeout.
   '["Command"]["cmd-check-lynis"]["timeout"]': '3600'
   '["ServiceTemplate"]["tpl-service-lynis"]["check_interval"]': '86400'
   '["ServiceTemplate"]["tpl-service-lynis"]["enable_perfdata"]': true
-  '["ServiceTemplate"]["tpl-service-lynis"]["vars"]["lynis_lengthy"]': true
+  # An audit runs for minutes and its findings do not change between two runs, so
+  # retrying a soft problem would only repeat the same audit. The first result is the
+  # final one.
+  '["ServiceTemplate"]["tpl-service-lynis"]["max_check_attempts"]': 1
+  '["ServiceTemplate"]["tpl-service-lynis"]["retry_interval"]': 3600
