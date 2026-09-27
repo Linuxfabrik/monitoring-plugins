@@ -609,6 +609,33 @@ class TestSecurity(unittest.TestCase):
         )
         return result.returncode, result.stdout.replace(path, '<path>')
 
+    def test_symlinked_store_certificate_is_read_as_missing(self):
+        # acme.sh never writes a store file as a symlink; one there is refused and
+        # answers like a store without a certificate, even when it points into the
+        # store itself.
+        results = []
+        for symlinked in (False, True):
+            base = tempfile.mkdtemp(prefix='lfmp-acmesh-status-')
+            try:
+                _build(
+                    {
+                        'build': lambda root, symlinked=symlinked: _add_store(
+                            root, 'www.example.com', with_cert=symlinked
+                        )
+                    },
+                    base,
+                )
+                if symlinked:
+                    cer = os.path.join(
+                        base, 'certs', 'www.example.com_ecc', 'www.example.com.cer'
+                    )
+                    os.rename(cer, f'{cer}.real')
+                    os.symlink(f'{cer}.real', cer)
+                results.append(self.run_check(base))
+            finally:
+                shutil.rmtree(base, ignore_errors=True)
+        self.assertEqual(results[0], results[1])
+
     def test_install_path_from_a_changeable_config_is_not_probed(self):
         # A configuration anybody can change must not make this root check look
         # at a path of their choosing: an existing file and a missing one have to

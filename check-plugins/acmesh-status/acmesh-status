@@ -32,7 +32,7 @@ except ImportError:
     sys.exit(STATE_UNKNOWN)
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026092701'
 
 DESCRIPTION = """Reports the state of the certificates acme.sh manages, by reading its
 certificate store instead of its output. For every certificate it reports the time left
@@ -332,15 +332,21 @@ def collect_stores(cert_home):
     return (True, stores)
 
 
-def read_cert(filename, root):
+def read_cert(filename, root, nofollow=True):
     """Read a certificate file as root, or return None.
 
     Only a regular file is read, and only if it lies inside `root`: a FIFO would block
-    the check and a device can have side effects. A missing and a refused file answer
+    the check and a device can have side effects. acme.sh writes the files of a
+    store itself, never as a symlink, so a symlink there is refused; the installed
+    copy a trusted configuration names may be one. A missing and a refused file answer
     alike.
     """
     success, raw = lib.disk.read_file(
-        filename, binary=True, allowed_roots=[root], max_bytes=1024 * 1024
+        filename,
+        binary=True,
+        allowed_roots=[root],
+        max_bytes=1024 * 1024,
+        nofollow=nofollow,
     )
     return raw if success else None
 
@@ -368,9 +374,9 @@ def read_cert_dates(filename, root):
         return (None, None)
 
 
-def read_cert_serial(filename, root):
+def read_cert_serial(filename, root, nofollow=True):
     """Return the serial number of a PEM certificate file, or None."""
-    raw = read_cert(filename, root)
+    raw = read_cert(filename, root, nofollow=nofollow)
     if raw is None:
         return None
     try:
@@ -614,7 +620,7 @@ def evaluate_store(store, args, now):
         if real_cert and lib.disk.file_exists(real_cert):
             store_serial = read_cert_serial(cert_file, store['directory'])
             stale = store_serial is not None and store_serial == read_cert_serial(
-                real_cert, os.sep
+                real_cert, os.sep, nofollow=False
             )
         if not stale:
             return (None, STATE_OK, [])
