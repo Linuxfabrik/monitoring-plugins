@@ -43,6 +43,7 @@ applies to all of them:
 | `rhel-version` | [rhel](https://endoflife.date/rhel) |
 | `rocketchat-version` | [rocket-chat](https://endoflife.date/rocket-chat) |
 | `valkey-version` | [valkey](https://endoflife.date/valkey) |
+| `windows-version` | [windows](https://endoflife.date/windows), [windows-server](https://endoflife.date/windows-server) |
 | `wordpress-version` | [wordpress](https://endoflife.date/wordpress) |
 
 
@@ -73,6 +74,11 @@ A release that endoflife.date has not catalogued yet is the normal state of
 affairs for a host that updates promptly, and no administrator can act on it,
 so it does not alert. A release below the oldest cycle upstream still records
 is out of support for certain, even without a date saying so.
+
+`windows-version` is the exception: endoflife.date names the Windows cycles after
+the feature release and the edition ("11 24H2 (E)"), not after a version number,
+so there is no order to place a missing cycle in. It reports `version <build>
+unknown` in that case, and offers none of the `--check-*` parameters below.
 
 On top of the end-of-life verdict, the plugin reports a newer release whenever
 one exists, and alerts on it only when asked:

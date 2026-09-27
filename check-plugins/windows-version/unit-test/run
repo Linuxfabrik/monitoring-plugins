@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for the windows-version check plugin.
+
+The plugin reads the `CurrentVersion` registry key through `reg query` and works out
+which endoflife.date product and cycle the installation belongs to. That mapping is
+what these tests cover: every fixture in `stdout/` is one installation, and the EOL
+date in the output proves which cycle was picked.
+
+`check_eol()` would grade the result against the live endoflife.date API, so the
+cache is seeded with the fixtures in `endoflifedate/` before each case, the way
+`check-plugins/mysql-version/unit-test/run` does. Those are the real `windows.json` and
+`windows-server.json` from `lib/endoflifedate.py`. A case pins its state only where the
+date it hangs on lies in the past and can therefore not flip with the calendar; the
+answer shapes of the API as such are covered in mysql-version.
+
+`stdout/server-2025-standard-eval` is a capture from a Windows Server 2025 host, minus
+the product ID values and most of the subkey list. The other fixtures are derived from
+it by changing only the values the plugin reads (`CurrentBuild`, `DisplayVersion`,
+`EditionID`, `InstallationType`, `ProductName`, `ReleaseId`, `UBR`), set to what the
+respective release and edition report.
+"""
+
+import json
+import os
+import shutil
+import sys
+import tempfile
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.cache
+import lib.lftest
+import lib.time
+from lib.globals import STATE_UNKNOWN, STATE_WARN
+
+TESTS = [
+    # ---- Windows Server ---------------------------------------------------------
+    {
+        'id': 'parses-server-2025-ltsc',
+        'test': 'stdout/server-2025-standard-eval,,0',
+        'assert-in': [
+            'Windows Server 2025 Standard Evaluation, build 26100.1742',
+            'EOL 2034-11-14',
+            "'windows-version'=26100;",
+        ],
+    },
+    {
+        'id': 'parses-server-2022-ltsc',
+        'test': 'stdout/server-2022-datacenter,,0',
+        'assert-in': [
+            'Windows Server 2022 Datacenter, build 20348.3962',
+            'EOL 2031-10-14',
+        ],
+    },
+    {
+        # A Semi-Annual Channel release, no year in the product name.
+        'id': 'warn-server-20h2-sac-core',
+        'test': 'stdout/server-20h2-datacenter-core,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Windows Server Datacenter 20H2',
+            'EOL 2022-08-09 -30d [WARNING]',
+        ],
+    },
+    {
+        # The Annual Channel, the successor of the Semi-Annual Channel.
+        'id': 'warn-server-23h2-ac-core',
+        'test': 'stdout/server-23h2-datacenter-core,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Windows Server Datacenter 23H2',
+            'EOL 2026-05-12 -30d [WARNING]',
+        ],
+    },
+    {
+        'id': 'warn-server-2012-r2',
+        'test': 'stdout/server-2012-r2-standard,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Windows Server 2012 R2 Standard, build 9600.24454',
+            'full support ended on 2018-10-09',
+            'EOL 2023-10-10 -30d [WARNING]',
+        ],
+    },
+    {
+        'id': 'parses-server-2012-r2-esu',
+        'test': 'stdout/server-2012-r2-standard,,0',
+        'params': '--extended-support',
+        'assert-in': ['EOL 2026-10-13'],
+    },
+    # ---- Windows 11 -------------------------------------------------------------
+    {
+        # ProductName says "Windows 10" on every Windows 11.
+        'id': 'parses-windows-11-24h2-pro',
+        'test': 'stdout/windows-11-24h2-pro,,0',
+        'assert-in': ['Windows 11 Pro 24H2, build 26100.6700', 'EOL 2026-10-13'],
+        'assert-not-in': ['Windows 10', 'unknown edition'],
+    },
+    {
+        'id': 'parses-windows-11-24h2-enterprise',
+        'test': 'stdout/windows-11-24h2-enterprise,,0',
+        'assert-in': ['Windows 11 Enterprise 24H2', 'EOL 2027-10-12'],
+    },
+    {
+        'id': 'parses-windows-11-24h2-enterprise-ltsc',
+        'test': 'stdout/windows-11-24h2-enterprise-ltsc,,0',
+        'assert-in': ['Windows 11 Enterprise LTSC 2024 24H2', 'EOL 2029-10-09'],
+    },
+    {
+        'id': 'parses-windows-11-24h2-iot-enterprise-ltsc',
+        'test': 'stdout/windows-11-24h2-iot-enterprise-ltsc,,0',
+        'assert-in': ['Windows 11 IoT Enterprise LTSC 2024 24H2', 'EOL 2034-10-10'],
+    },
+    {
+        # An edition without a cycle family falls back to the shorter Home and Pro
+        # lifecycle and says so.
+        'id': 'parses-windows-11-unknown-edition',
+        'test': 'stdout/windows-11-24h2-team,,0',
+        'assert-in': [
+            'EOL 2026-10-13',
+            'unknown edition PPIPro, assuming the Home and Pro lifecycle',
+        ],
+    },
+    # ---- Windows 10 -------------------------------------------------------------
+    {
+        # 22H2 has one cycle for all editions, without a suffix.
+        'id': 'warn-windows-10-22h2-pro',
+        'test': 'stdout/windows-10-22h2-pro,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Windows 10 Pro 22H2, build 19045.6128', 'EOL 2025-10-14 -30d'],
+    },
+    {
+        'id': 'parses-windows-10-22h2-esu',
+        'test': 'stdout/windows-10-22h2-pro,,0',
+        'params': '--extended-support',
+        'assert-in': ['EOL 2028-10-10'],
+    },
+    {
+        # Before 20H2 there is no DisplayVersion, the ReleaseId names the release.
+        'id': 'warn-windows-10-1809-pro',
+        'test': 'stdout/windows-10-1809-pro,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Windows 10 Pro 1809, build 17763.1721', 'EOL 2020-11-10'],
+    },
+    {
+        # endoflife.date lists no IoT cycle for 1809, the Enterprise LTSC one applies.
+        'id': 'parses-windows-10-1809-iot-ltsc-falls-back-to-enterprise-ltsc',
+        'test': 'stdout/windows-10-1809-iot-enterprise-ltsc,,0',
+        'assert-in': ['Windows 10 IoT Enterprise LTSC 2019 1809', 'EOL 2029-01-09'],
+    },
+    # ---- Before Windows 10 --------------------------------------------------------
+    {
+        'id': 'warn-windows-8-1',
+        'test': 'stdout/windows-8.1-pro,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Windows 8.1 Pro, build 9600 (', 'EOL 2023-01-10 -30d [WARNING]'],
+    },
+    {
+        # No cycle of its own, older than anything listed.
+        'id': 'warn-windows-7-without-sp1',
+        'test': 'stdout/windows-7-professional-without-sp1,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Windows 7 Professional, build 7600',
+            'older than anything endoflife.date lists [WARNING]',
+        ],
+    },
+    # ---- Errors -------------------------------------------------------------------
+    {
+        'id': 'unknown-no-build-number',
+        'test': 'stdout/no-build-number,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the Windows build number from the registry.'],
+    },
+    {
+        'id': 'unknown-registry-key-not-found',
+        'test': ',stderr/registry-key-not-found,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['unable to find the specified registry key'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../windows-version'
+
+    def setUp(self):
+        # `check_eol()` resolves its cache through `disk.get_tmpdir()`, which honours
+        # TMPDIR. Pointing that at a throwaway directory keeps the seeded answers out
+        # of the shared per-user cache every plugin on this machine reads, and the
+        # environment variable carries into the plugin subprocess.
+        self.tmpdir = tempfile.mkdtemp(prefix='lftest-eol-')
+        self.saved_env = os.environ.get('TMPDIR')
+        self.saved_tempdir = tempfile.tempdir
+        os.environ['TMPDIR'] = self.tmpdir
+        tempfile.tempdir = self.tmpdir
+        for product in ('windows', 'windows-server'):
+            with open(f'endoflifedate/{product}.json', encoding='utf-8') as fd:
+                payload = json.load(fd)
+            ok = lib.cache.set(
+                f'https://endoflife.date/api/{product}.json',
+                json.dumps(payload),
+                expire=lib.time.now() + 3600,
+                filename='linuxfabrik-lib-version.db',
+            )
+            self.assertTrue(ok, f'seeding the EOL cache with {product} failed')
+
+    def tearDown(self):
+        tempfile.tempdir = self.saved_tempdir
+        if self.saved_env is None:
+            os.environ.pop('TMPDIR', None)
+        else:
+            os.environ['TMPDIR'] = self.saved_env
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_seeded_cache_is_isolated(self):
+        # Guards the mechanism itself: if TMPDIR ever stops steering the cache, the
+        # seeded file lands in the shared directory and every case silently starts
+        # grading against live endoflife.date data.
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(
+                    self.tmpdir,
+                    f'linuxfabrik-monitoring-plugins-uid{os.geteuid()}',
+                    'linuxfabrik-lib-version.db',
+                )
+            )
+        )
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.lftest
+import lib.shell
+import lib.version
+from lib.globals import STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026092701'
+
+DESCRIPTION = """Checks the installed Windows or Windows Server version against the
+endoflife.date API and alerts if the version is end-of-life. The lifecycle is chosen by
+the feature release and the edition, because Home and Pro, Enterprise and Education, and
+the Long-Term Servicing Channel go out of support on different dates. By default, alerts
+30 days before the official EOL date. The offset is configurable."""
+
+DEFAULT_INSECURE = False
+DEFAULT_NO_PROXY = False
+DEFAULT_OFFSET_EOL = -30  # days
+DEFAULT_TIMEOUT = 8
+DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+
+# endoflife.date splits the Windows client cycles by edition family and names each
+# family by a suffix: "(E)" covers Enterprise, Education and IoT Enterprise, "(W)" covers
+# Home, Pro, Pro Education and Pro for Workstations, and the Long-Term Servicing Channel
+# has cycles of its own. The EditionIDs are the registry names of the Windows 10 and later
+# client products that Microsoft lists for GetProductInfo(). Deliberately left out, and
+# therefore treated like an unknown edition: IoTUAP and IoTUAPCommercial (IoT Core, not a
+# desktop edition), MobileCore and MobileEnterprise (Windows 10 Mobile), PPIPro (Surface
+# Hub), and every pre-Windows-10 product.
+EDITIONS = {
+    'CloudEdition': 'w',
+    'CloudEditionN': 'w',
+    'Core': 'w',
+    'CoreCountrySpecific': 'w',
+    'CoreN': 'w',
+    'CoreSingleLanguage': 'w',
+    'Education': 'e',
+    'EducationN': 'e',
+    'Enterprise': 'e',
+    'EnterpriseEval': 'e',
+    'EnterpriseG': 'e',
+    'EnterpriseGN': 'e',
+    'EnterpriseN': 'e',
+    'EnterpriseNEval': 'e',
+    'EnterpriseS': 'e-lts',
+    'EnterpriseSEval': 'e-lts',
+    'EnterpriseSN': 'e-lts',
+    'EnterpriseSNEval': 'e-lts',
+    'IoTEnterprise': 'e',
+    'IoTEnterpriseK': 'e',
+    'IoTEnterpriseS': 'iot-lts',
+    'IoTEnterpriseSK': 'iot-lts',
+    'Professional': 'w',
+    'ProfessionalCountrySpecific': 'w',
+    'ProfessionalEducation': 'w',
+    'ProfessionalEducationN': 'w',
+    'ProfessionalN': 'w',
+    'ProfessionalSingleLanguage': 'w',
+    'ProfessionalWorkstation': 'w',
+    'ProfessionalWorkstationN': 'w',
+    'ServerRdsh': 'e',  # Enterprise multi-session, a client despite its name
+}
+
+# The client cycles endoflife.date lists before Windows 10, by build number. Every one
+# of them is past its end of life.
+LEGACY_CYCLES = {
+    2600: '5-sp3',  # XP SP3
+    6002: '6-sp2',  # Vista SP2
+    7601: '7-sp1',
+    9200: '8',
+    9600: '8.1',
+}
+
+# The first build of Windows 10.
+MIN_BUILD_WINDOWS_10 = 10240
+
+# `/reg:64` reads the 64-bit view of the registry even from a 32-bit process, which
+# would otherwise be redirected to the WOW6432Node copy of the key.
+REG_QUERY = [
+    'reg',
+    'query',
+    r'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion',
+    '/reg:64',
+]
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--extended-support',
+        help='Instead of the end of servicing (default), check for the end of the paid '
+        'Extended Security Updates (ESU).',
+        dest='EXTENDED_SUPPORT',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--insecure',
+        help=lib.args.help('--insecure'),
+        dest='INSECURE',
+        action='store_true',
+        default=DEFAULT_INSECURE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--no-proxy',
+        help=lib.args.help('--no-proxy'),
+        dest='NO_PROXY',
+        action='store_true',
+        default=DEFAULT_NO_PROXY,
+    )
+
+    parser.add_argument(
+        '--offset-eol',
+        help=lib.args.help('--offset-eol') + ' Default: %(default)s days',
+        dest='OFFSET_EOL',
+        type=int,
+        default=DEFAULT_OFFSET_EOL,
+    )
+
+    parser.add_argument(
+        '--proxy',
+        help=lib.args.help('--proxy'),
+        dest='PROXY',
+        default=None,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
+        '--unreachable-severity',
+        help=lib.args.help('--unreachable-severity') + ' Default: %(default)s',
+        dest='UNREACHABLE_SEVERITY',
+        choices=['ok', 'warn', 'crit', 'unknown'],
+        default=DEFAULT_UNREACHABLE_SEVERITY,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def get_cycles(values):
+    """Work out which endoflife.date product and cycles apply to this installation.
+
+    Parameters
+    ----------
+    values : dict
+        The values of the `CurrentVersion` registry key, as returned by
+        `parse_reg_query()`.
+
+    Returns
+    -------
+    tuple (str, str, list, str)
+        The endoflife.date product URL, a human readable name of the installation,
+        the candidate cycles from the most to the least specific, and a note for the
+        message (empty unless the edition is unknown).
+    """
+    build = int(values.get('CurrentBuild', '0') or 0)
+    # DisplayVersion ("24H2") exists since 20H2. Before that, ReleaseId ("1809") names the
+    # feature release; from 20H2 on, ReleaseId is frozen at "2009" and must not be used.
+    release = (values.get('DisplayVersion') or values.get('ReleaseId') or '').lower()
+    product_name = values.get('ProductName', 'Windows')
+
+    if 'Server' in values.get('InstallationType', ''):
+        # Covers "Server", "Server Core" and "Nano Server". The Long-Term Servicing
+        # Channel carries its year in the product name ("Windows Server 2022
+        # Datacenter"), the Semi-Annual and Annual Channel releases do not ("Windows
+        # Server Datacenter") and are named after their feature release instead.
+        match = re.search(r'Windows Server (\d{4})( R2)?', product_name)
+        if match:
+            cycle = match.group(1) + ('-r2' if match.group(2) else '')
+            return (
+                'https://endoflife.date/api/windows-server.json',
+                product_name,
+                [cycle],
+                '',
+            )
+        return (
+            'https://endoflife.date/api/windows-server.json',
+            f'{product_name} {release.upper()}'.strip(),
+            [f'{release}-ac', f'{release}-sac'] if release else [],
+            '',
+        )
+
+    # Windows 11 still reports "Windows 10" as its ProductName; the build number is what
+    # tells the two apart.
+    major = '11' if build >= 22000 else '10'
+    if major == '11':
+        product_name = re.sub(r'^Windows 10\b', 'Windows 11', product_name)
+    installed_version = f'{product_name} {release.upper()}'.strip()
+    if build < MIN_BUILD_WINDOWS_10:
+        # No feature releases and no edition split before Windows 10.
+        cycle = LEGACY_CYCLES.get(build)
+        return (
+            'https://endoflife.date/api/windows.json',
+            product_name,
+            [cycle] if cycle else [],
+            '',
+        )
+    if not release:
+        return 'https://endoflife.date/api/windows.json', installed_version, [], ''
+
+    edition_id = values.get('EditionID', '')
+    note = ''
+    family = EDITIONS.get(edition_id)
+    if family is None:
+        # "(W)" always has the shorter lifecycle, so assuming it never misses an end of
+        # life, at worst it warns early.
+        family = 'w'
+        note = f', unknown edition {edition_id}, assuming the Home and Pro lifecycle'
+
+    prefix = f'{major}-{release}'
+    if family == 'iot-lts':
+        # endoflife.date lists IoT LTSC separately only where its dates differ from the
+        # Enterprise LTSC of the same release.
+        cycles = [f'{prefix}-iot-lts', f'{prefix}-e-lts']
+    elif family == 'e-lts':
+        cycles = [f'{prefix}-e-lts']
+    else:
+        # Releases whose editions share one lifecycle ("10-22h2") carry no suffix.
+        cycles = [f'{prefix}-{family}', prefix]
+    return 'https://endoflife.date/api/windows.json', installed_version, cycles, note
+
+
+def parse_reg_query(stdout):
+    """Parse the output of `reg query` into a dict of value names and values.
+
+    A line of the key's own values looks like `    ProductName    REG_SZ    Windows
+    Server 2025 Datacenter`; subkeys are listed as bare key paths and skipped. REG_DWORD
+    values are converted from their hexadecimal notation to a decimal string.
+    """
+    values = {}
+    for line in stdout.splitlines():
+        match = re.match(r'^ {4}(.+?) {4}(REG_\w+)(?: {4}(.*))?$', line)
+        if not match:
+            continue
+        name, reg_type, value = match.group(1), match.group(2), match.group(3) or ''
+        if reg_type == 'REG_DWORD':
+            try:
+                value = str(int(value, 16))
+            except ValueError:
+                continue
+        values[name] = value.strip()
+    return values
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    if args.TEST is None and not lib.base.WINDOWS:
+        lib.base.cu('This check runs on Windows only.')
+
+    # fetch data
+    if args.TEST is None:
+        stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(REG_QUERY))
+    else:
+        # do not call the command, put in test data
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    if retc != 0:
+        lib.base.cu(stderr or stdout)
+    values = parse_reg_query(stdout)
+    if not values.get('CurrentBuild', '').isdigit():
+        lib.base.cu('Unable to read the Windows build number from the registry.')
+
+    # init some vars
+    # UBR, the update build revision, exists since Windows 10.
+    build = values['CurrentBuild']
+    if values.get('UBR'):
+        build += f'.{values["UBR"]}'
+    product, installed_version, cycles, note = get_cycles(values)
+    # The build number rather than `version2float()` of build and update revision, which
+    # would turn 26100.6700 into 26100.67 and rank revision 700 above 6700.
+    perfdata = lib.base.get_perfdata(
+        'windows-version',
+        int(values['CurrentBuild']),
+        uom=None,
+        _min=0,
+    )
+
+    # analyze data
+    if not cycles and int(values['CurrentBuild']) < MIN_BUILD_WINDOWS_10:
+        # A Windows before 10 without a cycle of its own, such as 7 without SP1, is
+        # older than anything endoflife.date lists and out of support for certain.
+        state = STATE_WARN
+        eol = 'older than anything endoflife.date lists' + lib.base.state2str(
+            state, prefix=' '
+        )
+    else:
+        state, eol = lib.version.check_eol(
+            product,
+            build,
+            offset_eol=args.OFFSET_EOL,
+            extended_support=args.EXTENDED_SUPPORT,
+            insecure=args.INSECURE,
+            no_proxy=args.NO_PROXY,
+            proxy=args.PROXY,
+            timeout=args.TIMEOUT,
+            unreachable_severity=args.UNREACHABLE_SEVERITY,
+            cycle=cycles,
+        )
+
+    # build the message
+    msg = f'{installed_version}, build {build} ({eol}){note}'
+
+    # over and out
+    lib.base.oao(
+        msg,
+        state,
+        perfdata,
+        always_ok=args.ALWAYS_OK,
+        no_perfdata=args.NO_PERFDATA,
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()
