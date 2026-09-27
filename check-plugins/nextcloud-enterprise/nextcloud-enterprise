@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026092701'
 
 DESCRIPTION = """Monitors an installed Nextcloud Enterprise subscription and the number of accounts
 it has to cover, reporting license level, expiration date, per-feature subscriptions and
@@ -294,9 +294,11 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    # fetch data
-    support = lib.base.coe(get_support_config(args))
+    # fetch data; the account report goes first because its errors are safe to show,
+    # so a missing `php` or installation is named there instead of being hidden behind
+    # the deliberately vague failure of get_support_config()
     accounts = lib.base.coe(get_account_report(args))
+    support = lib.base.coe(get_support_config(args))
     enterprise_build, build_date = get_build(args.PATH)
 
     subscription_key = support.get('subscription_key') or None
