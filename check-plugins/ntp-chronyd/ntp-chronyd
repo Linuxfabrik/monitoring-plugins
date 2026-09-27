@@ -21,7 +21,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks the clock offset of chronyd in milliseconds compared to the configured NTP
 servers. Alerts when the offset exceeds the configured thresholds."""
@@ -173,9 +173,16 @@ def main():
     if not peer_used:
         # let's find out why and display the configured NTP servers
         msg = 'NTP server not reachable. No NTP server is used.'
-        success, result = lib.shell.shell_exec(['chronyc', 'sources'])
-        if success:
-            msg += '\n\n' + result[0]
+        if args.TEST is None:
+            success, result = lib.shell.shell_exec(['chronyc', 'sources'])
+            sources = result[0] if success else ''
+        else:
+            # the second source comes from its own fixture, `<fixture>-sources`
+            sources, _stderr, _retc = lib.lftest.test(
+                [f'{args.TEST[0]}-sources', *args.TEST[1:]]
+            )
+        if sources:
+            msg += '\n\n' + sources
         lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
 
     # build the message
