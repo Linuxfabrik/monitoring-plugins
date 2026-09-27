@@ -21,7 +21,7 @@ Every other plugin with a Windows build works with the rights of the agent's acc
 The JEA profile of Icinga for Windows (`Install-IcingaSecurity`, `Install-IcingaJEAProfile`) does not help here: it only covers the PowerShell commands of the Icinga for Windows modules, while the agent starts these plugins as programs of their own. The endpoint below can be used alongside it.
 
 
-### How It Works
+### How It Works (Icinga Agent)
 
 * The Icinga 2 agent runs as a local account without administrative rights, `icinga` by default. A JEA endpoint is reached over WinRM, even from the same host, and `NetworkService` authenticates there as the computer account, which cannot be given a role. An account the agent already runs as, for example the one `Install-IcingaSecurity` created, is kept.
 * The endpoint admits only that account. It exposes a single command, which starts one of the allowed plugins and returns its output and exit code.
