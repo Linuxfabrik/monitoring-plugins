@@ -269,7 +269,7 @@ RHEL 10 ships no nagios policy, so those types and the `nagios_run_sudo` boolean
 
 ## Windows
 
-The MSI and the ZIP ship the plugins compiled to native executables with [Nuitka](https://nuitka.net/), so they need no Python. Releases are on the [download server](https://download.linuxfabrik.ch/monitoring-plugins/): `lfmp-latest.*` is the newest release, `lfmp-<version>-<iteration>.*` pins one. The plugins go to `C:\Program Files\ICINGA2\sbin\linuxfabrik\`.
+The MSI and the ZIP ship the plugins compiled to native executables with [Nuitka](https://nuitka.net/), so they need no Python. Releases are on the [download server](https://download.linuxfabrik.ch/monitoring-plugins/): `lfmp-latest.*` is the newest release, `lfmp-<version>-<iteration>.*` pins one. The plugins go to `C:\Program Files\ICINGA2\sbin\linuxfabrik\`. The MSI and every EXE, DLL and PYD in the MSI and the ZIP carry an Authenticode signature by the [SignPath Foundation](https://signpath.org), free code signing provided by [SignPath.io](https://signpath.io). Bundled runtime files additionally keep their vendor's signature (Python Software Foundation, Microsoft).
 
 
 ### One-Liner: MSI (recommended)
@@ -323,7 +323,7 @@ For hosts without internet access, or where software is rolled out by a software
 msiexec /i linuxfabrik-monitoring-plugins.msi /qn
 ```
 
-If the Icinga 2 agent service is running, the MSI stops and restarts it so files in use are replaced cleanly. The MSI also installs without an Icinga 2 agent. All binaries and the MSI are signed; free code signing is provided by [SignPath.io](https://signpath.io) with a certificate issued by the [SignPath Foundation](https://signpath.org).
+If the Icinga 2 agent service is running, the MSI stops and restarts it so files in use are replaced cleanly. The MSI also installs without an Icinga 2 agent.
 
 
 ### ZIP, Manual Download
