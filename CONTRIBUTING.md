@@ -1281,7 +1281,7 @@ If a parameter was added, changed or deleted in the plugin, simply re-run the `b
 The `build-basket` tool also offers to generate so-called `variants` of the checks (different flavours of the check command call to run on different operating systems):
 
 * `linux`: This is the default, and will be used if no other variant is defined. It generates a `cmd-check-...`, `tpl-service-...` and the associated datafields.
-* `windows`: Generates a `cmd-check-...-windows`, `cmd-check-...-windows-python`, `tpl-service-...-windows` and the associated datafields.
+* `windows`: Generates a `cmd-check-...-windows`, `tpl-service-...-windows` and the associated datafields.
 * `sudo`: Generates a `cmd-check-...-sudo` importing the `cmd-check-...`, but with `/usr/bin/sudo` prepended to the command, and a `tpl-service...-sudo` importing the `tpl-service...`, but with the `cmd-check-...-sudo` as the check command.
 * `no-agent`: Generates a `tpl-service...-no-agent` importing the `tpl-service...`, but with command endpoint set to the Icinga 2 master.
 
