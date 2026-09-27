@@ -10,12 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Highlights:** Every plugin was run against real hosts in one sweep: Debian 11/12/13, Rocky 8/9/10, Ubuntu 22.04/24.04/26.04, Windows 10/11, Windows Server 2016/2019/2022/2025 (including the new JEA endpoint), and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis` now audits the local host by default and lists its findings and suggestions.
 
-### Breaking Changes
-
-Icinga Director:
-
-* OS - Windows Basic Service Set (Python): removed together with its `windows-python` tag and the `cmd-check-*-windows-python` commands, which called files no installation provides; tag these hosts `windows` instead
-
 ### Added
 
 Monitoring Plugins:
@@ -73,7 +67,6 @@ Build, CI/CD:
 
 Monitoring Plugins:
 
-* other local users can no longer plant the state files of a check running as LocalSystem on Windows, on all plugins
 * acmesh-status: `--path` can no longer probe which files exist
 * apache-httpd-security, nginx-security: `--command` runs only a root-owned binary
 * docker-service, docker-swarm: `--test` can no longer probe which files exist
