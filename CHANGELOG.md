@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking Changes
+
+Monitoring Plugins:
+
+* php-status: `--config` compares the whole value (`date.timezone=Europe/Zurich`, not `Europe`), and FPM pool configs must be root-owned
+* restic-\*: `--repo` can no longer run a program as root; password and repository files must be root-owned, an `rclone:` repository needs `--repository-file`
+
 ### Added
 
 Monitoring Plugins:
@@ -53,13 +60,11 @@ Monitoring Plugins:
 * apache-httpd-security, nginx-security: `--command` runs only a root-owned binary
 * docker-service, docker-swarm: `--test` can no longer probe which files exist
 * fail2ban: `--socket` must be root-owned
-* logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`, nor a caller probe which files exist
+* logfile, \*-logfile, openvpn-client-list: a swapped directory can no longer escape `/var/log`
 * mastodon-version: `--path` no longer follows a symlink out of the installation
 * mysql-logfile: a non-regular `--defaults-file` no longer hangs the check
 * nextcloud-\*: `--path` no longer runs code as root or probes for files
-* php-status: reads only FPM pool configs that root owns, and `--config` checks the exact value
 * podman-\*: `--user` needs an account with a subordinate UID range
-* restic-\*: `--repo` can no longer run a program as root, and password and repository files have to be root-owned
 * strongswan-connections: `--socket` must be root-owned, and a hung charon yields WARN ([GHSA-cw8h-7h72-79v8](https://github.com/Linuxfabrik/monitoring-plugins/security/advisories/GHSA-cw8h-7h72-79v8))
 * systemd-unit: `--machine` takes only a container name
 
