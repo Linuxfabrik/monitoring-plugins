@@ -98,9 +98,9 @@ Frequency=-1365573
 
 ## Troubleshooting
 
-### `Failed to parse bus message: No such device or address`
+### `systemd-timesyncd is not available on this host`
 
-You don't have `systemd-timesyncd` installed or the service is not running.
+`timedatectl` could not reach systemd-timesyncd. A stopped service is started on demand, so it is either not installed (minimal Debian installations come without it, and the Red Hat family keeps time with chronyd) or masked. The raw error in parentheses depends on the systemd version, for example `Failed to parse bus message: No route to host` or `File exists` (masked). Install and enable `systemd-timesyncd`, or, on a host that keeps its time with chronyd, use the `ntp-chronyd` check instead.
 
 ### `No NTP server used.`
 

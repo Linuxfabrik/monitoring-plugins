@@ -17,10 +17,11 @@ import lib.args
 import lib.base
 import lib.lftest
 import lib.shell
+import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026092701'
 
 DESCRIPTION = """Checks the state of systemd-timesyncd, including synchronization status, server
 reachability, and stratum level. Alerts if time synchronization is inactive or if
@@ -89,18 +90,27 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
+    cmd = ['timedatectl', 'show-timesync', '--all']
     if args.TEST is None:
-        cmd = ['timedatectl', 'show-timesync', '--all']
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if retc != 0:
-            lib.base.oao(
-                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
     else:
         # do not call the command, put in test data
-        stdout, _stderr, _retc = lib.lftest.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    if retc != 0:
+        # A stopped timesyncd is started on demand, so a failure means it is not
+        # installed or masked. systemd before 259 says so only as a D-Bus error
+        # ("No route to host", "File exists"), and systemd 247 colours it even
+        # when stderr is not a terminal. Verified on Debian 11, 13, Fedora 44 and
+        # Ubuntu 22.04.
+        lib.base.oao(
+            'systemd-timesyncd is not available on this host'
+            f' (`{" ".join(cmd)}` failed with exit {retc}:'
+            f' {lib.txt.strip_ansi(stderr).strip()}). Install and enable it, or'
+            ' monitor the time service this host runs instead, for example with'
+            ' ntp-chronyd.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     msg = ''
