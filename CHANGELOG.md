@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Every plugin was run against real hosts in one sweep, from Debian 11 to 13, Ubuntu 22.04 to 26.04 and Rocky 8 to 10 up to Windows Server 2016 to 2025, above all Windows Server 2025 including the new JEA endpoint, and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis` now audits the local host by default and lists its findings and suggestions.
+**Highlights:** Every plugin was run against real hosts in one sweep: Debian 11/12/13, Rocky 8/9/10, Ubuntu 22.04/24.04/26.04, Windows 10/11, Windows Server 2016/2019/2022/2025 (including the new JEA endpoint), and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis` now audits the local host by default and lists its findings and suggestions.
 
 ### Added
 
