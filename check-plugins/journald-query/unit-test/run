@@ -27,6 +27,18 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 TESTS = [
     {
+        # captured from `journalctl --quiet ...` as an account outside the systemd-journal
+        # group, systemd 249 on openSUSE Leap 15.5
+        'id': 'unknown-not-allowed-to-read-the-journal',
+        'test': ',stderr/insufficient-permissions,1',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Not allowed to read the systemd journal. Run this plugin as root or via'
+            ' sudo, or add the account running it to the `systemd-journal` group.'
+        ],
+        'assert-not-in': ['Hint:', 'failed (exit'],
+    },
+    {
         'id': 'ok-no-events',
         'test': 'stdout/no-events,,0',
         'assert-retc': STATE_OK,

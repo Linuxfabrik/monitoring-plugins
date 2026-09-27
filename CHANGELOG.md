@@ -33,6 +33,7 @@ Monitoring Plugins:
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS requests on Windows no longer fail on a host that has not yet downloaded the root certificate of the site, Let's Encrypt for example, on all plugins
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
+* journald-query, journald-usage: name missing rights to read the journal instead of printing the raw journalctl error
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-systemd-timesyncd: names a missing or masked systemd-timesyncd instead of printing a bare D-Bus error

@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092701'
 
 DESCRIPTION = """Queries the systemd journal using journalctl and alerts when matching entries are found.
 Supports all journalctl filtering options such as --unit, --priority, --facility,
@@ -470,16 +470,24 @@ def main():
             for unit in args.USER_UNIT:
                 cmd.append(f'--user-unit={unit}')
         stdout, stderr, retc = lib.base.coe(lib.shell.shell_exec(cmd))
-        if retc != 0:
-            lib.base.oao(
-                f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
-                STATE_WARN,
-                always_ok=args.ALWAYS_OK,
-            )
     else:
         # do not call the command, put in test data
         cmd = ['no-real-command-used']
-        stdout, stderr, _retc = lib.lftest.test(args.TEST)
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    if retc != 0:
+        # journalctl ends with this when the account may not read a single journal
+        # file (src/shared/journal-util.c)
+        if 'insufficient permissions' in stderr:
+            lib.base.cu(
+                'Not allowed to read the systemd journal. Run this plugin as root or '
+                'via sudo, or add the account running it to the `systemd-journal` '
+                'group.'
+            )
+        lib.base.oao(
+            f'`{" ".join(cmd)}` failed (exit {retc}): {stderr.strip()}',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # init some vars
     cnt = 0

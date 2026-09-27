@@ -244,6 +244,7 @@ Queried the systemd journal (0 events) using priority='emerg..err', since='-8h',
 * WARN if `--severity=warn` (default) and matching entries are found.
 * CRIT if `--severity=crit` and matching entries are found.
 * UNKNOWN on journalctl errors or unparseable journal entries.
+* UNKNOWN if the account running the check may not read the journal.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -252,6 +253,15 @@ Queried the systemd journal (0 events) using priority='emerg..err', since='-8h',
 | Name | Type | Description |
 |----|----|----|
 | journald-query | Number | Number of matching events found in the journal. |
+
+
+## Troubleshooting
+
+### Not allowed to read the systemd journal
+
+``Not allowed to read the systemd journal. Run this plugin as root or via sudo, or add the account running it to the `systemd-journal` group.``
+
+journalctl could not open a single journal file with the rights of the account running the check. Run the check via sudo (the shipped sudoers file allows it), or add the account to the `systemd-journal` group, which may read the whole journal: `usermod --append --groups systemd-journal icinga`.
 
 
 ## Credits, License

@@ -70,6 +70,7 @@ journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--v
 
 * OK if the total journal disk usage is below `--warning` (default: 6 GiB).
 * WARN if the total journal disk usage is >= `--warning` (default: 6 GiB).
+* UNKNOWN if the account running the check may not read the journal.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -78,6 +79,15 @@ journal files by using `journalctl --vacuum-size=`, `--vacuum-time=` and/or `--v
 | Name | Type | Description |
 |----|----|----|
 | journald-usage | Bytes | Total size of all archived and active journal files. |
+
+
+## Troubleshooting
+
+### Not allowed to read the systemd journal
+
+``Not allowed to read the systemd journal. Run this plugin as root or via sudo, or add the account running it to the `systemd-journal` group.``
+
+journalctl could not open a single journal file with the rights of the account running the check. Run the check via sudo (the shipped sudoers file allows it), or add the account to the `systemd-journal` group, which may read the whole journal: `usermod --append --groups systemd-journal icinga`.
 
 
 ## Credits, License
