@@ -34,7 +34,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092702'
 
 DESCRIPTION = """Monitors running processes and alerts on process count, aggregated memory usage, or
 aggregated CPU usage. Processes can be filtered by name, command-line arguments, and
@@ -447,6 +447,13 @@ def main():
         if process.pid == my_pid:
             continue
 
+        # Filter: command name regex. Applied first, so a process the name already
+        # rules out is not counted as one whose user could not be read.
+        if need_command:
+            pname = info.get('name') or ''
+            if not re_command.search(pname):
+                continue
+
         # Filter: username regex. psutil hands out the ad_value '' where the
         # account the check runs as may not read the attribute: on Windows the
         # NetworkService account of the monitoring agent cannot read the user or the
@@ -459,12 +466,6 @@ def main():
                 unreadable += 1
                 continue
             if not re_username.search(uname or ''):
-                continue
-
-        # Filter: command name regex
-        if need_command:
-            pname = info.get('name') or ''
-            if not re_command.search(pname):
                 continue
 
         # Filter: command line argument regex
