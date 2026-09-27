@@ -1,122 +1,65 @@
 # Installing the Linuxfabrik Monitoring Plugins Collection
 
-Pick the path that matches your platform. On Linux, the one-liner installer is the fastest
-way and the recommended path. On Windows, prefer the MSI installer. The source paths (the
-signed source zip, a GitHub source download, or the installer's `--source` / `-Source` mode)
-are the supported way to run the **latest state** of the plugins on a production host, for
-example when a fix or a plugin is not yet part of a released package or MSI. They also cover
-air-gapped hosts and version-pinned setups. Manual repository setup is the underlying
-detail behind the one-liner.
-
-For rollouts across many hosts, on Linux and Windows alike, use the LFOps Ansible role; see
-[Any Operating System](#any-operating-system) below.
-
-Supported Python: 3.9 or newer. The RPM and DEB packages depend on the system Python, so
-the plugins run on every currently supported RHEL, SLE, Debian and Ubuntu release
-out of the box. On Windows, the MSI and ZIP ship plugins pre-compiled to native
-executables with [Nuitka](https://nuitka.net/) (a Python-to-C ahead-of-time compiler),
-so no separate Python installation is required.
-
-
-## Any Operating System
-
-
-### Ansible (LFOps)
-
-For fleet-wide rollouts, pinned versions, and downtime scheduling on both Linux and Windows,
-use the
-[linuxfabrik.lfops.monitoring_plugins](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins)
-role. It registers the Linuxfabrik repository, installs the package, enables version
-lock and, on Windows, stops and restarts the Icinga 2 service while plugins are being
-replaced. It can also deploy custom plugins from your inventory.
-
-Put the target hosts into the `lfops_monitoring_plugins` inventory group, then run the LFOps
-playbook. With a local Ansible installation:
-
-```bash
-ansible-playbook linuxfabrik.lfops.monitoring_plugins \
-  --inventory path/to/inventory \
-  --limit myhost
-```
-
-Or through the LFOps Execution Environment (a container image, no local Ansible or Python
-dependencies needed) with `ansible-navigator`:
-
-```bash
-ansible-navigator run linuxfabrik.lfops.monitoring_plugins \
-  --inventory path/to/inventory \
-  --limit myhost
-```
+The recommended path is the one-liner installer on both Linux and Windows. For rollouts across many hosts, use [Ansible](#ansible-lfops).
 
 
 ## Linux
 
+The plugins need Python 3.9 or newer. The packages bring their own venv built against the system Python. They always go to `/usr/lib64/nagios/plugins`, even where the distribution's Nagios package uses `/usr/lib/nagios/plugins`. This keeps sudoers rules and Icinga Director command definitions portable (see [icingaweb2-module-director#2123](https://github.com/Icinga/icingaweb2-module-director/issues/2123)).
 
-### One-Liner Installer (recommended)
 
-The quickest way to install on any supported Linux distribution. The script reads
-`/etc/os-release`, registers the signed Linuxfabrik package repository and installs the
-package with the system package manager:
+### One-Liner: Package Repository (recommended)
+
+For most hosts, with access to the internet or to a mirror server. Registers the signed Linuxfabrik package repository and installs the package. Upgrades then come with `dnf upgrade`, `zypper update` or `apt upgrade`. Supported: Debian 11-13, RHEL 8-10 and compatibles, SLE 15 SP5+ and 16, openSUSE Leap, Ubuntu 22.04-26.04.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash
 ```
 
-To review the script before running it as root, download it, verify it against the
-published checksum, read it, then run it:
+`-fsSL` is short for `--fail --silent --show-error --location`: curl aborts on an HTTP error instead of piping the error page into `bash`, prints nothing but errors, and follows redirects.
 
-```bash
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins -o install-monitoring-plugins
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins.sha256 | sha256sum --check
-less install-monitoring-plugins
-sudo bash install-monitoring-plugins
-```
 
-The same script can also install without the package repository, into a self-contained venv
-(the layout the RPM and DEB packages use), instead of registering the repository. There are
-two such modes.
+### One-Liner: Source Zip
 
-`--source` installs the source from GitHub, which carries the newest development state (the
-current `main`, or a branch or tag via `--ref`), so it can be ahead of any release. No git
-client or package manager needed:
-
-```bash
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
-```
-
-`--zip` installs the source too, but from the download server, which only carries released
-versions (not the newest development state). The zip is sha256- and GPG-verified. Use
-`--version=latest` for the newest release, or pin an exact `<version>-<iteration>`:
+For hosts that need a released version without the package repository. Installs a released source zip from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) into a self-contained venv. Preferred over the GitHub source: the zip is sha256- and GPG-verified, carries exactly the library the release was tested with, and does not depend on GitHub, so it can be mirrored or copied to hosts without internet access. `latest` is the newest release, `<version>-<iteration>` pins one. Not managed by the package manager, so upgrades mean re-running it.
 
 ```bash
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=latest
 curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --zip --version=<version>-<iteration>
 ```
 
-Add `--uninstall` to reverse any of these, or `--help` for all options (`--package`,
-`--plugin-dir`, `--python`, `--ref`, ...). On a host whose system `python3` is older than
-3.9 (for example RHEL 8 or SLE, which default to Python 3.6), the source and zip paths
-print how to re-run against a newer interpreter with `--python`.
 
-The sections below document the manual equivalents and the platform-specific details.
+### One-Liner: Source from GitHub
 
+For hosts that need a fix or plugin that is not yet released, and can reach GitHub. Installs the current `main` into a self-contained venv. Not managed by the package manager, so upgrades mean re-running it.
 
-### Package Repository (manual setup)
-
-The Linuxfabrik package repository ships signed `.rpm` and `.deb` packages that include
-the plugins and their Python dependencies in a venv, managed by your system package
-manager. Installing via the package manager is the fastest way to get started, supports
-clean upgrades, and (on RHEL) ships an optional SELinux policy as a separate sub-package.
-
-Once the repository is registered, keep the plugins current with your usual package
-manager commands (`dnf upgrade`, `zypper update`, `apt upgrade`). If you run Icinga
-Director, pin the version before upgrading plugins, so the Icinga Director configuration
-and the plugins stay in sync. The
-[LFOps Ansible role](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins)
-does that automatically.
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
+```
 
 
-#### Debian 11, 12, 13
+### One-Liner: Options
+
+* `--uninstall`: reverses any of the installs above.
+* `--python=python3.12`: interpreter for the `--source` and `--zip` venv. Needed where the system `python3` is older than 3.9 (RHEL 8, SLE 15) and no newer one is found automatically.
+* `--plugin-dir=DIR`: installs somewhere other than `/usr/lib64/nagios/plugins`.
+* `--help`: shows all options.
+
+To read the script before running it as root:
+
+```bash
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins --output install-monitoring-plugins
+curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins.sha256 | sha256sum --check
+less install-monitoring-plugins
+sudo bash install-monitoring-plugins
+```
+
+
+### Package Repository, Manual Setup
+
+For hosts whose repositories are managed by hand or by other tooling. What the one-liner does in its default mode. If you run Icinga Director, pin the package version before upgrading, so the Director configuration and the plugins stay in sync.
+
+Debian 11, 12, 13:
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
@@ -130,35 +73,27 @@ sudo apt update
 sudo apt install linuxfabrik-monitoring-plugins
 ```
 
-
-#### RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux)
+RHEL 8, 9, 10 (Rocky, AlmaLinux, CentOS Stream, Oracle Linux):
 
 ```bash
 sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
 sudo dnf install wget
 sudo wget https://repo.linuxfabrik.ch/monitoring-plugins/rhel/linuxfabrik-monitoring-plugins-release.repo \
-    --output-document=/etc/yum.repos.d/linuxfabrik-monitoring-plugins-release.repo
+    --output-document=/etc/yum.repos.d/linuxfabrik-monitoring-plugins.repo
 sudo dnf install linuxfabrik-monitoring-plugins-selinux
 ```
 
-The `linuxfabrik-monitoring-plugins-selinux` sub-package pulls in the base package via
-`Recommends` and loads a policy module carrying the rules the plugins need on a host
-running SELinux in enforcing mode, so no `audit2allow` round is left to the
-administrator. Install just `linuxfabrik-monitoring-plugins` instead if SELinux is
-permissive or disabled.
+The `-selinux` sub-package pulls in the base package and loads the SELinux policy module (see [SELinux](#selinux)). Install `linuxfabrik-monitoring-plugins` instead if SELinux is permissive or disabled.
 
-
-#### SLE 15, SLE 16 and openSUSE Leap
+SLE 15 SP5+, SLE 16, openSUSE Leap:
 
 ```bash
+sudo rpm --import https://repo.linuxfabrik.ch/linuxfabrik.key
 sudo zypper addrepo https://repo.linuxfabrik.ch/monitoring-plugins/sle/linuxfabrik-monitoring-plugins-release.repo
 sudo zypper install linuxfabrik-monitoring-plugins
 ```
 
-SLE 15 requires at least Service Pack 5 (openSUSE Leap 15.5 or SLES 15 SP5).
-
-
-#### Ubuntu 22.04, 24.04, 26.04
+Ubuntu 22.04, 24.04, 26.04:
 
 ```bash
 sudo mkdir -p /etc/apt/keyrings
@@ -173,229 +108,120 @@ sudo apt install linuxfabrik-monitoring-plugins
 ```
 
 
-### Source (latest, air-gapped, or pinned)
+### Source, Manual Setup
 
-Use this path to run the latest state of the plugins (a fix or plugin not yet in a released
-package), on a host that cannot reach `repo.linuxfabrik.ch` directly, or on one that must
-stay on a frozen plugin version. You still need Python 3.9 or newer on the target. The
-one-liner installer automates everything below via `--zip` (sha256- and GPG-verified); the
-manual steps here are the underlying detail.
+For hosts that may not pipe a script into `bash` or cannot reach the internet. What the one-liner does with `--source` or `--zip`. Plugins and library go into the plugin directory, the Python dependencies into a root-owned venv under `/usr/lib64/linuxfabrik-monitoring-plugins/venv`, the same layout the packages use.
 
-Download the source zip from the
-[download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it into
-the standard plugin directory. Use `release=latest` for the newest release, or pin an exact
-`<version>-<iteration>` (for example `release=2.2.1-1`) for a reproducible rollout:
+Never install the dependencies with `pip install --user` into the monitoring user's home. Some plugins run as root through sudo, so anything the monitoring user can write is a way to run code as root.
+
+Start with `umask 022`. On a host hardened to `umask 027` or `077`, the monitoring user otherwise cannot read the result and every check fails with a permission error:
+
+```bash
+umask 022
+```
+
+**Step 1a: Get the source zip from the download server (preferred).** It contains the plugins already flattened, plus the matching library and all lockfiles. The `.sha256` file always names the versioned zip, so the check below compares the hash only:
 
 ```bash
 release=latest
 wget https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip
-sudo unzip -d /usr/lib64/nagios/plugins lfmp-${release}.source.noarch.zip
-sudo chmod -R +x /usr/lib64/nagios/plugins
+wget https://download.linuxfabrik.ch/monitoring-plugins/lfmp-${release}.source.noarch.zip.sha256
+echo "$(cut -d ' ' -f 1 lfmp-${release}.source.noarch.zip.sha256)  lfmp-${release}.source.noarch.zip" \
+    | sha256sum --check
+unzip -q lfmp-${release}.source.noarch.zip
+src=linuxfabrik-monitoring-plugins
+libsrc=${src}/lib
+find ${src} -maxdepth 1 -type f ! -name '*.md' > plugins.txt
+find ${src}/assets -maxdepth 1 -type f > assets.txt
 ```
 
-On all Linux distributions we use `/usr/lib64/nagios/plugins` as the install path, even
-where the system Nagios package uses `/usr/lib/nagios/plugins`. This keeps sudoers rules
-and Icinga Director command definitions portable (see
-[icingaweb2-module-director#2123](https://github.com/Icinga/icingaweb2-module-director/issues/2123)).
+**Step 1b: Or get the source from GitHub.** Both repositories are needed, because the library lives in a separate one. They are versioned independently, so a tag has to be picked per repository; `main` works for both.
 
-Unlike the RPM and DEB packages (which ship a pre-built venv under
-`/usr/lib64/linuxfabrik-monitoring-plugins/venv/`), the source zip only carries source
-files. The repository ships one hash-pinned lockfile per supported Python LTS under
-`lockfiles/pyXX/requirements.txt` (`py39` ... `py314`). Pick the file that matches the
-Python on the target host and run `pip` against it once, as the user that will run the
-plugins (`icinga` on RHEL, `nagios` on Debian/Ubuntu):
+```bash
+curl -fsSL -o monitoring-plugins.zip https://github.com/Linuxfabrik/monitoring-plugins/archive/main.zip
+curl -fsSL -o lib.zip https://github.com/Linuxfabrik/lib/archive/main.zip
+unzip -q monitoring-plugins.zip && mv monitoring-plugins-*/ monitoring-plugins
+unzip -q lib.zip && mv lib-*/ lib
+src=monitoring-plugins
+libsrc=lib
+for dir in ${src}/check-plugins/*/ ${src}/notification-plugins/*/; do
+    name=$(basename "${dir}")
+    [ -f "${dir}${name}" ] && echo "${dir}${name}"
+done > plugins.txt
+find ${src}/check-plugins -mindepth 3 -type f -path '*/assets/*' \
+    -not -path '*/example/assets/*' > assets.txt
+```
+
+**Step 2: Install plugins, plugin assets and library.** Some plugins read data files from `assets/` next to them, for example the rootkit signatures of `scanrootkit`.
+
+```bash
+sudo mkdir -p /usr/lib64/nagios/plugins/assets /usr/lib64/nagios/plugins/lib
+while read -r f; do
+    sudo install -m 0755 "${f}" "/usr/lib64/nagios/plugins/$(basename "${f}")"
+done < plugins.txt
+while read -r f; do
+    sudo install -m 0644 "${f}" /usr/lib64/nagios/plugins/assets/
+done < assets.txt
+sudo cp -a ${libsrc}/. /usr/lib64/nagios/plugins/lib/
+sudo rm -rf /usr/lib64/nagios/plugins/lib/{.github,lockfiles,tests}
+```
+
+**Step 3: Install the Python dependencies.** Pick the lockfile that matches the host Python:
 
 ```bash
 PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
-sudo -u icinga python3 -m pip install --user --upgrade pip
-sudo -u icinga python3 -m pip install --user \
-    --requirement /usr/lib64/nagios/plugins/lockfiles/${PY_TAG}/requirements.txt --require-hashes
+VENV=/usr/lib64/linuxfabrik-monitoring-plugins/venv
+sudo python3 -m venv ${VENV}
+sudo ${VENV}/bin/python3 -m pip install --upgrade pip
+sudo ${VENV}/bin/python3 -m pip install \
+    --requirement ${src}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
+# GitHub source only: the library from `main` can be ahead of the released one
+[ -f ${libsrc}/lockfiles/${PY_TAG}/requirements.txt ] && sudo ${VENV}/bin/python3 -m pip install \
+    --requirement ${libsrc}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
+sudo ${VENV}/bin/python3 -m pip uninstall --yes linuxfabrik-lib
 ```
 
+The two lockfiles pin some shared packages to different versions, so they need separate `pip` calls. The lockfile also pulls in the released library as `linuxfabrik-lib`. It is removed again so that the copy next to the plugins is the only one Python can find.
 
-#### Escaping the py39 freeze
+On RHEL 8 and SLE 15, `python3` is 3.6. Install a newer Python (`sudo dnf install python3.12`) and use it instead of `python3` above. On Python 3.9, the `py39` lockfile is frozen on package versions that still support 3.9, so it misses upstream security updates; prefer a newer Python where the distribution offers one (Debian 11 does not).
 
-The `lockfiles/py39/requirements.txt` is frozen on package versions that still support
-Python 3.9 (RHEL 8, Debian 11). Over 2025/2026, most upstream packages dropped Python
-3.9, so security-relevant updates for `urllib3`, `requests` and friends only ship in
-versions that require Python >= 3.10.
-
-This freeze only affects the source-zip and GitHub source paths described above. The
-**RPM package on RHEL 8 is built against Python 3.9 by design** (`BuildRequires:
-python39`, `Requires: python39`) and stays on the frozen py39 lockfile regardless of
-what else is installed on the host.
-
-##### RHEL 8
-
-The AppStream offers `python3.11` and `python3.12` as regular RPMs alongside the system
-`python3.9`. A source install can run the plugins against the newer interpreter
-and pick the matching lockfile, getting all upstream security updates:
+**Step 4: Point the plugins at the venv and hand everything to root.**
 
 ```bash
-sudo dnf install python3.12 python3.12-pip
-sudo -u icinga python3.12 -m pip install --user --upgrade pip
-sudo -u icinga python3.12 -m pip install --user \
-    --requirement /usr/lib64/nagios/plugins/lockfiles/py312/requirements.txt --require-hashes
-```
-
-Point the Icinga 2 agent at `python3.12` instead of `python3` when launching the
-plugins (for example via a wrapper, or by editing the shebang of installed plugins to
-`#!/usr/bin/env python3.12`).
-
-##### Debian 11
-
-No comparable escape hatch. `bullseye-backports` is archived since the LTS transition,
-so no newer Python ships through official channels. The only routes off Python 3.9
-are an in-place upgrade to Debian 12 (Python 3.11) or Debian 13 (Python 3.13), or a
-self-compiled Python (pyenv) without distro package support.
-
-
-### Latest from GitHub (no git client)
-
-Use this to run the current `main` or a specific tag (a fix or plugin not yet in a released
-package). No git client is needed on the target. Pin a tag for a reproducible rollout; track
-`main` for the very latest. Unlike the packaged installs, plugins deployed this way are not
-managed by the system package manager, so upgrades are a manual re-run.
-
-**One-liner (recommended).** The `--source` mode downloads the monitoring-plugins and lib
-source zips straight from GitHub, flattens the plugins into the plugin directory and installs
-lib and the Python dependencies. Add `--ref` to pick a branch or tag:
-
-```bash
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source
-curl -fsSL https://repo.linuxfabrik.ch/install-monitoring-plugins | sudo bash -s -- --source --ref=<tag>
-```
-
-On a host whose system `python3` is older than 3.9, add `--python=python3.12` (see
-[One-Liner Installer](#one-liner-installer-recommended)).
-
-**Manual GitHub zip.** If the host may not pipe a script to `bash`, download the archive zips
-yourself. GitHub serves any branch or tag at `/archive/<ref>.zip`. Fetch both repositories,
-because `lib` lives in a separate repo:
-
-```bash
-ref=main   # or a release tag, e.g. 2.2.1
-curl -fsSL -o monitoring-plugins.zip https://github.com/Linuxfabrik/monitoring-plugins/archive/${ref}.zip
-curl -fsSL -o lib.zip https://github.com/Linuxfabrik/lib/archive/${ref}.zip
-unzip -q monitoring-plugins.zip
-unzip -q lib.zip
-```
-
-The archives keep the repository layout, so flatten the plugins into the plugin directory
-(each executable sits one level deep under `check-plugins/<name>/<name>` and
-`notification-plugins/<name>/<name>`) and copy the `lib` modules alongside them:
-
-```bash
-umask 022
-sudo mkdir -p /usr/lib64/nagios/plugins/lib
-for dir in monitoring-plugins-${ref}/check-plugins/*/ monitoring-plugins-${ref}/notification-plugins/*/; do
-    name=$(basename "${dir}")
-    [ -f "${dir}${name}" ] && sudo install -m 0755 "${dir}${name}" "/usr/lib64/nagios/plugins/${name}"
-done
-sudo cp -a lib-${ref}/. /usr/lib64/nagios/plugins/lib/
-sudo rm -rf /usr/lib64/nagios/plugins/lib/tests /usr/lib64/nagios/plugins/lib/lockfiles
-```
-
-Set `umask 022` before you start. A host hardened to `umask 027` or `077` otherwise produces
-a plugin directory and a library the monitoring user cannot read, and every check fails with a
-permission error.
-
-Then install the Python dependencies into a root-owned virtual environment. Do not install
-them into the monitoring user's home with `pip install --user`: the whitelisted plugins run as
-root through sudo, so anything the monitoring user can write is a way to run code as root.
-Pick the lockfile from the extracted tree that matches the host Python:
-
-```bash
-PY_TAG="py$(python3 -c 'import sys; print(f"{sys.version_info.major}{sys.version_info.minor}")')"
-sudo python3 -m venv /usr/lib64/linuxfabrik-monitoring-plugins/venv
-sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install --upgrade pip
-sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install \
-    --requirement monitoring-plugins-${ref}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
-sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip install \
-    --requirement lib-${ref}/lockfiles/${PY_TAG}/requirements.txt --require-hashes
-```
-
-Both lockfiles are needed, and in this order: the plugin lockfile resolves the dependencies of
-the released library, while the `lib` archive you just unpacked can be ahead of that release.
-They pin a few shared packages to different versions, so they have to go into separate `pip`
-calls. A single call with both files aborts with a resolution conflict.
-
-The lockfile also carries the released library as `linuxfabrik-lib`. Remove it, so that the
-`lib` you copied next to the plugins is the only one Python can find. With both present, a
-library the monitoring user cannot read is silently replaced by the released one, and the
-plugins then fail with a missing attribute or module instead of a permission error:
-
-```bash
-sudo /usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3 -m pip uninstall --yes linuxfabrik-lib
-```
-
-Point the plugins at that interpreter, then hand the library and the virtual environment to
-root. The plugins themselves are already root-owned, `install` placed them:
-
-```bash
-for dir in monitoring-plugins-${ref}/check-plugins/*/ monitoring-plugins-${ref}/notification-plugins/*/; do
-    name=$(basename "${dir}")
-    [ -f "/usr/lib64/nagios/plugins/${name}" ] && sudo sed -i \
-        '1s|^#!.*python3.*|#!/usr/lib64/linuxfabrik-monitoring-plugins/venv/bin/python3|' \
-        "/usr/lib64/nagios/plugins/${name}"
-done
+while read -r f; do
+    sudo sed -i "1s|^#!.*python3.*|#!${VENV}/bin/python3|" "/usr/lib64/nagios/plugins/$(basename "${f}")"
+done < plugins.txt
 sudo chown -R root:root /usr/lib64/nagios/plugins/lib /usr/lib64/linuxfabrik-monitoring-plugins
 sudo chmod -R u=rwX,go=rX /usr/lib64/nagios/plugins/lib /usr/lib64/linuxfabrik-monitoring-plugins
 ```
 
-The monitoring user needs to read and execute the plugins, the library and the virtual
-environment, but must never own or be able to write them. Directories and plugins end up at
-`0755`, library modules at `0644`, everything owned by `root:root`.
+The plugin directory also holds the distribution's own plugins, some of them setuid root. Never run a recursive `chmod` or a `sed -i` across the whole directory, both clear the setuid bit. The loops above therefore touch only the plugins from `plugins.txt`.
 
-The plugin directory also holds your distribution's own Nagios plugins, some of which are
-setuid root. Never let a bulk operation loose on all of it: a recursive `chmod` clears the
-setuid bit, and `sed -i` rewrites a file rather than editing it in place, which clears the bit
-just as effectively. Both loops above therefore name only the plugins you just installed.
-
-Finally, confirm that the monitoring user can actually use the result. This is worth doing
-explicitly, because an installation can look complete and still be unusable:
+**Step 5: Post-install.** Install [sudoers](#sudoers), [bash completion](#bash-completion) and, on RHEL, the [SELinux](#selinux) module from `${src}/assets/`. Then check that the monitoring user can run a plugin:
 
 ```bash
 sudo -u icinga /usr/lib64/nagios/plugins/load
 ```
 
 
-### Post-Install (Linux)
+### Post-Install
 
 
 #### Sudoers
 
-Some check plugins need root privileges (reading `dmesg`, running `smartctl`, reading
-journald, etc.). We ship `sudoers` drop-ins for each supported OS family in
-[assets/sudoers/](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers).
-The file names match
-[ansible_facts\['os_family'\]](https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267).
-Install the file for your family into `/etc/sudoers.d/` on every monitored host:
+Some plugins need root privileges (reading `dmesg`, running `smartctl`, reading journald, etc.). The packages and the one-liner install the drop-ins; a manual install copies them from [assets/sudoers/](https://github.com/Linuxfabrik/monitoring-plugins/tree/main/assets/sudoers). The file names match [ansible_facts\['os_family'\]](https://github.com/ansible/ansible/blob/37ae2435878b7dd76b812328878be620a93a30c9/lib/ansible/module_utils/facts.py#L267):
 
-* [Debian.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/Debian.sudoers):
-  Debian, Raspbian, Ubuntu.
-* [RedHat.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/RedHat.sudoers):
-  Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
+* [Debian.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/Debian.sudoers): Debian, Raspbian, Ubuntu.
+* [RedHat.sudoers](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/sudoers/RedHat.sudoers): Alma, Amazon, CentOS, CloudLinux, Fedora, Oracle Linux, RedHat, Rocky, Scientific.
 
-Next to each of them sits a `*-logging.sudoers` companion holding the `Defaults` that keep
-the plugin calls out of the authentication log. A monitored host runs dozens of checks a
-minute, each through sudo, and without the companion every single one of them costs five
-entries there: the sudo command line, plus the PAM session being opened and closed. Install
-it as a second drop-in under a name that carries no dot, for example
-`/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging`; sudo skips a file in
-`/etc/sudoers.d` whose name holds a `.` or ends in `~`.
+```bash
+sudo install -m 0440 ${src}/assets/sudoers/RedHat.sudoers /etc/sudoers.d/linuxfabrik-monitoring-plugins
+sudo visudo --check
+```
 
-Put the companion only on a host running the classic sudo from sudo.ws. sudo-rs, the default
-sudo on Ubuntu 26.04, knows none of these settings and prints a warning for each of them on
-every `sudo` call by any user, monitoring-related or not. Check which implementation a host
-runs with `sudo --version`.
+Each has a `*-logging.sudoers` companion with the `Defaults` that keep the plugin calls out of the authentication log (otherwise five log entries per check). Install it as a second drop-in whose name carries no dot, for example `/etc/sudoers.d/linuxfabrik-monitoring-plugins-logging`; sudo skips files in `/etc/sudoers.d` whose name contains a `.` or ends in `~`. Install it only with the classic sudo from sudo.ws: sudo-rs (the default on Ubuntu 26.04) warns about each of these settings on every `sudo` call. `sudo --version` shows which one a host runs. The packages and the one-liner handle this automatically.
 
-The RPM and DEB packages and the one-line installer place both files for you and pick the
-companion by the sudo implementation they find on the host, dropping it again where that
-turns out to be sudo-rs. Only a deployment you drive yourself has to do this by hand.
-
-When you call plugins with sudo from Icinga, also preserve the proxy environment
-variables you care about, for example:
+To pass proxy settings through sudo from Icinga, preserve them explicitly:
 
 ```text
 Defaults env_keep += "http_proxy https_proxy"
@@ -404,33 +230,22 @@ Defaults env_keep += "http_proxy https_proxy"
 
 #### Bash Completion
 
-The packages and the one-liner installer place a completion at
-`/etc/bash_completion.d/linuxfabrik-monitoring-plugins`. It completes the command line
-options of every plugin in the plugin directory, and the allowed values of options that take
-a fixed set of them:
+The packages and the one-liner install `/etc/bash_completion.d/linuxfabrik-monitoring-plugins`. It completes the options of every plugin, and the allowed values of options with a fixed set of them:
 
 ```bash
 /usr/lib64/nagios/plugins/systemd-unit --severity=<TAB>
 ```
 
-The options come from the plugin's own `--help`, read once per plugin and shell session, so
-they always match the installed version. The completion becomes active in the next shell and
-needs the distribution's `bash-completion` package; without it the file is never read.
+It reads each plugin's `--help` once per shell session, needs the distribution's `bash-completion` package and becomes active in the next shell. Plugins named like a system tool (`ping`, `uptime`, `users`, `service`, `dmesg` and a few more) complete on the full path only, so the tool's own completion keeps working.
 
-A handful of plugins carry the name of the tool they check (`ping`, `uptime`, `users`,
-`service`, `dmesg` and a few more). For those the completion is registered on the full path
-only, so the completion that comes with the real command keeps working.
-
-A manual install (the source zip unpacked by hand, or the GitHub archive) can copy the file
-itself:
+Manual install:
 
 ```bash
-sudo install -m 0644 assets/bash-completion/linuxfabrik-monitoring-plugins.bash \
+sudo install -m 0644 ${src}/assets/bash-completion/linuxfabrik-monitoring-plugins.bash \
     /etc/bash_completion.d/linuxfabrik-monitoring-plugins
 ```
 
-Set `LFMP_PLUGIN_DIR` before the file is read to complete plugins installed somewhere other
-than `/usr/lib64/nagios/plugins`. In zsh, load the bash completion machinery first:
+Set `LFMP_PLUGIN_DIR` before the file is read to complete plugins in a different directory. In zsh:
 
 ```bash
 autoload -U bashcompinit && bashcompinit
@@ -440,86 +255,55 @@ source /etc/bash_completion.d/linuxfabrik-monitoring-plugins
 
 #### SELinux
 
-On RHEL 8, 9 and 10, the `linuxfabrik-monitoring-plugins-selinux` sub-package loads a
-policy module with the rules the plugins need in enforcing mode. No extra steps are
-required.
-
-The module does not label anything. The labels come from the SELinux policy of the
-distribution, which puts everything below `/usr/lib64/nagios/plugins` into
-`nagios_unconfined_plugin_exec_t`. A plugin started from there by the monitoring server
-therefore runs as `nagios_unconfined_plugin_t`, a domain that is deliberately
-unconfined.
-
-RHEL 10 carries no nagios policy: `selinux-policy-targeted` has no nagios module, so
-those types do not exist, `nagios_run_sudo` does not exist, and the plugin files are
-labelled `lib_t`. The policy module still loads, and the rule that depends on the nagios
-types is simply left out. A plugin started on such a host stays in the domain of whatever
-called it, which for a monitoring agent that brings no policy of its own is
-`unconfined_service_t`. Running all plugins from an Icinga agent on Rocky 10 in enforcing
-mode produced no denial in that setup. Adding a nagios policy from another source, such
-as EPEL's `nagios-selinux`, brings the labels and the remaining rule into effect after a
-`restorecon -Rv /usr/lib64/nagios/plugins`; nothing about this package needs to change
-for that.
-
-The one-line installer does the same for its `--source` and `--zip` installs. A
-deployment you drive yourself loads the module from
-[assets/selinux/linuxfabrik-monitoring-plugins.cil](https://github.com/Linuxfabrik/monitoring-plugins/blob/main/assets/selinux/linuxfabrik-monitoring-plugins.cil)
-and applies the settings the package applies on its first install:
+On RHEL 8, 9 and 10, the `linuxfabrik-monitoring-plugins-selinux` sub-package and the one-liner (in all modes) load a policy module with the rules the plugins need in enforcing mode. Manual install:
 
 ```bash
-sudo semodule --install linuxfabrik-monitoring-plugins.cil
+sudo semodule --install ${src}/assets/selinux/linuxfabrik-monitoring-plugins.cil
 sudo restorecon -Fvr /usr/lib64/nagios /usr/lib64/linuxfabrik-monitoring-plugins
 sudo setsebool -P nagios_run_sudo on
 ```
 
-The module is CIL, so `semodule` loads it without a policy compiler on the host. The
-last two calls do nothing on a host without a nagios policy: there is no file context to
-apply and no such boolean.
+The module is CIL, so no policy compiler is needed on the host. It does not label anything: the distribution's policy puts everything below `/usr/lib64/nagios/plugins` into `nagios_unconfined_plugin_exec_t`, so plugins run as the deliberately unconfined `nagios_unconfined_plugin_t`.
+
+RHEL 10 ships no nagios policy, so those types and the `nagios_run_sudo` boolean do not exist, plugin files are labelled `lib_t`, and the last two commands above do nothing. The module still loads without the rule that depends on the nagios types. Plugins then run in the caller's domain, typically `unconfined_service_t`; running all plugins from an Icinga agent on Rocky 10 in enforcing mode produced no denial. Adding a nagios policy such as EPEL's `nagios-selinux` activates the labels and the remaining rule after a `restorecon -Rv /usr/lib64/nagios/plugins`.
 
 
 ## Windows
 
-
-### MSI Installer (recommended)
-
-1. Download `lfmp-latest.signed-packaged.windows.x86_64.zip` from the
-   [download server](https://download.linuxfabrik.ch/monitoring-plugins/) for the newest
-   release, or `lfmp-<version>-<iteration>.signed-packaged.windows.x86_64.zip` to pin an
-   exact release. Only an x86_64 Windows build is published.
-2. Extract the zip. Inside you find a signed MSI.
-3. Run the MSI (double-click or `msiexec /i lfmp-*.msi /qn`).
-
-The MSI installs to `C:\Program Files\ICINGA2\sbin\linuxfabrik\`. If the Icinga 2 agent
-service is detected on the host, the MSI stops and restarts it automatically so plugin
-files in use are replaced cleanly. Since v2.3, the MSI no longer requires a pre-existing
-Icinga 2 agent; it can be installed stand-alone for testing or with other monitoring
-agents.
-
-All binaries and the MSI are signed; free code signing is provided by
-[SignPath.io](https://signpath.io) with a certificate issued by the
-[SignPath Foundation](https://signpath.org).
+The MSI and the ZIP ship the plugins compiled to native executables with [Nuitka](https://nuitka.net/), so they need no Python. Releases are on the [download server](https://download.linuxfabrik.ch/monitoring-plugins/): `lfmp-latest.*` is the newest release, `lfmp-<version>-<iteration>.*` pins one. The plugins go to `C:\Program Files\ICINGA2\sbin\linuxfabrik\`.
 
 
-### One-Liner Installer (PowerShell)
+### One-Liner: MSI (recommended)
 
-The scriptable way to install on Windows, the counterpart of the Linux one-liner. By default
-it downloads the signed MSI, verifies its Authenticode signature and installs it silently.
-Run this default path in an **elevated** PowerShell, since the MSI writes to
-`C:\Program Files` (the `-Source` path below needs no elevation):
+For most hosts, with access to the internet. Downloads the signed MSI, verifies its Authenticode signature and installs it silently. Run in an **elevated** PowerShell:
 
 ```powershell
 & ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1)))
-```
-
-This installs the latest release. Pass `-Version <version>-<iteration>` to pin an exact
-release for a reproducible rollout (see the download server for the available releases):
-
-```powershell
 & ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1))) -Version <version>-<iteration>
 ```
 
-To review the script before running it, download it, verify it against the published
-checksum and read it:
+
+### One-Liner: Source from GitHub
+
+For hosts that need a fix or plugin that is not yet in a released MSI. Installs the current `main` into a venv below `-TargetDir`. Requires Python 3.13 (the version the Windows lockfile targets), no elevation and no git client:
+
+```powershell
+& ([scriptblock]::Create((irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1))) -Source -TargetDir C:\path\to\workdir
+```
+
+Run the plugins with the venv's Python:
+
+```powershell
+& "C:\path\to\workdir\.venv\Scripts\python.exe" "C:\path\to\workdir\monitoring-plugins\check-plugins\cpu-usage\cpu-usage"
+```
+
+
+### One-Liner: Options
+
+* `-Version <version>-<iteration>`: pins a release (MSI).
+* `-DryRun`: prints every action without executing it.
+
+To read the script before running it:
 
 ```powershell
 irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1 -OutFile install-monitoring-plugins.ps1
@@ -527,113 +311,84 @@ irm https://repo.linuxfabrik.ch/install-monitoring-plugins.ps1.sha256 -OutFile i
 $expected = (Get-Content install-monitoring-plugins.ps1.sha256).Split(' ')[0]
 if ((Get-FileHash install-monitoring-plugins.ps1 -Algorithm SHA256).Hash -eq $expected) { 'OK' } else { throw 'checksum mismatch' }
 Get-Content install-monitoring-plugins.ps1 | more
-```
-
-Run it (latest release, or add `-Version <version>-<iteration>` to pin):
-
-```powershell
 .\install-monitoring-plugins.ps1
 ```
 
-The same script can also install the latest source from GitHub instead of the MSI, into a
-Python 3.13 virtual environment. This is the supported way to run the latest state on
-Windows (a fix or plugin not yet in a released MSI); pass `-Ref <tag>` for a pinned,
-reproducible rollout. It downloads the monitoring-plugins and lib source zips, creates the
-venv and installs the plugin dependencies into it (this path needs Python 3.13, and requires
-neither git nor an elevated shell):
+
+### MSI, Manual Download
+
+For hosts without internet access, or where software is rolled out by a software distribution tool. Download `lfmp-latest.signed-packaged.windows.x86_64.zip` (or a pinned release) from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/), extract it and run the MSI inside:
 
 ```powershell
-.\install-monitoring-plugins.ps1 -Source -TargetDir C:\path\to\workdir
+msiexec /i linuxfabrik-monitoring-plugins.msi /qn
 ```
 
-Add `-DryRun` to print every action without executing it, or `-Ref <branch-or-tag>` to
-install a specific version. Run the plugins with the virtual environment's Python, for example:
+If the Icinga 2 agent service is running, the MSI stops and restarts it so files in use are replaced cleanly. The MSI also installs without an Icinga 2 agent. All binaries and the MSI are signed; free code signing is provided by [SignPath.io](https://signpath.io) with a certificate issued by the [SignPath Foundation](https://signpath.org).
+
+
+### ZIP, Manual Download
+
+For hosts where no MSI may be installed. Single-file EXEs without an installer. Download `lfmp-latest.signed-compiled.windows.x86_64.zip` (or a pinned release) from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it:
 
 ```powershell
-& "<TargetDir>\.venv\Scripts\python.exe" "<TargetDir>\monitoring-plugins\check-plugins\cpu-usage\cpu-usage"
+Expand-Archive lfmp-latest.signed-compiled.windows.x86_64.zip -DestinationPath 'C:\Program Files\ICINGA2\sbin\linuxfabrik' -Force
 ```
 
-The sections below document the manual equivalents and the platform-specific details.
 
+### Source, Manual Setup
 
-### ZIP Archive
-
-If you cannot or do not want to run an MSI, download
-`lfmp-latest.signed-compiled.windows.x86_64.zip` (or a pinned
-`lfmp-<version>-<iteration>.signed-compiled.windows.x86_64.zip`) from the
-[download server](https://download.linuxfabrik.ch/monitoring-plugins/) and extract it
-to a folder of your choice. The conventional location is
-`C:\Program Files\ICINGA2\sbin\linuxfabrik\`. Plugins are single-file EXEs; no Python
-installation is required.
-
-
-### Source (latest)
-
-Run the latest state from GitHub by executing the `.py` files directly. This needs a local
-Python 3.13 and the dependencies from `lockfiles/py313-windows/requirements.txt` (the
-lockfile matches the version the Windows binary build is pinned to; see `BUILD.md`). No git
-client is required.
-
-**One-liner (recommended).** The PowerShell installer's `-Source` mode downloads the
-monitoring-plugins and lib source zips from GitHub into a Python 3.13 virtual environment and
-wires up `lib`; see [One-Liner Installer (PowerShell)](#one-liner-installer-powershell)
-above. Add `-Ref <tag>` for a pinned rollout.
-
-**Manual GitHub zip.** Download the archive zips yourself. GitHub serves any branch or tag at
-`/archive/<ref>.zip`. Fetch both repositories, because `lib` lives in a separate repo:
+For hosts that may not pipe a script into PowerShell. What the `-Source` one-liner does. Requires Python 3.13:
 
 ```powershell
-$ref = 'main'   # or a release tag, e.g. 2.2.1
-Invoke-WebRequest "https://github.com/Linuxfabrik/monitoring-plugins/archive/$ref.zip" `
-    -OutFile monitoring-plugins.zip -UseBasicParsing
-Invoke-WebRequest "https://github.com/Linuxfabrik/lib/archive/$ref.zip" `
-    -OutFile lib.zip -UseBasicParsing
+Invoke-WebRequest https://github.com/Linuxfabrik/monitoring-plugins/archive/main.zip -OutFile monitoring-plugins.zip -UseBasicParsing
+Invoke-WebRequest https://github.com/Linuxfabrik/lib/archive/main.zip -OutFile lib.zip -UseBasicParsing
 Expand-Archive monitoring-plugins.zip -DestinationPath . -Force
 Expand-Archive lib.zip -DestinationPath . -Force
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install --upgrade pip
+.venv\Scripts\python.exe -m pip install --requirement monitoring-plugins-main\lockfiles\py313-windows\requirements.txt --require-hashes
+.venv\Scripts\python.exe -m pip install --editable lib-main
 ```
 
-The plugins are the `.py` files under `monitoring-plugins-$ref\check-plugins\<name>\<name>`.
-Copy the extracted `lib-$ref` modules into a `lib` folder next to the plugins so `import lib`
-resolves, then install the dependencies with a local Python 3.13:
-
-```powershell
-python -m pip install --upgrade pip
-python -m pip install --requirement `
-    "monitoring-plugins-$ref\lockfiles\py313-windows\requirements.txt" --require-hashes
-```
-
-**Signed zip.** For an air-gapped or reproducible install, the
-`lfmp-latest.source.noarch.zip` (or a pinned `lfmp-<version>-<iteration>.source.noarch.zip`)
-from the [download server](https://download.linuxfabrik.ch/monitoring-plugins/) works on
-Windows too:
-it is architecture-independent, already flattened, and bundles `lib` and every lockfile
-(including `py313-windows`). Download and sha256-verify it as shown under
-[Linux > Source](#source-latest-air-gapped-or-pinned), extract it to
-`C:\Program Files\ICINGA2\sbin\linuxfabrik\`, then install the `py313-windows` dependencies
-as above. Unlike on Linux, the PowerShell one-liner does not automate this signed-zip path.
+The plugins are the files `monitoring-plugins-main\check-plugins\<name>\<name>`, run with `.venv\Scripts\python.exe`. The last step replaces the released library from the lockfile with the one from GitHub.
 
 
-### Post-Install (Windows)
+### Post-Install
 
 
 #### Icinga Agent and JEA Profile
 
-The Icinga for Windows agent runs as `Network Service` by default. Some plugins fail
-with `0x80070005 (E_ACCESSDENIED)` under that account. The supported fix is to enable
-the
-[JEA profile for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/);
-see
-[Installing JEA for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/)
-for the enrollment steps.
+The Icinga for Windows agent runs as `Network Service` by default. Some plugins fail with `0x80070005 (E_ACCESSDENIED)` under that account. Enable the [JEA profile for Icinga for Windows](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/01-JEA-Profiles/) ([installation](https://icinga.com/docs/icinga-for-windows/latest/doc/130-JEA/02-Installation/)).
 
-Keep in mind that environment variables set in Icinga Director do not propagate to
-Windows agents. Proxy and other environment variables must be configured in
-`/etc/icinga2/icinga2.conf` on the master (`env.http_proxy`, `env.https_proxy`, ...).
+Environment variables set in Icinga Director do not reach Windows agents. Configure proxy and other variables in `/etc/icinga2/icinga2.conf` on the master (`env.http_proxy`, `env.https_proxy`, ...).
+
+
+## Any Platform
+
+
+### Ansible (LFOps)
+
+For fleet-wide rollouts on Linux and Windows, use the [linuxfabrik.lfops.monitoring_plugins](https://github.com/Linuxfabrik/lfops/tree/main/roles/monitoring_plugins) role. It registers the repository, installs and version-locks the package, restarts the Icinga 2 service on Windows while plugins are replaced, and can deploy custom plugins from your inventory.
+
+Put the hosts into the `lfops_monitoring_plugins` inventory group, then run:
+
+```bash
+ansible-playbook linuxfabrik.lfops.monitoring_plugins \
+  --inventory path/to/inventory \
+  --limit myhost
+```
+
+Or through the LFOps Execution Environment (a container image, no local Ansible needed):
+
+```bash
+ansible-navigator run linuxfabrik.lfops.monitoring_plugins \
+  --inventory path/to/inventory \
+  --limit myhost
+```
 
 
 ## Next Steps
 
 * Icinga integration and Director Basket import: see [ICINGA.md](ICINGA.md).
 * Grafana dashboards and panels: see [GRAFANA.md](GRAFANA.md).
-* Plugin groups with shared setup (Keycloak, MySQL, Rocket.Chat, WildFly): see
-  the corresponding `PLUGINS-*.md` files at the repository root.
+* Plugin groups with shared setup (Keycloak, MySQL, Rocket.Chat, WildFly): see the corresponding `PLUGINS-*.md` files at the repository root.
