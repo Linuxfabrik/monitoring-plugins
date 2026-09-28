@@ -36,7 +36,7 @@ Monitoring Plugins:
 Icinga Director:
 
 * Active Directory Domain Service Set: also checks Netlogon
-* Lynis Service Set: audits each tagged host locally, once a day
+* Lynis Service Set: audits each tagged host locally, once a day, and watches `lynis.service` and `lynis.timer`
 * OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", checks network errors and fewer services
 
 Grafana:
