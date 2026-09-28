@@ -63,6 +63,7 @@ Monitoring Plugins:
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
+* fs-ro: no false warning for Docker containers on SUSE
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-chronyd: names why `chronyc` failed

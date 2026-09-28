@@ -9,7 +9,7 @@ Checks for unexpectedly read-only mounted filesystems, such as a root filesystem
 
 * Reads `/proc/mounts` and checks the mount options for each entry
 * Skips ramfs and squashfs filesystem types entirely
-* Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`)
+* Skips mount points whose path starts with any `--ignore` prefix (default: `/dev/loop`, `/proc`, `/run/credentials`, `/snap`, `/sys/fs`, `/var/lib/docker/containers`)
 
 
 ## Fact Sheet
@@ -43,7 +43,7 @@ options:
                    with this value will be skipped. Can be specified multiple
                    times. Example: `--ignore /sys/fs` ignores `/sys/fs/cgroup`
                    and similar. Default: /dev/loop, /proc, /run/credentials,
-                   /snap, /sys/fs.
+                   /snap, /sys/fs, /var/lib/docker/containers.
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/fs-ro/

@@ -64,6 +64,22 @@ TESTS = [
         'assert-regex': r'3 read-only mount points found',
     },
     {
+        # Real /proc/mounts of openSUSE Leap 15.5 with one `docker run` container:
+        # SUSE's Docker mounts a read-only secrets tmpfs into it.
+        'id': 'ok-suse-docker-secrets-mount-is-ignored',
+        'test': 'stdout/leap155-docker-container,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'Everything is ok\.',
+    },
+    {
+        # --ignore replaces the defaults, so the container mount is reported again
+        'id': 'warn-suse-docker-secrets-mount-without-default-ignores',
+        'test': 'stdout/leap155-docker-container,,0',
+        'params': '--ignore=/sys/fs',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['1 read-only mount point found', '/mounts/secrets'],
+    },
+    {
         'id': 'unknown-malformed-proc-mounts',
         'test': 'stdout/malformed-proc-mounts,,0',
         'assert-retc': STATE_UNKNOWN,
