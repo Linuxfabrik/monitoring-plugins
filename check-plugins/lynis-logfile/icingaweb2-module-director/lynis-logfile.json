@@ -1,0 +1,228 @@
+{
+    "Command": {
+        "cmd-check-lynis-logfile": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$lynis_logfile_always_ok$"
+                },
+                "--critical": {
+                    "value": "$lynis_logfile_critical$"
+                },
+                "--max-age": {
+                    "value": "$lynis_logfile_max_age$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$lynis_logfile_no_perfdata$"
+                },
+                "--warning": {
+                    "value": "$lynis_logfile_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/lynis-logfile",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-lynis-logfile",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "a3a4bb88-4b5c-4888-97dd-8015d37688e2"
+        },
+        "cmd-check-lynis-logfile-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lynis-logfile",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-lynis-logfile"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-lynis-logfile-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "8cde3843-0635-434d-b4c9-ff4fddb13aa3"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-lynis-logfile": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lynis-logfile",
+            "check_interval": "3600",
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "lynis-logfile.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Evaluates the report of the lynis security audit that runs on the host once a day, for example through lynis.timer, and reports the hardening index, the findings (the lynis warnings) and the hardening suggestions of lynis. The check itself does not run an audit, so it is fast and needs no more than read access to the report. Alerts when the hardening index is below the threshold, when lynis reports a finding, and when the report is missing, incomplete or older than the maximum age, because then the daily audit has stopped. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis-logfile/",
+            "object_name": "tpl-service-lynis-logfile",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "lynis_logfile_always_ok": false,
+                "lynis_logfile_critical": "",
+                "lynis_logfile_max_age": 26,
+                "lynis_logfile_no_perfdata": false,
+                "lynis_logfile_warning": "65:"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "92f1e3b5-772a-418a-aedb-cb7e75384666"
+        },
+        "tpl-service-lynis-logfile-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-lynis-logfile-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-lynis-logfile"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-lynis-logfile-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "dc5b457c-f8c1-409d-8894-bb4d9dcfef3a"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "lynis_logfile_always_ok",
+            "caption": "Lynis Logfile: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "c2cebfe8-efb4-4fd5-ad9c-d5001a197be7"
+        },
+        "2": {
+            "varname": "lynis_logfile_critical",
+            "caption": "Lynis Logfile: Critical",
+            "description": "CRIT threshold for the hardening index (0-100). Supports Nagios ranges. Empty by default, because a daily hardening scan is posture drift, not a time-critical event that should page someone at night.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7a568265-841b-44d5-a008-b543b3718ea4"
+        },
+        "3": {
+            "varname": "lynis_logfile_max_age",
+            "caption": "Lynis Logfile: Max Age",
+            "description": "Maximum age of the report in hours. An older report means that the daily audit no longer runs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "be7042e6-0402-4882-8d78-068dcbb9bece"
+        },
+        "4": {
+            "varname": "lynis_logfile_no_perfdata",
+            "caption": "Lynis Logfile: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "8a12b3c8-cbf2-4ef0-9c3f-45173104a185"
+        },
+        "5": {
+            "varname": "lynis_logfile_warning",
+            "caption": "Lynis Logfile: Warning",
+            "description": "WARN threshold for the hardening index (0-100). Supports Nagios ranges. The default alerts when the index drops below 65.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7ce6848c-0436-46d1-8ddf-05f884d8abac"
+        }
+    }
+}

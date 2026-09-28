@@ -1,0 +1,261 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.lynis
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026092801'
+
+DESCRIPTION = """Evaluates the report of the lynis security audit that runs on the host once a
+day, for example through lynis.timer, and reports the hardening index, the findings (the
+lynis warnings) and the hardening suggestions of lynis. The check itself does not run an
+audit, so it is fast and needs no more than read access to the report. Alerts when the
+hardening index is below the threshold, when lynis reports a finding, and when the report
+is missing, incomplete or older than the maximum age, because then the daily audit has
+stopped. Security posture is informational drift rather than a time-critical availability
+event, so by default only WARNING is raised.
+Requires root or sudo."""
+
+DEFAULT_CRIT = ''
+DEFAULT_MAX_AGE = 26
+DEFAULT_WARN = '65:'
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Threshold parameters: use type=str (not int/float) to support Nagios
+    # range expressions like "65:", "~:50", "@10:20".
+    # In main(), pass _operator='range' to lib.base.get_state().
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the hardening index (0-100). '
+        'Supports Nagios ranges. '
+        'Empty by default, because a daily hardening scan is posture drift, '
+        'not a time-critical event that should page someone at night. '
+        'Default: %(default)s (no critical)',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--max-age',
+        help='Maximum age of the report in hours. An older report means that the '
+        'daily audit no longer runs. '
+        'Default: %(default)s (0 disables the check)',
+        dest='MAX_AGE',
+        type=int,
+        default=DEFAULT_MAX_AGE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the hardening index (0-100). '
+        'Supports Nagios ranges. '
+        'The default alerts when the index drops below 65. '
+        'Default: %(default)s',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def audit_running():
+    """Tell whether a lynis audit is running right now, which is the case while the
+    report is being written. lynis keeps its PID file for the length of the audit,
+    and a PID gets reused, so the process has to be an audit (`/bin/sh
+    /usr/bin/lynis audit system ...`), not anything that merely mentions lynis.
+    Returns the PID, or an empty string.
+    """
+    # /var/run is a symlink to /run on every current distribution
+    success, content = lib.disk.read_file(
+        lib.lynis.PID, allowed_roots=['/run', '/var/run'], nofollow=True
+    )
+    pid = content.strip() if success else ''
+    if not pid.isdigit():
+        return ''
+    success, cmdline = lib.disk.read_file(f'/proc/{pid}/cmdline')
+    argv = cmdline.split('\0') if success else []
+    if 'audit' in argv and any(os.path.basename(arg) == 'lynis' for arg in argv):
+        return pid
+    return ''
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    if args.TEST is None:
+        if not os.path.lexists(lib.lynis.REPORT):
+            # Deliberately WARNING and not UNKNOWN: the daily audit belongs on a host
+            # that got this check, so a missing report is a gap the admin has to close.
+            lib.base.oao(
+                f'No lynis report found at {lib.lynis.REPORT}, so this host is not '
+                'being audited. Install lynis and enable a daily audit, for example '
+                '`systemctl enable --now lynis.timer`.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        success, text = lib.disk.read_file(
+            lib.lynis.REPORT, allowed_roots=['/var/log'], nofollow=True
+        )
+        if not success:
+            lib.base.oao(
+                f'{text.rstrip(".")}. The report is readable by root only, so run the '
+                'check via sudo (see the README).',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        running = audit_running()
+    else:
+        # do not read the report, put in test data. A test never sees a running
+        # audit.
+        text, _, _ = lib.lftest.test(args.TEST)
+        running = ''
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+    report = lib.lynis.parse_report(text)
+
+    # analyze data
+    # lynis writes the hardening index and the end of the audit last, so a report
+    # without them is one that an audit is still writing, or that an aborted audit
+    # left behind.
+    if report['hardening_index'] is None or not report['report_datetime_end']:
+        if running:
+            lib.base.oao(
+                f'A lynis audit is running right now (PID {running}), so the report is '
+                'not complete yet. The next check run reads the finished one.',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        lib.base.oao(
+            f'The lynis report {lib.lynis.REPORT} is incomplete, the last audit did not '
+            'finish. Look for the cause with `journalctl --unit lynis.service`, and '
+            'start a new audit with `systemctl start lynis.service`.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+
+    # lynis writes the end of the audit in the host's local time, and this check
+    # runs on the same host
+    age = max(0, lib.time.now() - lib.time.timestr2epoch(report['report_datetime_end']))
+    age_state = STATE_OK
+    if args.MAX_AGE and age > args.MAX_AGE * 3600:
+        age_state = STATE_WARN
+    index = report['hardening_index']
+    index_state = lib.base.get_state(index, args.WARN, args.CRIT, _operator='range')
+    findings = lib.lynis.parse_findings(report['warnings'])
+    suggestions = lib.lynis.parse_findings(report['suggestions'])
+    # Every lynis warning counts: a warning is a concrete finding, not noise. To
+    # accept one, suppress it in the host's lynis profile (skip-test=...), not in
+    # this plugin. See the plugin README.
+    findings_state = STATE_WARN if findings else STATE_OK
+    state = lib.base.get_worst(age_state, index_state, findings_state)
+
+    # build the message
+    msg += (
+        f'Hardening index {index}{lib.base.state2str(index_state, prefix=" ")}, '
+        f'{len(findings)} {lib.txt.pluralize("finding", len(findings))}'
+        f'{lib.base.state2str(findings_state, prefix=" ")}, '
+        f'{len(suggestions)} {lib.txt.pluralize("suggestion", len(suggestions))}, '
+        f'audited {lib.human.seconds2human(age)} ago'
+        f'{lib.base.state2str(age_state, prefix=" ")}'
+    )
+    if age_state != STATE_OK:
+        msg += (
+            f'\n\nThe last audit finished at {report["report_datetime_end"]}, which is '
+            f'more than {args.MAX_AGE}h ago. Check that the daily audit still runs, '
+            'for example with `systemctl list-timers lynis.timer`.'
+        )
+    perfdata += lib.base.get_perfdata(
+        'hardening_index',
+        index,
+        warn=args.WARN,
+        crit=args.CRIT,
+        _min=0,
+        _max=100,
+    )
+    perfdata += lib.base.get_perfdata('findings', len(findings), _min=0)
+    perfdata += lib.base.get_perfdata('suggestions', len(suggestions), _min=0)
+    msg += lib.lynis.get_findings_msg(findings, suggestions)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import atexit
+import datetime
+import os
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# In --test mode the fixture stands in for /var/log/lynis-report.dat. The fixtures
+# in stdout/ are real reports of `lynis audit system --cronjob`, anonymised
+# (hostname, host IDs, addresses, domain):
+#   report-rocky10        Lynis 3.1.6 on Rocky 10: index 65, no finding
+#   report-debian12       Lynis 3.0.8 on Debian 12: index 60, one finding
+#   report-ubuntu2604     Lynis 3.1.6 on Ubuntu 26.04: index 61, one finding
+#   report-audit-running  Lynis 3.1.7 on Rocky 8, copied while the audit was still
+#                         running: no hardening_index, no report_datetime_end
+# The age of a report is measured against the real clock, so the fixed fixtures
+# switch the age check off with --max-age 0, and the age cases use reports that
+# are written below with an end relative to now.
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def write_report(name, hours_ago):
+    """Write a copy of report-rocky10 that finished `hours_ago` hours ago. It has to
+    live below unit-test/, the only place the plugin reads a fixture from.
+    """
+    end = datetime.datetime.now() - datetime.timedelta(hours=hours_ago)
+    with open(os.path.join(HERE, 'stdout', 'report-rocky10'), encoding='utf-8') as f:
+        lines = f.read().splitlines()
+    lines = [
+        f'report_datetime_end={end:%Y-%m-%d %H:%M:%S}'
+        if line.startswith('report_datetime_end=')
+        else line
+        for line in lines
+    ]
+    path = os.path.join(HERE, 'stdout', name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+    atexit.register(os.remove, path)
+
+
+write_report('generated-1h-old', 1)
+write_report('generated-30h-old', 30)
+
+TESTS = [
+    {
+        'id': 'ok-no-finding',
+        'test': 'stdout/report-rocky10,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Hardening index 65, 0 findings, 37 suggestions, audited ',
+            # a suggestion is advice, it carries no state
+            'Suggestions:\n* ACCT-9622: Enable process accounting.\n',
+            '`lynis show details ACCT-9622`',
+        ],
+        'assert-not-in': ['[WARNING]', 'Findings:'],
+        'assert-regex': r"'hardening_index'=65;65:;;0;100 'findings'=0;;;0 "
+        r"'suggestions'=37;;;0",
+    },
+    {
+        'id': 'warn-finding-and-index-below-threshold',
+        'test': 'stdout/report-debian12,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Hardening index 60 [WARNING], 1 finding [WARNING], 49 suggestions',
+            'Findings:\n* PKGS-7392: Found one or more vulnerable packages. '
+            '[WARNING]\n\nSuggestions:',
+            '`skip-test=PKGS-7392` to `/etc/lynis/custom.prf`',
+        ],
+    },
+    {
+        'id': 'warn-finding-only',
+        'test': 'stdout/report-ubuntu2604,,0',
+        'params': '--max-age 0 --warning 60:',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Hardening index 61, 1 finding [WARNING], 46 suggestions',
+            '* PKGS-7392: Found one or more vulnerable packages. [WARNING]',
+        ],
+    },
+    {
+        'id': 'warn-index-below-threshold',
+        'test': 'stdout/report-rocky10,,0',
+        'params': '--max-age 0 --warning 70:',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Hardening index 65 [WARNING], 0 findings'],
+    },
+    {
+        'id': 'crit-index-below-critical',
+        'test': 'stdout/report-rocky10,,0',
+        'params': '--max-age 0 --warning 70: --critical 66:',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Hardening index 65 [CRITICAL], 0 findings'],
+    },
+    {
+        'id': 'ok-always-ok-masks-finding',
+        'test': 'stdout/report-debian12,,0',
+        'params': '--max-age 0 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['1 finding [WARNING]'],
+    },
+    {
+        'id': 'ok-no-perfdata',
+        'test': 'stdout/report-rocky10,,0',
+        'params': '--max-age 0 --no-perfdata',
+        'assert-retc': STATE_OK,
+        'assert-not-in': ['hardening_index'],
+    },
+    {
+        # lynis writes hardening_index and report_datetime_end last, so this is a
+        # report of an audit that did not finish
+        'id': 'warn-incomplete-report',
+        'test': 'stdout/report-audit-running,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The lynis report /var/log/lynis-report.dat is incomplete, the last '
+            'audit did not finish.',
+            '`journalctl --unit lynis.service`',
+        ],
+    },
+    {
+        'id': 'ok-fresh-report',
+        'test': 'stdout/generated-1h-old,,0',
+        'assert-retc': STATE_OK,
+        # the report was written a moment before the plugin runs
+        'assert-regex': r'audited 1h(?: \d+s)? ago\n',
+        'assert-not-in': ['[WARNING]'],
+    },
+    {
+        'id': 'warn-stale-report',
+        'test': 'stdout/generated-30h-old,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'audited 1D 6h ago [WARNING]',
+            'which is more than 26h ago',
+            '`systemctl list-timers lynis.timer`',
+        ],
+    },
+    {
+        'id': 'ok-stale-report-with-longer-max-age',
+        'test': 'stdout/generated-30h-old,,0',
+        'params': '--max-age 48',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'ok-stale-report-with-age-check-off',
+        'test': 'stdout/generated-30h-old,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../lynis-logfile'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

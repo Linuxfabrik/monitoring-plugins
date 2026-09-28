@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Monitoring Plugins:
 
+* lynis-logfile: evaluates the daily lynis audit of the host, for example from lynis.timer, and alerts when it stopped
 * windows-version: end of life of the installed Windows or Windows Server release
 
 Icinga Director:
@@ -45,7 +46,7 @@ Grafana:
 
 Assets:
 
-* sudoers: allow the `lynis` check
+* sudoers: allow the `lynis-logfile` check
 
 ### Fixed
 
