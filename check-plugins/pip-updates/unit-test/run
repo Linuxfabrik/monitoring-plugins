@@ -98,28 +98,40 @@ pip_updates = _load_plugin_module()
 
 
 class TestVirtualenv(unittest.TestCase):
-    """--virtualenv names a virtualenv the way an admin has it at hand."""
+    """--virtualenv names the activate script of a virtualenv, nothing else."""
 
-    def test_directory_bin_and_activate_lead_to_the_same_interpreter(self):
+    def test_the_activate_script_leads_to_the_interpreter_next_to_it(self):
         with tempfile.TemporaryDirectory() as venv:
             os.makedirs(os.path.join(venv, 'bin'))
-            python = os.path.join(venv, 'bin', 'python3')
+            for name in ('python3', 'activate'):
+                open(os.path.join(venv, 'bin', name), 'w').close()
+            self.assertEqual(
+                pip_updates.get_interpreter(os.path.join(venv, 'bin', 'activate')),
+                (True, os.path.join(venv, 'bin', 'python3')),
+            )
+
+    def test_anything_but_an_activate_script_is_refused(self):
+        with tempfile.TemporaryDirectory() as venv:
+            os.makedirs(os.path.join(venv, 'bin'))
             for name in ('python3', 'activate'):
                 open(os.path.join(venv, 'bin', name), 'w').close()
             for given in (
                 venv,
-                f'{venv}/',
                 os.path.join(venv, 'bin'),
-                os.path.join(venv, 'bin', 'activate'),
+                os.path.join(venv, 'bin', 'python3'),
             ):
                 with self.subTest(given=given):
-                    self.assertEqual(pip_updates.get_interpreter(given), (True, python))
+                    success, message = pip_updates.get_interpreter(given)
+                    self.assertFalse(success)
+                    self.assertIn('expects the activate script', message)
 
-    def test_a_path_without_an_interpreter_is_named(self):
-        with tempfile.TemporaryDirectory() as empty:
-            success, message = pip_updates.get_interpreter(empty)
+    def test_an_activate_script_without_an_interpreter_is_named(self):
+        with tempfile.TemporaryDirectory() as venv:
+            activate = os.path.join(venv, 'activate')
+            open(activate, 'w').close()
+            success, message = pip_updates.get_interpreter(activate)
         self.assertFalse(success)
-        self.assertIn(f'No virtualenv found at `{empty}`', message)
+        self.assertIn(f'No interpreter `{os.path.join(venv, "python3")}`', message)
 
 
 if __name__ == '__main__':

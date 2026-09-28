@@ -12,7 +12,7 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 **Data Collection:**
 
 * Executes `python3 -m pip list --outdated --format=json` to get the list of outdated packages
-* With `--virtualenv`, checks the packages of that virtualenv with its own interpreter; the virtualenv is named by its directory, its `bin` directory or its `bin/activate` script
+* With `--virtualenv`, checks the packages of that virtualenv with the interpreter next to its activate script
 * Supports all standard pip options for index URLs, exclusions, and package filtering
 * May take more than 10 seconds to execute depending on the number of installed packages and network latency
 
@@ -80,11 +80,10 @@ options:
   --user                Only check packages installed in the user-site
                         directory.
   --virtualenv VIRTUALENV
-                        Path to a virtualenv: its directory, its `bin`
-                        directory or its `bin/activate` script. The
+                        Path to the activate script of a virtualenv. The
                         interpreter of that virtualenv is used to check for
                         updates inside it. Example: `--virtualenv=/opt/sphinx-
-                        venv`.
+                        venv/bin/activate`.
   -w, --warning WARN    WARN threshold for the number of outdated packages.
                         Default: 10
 
@@ -96,7 +95,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/
 ## Usage Examples
 
 ```bash
-./pip-updates --virtualenv=/path/to/my/venv --local --exclude=pip
+./pip-updates --virtualenv=/path/to/my/venv/bin/activate --local --exclude=pip
 ```
 
 Output:

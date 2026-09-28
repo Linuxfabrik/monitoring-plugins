@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026092803'
 
 DESCRIPTION = """Checks for outdated Python packages installed via pip. Reports the number of packages
 with available updates and lists them. Alerts when the count exceeds the configured
@@ -159,10 +159,9 @@ def parse_args():
 
     parser.add_argument(
         '--virtualenv',
-        help='Path to a virtualenv: its directory, its `bin` directory or its '
-        '`bin/activate` script. The interpreter of that virtualenv is used to check '
-        'for updates inside it. '
-        'Example: `--virtualenv=/opt/sphinx-venv`.',
+        help='Path to the activate script of a virtualenv. The interpreter of that '
+        'virtualenv is used to check for updates inside it. '
+        'Example: `--virtualenv=/opt/sphinx-venv/bin/activate`.',
         dest='VIRTUALENV',
     )
 
@@ -180,27 +179,21 @@ def parse_args():
 
 
 def get_interpreter(virtualenv):
-    """Return the `python3` of a virtualenv named by its directory, its `bin`
-    directory or its `bin/activate` script.
+    """Return the `python3` next to the activate script of a virtualenv.
 
-    Returns `(True, path)`, or `(False, message)` if none of them leads to one.
+    Returns `(True, path)`, or `(False, message)` if `virtualenv` is no activate script
+    or no interpreter lies next to it.
     """
-    path = virtualenv.rstrip('/') or '/'
-    if os.path.isfile(path):
-        # the activate script
-        path = os.path.dirname(path)
-    for candidate in (
-        os.path.join(path, 'bin', 'python3'),
-        os.path.join(path, 'python3'),
-    ):
-        if os.path.isfile(candidate):
-            return (True, candidate)
-    return (
-        False,
-        f'No virtualenv found at `{virtualenv}`: it holds neither `bin/python3` nor '
-        f'`python3`. Point --virtualenv at the directory of the virtualenv, for '
-        f'example `/opt/sphinx-venv`.',
-    )
+    if os.path.basename(virtualenv) != 'activate' or not os.path.isfile(virtualenv):
+        return (
+            False,
+            f'--virtualenv expects the activate script of a virtualenv, for example '
+            f'`/opt/sphinx-venv/bin/activate`, and `{virtualenv}` is none.',
+        )
+    python = os.path.join(os.path.dirname(virtualenv), 'python3')
+    if not os.path.isfile(python):
+        return (False, f'No interpreter `{python}` next to `{virtualenv}`.')
+    return (True, python)
 
 
 def main():
