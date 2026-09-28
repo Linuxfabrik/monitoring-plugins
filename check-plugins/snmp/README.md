@@ -91,8 +91,11 @@ options:
                         `snmpget`. Example: `--mib "+FS-MIB"` or `--mib "FS-
                         MIB:BROTHER-MIB"`.
   --mib-dir MIB_DIR     Colon-separated list of directories to search for
-                        MIBs, behaves like the `-M` option of `snmpget`.
-                        Default: $HOME/.snmp/mibs:/usr/share/snmp/mibs
+                        MIBs, behaves like the `-M` option of `snmpget`: a
+                        leading `+` adds them to the search path of net-snmp
+                        instead of replacing it. Example: `--mib-
+                        dir=+/usr/lib64/nagios/plugins/device-mibs/switch-
+                        fs-s3900`. Default: the search path of net-snmp.
   --no-perfdata         Suppress the performance data section from the output.
                         The status message and the exit code are unaffected,
                         so alerting keeps working while trending data is
@@ -157,7 +160,7 @@ A minimal command call:
 Calling this the check...
 
 1.  fetches a set of most common SNMP OIDs like *Contact* or *Uptime*, defined in `device-oids/any-any-any.csv`,
-2.  calls `snmpget -v 2c -c public -r 0 -t 7 -OSqtU -M $HOME/.snmp/mibs:/usr/share/snmp/mibs 10.80.32.109 OID1 OID2 ...`,
+2.  calls `snmpget -v 2c -c public -r 0 -t 7 -OSqtU 10.80.32.109 OID1 OID2 ...`,
 3.  parses the output,
 4.  interprets the result and calculates the return state.
 

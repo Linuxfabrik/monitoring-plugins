@@ -24,7 +24,7 @@ import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092801'
 
 DESCRIPTION = """Queries SNMP OIDs defined in a CSV file and checks the returned values
 against optional warning and critical thresholds. Supports SNMP v1, v2c, and v3 with
@@ -137,10 +137,12 @@ def parse_args():
     parser.add_argument(
         '--mib-dir',
         help='Colon-separated list of directories to search for MIBs, '
-        'behaves like the `-M` option of `snmpget`. '
-        'Default: %(default)s',
+        'behaves like the `-M` option of `snmpget`: a leading `+` adds them to the '
+        'search path of net-snmp instead of replacing it. '
+        'Example: `--mib-dir=+/usr/lib64/nagios/plugins/device-mibs/switch-fs-s3900`. '
+        'Default: the search path of net-snmp.',
         dest='MIB_DIR',
-        default='$HOME/.snmp/mibs:/usr/share/snmp/mibs',
+        default=None,
     )
 
     parser.add_argument(

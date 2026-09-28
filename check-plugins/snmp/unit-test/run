@@ -356,6 +356,14 @@ class TestSnmpconfPath(unittest.TestCase):
         self.assertIn('-c', cmd)
         self.assertIn('linuxfabrik', cmd)
 
+    def test_the_mib_search_path_of_net_snmp_is_kept_by_default(self):
+        # A -M replaces the search path of net-snmp, and on Debian and Ubuntu the
+        # standard MIBs of snmp-mibs-downloader live in directories only that path
+        # names (/usr/share/snmp/mibs/iana and ietf).
+        self.assertNotIn('-M', self.plugin.build_snmpget_call(self._args()))
+        cmd = self.plugin.build_snmpget_call(self._args(MIB_DIR='+/opt/mibs'))
+        self.assertEqual(cmd[cmd.index('-M') + 1], '+/opt/mibs')
+
     def test_community_is_omitted_when_snmpconf_path_is_set(self):
         cmd = self.plugin.build_snmpget_call(self._args(SNMPCONF_PATH='/etc/snmp'))
         self.assertNotIn('-c', cmd)

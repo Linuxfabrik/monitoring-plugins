@@ -73,7 +73,7 @@ Monitoring Plugins:
 * procs: says how many processes `--argument` and `--username` could not inspect
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
-* snmp: works with the default `--device`
+* snmp: works with the default `--device`, and on Debian and Ubuntu
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
@@ -81,6 +81,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* snmp: re-import the basket, so the service template no longer hides the MIBs of Debian and Ubuntu
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
 
