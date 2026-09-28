@@ -12,6 +12,7 @@
 
 import argparse
 import re
+import shlex
 import sys
 
 import lib.args
@@ -22,7 +23,7 @@ import lib.winrm
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092801'
 
 DESCRIPTION = """This plugin executes PowerShell commands or scripts on remote Windows hosts via
 WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error
@@ -65,7 +66,10 @@ def parse_args():
     parser.add_argument(
         '--command',
         help='PowerShell command or script to execute on the remote host. '
-        'Supports pipelines and complex expressions.',
+        'Supports pipelines and complex expressions. '
+        'With `--winrm-configuration-name` (JEA), a single cmdlet with its '
+        'parameters, all by name or all by position. '
+        'Example: `--command="Get-Service -Name W32Time"`.',
         dest='COMMAND',
         required=True,
     )
@@ -250,6 +254,64 @@ def parse_args():
     return args
 
 
+def split_jea_command(command):
+    """Split `--command` into a cmdlet and its parameters for a JEA endpoint.
+
+    A JEA endpoint runs in NoLanguage mode and refuses any script text, a single
+    command included, with a ParseException; it only accepts a cmdlet with its
+    parameters. `Get-Service -Name W32Time` becomes `('Get-Service', {'Name':
+    'W32Time'})`, `Get-Service W32Time` becomes `('Get-Service', ['W32Time'])`, a
+    parameter without a value is a switch. Quotes group a value as in a shell.
+
+    Returns `(True, (cmdlet, params))`, or `(False, message)` for anything a JEA
+    endpoint cannot run.
+    """
+    # a backslash is part of a Windows path, not an escape character
+    lexer = shlex.shlex(command, posix=True)
+    lexer.whitespace_split = True
+    lexer.escape = ''
+    try:
+        tokens = list(lexer)
+    except ValueError as e:
+        return False, f'Unable to split --command into a cmdlet and parameters: {e}'
+    if not tokens:
+        return False, '--command is empty.'
+    cmdlet, rest = tokens[0], tokens[1:]
+    # a value reaches the cmdlet as a literal and is never run, so only the command
+    # itself has to be a plain (optionally module-qualified) cmdlet name
+    if not re.fullmatch(r'(?:[A-Za-z][\w.]*\\)?[A-Za-z][\w-]*', cmdlet) or any(
+        token in ('|', ';', '&&', '||') for token in rest
+    ):
+        return (
+            False,
+            'A JEA endpoint runs a single cmdlet with its parameters, no pipes,'
+            ' scripts or expressions. Put what goes beyond one cmdlet into a function'
+            ' of the role capability, and call that.',
+        )
+    named = {}
+    positional = []
+    i = 0
+    while i < len(rest):
+        token = rest[i]
+        if re.fullmatch(r'-[A-Za-z]\w*', token):
+            if i + 1 < len(rest) and not re.fullmatch(r'-[A-Za-z]\w*', rest[i + 1]):
+                named[token[1:]] = rest[i + 1]
+                i += 2
+            else:
+                named[token[1:]] = True
+                i += 1
+        else:
+            positional.append(token)
+            i += 1
+    if named and positional:
+        return (
+            False,
+            'Behind a JEA endpoint, give the parameters of --command either all by'
+            ' name (`-Name W32Time`) or all by position (`W32Time`), not mixed.',
+        )
+    return True, (cmdlet, named or positional)
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -272,7 +334,11 @@ def main():
     # fetch data - run WinRM command
     if args.TEST is None:
         timer_start = lib.time.now('float')
-        result = lib.winrm.run_ps(args, args.COMMAND)
+        if args.WINRM_CONFIGURATION_NAME:
+            cmdlet, params = lib.base.coe(split_jea_command(args.COMMAND))
+            result = lib.winrm.run_ps(args, cmdlet, params)
+        else:
+            result = lib.winrm.run_ps(args, args.COMMAND)
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
     else:
         # do not call the command, put in test data

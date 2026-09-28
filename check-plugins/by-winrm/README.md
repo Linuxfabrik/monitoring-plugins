@@ -8,7 +8,7 @@ This plugin executes PowerShell commands or scripts on remote Windows hosts via 
 **Important Notes:**
 
 * Supports NTLM, Kerberos, CredSSP, Basic, and plaintext transports
-* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`)
+* JEA endpoints are only supported with `pypsrp` (via `--winrm-configuration-name`). A JEA endpoint runs a single cmdlet with its parameters and no script text, so `--command` is split into the cmdlet and its parameters there, and pipes are refused. The objects the cmdlet returns arrive as one `Property : Value` line per property, like `Format-List`, so patterns can match their properties.
 * This plugin is ideal for retrieving Windows-specific metrics, running custom PowerShell-based health checks (such as inventory, backup status, or failover cluster queries), and accessing systems like Active Directory, Exchange, SQL Server, or Hyper-V
 * It is especially useful in environments where installing a monitoring agent is not possible or desired
 * For Kerberos transport, configure `/etc/krb5.conf` and obtain a ticket via `kinit` before running the plugin. When Kerberos credentials are present in the cache, `--winrm-username` and `--winrm-password` can be omitted.
@@ -100,7 +100,10 @@ options:
   -V, --version         show program's version number and exit
   --always-ok           Always returns OK.
   --command COMMAND     PowerShell command or script to execute on the remote
-                        host. Supports pipelines and complex expressions.
+                        host. Supports pipelines and complex expressions. With
+                        `--winrm-configuration-name` (JEA), a single cmdlet
+                        with its parameters, all by name or all by position.
+                        Example: `--command="Get-Service -Name W32Time"`.
   -c, --critical CRIT   CRIT threshold for single numeric return values.
                         Supports Nagios ranges. Example: `@10:20` alerts if
                         STDOUT is in range 10..20.
@@ -265,6 +268,28 @@ Use a JEA (Just Enough Administration) endpoint - requires `pypsrp`:
 ```
 
 The `--winrm-configuration-name` specifies the PowerShell session configuration (JEA endpoint) on the target host. Only the cmdlets allowed by the JEA role capability will be available.
+
+With JEA, give the cmdlet's parameters all by name or all by position. The output of a service query looks like this, so `--warning-pattern=Stopped` finds a stopped service:
+
+```bash
+./by-winrm \
+    --winrm-hostname=winsrv.example.com \
+    --winrm-username=jea-operator \
+    --winrm-password=linuxfabrik \
+    --winrm-configuration-name=MyJEAEndpoint \
+    --command='Get-Service -Name W32Time' \
+    --warning-pattern=Stopped
+```
+
+```text
+DisplayName         : Windows Time
+ServiceName         : W32Time
+Status              : Running
+StartType           : Automatic
+...
+```
+
+A cmdlet that works with files needs the FileSystem provider in the role capability (`VisibleProviders = 'FileSystem'`); without it, JEA answers with a `ProviderNotFoundException`.
 
 What error output looks like - for example when authentication fails:
 
