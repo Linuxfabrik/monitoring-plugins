@@ -18,7 +18,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* one Basic Service Set per Windows version: Windows 10, Windows 11 and Windows Server 2016, 2019, 2022 and 2025, each with the services that version runs by default
+* one Basic Service Set per Windows version, from Windows 10 to Server 2025
 
 Assets:
 
@@ -37,7 +37,7 @@ Icinga Director:
 
 * Active Directory Domain Service Set: also checks Netlogon
 * Lynis Service Set: audits each tagged host locally, once a day
-* OS - Windows Basic Service Set: now named for Windows 8/2012 and older, and also checks for network errors
+* OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", also checks network errors
 
 Grafana:
 
@@ -66,8 +66,8 @@ Monitoring Plugins:
 
 Icinga Director:
 
-* Active Directory Lightweight Directory Service Set: checks the AD LDS instances instead of a service that never runs
-* Windows service sets: each service check matches its service by exact name, so a stopped DNS Server is no longer hidden by the running DNS Client
+* Active Directory Lightweight Directory Service Set: checks the AD LDS instances
+* Windows service sets: a stopped service is no longer hidden by one with a similar name
 
 Build, CI/CD:
 
