@@ -8,7 +8,11 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import importlib.machinery
+import importlib.util
+import os
 import sys
+import tempfile
 
 sys.path.insert(0, '..')
 
@@ -49,7 +53,7 @@ TESTS = [
         'test': 'stdout/eighteen-outdated-packages,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Not running in a venv. 18 outdated packages [WARNING]. Executed command: `python3 -m pip list --outdated`',
+            '18 outdated packages [WARNING]. Executed command: `python3 -m pip list --outdated`',
             'Package                  ! Version ! Latest  ! Type ',
             '-------------------------+---------+---------+------',
             'ansible                  ! 7.1.0   ! 7.2.0   ! wheel',
@@ -80,6 +84,42 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+def _load_plugin_module():
+    loader = importlib.machinery.SourceFileLoader('pip_updates', '../pip-updates')
+    spec = importlib.util.spec_from_loader('pip_updates', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+pip_updates = _load_plugin_module()
+
+
+class TestVirtualenv(unittest.TestCase):
+    """--virtualenv names a virtualenv the way an admin has it at hand."""
+
+    def test_directory_bin_and_activate_lead_to_the_same_interpreter(self):
+        with tempfile.TemporaryDirectory() as venv:
+            os.makedirs(os.path.join(venv, 'bin'))
+            python = os.path.join(venv, 'bin', 'python3')
+            for name in ('python3', 'activate'):
+                open(os.path.join(venv, 'bin', name), 'w').close()
+            for given in (
+                venv,
+                f'{venv}/',
+                os.path.join(venv, 'bin'),
+                os.path.join(venv, 'bin', 'activate'),
+            ):
+                with self.subTest(given=given):
+                    self.assertEqual(pip_updates.get_interpreter(given), (True, python))
+
+    def test_a_path_without_an_interpreter_is_named(self):
+        with tempfile.TemporaryDirectory() as empty:
+            success, message = pip_updates.get_interpreter(empty)
+        self.assertFalse(success)
+        self.assertIn(f'No virtualenv found at `{empty}`', message)
 
 
 if __name__ == '__main__':

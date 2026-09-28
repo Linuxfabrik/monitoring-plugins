@@ -12,7 +12,7 @@ Checks for outdated Python packages installed via pip. Reports the number of pac
 **Data Collection:**
 
 * Executes `python3 -m pip list --outdated --format=json` to get the list of outdated packages
-* Optionally sources a virtualenv activate script before checking
+* With `--virtualenv`, checks the packages of that virtualenv with its own interpreter; the virtualenv is named by its directory, its `bin` directory or its `bin/activate` script
 * Supports all standard pip options for index URLs, exclusions, and package filtering
 * May take more than 10 seconds to execute depending on the number of installed packages and network latency
 
@@ -80,9 +80,11 @@ options:
   --user                Only check packages installed in the user-site
                         directory.
   --virtualenv VIRTUALENV
-                        Path to a virtualenv activate script. The interpreter
-                        from that virtualenv is used to check for updates
-                        inside it. Example: `/opt/sphinx-venv/bin/activate`
+                        Path to a virtualenv: its directory, its `bin`
+                        directory or its `bin/activate` script. The
+                        interpreter of that virtualenv is used to check for
+                        updates inside it. Example: `--virtualenv=/opt/sphinx-
+                        venv`.
   -w, --warning WARN    WARN threshold for the number of outdated packages.
                         Default: 10
 
@@ -94,13 +96,13 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/
 ## Usage Examples
 
 ```bash
-./pip-updates --virtualenv=/path/to/my/venv/bin/activate --local --exclude=pip
+./pip-updates --virtualenv=/path/to/my/venv --local --exclude=pip
 ```
 
 Output:
 
 ```text
-venv /path/to/my/venv/bin/activate. pip says `[notice] A new release of pip is available: 24.0 -> 26.2.1`, but most of the packages are up to date. 2 outdated packages. Executed command: `/path/to/my/venv/bin/python3 -m pip list --outdated --exclude=pip --local`
+Everything is ok. 2 outdated packages. pip says `[notice] A new release of pip is available: 24.0 -> 26.2.1`. Executed command: `/path/to/my/venv/bin/python3 -m pip list --outdated --exclude=pip --local`
 
 Package ! Version ! Latest ! Type
 --------+---------+--------+------
