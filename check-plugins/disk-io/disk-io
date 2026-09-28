@@ -34,15 +34,15 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092802'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes.
 The check records per-disk read/write counters and then derives current (R1/W1) and period
-averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum
-ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds
---warning percent of RWmax, once RWmax has been learned for a week. This bandwidth part
-only ever warns, never criticals: sustained I/O is a signal to investigate, not an
-emergency you have to react to at night.
+averages over --count runs (R15/W15, as in load15). It compares the period's total bandwidth
+against the maximum ever observed for that disk (RWmax). It raises a WARNING when the period
+average exceeds --warning percent of RWmax, once RWmax has been learned for a week. This
+bandwidth part only ever warns, never criticals: sustained I/O is a signal to investigate,
+not an emergency you have to react to at night.
 
 The check also reports per-disk I/O latency (await, not on Windows): the average time a
 read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is
@@ -938,10 +938,12 @@ def main():
             'RWmax/s',
             'R1/s',
             'W1/s',
-            f'R{args.COUNT}/s',
-            f'W{args.COUNT}/s',
-            f'RW{args.COUNT}/s',
-            f'IOPS{args.COUNT}',
+            # named like the perfdata (`..._throughput15`), whatever --count is:
+            # "15" is the period average, as in load15
+            'R15/s',
+            'W15/s',
+            'RW15/s',
+            'IOPS15',
         ]
         if measure_await:
             keys.append('await')
