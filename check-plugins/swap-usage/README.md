@@ -106,6 +106,14 @@ Top 3 processes that use the most swap space:
 
 Install `psutil`: `pip install psutil` or `dnf install python3-psutil`.
 
+### Unable to read the paging file usage
+
+`Unable to read the paging file usage from the performance counters.`
+
+Windows reads the paging file usage from a performance counter, and lets administrators, interactive sessions, NetworkService and members of the local group "Performance Monitor Users" read those. Where the Icinga 2 agent runs as an account of its own instead of NetworkService, add that account to "Performance Monitor Users" (`Add-LocalGroupMember -SID S-1-5-32-558 -Member <account>`, the SID names the group in every display language) and restart the agent.
+
+If the account is allowed to read the counters, they are corrupt or disabled. [Rebuild them](https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values), or make sure the registry key `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Perflib` has no value "Disable" (or set it to 0).
+
 
 ## Credits, License
 

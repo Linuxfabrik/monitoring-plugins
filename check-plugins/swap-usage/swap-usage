@@ -31,7 +31,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092801'
 
 DESCRIPTION = """Monitors swap space usage as a percentage of total swap. Optionally lists the top
 processes consuming the most swap to help identify the source of high usage. Alerts
@@ -181,9 +181,25 @@ def main():
         try:
             swap = psutil.swap_memory()
         except RuntimeError:
-            lib.base.oao(
-                'Performance counters may be corrupt or disabled. If the counters are corrupt, attempt to [rebuild them](https://docs.microsoft.com/en-us/troubleshoot/windows-server/performance/rebuild-performance-counter-library-values). If the counters are disabled, check the registry `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib` and make sure there is no key "Disable" (or set it to 0).',
-                STATE_UNKNOWN,
+            # psutil reads the paging file usage from a performance counter and
+            # says no more than "PdhAddEnglishCounterW failed" when it cannot. Besides
+            # corrupt or disabled counters, that happens when the account may not
+            # read them: Perflib grants read access to administrators, interactive
+            # sessions, LocalService, NetworkService and "Performance Monitor Users",
+            # not to another account, even when it runs a service. Measured on Windows
+            # Server 2025 with the Icinga 2 agent running as a local user.
+            lib.base.cu(
+                'Unable to read the paging file usage from the performance counters.'
+                ' The account the check runs as may lack access to them: Windows'
+                ' grants it to administrators, interactive sessions, NetworkService'
+                ' (the account of the Icinga 2 agent by default) and members of'
+                ' "Performance Monitor Users". Otherwise the counters are corrupt or'
+                ' disabled: [rebuild them](https://learn.microsoft.com/en-us/'
+                'troubleshoot/windows-server/performance/'
+                'rebuild-performance-counter-library-values), or make sure the'
+                ' registry key `HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Perflib`'
+                ' has no value "Disable" (or set it to 0).',
+                traceback=False,
             )
     else:
         stdout, _, _ = lib.lftest.test(args.TEST)

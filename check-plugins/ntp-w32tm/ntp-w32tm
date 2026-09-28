@@ -20,7 +20,7 @@ import lib.shell
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092703'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks the Windows Time Service (w32tm) status, including clock offset, stratum,
 and time source. Useful for diagnosing time synchronization issues on Windows
@@ -186,6 +186,16 @@ def main():
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
+        # E_ACCESSDENIED: w32time lets administrators, services and interactive
+        # sessions query it, not a standard user who logged in remotely. Measured on
+        # Windows 10, 11 and Server 2016 over SSH.
+        if '0x80070005' in stdout:
+            lib.base.cu(
+                'Access denied while querying the Windows Time service. The account'
+                ' the check runs as may not query it from a remote login such as SSH'
+                ' or WinRM; the Icinga 2 agent, an interactive session and an'
+                ' administrator may.'
+            )
         lib.base.cu(stdout)  # Windows prints the error to stdout
 
     # init some vars
@@ -203,8 +213,17 @@ def main():
     time_since_last_good_sync_time = None
 
     # analyze data
+    # w32tm wraps a long value onto a line of its own, without a label ("... nur
+    # veraltete Zeitdaten" / "verfügbar waren.)"), measured on Windows Server 2019.
+    # Join it back so the value is complete where the message quotes it.
+    lines = []
     for line in stdout.splitlines():
         line = line.strip()
+        if line and ':' not in line and lines and lines[-1]:
+            lines[-1] += f' {line}'
+        else:
+            lines.append(line)
+    for line in lines:
         label, _, value = line.partition(':')
         key = LABELS.get(label.strip())
         if key is None:
@@ -230,7 +249,7 @@ def main():
                 precision = int(number)
             elif key == 'last_sync_error':
                 if int(number) != 0:
-                    msg.append(line)
+                    msg.append(f'{line} {lib.base.state2str(STATE_WARN)}')
                     state = STATE_WARN
             elif key == 'time_since_last_good_sync_time':
                 time_since_last_good_sync_time = float(number.rstrip('s'))

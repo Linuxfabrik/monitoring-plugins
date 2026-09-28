@@ -133,6 +133,12 @@ Time since Last Good Sync Time: 19.2218793s
 
 `w32tm` prints its output in a display language the check does not know. The check reads English and German. Either install the English language pack and make English the display language of the account the monitoring agent runs as (for LocalSystem, set the system preferred UI language with `Set-SystemPreferredUILanguage -Language en-US` and reboot), or open an issue with the output shown below the message, so that the labels of that language can be added.
 
+### Access denied while querying the Windows Time service
+
+`Access denied while querying the Windows Time service.`
+
+The Windows Time service answers administrators, services and interactive sessions, but not a standard user who logged in remotely, for example over SSH or WinRM. The check works as it is when the Icinga 2 agent runs it, whatever account the agent uses. To try the check by hand as a standard user, log in to the desktop instead of over the network.
+
 
 ## Credits, License
 

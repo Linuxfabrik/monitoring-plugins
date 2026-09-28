@@ -340,6 +340,24 @@ TESTS = [
         'assert-in': ['The Windows Time service (w32time) is not running'],
     },
     {
+        # Captured through the Icinga 2 agent on Windows Server 2019 (German), right
+        # after a reboot: w32tm wraps the explanation of the last sync error onto a
+        # line of its own.
+        'id': 'warn-last-sync-error-wrapped',
+        'test': 'stdout/de-last-sync-error-wrapped,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['da nur veraltete Zeitdaten verfügbar waren.) [WARNING]'],
+    },
+    {
+        # Captured on Windows 11 as a standard user over SSH: w32tm refuses the query
+        # with E_ACCESSDENIED, in German.
+        'id': 'unknown-access-denied',
+        'test': 'stdout/de-access-denied,,2147942405',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Access denied while querying the Windows Time service'],
+        'assert-not-in': ['Zugriff verweigert', 'Traceback'],
+    },
+    {
         # Synthetic: a known label whose value lacks the number in front, derived from
         # de-stratum-5-synced. Must not end in a Python stack trace.
         'id': 'unknown-label-without-number',

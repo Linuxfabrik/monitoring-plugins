@@ -21,7 +21,7 @@ import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092801'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
 name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
@@ -131,6 +131,7 @@ def main():
     #   53, 0, 0)), ...]
     # [(2, 1, 6, '', ('172.217.168.67', 53)), ...]
 
+    target = f'{args.HOSTNAME}:{args.PORT}' + (f'/{args.TYPE}' if args.TYPE else '')
     start_time = time.time()
     try:
         if args.TYPE == 'udp':
@@ -167,19 +168,15 @@ def main():
             )
         else:
             result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
+    except (socket.gaierror, socket.herror) as e:
+        # both are OSError subclasses, so they have to come first
+        lib.base.oao(
+            f'Address related socket error "{e}" for {target}.',
+            STATE_WARN,
+        )
     except OSError as e:
         lib.base.oao(
-            f'Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
-            STATE_WARN,
-        )
-    except socket.herror as e:
-        lib.base.oao(
-            f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
-            STATE_WARN,
-        )
-    except socket.gaierror as e:
-        lib.base.oao(
-            f'Address related Socket error "{e}" for {args.HOSTNAME}:{args.PORT}/{args.TYPE}.',
+            f'Socket error "{e}" for {target}.',
             STATE_WARN,
         )
     runtime = (time.time() - start_time) * 1000  # we get seconds and want ms

@@ -28,7 +28,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026041402'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks the state of one or more Windows services. Accepts the case-insensitive
 service name (not the display name) and supports regular expressions to match multiple
@@ -176,6 +176,18 @@ def collect_matches(compiled_regex, test_arg):
                 )
     except psutil.NoSuchProcess:
         pass
+    except (PermissionError, psutil.AccessDenied):
+        # Windows lets services, interactive sessions and administrators list the
+        # services, but not a standard user who logged in remotely: the service
+        # control manager grants SC_MANAGER_ENUMERATE_SERVICE to IU, SU, SY and BA
+        # only. Measured on Windows Server 2019 over SSH.
+        lib.base.cu(
+            'Access denied while listing the Windows services. The account the'
+            ' check runs as may not list them from a remote login such as SSH or'
+            ' WinRM; the Icinga 2 agent, an interactive session and an'
+            ' administrator may.',
+            traceback=False,
+        )
     return matches
 
 

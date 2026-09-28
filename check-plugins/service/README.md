@@ -122,6 +122,15 @@ service --service="^(?!DPS|MSDTC|MapsBroker|UsoSvc|Dnscache|gpsvc$).*$" --startt
 There is no perfdata.
 
 
+## Troubleshooting
+
+### Access denied while listing the Windows services
+
+`Access denied while listing the Windows services.`
+
+Windows lets services, interactive sessions and administrators list the services, but not a standard user who logged in remotely, for example over SSH or WinRM. The check works as it is when the Icinga 2 agent runs it, whatever account the agent uses. To try the check by hand as a standard user, log in to the desktop instead of over the network.
+
+
 ## For Maintainers
 
 How to create and delete a service on Windows (it will be removed on next boot):
