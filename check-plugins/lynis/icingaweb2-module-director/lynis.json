@@ -265,23 +265,6 @@
             "vars": {},
             "zone": null,
             "uuid": "0658c041-f14a-495b-8103-181dadd9e52d"
-        },
-        "cmd-check-lynis-sudo": {
-            "arguments": {},
-            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/lynis",
-            "disabled": false,
-            "fields": [],
-            "imports": [
-                "cmd-check-lynis"
-            ],
-            "is_string": null,
-            "methods_execute": null,
-            "object_name": "cmd-check-lynis-sudo",
-            "object_type": "object",
-            "timeout": null,
-            "vars": {},
-            "zone": null,
-            "uuid": "ad7dc2f1-a341-4334-b038-fa45d00fc5f9"
         }
     },
     "ServiceTemplate": {
@@ -314,7 +297,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 1,
-            "notes": "Runs a lynis security audit on the local host and reports its hardening index, its findings (the lynis warnings) and the hardening suggestions of lynis. Alerts when the hardening index is below the threshold or lynis reports a finding. Alternatively audits the hosts of a subnet or a host list from a single management host (--host, --network, --interface): it connects to each target over SSH, copies a self-contained copy of lynis over, runs the audit there via password-less sudo, retrieves the report and removes its temporary files. The worst per-host result then determines the overall state, and the check also alerts when the scan audited no host at all, naming why the targets did not answer. The network scan runs as an unprivileged user and refuses to run as root. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. The check is meant to run at most once per day. Requires root or sudo.",
+            "notes": "Runs a lynis security audit across the hosts of a subnet or a host list from a single management host, and reports each host's hardening index, its findings (the lynis warnings) and the hardening suggestions of lynis. It discovers the targets (the subnet of the default interface, a chosen interface or network, or an explicit host list), connects to each one over SSH, copies a self-contained copy of lynis over, runs the audit there via password-less sudo, retrieves the report and removes its temporary files. Alerts when a host is below the hardening index threshold or reports a finding, and when the scan audited no host at all, naming why the targets did not answer. The worst per-host result determines the overall state. The scan runs as an unprivileged user and refuses to run as root. Security posture is informational drift rather than a time-critical availability event, so by default only WARNING is raised. The check is meant to run at most once per day. To evaluate the audit a host runs on its own, use lynis-logfile on that host.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/lynis/",
             "object_name": "tpl-service-lynis",
             "object_type": "template",
@@ -352,51 +335,6 @@
             "volatile": null,
             "zone": null,
             "uuid": "5dff85a4-d547-4bdf-ab99-0f102d0168e7"
-        },
-        "tpl-service-lynis-sudo": {
-            "action_url": null,
-            "apply_for": null,
-            "assign_filter": null,
-            "check_command": "cmd-check-lynis-sudo",
-            "check_interval": null,
-            "check_period": null,
-            "check_timeout": null,
-            "command_endpoint": null,
-            "disabled": false,
-            "display_name": null,
-            "enable_active_checks": null,
-            "enable_event_handler": null,
-            "enable_flapping": null,
-            "enable_notifications": true,
-            "enable_passive_checks": null,
-            "enable_perfdata": null,
-            "event_command": null,
-            "fields": [],
-            "flapping_threshold_high": null,
-            "flapping_threshold_low": null,
-            "groups": [],
-            "host": null,
-            "icon_image": null,
-            "icon_image_alt": null,
-            "imports": [
-                "tpl-service-lynis"
-            ],
-            "max_check_attempts": null,
-            "notes": null,
-            "notes_url": null,
-            "object_name": "tpl-service-lynis-sudo",
-            "object_type": "template",
-            "retry_interval": null,
-            "service_set": null,
-            "template_choice": null,
-            "use_agent": null,
-            "use_var_overrides": null,
-            "vars": {
-                "criticality": "C"
-            },
-            "volatile": null,
-            "zone": null,
-            "uuid": "c8481530-bab0-4c23-9fca-020129423722"
         }
     },
     "DataList": {
@@ -498,7 +436,7 @@
         "7": {
             "varname": "lynis_host",
             "caption": "Lynis: Host",
-            "description": "Target host to audit over SSH instead of the local host. Can be specified multiple times. Takes precedence over --network and --interface. If none of the three is specified, the local host is audited.",
+            "description": "Target host to audit. Can be specified multiple times. Takes precedence over --network and --interface. If none of the three is specified, the subnet of the default interface is scanned.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -520,7 +458,7 @@
         "9": {
             "varname": "lynis_interface",
             "caption": "Lynis: Interface",
-            "description": "Network interface whose subnet is scanned over SSH instead of auditing the local host. Ignored when --host or --network is given. Example: `--interface=eth0`",
+            "description": "Network interface whose subnet is scanned. Ignored when --host or --network is given. If not specified, the default interface (the one carrying the default route) is used. Example: `--interface=eth0`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -560,7 +498,7 @@
         "13": {
             "varname": "lynis_lynis_option",
             "caption": "Lynis: Lynis Option",
-            "description": "Additional raw option to pass to `lynis audit system`, for options that have no dedicated parameter here. On the local host lynis runs as root, so only these options are accepted there: `--debug`, `--developer`, `--devops`, `--no-log`, `--no-plugins`, `--pentest`, `--quiet`, `--verbose`, `--warnings-only`. Can be specified multiple times. Example: `--lynis-option=--no-plugins`",
+            "description": "Additional raw option to pass to the remote `lynis audit system` call, for options that have no dedicated parameter here. Can be specified multiple times. Example: `--lynis-option=--no-plugins`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {
@@ -571,7 +509,7 @@
         "14": {
             "varname": "lynis_lynis_profile",
             "caption": "Lynis: Lynis Profile",
-            "description": "Additional profile file for the audit (lynis `--profile`), read on top of lynis' own `default.prf` and `custom.prf`. On the local host the file and every directory above it must be writable by root only. In the network scan the path is resolved on the target host. If not specified, lynis uses only its own profiles.",
+            "description": "Additional profile file for the audit (lynis `--profile`), read on top of lynis' own `default.prf` and `custom.prf`. The path is resolved on the target host. If not specified, lynis uses only its own profiles.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -593,7 +531,7 @@
         "16": {
             "varname": "lynis_lynis_source",
             "caption": "Lynis: Lynis Source",
-            "description": "Network scan only. Path to a self-contained lynis directory (the directory that contains the `lynis` executable next to its `include`, `db` and `plugins` subdirectories). This is the copy that gets pushed to and run on every target host. If not specified, a self-contained copy is assembled from the local lynis installation.",
+            "description": "Path to a self-contained lynis directory (the directory that contains the `lynis` executable next to its `include`, `db` and `plugins` subdirectories). This is the copy that gets pushed to and run on every target host. If not specified, a self-contained copy is assembled from the local lynis installation.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -648,7 +586,7 @@
         "21": {
             "varname": "lynis_network",
             "caption": "Lynis: Network",
-            "description": "Network in CIDR notation whose hosts are audited over SSH instead of the local host. Can be specified multiple times. Takes precedence over --interface. Example: `--network=192.0.2.0/24`",
+            "description": "Network in CIDR notation whose hosts are audited. Can be specified multiple times. Takes precedence over --interface. Example: `--network=192.0.2.0/24`",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeArray",
             "format": null,
             "settings": {

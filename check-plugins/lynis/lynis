@@ -21,6 +21,7 @@ import lib.args
 import lib.base
 import lib.disk
 import lib.lftest
+import lib.lynis
 import lib.net
 import lib.shell
 import lib.ssh
@@ -28,20 +29,20 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092801'
 
-DESCRIPTION = """Runs a lynis security audit on the local host and reports its hardening index,
-its findings (the lynis warnings) and the hardening suggestions of lynis. Alerts when the
-hardening index is below the threshold or lynis reports a finding. Alternatively audits the
-hosts of a subnet or a host list from a single management host (--host, --network,
---interface): it connects to each target over SSH, copies a self-contained copy of lynis over,
-runs the audit there via password-less sudo, retrieves the report and removes its temporary
-files. The worst per-host result then determines the overall state, and the check also alerts
-when the scan audited no host at all, naming why the targets did not answer. The network scan
-runs as an unprivileged user and refuses to run as root. Security posture is informational
-drift rather than a time-critical availability event, so by default only WARNING is raised.
-The check is meant to run at most once per day.
-Requires root or sudo."""
+DESCRIPTION = """Runs a lynis security audit across the hosts of a subnet or a host list from
+a single management host, and reports each host's hardening index, its findings (the lynis
+warnings) and the hardening suggestions of lynis. It discovers the targets (the subnet of the
+default interface, a chosen interface or network, or an explicit host list), connects to each
+one over SSH, copies a self-contained copy of lynis over, runs the audit there via password-less
+sudo, retrieves the report and removes its temporary files. Alerts when a host is below the
+hardening index threshold or reports a finding, and when the scan audited no host at all,
+naming why the targets did not answer. The worst per-host result determines the overall state.
+The scan runs as an unprivileged user and refuses to run as root. Security posture is
+informational drift rather than a time-critical availability event, so by default only
+WARNING is raised. The check is meant to run at most once per day. To evaluate the audit a
+host runs on its own, use lynis-logfile on that host."""
 
 DEFAULT_AUDIT_TIMEOUT = 600
 DEFAULT_CONNECT_TIMEOUT = 3
@@ -51,47 +52,12 @@ DEFAULT_NO_MATCH_SEVERITY = 'warn'
 DEFAULT_PORT = 22
 DEFAULT_WARN = '65:'
 
-# Where lynis writes its output when run privileged, on the local host as well as
-# on a target of the network scan. The report is left in place after the audit so
-# an admin can inspect the details.
-LYNIS_CUSTOM_PROFILE = '/etc/lynis/custom.prf'
-LYNIS_LOG = '/var/log/lynis.log'
-LYNIS_PID = '/var/run/lynis.pid'
-LYNIS_REPORT = '/var/log/lynis-report.dat'
-
-# Where the upstream lynis tree lives when it is not installed as a package (SLES has
-# none). lynis searches its include, db, plugins and profile directories there on its
-# own (lynis 3.0.7 to 3.1.8), so it runs from there without being on the PATH.
-LOCAL_UPSTREAM_LYNIS = '/usr/local/lynis/lynis'
-
-# `lynis audit system` options accepted via --lynis-option on the local host, where
-# lynis runs as root and the caller must not be able to steer it. Every option of
-# `include/parameters` was sorted into one of these groups (identical from lynis
-# 3.0.7, the oldest in the test matrix, over 3.1.7 in EPEL 8 to 3.1.8):
-# - accepted, because they only change what lynis prints or skip work: --debug,
-#   --developer, --devops, --no-log, --no-plugins, --pentest, --quiet, --verbose,
-#   --warnings-only
-# - refused, because they make root execute, write or read a location of the
-#   caller's choice: --bindirs (binaries lynis runs), --logfile and --report-file
-#   (files lynis writes), --plugin-dir (scripts lynis sources), --rootdir (the tree
-#   lynis audits), --upload (sends the report out), --usecwd (profiles and include
-#   files from the working directory)
-# - refused, because a dedicated parameter covers them: --auditor, --profile,
-#   --tests, --tests-from-category, --tests-from-group
-# - refused, because the plugin always sets them or they make no sense unattended:
-#   --cronjob, --forensics (needs --rootdir), --help, --no-colors, --quick,
-#   --reverse-colors, --slow-warning, --version, --view-manpage, --wait
-LOCAL_LYNIS_OPTIONS = (
-    '--debug',
-    '--developer',
-    '--devops',
-    '--no-log',
-    '--no-plugins',
-    '--pentest',
-    '--quiet',
-    '--verbose',
-    '--warnings-only',
-)
+# Where lynis writes its output on a target when it runs privileged. The report and the
+# log are left in place after the audit so an admin can inspect the details.
+LYNIS_CUSTOM_PROFILE = lib.lynis.CUSTOM_PROFILE
+LYNIS_LOG = lib.lynis.LOG
+LYNIS_PID = lib.lynis.PID
+LYNIS_REPORT = lib.lynis.REPORT
 
 # Test IDs (`SSH-7408`, with an optional `:subtest` for skip-test), test groups and
 # test categories. A value is written into a profile that lynis reads as root, so a
@@ -210,10 +176,11 @@ def parse_args():
     parser.add_argument(
         '-H',
         '--host',
-        help='Target host to audit over SSH instead of the local host. '
+        help='Target host to audit. '
         'Can be specified multiple times. '
         'Takes precedence over --network and --interface. '
-        'If none of the three is specified, the local host is audited.',
+        'If none of the three is specified, the subnet of the default interface is '
+        'scanned.',
         dest='HOST',
         action='append',
         default=None,
@@ -240,9 +207,10 @@ def parse_args():
 
     parser.add_argument(
         '--interface',
-        help='Network interface whose subnet is scanned over SSH instead of '
-        'auditing the local host. '
+        help='Network interface whose subnet is scanned. '
         'Ignored when --host or --network is given. '
+        'If not specified, the default interface (the one carrying the default '
+        'route) is used. '
         'Example: `--interface=eth0`',
         dest='INTERFACE',
         default=None,
@@ -283,10 +251,8 @@ def parse_args():
 
     parser.add_argument(
         '--lynis-option',
-        help='Additional raw option to pass to `lynis audit system`, for options '
-        'that have no dedicated parameter here. '
-        'On the local host lynis runs as root, so only these options are '
-        'accepted there: ' + ', '.join(f'`{o}`' for o in LOCAL_LYNIS_OPTIONS) + '. '
+        help='Additional raw option to pass to the remote `lynis audit system` call, '
+        'for options that have no dedicated parameter here. '
         'Can be specified multiple times. '
         'Example: `--lynis-option=--no-plugins`',
         dest='LYNIS_OPTION',
@@ -298,9 +264,7 @@ def parse_args():
         '--lynis-profile',
         help='Additional profile file for the audit (lynis `--profile`), read on '
         "top of lynis' own `default.prf` and `custom.prf`. "
-        'On the local host the file and every directory above it must be '
-        'writable by root only. In the network scan the path is resolved on the '
-        'target host. '
+        'The path is resolved on the target host. '
         'If not specified, lynis uses only its own profiles.',
         dest='LYNIS_PROFILE',
         default=None,
@@ -321,7 +285,7 @@ def parse_args():
 
     parser.add_argument(
         '--lynis-source',
-        help='Network scan only. Path to a self-contained lynis directory (the '
+        help='Path to a self-contained lynis directory (the '
         'directory that contains the `lynis` executable next to its `include`, '
         '`db` and `plugins` subdirectories). This is the copy that gets pushed to '
         'and run on every target host. '
@@ -376,8 +340,7 @@ def parse_args():
 
     parser.add_argument(
         '--network',
-        help='Network in CIDR notation whose hosts are audited over SSH instead '
-        'of the local host. '
+        help='Network in CIDR notation whose hosts are audited. '
         'Can be specified multiple times. '
         'Takes precedence over --interface. '
         'Example: `--network=192.0.2.0/24`',
@@ -511,223 +474,6 @@ def validate_lynis_args(args):
             '--lynis-profile may only contain letters, digits and `./_-`.',
         )
     return (True, None)
-
-
-def build_local_command(args, lynis, profiles):
-    """Assemble the argv of the local `lynis audit system` run. --cronjob runs
-    unattended (quick, quiet, no colors). lynis splits the --profile value on
-    whitespace, which is how more than one additional profile is passed.
-    """
-    # Lists are separated by spaces: lynis from 3.1 on refuses a comma in any
-    # argument (SafeInput()), and splits the groups on whitespace.
-    cmd = [lynis, 'audit', 'system', '--cronjob']
-    if profiles:
-        cmd += ['--profile', ' '.join(profiles)]
-    if args.LYNIS_AUDITOR:
-        cmd += ['--auditor', args.LYNIS_AUDITOR]
-    if args.LYNIS_TEST:
-        cmd += ['--tests', ' '.join(args.LYNIS_TEST)]
-    if args.LYNIS_TEST_GROUP:
-        cmd += ['--tests-from-group', ' '.join(args.LYNIS_TEST_GROUP)]
-    if args.LYNIS_TEST_CATEGORY:
-        cmd += ['--tests-from-category', args.LYNIS_TEST_CATEGORY[0]]
-    cmd += args.LYNIS_OPTION
-    return cmd
-
-
-def check_lynis_pid():
-    """lynis --cronjob quits without a report as long as its PID file exists, and a
-    run that was killed (by the audit timeout, for example) leaves the file behind,
-    which would block every later audit. Remove the file when the process it names
-    is gone, and report a lynis audit that is really running, such as a cron job.
-    Returns (True, None) or (False, errormessage).
-    """
-    if not os.path.lexists(LYNIS_PID):
-        return (True, None)
-    # /var/run is a symlink to /run on every current distribution
-    success, content = lib.disk.read_file(
-        LYNIS_PID, allowed_roots=['/run', '/var/run'], nofollow=True
-    )
-    pid = content.strip() if success else ''
-    if pid.isdigit():
-        success, cmdline = lib.disk.read_file(f'/proc/{pid}/cmdline')
-        # A PID gets reused, so the process has to be an audit (`/bin/sh
-        # /usr/bin/lynis audit system ...`), not anything that merely mentions
-        # lynis, this check itself included.
-        argv = cmdline.split('\0') if success else []
-        if 'audit' in argv and any(os.path.basename(arg) == 'lynis' for arg in argv):
-            return (
-                False,
-                f'Another lynis audit is running (PID {pid}), so this one did not '
-                'start. The next check run tries again.',
-            )
-    return lib.disk.rm_file(LYNIS_PID)
-
-
-def audit_local(args):
-    """Run the lynis installed on this host as root and return its report.
-    Returns (True, report_text) or (False, (state, errormessage)).
-
-    Runs as root through sudo, so nothing the caller chooses may redirect what lynis
-    executes, reads as a profile or writes: the executable and an additional profile
-    must be out of reach for anybody but root, only harmless raw options pass, and
-    lynis starts in `/`, because it also picks up profiles, include files and a PID
-    file from its working directory.
-    """
-    if not hasattr(os, 'geteuid') or os.geteuid() != 0:
-        return (
-            False,
-            (
-                STATE_UNKNOWN,
-                'The local lynis audit needs root. Run the check via sudo (see the '
-                'README), or audit other hosts over SSH with --host, --network or '
-                '--interface.',
-            ),
-        )
-
-    executable = lib.shell.which('lynis')
-    if not executable and lib.disk.file_exists(LOCAL_UPSTREAM_LYNIS):
-        executable = LOCAL_UPSTREAM_LYNIS
-    if not executable:
-        # Deliberately WARNING and not UNKNOWN: lynis belongs on a host that got
-        # this check, so a missing lynis is a gap the admin has to close.
-        return (
-            False,
-            (
-                STATE_WARN,
-                'The command-line tool "lynis" was not found, so this host is not '
-                'being audited. Install the `lynis` package (from EPEL on the RHEL '
-                'family), or put the upstream lynis tree into /usr/local/lynis.'
-                f'\nSearched in: {os.environ.get("PATH", "")}',
-            ),
-        )
-    success, executable = lib.disk.resolve_trusted_path(executable)
-    if not success:
-        return (False, (STATE_UNKNOWN, executable))
-
-    for option in args.LYNIS_OPTION:
-        if option not in LOCAL_LYNIS_OPTIONS:
-            return (
-                False,
-                (
-                    STATE_UNKNOWN,
-                    f'--lynis-option "{option}" is not accepted on the local host, '
-                    'where lynis runs as root. Accepted: '
-                    f'{", ".join(LOCAL_LYNIS_OPTIONS)}.',
-                ),
-            )
-
-    profiles = []
-    if args.LYNIS_PROFILE:
-        # A profile can set `plugindir=`, and lynis sources the plugins found there,
-        # so only root may be able to change it. The resolved target has to be a
-        # profile as well: a symlink to /etc/shadow is root-owned all the way. Every
-        # refusal reads the same, so the answer does not tell which files exist.
-        success, profile = lib.disk.resolve_trusted_path(args.LYNIS_PROFILE)
-        if not success or not profile.endswith('.prf'):
-            return (
-                False,
-                (
-                    STATE_UNKNOWN,
-                    '--lynis-profile has to name an existing `.prf` file that only '
-                    'root can change, in a directory only root can change.',
-                ),
-            )
-        profiles.append(profile)
-
-    tmp_dir = None
-    try:
-        if args.LYNIS_SKIP_TEST:
-            # The system profiles are not ours to change, so the skips go into an
-            # additional profile. mkdtemp() creates a fresh directory only root can
-            # enter, in /tmp (sticky, so nobody else can rename it; sudo strips
-            # TMPDIR from the environment).
-            success, result = lib.disk.make_temp_dir(
-                prefix='linuxfabrik-monitoring-plugins-lynis-'
-            )
-            if not success:
-                return (False, (STATE_UNKNOWN, result))
-            tmp_dir = result
-            skip_profile = os.path.join(tmp_dir, 'skip-test.prf')
-            success, error = lib.disk.write_file(
-                skip_profile,
-                ''.join(f'skip-test={test}\n' for test in args.LYNIS_SKIP_TEST),
-            )
-            if not success:
-                return (False, (STATE_UNKNOWN, error))
-            profiles.append(skip_profile)
-        # lynis splits the profile list on whitespace
-        for profile in profiles:
-            if re.search(r'\s', profile):
-                return (
-                    False,
-                    (
-                        STATE_UNKNOWN,
-                        f'lynis cannot read a profile path with spaces: {profile}',
-                    ),
-                )
-
-        success, error = check_lynis_pid()
-        if not success:
-            return (False, (STATE_UNKNOWN, error))
-        # lynis truncates the report only once it is past its own start-up checks,
-        # so a run that quits early would leave the previous report behind, looking
-        # like a fresh one.
-        if os.path.lexists(LYNIS_REPORT):
-            success, error = lib.disk.rm_file(LYNIS_REPORT)
-            if not success:
-                return (False, (STATE_UNKNOWN, error))
-
-        lib.base.verbose(
-            args.VERBOSE, 'running the local audit (this takes a while)...'
-        )
-        success, result = lib.shell.shell_exec(
-            build_local_command(args, executable, profiles),
-            cwd='/',
-            timeout=args.AUDIT_TIMEOUT,
-        )
-    finally:
-        if tmp_dir is not None and lib.disk.dir_exists(tmp_dir):
-            lib.disk.rm_dir(tmp_dir)
-
-    if not success:
-        if result.startswith('Timeout'):
-            return (
-                False,
-                (
-                    STATE_WARN,
-                    f'lynis did not finish within {args.AUDIT_TIMEOUT}s. Raise '
-                    '--audit-timeout.',
-                ),
-            )
-        return (False, (STATE_UNKNOWN, result))
-    stdout, stderr, _ = result
-
-    success, report = lib.disk.read_file(
-        LYNIS_REPORT, allowed_roots=['/var/log'], nofollow=True
-    )
-    if not success or 'hardening_index=' not in report:
-        # lynis prints its abort reasons to stdout, not stderr
-        return (False, (STATE_UNKNOWN, extract_error(f'{stdout}\n{stderr}')))
-    return (True, report)
-
-
-def parse_findings(entries):
-    """Split lynis `warning[]` / `suggestion[]` values (`TEST-ID|text|details|
-    solution|`) into table rows. lynis writes `-` for an empty field.
-    """
-    rows = []
-    for entry in entries:
-        fields = entry.split('|')
-        details = fields[2] if len(fields) > 2 else ''
-        rows.append(
-            {
-                'test': fields[0],
-                'finding': fields[1] if len(fields) > 1 else '',
-                'details': '' if details == '-' else details,
-            }
-        )
-    return rows
 
 
 def build_ssh_opts(args):
@@ -1102,42 +848,6 @@ def audit_host(host, args, ssh_opts, base_dir, lynis_cmd):
     return (True, report_text)
 
 
-def parse_report(text):
-    """Parse a lynis report.dat (key=value, with repeated warning[]/suggestion[]
-    entries) into a dict.
-    """
-    data = {
-        'hardening_index': None,
-        'warnings': [],
-        'suggestions': [],
-        'lynis_version': '',
-        'os_name': '',
-        'hostname': '',
-        'ipv4_addresses': [],
-        'ipv6_addresses': [],
-    }
-    for line in text.splitlines():
-        key, sep, value = line.partition('=')
-        if not sep:
-            continue
-        if key == 'hardening_index':
-            try:
-                data['hardening_index'] = int(value)
-            except ValueError:
-                pass
-        elif key == 'warning[]':
-            data['warnings'].append(value)
-        elif key == 'suggestion[]':
-            data['suggestions'].append(value)
-        elif key == 'network_ipv4_address[]':
-            data['ipv4_addresses'].append(value)
-        elif key == 'network_ipv6_address[]':
-            data['ipv6_addresses'].append(value)
-        elif key in ('lynis_version', 'os_name', 'hostname'):
-            data[key] = value
-    return data
-
-
 def report_hostname(report):
     """Return the target's short hostname from its own lynis report (client-side,
     as the audited host sees itself).
@@ -1182,27 +892,16 @@ def main():
     # None (case 3: None means "not set", which is different from an empty list)
 
     lib.base.coe(validate_lynis_args(args))
-    # Any target selection turns the local audit into the network scan.
-    network = any(
-        value is not None for value in (args.HOST, args.INTERFACE, args.NETWORK)
-    )
 
     # fetch data
     results = []
     targets = []
     if args.TEST is not None:
-        # do not audit, put in test data: the fixture stands in for one host's
-        # report.dat, which the local audit and the network scan evaluate alike
+        # do not audit, put in test data: the fixture stands in for the report.dat
+        # of one audited host
         stdout, _, _ = lib.lftest.test(args.TEST)
         targets = ['203.0.113.1']
         results = [('203.0.113.1', 'ok', stdout)]
-    elif not network:
-        success, result = audit_local(args)
-        if not success:
-            state, message = result
-            lib.base.oao(message, state, always_ok=args.ALWAYS_OK)
-        targets = ['localhost']
-        results = [('localhost', 'ok', result)]
     else:
         # As root, --configfile, --identity and --ssh-option would hand root to
         # whoever may run the check through sudo; a ProxyCommand is enough.
@@ -1224,7 +923,8 @@ def main():
             for cidr in args.NETWORK:
                 targets.extend(lib.base.coe(lib.net.cidr_to_hosts(cidr)))
         else:
-            lib.base.verbose(args.VERBOSE, f'Discovering hosts on {args.INTERFACE}...')
+            scope = args.INTERFACE if args.INTERFACE else 'the default interface'
+            lib.base.verbose(args.VERBOSE, f'Discovering hosts on {scope}...')
             targets = lib.base.coe(lib.net.get_subnet_hosts(args.INTERFACE))
         lib.base.verbose(args.VERBOSE, f'{len(targets)} target(s) to check')
         ssh_opts = build_ssh_opts(args)
@@ -1254,7 +954,7 @@ def main():
                     return (host, 'failed', 'SSH authentication failed')
                 success, result = audit_host(host, args, ssh_opts, base_dir, lynis_cmd)
                 if success:
-                    report = parse_report(result)
+                    report = lib.lynis.parse_report(result)
                     lib.base.verbose(
                         args.VERBOSE,
                         f'{host}: hardening index {report["hardening_index"]}',
@@ -1288,8 +988,6 @@ def main():
     unreachable = collections.Counter()
     total_warnings = 0
     total_suggestions = 0
-    index = None
-    index_state = STATE_OK
 
     # analyze data
     # The state marker goes into the last table column on purpose: IcingaWeb
@@ -1320,7 +1018,7 @@ def main():
             )
             continue
         audited += 1
-        report = parse_report(result)
+        report = lib.lynis.parse_report(result)
         index = report['hardening_index']
         total_warnings += len(report['warnings'])
         total_suggestions += len(report['suggestions'])
@@ -1336,9 +1034,9 @@ def main():
         if report['warnings']:
             host_state = lib.base.get_worst(host_state, STATE_WARN)
         state = lib.base.get_worst(state, host_state)
-        for row in parse_findings(report['warnings']):
+        for row in lib.lynis.parse_findings(report['warnings']):
             warning_rows.append({'host': hostname, **row})
-        for row in parse_findings(report['suggestions']):
+        for row in lib.lynis.parse_findings(report['suggestions']):
             suggestion_rows.append({'host': hostname, **row})
         table_data.append(
             {
@@ -1352,90 +1050,43 @@ def main():
         )
 
     # build the message
-    if not network:
-        # The local audit has exactly one report, so the summary names its
-        # figures and the findings follow as tables.
-        warnings_state = STATE_WARN if total_warnings else STATE_OK
-        msg += (
-            f'Hardening index {index}{lib.base.state2str(index_state, prefix=" ")}, '
-            f'{total_warnings} {lib.txt.pluralize("finding", total_warnings)}'
-            f'{lib.base.state2str(warnings_state, prefix=" ")}, '
-            f'{total_suggestions} '
-            f'{lib.txt.pluralize("suggestion", total_suggestions)}'
-        )
-        perfdata += lib.base.get_perfdata(
-            'hardening_index',
-            index,
-            warn=args.WARN,
-            crit=args.CRIT,
-            _min=0,
-            _max=100,
-        )
-    else:
-        # The number of targets is the number of addresses probed, not the number
-        # of hosts found: auto-discovery hands over every address of the subnet.
-        # Report both, so a scan that found nothing is not mistaken for a scan of
-        # nothing.
-        msg += f'{audited}/{reachable} {lib.txt.pluralize("host", reachable)} audited'
-        msg += (
-            f' ({len(targets)} '
-            f'{lib.txt.pluralize("address", len(targets), "es")} probed)'
-        )
-        if unreachable:
-            # Cap the list: a subnet scan produces one entry per dead address, and
-            # the reasons repeat.
-            top = unreachable.most_common(3)
-            listed = ', '.join(f'{count} x {reason}' for reason, count in top)
-            rest = sum(unreachable.values()) - sum(count for _, count in top)
-            if rest:
-                listed += f', {rest} more'
-            msg += f'\n\nNot reachable over SSH: {listed}'
-        if not audited:
-            # Nothing was audited, so a green result would only mean that nothing
-            # was looked at.
-            state = lib.base.get_worst(
-                state, lib.base.str2state(args.NO_MATCH_SEVERITY)
-            )
-        perfdata += lib.base.get_perfdata('hosts_total', len(targets), _min=0)
-        perfdata += lib.base.get_perfdata('hosts_reachable', reachable, _min=0)
-        perfdata += lib.base.get_perfdata('hosts_audited', audited, _min=0)
+    # The number of targets is the number of addresses probed, not the number of
+    # hosts found: auto-discovery hands over every address of the subnet. Report
+    # both, so a scan that found nothing is not mistaken for a scan of nothing.
+    msg += f'{audited}/{reachable} {lib.txt.pluralize("host", reachable)} audited'
+    msg += (
+        f' ({len(targets)} {lib.txt.pluralize("address", len(targets), "es")} probed)'
+    )
+    if unreachable:
+        # Cap the list: a subnet scan produces one entry per dead address, and the
+        # reasons repeat.
+        top = unreachable.most_common(3)
+        listed = ', '.join(f'{count} x {reason}' for reason, count in top)
+        rest = sum(unreachable.values()) - sum(count for _, count in top)
+        if rest:
+            listed += f', {rest} more'
+        msg += f'\n\nNot reachable over SSH: {listed}'
+    if not audited:
+        # Nothing was audited, so a green result would only mean that nothing was
+        # looked at.
+        state = lib.base.get_worst(state, lib.base.str2state(args.NO_MATCH_SEVERITY))
+    perfdata += lib.base.get_perfdata('hosts_total', len(targets), _min=0)
+    perfdata += lib.base.get_perfdata('hosts_reachable', reachable, _min=0)
+    perfdata += lib.base.get_perfdata('hosts_audited', audited, _min=0)
     perfdata += lib.base.get_perfdata('findings', total_warnings, _min=0)
     perfdata += lib.base.get_perfdata('suggestions', total_suggestions, _min=0)
 
     # build table output
     # State always sits in the last column: IcingaWeb replaces "[WARNING]" with
     # an icon and would otherwise break a monospace table.
-    if network and table_data:
+    if table_data:
         keys = ['hostreport', 'ip', 'warnings', 'suggestions', 'index', 'state']
         headers = ['Host:Report', 'IP', 'Warn', 'Sugg', 'HIdx', 'State']
         msg += '\n\n' + lib.base.get_table(table_data, keys, header=headers).rstrip()
-    # The findings themselves, so nobody has to collect the reports by hand. In
-    # the network scan every item names its host. A lynis warning is a finding
-    # and raises the state, a suggestion is hardening advice and does not.
-    for rows, label, item_state in (
-        (warning_rows, 'Findings', STATE_WARN),
-        (suggestion_rows, 'Suggestions', STATE_OK),
-    ):
-        if not rows:
-            continue
-        msg += f'\n\n{label}:'
-        # Sorted by test ID, so a category stays together; in the network scan the
-        # same finding on several hosts ends up side by side.
-        for row in sorted(rows, key=lambda r: (r['test'], r['host'], r['finding'])):
-            host = f'{row["host"]}: ' if network else ''
-            text = f'{row["finding"].rstrip(".")}.'
-            if row['details']:
-                text += f' {row["details"].rstrip(".")}.'
-            msg += (
-                f'\n* {host}{row["test"]}: {text}'
-                f'{lib.base.state2str(item_state, prefix=" ")}'
-            )
-    if warning_rows or suggestion_rows:
-        example = min(row['test'] for row in warning_rows or suggestion_rows)
-        msg += (
-            f'\n\nTo look up an item, run `lynis show details {example}` on the host. '
-            f'To accept it, add `skip-test={example}` to `{LYNIS_CUSTOM_PROFILE}`.'
-        )
+    # The findings themselves, each naming its host, so nobody has to collect the
+    # reports by hand. A lynis warning is a finding and raises the state, a
+    # suggestion is hardening advice and does not.
+    msg += lib.lynis.get_findings_msg(warning_rows, suggestion_rows)
 
     # over and out
     lib.base.oao(

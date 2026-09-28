@@ -21,25 +21,25 @@ import unittest
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
-# In --test mode the plugin treats the fixture as one host's lynis report.dat
-# (the local lynis run and the SSH transport are skipped). Without --host the
-# plugin reports it as the local audit, with --host as a network scan of that one
-# host. The fixtures in stdout/ are anonymised, RFC-5737 sample reports:
+# In --test mode the plugin treats the fixture as the report.dat of one audited
+# host (host discovery, the SSH transport and the remote lynis run are skipped).
+# The fixtures in stdout/ are anonymised, RFC-5737 sample reports:
 #   report-warn  hardening_index 68, one warning, three suggestions (myhost)
 #   report-ok    hardening_index 80, no warnings (otherhost)
 # The expected state lives in the testcase id and depends on the fixture plus
 # the thresholds: the state is the worst of the hardening index against
 # --warning/--critical and "any lynis warning -> at least WARNING".
 TESTS = [
-    # the local audit
     {
         'id': 'ok-clean-report',
         'test': 'stdout/report-ok,,0',
         'assert-retc': STATE_OK,
         'assert-in': [
-            'Hardening index 80, 0 findings, 1 suggestion',
+            '1/1 host audited (1 address probed)',
+            'otherhost:/var/log/lynis-report.dat ! 192.0.2.28 ! 0    ! 1    ! 80',
             # a suggestion is advice, it carries no state
-            'Suggestions:\n* BOOT-5264: Consider hardening system services.\n',
+            'Suggestions:\n* otherhost: BOOT-5264: Consider hardening system '
+            'services.\n',
         ],
         'assert-not-in': ['[WARNING]', 'Findings:'],
     },
@@ -48,21 +48,19 @@ TESTS = [
         'test': 'stdout/report-warn,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            '1 finding [WARNING]',
-            'Findings:\n* MAIL-8818: Found some information disclosure in SMTP '
-            'banner (OS or software name). [WARNING]\n\nSuggestions:',
+            'Findings:\n* myhost: MAIL-8818: Found some information disclosure in '
+            'SMTP banner (OS or software name). [WARNING]\n\nSuggestions:',
             '`lynis show details MAIL-8818`',
             '`skip-test=MAIL-8818`',
             # suggestions as a plain list, with their details
-            '* BOOT-5264: Consider hardening system services. Run '
+            '* myhost: BOOT-5264: Consider hardening system services. Run '
             "'/usr/bin/systemd-analyze security SERVICE' for each service.",
-            '* KRNL-5820: If not required, consider explicit disabling of core dump.',
+            '* myhost: KRNL-5820: If not required, consider explicit disabling of '
+            'core dump.',
         ],
         # sorted by test ID, not in the order lynis ran the tests
-        'assert-regex': r'Suggestions:\n\* AUTH-9230: .*\n\* BOOT-5264: .*\n'
-        r'\* KRNL-5820: ',
-        # the index is fine
-        'assert-not-in': ['Hardening index 68 ['],
+        'assert-regex': r'Suggestions:\n\* myhost: AUTH-9230: .*\n'
+        r'\* myhost: BOOT-5264: .*\n\* myhost: KRNL-5820: ',
     },
     {
         # deprecated, still accepted so that existing service definitions keep
@@ -71,28 +69,28 @@ TESTS = [
         'test': 'stdout/report-warn,,0',
         'params': '--lengthy',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Suggestions:\n* AUTH-9230'],
+        'assert-in': ['Suggestions:\n* myhost: AUTH-9230'],
     },
     {
         'id': 'warn-index-below-threshold',
         'test': 'stdout/report-ok,,0',
         'params': '--warning 90:',
         'assert-retc': STATE_WARN,
-        'assert-in': ['Hardening index 80 [WARNING]'],
+        'assert-regex': r'! 80 +! \[WARNING\]',
     },
     {
         'id': 'crit-index-below-critical',
         'test': 'stdout/report-ok,,0',
         'params': '--warning 90: --critical 85:',
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Hardening index 80 [CRITICAL]'],
+        'assert-regex': r'! 80 +! \[CRITICAL\]',
     },
     {
         'id': 'ok-always-ok-masks-warning',
         'test': 'stdout/report-warn,,0',
         'params': '--always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['1 finding [WARNING]'],
+        'assert-in': ['MAIL-8818: Found some information disclosure'],
     },
     # the network scan, reduced to one host
     {
@@ -213,13 +211,12 @@ class TestNothingAudited(unittest.TestCase):
 # Each Containerfile under containerfiles/ installs lynis (the distro package,
 # or the upstream self-contained tree on SLES, which has no package), an SSH
 # server and client, sudo and rsync, and sets up password-less root SSH to
-# itself. The test then runs the plugin inside the container twice: once as
-# root for the local audit of the container, and once as an unprivileged user
-# (the network scan refuses to run as root) auditing 127.0.0.1 over its normal
-# SSH transport, where the container is both the management host (where the
-# lynis copy is assembled from the distro layout) and the audit target. All
-# images are built and audited in parallel; one assertion method per distro
-# then checks that both audits produced a report.
+# itself. The test then runs the plugin inside the container as an
+# unprivileged user (the scan refuses to run as root), auditing 127.0.0.1 over
+# its normal SSH transport, where the container is both the management host
+# (where the lynis copy is assembled from the distro layout) and the audit
+# target. All images are built and audited in parallel; one assertion method
+# per distro then checks that the audit produced a report.
 CONTAINERFILES = [
     'archlinux-vlatest',
     'debian-v12',
@@ -238,9 +235,6 @@ CONTAINERFILES = [
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB_DIR = os.path.realpath(os.path.join(HERE, '..', 'lib'))
 PLUGIN = os.path.realpath(os.path.join(HERE, '..', 'lynis'))
-
-# The local audit, as root.
-LOCAL_CMD = 'cd /tmp && python3 ./lynis'
 
 # The network scan runs as an unprivileged user that holds a copy of root's key.
 # StrictHostKeyChecking/known-hosts are disabled because the throwaway host key
@@ -277,9 +271,8 @@ _RESULTS = {}
 
 
 def _audit_in_container(containerfile):
-    """Build one distro image, run the local audit, start its sshd and run the
-    network scan of 127.0.0.1 inside it. Returns a dict with the exit code and
-    output of both runs.
+    """Build one distro image, start its sshd and run the network scan of
+    127.0.0.1 inside it. Returns a dict with the exit code and output of the run.
     """
     from testcontainers.core.container import DockerContainer
     from testcontainers.core.image import DockerImage
@@ -305,13 +298,10 @@ def _audit_in_container(containerfile):
             .with_volume_mapping(PLUGIN, '/tmp/lynis', mode='ro,z')
         )
         with container:
-            local = container.exec(['sh', '-c', LOCAL_CMD])
             container.exec(['sh', '-c', SSHD_START])
             container.exec(['sh', '-c', NETWORK_USER_SETUP])
             network = container.exec(['sh', '-c', NETWORK_CMD])
             return {
-                'local_exit_code': local.exit_code,
-                'local_output': (local.output or b'').decode('utf-8', 'replace'),
                 'exit_code': network.exit_code,
                 'output': (network.output or b'').decode('utf-8', 'replace'),
             }
@@ -342,18 +332,6 @@ def _assert_audit(test, containerfile):
         test.skipTest('container did not run')
     if 'error' in result:
         test.fail(f'{containerfile}: container run errored: {result["error"]}')
-    local_output = result['local_output']
-    print(
-        f'\n=== {containerfile} local (exit {result["local_exit_code"]}) ===\n'
-        f'{local_output.strip()}',
-        flush=True,
-    )
-    # The local audit runs the distro's own lynis as root. A fresh container is
-    # not hardened, so it is OK, WARN or CRIT, but never UNKNOWN (UNKNOWN means
-    # the audit itself failed).
-    test.assertIn('Hardening index', local_output)
-    test.assertNotEqual(result['local_exit_code'], STATE_UNKNOWN)
-
     output = result['output']
     print(
         f'\n=== {containerfile} network (exit {result["exit_code"]}) ===\n'
