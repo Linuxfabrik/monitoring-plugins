@@ -66,15 +66,15 @@ Monitoring Plugins:
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
-* postgresql-version: names a refused login or a stopped server instead of claiming that PostgreSQL is not installed
+* postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
-* snmp: the bundled OID lists and MIBs are installed with the plugins, so the check works with its default `--device`
+* snmp: works with the default `--device`
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
-* xca-cert: works without `--prefix` instead of failing with a database error
+* xca-cert: works without `--prefix`
 
 Icinga Director:
 
@@ -83,7 +83,7 @@ Icinga Director:
 
 Tools:
 
-* install-monitoring-plugins: a source or zip install on RHEL 8 keeps working after another package pulls in Python 3.6
+* install-monitoring-plugins: RHEL 8 source and zip installs no longer break when Python 3.6 gets installed
 
 Build, CI/CD:
 
