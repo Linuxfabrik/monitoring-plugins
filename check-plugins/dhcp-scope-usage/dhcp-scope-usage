@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import re
 import sys
 
@@ -21,7 +22,7 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092801'
 
 DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and
 queries scope statistics using PowerShell. On servers with thousands of scopes, --brief
@@ -186,7 +187,16 @@ def main():
     # fetch data
     if args.TEST is None:
         # https://docs.microsoft.com/en-us/powershell/module/dhcpserver/get-dhcpserverv4scopestatistics
-        cmd = f'Get-DhcpServerv4ScopeStatistics -ComputerName "{args.HOSTNAME}"'
+        # JSON rather than the formatted table: over PSRP, which lib.winrm prefers, the
+        # objects arrive as their type name ("DhcpServerv4ScopeStatistics") and no
+        # table is ever rendered, and PercentageInUse would follow the locale. Measured
+        # against Windows Server 2025 from Linux (pypsrp).
+        cmd = (
+            'ConvertTo-Json -Compress -InputObject @('
+            f'Get-DhcpServerv4ScopeStatistics -ComputerName "{args.HOSTNAME}" | '
+            'Select-Object @{Name="ScopeId"; Expression={$_.ScopeId.IPAddressToString}},'
+            ' Free, InUse, PercentageInUse, Reserved, Pending)'
+        )
         if args.WINRM_HOSTNAME:
             result = run_ps_via_winrm(args, cmd)
         else:
@@ -208,28 +218,24 @@ def main():
     perfdata = ''
     rows = []
 
-    # ScopeId          Free            InUse           PercentageInUse  Reserved        Pending         SuperscopeName
-    # -------          ----            -----           ---------------  --------        -------         --------------
-    # 192.0.2.120      3               0               0                0               0
+    # [{"ScopeId":"192.0.2.0","Free":1,"InUse":4,"PercentageInUse":80,...}, ...]
+    try:
+        scopes = json.loads(stdout)
+        scopes = [
+            (str(scope['ScopeId']), int(float(scope['PercentageInUse'])))
+            for scope in scopes
+        ]
+    except (KeyError, TypeError, ValueError):
+        lib.base.cu(
+            'Unable to read the scope statistics the DHCP server returned:\n\n'
+            f'{stdout[:500]}',
+            traceback=False,
+        )
+    if not scopes:
+        lib.base.oao('No IPv4 scope configured.', STATE_OK, always_ok=args.ALWAYS_OK)
 
     # get state and collect per-scope rows
-    data_section = False
-    for line in stdout.splitlines():
-        # ignore all header lines including "----"
-        if not line:
-            continue
-        if not data_section:
-            data_section = line.startswith('----')
-            continue
-
-        scope = line.split()
-        scope_id = scope[0]
-
-        # "PercentageInUse" is a floating point number and uses the user's preferred locale
-        # number format. we don't care about the fraction part, separated depending on
-        # the user's locale by `.`, `,` or whatever - we simply cut it off.
-        scope_used = re.split(r'\D+', scope[3])[0]
-
+    for scope_id, scope_used in scopes:
         scope_state = lib.base.get_state(scope_used, args.WARN, args.CRIT)
         state = lib.base.get_worst(scope_state, state)
 

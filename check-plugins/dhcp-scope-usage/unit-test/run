@@ -34,11 +34,39 @@ TESTS = [
         ],
     },
     {
-        'id': 'ok-garbage-output-no-scopes',
+        # output that is no scope list must never read as a healthy server
+        'id': 'unknown-garbage-output',
         'test': 'stdout/garbage-output,,0',
         'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to read the scope statistics'],
+        'assert-not-in': ['Everything is ok.', 'Traceback'],
+    },
+    {
+        # What the former Format-Table command returned over PSRP, which lib.winrm
+        # prefers: the type names of the objects, no table. It used to end in
+        # "Everything is ok." without a single scope checked.
+        'id': 'unknown-psrp-type-names-only',
+        'test': 'stdout/psrp-type-names-only,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        # Captured from Linux over PSRP against Windows Server 2025 with the DHCP role,
+        # 2026-09-28: one scope with every address reserved but one.
+        'id': 'warn-srv2025-two-scopes-psrp',
+        'test': 'stdout/srv2025-two-scopes-psrp,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['* 10.98.0.0: 80% used [WARNING]', '* 10.99.0.0: 0% used', "'scope_10.99.0.0'=0%"],
+    },
+    {
+        'id': 'ok-no-scopes',
+        'test': 'stdout/no-scopes,,0',
+        'params': COMMON,
         'assert-retc': STATE_OK,
-        'assert-in': ['Everything is ok.'],
+        'assert-in': ['No IPv4 scope configured.'],
     },
     {
         'id': 'ok-eight-scopes-all-healthy',

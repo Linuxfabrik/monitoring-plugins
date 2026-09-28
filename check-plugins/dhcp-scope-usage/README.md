@@ -14,7 +14,8 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 **Data Collection:**
 
 * Executes the PowerShell cmdlet `Get-DhcpServerv4ScopeStatistics -ComputerName "<hostname>"` via WinRM on the target Windows server
-* Parses the `PercentageInUse` field for each scope (handles locale-dependent decimal separators by truncating the fraction)
+* Reads `PercentageInUse` for each scope, cutting off the fraction, and returns UNKNOWN if the server answers with something that is no scope list
+* Reports "No IPv4 scope configured." on a DHCP server without scopes
 * Reports each scope individually with its usage percentage
 
 
@@ -113,9 +114,11 @@ There are one or more criticals.
 ## States
 
 * OK if all DHCP scope usage percentages are below the thresholds.
+* OK with "No IPv4 scope configured." on a DHCP server without scopes.
 * WARN if the PowerShell cmdlet returns a non-zero exit code.
 * WARN if any DHCP scope usage is >= `--warning` (default: 80%).
 * CRIT if any DHCP scope usage is >= `--critical` (default: 90%).
+* UNKNOWN if the answer of the DHCP server cannot be read as a list of scopes.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
