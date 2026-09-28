@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092802'
+__version__ = '2026092803'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -111,15 +111,11 @@ LOG_FILE_CANDIDATES = (
     '/var/log/mail.log',
 )
 
-# The units the distributions run Postfix as, each with the unit file that defines it.
-# `postfix@-.service` is the instance of the default configuration and has no file of
-# its own, only the template `postfix@.service`. Debian and Ubuntu run the master as
-# this instance, and their `postfix.service` only starts it, so its journal holds no
-# line of Postfix. Verified with postfix 3.7.11 on Debian 12.
-UNIT_CANDIDATES = (
-    ('postfix.service', 'postfix.service'),
-    ('postfix@-.service', 'postfix@.service'),
-)
+# The units the distributions run Postfix as. `postfix@-.service` is the instance of the
+# default configuration: Debian and Ubuntu run the master as this instance, and their
+# `postfix.service` only starts it, so its journal holds no line of Postfix. Verified
+# with postfix 3.7.11 on Debian 12.
+UNIT_CANDIDATES = ('postfix.service', 'postfix@-.service')
 UNIT_DIRECTORIES = (
     '/etc/systemd/system',
     '/usr/lib/systemd/system',
@@ -963,7 +959,10 @@ def get_units(config_root=''):
         return []
     found = []
     seen = set()
-    for unit, unit_file in UNIT_CANDIDATES:
+    for unit in UNIT_CANDIDATES:
+        # An instance has no unit file of its own, systemd reads the one of its template
+        # (`postfix@-.service` -> `postfix@.service`).
+        unit_file = re.sub(r'@[^.]+\.', '@.', unit)
         for directory in UNIT_DIRECTORIES:
             for filename in lib.disk.glob(f'{config_root}{directory}/{unit_file}'):
                 if not lib.disk.file_exists(filename, allow_empty=True):
