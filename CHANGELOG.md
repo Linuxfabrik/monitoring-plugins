@@ -31,6 +31,7 @@ Monitoring Plugins:
 
 * about-me: proposes the `lynis` tag where a lynis audit left its report
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
+* redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
 
@@ -75,6 +76,7 @@ Monitoring Plugins:
 * postfix-logfile: reads the journal of Postfix on Debian and Ubuntu
 * postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect
+* redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, Dell power supply sensors kept apart
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
 * snmp: works with the default `--device`, and on Debian and Ubuntu

@@ -11,6 +11,7 @@
 """See the check's README for more details."""
 
 import argparse
+import collections
 import json
 import sys
 
@@ -22,11 +23,12 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091002'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
-available and falls back to the legacy Thermal and Power endpoints otherwise. Alerts when any
+available and falls back to the legacy Thermal and Power endpoints otherwise, which also
+supply the fans and power supplies the Sensors collection does not list. Alerts when any
 sensor reports a non-ok state."""
 
 API_BASE = '/redfish/v1'
@@ -316,8 +318,6 @@ def main():
         )
     )
     for chassis_data in chassis_members:
-        # "/redfish/v1/Chassis/1U", the base of the Thermal and Power links below
-        chassis_path = chassis_data.get('@odata.id', '')
         chassis = lib.redfish.get_chassis(chassis_data)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -343,6 +343,11 @@ def main():
         # instead of one per sensor; fetch_members fills in any members the
         # controller left as bare references.
         table_data = []
+        # names of all enabled sensors in the Sensors collection, before any
+        # display filter, and whether one of them is a fan, so the legacy
+        # endpoints below add nothing twice
+        sensor_names = set()
+        sensors_have_fans = False
         if chassis['Sensors_@odata.id']:
             sensors = lib.base.coe(
                 lib.redfish.fetch_collection(
@@ -372,10 +377,37 @@ def main():
                     cache_expire=cache_expire,
                 )
             )
+            sensor_members = [
+                lib.redfish.get_chassis_sensors(sensor_data)
+                for sensor_data in sensor_members
+                if isinstance(sensor_data, dict)
+            ]
+            # Dell iDRAC names the sensors of every power supply alike
+            # ("InputPowerSensor"), only the Id tells them apart, so a name
+            # that occurs more than once is replaced by the Id to keep the
+            # table rows and the perfdata labels apart
+            name_count = collections.Counter(
+                sensor_data['Name'] for sensor_data in sensor_members
+            )
             for sensor_data in sensor_members:
-                sensor_data = lib.redfish.get_chassis_sensors(sensor_data)
                 if sensor_data['Status_State'] not in ['Enabled', 'Quiesced']:
                     continue
+                if name_count[sensor_data['Name']] > 1 and sensor_data['Id']:
+                    sensor_data['Name'] = sensor_data['Id']
+                sensor_names.add(sensor_data['Name'])
+                # the same fan often carries a different name in the legacy
+                # Thermal resource (DMTF mockup: "Chassis Fan #1" in the Sensors
+                # collection, "BaseBoard System Fan" in Thermal), so fans count
+                # as a category
+                if (
+                    sensor_data['PhysicalContext'] == 'Fan'
+                    or sensor_data['ReadingUnits'] == 'RPM'
+                    or (
+                        'fan' in str(sensor_data['Name']).lower()
+                        and sensor_data['ReadingUnits'] != 'Cel'
+                    )
+                ):
+                    sensors_have_fans = True
                 # collect for --inventory before any display filter
                 if args.INVENTORY:
                     inventory.append(dict(sensor_data, chassi_ids=chassis['Id']))
@@ -406,29 +438,33 @@ def main():
                 )
                 table_data.append(sensor_data)
 
-        # get thermal values for the member (legacy fallback source and fan
-        # redundancy). Fetched defensively: a chassis without a Thermal
-        # endpoint must not abort the check.
-        success, thermal = lib.redfish.fetch_resource(
-            lib.base.coe(lib.redfish.build_url(args.URL, f'{chassis_path}/Thermal')),
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
-            retries=args.RETRIES,
-            cache_expire=cache_expire,
-        )
-        if not success or not isinstance(thermal, dict):
-            thermal = {}
-
-        # fall back to the legacy Thermal and Power endpoints when the modern
-        # Sensors collection is absent or empty. Older BMCs (e.g. iLO4) only
-        # expose Thermal (Temperatures, Fans) and Power (Voltages, power
-        # supplies), so without this fallback they would report no readings.
-        if not table_data:
+        # get the legacy Thermal and Power resources, but only if the chassis
+        # advertises them. HPE iLO 6 answers both paths on a storage backplane,
+        # which advertises neither, with the data of the server chassis, and every
+        # sensor would then be reported twice. Fetched defensively: a failing
+        # legacy endpoint must not abort the check.
+        thermal = {}
+        if chassis['Thermal_@odata.id']:
+            success, thermal = lib.redfish.fetch_resource(
+                lib.base.coe(
+                    lib.redfish.build_url(args.URL, chassis['Thermal_@odata.id'])
+                ),
+                header=header,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+                retries=args.RETRIES,
+                cache_expire=cache_expire,
+            )
+            if not success or not isinstance(thermal, dict):
+                thermal = {}
+        power = {}
+        if chassis['Power_@odata.id']:
             success, power = lib.redfish.fetch_resource(
-                lib.base.coe(lib.redfish.build_url(args.URL, f'{chassis_path}/Power')),
+                lib.base.coe(
+                    lib.redfish.build_url(args.URL, chassis['Power_@odata.id'])
+                ),
                 header=header,
                 insecure=args.INSECURE,
                 no_proxy=args.NO_PROXY,
@@ -439,7 +475,34 @@ def main():
             )
             if not success or not isinstance(power, dict):
                 power = {}
-            # (parsed item, key holding the reading, display unit)
+
+        # Older BMCs (e.g. iLO 4) only expose the legacy Thermal (Temperatures,
+        # Fans) and Power (Voltages, power supplies) endpoints, so without a
+        # Sensors collection everything comes from there. With one, the legacy
+        # endpoints add the fans if it lists none (iLO 6 lists temperatures
+        # only), and the power supplies it does not name, whose health the
+        # Sensors collection does not carry.
+        power_supplies = power.get('PowerSupplies', [])
+        if not isinstance(power_supplies, list):
+            power_supplies = []
+        # power control reports the chassis-wide power consumption. Cisco
+        # returns a single object where the schema expects a list, so
+        # normalize it before iterating.
+        power_control = power.get('PowerControl', [])
+        if isinstance(power_control, dict):
+            power_control = [power_control]
+        if not isinstance(power_control, list):
+            power_control = []
+        # (parsed item, key holding the reading, display unit)
+        legacy = [
+            (lib.redfish.get_chassis_thermal_fans(f), 'Reading', '')
+            for f in thermal.get('Fans', [])
+        ]
+        if sensor_names:
+            if sensors_have_fans:
+                legacy = []
+            power_control = []
+        else:
             legacy = [
                 (
                     lib.redfish.get_chassis_thermal_temperatures(t),
@@ -447,118 +510,104 @@ def main():
                     'Cel',
                 )
                 for t in thermal.get('Temperatures', [])
-            ]
-            legacy += [
-                (lib.redfish.get_chassis_thermal_fans(f), 'Reading', '')
-                for f in thermal.get('Fans', [])
-            ]
+            ] + legacy
             legacy += [
                 (lib.redfish.get_chassis_power_voltages(v), 'ReadingVolts', 'V')
                 for v in power.get('Voltages', [])
             ]
-            for item, reading_key, units in legacy:
-                if item['Status_State'] not in ['Enabled', 'Quiesced']:
-                    continue
-                # collect for --inventory before any display filter
-                if args.INVENTORY:
-                    inventory.append(dict(item, chassi_ids=chassis['Id']))
-                # --match/--ignore: filter by item name
-                item_name = item['Name'] or item.get('Id', '')
-                if ignore_patterns and any(
-                    p.search(item_name) for p in ignore_patterns
-                ):
-                    continue
-                if match_patterns and not any(
-                    p.search(item_name) for p in match_patterns
-                ):
-                    continue
-                # adapt the legacy Upper/LowerThreshold* field names to the
-                # modern sensor schema so get_sensor_state()/get_perfdata()
-                # can consume them unchanged
-                item['Reading'] = item.get(reading_key, '')
-                if units:
-                    item['ReadingUnits'] = units
-                item['Thresholds_UpperCritical'] = item.get(
-                    'UpperThresholdCritical', ''
+        for item, reading_key, units in legacy:
+            if item['Status_State'] not in ['Enabled', 'Quiesced']:
+                continue
+            # collect for --inventory before any display filter
+            if args.INVENTORY:
+                inventory.append(dict(item, chassi_ids=chassis['Id']))
+            # --match/--ignore: filter by item name
+            item_name = item['Name'] or item.get('Id', '')
+            if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
+                continue
+            if match_patterns and not any(p.search(item_name) for p in match_patterns):
+                continue
+            # adapt the legacy Upper/LowerThreshold* field names to the
+            # modern sensor schema so get_sensor_state()/get_perfdata()
+            # can consume them unchanged
+            item['Reading'] = item.get(reading_key, '')
+            if units:
+                item['ReadingUnits'] = units
+            item['Thresholds_UpperCritical'] = item.get('UpperThresholdCritical', '')
+            item['Thresholds_UpperCaution'] = item.get('UpperThresholdNonCritical', '')
+            item['Thresholds_LowerCritical'] = item.get('LowerThresholdCritical', '')
+            item['Thresholds_LowerCaution'] = item.get('LowerThresholdNonCritical', '')
+            item['Thresholds_UpperFatal'] = item.get('UpperThresholdFatal', '')
+            item['Thresholds_LowerFatal'] = item.get('LowerThresholdFatal', '')
+            perfdata += lib.redfish.get_perfdata(item, 'Reading')
+            value_state = lib.redfish.get_sensor_state(item, 'Reading')
+            state = lib.base.get_worst(state, value_state)
+            item['Value'] = lib.base.state2str(value_state, empty_ok=False)
+            item_state = lib.redfish.get_state(item)
+            state = lib.base.get_worst(state, item_state)
+            item['State'] = lib.base.state2str(item_state, empty_ok=False)
+            table_data.append(item)
+        # power supplies are evaluated on health only (no reading thresholds)
+        for psu_data in power_supplies:
+            if not isinstance(psu_data, dict):
+                continue
+            psu = lib.redfish.get_chassis_power_powersupplies(psu_data)
+            if psu['Status_State'] not in ['Enabled', 'Quiesced']:
+                continue
+            # identical units share a model number, so the member id keeps
+            # their names, and with them their perfdata labels, apart
+            psu['Name'] = ' '.join(
+                str(part)
+                for part in (
+                    'Power Supply',
+                    psu_data.get('MemberId', ''),
+                    psu.get('Model', ''),
                 )
-                item['Thresholds_UpperCaution'] = item.get(
-                    'UpperThresholdNonCritical', ''
-                )
-                item['Thresholds_LowerCritical'] = item.get(
-                    'LowerThresholdCritical', ''
-                )
-                item['Thresholds_LowerCaution'] = item.get(
-                    'LowerThresholdNonCritical', ''
-                )
-                perfdata += lib.redfish.get_perfdata(item, 'Reading')
-                value_state = lib.redfish.get_sensor_state(item, 'Reading')
-                state = lib.base.get_worst(state, value_state)
-                item['Value'] = lib.base.state2str(value_state, empty_ok=False)
-                item_state = lib.redfish.get_state(item)
-                state = lib.base.get_worst(state, item_state)
-                item['State'] = lib.base.state2str(item_state, empty_ok=False)
-                table_data.append(item)
-            # power supplies are evaluated on health only (no reading thresholds)
-            for psu in power.get('PowerSupplies', []):
-                psu = lib.redfish.get_chassis_power_powersupplies(psu)
-                if psu['Status_State'] not in ['Enabled', 'Quiesced']:
-                    continue
-                psu['Name'] = psu.get('Model') or 'Power Supply'
-                # collect for --inventory before any display filter
-                if args.INVENTORY:
-                    inventory.append(dict(psu, chassi_ids=chassis['Id']))
-                # --match/--ignore: filter by item name
-                item_name = psu['Name'] or psu.get('Id', '')
-                if ignore_patterns and any(
-                    p.search(item_name) for p in ignore_patterns
-                ):
-                    continue
-                if match_patterns and not any(
-                    p.search(item_name) for p in match_patterns
-                ):
-                    continue
-                psu['PhysicalContext'] = 'PowerSupply'
-                psu['Reading'] = psu.get('LastPowerOutputWatts', '')
-                psu['ReadingUnits'] = 'W'
-                perfdata += lib.redfish.get_perfdata(psu, 'Reading')
-                psu_state = lib.redfish.get_state(psu)
-                state = lib.base.get_worst(state, psu_state)
-                psu['Value'] = lib.base.state2str(psu_state, empty_ok=False)
-                psu['State'] = lib.base.state2str(psu_state, empty_ok=False)
-                table_data.append(psu)
-            # power control reports the chassis-wide power consumption. Cisco
-            # returns a single object where the schema expects a list, so
-            # normalize it before iterating.
-            power_control = power.get('PowerControl', [])
-            if isinstance(power_control, dict):
-                power_control = [power_control]
-            for pc in power_control:
-                pc = lib.redfish.get_chassis_power_powercontrol(pc)
-                if pc['Status_State'] not in ['Enabled', 'Quiesced']:
-                    continue
-                pc['Name'] = pc.get('Name') or 'Power Control'
-                # collect for --inventory before any display filter
-                if args.INVENTORY:
-                    inventory.append(dict(pc, chassi_ids=chassis['Id']))
-                # --match/--ignore: filter by item name
-                item_name = pc['Name'] or pc.get('MemberId', '')
-                if ignore_patterns and any(
-                    p.search(item_name) for p in ignore_patterns
-                ):
-                    continue
-                if match_patterns and not any(
-                    p.search(item_name) for p in match_patterns
-                ):
-                    continue
-                pc['PhysicalContext'] = 'PowerControl'
-                pc['Reading'] = pc.get('PowerConsumedWatts', '')
-                pc['ReadingUnits'] = 'W'
-                perfdata += lib.redfish.get_perfdata(pc, 'Reading')
-                pc_state = lib.redfish.get_state(pc)
-                state = lib.base.get_worst(state, pc_state)
-                pc['Value'] = lib.base.state2str(pc_state, empty_ok=False)
-                pc['State'] = lib.base.state2str(pc_state, empty_ok=False)
-                table_data.append(pc)
+                if part not in ('', None)
+            )
+            if psu['Name'] in sensor_names:
+                continue
+            # collect for --inventory before any display filter
+            if args.INVENTORY:
+                inventory.append(dict(psu, chassi_ids=chassis['Id']))
+            # --match/--ignore: filter by item name
+            item_name = psu['Name'] or psu.get('Id', '')
+            if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
+                continue
+            if match_patterns and not any(p.search(item_name) for p in match_patterns):
+                continue
+            psu['PhysicalContext'] = 'PowerSupply'
+            psu['Reading'] = psu.get('LastPowerOutputWatts', '')
+            psu['ReadingUnits'] = 'W'
+            perfdata += lib.redfish.get_perfdata(psu, 'Reading')
+            psu_state = lib.redfish.get_state(psu)
+            state = lib.base.get_worst(state, psu_state)
+            psu['Value'] = lib.base.state2str(psu_state, empty_ok=False)
+            psu['State'] = lib.base.state2str(psu_state, empty_ok=False)
+            table_data.append(psu)
+        for pc in power_control:
+            pc = lib.redfish.get_chassis_power_powercontrol(pc)
+            if pc['Status_State'] not in ['Enabled', 'Quiesced']:
+                continue
+            pc['Name'] = pc.get('Name') or 'Power Control'
+            # collect for --inventory before any display filter
+            if args.INVENTORY:
+                inventory.append(dict(pc, chassi_ids=chassis['Id']))
+            # --match/--ignore: filter by item name
+            item_name = pc['Name'] or pc.get('MemberId', '')
+            if ignore_patterns and any(p.search(item_name) for p in ignore_patterns):
+                continue
+            if match_patterns and not any(p.search(item_name) for p in match_patterns):
+                continue
+            pc['PhysicalContext'] = 'PowerControl'
+            pc['Reading'] = pc.get('PowerConsumedWatts', '')
+            pc['ReadingUnits'] = 'W'
+            perfdata += lib.redfish.get_perfdata(pc, 'Reading')
+            pc_state = lib.redfish.get_state(pc)
+            state = lib.base.get_worst(state, pc_state)
+            pc['Value'] = lib.base.state2str(pc_state, empty_ok=False)
+            pc['State'] = lib.base.state2str(pc_state, empty_ok=False)
+            table_data.append(pc)
 
         if args.BRIEF:
             table_data = [

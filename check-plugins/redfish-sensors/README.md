@@ -3,11 +3,11 @@
 
 ## Overview
 
-Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where available and falls back to the legacy Thermal and Power endpoints otherwise. Alerts when any sensor reports a non-ok state. Also evaluates fan redundancy status. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components.
+Checks hardware sensor readings (temperature, voltage, fan speed, power) from the Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where available and falls back to the legacy Thermal and Power endpoints otherwise, which also supply the fans and power supplies the Sensors collection does not list. Alerts when any sensor reports a non-ok state. Also evaluates fan redundancy status. A Chassis is roughly defined as a physical view of a computer system as seen by a human. A single Chassis resource can house sensors, fans, and other components.
 
 **Important Notes:**
 
-* Tested on DELL iDRAC and DMTF Simulator
+* Tested on DELL iDRAC, HPE iLO 6 and DMTF Simulator
 * A check usually completes within a few seconds, but a slow or retried request can take longer. The bundled Director basket allows a 60 second runtime timeout.
 * This check runs with both HTTP and HTTPS. It uses GET requests only.
 * No additional Python Redfish modules need to be installed.
@@ -17,6 +17,9 @@ Checks hardware sensor readings (temperature, voltage, fan speed, power) from th
 * Queries `/redfish/v1/Chassis` to enumerate chassis members
 * For each member, reads the modern Sensors collection to get individual sensor values, thresholds and health status
 * When a chassis exposes no Sensors collection (typical of older BMCs such as iLO4), falls back to the legacy Thermal (temperatures, fans) and Power (voltages, power supplies) endpoints
+* When a chassis has a Sensors collection, adds the fans from the legacy Thermal endpoint if it lists none (HPE iLO 6 lists only temperatures there), and the power supplies from the legacy Power endpoint, whose health the Sensors collection does not carry
+* Follows the Thermal and Power endpoints only where the chassis advertises them. HPE iLO answers both on a storage backplane with the data of the server, so reading them there would report every sensor twice
+* A sensor name that occurs more than once in a chassis is replaced by the sensor's Id, since Dell iDRAC names the sensors of every power supply alike
 * Also queries the Thermal endpoint for fan redundancy information
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
@@ -50,7 +53,8 @@ usage: redfish-sensors [-h] [-V] [--always-ok] [--brief]
 Checks hardware sensor readings (temperature, voltage, fan speed, power) from
 the Redfish Chassis collection via the Redfish API. Reads the modern Sensors
 collection where available and falls back to the legacy Thermal and Power
-endpoints otherwise. Alerts when any sensor reports a non-ok state.
+endpoints otherwise, which also supply the fans and power supplies the Sensors
+collection does not list. Alerts when any sensor reports a non-ok state.
 
 options:
   -h, --help            show this help message and exit
@@ -163,9 +167,10 @@ BaseBoard System Fans ! N+m  ! [OK]
 
 * OK if all sensors are healthy and within their thresholds.
 * WARN if an enabled sensor health or health rollup state is "Warning".
-* WARN if a sensor value exceeds the Redfish non-critical threshold (`Thresholds_UpperCaution`, `Thresholds_LowerCaution`; the legacy `UpperThresholdNonCritical`, `LowerThresholdNonCritical`).
+* WARN if a sensor value exceeds the Redfish caution or critical threshold (`UpperCaution`, `LowerCaution`, `UpperCritical`, `LowerCritical`; the legacy `UpperThresholdNonCritical`, `LowerThresholdNonCritical`, `UpperThresholdCritical`, `LowerThresholdCritical`). Redfish defines a critical reading as above the normal range but not yet fatal, which is why HPE iLO labels this threshold "Caution".
+* WARN if a sensor value exceeds a user-defined threshold (`UpperCautionUser`, `LowerCautionUser`, `UpperCriticalUser`, `LowerCriticalUser`). A user-defined threshold of `0` counts as not set, since HPE iLO 6 reports `0` for a threshold nobody configured.
 * CRIT if an enabled sensor health or health rollup state is "Critical".
-* CRIT if a sensor value exceeds the Redfish critical threshold (`Thresholds_UpperCritical`, `Thresholds_LowerCritical`; the legacy `UpperThresholdCritical`, `LowerThresholdCritical`).
+* CRIT if a sensor value exceeds the Redfish fatal threshold (`UpperFatal`, `LowerFatal`; the legacy `UpperThresholdFatal`, `LowerThresholdFatal`), which HPE iLO labels "Critical".
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

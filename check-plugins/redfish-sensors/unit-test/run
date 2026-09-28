@@ -63,7 +63,7 @@ TESTS = [
         'assert-not-in': ['[WARNING]', '[CRITICAL]'],
     },
     {
-        # In the legacy fallback, a temperature above its UpperThresholdCritical
+        # In the legacy fallback, a temperature above its UpperThresholdFatal
         # must escalate to CRITICAL. This proves the legacy threshold fields are
         # mapped onto the modern sensor-state logic.
         'id': 'crit-legacy-temp-threshold',
@@ -146,6 +146,106 @@ TESTS = [
         'params': f'{COMMON} --verbose',
         'assert-retc': STATE_OK,
         'assert-in': ['### GET /redfish/v1/Chassis/1U/Sensors'],
+    },
+    # HPE ProLiant DL365 Gen11 with iLO 6 1.77, from a customer's --verbose run
+    # (serial numbers, UUIDs and the host name replaced). The /Chassis/1/Power block
+    # is the /Chassis/DE00B000/Power answer under its own path: iLO serves the server's
+    # Power resource there, and the customer's run never requested the original.
+    {
+        # iLO reports an unset user threshold as `UpperCautionUser.Reading: 0`, which
+        # must not turn an inlet at 21 C into a warning.
+        'id': 'ok-ilo6-user-threshold-zero',
+        'test': 'stdout/ilo6-backplane-user-threshold-zero,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Checked sensors on 2 members.'],
+        'assert-regex': r'01-Inlet Ambient +! Intake +! 21\.0 +! Cel +! \[OK\]',
+    },
+    {
+        # The storage backplane advertises no Thermal or Power resource. iLO answers
+        # both paths with the server's data anyway, so requesting them would list every
+        # sensor twice, under the same perfdata label.
+        'id': 'ok-ilo6-backplane-mirror-not-requested',
+        'test': 'stdout/ilo6-backplane-user-threshold-zero,,0',
+        'params': f'{COMMON} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-not-in': [
+            '### GET /redfish/v1/Chassis/DE00B000/Power',
+            '### GET /redfish/v1/Chassis/DE00B000/Thermal',
+        ],
+        'assert-regex': r'\A(?![\s\S]*01-Inlet Ambient [\s\S]*01-Inlet Ambient )',
+    },
+    {
+        # iLO 6 lists temperatures only in its Sensors collection. Fans and power
+        # supplies come from the legacy Thermal and Power resources, and two identical
+        # power supplies keep apart by their member id.
+        'id': 'ok-ilo6-fans-and-power-supplies-from-legacy',
+        'test': 'stdout/ilo6-backplane-user-threshold-zero,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'SystemBoard_Fan_7'=25%",
+            "'PowerSupply_Power_Supply_0_P03178-B21'=107",
+            "'PowerSupply_Power_Supply_1_P03178-B21'=98",
+        ],
+    },
+    {
+        # Dell iDRAC names the sensors of every power supply alike and tells them
+        # apart only by Id. The Id takes the place of a name that occurs twice, so
+        # the rows and the perfdata labels stay apart.
+        'id': 'ok-identical-sensor-names-use-id',
+        'test': 'stdout/sensors-with-identical-names,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'PowerSupply_PSU.Slot.1_InputPower'=416.0",
+            "'PowerSupply_PSU.Slot.2_InputPower'=5.0",
+        ],
+        'assert-not-in': ['InputPowerSensor'],
+    },
+    # The dmtf-dsp2043-* fixtures are taken from DMTF DSP2043 2026.2 (Redfish Resource
+    # and Schema Guide mockups, Copyright 2015-2026 DMTF), trimmed to the responses the
+    # check requests.
+    {
+        # public-tower: a Sensors collection with caution, critical, fatal and
+        # user-defined thresholds. The CPU power readings of 90 W exceed their
+        # UpperCautionUser of 82 W, and the perfdata carry caution as warn and fatal as
+        # crit.
+        'id': 'warn-dmtf-tower-user-caution',
+        'test': 'stdout/dmtf-dsp2043-tower,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "'CPU_CPU_#1_Temperature'=37;42;50;;75",
+            "'Memory_DIMM_#1_Temperature'=44;55;75;;75",
+        ],
+        'assert-regex': r'Power reading for CPU #1 +! CPU +! 90 +! W +! \[WARNING\]',
+    },
+    {
+        # public-bladed: an enclosure and four blades, which expose only the legacy
+        # Thermal resource. A stopped fan the controller rates Critical makes the check
+        # critical, a hot CPU on one blade only warns.
+        'id': 'crit-dmtf-bladed-failed-fan',
+        'test': 'stdout/dmtf-dsp2043-bladed,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked sensors on 5 members. There are critical errors.'],
+        'assert-regex': r'System Fan 2 +! Front +! 0 +! RPM +! \[CRITICAL\]'
+        r'[\s\S]*CPU Temp +! CPU +! 77 +! Cel +! \[WARNING\]',
+    },
+    {
+        # public-nvmeof-jbof: a storage enclosure that advertises its Thermal and Power
+        # resources. Unlike the iLO backplane above, they are read.
+        'id': 'ok-dmtf-storage-enclosure-with-advertised-links',
+        'test': 'stdout/dmtf-dsp2043-nvmeof-jbof,,0',
+        'params': f'{COMMON} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked sensors on 1 member.',
+            '### GET /redfish/v1/Chassis/1/Thermal',
+            '### GET /redfish/v1/Chassis/1/Power',
+            'Power Supply 1 PS2000',
+        ],
     },
     {
         # A missing fixture must surface as STATE_UNKNOWN with a
