@@ -22,11 +22,12 @@ import lib.powershell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092802'
 
-DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and
-queries scope statistics using PowerShell. On servers with thousands of scopes, --brief
-hides rows within the thresholds so the output only lists scopes in WARN/CRIT state.
+DESCRIPTION = """Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the
+DHCP server or connects via WinRM, and queries scope statistics using PowerShell. On
+servers with thousands of scopes, --brief hides rows within the thresholds so the
+output only lists scopes in WARN/CRIT state.
 Alerts when the address pool usage of any scope exceeds the configured thresholds
 (default: WARN at 80%, CRIT at 90%). Supports extended reporting via --lengthy."""
 
@@ -122,16 +123,16 @@ def parse_args():
 
     parser.add_argument(
         '--winrm-hostname',
-        help='Target Windows computer on which the command will be executed.',
+        help='Target Windows computer on which the command will be executed. '
+        'Without it, the command runs on the local Windows host.',
         dest='WINRM_HOSTNAME',
-        required=True,
     )
 
     parser.add_argument(
         '--winrm-password',
-        help='WinRM account password.',
+        help='WinRM account password. '
+        'Optional for Kerberos (uses credential cache from kinit).',
         dest='WINRM_PASSWORD',
-        required=True,
     )
 
     parser.add_argument(
@@ -191,18 +192,29 @@ def main():
         # objects arrive as their type name ("DhcpServerv4ScopeStatistics") and no
         # table is ever rendered, and PercentageInUse would follow the locale. Measured
         # against Windows Server 2025 from Linux (pypsrp).
+        # An error of the cmdlet is caught and handed over as JSON as well, so the
+        # script only fails when it never ran: a failed WinRM login or connection
+        # returns the same exit code 1 and empty stdout as an uncaught cmdlet error.
         cmd = (
-            'ConvertTo-Json -Compress -InputObject @('
-            f'Get-DhcpServerv4ScopeStatistics -ComputerName "{args.HOSTNAME}" | '
+            'try {'
+            ' ConvertTo-Json -Compress -InputObject @('
+            f'Get-DhcpServerv4ScopeStatistics -ComputerName "{args.HOSTNAME}"'
+            ' -ErrorAction Stop | '
             'Select-Object @{Name="ScopeId"; Expression={$_.ScopeId.IPAddressToString}},'
             ' Free, InUse, PercentageInUse, Reserved, Pending)'
+            ' } catch {'
+            ' ConvertTo-Json -Compress -InputObject @{'
+            'Error = $_.Exception.Message; Type = $_.Exception.GetType().Name}'
+            ' }'
         )
         if args.WINRM_HOSTNAME:
             result = run_ps_via_winrm(args, cmd)
         else:
             if lib.base.LINUX:
                 lib.base.cu(
-                    'Running this check plugin directly on Linux is not supported. Use the --winrm parameters.'
+                    'Running this check plugin directly on Linux is not supported.'
+                    ' Use the --winrm parameters.',
+                    traceback=False,
                 )
             result = lib.powershell.run_ps(cmd)
         stdout, stderr, retc = result['stdout'], result['stderr'], result['retc']
@@ -210,16 +222,13 @@ def main():
         # do not call the command, put in test data
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
+    # nothing ran, so nothing is known about the scopes
     if retc != 0:
-        # Measured against Windows Server 2016 without the DHCP role.
-        if 'CommandNotFoundException' in stderr:
-            lib.base.cu(
-                'Get-DhcpServerv4ScopeStatistics is not available on'
-                f' {args.WINRM_HOSTNAME or "this host"}: it is no DHCP server, or the'
-                ' DHCP Server tools are missing (`Install-WindowsFeature RSAT-DHCP`).',
-                traceback=False,
-            )
-        lib.base.oao(stderr, STATE_WARN)
+        lib.base.cu(
+            f'Unable to run the command on {args.WINRM_HOSTNAME or "this host"}:'
+            f' {stderr.strip()}',
+            traceback=False,
+        )
 
     # init some vars
     state = STATE_OK
@@ -227,8 +236,31 @@ def main():
     rows = []
 
     # [{"ScopeId":"192.0.2.0","Free":1,"InUse":4,"PercentageInUse":80,...}, ...]
+    # or the error of the cmdlet: {"Error":"...","Type":"CimException"}
     try:
         scopes = json.loads(stdout)
+    except ValueError:
+        scopes = None
+    if isinstance(scopes, dict) and 'Error' in scopes:
+        # Measured against Windows Server 2025 without the DHCP Server tools.
+        if scopes.get('Type') == 'CommandNotFoundException':
+            lib.base.cu(
+                'Get-DhcpServerv4ScopeStatistics is not available on'
+                f' {args.WINRM_HOSTNAME or "this host"}: it is no DHCP server, or the'
+                ' DHCP Server tools are missing (`Install-WindowsFeature RSAT-DHCP`).',
+                traceback=False,
+            )
+        # The DHCP server does not answer: its service is stopped (WIN32 1753), or the
+        # host named by --hostname is unreachable (WIN32 1722). Any other error, such as
+        # a CimJobException for an account that may not open the CIM session, says
+        # nothing about the server. Measured against Windows Server 2025.
+        if scopes.get('Type') == 'CimException':
+            lib.base.oao(str(scopes['Error']), STATE_WARN, always_ok=args.ALWAYS_OK)
+        lib.base.cu(
+            f'Unable to query the DHCP server {args.HOSTNAME}: {scopes["Error"]}',
+            traceback=False,
+        )
+    try:
         scopes = [
             (str(scope['ScopeId']), int(float(scope['PercentageInUse'])))
             for scope in scopes

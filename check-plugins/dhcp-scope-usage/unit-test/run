@@ -59,15 +59,61 @@ TESTS = [
         'test': 'stdout/srv2025-two-scopes-psrp,,0',
         'params': COMMON,
         'assert-retc': STATE_WARN,
-        'assert-in': ['* 10.98.0.0: 80% used [WARNING]', '* 10.99.0.0: 0% used', "'scope_10.99.0.0'=0%"],
+        'assert-in': [
+            '* 10.98.0.0: 80% used [WARNING]',
+            '* 10.99.0.0: 0% used',
+            "'scope_10.99.0.0'=0%",
+        ],
     },
     {
-        # Captured from Linux over PSRP against Windows Server 2016 without the DHCP role.
+        # Captured from Linux over PSRP against Windows Server 2025 without the DHCP role.
         'id': 'unknown-no-dhcp-role',
-        'test': ',stderr/no-dhcp-role,1',
+        'test': 'stdout/no-dhcp-role,,0',
         'params': COMMON,
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['Get-DhcpServerv4ScopeStatistics is not available on dummy'],
+    },
+    {
+        # Captured from Linux over PSRP against Windows Server 2025 with the DHCP
+        # Server service stopped. The server is down, which is not the same as knowing
+        # nothing about it.
+        'id': 'warn-dhcp-service-stopped',
+        'test': 'stdout/dhcp-service-stopped,,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Failed to get server statistics from DHCP server localhost.'],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        # Captured on Windows Server 2025 (German UI), run locally over SSH by a
+        # standard user: the account may not open the CIM session, which says nothing
+        # about the DHCP server.
+        'id': 'unknown-access-denied-de',
+        'test': 'stdout/access-denied-de,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Unable to query the DHCP server localhost: Die Verbindung'],
+        'assert-not-in': ['Everything is ok.'],
+    },
+    {
+        # Captured from Linux over PSRP against Windows Server 2025 with a wrong
+        # password: nothing ran, nothing is known about the scopes.
+        'id': 'unknown-winrm-login-failed',
+        'test': ',stderr/winrm-login-failed,1',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'Unable to run the command on dummy: AuthenticationError: Failed to'
+            ' authenticate the user Administrator with ntlm',
+        ],
+    },
+    {
+        # the local mode runs without any --winrm parameter
+        'id': 'ok-local-mode-without-winrm-parameters',
+        'test': 'stdout/eight-scopes-all-healthy,,0',
+        'params': '',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.'],
     },
     {
         'id': 'ok-no-scopes',

@@ -58,7 +58,7 @@ Monitoring Plugins:
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
-* dhcp-scope-usage: checks the scopes again instead of reporting OK without any, names an unreadable answer or a missing DHCP role
+* dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
 * dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution

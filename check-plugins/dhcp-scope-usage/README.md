@@ -3,17 +3,18 @@
 
 ## Overview
 
-Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
+Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the DHCP server or connects via WinRM, and queries scope statistics using PowerShell. Alerts when the address pool usage of any scope exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
 
 **Important Notes:**
 
 * Set the plugin timeout to 30 seconds, as WinRM connections can be slow
 * The `--hostname` parameter specifies which DHCP server to query (can differ from the WinRM target)
+* Without `--winrm-hostname`, the check runs locally on a Windows host with the DHCP Server tools, typically the DHCP server itself
 * Running directly on Linux without `--winrm-hostname` is not supported
 
 **Data Collection:**
 
-* Executes the PowerShell cmdlet `Get-DhcpServerv4ScopeStatistics -ComputerName "<hostname>"` via WinRM on the target Windows server
+* Executes the PowerShell cmdlet `Get-DhcpServerv4ScopeStatistics -ComputerName "<hostname>"` locally or via WinRM on the target Windows server
 * Reads `PercentageInUse` for each scope, cutting off the fraction, and returns UNKNOWN if the server answers with something that is no scope list
 * Reports "No IPv4 scope configured." on a DHCP server without scopes
 * Reports each scope individually with its usage percentage
@@ -26,8 +27,8 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 | Check Plugin Download                 | <https://github.com/Linuxfabrik/monitoring-plugins/tree/main/check-plugins/dhcp-scope-usage> |
 | Nagios/Icinga Check Name              | `check_dhcp_scope_usage` |
 | Check Interval Recommendation         | Every 15 minutes |
-| Can be called without parameters      | No (`--winrm-hostname` and `--winrm-password` are required) |
-| Runs on                               | Windows |
+| Can be called without parameters      | Yes (on the Windows DHCP server itself) |
+| Runs on                               | Cross-platform |
 | Compiled for Windows                  | Yes |
 | 3rd Party Python modules              | `winrm` (for remote execution via WinRM) |
 
@@ -38,17 +39,17 @@ Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM and 
 usage: dhcp-scope-usage [-h] [-V] [--always-ok] [--brief] [-c CRIT]
                         [-H HOSTNAME] [--no-perfdata] [-w WARN]
                         [--winrm-domain WINRM_DOMAIN]
-                        --winrm-hostname WINRM_HOSTNAME
-                        --winrm-password WINRM_PASSWORD
+                        [--winrm-hostname WINRM_HOSTNAME]
+                        [--winrm-password WINRM_PASSWORD]
                         [--winrm-transport {basic,ntlm,kerberos,credssp,plaintext}]
                         [--winrm-username WINRM_USERNAME]
 
-Monitors IPv4 DHCP scope usage on a Windows DHCP server. Connects via WinRM
-and queries scope statistics using PowerShell. On servers with thousands of
-scopes, --brief hides rows within the thresholds so the output only lists
-scopes in WARN/CRIT state. Alerts when the address pool usage of any scope
-exceeds the configured thresholds (default: WARN at 80%, CRIT at 90%).
-Supports extended reporting via --lengthy.
+Monitors IPv4 DHCP scope usage on a Windows DHCP server. Runs locally on the
+DHCP server or connects via WinRM, and queries scope statistics using
+PowerShell. On servers with thousands of scopes, --brief hides rows within the
+thresholds so the output only lists scopes in WARN/CRIT state. Alerts when the
+address pool usage of any scope exceeds the configured thresholds (default:
+WARN at 80%, CRIT at 90%). Supports extended reporting via --lengthy.
 
 options:
   -h, --help            show this help message and exit
@@ -73,9 +74,11 @@ options:
                         WinRM Domain Name. Default: None
   --winrm-hostname WINRM_HOSTNAME
                         Target Windows computer on which the command will be
-                        executed.
+                        executed. Without it, the command runs on the local
+                        Windows host.
   --winrm-password WINRM_PASSWORD
-                        WinRM account password.
+                        WinRM account password. Optional for Kerberos (uses
+                        credential cache from kinit).
   --winrm-transport {basic,ntlm,kerberos,credssp,plaintext}
                         WinRM transport type. Default: ntlm
   --winrm-username WINRM_USERNAME
@@ -87,6 +90,12 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dhcp-scope-usage/
 
 
 ## Usage Examples
+
+Local usage on the Windows DHCP server:
+
+```bash
+./dhcp-scope-usage --warning=80 --critical=90
+```
 
 Remote usage, for example from a Linux server:
 
@@ -115,11 +124,12 @@ There are one or more criticals.
 
 * OK if all DHCP scope usage percentages are below the thresholds.
 * OK with "No IPv4 scope configured." on a DHCP server without scopes.
-* WARN if the PowerShell cmdlet returns a non-zero exit code.
+* WARN if the DHCP server does not answer: its service is stopped, or the host named by `--hostname` is unreachable.
 * WARN if any DHCP scope usage is >= `--warning` (default: 80%).
 * CRIT if any DHCP scope usage is >= `--critical` (default: 90%).
 * UNKNOWN if the answer of the DHCP server cannot be read as a list of scopes.
 * UNKNOWN if the host is no DHCP server or lacks the DHCP Server PowerShell tools.
+* UNKNOWN if the WinRM login or connection fails, or the account may not query the DHCP server.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
