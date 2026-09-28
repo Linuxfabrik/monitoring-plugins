@@ -37,7 +37,7 @@ Icinga Director:
 
 * Active Directory Domain Service Set: also checks Netlogon
 * Lynis Service Set: audits each tagged host locally, once a day
-* OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", also checks network errors
+* OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", checks network errors and fewer services
 
 Grafana:
 
