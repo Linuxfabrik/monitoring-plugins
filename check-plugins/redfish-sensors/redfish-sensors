@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092802'
 
 DESCRIPTION = """Checks hardware sensor readings (temperature, voltage, fan speed, power) from the
 Redfish Chassis collection via the Redfish API. Reads the modern Sensors collection where
@@ -294,6 +294,9 @@ def main():
     msg = ''
     state = STATE_OK
     perfdata = ''
+    # (chassis id, item, reading key) per metric; the labels are built once all
+    # chassis are known, see "build the message"
+    perfdata_items = []
     member_count = 0
     # only allocated and populated in --inventory mode, so a normal health
     # check holds nothing extra in memory
@@ -317,7 +320,14 @@ def main():
             cache_expire=cache_expire,
         )
     )
+    # a collection may list a chassis twice (DMTF DSP2043 public-iiot does), which
+    # would count its sensors twice
+    seen_chassis = set()
     for chassis_data in chassis_members:
+        chassis_path = chassis_data.get('@odata.id', '')
+        if chassis_path and chassis_path in seen_chassis:
+            continue
+        seen_chassis.add(chassis_path)
         chassis = lib.redfish.get_chassis(chassis_data)
         if chassis['Status_State'] not in ['Enabled', 'Quiesced']:
             continue
@@ -421,7 +431,7 @@ def main():
                     p.search(item_name) for p in match_patterns
                 ):
                     continue
-                perfdata += lib.redfish.get_perfdata(sensor_data, 'Reading')
+                perfdata_items.append((chassis['Id'], sensor_data, 'Reading'))
                 # is the sensor reading within its thresholds?
                 sensor_data_value_state = lib.redfish.get_sensor_state(
                     sensor_data, 'Reading'
@@ -539,7 +549,7 @@ def main():
             item['Thresholds_LowerCaution'] = item.get('LowerThresholdNonCritical', '')
             item['Thresholds_UpperFatal'] = item.get('UpperThresholdFatal', '')
             item['Thresholds_LowerFatal'] = item.get('LowerThresholdFatal', '')
-            perfdata += lib.redfish.get_perfdata(item, 'Reading')
+            perfdata_items.append((chassis['Id'], item, 'Reading'))
             value_state = lib.redfish.get_sensor_state(item, 'Reading')
             state = lib.base.get_worst(state, value_state)
             item['Value'] = lib.base.state2str(value_state, empty_ok=False)
@@ -579,7 +589,7 @@ def main():
             psu['PhysicalContext'] = 'PowerSupply'
             psu['Reading'] = psu.get('LastPowerOutputWatts', '')
             psu['ReadingUnits'] = 'W'
-            perfdata += lib.redfish.get_perfdata(psu, 'Reading')
+            perfdata_items.append((chassis['Id'], psu, 'Reading'))
             psu_state = lib.redfish.get_state(psu)
             state = lib.base.get_worst(state, psu_state)
             psu['Value'] = lib.base.state2str(psu_state, empty_ok=False)
@@ -602,7 +612,7 @@ def main():
             pc['PhysicalContext'] = 'PowerControl'
             pc['Reading'] = pc.get('PowerConsumedWatts', '')
             pc['ReadingUnits'] = 'W'
-            perfdata += lib.redfish.get_perfdata(pc, 'Reading')
+            perfdata_items.append((chassis['Id'], pc, 'Reading'))
             pc_state = lib.redfish.get_state(pc)
             state = lib.base.get_worst(state, pc_state)
             pc['Value'] = lib.base.state2str(pc_state, empty_ok=False)
@@ -633,7 +643,7 @@ def main():
             redundancy = lib.redfish.get_chassis_thermal_redundancy(redundancy)
             if redundancy['Status_State'] not in ['Enabled', 'Quiesced']:
                 continue
-            perfdata += lib.redfish.get_perfdata(redundancy)
+            perfdata_items.append((chassis['Id'], redundancy, 'Reading'))
             # is the redundancy state healthy at all?
             redundancy_state = lib.redfish.get_state(redundancy)
             state = lib.base.get_worst(state, redundancy_state)
@@ -673,6 +683,31 @@ def main():
         msg = (
             f'Everything is ok. Checked sensors on {member_count} {members}.\n\n'
         ) + msg
+
+    # the perfdata label is "<PhysicalContext>_<Name>" (see
+    # lib.redfish.get_perfdata()). Blades, switches or trays of one enclosure
+    # carry identical sensor names, so where a label occurs on more than one
+    # chassis, the chassis id goes in front of it. Labels that are unique keep
+    # their form, so a single server's graphs are not renamed.
+    def perfdata_label(item):
+        return f'{item.get("PhysicalContext", "")}_{item.get("Name", "")}'.replace(
+            ' ', '_'
+        )
+
+    label_chassis = collections.defaultdict(set)
+    for chassis_id, item, _ in perfdata_items:
+        label_chassis[perfdata_label(item)].add(chassis_id)
+    for chassis_id, item, key in perfdata_items:
+        if len(label_chassis[perfdata_label(item)]) > 1:
+            item = dict(
+                item,
+                PhysicalContext=' '.join(
+                    part
+                    for part in (str(chassis_id), item.get('PhysicalContext', ''))
+                    if part
+                ),
+            )
+        perfdata += lib.redfish.get_perfdata(item, key)
 
     if args.VERBOSE:
         msg += '\n\n' + lib.redfish.format_responses()

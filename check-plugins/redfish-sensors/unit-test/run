@@ -224,12 +224,19 @@ TESTS = [
     {
         # public-bladed: an enclosure and four blades, which expose only the legacy
         # Thermal resource. A stopped fan the controller rates Critical makes the check
-        # critical, a hot CPU on one blade only warns.
+        # critical, a hot CPU on one blade only warns. The blades name their sensors
+        # alike, so the chassis id goes in front of those perfdata labels, while the
+        # enclosure's unique labels keep their form.
         'id': 'crit-dmtf-bladed-failed-fan',
         'test': 'stdout/dmtf-dsp2043-bladed,,0',
         'params': COMMON,
         'assert-retc': STATE_CRIT,
-        'assert-in': ['Checked sensors on 5 members. There are critical errors.'],
+        'assert-in': [
+            'Checked sensors on 5 members. There are critical errors.',
+            "'Blade1_CPU_CPU_Temp'=62;75;95",
+            "'Blade3_CPU_CPU_Temp'=77;75;95",
+        ],
+        'assert-not-in': ["'CPU_CPU_Temp'="],
         'assert-regex': r'System Fan 2 +! Front +! 0 +! RPM +! \[CRITICAL\]'
         r'[\s\S]*CPU Temp +! CPU +! 77 +! Cel +! \[WARNING\]',
     },

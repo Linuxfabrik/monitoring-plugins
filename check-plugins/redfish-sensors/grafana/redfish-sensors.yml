@@ -114,7 +114,11 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Temperature$/
+        value: /(?i)temp|tmp|inlet|intake|exhaust|ambient|_[0-9]{2}(\.[0-9]+)?-[A-Z]/
+      - condition: AND
+        key: metric
+        operator: '!~'
+        value: /Pressure|Flow/
 
   - title: Fan Speeds
     type: timeseries
@@ -183,7 +187,11 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Fan/
+        value: /(?i)fan/
+      - condition: AND
+        key: metric
+        operator: '!~'
+        value: /(?i)temp/
 
   - title: Voltages
     type: timeseries
@@ -252,7 +260,7 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Voltage$/
+        value: /Volt|_VR$|_VR_|VCC/
 
   - title: Power
     type: timeseries
@@ -321,7 +329,11 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Power$|^PowerControl_/
+        value: /Power|Pwr|Watt/
+      - condition: AND
+        key: metric
+        operator: '!~'
+        value: /(?i)temp|tmp|_[0-9]{2}(\.[0-9]+)?-[A-Z]|volt|current|energy|freq|fan|percent/
 
   - title: Current
     type: timeseries
@@ -390,7 +402,11 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Current$/
+        value: /Current/
+      - condition: AND
+        key: metric
+        operator: '!~'
+        value: /(?i)temp|position|velocity/
 
   - title: Energy
     type: timeseries
@@ -459,7 +475,7 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Energy$/
+        value: /Energy/
 
   - title: Frequency
     type: timeseries
@@ -528,4 +544,73 @@ spec:
       - condition: AND
         key: metric
         operator: '=~'
-        value: /Frequency$/
+        value: /Freq/
+
+  - title: Utilization
+    type: timeseries
+    gridPos:
+      h: 8
+      w: 12
+      x: 12
+      y: 24
+    fieldConfig:
+      defaults:
+        color:
+          mode: palette-classic
+        custom:
+          drawStyle: line
+          lineInterpolation: smooth
+          lineWidth: 1
+          pointSize: 3
+          showPoints: always
+          spanNulls: false
+        decimals: 1
+        unit: percent
+    options:
+      legend:
+        calcs:
+        - min
+        - mean
+        - max
+        - last
+        displayMode: table
+        placement: bottom
+        showLegend: true
+      tooltip:
+        mode: multi
+        sort: none
+
+    targets:
+
+    - alias: $tag_metric
+      refId: utilization
+      groupBy:
+      - params:
+        - $interval
+        type: time
+      - params:
+        - metric
+        type: tag
+      - params:
+        - previous
+        type: fill
+      measurement: $command
+      resultFormat: time_series
+      select:
+      - - params:
+          - value
+          type: field
+        - params: []
+          type: mean
+      tags:
+      - key: hostname
+        operator: '='
+        value: $hostname
+      - condition: AND
+        key: service
+        operator: '='
+        value: $service
+      - condition: AND
+        key: metric
+        operator: '=~'
+        value: /Usage|Util|Load_Percent/

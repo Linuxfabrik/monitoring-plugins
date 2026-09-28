@@ -44,6 +44,7 @@ Icinga Director:
 Grafana:
 
 * lynis: re-import the dashboard, `warnings` is now `findings`
+* redfish-sensors: re-import the dashboard, it shows the sensors of HPE iLO and Dell iDRAC and a utilization panel
 
 Assets:
 
@@ -76,7 +77,7 @@ Monitoring Plugins:
 * postfix-logfile: reads the journal of Postfix on Debian and Ubuntu
 * postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect
-* redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, Dell power supply sensors kept apart
+* redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, distinct perfdata for alike named sensors
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
 * snmp: works with the default `--device`, and on Debian and Ubuntu

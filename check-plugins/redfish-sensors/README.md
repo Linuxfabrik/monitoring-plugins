@@ -176,11 +176,11 @@ BaseBoard System Fans ! N+m  ! [OK]
 
 ## Perfdata / Metrics
 
-Depends on your hardware. Each sensor reading (from the modern Sensors collection or, in the legacy fallback, from the Thermal and Power endpoints) is reported as a separate metric.
+Depends on your hardware. Each sensor reading (from the modern Sensors collection or, in the legacy fallback, from the Thermal and Power endpoints) is reported as a separate metric. Where several chassis carry a sensor of the same name, as the blades of an enclosure do, the chassis id goes in front of those metric names, for example `Blade1_CPU_CPU_Temp`.
 
 | Name | Type | Description |
 |----|----|----|
-| \<location\>_\<sensor-name\> | Number | Sensor reading. Examples: `Chassis_Chassis_Fan_1`, `CPU_CPU_1_Temperature`, `Memory_DIMM_1_Temperature`
+| \[\<chassis-id\>_\]\<location\>_\<sensor-name\> | Number | Sensor reading. Examples: `Chassis_Chassis_Fan_1`, `CPU_CPU_1_Temperature`, `Intake_01-Inlet_Ambient`, `Blade1_CPU_CPU_Temp`
 
 
 ## For Maintainers
