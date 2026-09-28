@@ -35,7 +35,7 @@ Assets:
 
 Monitoring Plugins:
 
-* about-me: always proposes the `lynis` tag
+* about-me: proposes the `lynis` tag where a lynis audit left its report
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
