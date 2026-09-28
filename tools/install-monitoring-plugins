@@ -365,6 +365,18 @@ install_plugin_assets() {
     # shellcheck disable=SC2086
     find ${trees} -mindepth 3 -type f -path '*/assets/*' -not -path '*/example/assets/*' \
         -exec install -m 0644 {} "${PLUGIN_DIR}/assets/" \;
+    # The snmp plugin reads its OID lists and MIBs from directories next to itself (see its
+    # README), so they keep their structure. Record each file rather than the directories: an
+    # admin puts their own device definitions there, and --uninstall must leave those alone.
+    local dir file
+    for dir in device-mibs device-oids; do
+        [ -d "${mp_dir}/check-plugins/snmp/${dir}" ] || continue
+        while IFS= read -r file; do
+            install -D -m 0644 "${mp_dir}/check-plugins/snmp/${dir}/${file}" \
+                "${PLUGIN_DIR}/${dir}/${file}"
+            record "${PLUGIN_DIR}/${dir}/${file}"
+        done < <(cd "${mp_dir}/check-plugins/snmp/${dir}" && find . -type f | sed 's|^\./||')
+    done
 }
 
 # Install the shared lib package next to the flattened plugins: its modules and LICENSE, the
@@ -550,7 +562,12 @@ finalize_permissions() {
                 # one (the venv interpreters), without granting it to plain library modules.
                 chmod --recursive u=rwX,go=rX "${p}" || warn "chmod of ${p} failed"
             else
-                chmod 0755 "${p}" || warn "chmod of ${p} failed"
+                case "${p}" in
+                    # data files of the snmp plugin, see install_plugin_assets()
+                    "${PLUGIN_DIR}"/device-mibs/* | "${PLUGIN_DIR}"/device-oids/*)
+                        chmod 0644 "${p}" || warn "chmod of ${p} failed" ;;
+                    *) chmod 0755 "${p}" || warn "chmod of ${p} failed" ;;
+                esac
             fi
         done < "${MANIFEST}"
     fi

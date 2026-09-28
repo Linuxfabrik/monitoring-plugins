@@ -70,6 +70,7 @@ Monitoring Plugins:
 * procs: says how many processes `--argument` and `--username` could not inspect
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
+* snmp: the bundled OID lists and MIBs are installed with the plugins, so the check works with its default `--device`
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
