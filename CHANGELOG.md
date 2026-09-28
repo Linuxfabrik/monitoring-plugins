@@ -68,6 +68,7 @@ Monitoring Plugins:
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
+* pip-updates: names what pip reports
 * postfix-logfile: reads the journal of Postfix on Debian and Ubuntu
 * postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect

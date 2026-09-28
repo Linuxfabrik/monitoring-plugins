@@ -23,7 +23,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks for outdated Python packages installed via pip. Reports the number of packages
 with available updates and lists them. Alerts when the count exceeds the configured
@@ -257,15 +257,17 @@ def main():
     )
 
     # build the message
-    if not stderr and state == STATE_OK:
+    # what pip had to say first, for example "[notice] A new release of pip is available"
+    pip_says = next((line.strip() for line in stderr.splitlines() if line.strip()), '')
+    if not pip_says and state == STATE_OK:
         msg += 'Everything is ok. '
-    elif stderr and state == STATE_OK:
-        msg += 'pip is complaining about something or about itself, but '
+    elif pip_says and state == STATE_OK:
+        msg += f'pip says `{pip_says}`, but '
         if len(packages) > 0:
             msg += 'most of the '
         msg += 'packages are up to date. '
-    elif stderr and state != STATE_OK:
-        msg += 'pip is complaining about something or about itself, plus '
+    elif pip_says and state != STATE_OK:
+        msg += f'pip says `{pip_says}`, plus '
     if len(packages) > 0:
         msg += (
             f'{len(packages)} outdated {lib.txt.pluralize("package", len(packages))}'

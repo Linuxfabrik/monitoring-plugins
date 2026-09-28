@@ -94,18 +94,18 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/pip-updates/
 ## Usage Examples
 
 ```bash
-./pip-updates --virtualenv=/path/to/my/venv/bin/activate --local --exclude=boto3 --exclude=pip
+./pip-updates --virtualenv=/path/to/my/venv/bin/activate --local --exclude=pip
 ```
 
 Output:
 
 ```text
-venv /path/to/my/venv/bin/activate. pip is complaining about something or about itself, but most of the packages are up to date. 2 outdated packages. Executed command: `/path/to/my/venv/bin/python3 -m pip list --outdated --exclude=boto3 --exclude=pip --local`
+venv /path/to/my/venv/bin/activate. pip says `[notice] A new release of pip is available: 24.0 -> 26.2.1`, but most of the packages are up to date. 2 outdated packages. Executed command: `/path/to/my/venv/bin/python3 -m pip list --outdated --exclude=pip --local`
 
-Package  ! Version ! Latest  ! Type
----------+---------+---------+-------
-botocore ! 1.29.41 ! 1.29.78 ! wheel
-pyspnego ! 0.7.0   ! 0.8.0   ! wheel
+Package ! Version ! Latest ! Type
+--------+---------+--------+------
+idna    ! 3.4     ! 3.20   ! wheel
+six     ! 1.15.0  ! 1.17.0 ! wheel
 ```
 
 
