@@ -145,6 +145,10 @@ PING 192.0.2.10: 10 packets transmitted, 5 received, 50% packet loss, time 187ms
 
 ## Troubleshooting
 
+### `ping: SO_BINDTODEVICE: Operation not permitted`
+
+`--interface` with an interface name makes `ping` bind its socket to that device. Kernels before 5.7, such as the one of RHEL 8, allow that only with the `CAP_NET_RAW` capability, which an unprivileged `ping` sending over ICMP datagram sockets does not have. Pass the address of the interface instead of its name, for example `--interface=192.0.2.10`, or run the check as root.
+
 ### Isolating where packet loss or latency originates
 
 From `man ping` and related to this check:

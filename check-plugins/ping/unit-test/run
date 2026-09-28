@@ -95,7 +95,9 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec([self.check, '--hostname', '1.2.3.4.5.6.'])
         )
-        self.assertRegex(stdout, r'^ping: 1\.2\.3\.4\.5\.6\.: Name or service not known')
+        self.assertRegex(
+            stdout, r'^ping: 1\.2\.3\.4\.5\.6\.: Name or service not known'
+        )
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
@@ -227,7 +229,10 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_control_knobs_together(self):
-        # --ipv4, --ttl, --packet-size and --interface lo all reach the loopback fine
+        # --ipv4, --ttl, --packet-size and --interface all reach the loopback fine. The
+        # interface is given by its address: binding to a device name needs CAP_NET_RAW on
+        # kernels before 5.7 (RHEL 8), which an unprivileged ping over ICMP datagram
+        # sockets lacks, and would make this test depend on the host.
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 [
@@ -242,7 +247,7 @@ class TestCheck(unittest.TestCase):
                     '--packet-size',
                     '100',
                     '--interface',
-                    'lo',
+                    '127.0.0.1',
                 ]
             )
         )
