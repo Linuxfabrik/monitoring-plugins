@@ -65,6 +65,7 @@ Monitoring Plugins:
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
+* ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
 * postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect
