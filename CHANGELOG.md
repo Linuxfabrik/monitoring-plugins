@@ -72,6 +72,7 @@ Monitoring Plugins:
 * swap-usage: names missing access to the performance counters instead of calling them corrupt
 * tuned-profile: names a stopped tuned or a missing profile, accepts a post-loaded profile
 * updates: warns on a disabled Windows Update service, names a missing permission, no longer hangs ([#695](https://github.com/Linuxfabrik/monitoring-plugins/issues/695))
+* xca-cert: works without `--prefix` instead of failing with a database error
 
 Icinga Director:
 
