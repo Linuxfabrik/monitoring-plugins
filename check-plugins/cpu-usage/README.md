@@ -11,6 +11,8 @@ Steal time carries its own threshold, because a virtual machine can sit at a har
 
 `--per-cpu` adds one utilization metric per core and names the busiest one, which is what a single-threaded bottleneck looks like on a machine that otherwise appears mostly idle.
 
+The percentages are averaged over the time since the previous run, and the output names that window ("over 60s"). Run once a minute, the check reports the last minute. A delayed or skipped run covers a longer window, a run started by hand in between leaves the next one a shorter window, and a run without a previous snapshot to compare against takes a 0.25s sample instead.
+
 Perfdata is emitted for every field to enable full graphing. Extended stats (context switches, interrupts, etc.) are included if supported on this platform.
 
 This check is cross-platform and works on Linux, Windows, and all psutil-supported systems. The check stores its short trend state locally in an SQLite DB to evaluate sustained load across runs.
@@ -19,7 +21,6 @@ This check is cross-platform and works on Linux, Windows, and all psutil-support
 
 * The reported `cpu-usage` and the value the thresholds are checked against are not the same number. `cpu-usage` is the plain total of everything the CPUs did except idle, niced work included, because that is what a utilization graph should show. The thresholds leave niced work out, because a process that was asked to stand back is not a reason to alert. A host running nothing but `nice`d batch jobs therefore graphs at 100% and stays OK.
 * Steal alerts at 10% by default. On a virtual machine whose hypervisor has always been oversubscribed, this reports a WARN that was not reported before. Set `--warning-steal=""` to switch it off, or raise it to the level the platform is expected to deliver.
-* The output names the window the percentages were measured over. It is the time since the previous check run, so a check that was delayed or skipped covers a longer one, and the first run after a reboot covers its short blocking sample.
 * `--per-cpu` reports no per-core metrics until a second run with `--per-cpu` has a snapshot to measure against. That is the case on the first run, after a reboot, after a core was added to the machine, and after the check ran without `--per-cpu` in between. Only a run given the option records the per-core snapshot, and an older one would cover a different period than the overall percentages printed next to it.
 
 **Data Collection:**
@@ -69,12 +70,16 @@ threshold, because a virtual machine can sit at a harmless overall utilization
 while an oversubscribed hypervisor takes a quarter of its CPU time away.
 --per-cpu adds one utilization metric per core and names the busiest one,
 which is what a single-threaded bottleneck looks like on a machine that
-otherwise appears mostly idle. Perfdata is emitted for every field to enable
-full graphing. Extended stats (context switches, interrupts, etc.) are
-included if supported on this platform. This check is cross-platform and works
-on Linux, Windows, and all psutil-supported systems. The check stores its
-short trend state locally in an SQLite DB to evaluate sustained load across
-runs.
+otherwise appears mostly idle. The percentages are averaged over the time
+since the previous run, and the output names that window ("over 60s"). Run
+once a minute, the check reports the last minute. A delayed or skipped run
+covers a longer window, a run started by hand in between leaves the next one a
+shorter window, and a run without a previous snapshot to compare against takes
+a 0.25s sample instead. Perfdata is emitted for every field to enable full
+graphing. Extended stats (context switches, interrupts, etc.) are included if
+supported on this platform. This check is cross-platform and works on Linux,
+Windows, and all psutil-supported systems. The check stores its short trend
+state locally in an SQLite DB to evaluate sustained load across runs.
 
 options:
   -h, --help            show this help message and exit

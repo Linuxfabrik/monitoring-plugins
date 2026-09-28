@@ -30,7 +30,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082601'
+__version__ = '2026092801'
 
 DESCRIPTION = """Reports CPU utilization percentages for all available time categories
 (user, system, idle, nice, iowait, irq, softirq, steal, guest, guest_nice) plus the overall
@@ -51,6 +51,12 @@ away.
 
 --per-cpu adds one utilization metric per core and names the busiest one, which is what a
 single-threaded bottleneck looks like on a machine that otherwise appears mostly idle.
+
+The percentages are averaged over the time since the previous run, and the output names
+that window ("over 60s"). Run once a minute, the check reports the last minute. A delayed or
+skipped run covers a longer window, a run started by hand in between leaves the next one a
+shorter window, and a run without a previous snapshot to compare against takes a 0.25s
+sample instead.
 
 Perfdata is emitted for every field to enable full graphing. Extended stats (context switches,
 interrupts, etc.) are included if supported on this platform.
