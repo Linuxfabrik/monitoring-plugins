@@ -58,6 +58,7 @@ Monitoring Plugins:
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * by-winrm: patterns and thresholds see the output as PowerShell shows it again, not just the names of the objects, and JEA endpoints accept the command
 * dhcp-scope-usage: checks the scopes again instead of reporting OK without any, names an unreadable answer or a missing DHCP role
+* disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
 * dns: no longer appends "/None" to a failed lookup
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error

@@ -34,14 +34,15 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091803'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks disk I/O bandwidth over time and alerts on sustained saturation, not short spikes.
 The check records per-disk read/write counters and then derives current (R1/W1) and period
 averages (R{COUNT}/W{COUNT}). It compares the period's total bandwidth against the maximum
 ever observed for that disk (RWmax). It raises a WARNING when the period average exceeds
---warning percent of RWmax. This bandwidth part only ever warns, never criticals:
-sustained I/O is a signal to investigate, not an emergency you have to react to at night.
+--warning percent of RWmax, once RWmax has been learned for a week. This bandwidth part
+only ever warns, never criticals: sustained I/O is a signal to investigate, not an
+emergency you have to react to at night.
 
 The check also reports per-disk I/O latency (await, not on Windows): the average time a
 read or write took to complete over the period, in milliseconds. Unlike disk busy percentage, latency is
@@ -81,6 +82,13 @@ DEFAULT_MATCH = ''
 DEFAULT_NO_MATCH_SEVERITY = 'ok'
 DEFAULT_TOP = 5
 DEFAULT_WARN = 80  # %
+
+# How long a disk's maximum bandwidth is learned before the saturation warning may fire.
+# RWmax is the busiest period observed so far, and on a young host (or after the key
+# change of 2026091802) that is whatever sustained load happened to come first: a
+# backup or an installation then sits at 100 % of its own "maximum" and warns. A week
+# covers the daily and the weekly jobs.
+BANDWIDTH_WARMUP = 7 * 24 * 60 * 60  # seconds
 
 
 def parse_args():
@@ -228,8 +236,11 @@ def parse_args():
     return args
 
 
-def get_max_bandwidth(disk, current_bandwidth):
-    """Store the maximum measured bandwidth for the secific disk in cache table."""
+def get_max_bandwidth(disk, current_bandwidth, now):
+    """Store the maximum measured bandwidth for the specific disk in the cache table.
+
+    Returns the maximum and the time it has been learned since.
+    """
     # The key was `disk-io-{disk}-bandwidth-max` before 2026091802. Those releases
     # turned the counter reset of a reboot into a huge fake bandwidth and
     # stored it as the maximum, which kept the bandwidth warning from ever firing
@@ -249,7 +260,18 @@ def get_max_bandwidth(disk, current_bandwidth):
         max_bandwidth,
         filename='linuxfabrik-monitoring-plugins-disk-io.db',
     )
-    return max_bandwidth
+    learned_since = lib.cache.get(
+        f'disk-io-{disk}-bandwidth-peak-since',
+        filename='linuxfabrik-monitoring-plugins-disk-io.db',
+    )
+    if not learned_since:
+        learned_since = now
+        lib.cache.set(
+            f'disk-io-{disk}-bandwidth-peak-since',
+            int(now),
+            filename='linuxfabrik-monitoring-plugins-disk-io.db',
+        )
+    return max_bandwidth, float(learned_since)
 
 
 def get_rate(ts1, ts2, r1, r2, w1, w2):
@@ -643,7 +665,8 @@ def main():
         )
 
         # get the maximum disk bandwidth in disks' history
-        bandwidth_max = get_max_bandwidth(disk['bd'], bandwidth1)
+        bandwidth_max, learned_since = get_max_bandwidth(disk['bd'], bandwidth1, now)
+        learning_left = learned_since + BANDWIDTH_WARMUP - now
 
         if bandwidth1 > busiest_disk:
             # get the current busiest disk for the first line of the message
@@ -654,6 +677,11 @@ def main():
                 f'{lib.human.bytes2human(bandwidth1)}/s total, '
                 f'{lib.human.bytes2human(bandwidth_max)}/s max'
             )
+            if learning_left > 0:
+                msg += (
+                    ', learning the maximum for another'
+                    f' {lib.human.seconds2human(learning_left)}'
+                )
             if args.MATCH:
                 msg += f' (disks matching `{args.MATCH}`).'
             busiest_disk = bandwidth1
@@ -692,11 +720,9 @@ def main():
         # bandwidth state, WARN-only (crit=None): sustained bandwidth near the
         # disk's own observed maximum is a saturation/trending signal to
         # investigate, not a wake-up-at-night event.
-        local_state = lib.base.get_state(
-            bandwidth15,
-            bandwidth_max * args.WARN / 100,
-            None,
-        )
+        # not before the maximum is known, see BANDWIDTH_WARMUP
+        bandwidth_warn = bandwidth_max * args.WARN / 100 if learning_left <= 0 else None
+        local_state = lib.base.get_state(bandwidth15, bandwidth_warn, None)
         state = lib.base.get_worst(local_state, state)
 
         # I/O latency (await) over the period, averaged across reads and writes.
@@ -826,7 +852,7 @@ def main():
             f'{bd}_throughput15',
             bandwidth15,
             uom='B',
-            warn=int(bandwidth_max * args.WARN / 100),
+            warn=None if bandwidth_warn is None else int(bandwidth_warn),
             _min=0,
         )
         # IOPS as per-second gauges, never the raw cumulative counters. No
