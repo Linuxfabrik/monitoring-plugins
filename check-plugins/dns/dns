@@ -11,17 +11,20 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import socket
 import sys
+import threading
 import time
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.net
 from lib.globals import STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092802'
 
 DESCRIPTION = """Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queries the
 name servers configured on the local machine (e.g. those listed in /etc/resolv.conf).
@@ -29,6 +32,7 @@ Measures and alerts on the lookup response time. Works with both IPv4 and IPv6."
 
 DEFAULT_HOSTNAME = 'localhost'
 DEFAULT_PORT = 53
+DEFAULT_TIMEOUT = 8
 
 
 def parse_args():
@@ -89,6 +93,21 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '--timeout',
+        help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
+        dest='TIMEOUT',
+        type=int,
+        default=DEFAULT_TIMEOUT,
+    )
+
+    parser.add_argument(
         '--type',
         help='Connection type to narrow the list of returned addresses.',
         dest='TYPE',
@@ -106,6 +125,82 @@ def parse_args():
 
     args, _ = parser.parse_known_args()
     return args
+
+
+# getaddrinfo() on Windows says only "getaddrinfo failed" and leaves the reason to the
+# WinSock error code; Linux spells it out ("Name or service not known").
+WINSOCK_REASONS = {
+    11001: 'host not found',
+    11002: 'temporary failure, the name server did not answer',
+    11003: 'the name server refused the query',
+    11004: 'no address of the requested type',
+}
+
+# what --type narrows getaddrinfo() to: family, socket type, protocol
+TYPES = {
+    'tcp': (lib.net.AF_INET, lib.net.SOCK_TCP, lib.net.PROTO_TCP),
+    'tcp6': (lib.net.AF_INET6, lib.net.SOCK_TCP, lib.net.PROTO_TCP),
+    'udp': (lib.net.AF_INET, lib.net.SOCK_UDP, lib.net.PROTO_UDP),
+    'udp6': (lib.net.AF_INET6, lib.net.SOCK_UDP, lib.net.PROTO_UDP),
+}
+
+
+def lookup(args):
+    """Resolve --hostname like the operating system does, within --timeout.
+
+    getaddrinfo() has no timeout of its own and waits as long as the resolver of the
+    operating system does, so it runs in a thread the check stops waiting for.
+
+    Returns `(runtime_ms, result)`; `result` is the list of 5-tuples getaddrinfo()
+    returns, the exception it raised, or None on a timeout.
+    """
+    family, socktype, proto = TYPES.get(args.TYPE, (0, 0, 0))
+    box = {}
+
+    def worker():
+        try:
+            box['result'] = socket.getaddrinfo(
+                args.HOSTNAME, args.PORT, family, socktype, proto
+            )
+        except OSError as e:
+            box['result'] = e
+
+    start_time = time.time()
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+    thread.join(args.TIMEOUT)
+    runtime = (time.time() - start_time) * 1000  # we get seconds and want ms
+    return runtime, box.get('result')
+
+
+def replay(test):
+    """Return what lookup() would, from a fixture captured on a real host.
+
+    The fixture is JSON: `{"runtime_ms": 1.2, "result": [["AF_INET6", "SOCK_STREAM",
+    6, "", ["::1", 53, 0, 0]], ...]}`, `{"runtime_ms": 3.4, "error": {"type":
+    "gaierror", "errno": -2, "strerror": "Name or service not known"}}` or
+    `{"runtime_ms": 8000.0, "timeout": true}`. Family and socket type are stored by
+    name, because their numbers differ between Linux and Windows; a socket type without
+    a name (0 on Windows) is stored as the number.
+    """
+    stdout, _, _ = lib.lftest.test(test)
+    data = json.loads(stdout)
+    if data.get('timeout'):
+        return data['runtime_ms'], None
+    if 'error' in data:
+        error = data['error']
+        return data['runtime_ms'], getattr(socket, error['type'])(
+            error['errno'], error['strerror']
+        )
+
+    def constant(value):
+        # a name such as AF_INET6, or a plain number (Windows returns socket type 0)
+        return getattr(socket, value) if isinstance(value, str) else value
+
+    return data['runtime_ms'], [
+        (constant(af), constant(kind), proto, canonname, tuple(sa))
+        for af, kind, proto, canonname, sa in data['result']
+    ]
 
 
 def main():
@@ -132,60 +227,48 @@ def main():
     # [(2, 1, 6, '', ('172.217.168.67', 53)), ...]
 
     target = f'{args.HOSTNAME}:{args.PORT}' + (f'/{args.TYPE}' if args.TYPE else '')
-    start_time = time.time()
-    try:
-        if args.TYPE == 'udp':
-            result = socket.getaddrinfo(
-                args.HOSTNAME,
-                args.PORT,
-                lib.net.AF_INET,
-                lib.net.SOCK_UDP,
-                lib.net.PROTO_UDP,
-            )
-        elif args.TYPE == 'udp6':
-            result = socket.getaddrinfo(
-                args.HOSTNAME,
-                args.PORT,
-                lib.net.AF_INET6,
-                lib.net.SOCK_UDP,
-                lib.net.PROTO_UDP,
-            )
-        elif args.TYPE == 'tcp':
-            result = socket.getaddrinfo(
-                args.HOSTNAME,
-                args.PORT,
-                lib.net.AF_INET,
-                lib.net.SOCK_TCP,
-                lib.net.PROTO_TCP,
-            )
-        elif args.TYPE == 'tcp6':
-            result = socket.getaddrinfo(
-                args.HOSTNAME,
-                args.PORT,
-                lib.net.AF_INET6,
-                lib.net.SOCK_TCP,
-                lib.net.PROTO_TCP,
-            )
-        else:
-            result = socket.getaddrinfo(args.HOSTNAME, args.PORT)
-    except (socket.gaierror, socket.herror) as e:
-        # both are OSError subclasses, so they have to come first
+    if args.TEST is None:
+        runtime, result = lookup(args)
+    else:
+        runtime, result = replay(args.TEST)
+    if result is None:
         lib.base.oao(
-            f'Address related socket error "{e}" for {target}.',
+            f'Timeout after {args.TIMEOUT}s while looking up {target}.',
             STATE_WARN,
+            always_ok=args.ALWAYS_OK,
         )
-    except OSError as e:
+    if isinstance(result, (socket.gaierror, socket.herror)):
+        reason = WINSOCK_REASONS.get(result.errno)
         lib.base.oao(
-            f'Socket error "{e}" for {target}.',
+            f'Unable to resolve {target}: '
+            + (f'{reason} ({result}).' if reason else f'{result}.'),
             STATE_WARN,
+            always_ok=args.ALWAYS_OK,
         )
-    runtime = (time.time() - start_time) * 1000  # we get seconds and want ms
+    if isinstance(result, OSError):
+        lib.base.oao(
+            f'Socket error "{result}" for {target}.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
+    if not result:
+        lib.base.oao(
+            f'Lookup for {target} returned no address.',
+            STATE_WARN,
+            always_ok=args.ALWAYS_OK,
+        )
 
     # build the message
-    msg = f'Lookup for {args.HOSTNAME} returns '
-    for res in result:
-        af, _, proto, _, sa = res
-        msg += f'{sa[0]} ({lib.net.PROTOSTR[proto]}{lib.net.FAMILIYSTR[af]}:{sa[1]}), '
+    # Without --type, Linux returns every address three times (TCP, UDP, raw) and
+    # Windows once; name each address once, as Windows does.
+    addresses = []
+    for af, _, proto, _, sa in result:
+        if not args.TYPE:
+            proto = lib.net.PROTO_IP
+        address = f'{sa[0]} ({lib.net.PROTOSTR[proto]}{lib.net.FAMILIYSTR[af]}:{sa[1]})'
+        if address not in addresses:
+            addresses.append(address)
+    msg = f'Lookup for {args.HOSTNAME} returns {", ".join(addresses)}'
 
     state = lib.base.get_state(runtime, args.WARN, args.CRIT, _operator='ge')
     perfdata = lib.base.get_perfdata(
@@ -199,7 +282,7 @@ def main():
 
     # over and out
     lib.base.oao(
-        msg[:-2],
+        msg,
         state,
         perfdata,
         always_ok=args.ALWAYS_OK,

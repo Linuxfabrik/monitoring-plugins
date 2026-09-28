@@ -59,7 +59,7 @@ Monitoring Plugins:
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
 * dhcp-scope-usage: checks the scopes again instead of reporting OK without any, names an unreadable answer or a missing DHCP role
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
-* dns: no longer appends "/None" to a failed lookup
+* dns: names each address once, stops waiting after `--timeout`, and says why a name did not resolve, also on Windows
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * logfile: reads logfiles on Windows again

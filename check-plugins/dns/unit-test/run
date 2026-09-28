@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for dns.
+
+The fixtures are what getaddrinfo() returned on fresh clones of our test templates,
+2026-09-28, named after the system: Rocky 8/9, Fedora 44, Debian 13, Leap 15.5,
+Ubuntu 26.04, Windows 10/11 and Windows Server 2016/2025. Linux returns every address
+once per socket type (TCP, UDP, raw) without --type, Windows once with socket type 0;
+Ubuntu resolves `localhost` to IPv4 only; the resolver errors differ (`[Errno -2] Name
+or service not known` against WinSock's `[Errno 11001] getaddrinfo failed`). `timeout`
+and `no-address` are synthetic: nothing on the templates produced them on demand.
+"""
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+TESTS = [
+    {
+        # three entries per address on Linux, named once each
+        'id': 'ok-rocky9-localhost',
+        'test': 'stdout/rocky9-localhost,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'^Lookup for localhost returns ::1 \(ip6:53\), 127\.0\.0\.1 \(ip4:53\)\|'
+        ),
+    },
+    {
+        'id': 'ok-winsrv2016-localhost',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': (
+            r'^Lookup for localhost returns ::1 \(ip6:53\), 127\.0\.0\.1 \(ip4:53\)\|'
+        ),
+    },
+    {
+        'id': 'ok-ubuntu2604-localhost-ipv4-only',
+        'test': 'stdout/ubuntu2604-localhost-ipv4-only,,0',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Lookup for localhost returns 127\.0\.0\.1 \(ip4:53\)\|',
+    },
+    {
+        'id': 'ok-rocky9-example-com-four-addresses',
+        'test': 'stdout/rocky9-example-com,,0',
+        'params': '--hostname=example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '172.66.147.243 (ip4:53), 104.20.23.154 (ip4:53)',
+            '2606:4700:10::6814:179a (ip6:53)',
+        ],
+        'assert-not-in': ['tcp4', 'udp4'],
+    },
+    {
+        'id': 'ok-win11-example-com',
+        'test': 'stdout/win11-example-com,,0',
+        'params': '--hostname=example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['172.66.147.243 (ip4:53), 104.20.23.154 (ip4:53)'],
+    },
+    {
+        # with --type the protocol is part of each address
+        'id': 'ok-debian13-localhost-tcp6',
+        'test': 'stdout/debian13-localhost-tcp6,,0',
+        'params': '--type=tcp6',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Lookup for localhost returns ::1 \(tcp6:53\)\|',
+    },
+    {
+        'id': 'ok-fedora44-ipv6-literal',
+        'test': 'stdout/fedora44-ipv6-literal,,0',
+        'params': '--hostname=::1',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Lookup for ::1 returns ::1 \(ip6:53\)\|',
+    },
+    {
+        'id': 'warn-rocky8-name-not-known',
+        'test': 'stdout/rocky8-name-not-known,,0',
+        'params': '--hostname=gibtesnicht.invalid',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Unable to resolve gibtesnicht.invalid:53: [Errno -2] Name or service not'
+            ' known.'
+        ],
+        'assert-not-in': ['None'],
+    },
+    {
+        # WinSock only says "getaddrinfo failed"; the error code is named
+        'id': 'warn-winsrv2025-host-not-found',
+        'test': 'stdout/winsrv2025-host-not-found,,0',
+        'params': '--hostname=gibtesnicht.invalid',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Unable to resolve gibtesnicht.invalid:53: host not found'
+            ' ([Errno 11001] getaddrinfo failed).'
+        ],
+    },
+    {
+        'id': 'warn-leap155-ipv4-literal-tcp6',
+        'test': 'stdout/leap155-ipv4-literal-tcp6,,0',
+        'params': '--hostname=192.0.2.1 --type=tcp6',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Unable to resolve 192.0.2.1:53/tcp6: [Errno -9] Address family for'
+            ' hostname not supported.'
+        ],
+    },
+    {
+        'id': 'warn-win10-ipv4-literal-tcp6',
+        'test': 'stdout/win10-ipv4-literal-tcp6,,0',
+        'params': '--hostname=192.0.2.1 --type=tcp6',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Unable to resolve 192.0.2.1:53/tcp6: host not found'],
+    },
+    {
+        'id': 'warn-timeout',
+        'test': 'stdout/timeout,,0',
+        'params': '--hostname=example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Timeout after 8s while looking up example.com:53.'],
+    },
+    {
+        'id': 'warn-no-address',
+        'test': 'stdout/no-address,,0',
+        'params': '--hostname=example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Lookup for example.com:53 returned no address.'],
+    },
+    {
+        # runtime_ms 36.667 in the fixture of Windows Server 2016
+        'id': 'warn-lookup-time-above-warning',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'params': '--warning=30 --critical=100',
+        'assert-retc': STATE_WARN,
+        'assert-in': ["'time'=36.667ms;30.0;100.0;0"],
+    },
+    {
+        'id': 'crit-lookup-time-above-critical',
+        'test': 'stdout/winsrv2016-localhost,,0',
+        'params': '--warning=10 --critical=30',
+        'assert-retc': STATE_CRIT,
+    },
+    {
+        'id': 'ok-always-ok-masks-failure',
+        'test': 'stdout/rocky8-name-not-known,,0',
+        'params': '--hostname=gibtesnicht.invalid --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Unable to resolve'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../dns'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

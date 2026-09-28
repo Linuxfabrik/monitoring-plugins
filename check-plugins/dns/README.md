@@ -9,8 +9,10 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 
 * Uses Python's `socket.getaddrinfo()` to perform DNS resolution
 * Only the name servers configured on the machine running this check are queried - you cannot query other DNS servers
-* When no arguments are given, the check tries to resolve `localhost` on port 53, and the full range of results for any available protocol is returned
-* The connection type can be narrowed down using `--type` (udp, udp6, tcp, tcp6)
+* When no arguments are given, the check resolves `localhost` and names each address it gets once, whatever socket types the operating system lists it for (Linux returns every address once each for TCP, UDP and raw sockets, Windows once)
+* The connection type can be narrowed down using `--type` (udp, udp6, tcp, tcp6); the protocol is then shown with each address
+* The operating system's resolver has no timeout of its own; the check stops waiting after `--timeout` seconds
+* On Windows the resolver reports only an error code ("getaddrinfo failed"); the check names what it means, for example "host not found"
 
 
 ## Fact Sheet
@@ -29,7 +31,8 @@ Performs a DNS lookup and resolves a hostname to one or more IP addresses. Queri
 
 ```text
 usage: dns [-h] [-V] [--always-ok] [-c CRIT] [-H HOSTNAME] [--no-perfdata]
-           [-p PORT] [--type {udp,udp6,tcp,tcp6}] [-w WARN]
+           [-p PORT] [--timeout TIMEOUT] [--type {udp,udp6,tcp,tcp6}]
+           [-w WARN]
 
 Performs a DNS lookup and resolves a hostname to one or more IP addresses.
 Queries the name servers configured on the local machine (e.g. those listed in
@@ -49,6 +52,7 @@ options:
                         so alerting keeps working while trending data is
                         dropped.
   -p, --port PORT       Port number to query. Default: 53
+  --timeout TIMEOUT     Network timeout in seconds. Default: 8 (seconds)
   --type {udp,udp6,tcp,tcp6}
                         Connection type to narrow the list of returned
                         addresses.
@@ -70,14 +74,14 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/dns/
 Output:
 
 ```text
-Lookup for webserver.linuxfabrik.ch returns 192.168.26.43 (tcp4:53), 192.168.26.43 (udp4:53), 192.168.26.43 (ip4:53)
+Lookup for webserver.example.com returns 192.0.2.43 (ip4:53)
 ```
 
 
 ## States
 
 * OK if the hostname resolves successfully and the lookup time is below the thresholds.
-* WARN on socket errors, address-related errors, or network timeouts.
+* WARN if the name does not resolve, if the lookup returns no address, on socket errors, or if the lookup takes longer than `--timeout`.
 * WARN if the DNS lookup time is >= `--warning`.
 * CRIT if the DNS lookup time is >= `--critical`.
 * `--always-ok` suppresses all alerts and always returns OK.
