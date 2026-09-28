@@ -1,0 +1,19 @@
+[Unit]
+Description=Postfix Mail Transport Agent (instance %i)
+Documentation=man:postfix(1)
+PartOf=postfix.service
+Before=postfix.service
+ReloadPropagatedFrom=postfix.service
+After=network-online.target nss-lookup.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+GuessMainPID=no
+ExecStartPre=/usr/lib/postfix/configure-instance.sh %i
+ExecStart=/usr/sbin/postmulti -i %i -p start
+ExecStop=/usr/sbin/postmulti -i %i -p stop
+ExecReload=/usr/sbin/postmulti -i %i -p reload
+
+[Install]
+WantedBy=multi-user.target

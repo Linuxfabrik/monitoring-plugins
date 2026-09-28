@@ -462,5 +462,28 @@ class TestLevelStates(unittest.TestCase):
         self.assertEqual(set(states.values()), {STATE_OK})
 
 
+class TestUnits(unittest.TestCase):
+    """Which journal the check reads where no log is named (the unit files are real
+    ones: Debian 12 postfix 3.7.11, Rocky 9 postfix 3.5.25)."""
+
+    def test_debian_runs_postfix_as_the_instance_of_a_template(self):
+        # postfix.service only starts postfix@-.service, which has no file of its
+        # own and holds every line Postfix writes
+        self.assertEqual(
+            postfix_logfile.get_units(config_root('unit-debian')),
+            ['postfix.service', 'postfix@-.service'],
+        )
+
+    def test_rhel_runs_postfix_as_one_unit(self):
+        self.assertEqual(
+            postfix_logfile.get_units(config_root('unit-rhel')), ['postfix.service']
+        )
+
+    def test_a_unit_file_on_a_host_without_systemd_is_not_read(self):
+        # Devuan with OpenRC ships the unit files of the package, but runs no
+        # systemd and has no journal (#1544)
+        self.assertEqual(postfix_logfile.get_units(config_root('unit-devuan')), [])
+
+
 if __name__ == '__main__':
     unittest.main()
