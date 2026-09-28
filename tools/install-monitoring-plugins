@@ -757,7 +757,14 @@ install_dependencies() {
     # with python3.11), so the venv would mismatch the lockfile chosen from PYBIN and pip would
     # reject the pinned dependencies as requiring a newer Python.
     log "creating dependency venv at ${VENV_DIR} (${py_tag})"
-    run "${PYBIN}" -m venv --clear "${VENV_DIR}"
+    # Build the venv from the resolved interpreter, not from the name. On RHEL 8, python3 is an
+    # alternatives link in auto mode; a venv made through it keeps pointing at /usr/bin/python3,
+    # and the next package that pulls in python36 (borgbackup from EPEL, for example) switches
+    # that link to 3.6 and leaves every plugin without its dependencies. Verified on Rocky 8.
+    local pyreal
+    pyreal="$("${PYBIN}" -c 'import os, sys; print(os.path.realpath(sys.executable))' 2>/dev/null \
+        || echo "${PYBIN}")"
+    run "${pyreal}" -m venv --clear "${VENV_DIR}"
     record "${STATE_DIR}"
     run "${VENV_DIR}/bin/python3" -m pip install --quiet --upgrade pip
     run "${VENV_DIR}/bin/python3" -m pip install --quiet \
