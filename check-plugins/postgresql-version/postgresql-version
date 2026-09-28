@@ -22,7 +22,7 @@ import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks the installed PostgreSQL version against the endoflife.date API and alerts if
 the version is end-of-life or if newer major, minor, or patch releases are available.
@@ -158,6 +158,11 @@ def parse_args():
 
 
 def get_installed_version(args):
+    """Ask the running server for its version.
+
+    Returns `(True, version)`, or `(False, message)` if `psql` is missing, cannot reach or
+    log in to the server, or answers without a version.
+    """
     if args.TEST is None:
         success, result = lib.shell.shell_exec(
             [
@@ -167,18 +172,25 @@ def get_installed_version(args):
             ],
         )
         if not success:
-            return ''
-        stdout = result[0].strip()
+            return (False, result)
+        stdout, stderr, retc = result
     else:
-        stdout, _, _ = lib.lftest.test(args.TEST)
-        stdout = stdout.strip()
+        stdout, stderr, retc = lib.lftest.test(args.TEST)
+    if retc:
+        # psql is there, but the server is down or refuses the login (for example peer
+        # authentication for an account other than the database user)
+        return (
+            False,
+            f'`{args.PATH}` could not ask PostgreSQL for its version: {stderr.strip()}',
+        )
     # where to find the version number in output?
-    version_regex = r'L (\d+\.\d+)'
-    try:
-        stdout = re.search(version_regex, stdout)
-        return stdout.group(1).strip()
-    except Exception:
-        return ''
+    match = re.search(r'L (\d+\.\d+)', stdout)
+    if not match:
+        return (
+            False,
+            f'PostgreSQL not found at `{args.PATH}`. Use --path to point at the binary.',
+        )
+    return (True, match.group(1).strip())
 
 
 def main():
@@ -191,11 +203,7 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = get_installed_version(args)
-    if not installed_version:
-        lib.base.cu(
-            f'PostgreSQL not found at `{args.PATH}`. Use --path to point at the binary.'
-        )
+    installed_version = lib.base.coe(get_installed_version(args))
 
     # init some vars
     perfdata = lib.base.get_perfdata(

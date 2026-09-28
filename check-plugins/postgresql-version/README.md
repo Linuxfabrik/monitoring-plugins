@@ -122,6 +122,19 @@ The end-of-life verdict, the `--check-major` / `--check-minor` / `--check-patch`
 | postgresql-version | Number | Installed PostgreSQL version as float. "10.23" becomes 10.23. |
 
 
+## Troubleshooting
+
+### `Peer authentication failed for user "postgres"`
+
+`psql` logs in over the local socket as the database user given by `--username` (`postgres` by default), and the default `peer` authentication of PostgreSQL accepts that only from the operating system account of the same name. Run the check as that account, for example with a sudo rule for the monitoring user such as `icinga ALL=(postgres) NOPASSWD: /usr/lib64/nagios/plugins/postgresql-version` and `sudo -u postgres` in front of the command.
+
+### PostgreSQL server not reachable
+
+`could not connect to server: No such file or directory` (older `psql`) or `connection to server on socket "..." failed` (newer `psql`)
+
+The PostgreSQL server is not running, or it does not listen on the local socket `psql` uses. Start the server, or check `unix_socket_directories` in `postgresql.conf`.
+
+
 ## Credits, License
 
 * Authors: [Linuxfabrik GmbH, Zurich](https://www.linuxfabrik.ch)

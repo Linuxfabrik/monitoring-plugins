@@ -75,6 +75,25 @@ TESTS = [
         'assert-retc': STATE_UNKNOWN,
         'assert-in': ['PostgreSQL not found', '--path'],
     },
+    {
+        # psql is installed, but the server refuses the login: peer authentication
+        # for an account other than the database user. Captured from psql 13 on
+        # Rocky 9, exit code 2.
+        'id': 'unknown-peer-authentication-failed',
+        'test': ',stderr/psql13-peer-authentication-failed,2',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['could not ask PostgreSQL', 'Peer authentication failed'],
+        'assert-not-in': ['not found at'],
+    },
+    {
+        # psql is installed, but the server is not running. Captured from psql 13
+        # on Rocky 9, exit code 2.
+        'id': 'unknown-server-not-running',
+        'test': ',stderr/psql13-server-not-running,2',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['could not ask PostgreSQL', 'could not connect to server'],
+        'assert-not-in': ['not found at'],
+    },
 ]
 
 

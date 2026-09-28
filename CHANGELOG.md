@@ -66,6 +66,7 @@ Monitoring Plugins:
 * logfile: reads logfiles on Windows again
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs
+* postgresql-version: names a refused login or a stopped server instead of claiming that PostgreSQL is not installed
 * procs: says how many processes `--argument` and `--username` could not inspect
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error
