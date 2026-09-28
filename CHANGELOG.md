@@ -89,10 +89,6 @@ Icinga Director:
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
 
-Tools:
-
-* install-monitoring-plugins: `--source` works on Ubuntu 22.04, and RHEL 8 installs survive a later Python 3.6
-
 Build, CI/CD:
 
 * RPM: no more `EOFError: marshal data too short`, removing `-selinux` unloads its SELinux module ([#1543](https://github.com/Linuxfabrik/monitoring-plugins/issues/1543))
