@@ -294,6 +294,14 @@ Lynis reads its settings from profile files. `default.prf` is the default profil
 
 The scan was started as root, most likely via `sudo`. Its SSH parameters (`--configfile`, `--identity`, `--ssh-option`) would hand root to whoever may run the check, so it refuses. Run it as the unprivileged account of the monitoring agent, with the plain `tpl-service-lynis` template.
 
+### The local lynis installation is not readable
+
+```text
+`/usr/share/lynis/include/binaries` is not readable by this account, ...
+```
+
+The check copies the local lynis installation to every audited host, and SUSE ships the files below `/usr/share/lynis/include` readable by root only. Unpack the lynis release tarball to `/opt/lynis`, which the check picks up by itself, or point `--lynis-source` at another lynis tree the monitoring account can read.
+
 ### The scan audited no host
 
 ```text

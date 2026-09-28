@@ -9,6 +9,8 @@
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
 import concurrent.futures
+import importlib.machinery
+import importlib.util
 import os
 import subprocess
 import sys
@@ -151,6 +153,42 @@ class TestCheck(unittest.TestCase):
 
 
 lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+def _load_plugin_module():
+    loader = importlib.machinery.SourceFileLoader('lynis_plugin', '../lynis')
+    spec = importlib.util.spec_from_loader('lynis_plugin', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+lynis_plugin = _load_plugin_module()
+
+
+@unittest.skipIf(os.geteuid() == 0, 'root reads every file regardless of its mode')
+class TestUnreadableInstallation(unittest.TestCase):
+    """SUSE ships the files below /usr/share/lynis/include readable by root only."""
+
+    def test_the_first_unreadable_file_is_named(self):
+        with tempfile.TemporaryDirectory() as include:
+            for name in ('consts', 'functions'):
+                with open(os.path.join(include, name), 'w') as f:
+                    f.write('#')
+            os.chmod(os.path.join(include, 'functions'), 0o000)
+            self.assertEqual(
+                lynis_plugin.get_first_unreadable(include),
+                os.path.join(include, 'functions'),
+            )
+            os.chmod(os.path.join(include, 'functions'), 0o640)
+            self.assertIsNone(lynis_plugin.get_first_unreadable(include))
+
+    def test_an_unreadable_single_file_is_named(self):
+        with tempfile.NamedTemporaryFile() as profile:
+            os.chmod(profile.name, 0o000)
+            self.assertEqual(
+                lynis_plugin.get_first_unreadable(profile.name), profile.name
+            )
 
 
 class TestNothingAudited(unittest.TestCase):

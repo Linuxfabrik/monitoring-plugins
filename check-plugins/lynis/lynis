@@ -29,7 +29,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092802'
 
 DESCRIPTION = """Runs a lynis security audit across the hosts of a subnet or a host list from
 a single management host, and reports each host's hardening index, its findings (the lynis
@@ -630,6 +630,24 @@ def probe_host(host, args, ssh_opts):
     return ('down', reason)
 
 
+def get_first_unreadable(path):
+    """Return the first entry below `path` (or `path` itself) this account cannot
+    read, or None if all of it can be read.
+    """
+    if os.path.isfile(path):
+        return None if os.access(path, os.R_OK) else path
+    if not os.access(path, os.R_OK | os.X_OK):
+        return path
+    for root, dirs, files in os.walk(path):
+        for name in sorted(dirs):
+            if not os.access(os.path.join(root, name), os.R_OK | os.X_OK):
+                return os.path.join(root, name)
+        for name in sorted(files):
+            if not os.access(os.path.join(root, name), os.R_OK):
+                return os.path.join(root, name)
+    return None
+
+
 def prepare_lynis_source(source):
     """Return (success, result). On success result is (base_dir, tmp_dir):
     `base_dir` is a self-contained lynis directory ready to be archived, and
@@ -666,6 +684,37 @@ def prepare_lynis_source(source):
             False,
             'No local lynis installation found. Install lynis or pass --lynis-source.',
         )
+    # what goes into the copy, as (source, name in the copy)
+    parts = [(executable, 'lynis')]
+    for subdir in ('include', 'db'):
+        src = os.path.join(share, subdir)
+        if lib.disk.dir_exists(src):
+            parts.append((src, subdir))
+    # The plugins directory and the default profile live in different places
+    # depending on the distro, so copy the first candidate found. Without a
+    # plugins directory in the pushed copy, the remote audit aborts.
+    for plugin_dir in LOCAL_PLUGIN_DIRS:
+        if lib.disk.dir_exists(plugin_dir):
+            parts.append((plugin_dir, 'plugins'))
+            break
+    for profile in LOCAL_PROFILE_FILES:
+        if lib.disk.file_exists(profile):
+            parts.append((profile, 'default.prf'))
+            break
+
+    # SUSE ships the files below /usr/share/lynis/include readable by root only
+    # (0640, verified with lynis 3.0.8 on Leap 15.5 and 3.1.4 on Leap 16.0). Name the
+    # first file this account cannot read instead of copying half a tree.
+    for src, _ in parts:
+        unreadable = get_first_unreadable(src)
+        if unreadable:
+            return (
+                False,
+                f'`{unreadable}` is not readable by this account, so the local lynis '
+                'installation cannot be copied to the audited host. Unpack the lynis '
+                'release tarball to /opt/lynis, which the check picks up by itself, or '
+                'pass --lynis-source with another lynis tree this account can read.',
+            )
 
     success, result = lib.disk.make_temp_dir(
         prefix='linuxfabrik-monitoring-plugins-lynis-'
@@ -675,36 +724,15 @@ def prepare_lynis_source(source):
     tmp_dir = result
     base_dir = os.path.join(tmp_dir, 'lynis')
     success, error = lib.disk.mkdir(base_dir)
-    if not success:
-        return (False, error)
-    success, error = lib.disk.copy_file(executable, os.path.join(base_dir, 'lynis'))
-    if not success:
-        return (False, error)
-    for subdir in ('include', 'db'):
-        src = os.path.join(share, subdir)
-        if lib.disk.dir_exists(src):
-            success, error = lib.disk.copy_dir(src, os.path.join(base_dir, subdir))
-            if not success:
-                return (False, error)
-    # The plugins directory and the default profile live in different places
-    # depending on the distro, so copy the first candidate found. Without a
-    # plugins directory in the pushed copy, the remote audit aborts.
-    for plugin_dir in LOCAL_PLUGIN_DIRS:
-        if lib.disk.dir_exists(plugin_dir):
-            success, error = lib.disk.copy_dir(
-                plugin_dir, os.path.join(base_dir, 'plugins')
-            )
-            if not success:
-                return (False, error)
+    for src, name in parts:
+        if not success:
             break
-    for profile in LOCAL_PROFILE_FILES:
-        if lib.disk.file_exists(profile):
-            success, error = lib.disk.copy_file(
-                profile, os.path.join(base_dir, 'default.prf')
-            )
-            if not success:
-                return (False, error)
-            break
+        copy = lib.disk.copy_dir if os.path.isdir(src) else lib.disk.copy_file
+        success, error = copy(src, os.path.join(base_dir, name))
+    if not success:
+        # the caller only cleans up what it got back
+        lib.disk.rm_dir(tmp_dir)
+        return (False, error)
     return (True, (base_dir, tmp_dir))
 
 
