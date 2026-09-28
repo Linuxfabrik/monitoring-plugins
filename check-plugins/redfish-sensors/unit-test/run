@@ -190,6 +190,23 @@ TESTS = [
         ],
     },
     {
+        # Dell PowerEdge R7515 with iDRAC 9, from a --verbose run in #1372,
+        # https://gist.github.com/thesefer/07b705a2e57965ece8153ea20d347796 (serial
+        # number and UUID replaced). Its RAID backplane chassis advertises neither
+        # Thermal nor Power, and the iDRAC lets a request for either run into the
+        # timeout, which made the check take 2 * (--retries + 1) * --timeout. The
+        # fixture records both as failed; the check must not ask for them.
+        'id': 'ok-idrac9-unadvertised-enclosure-links-not-requested',
+        'test': 'stdout/idrac9-raid-enclosure-without-thermal,,0',
+        'params': f'{COMMON} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked sensors on 2 members.',
+            'Member: BP14G+EXP 0:1',
+        ],
+        'assert-not-in': ['Enclosure.Internal.0-1:RAID.Integrated.1-1/Thermal'],
+    },
+    {
         # Dell iDRAC names the sensors of every power supply alike and tells them
         # apart only by Id. The Id takes the place of a name that occurs twice, so
         # the rows and the perfdata labels stay apart.
