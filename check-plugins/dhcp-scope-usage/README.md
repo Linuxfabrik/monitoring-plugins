@@ -119,6 +119,7 @@ There are one or more criticals.
 * WARN if any DHCP scope usage is >= `--warning` (default: 80%).
 * CRIT if any DHCP scope usage is >= `--critical` (default: 90%).
 * UNKNOWN if the answer of the DHCP server cannot be read as a list of scopes.
+* UNKNOWN if the host is no DHCP server or lacks the DHCP Server PowerShell tools.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

@@ -211,6 +211,14 @@ def main():
         stdout, stderr, retc = lib.lftest.test(args.TEST)
 
     if retc != 0:
+        # Measured against Windows Server 2016 without the DHCP role.
+        if 'CommandNotFoundException' in stderr:
+            lib.base.cu(
+                'Get-DhcpServerv4ScopeStatistics is not available on'
+                f' {args.WINRM_HOSTNAME or "this host"}: it is no DHCP server, or the'
+                ' DHCP Server tools are missing (`Install-WindowsFeature RSAT-DHCP`).',
+                traceback=False,
+            )
         lib.base.oao(stderr, STATE_WARN)
 
     # init some vars
