@@ -66,7 +66,7 @@ All service templates inherit the `criticality` concept (see *Core Concepts*) an
 
 ### Service Sets
 
-The basket ships roughly 150 Service Sets that cover operating systems (Debian 10-13, Rocky 8-10, Ubuntu 16-26, Windows Server, ...), applications (Apache HTTPD, MySQL, Nextcloud, Postfix, Rocket.Chat, WildFly, ...) and roles (mail server, backup target, DHCP server, ...).
+The basket ships roughly 150 Service Sets that cover operating systems (Debian 11-13, Fedora, RHEL 8-10, Ubuntu 22-26, Windows 10 and 11, Windows Server 2016-2025, ...), applications (Apache HTTPD, MySQL, Nextcloud, Postfix, Rocket.Chat, WildFly, ...) and roles (mail server, backup target, DHCP server, ...).
 
 Each Service Set is auto-applied by an `assign_filter` of the form:
 
