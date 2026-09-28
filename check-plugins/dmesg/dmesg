@@ -24,7 +24,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks the kernel ring buffer (dmesg) for messages at severity levels emerg, alert,
 crit, and err. Known false positives and hardware-specific noise are filtered out by default; the
@@ -122,6 +122,12 @@ DEFAULT_IGNORE = [
     # on monitoring, https://access.redhat.com/solutions/2115401
     ' SMBus base address uninitialized, upgrade BIOS',
     ' SMBus Host Controller not enabled!',
+    # systemd-ssh-generator finds the vsock module but no CID, the normal case on a VM
+    # without a virtio-vsock device; systemd 257 logs this at err level on every
+    # daemon-reload (verified with 257.13 on Debian 13), current systemd at debug level
+    r' systemd-ssh-generator\[\d+\]: Failed to query local AF_VSOCK CID: ',
+    r' /usr/lib/systemd/system-generators/systemd-ssh-generator'
+    r' failed with exit status 1\.',
     # KVM guest reads unhandled MSR, https://access.redhat.com/solutions/59299
     ' unhandled rdmsr: ',
     # KVM guest writes unhandled MSR, https://bugzilla.redhat.com/show_bug.cgi?id=874627
