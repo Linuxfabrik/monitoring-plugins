@@ -56,6 +56,7 @@ Monitoring Plugins:
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
+* by-winrm: patterns and thresholds see the output as PowerShell shows it again, not just the names of the objects
 * dhcp-scope-usage: checks the scopes again instead of reporting OK without any, names an unreadable answer or a missing DHCP role
 * dns: no longer appends "/None" to a failed lookup
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
