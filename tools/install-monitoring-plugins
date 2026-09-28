@@ -877,10 +877,16 @@ fetch_and_extract() {
     # example backported into the RHEL 9 python3.9): same safe extraction, but without the
     # RuntimeWarning that an unfiltered extractall() triggers there. Pythons without the
     # filter machinery reject the keyword, so fall back to a plain extractall().
+    # Symlinks are skipped: nothing installed is one (they link lib/ into the plugin folders
+    # and build unit test fixtures), and backports of the filter without CPython gh-107845
+    # (Ubuntu 22.04: python3.10 3.10.12) resolve a relative link against the destination
+    # instead of its own folder and abort on `monitoring-plugins-main/lib -> ../lib`.
     run "${PYBIN}" -c '
 import sys, tarfile
+tar = tarfile.open(sys.argv[1])
+members = [m for m in tar.getmembers() if not m.issym()]
 kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
-tarfile.open(sys.argv[1]).extractall(sys.argv[2], **kwargs)
+tar.extractall(sys.argv[2], members=members, **kwargs)
 ' "${tarball}" "${workdir}" || die "could not extract ${tarball}"
     # GitHub names the top-level folder '<repo>-<ref>', but flattens slashes in the ref to '-'
     # and strips the leading 'v' of a tag ('v8.0.0' extracts to '<repo>-8.0.0'). Locate it by

@@ -83,7 +83,7 @@ Icinga Director:
 
 Tools:
 
-* install-monitoring-plugins: RHEL 8 source and zip installs no longer break when Python 3.6 gets installed
+* install-monitoring-plugins: `--source` works on Ubuntu 22.04, and RHEL 8 installs survive a later Python 3.6
 
 Build, CI/CD:
 
