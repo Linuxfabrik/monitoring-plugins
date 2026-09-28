@@ -619,8 +619,14 @@ class TestSecurity(unittest.TestCase):
             try:
                 _build(
                     {
+                        # Half a day of slack on the renewal date: the two runs read
+                        # the clock at different moments, and without it the
+                        # rendering can tell them apart (1W 1D vs 1W 23h).
                         'build': lambda root, symlinked=symlinked: _add_store(
-                            root, 'www.example.com', with_cert=symlinked
+                            root,
+                            'www.example.com',
+                            with_cert=symlinked,
+                            renew_in_days=8.5,
                         )
                     },
                     base,
