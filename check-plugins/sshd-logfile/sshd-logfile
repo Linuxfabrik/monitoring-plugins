@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092801'
 
 DESCRIPTION = """Scans the log of the OpenSSH server for the events an administrator has to
 act on: a server that refused to start, a host key it could not load, a key file it refused
@@ -997,6 +997,10 @@ def get_unit(config_root=''):
     only for the two names the distributions use, so nothing a log or a
     configuration file holds can point the check at another unit.
     """
+    # A unit file says only that a package shipped one: hosts with another init
+    # system carry them too, and have no journal to read ([#1544]).
+    if not lib.logsource.systemd_booted(config_root):
+        return None
     for candidate in UNIT_CANDIDATES:
         for directory in UNIT_DIRECTORIES:
             if lib.disk.file_exists(

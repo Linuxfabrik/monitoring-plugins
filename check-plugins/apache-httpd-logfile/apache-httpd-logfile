@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092801'
 
 DESCRIPTION = """Scans the Apache HTTP Server error log for the events an administrator
 has to act on: children that died on a signal, a server that ran out of workers, processes
@@ -1356,6 +1356,10 @@ def get_units(config_root=''):
     `mysqld.service` and `mysql.service` as symlinks to `mariadb.service`, and
     reading that journal three times would count every line three times.
     """
+    # A unit file says only that a package shipped one: hosts with another init
+    # system carry them too, and have no journal to read ([#1544]).
+    if not lib.logsource.systemd_booted(config_root):
+        return []
     found = []
     seen = set()
     for candidate in UNIT_CANDIDATES:

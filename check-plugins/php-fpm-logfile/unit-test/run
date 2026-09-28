@@ -328,6 +328,15 @@ CASES = [
         'assert-in': ['php8.2-fpm.log', '1 startup detected'],
     },
     {
+        # Devuan with OpenRC: the package ships a unit file, but no systemd runs the
+        # host, so there is no journal to read (#1544)
+        'id': 'ok-unit-file-on-a-host-without-systemd',
+        'params': [f'--config-root={config_root("devuan-openrc")}'],
+        'assert-retc': STATE_OK,
+        'assert-in': ['php8.2-fpm.log', '1 startup detected'],
+        'assert-not-in': ['journalctl', 'systemd:'],
+    },
+    {
         'id': 'ok-log-path-probed-without-a-configuration',
         'params': [f'--config-root={config_root("probe-only")}'],
         'assert-retc': STATE_OK,

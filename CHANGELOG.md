@@ -54,6 +54,7 @@ Monitoring Plugins:
 * a missing command-line tool is named with an install hint instead of a raw OS error, on all plugins
 * arguments with umlauts and other non-ASCII characters are no longer garbled by the Icinga 2 agent, on all Windows plugins
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
+* apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * fedora-version, rhel-version: no longer report a false end of life on a host of another distribution
 * journald-\*, ntp-systemd-timesyncd, pip-updates: name missing journal rights, a missing timesyncd or a missing pip instead of a raw error
 * logfile: reads logfiles on Windows again

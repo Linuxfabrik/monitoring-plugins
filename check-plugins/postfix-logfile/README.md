@@ -27,7 +27,7 @@ Scans the Postfix mail log for the events an administrator has to act on, on bot
 **Data Collection:**
 
 * Takes `maillog_file` from `/etc/postfix/main.cf` where it is set, and otherwise the first of `/var/log/maillog` and `/var/log/mail.log` that exists.
-* Reads the journal of `postfix.service` or `postfix@-.service` along with the file where `--server-log` names nothing, deciding by which of them has a unit file below `/etc/systemd/system`, `/usr/lib/systemd/system` or `/lib/systemd/system`, and counts an event the two share once.
+* On a host that systemd runs, reads the journal of `postfix.service` or `postfix@-.service` along with the file where `--server-log` names nothing, deciding by which of them has a unit file below `/etc/systemd/system`, `/usr/lib/systemd/system` or `/lib/systemd/system`, and counts an event the two share once.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`, which can be given several times; everything named is read as one window. A wildcard is not expanded, so name each file.
 * Reads at most the last 30000 lines of each source, the most recent rotated file included, and reports how many lines it saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Recognizes a line as Postfix's by the syslog identifier it was written under, which is `postfix` plus the daemon that wrote it (`postfix/smtpd`, `postfix/qmgr`) and, on a host running several instances, the instance name as well (`postfix-incoming/smtpd`).

@@ -30,7 +30,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092701'
+__version__ = '2026092801'
 
 DESCRIPTION = """Scans the Postfix mail log for the events an administrator has to act on,
 on both sides of the server. Outbound: mail that could not be delivered, a relay host that
@@ -951,6 +951,10 @@ def get_units(config_root=''):
     A unit file two names point at is one unit, so the journal is not read twice
     for a host whose package ships an alias.
     """
+    # A unit file says only that a package shipped one: hosts with another init
+    # system carry them too, and have no journal to read ([#1544]).
+    if not lib.logsource.systemd_booted(config_root):
+        return []
     found = []
     seen = set()
     for candidate in UNIT_CANDIDATES:

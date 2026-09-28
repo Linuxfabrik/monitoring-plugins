@@ -32,7 +32,7 @@ Scans the log of the OpenSSH server for the events an administrator has to act o
 * Takes the first of `/var/log/secure` and `/var/log/auth.log` that exists.
 * Falls back to `systemd:sshd.service`, or to `systemd:ssh.service` on the distributions that use that name, deciding by which of the two has a unit file below `/etc/systemd/system`, `/usr/lib/systemd/system` or `/lib/systemd/system`.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`, which can be given several times; everything named is read as one window. A wildcard is not expanded, so name each file.
-* Reads the journal of the sshd unit along with the file where `--server-log` names nothing, and counts an event the two share once.
+* On a host that systemd runs, reads the journal of the sshd unit along with the file where `--server-log` names nothing, and counts an event the two share once.
 * Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Reads the `LogLevel` of `/etc/ssh/sshd_config` and the files it includes, taking the first value as sshd does and ignoring what a `Match` block sets, to tell whether sshd is writing what this check counts.
 * Recognizes a line as sshd's by the syslog identifier it was written under, which is `sshd`, `sshd-session` or `sshd-auth` - OpenSSH 9.8 split the daemon, and everything about authentication is logged by `sshd-session` since.

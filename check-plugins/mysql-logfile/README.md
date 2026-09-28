@@ -27,7 +27,7 @@ Scans the MySQL/MariaDB error log for errors, warnings, startups and shutdowns. 
 * On MySQL 8.0.22+, the plugin prefers `performance_schema.error_log` when the table exists and is visible to this user. Works over the network without shell access to the log file.
 * Otherwise it determines the log file location automatically via `SHOW GLOBAL VARIABLES` (`log_error`, `hostname`, `datadir`), falling back to several well-known paths.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`, which can be given several times; everything named is read as one window. A wildcard is not expanded, so name each file.
-* Reads the journal of the database unit along with the file where `--server-log` names nothing, and counts an event the two share once.
+* On a host that systemd runs, reads the journal of the database unit along with the file where `--server-log` names nothing, and counts an event the two share once.
 * Reads `log_error_verbosity` (MySQL) and `log_warnings` (MariaDB) along with the log location, to tell whether the server writes the logins it turns away at all.
 * Caches the on-disk log file location in a local SQLite database so the check can still work briefly when the database is down.
 * Lines can be filtered out using `--ignore-pattern` (simple string match) or `--ignore-regex` (Python regular expression).

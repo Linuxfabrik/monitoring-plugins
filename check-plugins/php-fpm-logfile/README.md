@@ -24,7 +24,7 @@ Scans the PHP-FPM error log for the events an administrator has to act on: rejec
 * Determines the log file automatically from the `error_log` directive in `/etc/php-fpm.conf`, `/etc/php/*/fpm/php-fpm.conf` or `/usr/local/etc/php-fpm.conf`. The directive is global-only in PHP-FPM, so the pool files are not read.
 * Falls back to probing `/var/log/php-fpm/error.log`, `/var/log/php-fpm.log`, `/var/log/php*-fpm.log` and `/usr/local/var/log/php-fpm.log` when the configuration yields nothing.
 * Supports reading from a file path, `docker:CONTAINER`, `podman:CONTAINER`, `kubectl:CONTAINER` or `systemd:UNITNAME` via `--server-log`, which can be given several times; everything named is read as one window. A wildcard is not expanded, so name each file.
-* Reads the journal of the PHP-FPM unit along with the file where `--server-log` names nothing, and counts an event the two share once.
+* On a host that systemd runs, reads the journal of the PHP-FPM unit along with the file where `--server-log` names nothing, and counts an event the two share once.
 * Reads at most the last 30000 lines of the source, the most recent rotated file included, and reports how many lines it actually saw, which files they came from, whether it stopped at that cap, and which stretch of time they cover.
 * Lines can be narrowed down with `--match` and filtered out with `--ignore`, both Python regular expressions.
 
