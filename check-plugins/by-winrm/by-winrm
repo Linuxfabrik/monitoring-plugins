@@ -23,7 +23,7 @@ import lib.winrm
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092802'
 
 DESCRIPTION = """This plugin executes PowerShell commands or scripts on remote Windows hosts via
 WinRM, supporting JEA. It returns standard output (STDOUT) and, in case of failure, standard error
@@ -370,34 +370,27 @@ def main():
     stderr = stderr.strip()
 
     # init some vars
-    msg = ''
     state = stdout_state = stderr_state = retc_state = STATE_OK
-
-    if args.VERBOSE:
-        if lib.winrm.HAVE_JEA:
-            msg += 'Connecting via pypsrp, using JEA. '
-        else:
-            msg += 'Connecting via pywinrm (without JEA). '
+    reasons = []  # what raised the stdout state, for the first line
 
     # analyze data
 
     # check stdout - alert with given severity if there is any output at all
     if stdout:
-        stdout_state = lib.base.str2state(
-            args.SEVERITY_STDOUT
-        )  # if SEVERITY_STDOUT != 'ok'
-        state = lib.base.get_worst(state, stdout_state)
+        stdout_state = lib.base.str2state(args.SEVERITY_STDOUT)
+        if stdout_state != STATE_OK:
+            reasons.append('The command returned output')
 
     # check stdout - alert with given severity on a single numeric value
+    is_number = False
     try:
         float(stdout)
+        is_number = True
         stdout_state = lib.base.get_state(
             stdout, args.WARN, args.CRIT, _operator='range'
         )
-        state = lib.base.get_worst(state, stdout_state)
-    except Exception:
-        if args.VERBOSE:
-            msg += 'STDOUT is not a "float". '
+    except ValueError:
+        pass
 
     # check stdout - alert with given severity using pattern matching
     compiled_warn_regex = [re.compile(item) for item in args.WARN_REGEX]
@@ -407,10 +400,12 @@ def main():
         warn_pattern.lower() in haystack for warn_pattern in args.WARN_PATTERN
     ) or any(item.search(haystack) for item in compiled_warn_regex):
         stdout_state = STATE_WARN
+        reasons = ['The output matches a warning pattern']
     if any(
         crit_pattern.lower() in haystack for crit_pattern in args.CRIT_PATTERN
     ) or any(item.search(haystack) for item in compiled_crit_regex):
         stdout_state = STATE_CRIT
+        reasons = ['The output matches a critical pattern']
     state = lib.base.get_worst(state, stdout_state)
 
     # stderr overwrites state from stdout
@@ -419,21 +414,61 @@ def main():
         state = lib.base.get_worst(state, stderr_state)
 
     # retc overwrites state from stderr
+    connection_failed = bool(retc and not stdout and stderr)
     if retc:
-        if not stdout and stderr:
+        if connection_failed:
             # no command output but error present - likely a connection
             # error (timeout, authentication failure, etc.)
             retc_state = lib.base.str2state(args.SEVERITY_CONNTIMEOUT)
         else:
             retc_state = lib.base.str2state(args.SEVERITY_RETC)
         state = lib.base.get_worst(state, retc_state)
+    if connection_failed:
+        # stderr is the connection error itself, so --severity-conntimeout decides
+        # alone, UNKNOWN by default: nothing ran, nothing is known about the host
+        state = retc_state
 
-    # build the message
-    if retc:
-        msg += f'retc: {retc}{lib.base.state2str(retc_state, prefix=" ")}; '
-    if stderr:
-        msg += f'stderr: {stderr}{lib.base.state2str(stderr_state, prefix=" ")}; '
-    msg += f'{stdout if stdout else "stdout: None"}{lib.base.state2str(stdout_state, prefix=" ")}'
+    # build the message: a first line that says what happened, then the output
+    stderr_head = stderr.splitlines()[0] if stderr else ''
+    if connection_failed:
+        header = (
+            f'Unable to run the command on {args.WINRM_HOSTNAME}: {stderr_head}'
+            f'{lib.base.state2str(retc_state, prefix=" ")}'
+        )
+    else:
+        parts = []
+        if is_number:
+            parts.append(f'{stdout}{lib.base.state2str(stdout_state, prefix=" ")}')
+        elif reasons:
+            parts.append(f'{reasons[0]}{lib.base.state2str(stdout_state, prefix=" ")}')
+        if retc:
+            parts.append(
+                f'Exit code {retc}{lib.base.state2str(retc_state, prefix=" ")}'
+            )
+        if stderr:
+            parts.append(
+                f'STDERR: {stderr_head}{lib.base.state2str(stderr_state, prefix=" ")}'
+            )
+        if parts:
+            header = ', '.join(parts)
+        elif not stdout:
+            header = 'Everything is ok. The command returned no output.'
+        elif '\n' not in stdout:
+            header = stdout
+        else:
+            header = 'Everything is ok.'
+    body = []
+    if stdout and not is_number and header != stdout:
+        body.append(stdout)
+    if '\n' in stderr:
+        body.append(f'STDERR:\n{stderr}')
+    if args.VERBOSE:
+        body.append(
+            'Connected via pypsrp, which supports JEA.'
+            if lib.winrm.HAVE_JEA
+            else 'Connected via pywinrm, without JEA.'
+        )
+    msg = header + ''.join(f'\n\n{part}' for part in body)
 
     # over and out
     lib.base.oao(

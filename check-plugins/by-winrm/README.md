@@ -227,7 +227,9 @@ Check if the Windows Update service is running - alert with CRIT if it is stoppe
 Output if the service is stopped:
 
 ```text
-Stopped [CRITICAL]
+The output matches a critical pattern [CRITICAL]
+
+Stopped
 ```
 
 Use regex matching - alert with WARNING if any of the last 50 system event log messages contain "disk", or CRIT if they contain "error" or "fail":
@@ -305,13 +307,15 @@ What error output looks like - for example when authentication fails:
 Output:
 
 ```text
-the server did not respond with one of the following authentication methods - Negotiate [UNKNOWN]
+Unable to run the command on winsrv.example.com: AuthenticationError: Failed to authenticate the user Administrator with ntlm [UNKNOWN]
 ```
 
 
 ## States
 
 States are computed in this particular order. The worst state is returned (CRIT before WARN before UNKNOWN before OK).
+
+The first line says what raised the state: the value of a single number, a matching pattern, the exit code or the first line of STDERR. The full output follows below it.
 
 Output on STDOUT?
 
@@ -326,7 +330,7 @@ Output on STDERR?
 
 Return code != 0?
 
-* Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if WinRM can't connect (no command output but error present).
+* Depending on the given `--severity-timeout`, returns OK, WARN, CRIT or UNKNOWN (default) if WinRM can't connect (no command output but error present). Nothing ran then, so this alone decides the state, and the first line says why the connection failed.
 * Depending on the given `--severity-retc`, returns OK, WARN (default), CRIT or UNKNOWN if there is a return code != 0.
 
 `--always-ok` suppresses all alerts and always returns OK.

@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""Unit tests for by-winrm.
+
+The fixtures are what `lib.winrm.run_ps()` returned from Linux over PSRP against a
+German Windows Server 2025, 2026-09-28: a number, the table of `Get-Service
+W32Time`, the property list a JEA endpoint answers `Get-Service -Name W32Time` with,
+the local group names with an umlaut, the error of an unknown service and a refused
+login. `--test` stands in for the remote call, so the tests cover what the check
+makes of an answer, not the transport.
+"""
+
+import importlib.machinery
+import importlib.util
+import os
+import sys
+import unittest
+
+sys.path.insert(0, '..')
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+PLUGIN = os.path.join(HERE, '..', 'by-winrm')
+
+# --winrm-hostname and --command are required, and --test replaces the call
+COMMON = '--winrm-hostname=winsrv.example.com --command=dummy'
+
+
+def _load_plugin_module():
+    """Import the hyphen-named plugin as a Python module for direct function
+    unit tests."""
+    loader = importlib.machinery.SourceFileLoader('by_winrm', PLUGIN)
+    spec = importlib.util.spec_from_loader('by_winrm', loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+by_winrm = _load_plugin_module()
+
+
+TESTS = [
+    {
+        'id': 'ok-number-within-thresholds',
+        'test': 'stdout/number,,0',
+        'params': f'{COMMON} --warning=5 --critical=10',
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^2\|',
+    },
+    {
+        'id': 'crit-number-outside-range',
+        'test': 'stdout/number,,0',
+        'params': f'{COMMON} --critical=3:',
+        'assert-retc': STATE_CRIT,
+        'assert-regex': r'^2 \[CRITICAL\]\|',
+    },
+    {
+        # a table leads with a summary, not with its header line, and the marker
+        # does not end up on the last row of the table
+        'id': 'warn-pattern-in-table',
+        'test': 'stdout/service-table,,0',
+        'params': f'{COMMON} --warning-pattern=running',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^The output matches a warning pattern \[WARNING\]\n\nStatus',
+        'assert-in': ['Running  W32Time            Windows-Zeitgeber|'],
+        'assert-not-in': ['Zeitgeber [WARNING]'],
+    },
+    {
+        'id': 'ok-table-without-pattern',
+        'test': 'stdout/service-table,,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Everything is ok\.\n\n',
+    },
+    {
+        # the JEA property list, where a pattern on a property works
+        'id': 'crit-pattern-in-jea-properties',
+        'test': 'stdout/jea-service-properties,,0',
+        'params': f'{COMMON} --critical-pattern=running',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'The output matches a critical pattern [CRITICAL]',
+            'Status              : Running',
+        ],
+    },
+    {
+        'id': 'ok-jea-properties-pattern-not-found',
+        'test': 'stdout/jea-service-properties,,0',
+        'params': f'{COMMON} --critical-pattern=stopped',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok.', 'DisplayName         : Windows-Zeitgeber'],
+    },
+    {
+        'id': 'warn-regex-with-umlaut',
+        'test': 'stdout/local-groups-umlaut,,0',
+        'params': f'{COMMON} --warning-regex=überwachung',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['Leistungsüberwachungsbenutzer'],
+    },
+    {
+        # PowerShell reports a missing service as a non-terminating error: stderr,
+        # exit code 0; the error is the first line, and not repeated below it
+        'id': 'warn-stderr-unknown-service',
+        'test': ',stderr/unknown-service,0',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^STDERR: ObjectNotFound: .*ServiceCommandException \[WARNING\]\|',
+    },
+    {
+        'id': 'ok-stderr-ignored',
+        'test': ',stderr/unknown-service,0',
+        'params': f'{COMMON} --skip-stderr=0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. The command returned no output.'],
+    },
+    {
+        # nothing ran, so --severity-timeout decides alone, UNKNOWN by default
+        'id': 'unknown-refused-login',
+        'test': ',stderr/wrong-password,1',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-regex': (
+            r'^Unable to run the command on winsrv\.example\.com: AuthenticationError:'
+            r' .* \[UNKNOWN\]\|'
+        ),
+    },
+    {
+        'id': 'crit-refused-login-with-severity',
+        'test': ',stderr/wrong-password,1',
+        'params': f'{COMMON} --severity-timeout=crit',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'warn-exit-code-with-output',
+        'test': 'stdout/number,stderr/unknown-service,1',
+        'params': COMMON,
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'^2, Exit code 1 \[WARNING\], STDERR: ObjectNotFound',
+    },
+    {
+        'id': 'ok-no-output',
+        'test': ',,0',
+        'params': COMMON,
+        'assert-retc': STATE_OK,
+        'assert-regex': r'^Everything is ok\. The command returned no output\.\|',
+    },
+    {
+        'id': 'warn-any-output-with-severity',
+        'test': 'stdout/local-groups-umlaut,,0',
+        'params': f'{COMMON} --severity-stdout=warn',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The command returned output [WARNING]'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../by-winrm'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+class TestSplitJeaCommand(unittest.TestCase):
+    """A JEA endpoint runs a cmdlet with parameters only, never script text."""
+
+    def test_named_parameters(self):
+        self.assertEqual(
+            by_winrm.split_jea_command('Get-Service -Name W32Time'),
+            (True, ('Get-Service', {'Name': 'W32Time'})),
+        )
+
+    def test_positional_parameters(self):
+        self.assertEqual(
+            by_winrm.split_jea_command('Get-Service W32Time'),
+            (True, ('Get-Service', ['W32Time'])),
+        )
+
+    def test_switch_and_quoted_path_with_backslashes(self):
+        self.assertEqual(
+            by_winrm.split_jea_command(
+                'Get-ChildItem -Path "C:\\Program Files\\A & B" -Recurse'
+            ),
+            (
+                True,
+                (
+                    'Get-ChildItem',
+                    {'Path': 'C:\\Program Files\\A & B', 'Recurse': True},
+                ),
+            ),
+        )
+
+    def test_module_qualified_cmdlet(self):
+        success, (cmdlet, _) = by_winrm.split_jea_command(
+            'Microsoft.PowerShell.Management\\Get-Service W32Time'
+        )
+        self.assertTrue(success)
+        self.assertEqual(cmdlet, 'Microsoft.PowerShell.Management\\Get-Service')
+
+    def test_a_value_is_a_literal(self):
+        # the value reaches the cmdlet as it is and is never run
+        self.assertEqual(
+            by_winrm.split_jea_command('Get-Item -Path "$(whoami)"'),
+            (True, ('Get-Item', {'Path': '$(whoami)'})),
+        )
+
+    def test_refuses_what_jea_cannot_run(self):
+        for command in (
+            'Get-Service | Where-Object Status -eq Running',
+            'Get-Service|Where-Object',
+            'Get-Service; Remove-Item C:\\x',
+            '(Get-Date).Year',
+            '',
+        ):
+            with self.subTest(command=command):
+                self.assertFalse(by_winrm.split_jea_command(command)[0])
+
+    def test_refuses_mixed_parameters(self):
+        success, message = by_winrm.split_jea_command('Get-Service -Name W32Time X')
+        self.assertFalse(success)
+        self.assertIn('all by name', message)
+
+    def test_unbalanced_quote(self):
+        success, message = by_winrm.split_jea_command('Get-Service -Name "W32')
+        self.assertFalse(success)
+        self.assertIn('Unable to split --command', message)
+
+
+if __name__ == '__main__':
+    unittest.main()
