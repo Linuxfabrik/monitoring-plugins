@@ -3,7 +3,7 @@
 
 ## Overview
 
-Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it reads no more than the head of the report, however large the report gets. Alerts when AIDE found differences between its database and the file system, and when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed. AIDE reports a change hours after it happened, and most changes are planned ones, so by default only WARNING is raised.
+Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it keeps no more than the summary and the first entries of the report in memory, however large the report gets. Alerts when AIDE found differences between its database and the file system, and when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed. AIDE reports a change hours after it happened, and most changes are planned ones, so by default only WARNING is raised.
 
 AIDE (Advanced Intrusion Detection Environment) compares the file system with a database of file attributes and checksums it created earlier. The CIS benchmarks require it to be installed, initialized and run regularly, and this check tells whether it runs and what it found.
 
@@ -47,13 +47,13 @@ usage: aide-logfile [-h] [-V] [--always-ok] [-c CRIT] [--max-age MAX_AGE]
 Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the
 number of added, removed and changed files together with the first of them.
-The check itself does not run AIDE, so it is fast, and it reads no more than
-the head of the report, however large the report gets. Alerts when AIDE found
-differences between its database and the file system, and when the report is
-missing, empty or older than the maximum age, because then the regular check
-has stopped or failed. AIDE reports a change hours after it happened, and most
-changes are planned ones, so by default only WARNING is raised. Requires root
-or sudo.
+The check itself does not run AIDE, so it is fast, and it keeps no more than
+the summary and the first entries of the report in memory, however large the
+report gets. Alerts when AIDE found differences between its database and the
+file system, and when the report is missing, empty or older than the maximum
+age, because then the regular check has stopped or failed. AIDE reports a
+change hours after it happened, and most changes are planned ones, so by
+default only WARNING is raised. Requires root or sudo.
 
 options:
   -h, --help           show this help message and exit

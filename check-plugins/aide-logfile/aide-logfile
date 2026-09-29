@@ -27,13 +27,13 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092908'
+__version__ = '2026092909'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
 removed and changed files together with the first of them. The check itself does not run
-AIDE, so it is fast, and it reads no more than the head of the report, however large the
-report gets. Alerts when AIDE found differences between its database and the file system,
+AIDE, so it is fast, and it keeps no more than the summary and the first entries of the
+report in memory, however large the report gets. Alerts when AIDE found differences between its database and the file system,
 and when the report is missing, empty or older than the maximum age, because then the
 regular check has stopped or failed. AIDE reports a change hours after it happened, and
 most changes are planned ones, so by default only WARNING is raised.
@@ -63,6 +63,9 @@ CACHE_KEY = 'aide-logfile-last-report'
 # the location every AIDE package uses in its shipped configuration (RHEL, Debian's
 # aide-common) and the one the LFOps aide role configures
 REPORT = '/var/log/aide/aide.log'
+# Debian's aide-common hands the directory to its service account _aide, so the report
+# is confined to it: a symlink planted there must not lead to any other file.
+REPORT_DIR = os.path.dirname(REPORT)
 
 # The report starts with the summary, the lists of added, removed and changed entries
 # follow, and the details of every entry come last. A check that found thousands of
@@ -198,13 +201,18 @@ def aide_running():
     """Tell whether an AIDE process is running right now. AIDE empties its report
     when it starts and writes the new one only when it has compared the whole file
     system, which takes minutes on a large host, so an empty report is normal while a
-    check runs. Returns the PID of the first AIDE process found, or an empty string.
+    check runs. Only a process of root counts: any user can start a process named
+    `aide`, and one of them must not make an aborted run look like one in progress.
+    Returns the PID of the first AIDE process found, or an empty string.
     """
     try:
         pids = [entry for entry in os.listdir('/proc') if entry.isdigit()]
     except OSError:
         return ''
     for pid in sorted(pids, key=int):
+        info = lib.disk.stat(f'/proc/{pid}')
+        if info is None or info.st_uid != 0:
+            continue
         success, comm = lib.disk.read_file(f'/proc/{pid}/comm')
         if success and comm.strip() == 'aide':
             return pid
@@ -258,10 +266,11 @@ def parse_report(lines):
 
     Returns a dict with `action` (`check`, `init`, `update`, or None if the text is
     no AIDE report), `compare` (whether a check compared two databases instead of a
-    database and the file system), `database_out` (the new database an update run wrote), `found`
-    (whether the outline of a check or update reports differences), `start` (the start timestamp as written by AIDE, or None),
-    `version`, the counts `added`, `changed`, `removed`, `total` (None where the
-    report does not tell), `entries`, a list of (headline, lines) of the lists of
+    database and the file system), `database_out` (the new database an update run
+    wrote), `found` (whether the outline of a check or update reports differences),
+    `start` (the start timestamp as written by AIDE, or None), `version`, the
+    counts `added`, `changed`, `removed`, `total` (None where the report does not
+    tell), `entries`, a list of (headline, lines) of the lists of
     added, removed and changed entries with at most MAX_ENTRIES lines each, `text`,
     everything above the first section, `truncated`, True if reading stopped at
     MAX_REPORT_BYTES before the end of the lists, and `appended`, True if a further
@@ -449,15 +458,16 @@ def main():
                 always_ok=args.ALWAYS_OK,
             )
         success, handle = lib.disk.open_file(
-            REPORT, binary=True, allowed_roots=['/var/log'], nofollow=True
+            REPORT, binary=True, allowed_roots=[REPORT_DIR], nofollow=True
         )
         if not success:
-            lib.base.oao(
-                f'{handle.rstrip(".")}. The report is readable by root only, so run '
-                f'the check via sudo, see {DOCS_URL}.',
-                STATE_UNKNOWN,
-                always_ok=args.ALWAYS_OK,
-            )
+            msg = f'{handle.rstrip(".")}.'
+            if os.geteuid() != 0:
+                msg += (
+                    ' The report is readable by root only, so run the check via sudo, '
+                    f'see {DOCS_URL}.'
+                )
+            lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
         with handle:
             # the time the report was written, for a report without a start
             # timestamp
@@ -497,10 +507,13 @@ def main():
         if in_progress:
             try:
                 cached = json.loads(lib.cache.get(CACHE_KEY, filename=CACHE_FILE))
-                report, mtime = cached['report'], cached['mtime']
+                # a report kept by an older version of the check may lack keys
+                report = {**parse_report([]), **cached['report']}
+                mtime = cached['mtime']
                 if report['action'] not in ('check', 'init', 'update'):
                     raise ValueError
-            except Exception:
+            # nothing cached yet (False), or not what this check wrote
+            except (KeyError, TypeError, ValueError):
                 lib.base.oao(
                     f'An AIDE run is in progress right now (PID {in_progress}), and '
                     'no result of an earlier run is known yet. The next check run '
@@ -656,7 +669,8 @@ def main():
         if report['action'] == 'update':
             msg += (
                 f'\n\nThe details are in {REPORT}. The run wrote a new database '
-                f'({report["database_out"]}), which accepts the differences only '
+                f'({printable(report["database_out"])}), which accepts the '
+                'differences only '
                 'once it replaces the old one. Then run a check, for example '
                 '`sudo systemctl start aidecheck.service`, to confirm it.'
             )
