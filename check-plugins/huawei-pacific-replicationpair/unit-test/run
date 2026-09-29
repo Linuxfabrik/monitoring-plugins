@@ -17,6 +17,7 @@ work either way: a threshold of one second is exceeded by a stamp in the past an
 exceeded, and a threshold of a century is not reached in any foreseeable run.
 """
 
+import os
 import sys
 
 sys.path.insert(0, '..')
@@ -25,6 +26,11 @@ import unittest
 
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# The expected timestamps below are local times in Europe/Zurich, and the plugin
+# prints local time. Pin the zone so the result does not depend on the host the
+# tests run on; the plugin inherits it.
+os.environ['TZ'] = 'Europe/Zurich'
 
 COMMON = '--password=linuxfabrik --url=https://localhost --username=admin'
 

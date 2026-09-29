@@ -12,6 +12,7 @@ import atexit
 import datetime
 import os
 import sys
+import time
 
 sys.path.insert(0, '..')
 
@@ -19,6 +20,13 @@ import unittest
 
 import lib.lftest
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# The expected timestamps below are local times in Europe/Zurich, and the plugin
+# prints local time. Pin the zone so the result does not depend on the host the
+# tests run on; the plugin inherits it, and time.tzset() applies it to the fixture
+# timestamps this file computes itself.
+os.environ['TZ'] = 'Europe/Zurich'
+time.tzset()
 
 # In --test mode the fixture stands in for /var/log/lynis-report.dat. The fixtures
 # in stdout/ are real reports of `lynis audit system --cronjob`, anonymised

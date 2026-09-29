@@ -8,6 +8,7 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import os
 import sys
 
 sys.path.insert(0, '..')
@@ -16,6 +17,11 @@ import unittest
 
 import lib.lftest
 from lib.globals import STATE_WARN
+
+# The expected timestamps below are local times in Europe/Zurich, and the plugin
+# prints local time. Pin the zone so the result does not depend on the host the
+# tests run on; the plugin inherits it.
+os.environ['TZ'] = 'Europe/Zurich'
 
 TESTS = [
     {
