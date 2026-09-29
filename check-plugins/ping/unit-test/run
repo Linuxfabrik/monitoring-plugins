@@ -197,7 +197,8 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_OK)
 
     def test_rtt_mdev_critical_threshold_triggers(self):
-        # loopback round-trip variability is always above 0.0001 ms across several packets
+        # `@0:` alerts on any variability, including the 0.000 ms that ping prints
+        # for a quiet loopback, so the threshold fires whatever the host measures
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec(
                 [
@@ -207,7 +208,7 @@ class TestCheck(unittest.TestCase):
                     '--count',
                     '5',
                     '--rtt-mdev-critical',
-                    '0.0001',
+                    '@0:',
                 ]
             )
         )
