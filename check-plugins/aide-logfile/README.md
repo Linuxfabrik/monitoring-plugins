@@ -10,16 +10,16 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 **Important Notes:**
 
 * The check reads `/var/log/aide/aide.log`, which AIDE writes when `report_url=file:/var/log/aide/aide.log` is set in its configuration, as it is in the configuration RHEL ships and in the one the [LFOps aide role](https://linuxfabrik.github.io/lfops/roles/aide/) deploys. Something else has to run the check at regular intervals, for example `aidecheck.timer`, which the CIS benchmarks name and the LFOps aide role deploys, or the daily check of Debian's `aide-common`.
-* `/var/log/aide` is readable by root only, so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `AIDE Service Set` in the Icinga Director does exactly that on every host tagged `aide`, and also checks `aidecheck.service` and `aidecheck.timer`.
+* `/var/log/aide` is readable by root only (on Debian and Ubuntu with `aide-common` by the group `adm` as well), so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `AIDE Service Set` in the Icinga Director does exactly that on every host tagged `aide`, and also checks `aidecheck.service` and `aidecheck.timer`.
 * AIDE empties its report when it starts and writes the new one when it has compared the whole file system, which takes minutes on a large host. A check that runs during that time reports UNKNOWN once, and the next run reads the new report.
-* The report has to be a plain one (`report_format=plain`, the default), written anew by every run (`report_append=no`, the default), also when AIDE finds nothing (`report_quiet=no`, the default), with at least `report_level=summary` (the default is `changed_attributes`), so that it tells how many differences there are and when the run started.
+* The report has to be a plain one (`report_format=plain`, the default), written anew by every run (`report_append=no`, the default), also when AIDE finds nothing (`report_quiet=no`, the default). With `report_level=minimal` it tells that there are differences, but neither how many nor when the run started, so keep at least `report_level=summary` (the default is `changed_attributes`). AIDE 0.16 (RHEL 8) knows `verbose` instead, and writes the start of the run from `verbose=2` on (the default is `5`). The check understands every report level and the grouped and ungrouped lists of AIDE 0.16 to 0.19.
 * `aide --update` writes a new database next to the old one, and its differences are accepted only once the new database replaces the old one. The report of an update run therefore counts like a check as long as the new database it names is still there, and as accepted once it is gone. The daily check of Debian's `aide-common` runs `aide --update` by default and never moves the new database into place (`COMMAND=update`, `COPYNEWDB=no` in `/etc/default/aide`), so its differences keep alerting.
 * AIDE checks at fixed times, so it reports a change hours after it happened, and most changes it reports are planned ones (a package update, an edited configuration file) until the database is updated, see Troubleshooting. A difference therefore raises WARNING by default. Set `--critical=0` for hosts where any unexpected change has to be handled at once.
 
 **Data Collection:**
 
-* Reads the report line by line and stops at the details of the changed files, so a report of many megabytes costs no more than its summary and its lists of files. It reads 16 MiB at most. A list that starts beyond that is counted, but not listed.
-* The number of added, removed and changed entries comes from the summary of the report. Of each list, the first 10 entries are shown, with the attribute summary AIDE puts in front of each file name, for example `f > ...   ..H.. . : /etc/hosts` for a file that grew and whose checksum changed. `man aide.conf`, section `report_summarize_changes`, explains the letters.
+* Reads the report line by line and keeps no more than its summary and the first entries of its lists, so a report of many megabytes costs little memory. It reads 16 MiB at most. A list that starts beyond that is counted, but not listed.
+* The number of added, removed and changed entries comes from the summary of the report. Of each list, the first 10 entries are shown, with the attribute summary AIDE puts in front of each file name, for example `f > ...   ..H.. . : /etc/hosts` for a file that grew and whose checksum changed. `man aide.conf`, section `report_summarize_changes` (`summarize_changes` on AIDE 0.16), explains the letters. Control characters in file names, which AIDE before 0.19.2 wrote as they are, are shown as `?`.
 * The age is the time since the start of the AIDE run, as AIDE records it in the report (`Start timestamp`). A report without that line falls back to the modification time of the file.
 * While the report is empty or incomplete, the check looks for a running `aide` process to tell a run in progress from one that aborted.
 
@@ -125,7 +125,7 @@ sudo ./aide-logfile --critical=0 --max-age=48
 * WARN if the AIDE run started more than `--max-age` hours ago (default: 26), because the regular check has then stopped. `--max-age 0` switches this off.
 * WARN if there is no report, because the file integrity of the host is then not being checked.
 * WARN if the report is empty or holds no result and no AIDE process is running, because the last run aborted.
-* UNKNOWN if an AIDE run is in progress right now, so the report is not written yet, if the report cannot be read, most likely because the check does not run via `sudo`, and if the report is not a plain one.
+* UNKNOWN if an AIDE run is in progress right now, so the report is not written yet, if the report cannot be read, most likely because the check does not run via `sudo`, if the report is not a plain one, and if it holds the reports of several runs (`report_append=yes`).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
@@ -164,11 +164,14 @@ AIDE empties its report when it starts, and an aborted run leaves it empty. `jou
 * `report_quiet=yes` in the AIDE configuration writes no report at all when AIDE finds nothing. Remove it.
 * logrotate with `copytruncate` empties the report when it rotates it, which the logrotate configuration RHEL ships in `/etc/logrotate.d/aide` does once the report is larger than 100 KiB. Use `copy` instead of `copytruncate` there: AIDE writes a new report on every run anyway. The LFOps aide role does exactly that.
 
+### `/var/log/aide/aide.log holds the reports of several AIDE runs`
+
+`report_append=yes` in the AIDE configuration writes every run behind the previous ones. The check refuses to pick one of them, since a later report in the same file cannot be told apart from text a file name put there. Remove `report_append=yes`: AIDE then writes a new report on every run.
+
 ### The report is older than `--max-age`
 
 1. `systemctl list-timers aidecheck.timer` shows when the timer last ran and when it runs next. An inactive timer is not enabled: `systemctl enable --now aidecheck.timer`.
 2. `systemctl status aidecheck.service` and `journalctl --unit aidecheck.service` show whether the last run failed.
-3. A report written with `report_append=yes` holds every run since the last rotation, and the check reads the oldest one. Remove `report_append=yes` from the AIDE configuration.
 
 
 ## Credits, License

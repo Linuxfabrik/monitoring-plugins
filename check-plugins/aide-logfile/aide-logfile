@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092903'
+__version__ = '2026092904'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -70,8 +70,19 @@ GROUPS = {
 # 0.17, PLAIN_REPORT_HEADLINE_FMT in src/report_plain.c since aide 0.18).
 # The layout of the plain report is the same from aide 0.16 to 0.19. Verified with
 # aide 0.16 on Rocky 8, 0.17.4 on Ubuntu 22.04, 0.18.3 on Debian 12 and 0.19.1 on
-# Debian 13, and against the aide sources up to 0.19.4.
+# Debian 13, and against the aide sources up to 0.19.4. The distribution packages of
+# Rocky 8/9/10, Debian 12/13 and Ubuntu 22.04/24.04/26.04 wrote about 1250 reports
+# in containers, across every report_level (verbose on 0.16), grouped and ungrouped
+# lists, with and without the change summary, report_quiet, report_append,
+# report_detailed_init and report_format=json, for --init, --check, --update and
+# --compare, which the check all evaluates as AIDE meant them.
 DASHES_REGEX = re.compile(r'^-{20,}$')
+OUTLINE_REGEX = re.compile(
+    r'^AIDE (?:(successfully initialized database\.|initialized database at )'
+    r'|found (NO )?differences between (?:database and filesystem|the two '
+    r'databases))',
+    re.MULTILINE,
+)
 START_REGEX = re.compile(
     r'^Start timestamp: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?: [+-]\d{4})?)'
     r' \(AIDE ([^)]+)\)',
@@ -181,6 +192,23 @@ def aide_running():
     return ''
 
 
+def last_match(regex, text):
+    """Return the last match of `regex` (a string is compiled as multiline) in
+    `text`, or None.
+    """
+    if isinstance(regex, str):
+        regex = re.compile(regex, re.MULTILINE)
+    matches = list(regex.finditer(text))
+    return matches[-1] if matches else None
+
+
+def printable(text):
+    """Replace control characters, which file names can carry, so they cannot
+    garble the plugin output.
+    """
+    return re.sub(r'[\x00-\x1f\x7f]', '?', text)
+
+
 def database_moved(path):
     """Tell whether the new database an `aide --update` run wrote is gone, which
     means that it was moved over the old one and its differences are accepted.
@@ -210,17 +238,21 @@ def parse_report(lines):
     in bytes.
 
     Returns a dict with `action` (`check`, `init`, `update`, or None if the text is
-    no AIDE report), `database_out` (the new database an update run wrote), `found`
+    no AIDE report), `compare` (whether a check compared two databases instead of a
+    database and the file system), `database_out` (the new database an update run wrote), `found`
     (whether the outline of a check or update reports differences), `start` (the start timestamp as written by AIDE, or None),
     `version`, the counts `added`, `changed`, `removed`, `total` (None where the
     report does not tell), `entries`, a list of (headline, lines) of the lists of
     added, removed and changed entries with at most MAX_ENTRIES lines each, `text`,
-    everything above the first section, and `truncated`, True if reading stopped at
-    MAX_REPORT_BYTES before the end of the lists.
+    everything above the first section, `truncated`, True if reading stopped at
+    MAX_REPORT_BYTES before the end of the lists, and `appended`, True if a further
+    report follows the first one (report_append=yes).
     """
     report = {
         'action': None,
         'added': None,
+        'appended': False,
+        'compare': False,
         'changed': None,
         'database_out': '',
         'entries': [],
@@ -238,16 +270,24 @@ def parse_report(lines):
     # held back until it is clear whether they form one
     pending = []
     size = 0
-    done = False
+    # past the lists, the rest of the file is only searched for the outline of a
+    # further report, which report_append=yes writes behind the first one
+    past_lists = False
     for raw in lines:
         size += len(raw)
         if size > MAX_REPORT_BYTES:
-            report['truncated'] = True
+            report['truncated'] = not past_lists
             break
         # file names are written as the file system has them, whatever their
         # encoding
-        pending.append(lib.txt.to_text(raw, errors='strict_or_latin1').rstrip('\r\n'))
-        while pending and not done:
+        line = lib.txt.to_text(raw, errors='strict_or_latin1').rstrip('\r\n')
+        if past_lists:
+            if OUTLINE_REGEX.match(line):
+                report['appended'] = True
+                break
+            continue
+        pending.append(line)
+        while pending and not past_lists:
             if DASHES_REGEX.match(pending[0]):
                 if len(pending) < 3:
                     break
@@ -258,18 +298,23 @@ def parse_report(lines):
                         report['entries'].append((title, []))
                     elif section is not None:
                         # the details and the attributes of the databases follow
-                        # the lists, nothing below them is needed
-                        done = True
+                        # the lists, nothing below them is kept
+                        past_lists = True
                     section = title
                     continue
             line = pending.pop(0)
             if section is None:
                 head.append(line)
-            elif report['entries'] and section == report['entries'][-1][0]:
+                continue
+            if OUTLINE_REGEX.match(line):
+                report['appended'] = True
+                past_lists = True
+                break
+            if report['entries'] and section == report['entries'][-1][0]:
                 entries = report['entries'][-1][1]
                 if line.strip() and len(entries) < MAX_ENTRIES:
-                    entries.append(line.strip())
-        if done:
+                    entries.append(printable(line.strip()))
+        if report['appended']:
             break
     if section is None:
         head.extend(pending)
@@ -281,28 +326,28 @@ def parse_report(lines):
     # 0.18. It is anchored to the start of a line, since the daily check of
     # Debian's aide-common writes lines of its own around the report. `aide
     # --update` compares like a check and then writes a new database, and says so
-    # in the next line, from report_level `summary` on.
-    if 'AIDE successfully initialized database.' in text or re.search(
-        r'^AIDE initialized database at ', text, re.MULTILINE
-    ):
+    # in the next line, from report_level `summary` on. `aide --compare` compares
+    # two databases instead of a database and the file system.
+    # Before aide 0.19.2, AIDE wrote file names with their control characters
+    # (CVE-2025-54389), and the "Entry ... in databases has different attributes"
+    # lines, which carry file names, come ahead of the outline. A file name with a
+    # line break could therefore forge a line there, so the last match counts.
+    # appended reports without any section end up in the head together
+    if len(OUTLINE_REGEX.findall(text)) > 1:
+        report['appended'] = True
+    match = last_match(OUTLINE_REGEX, text)
+    if match and match.group(1):
         report['action'] = 'init'
-    else:
-        match = re.search(
-            r'^AIDE found (NO )?differences between database and filesystem',
-            text,
-            re.MULTILINE,
-        )
+    elif match:
+        report['action'] = 'check'
+        report['compare'] = match.group(0).endswith('the two databases')
+        report['found'] = not match.group(2)
+        match = last_match(r'^New AIDE database written to (.+)$', text)
         if match:
-            report['action'] = 'check'
-            report['found'] = not match.group(1)
-            match = re.search(
-                r'^New AIDE database written to (.+)$', text, re.MULTILINE
-            )
-            if match:
-                report['action'] = 'update'
-                report['database_out'] = match.group(1).strip()
+            report['action'] = 'update'
+            report['database_out'] = match.group(1).strip()
 
-    match = START_REGEX.search(text)
+    match = last_match(START_REGEX, text)
     if match:
         report['start'] = match.group(1)
         report['version'] = match.group(2)
@@ -411,6 +456,18 @@ def main():
     perfdata = ''
 
     # analyze data
+    # With report_append=yes, AIDE writes every run behind the previous ones. Only
+    # the first report is parsed: taking a later one as the result would let a file
+    # name with a line break, which AIDE wrote unescaped before 0.19.2
+    # (CVE-2025-54389), forge a whole clean report further down.
+    if report['appended']:
+        lib.base.oao(
+            f'{REPORT} holds the reports of several AIDE runs. Set '
+            '`report_append=no` in the AIDE configuration, so that every run writes '
+            'a new report.',
+            STATE_UNKNOWN,
+            always_ok=args.ALWAYS_OK,
+        )
     if report['action'] is None:
         running = aide_running() if args.TEST is None else ''
         if running:
@@ -439,7 +496,7 @@ def main():
         # 8, 0.17.4 on Ubuntu 22.04, 0.18.3 on Debian 12 and 0.19.1 on Debian 13.
         msg += 'The last AIDE run aborted before it wrote its report'
         if text:
-            msg += ': ' + ' '.join(text.splitlines()[:3])[:200]
+            msg += ': ' + printable(' '.join(text.splitlines()[:3])[:200])
         msg += '. `journalctl --unit aidecheck.service` shows why.'
         if not text:
             msg += (
@@ -503,7 +560,11 @@ def main():
             f' {lib.human.seconds2human(age)} ago'
             f'{lib.base.state2str(age_state, prefix=" ")}'
         )
-    run = 'the update run' if report['action'] == 'update' else 'the check'
+    run = 'the check'
+    if report['action'] == 'update':
+        run = 'the update run'
+    elif report['compare']:
+        run = 'the comparison of two databases'
     if report['action'] == 'init':
         msg += f'AIDE initialized its database{ago}, no check has run since'
     elif accepted:

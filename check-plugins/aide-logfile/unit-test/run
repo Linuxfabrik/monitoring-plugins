@@ -42,6 +42,12 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #                  into the report and exits with 18
 #   empty          the same on aide 0.17 and newer, which leave the report empty
 #   json-debian13  `aide --check` with report_format=json
+# Written in containers with the distribution packages, against a small test tree:
+#   minimal-ubuntu2204   report_level=minimal
+#   verbose0-rocky8      verbose=0
+#   ungrouped-*          report_grouped=no (and summarize_changes=no on rocky8)
+#   compare-debian12     `aide --compare`
+#   appended-debian13    report_append=yes, an init and two checks in one file
 # The age of a report is measured against the real clock, so the fixed fixtures
 # switch the age check off with --max-age 0, and the age cases use reports that are
 # written below with a start relative to now. So are the reports too large to be
@@ -117,10 +123,10 @@ write_fixture(
         + 'a-rather-long-file-name-of-some-package/{}\n',
     ),
 )
-# report_level=minimal (aide 0.17 and newer): the outline and nothing else
+# a file name with an escape sequence, as aide before 0.19.2 wrote it
 write_fixture(
-    'generated-minimal',
-    'AIDE found differences between database and filesystem!!\n',
+    'generated-control-characters',
+    with_added(findings, 1, 'f++++++++++++++++++: /etc/\x1b[31mred\x1b[0m\n'),
 )
 # a report written without line breaks cannot fill the memory
 write_fixture('generated-no-line-breaks', 'x' * (1024 * 1024))
@@ -433,10 +439,10 @@ TESTS = [
         'assert-in': ['AIDE initialized its database 1D 6h ago [WARNING]'],
     },
     {
-        # report_level=minimal: the outline says that there are differences, but
-        # neither how many nor when
+        # report_level=minimal (aide 0.17 and newer): the outline says that there
+        # are differences, but neither how many nor when
         'id': 'warn-minimal-report',
-        'test': 'stdout/generated-minimal,,0',
+        'test': 'stdout/minimal-ubuntu2204,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found differences [WARNING] in the check. The report does not '
@@ -446,9 +452,71 @@ TESTS = [
     },
     {
         'id': 'ok-minimal-report-within-range',
-        'test': 'stdout/generated-minimal,,0',
+        'test': 'stdout/minimal-ubuntu2204,,0',
         'params': '--warning=5',
         'assert-retc': STATE_OK,
+    },
+    {
+        # verbose=0 on aide 0.16 still writes the summary, but no start timestamp
+        'id': 'warn-verbose-0-aide-0.16',
+        'test': 'stdout/verbose0-rocky8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'AIDE found 5 differences (1 added, 1 removed, 3 changed) [WARNING] in '
+            'the check\n'
+        ],
+        'assert-not-in': [' ago'],
+    },
+    {
+        # report_grouped=no: one list with all entries, report_summarize_changes=no:
+        # "added:", "removed:", "changed:" instead of the attribute summary
+        'id': 'warn-ungrouped-aide-0.16',
+        'test': 'stdout/ungrouped-rocky8,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Added, removed and changed entries:\n* changed: /data\n'
+            '* changed: /data/a.txt\n* removed: /data/b.txt\n* changed: /data/c.txt'
+            '\n* added: /data/new.txt\n\nThe details',
+        ],
+    },
+    {
+        'id': 'warn-ungrouped-aide-0.19',
+        'test': 'stdout/ungrouped-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Added, removed and changed entries:\n* d > ...   ..       : /data\n',
+            '* f++++++++++++++++++: /data/new.txt\n\nThe details',
+        ],
+    },
+    {
+        'id': 'warn-compare',
+        'test': 'stdout/compare-debian12,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'AIDE found 5 differences (1 added, 1 removed, 3 changed) [WARNING] in '
+            'the comparison of two databases'
+        ],
+    },
+    {
+        # report_append=yes: only the first report is read, see the plugin
+        'id': 'unknown-appended-reports',
+        'test': 'stdout/appended-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['holds the reports of several AIDE runs. Set `report_append=no`'],
+    },
+    {
+        # before aide 0.19.2 a file name could carry control characters
+        # (CVE-2025-54389): they must not reach the plugin output
+        'id': 'warn-control-characters-in-file-name',
+        'test': 'stdout/generated-control-characters,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['* f++++++++++++++++++: /etc/?[31mred?[0m'],
+        'assert-not-in': ['\x1b'],
     },
     {
         'id': 'warn-large-report',
