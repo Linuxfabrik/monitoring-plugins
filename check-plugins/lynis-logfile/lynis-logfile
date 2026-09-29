@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092801'
+__version__ = '2026092901'
 
 DESCRIPTION = """Evaluates the report of the lynis security audit that runs on the host once a
 day, for example through lynis.timer, and reports the hardening index, the findings (the
@@ -40,6 +40,8 @@ Requires root or sudo."""
 DEFAULT_CRIT = ''
 DEFAULT_MAX_AGE = 26
 DEFAULT_WARN = '65:'
+# the online documentation of this check
+DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/lynis-logfile/'
 
 
 def parse_args():
@@ -158,7 +160,7 @@ def main():
             lib.base.oao(
                 f'No lynis report found at {lib.lynis.REPORT}, so this host is not '
                 'being audited. Install lynis and enable a daily audit, for example '
-                '`systemctl enable --now lynis.timer`.',
+                '`sudo systemctl enable --now lynis.timer`.',
                 STATE_WARN,
                 always_ok=args.ALWAYS_OK,
             )
@@ -168,7 +170,7 @@ def main():
         if not success:
             lib.base.oao(
                 f'{text.rstrip(".")}. The report is readable by root only, so run the '
-                'check via sudo (see the README).',
+                f'check via sudo, see {DOCS_URL}.',
                 STATE_UNKNOWN,
                 always_ok=args.ALWAYS_OK,
             )
@@ -199,8 +201,8 @@ def main():
             )
         lib.base.oao(
             f'The lynis report {lib.lynis.REPORT} is incomplete, the last audit did not '
-            'finish. Look for the cause with `journalctl --unit lynis.service`, and '
-            'start a new audit with `systemctl start lynis.service`.',
+            'finish. Look for the cause with `sudo journalctl --unit lynis.service`, and '
+            'start a new audit with `sudo systemctl start lynis.service`.',
             STATE_WARN,
             always_ok=args.ALWAYS_OK,
         )

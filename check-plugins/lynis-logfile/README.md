@@ -128,7 +128,7 @@ sudo ./lynis-logfile --warning=70: --critical=50: --max-age=48
 
 ### `No lynis report found at /var/log/lynis-report.dat`
 
-No lynis audit has run on this host yet. Install lynis (from EPEL on the RHEL family, from the distribution on Debian and Ubuntu) and have it audit the host once a day, for example with `systemctl enable --now lynis.timer`. On the Red Hat family, create the timer first: the EPEL package only ships `lynis.service` and `lynis.timer` below `/usr/share/doc/lynis`.
+No lynis audit has run on this host yet. Install lynis (from EPEL on the RHEL family, from the distribution on Debian and Ubuntu) and have it audit the host once a day, for example with `sudo systemctl enable --now lynis.timer`. On the Red Hat family, create the timer first: the EPEL package only ships `lynis.service` and `lynis.timer` below `/usr/share/doc/lynis`.
 
 ### `The report is readable by root only`
 
@@ -136,12 +136,12 @@ The check does not run as root. Call it via `sudo`, as the `Lynis Service Set` a
 
 ### `The lynis report /var/log/lynis-report.dat is incomplete`
 
-The last audit did not finish, so the report lacks the hardening index and the end of the audit. `journalctl --unit lynis.service` shows why the audit stopped. Start a new audit with `systemctl start lynis.service` once the cause is fixed.
+The last audit did not finish, so the report lacks the hardening index and the end of the audit. `sudo journalctl --unit lynis.service` shows why the audit stopped. Start a new audit with `sudo systemctl start lynis.service` once the cause is fixed.
 
 ### The report is older than `--max-age`
 
-1. `systemctl list-timers lynis.timer` shows when the timer last ran and when it runs next. An inactive timer is not enabled: `systemctl enable --now lynis.timer`.
-2. `systemctl status lynis.service` and `journalctl --unit lynis.service` show whether the last run failed.
+1. `systemctl list-timers lynis.timer` shows when the timer last ran and when it runs next. An inactive timer is not enabled: `sudo systemctl enable --now lynis.timer`.
+2. `systemctl status lynis.service` and `sudo journalctl --unit lynis.service` show whether the last run failed.
 3. A host that was switched off for a while catches up after the next boot if the timer is `Persistent=true`.
 
 ### Accepting a finding you do not want to fix
