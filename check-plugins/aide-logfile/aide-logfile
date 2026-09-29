@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092907'
+__version__ = '2026092908'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -48,6 +48,8 @@ DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/aide-logfile/'
 # where the configurations that RHEL, Fedora and the LFOps aide role ship, and the one
 # of Debian's aide-common, keep the AIDE database
 DATABASES = ['/var/lib/aide/aide.db.gz', '/var/lib/aide/aide.db']
+# puts the database that `aide --init` or `aide --update` wrote into place
+MOVE_DATABASE = f'sudo mv {DATABASES[0][:-3]}.new.gz {DATABASES[0]}'
 # the check unit of the CIS benchmarks and the LFOps aide role
 UNITS = [
     '/etc/systemd/system/aidecheck.service',
@@ -541,7 +543,7 @@ def main():
             msg += (
                 f' AIDE has no database yet at {DATABASES[0]}. Create it once the host '
                 'is set up completely, with `sudo aide --config=/etc/aide.conf '
-                f'--init` and `sudo mv {DATABASES[0][:-3]}.new.gz {DATABASES[0]}`.'
+                f'--init && {MOVE_DATABASE}`.'
             )
             lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
         if args.TEST is None and not any(os.path.lexists(unit) for unit in UNITS):
@@ -661,9 +663,8 @@ def main():
         else:
             msg += (
                 f'\n\nThe details are in {REPORT}. Once the changes are known to be '
-                'legitimate, accept them with `sudo aide --update` and move the new '
-                'database over the old one (for example `aide.db.new.gz` to '
-                '`aide.db.gz`).'
+                'legitimate, accept them with `sudo aide --config=/etc/aide.conf '
+                f'--update && {MOVE_DATABASE}`.'
             )
     if in_progress:
         first, sep, rest = msg.partition('\n')
