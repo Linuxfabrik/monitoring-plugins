@@ -22,7 +22,7 @@ import lib.txt
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026091001'
+__version__ = '2026092801'
 
 DESCRIPTION = """Checks the event log entries exposed under the LogServices of a Redfish-compatible
 server via the Redfish API and alerts based on the severity of the log entries. By default it reads
@@ -43,32 +43,27 @@ DEFAULT_RETRIES = 3  # extra attempts on a failed Redfish request
 DEFAULT_TIMEOUT = 8
 DEFAULT_VERBOSE = False
 
-# Per-vendor LogService paths. The SEL (System Event Log) paths are exercised against the
-# fixtures/mockup; the MEL (management controller event log) paths are ported 1:1 from
-# bb-Ricardo/check_redfish and still need real-hardware verification, which is why --log-type
-# defaults to "sel". An empty string means "no known path for this vendor/log".
-LOG_PATHS = {
-    'ami': {'sel': '/LogServices/BIOS/Entries', 'mel': '/LogServices/EventLog/Entries'},
-    # Avigilon sells relabeled Dell servers, whose iDRAC keeps Dell's log paths. The bare
-    # '/LogServices' collection lists the logs, not their entries, and never alerts.
-    'avigilon': {
-        'sel': '/LogServices/Sel/Entries',
-        'mel': '/LogServices/Lclog/Entries',
-    },
-    'cisco': {'sel': '/LogServices/SEL/Entries', 'mel': '/LogServices/CIMC/Entries'},
-    'dell': {'sel': '/LogServices/Sel/Entries', 'mel': '/LogServices/Lclog/Entries'},
-    'generic': {'sel': '/LogServices/Log/Entries', 'mel': ''},
-    'hp': {'sel': '/LogServices/IML/Entries', 'mel': '/LogServices/IEL/Entries'},
-    'hpe': {'sel': '/LogServices/IML/Entries', 'mel': '/LogServices/IEL/Entries'},
-    'lenovo': {
-        'sel': '/LogServices/ActiveLog/Entries',
-        'mel': '/LogServices/StandardLog/Entries',
-    },
-    'supermicro': {'sel': '/LogServices/Log1/Entries', 'mel': ''},
-    'ts_fujitsu': {
-        'sel': '/LogServices/SystemEventLog/Entries',
-        'mel': '/LogServices/InternalEventLog/Entries',
-    },
+# Per-vendor Ids of the LogService that holds the SEL (System Event Log) and the MEL
+# (management controller event log), in order of preference. The check does not build a
+# path from them: it looks them up among the LogServices the managers and systems
+# advertise, because vendors keep the same log in different places (HPE the IML under
+# Systems, the IEL under Managers). Where no Id matches, the SEL is the log service of
+# type "SEL". The SEL Ids are exercised against fixtures and mockups; the MEL Ids are
+# ported 1:1 from bb-Ricardo/check_redfish and still need real-hardware verification,
+# which is why --log-type defaults to "sel". An empty list means "no known log".
+LOG_SERVICE_IDS = {
+    'ami': {'sel': ['BIOS'], 'mel': ['EventLog']},
+    # Avigilon sells relabeled Dell servers, whose iDRAC keeps Dell's logs
+    'avigilon': {'sel': ['Sel'], 'mel': ['Lclog']},
+    'cisco': {'sel': ['SEL'], 'mel': ['CIMC']},
+    'dell': {'sel': ['Sel'], 'mel': ['Lclog']},
+    # the DMTF mockups name the SEL "Log", "Log1" or "SEL"
+    'generic': {'sel': ['Log', 'Log1', 'SEL'], 'mel': []},
+    'hp': {'sel': ['IML'], 'mel': ['IEL']},
+    'hpe': {'sel': ['IML'], 'mel': ['IEL']},
+    'lenovo': {'sel': ['ActiveLog'], 'mel': ['StandardLog']},
+    'supermicro': {'sel': ['Log1'], 'mel': []},
+    'ts_fujitsu': {'sel': ['SystemEventLog'], 'mel': ['InternalEventLog']},
 }
 
 
@@ -316,86 +311,144 @@ def main():
         )
     )
     vendor = lib.redfish.get_vendor(result)
-    entry_point = 'Systems' if vendor == 'supermicro' else 'Managers'
-    # Entry point: the Managers (or Systems for Supermicro) collection, read in
-    # one request via the Redfish $expand query and cached by the lib fetch
-    # layer so a sibling Redfish check reading the same collection reuses it
-    # within the cache window.
-    entry_url = f'{args.URL}{API_BASE}/{entry_point}'
-    result = lib.base.coe(
-        lib.redfish.fetch_collection(
-            entry_url,
-            expand=expand,
-            header=header,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
-            retries=args.RETRIES,
-            cache_expire=cache_expire,
-        )
-    )
+    fetch_args = {
+        'header': header,
+        'insecure': args.INSECURE,
+        'no_proxy': args.NO_PROXY,
+        'proxy': args.PROXY,
+        'timeout': args.TIMEOUT,
+        'retries': args.RETRIES,
+        'cache_expire': cache_expire,
+    }
 
-    # "Members": [
-    #     {
-    #         "@odata.id": "/redfish/v1/Managers/BMC"
-    #     }
-    # ],
-    if len(result.get('Members', [])) == 0:
-        lib.base.cu('Nothing to check, no Redfish members found.')
+    # collect every log service the managers and systems advertise. Only advertised
+    # links are followed: a controller may let a request for a resource it does not
+    # have run into the timeout (#1372). The collections are read in one request each
+    # via the Redfish $expand query and cached by the lib fetch layer, so the sibling
+    # Redfish checks on this host reuse them within the cache window.
+    log_services = []  # (member path, log service)
+    for collection in ('Managers', 'Systems'):
+        success, result = lib.redfish.fetch_collection(
+            f'{args.URL}{API_BASE}/{collection}', expand=expand, **fetch_args
+        )
+        if not success or not isinstance(result, dict):
+            continue
+        success, members = lib.redfish.fetch_members(
+            result.get('Members', []), args.URL, **fetch_args
+        )
+        if not success:
+            continue
+        for member in members:
+            link = member.get('LogServices') if isinstance(member, dict) else None
+            if not isinstance(link, dict) or not link.get('@odata.id'):
+                continue
+            url = lib.redfish.build_url(args.URL, link['@odata.id'])
+            if not url[0]:
+                continue
+            success, services = lib.redfish.fetch_collection(
+                url[1], expand=expand, **fetch_args
+            )
+            if not success or not isinstance(services, dict):
+                continue
+            success, services = lib.redfish.fetch_members(
+                services.get('Members', []), args.URL, **fetch_args
+            )
+            if not success:
+                continue
+            log_services += [
+                (member.get('@odata.id', ''), service)
+                for service in services
+                if isinstance(service, dict)
+            ]
 
     # init some vars
     msg = ''
     state = STATE_OK
     perfdata = ''
-    member_count = 0
     aged_out_total = 0
+    members_read = set()
 
-    # resolve which log path(s) to read for this vendor and --log-type
-    paths = LOG_PATHS.get(vendor, {'sel': '', 'mel': ''})
+    # pick the log services to read for this vendor and --log-type
+    service_ids = LOG_SERVICE_IDS.get(vendor, LOG_SERVICE_IDS['generic'])
     wanted = ['sel', 'mel'] if args.LOG_TYPE == 'both' else [args.LOG_TYPE]
-    logs = [(label, paths.get(label, '')) for label in wanted if paths.get(label)]
     log_label = {'sel': 'SEL', 'mel': 'MEL', 'both': 'SEL and MEL'}[args.LOG_TYPE]
+    logs = []  # (label, member path, log service)
+    missing = []  # requested logs the controller does not advertise
+    for label in wanted:
+        found = []
+        for service_id in service_ids.get(label, []):
+            found = [
+                (member_path, service)
+                for member_path, service in log_services
+                if str(service.get('Id', '')).lower() == service_id.lower()
+            ]
+            if found:
+                break
+        if not found and label == 'sel':
+            found = [
+                (member_path, service)
+                for member_path, service in log_services
+                if service.get('LogEntryType') == 'SEL'
+            ]
+        logs += [(label, member_path, service) for member_path, service in found]
+        if not found:
+            missing.append(label.upper())
 
-    # analyze data: follow each "Member" link and aggregate the selected log
-    # entries' severity into `state`.
-    for member in result.get('Members', []):
-        if not logs:
+    # a controller without the requested log must not pass as "no entries"
+    if not logs:
+        offered = sorted(
+            str(service.get('@odata.id', service.get('Id', '')))
+            for _, service in log_services
+        )
+        msg = (
+            f'The controller advertises no {log_label}.'
+            f' Logs it offers: {", ".join(offered) if offered else "none"}.'
+        )
+        if args.VERBOSE:
+            msg += '\n\n' + lib.redfish.format_responses()
+        lib.base.oao(msg, STATE_UNKNOWN, always_ok=args.ALWAYS_OK)
+
+    # analyze data: read the entries of each selected log and aggregate their
+    # severity into `state`
+    for label, member_path, service in logs:
+        service_path = service.get('@odata.id', member_path)
+        entries_link = service.get('Entries')
+        if not isinstance(entries_link, dict) or not entries_link.get('@odata.id'):
             continue
-        member_count += 1
-        for label, path in logs:
-            # a missing or unknown log path must not abort the check.
-            # fetch_collection asks the controller to inline the log entries
-            # via the Redfish $expand query, so a long log is read in one
-            # request even on controllers that list entries as references.
-            success, entries = lib.redfish.fetch_collection(
-                lib.base.coe(
-                    lib.redfish.build_url(args.URL, f'{member["@odata.id"]}{path}')
-                ),
-                expand=expand,
-                header=header,
-                insecure=args.INSECURE,
-                no_proxy=args.NO_PROXY,
-                proxy=args.PROXY,
-                timeout=args.TIMEOUT,
-                retries=args.RETRIES,
-                cache_expire=cache_expire,
+        members_read.add(member_path)
+        # fetch_collection asks the controller to inline the log entries via the
+        # Redfish $expand query, so a long log is read in one request even on
+        # controllers that list entries as references.
+        success, entries = lib.redfish.fetch_collection(
+            lib.base.coe(lib.redfish.build_url(args.URL, entries_link['@odata.id'])),
+            expand=expand,
+            **fetch_args,
+        )
+        if not success or not isinstance(entries, dict):
+            # an advertised log that cannot be read is not an empty one
+            msg += f'{service_path} ({label.upper()})\nNot readable: {entries}\n\n'
+            state = lib.base.get_worst(state, STATE_UNKNOWN)
+            continue
+        member_msg, member_state, member_aged = (
+            lib.redfish.get_manager_logservices_sel_entries(
+                entries,
+                match=match_patterns,
+                ignore=ignore_patterns,
+                cutoff_epoch=cutoff_epoch,
             )
-            if not success or not isinstance(entries, dict):
-                entries = {}
-            member_msg, member_state, member_aged = (
-                lib.redfish.get_manager_logservices_sel_entries(
-                    entries,
-                    match=match_patterns,
-                    ignore=ignore_patterns,
-                    cutoff_epoch=cutoff_epoch,
-                )
-            )
-            aged_out_total += member_aged
-            if member_msg:
-                # build the message
-                msg += f'{member["@odata.id"]} ({label.upper()})\n{member_msg}\n\n'
-                state = lib.base.get_worst(state, member_state)
+        )
+        aged_out_total += member_aged
+        if member_msg:
+            # build the message
+            msg += f'{service_path} ({label.upper()})\n{member_msg}\n\n'
+            state = lib.base.get_worst(state, member_state)
+    member_count = len(members_read)
+    if missing:
+        # --log-type=both on a controller that offers only one of the two logs
+        msg = f'The controller advertises no {" and ".join(missing)}.\n\n' + msg
+        log_label = ' and '.join(
+            label.upper() for label in wanted if label.upper() not in missing
+        )
 
     members = lib.txt.pluralize('member', member_count)
     aged = f' {aged_out_total} aged out.' if aged_out_total else ''

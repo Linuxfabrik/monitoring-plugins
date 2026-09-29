@@ -77,6 +77,7 @@ Monitoring Plugins:
 * postfix-logfile: reads the journal of Postfix on Debian and Ubuntu
 * postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect
+* redfish-logservices: reads the SEL of HPE servers, and reports a controller without the requested log instead of calling it ok
 * redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, distinct perfdata for alike named sensors
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes
 * service: names a refused service list instead of ending in a Python error

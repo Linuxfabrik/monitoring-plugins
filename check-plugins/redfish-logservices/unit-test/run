@@ -128,7 +128,103 @@ TESTS = [
         'test': 'stdout/empty-sel,,0',
         'params': f'{COMMON} --verbose',
         'assert-retc': STATE_OK,
-        'assert-in': ['### GET /redfish/v1/Managers/iDRAC.Embedded.1/LogServices/Sel/Entries'],
+        'assert-in': [
+            '### GET /redfish/v1/Managers/iDRAC.Embedded.1/LogServices/Sel/Entries'
+        ],
+    },
+    {
+        # HPE iLO keeps the SEL (IML) under Systems and the MEL (IEL) under Managers.
+        # The check has to find the IML where the controller advertises it instead of
+        # asking the manager for it and reading nothing.
+        'id': 'crit-hpe-iml-under-systems',
+        'test': 'stdout/hpe-iml-under-systems,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Checked SEL on 1 member. There are critical errors.',
+            '/redfish/v1/Systems/1/LogServices/IML (SEL)',
+            'Uncorrectable Memory Error',
+        ],
+    },
+    {
+        'id': 'ok-hpe-iel-under-managers',
+        'test': 'stdout/hpe-iml-under-systems,,0',
+        'params': f'{COMMON} --log-type=mel',
+        'assert-retc': STATE_OK,
+        'assert-in': ['Everything is ok. Checked MEL on 1 member.'],
+        'assert-not-in': ['Uncorrectable Memory Error'],
+    },
+    {
+        'id': 'crit-hpe-both-logs-on-two-members',
+        'test': 'stdout/hpe-iml-under-systems,,0',
+        'params': f'{COMMON} --log-type=both',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['Checked SEL and MEL on 2 members. There are critical errors.'],
+    },
+    {
+        # A controller that advertises no SEL must not pass as one without entries.
+        'id': 'unknown-no-sel-advertised',
+        'test': 'stdout/hpe-no-sel-advertised,,0',
+        'params': COMMON,
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': [
+            'The controller advertises no SEL.'
+            ' Logs it offers: /redfish/v1/Managers/1/LogServices/IEL.',
+        ],
+    },
+    {
+        # --log-type=both on a controller that offers only one of the two logs reads
+        # that one and says which is missing, instead of claiming to have read both.
+        'id': 'ok-both-logs-one-missing',
+        'test': 'stdout/hpe-no-sel-advertised,,0',
+        'params': f'{COMMON} --log-type=both',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked MEL on 1 member.',
+            'The controller advertises no SEL.',
+        ],
+        'assert-not-in': ['SEL and MEL'],
+    },
+    # The dmtf-dsp2043-* fixtures are taken from DMTF DSP2043 2026.2 (Redfish Resource
+    # and Schema Guide mockups, Copyright 2015-2026 DMTF), trimmed to the responses the
+    # check requests.
+    {
+        # public-catfish: the SEL sits below the system, named "SEL" and without a
+        # LogEntryType, like the HPE IML. Reading the manager alone finds nothing.
+        'id': 'crit-dmtf-catfish-sel-under-systems',
+        'test': 'stdout/dmtf-dsp2043-catfish,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Checked SEL on 1 member. There are critical errors.',
+            '/redfish/v1/Systems/1/LogServices/SEL (SEL)',
+            'Temperature threshold exceeded [CRITICAL]',
+        ],
+    },
+    {
+        # public-bladed: five managers, one log each. A blade's warning and the
+        # enclosure's critical entry are both reported, the worst decides.
+        'id': 'crit-dmtf-bladed-five-managers',
+        'test': 'stdout/dmtf-dsp2043-bladed,,0',
+        'params': COMMON,
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Checked SEL on 5 members. There are critical errors.',
+            'Fan 2 crossed Lower Fatal Threshold',
+            '/redfish/v1/Managers/Blade3BMC/LogServices/Log (SEL)',
+            'CPU temperature crossed Upper Non Critical Threshold [WARNING]',
+        ],
+    },
+    {
+        # public-telemetry: the manager names its SEL "Log1", and it is empty.
+        'id': 'ok-dmtf-telemetry-empty-log1',
+        'test': 'stdout/dmtf-dsp2043-telemetry,,0',
+        'params': f'{COMMON} --verbose',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Everything is ok. Checked SEL on 1 member.',
+            '### GET /redfish/v1/Managers/1/LogServices/Log1/Entries',
+        ],
     },
     {
         # A missing fixture must surface as STATE_UNKNOWN with a

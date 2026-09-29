@@ -14,8 +14,10 @@ Checks the event log entries exposed under the LogServices of a Redfish-compatib
 
 **Data Collection:**
 
-* Reads the service root to detect the vendor, then queries the `Managers` collection (or `Systems` on Supermicro) to locate the log service
-* Reads the SEL log entries and evaluates each entry's severity
+* Reads the service root to detect the vendor, then collects the log services every manager and system advertises. Vendors keep the same log in different places, HPE for example the SEL (IML) under `Systems` and the management controller log (IEL) under `Managers`
+* Picks the log by its Id per vendor (Dell `Sel`/`Lclog`, HPE `IML`/`IEL`, Lenovo `ActiveLog`/`StandardLog` and so on). Where no Id matches, the SEL is the log service of type `SEL`
+* Follows only the links the controller advertises, so a controller that lets a request for a missing resource run into the timeout does not stall the check
+* Reads the entries of the selected logs and evaluates each entry's severity
 * Reads each collection in a single request via the Redfish `$expand` query where the controller supports it, otherwise falls back to one request per member
 * Uses HTTP Basic authentication if `--username` and `--password` are provided
 
@@ -155,6 +157,9 @@ Checked SEL on 1 member. There are critical errors.
 * OK if no log entry has a severity above OK.
 * WARN if a log entry has severity "Warning".
 * CRIT if a log entry has severity "Critical".
+* UNKNOWN if the controller advertises none of the requested logs. The output lists the logs it offers.
+* With `--log-type=both`, a log the controller does not advertise is named in the output; the state comes from the other log.
+* UNKNOWN if an advertised log cannot be read, unless another log is WARN or CRIT.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
