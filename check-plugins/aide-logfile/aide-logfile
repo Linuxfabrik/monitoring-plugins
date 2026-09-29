@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092910'
+__version__ = '2026092912'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -82,6 +82,43 @@ GROUPS = {
     'Added entries': 'added',
     'Changed entries': 'changed',
     'Removed entries': 'removed',
+}
+
+# The change summary of AIDE in front of each entry (report_summarize_changes):
+# get_summarize_changes_string() in src/report.c since aide 0.17, print_line() in
+# src/compare_db.c of aide 0.16. The first 13 positions are the same in every version,
+# the checksums show as `C` on aide 0.16 and as `H` later. The positions after them
+# depend on what AIDE was built with, their letters are unique, `C` stands for the
+# capabilities there (aide 0.17 and newer). Verified against the aide sources of
+# 0.16.2, 0.17.4, 0.18, 0.19.2 and master.
+# the file type AIDE puts first: `f` file, `d` directory, `l` symlink, `c`/`b`
+# character/block device, `p` FIFO, `s` socket, `D` door, `P` event port, `!` type
+# changed, `?` unknown
+FILE_TYPES = set('!?DPbcdflps')
+SUMMARY_POSITIONS = [
+    'file type',
+    'link target',
+    'size',
+    'block count',
+    'permissions',
+    'owner',
+    'group',
+    'access time',
+    'modification time',
+    'change time',
+    'inode',
+    'link count',
+    'content',
+]
+# everything that can follow the file type in a change summary
+SUMMARY_CHARS = set(' +-.:<=>ACEFHSXabcgilmnpu')
+SUMMARY_LETTERS = {
+    'A': 'ACL',
+    'C': 'capabilities',
+    'E': 'file attributes',
+    'F': 'file system type',
+    'S': 'SELinux context',
+    'X': 'extended attributes',
 }
 
 # A section of the report starts with a headline, for example
@@ -227,6 +264,64 @@ def last_match(regex, text):
         regex = re.compile(regex, re.MULTILINE)
     matches = list(regex.finditer(text))
     return matches[-1] if matches else None
+
+
+def describe_entry(line, grouped):
+    """Translate an entry of the lists into words, for example
+    `f > ...   ..H.. . : /etc/hosts` into `f: /etc/hosts: grew, content`. The code in
+    front of the file name is the change summary of AIDE (report_summarize_changes):
+    the file type, then one character per attribute, a letter if it changed, `.` or
+    `=` if not, ` ` if not checked, `+` or `-` if a rule started or stopped checking
+    it, `:` if it changed but is ignored. A line without a summary (added:, removed:,
+    changed:) is returned as it is.
+    """
+    match = re.match(r'^(.+?): (/.*)$', line)
+    if not match:
+        return line
+    summary, path = match.group(1), match.group(2)
+    if (
+        len(summary) < 2
+        or summary[0] not in FILE_TYPES
+        or not set(summary[1:]) <= SUMMARY_CHARS
+    ):
+        return line
+    # the file type stays AIDE's letter, the admin reads it in front of the path
+    prefix = f'{summary[0]}: {path}'
+    if set(summary[1:]) == {'+'}:
+        return prefix if grouped else f'{prefix} (added)'
+    if set(summary[1:]) == {'-'}:
+        return prefix if grouped else f'{prefix} (removed)'
+    changes = []
+    for position, char in enumerate(summary):
+        if position == 0:
+            if char == '!':
+                changes.append('file type changed')
+            continue
+        if char in ' .=:':
+            continue
+        # the first 13 positions are fixed, the rest depend on the build of AIDE
+        # and are told apart by their letter
+        if position < len(SUMMARY_POSITIONS):
+            name = SUMMARY_POSITIONS[position]
+        else:
+            name = SUMMARY_LETTERS.get(char.upper() if char in '+-' else char, '')
+            if char in '+-':
+                name = ''
+        if char == '+':
+            changes.append(f'{name} now checked' if name else 'more attributes checked')
+        elif char == '-':
+            changes.append(
+                f'{name} no longer checked' if name else 'fewer attributes checked'
+            )
+        elif position == 2:
+            changes.append('grew' if char == '>' else 'shrank')
+        elif position == 10:
+            changes.append('replaced (new inode)')
+        else:
+            changes.append(name)
+    if not changes:
+        return line
+    return f'{prefix}: {", ".join(changes)}'
 
 
 def printable(text):
@@ -406,7 +501,9 @@ def get_entries_msg(report):
         key = GROUPS.get(title)
         count = report[key] if key else sum(report[key] or 0 for key in GROUPS.values())
         count = max(count or 0, len(lines))
-        section = f'{title}:\n' + '\n'.join(f'* {line}' for line in lines)
+        section = f'{title}:\n' + '\n'.join(
+            f'* {describe_entry(line, key is not None)}' for line in lines
+        )
         if count > len(lines):
             section += f'\n* ... and {count - len(lines)} more'
         sections.append(section)
@@ -625,13 +722,15 @@ def main():
             f' {lib.human.seconds2human(age)} ago'
             f'{lib.base.state2str(age_state, prefix=" ")}'
         )
-    run = 'the check'
+    # a regular AIDE check needs no words, "in the check" would read as the check of
+    # this monitoring plugin
+    run = ''
     if report['action'] == 'update':
-        run = 'the update run'
+        run = ' in an update run'
     elif report['compare']:
-        run = 'the comparison of two databases'
+        run = ' comparing two databases'
     if report['action'] == 'init':
-        msg += f'AIDE initialized its database{ago}, no check has run since'
+        msg += f'AIDE initialized its database{ago}, no AIDE check has run since'
     elif accepted:
         msg += f'AIDE updated its database{ago}'
         if differences:
@@ -641,11 +740,11 @@ def main():
                 f' ({report["added"]} added, {report["removed"]} removed, '
                 f'{report["changed"]} changed)'
             )
-        msg += ', no check has run since'
+        msg += ', no AIDE check has run since'
     elif differences is None:
         msg += (
             f'AIDE found differences'
-            f'{lib.base.state2str(differences_state, prefix=" ")} in {run}{ago}. '
+            f'{lib.base.state2str(differences_state, prefix=" ")}{run}{ago}. '
             'The report does not tell how many, set `report_level=summary` or '
             'higher in the AIDE configuration'
         )
@@ -654,10 +753,10 @@ def main():
             f'AIDE found {differences} {lib.txt.pluralize("difference", differences)}'
             f' ({report["added"]} added, {report["removed"]} removed, '
             f'{report["changed"]} changed)'
-            f'{lib.base.state2str(differences_state, prefix=" ")} in {run}{ago}'
+            f'{lib.base.state2str(differences_state, prefix=" ")}{run}{ago}'
         )
     else:
-        msg += f'AIDE found no differences in {run}{ago}'
+        msg += f'AIDE found no differences{run}{ago}'
     if age_state != STATE_OK:
         msg += (
             f'\n\nThe last AIDE run started at {lib.time.epoch2iso(started)}, which '

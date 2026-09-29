@@ -19,7 +19,7 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 **Data Collection:**
 
 * Reads the report line by line and keeps no more than its summary and the first entries of its lists, so a report of many megabytes costs little memory. It reads 16 MiB at most. A list that starts beyond that is counted, but not listed.
-* The number of added, removed and changed entries comes from the summary of the report. Of each list, the first 10 entries are shown, with the attribute summary AIDE puts in front of each file name, for example `f > ...   ..H.. . : /etc/hosts` for a file that grew and whose checksum changed. `man aide.conf`, section `report_summarize_changes` (`summarize_changes` on AIDE 0.16), explains the letters. Control characters in file names, which AIDE before 0.19.2 wrote as they are, are shown as `?`.
+* The number of added, removed and changed entries comes from the summary of the report. Of each list, the first 10 entries are shown, each with the file type in front (`f` file, `d` directory, `l` symlink, `c`/`b` character/block device, `p` FIFO, `s` socket, `!` type changed). For a changed entry, the check puts into words what AIDE's change summary (`report_summarize_changes`, `summarize_changes` on AIDE 0.16) encodes: AIDE's `f > ...   ..H.. . : /etc/hosts` becomes `f: /etc/hosts: grew, content`, and `d = ...   i.  ... : /boot/efi` becomes `d: /boot/efi: replaced (new inode)`, a directory or file that was deleted and created anew. Control characters in file names, which AIDE before 0.19.2 wrote as they are, are shown as `?`.
 * The age is the time since the start of the AIDE run, as AIDE records it in the report (`Start timestamp`). A report without that line falls back to the modification time of the file.
 * While the report is empty or incomplete, the check looks for a running `aide` process to tell a run in progress from one that aborted.
 
@@ -87,19 +87,19 @@ sudo ./aide-logfile
 ```
 
 ```text
-AIDE found 6 differences (2 added, 1 removed, 3 changed) [WARNING] in the check 2h 13m ago
+AIDE found 6 differences (2 added, 1 removed, 3 changed) [WARNING] 2h 13m ago
 
 Added entries:
-* f++++++++++++++++++: /etc/sudoers.d/zz-linuxfabrik
-* f++++++++++++++++++: /usr/local/bin/linuxfabrik-suid
+* f: /etc/sudoers.d/zz-linuxfabrik
+* f: /usr/local/bin/linuxfabrik-suid
 
 Removed entries:
-* f------------------: /etc/issue.net
+* f: /etc/issue.net
 
 Changed entries:
-* f > ...   ..H.. .  : /etc/hosts
-* f = p..   ...A. .  : /etc/sudoers.d/README
-* f = p..   ...A. .  : /etc/sudoers.d/user
+* f: /etc/hosts: grew, content
+* f: /etc/sudoers.d/README: permissions, ACL
+* f: /etc/sudoers.d/user: permissions, ACL
 
 The details are in /var/log/aide/aide.log. Once the changes are known to be legitimate, accept them with `sudo aide --config=/etc/aide.conf --update && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`.
 ```
@@ -107,7 +107,7 @@ The details are in /var/log/aide/aide.log. Once the changes are known to be legi
 A host without differences:
 
 ```text
-AIDE found no differences in the check 3h 4m ago
+AIDE found no differences 3h 4m ago
 ```
 
 Alert as critical on the first difference, and accept a report of up to two days:
@@ -120,7 +120,7 @@ sudo ./aide-logfile --critical=0 --max-age=48
 ## States
 
 * OK if the last AIDE run found no differences, and the report is not older than `--max-age`.
-* OK if AIDE initialized its database, or updated it and the new database replaced the old one, and no check has run since, as long as that is not longer ago than `--max-age`.
+* OK if AIDE initialized its database, or updated it and the new database replaced the old one, and no AIDE check has run since, as long as that is not longer ago than `--max-age`.
 * WARN if the last AIDE check found differences, or an update run whose new database has not replaced the old one yet (`--warning`, default: `0`, so the first difference counts).
 * CRIT if the number of differences exceeds `--critical` (empty by default, so CRIT is never raised unless a threshold is set). `--warning` and `--critical` take Nagios ranges on the number of differences.
 * WARN if the AIDE run started more than `--max-age` hours ago (default: 26), because the regular check has then stopped. `--max-age 0` switches this off.

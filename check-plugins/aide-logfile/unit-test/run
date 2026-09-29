@@ -128,6 +128,28 @@ write_fixture(
     'generated-control-characters',
     with_added(findings, 1, 'f++++++++++++++++++: /etc/\x1b[31mred\x1b[0m\n'),
 )
+# change summaries as AIDE writes them: the first two lines from a Fedora 44 host
+# (aide 0.19.2), where only the inode changed; a checksum as `C` (aide 0.16) and as
+# `H` (aide 0.17 and newer); capabilities, which aide 0.17 and newer write as `C`
+# behind the fixed positions; a changed file type; and attributes that a changed rule
+# checks now
+write_fixture(
+    'generated-summaries',
+    'Start timestamp: 2026-09-29 20:59:36 +0200 (AIDE 0.19.2)\n'
+    'AIDE found differences between database and filesystem!!\n\n'
+    'Summary:\n  Total number of entries:\t100\n  Added entries:\t\t0\n'
+    '  Removed entries:\t\t0\n  Changed entries:\t\t7\n\n'
+    '---------------------------------------------------\n'
+    'Changed entries:\n'
+    '---------------------------------------------------\n\n'
+    'd = ...   i.  ... : /boot/efi/EFI/fedora/fw\n'
+    'f = ...   i...... : /etc/systemd/system.control/user-0.slice.d/50-IOWeight.conf\n'
+    'f = ...   ..C....: /usr/bin/checksum-016\n'
+    'f = ...   ..H.. .  : /usr/bin/checksum-019\n'
+    'f = .u.   ..... ..C  : /usr/bin/ping\n'
+    '! = ...   ..... .    : /etc/was-a-file\n'
+    'f = ...   ..+.. .  : /etc/rule-changed\n',
+)
 # a report written without line breaks cannot fill the memory
 write_fixture('generated-no-line-breaks', 'x' * (1024 * 1024))
 
@@ -167,7 +189,7 @@ TESTS = [
         'test': 'stdout/clean-rocky8,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_OK,
-        'assert-in': ['AIDE found no differences in the check '],
+        'assert-in': ['AIDE found no differences '],
         'assert-regex': r"\|'added'=0;;;0 'changed'=0;;;0 'differences'=0;0;;0 "
         r"'entries'=35759;;;0 'removed'=0;;;0$",
     },
@@ -198,15 +220,14 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [WARNING] in '
-            'the check ',
+            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [WARNING] ',
             'Added entries:\n'
-            '* f++++++++++++++++: /etc/sudoers.d/zz-linuxfabrik\n'
-            '* f++++++++++++++++: /usr/local/bin/linuxfabrik-suid\n\n'
+            '* f: /etc/sudoers.d/zz-linuxfabrik\n'
+            '* f: /usr/local/bin/linuxfabrik-suid\n\n'
             'Removed entries:\n'
-            '* f----------------: /etc/issue.net\n\n'
+            '* f: /etc/issue.net\n\n'
             'Changed entries:\n'
-            '* f > ...   ..C....: /etc/hosts\n',
+            '* f: /etc/hosts: grew, content\n',
             'The details are in /var/log/aide/aide.log.',
         ],
         # the details and the attributes of the database are not repeated
@@ -220,7 +241,7 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 4 differences (2 added, 1 removed, 1 changed) [WARNING]',
-            '* f > ...   ..H.. . : /etc/hosts',
+            '* f: /etc/hosts: grew, content',
         ],
     },
     {
@@ -230,7 +251,7 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 4 differences (2 added, 1 removed, 1 changed) [WARNING]',
-            '* f+++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
+            '* f: /usr/local/bin/linuxfabrik-suid',
         ],
     },
     {
@@ -240,7 +261,7 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 6 differences (2 added, 1 removed, 3 changed) [WARNING]',
-            '* f = p..   ...A. .  : /etc/sudoers.d/user',
+            '* f: /etc/sudoers.d/user: permissions, ACL',
         ],
         'assert-regex': r"\|'added'=2;;;0 'changed'=3;;;0 'differences'=6;0;;0 "
         r"'entries'=24356;;;0 'removed'=1;;;0$",
@@ -281,7 +302,7 @@ TESTS = [
         'test': 'stdout/init-rocky8,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_OK,
-        'assert-in': ['AIDE initialized its database ', 'no check has run since'],
+        'assert-in': ['AIDE initialized its database ', 'no AIDE check has run since'],
         'assert-regex': r"\|'entries'=35759;;;0$",
     },
     {
@@ -308,8 +329,8 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 7 differences (2 added, 1 removed, 4 changed) [WARNING] in '
-            'the update run ',
-            '* f++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
+            'an update run ',
+            '* f: /usr/local/bin/linuxfabrik-suid',
             'The run wrote a new database (',
             '/aide.db.new.gz), which accepts the differences only once it replaces '
             'the old one.',
@@ -332,8 +353,8 @@ TESTS = [
         'assert-retc': STATE_OK,
         'assert-in': [
             'AIDE updated its database ',
-            ' and accepted 7 differences (2 added, 1 removed, 4 changed), no check '
-            'has run since',
+            ' and accepted 7 differences (2 added, 1 removed, 4 changed), no AIDE '
+            'check has run since',
         ],
         'assert-not-in': ['Added entries:', 'differences=', '[WARNING]'],
         'assert-regex': r"\|'entries'=35760;;;0$",
@@ -350,7 +371,7 @@ TESTS = [
         'test': 'stdout/generated-update-not-a-database,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_WARN,
-        'assert-in': ['in the update run '],
+        'assert-in': ['in an update run '],
     },
     {
         # the daily check of Debian's aide-common: an update run by default that
@@ -363,8 +384,9 @@ TESTS = [
         'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 14 differences (0 added, 12 removed, 2 changed) [WARNING] '
-            'in the update run ',
-            '* ... and 2 more\n\nChanged entries:\n* f >.... mc..H.. .  : /etc/hosts',
+            'in an update run ',
+            '* ... and 2 more\n\nChanged entries:\n'
+            '* f: /etc/hosts: grew, modification time, change time, content',
         ],
         'assert-not-in': ['Added entries:'],
     },
@@ -413,14 +435,14 @@ TESTS = [
         'test': 'stdout/generated-1h-old,,0',
         'assert-retc': STATE_OK,
         # the report was written a moment before the plugin runs
-        'assert-regex': r'AIDE found no differences in the check 1h(?: \d+s)? ago\|',
+        'assert-regex': r'AIDE found no differences 1h(?: \d+s)? ago\|',
     },
     {
         'id': 'warn-stale-report',
         'test': 'stdout/generated-30h-old,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found no differences in the check 1D 6h ago [WARNING]',
+            'AIDE found no differences 1D 6h ago [WARNING]',
             'which is more than 26h ago',
             '`systemctl list-timers aidecheck.timer`',
         ],
@@ -445,7 +467,7 @@ TESTS = [
         'test': 'stdout/minimal-ubuntu2204,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found differences [WARNING] in the check. The report does not '
+            'AIDE found differences [WARNING]. The report does not '
             'tell how many, set `report_level=summary`',
         ],
         'assert-not-in': [' ago', '|'],
@@ -462,8 +484,7 @@ TESTS = [
         'test': 'stdout/verbose0-rocky8,,0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 5 differences (1 added, 1 removed, 3 changed) [WARNING] in '
-            'the check\n'
+            'AIDE found 5 differences (1 added, 1 removed, 3 changed) [WARNING]\n'
         ],
         'assert-not-in': [' ago'],
     },
@@ -486,8 +507,9 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'Added, removed and changed entries:\n* d > ...   ..       : /data\n',
-            '* f++++++++++++++++++: /data/new.txt\n\nThe details',
+            'Added, removed and changed entries:\n* d: /data: grew\n',
+            '* f: /data/b.txt (removed)\n',
+            '* f: /data/c.txt: permissions\n* f: /data/new.txt (added)\n\nThe details',
         ],
     },
     {
@@ -496,8 +518,8 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 5 differences (1 added, 1 removed, 3 changed) [WARNING] in '
-            'the comparison of two databases'
+            'AIDE found 5 differences (1 added, 1 removed, 3 changed) [WARNING] '
+            'comparing two databases'
         ],
     },
     {
@@ -509,13 +531,30 @@ TESTS = [
         'assert-in': ['holds the reports of several AIDE runs. Set `report_append=no`'],
     },
     {
+        'id': 'warn-change-summaries-in-words',
+        'test': 'stdout/generated-summaries,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'Changed entries:\n'
+            '* d: /boot/efi/EFI/fedora/fw: replaced (new inode)\n'
+            '* f: /etc/systemd/system.control/user-0.slice.d/50-IOWeight.conf: '
+            'replaced (new inode)\n'
+            '* f: /usr/bin/checksum-016: content\n'
+            '* f: /usr/bin/checksum-019: content\n'
+            '* f: /usr/bin/ping: owner, capabilities\n'
+            '* !: /etc/was-a-file: file type changed\n'
+            '* f: /etc/rule-changed: content now checked\n',
+        ],
+    },
+    {
         # before aide 0.19.2 a file name could carry control characters
         # (CVE-2025-54389): they must not reach the plugin output
         'id': 'warn-control-characters-in-file-name',
         'test': 'stdout/generated-control-characters,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_WARN,
-        'assert-in': ['* f++++++++++++++++++: /etc/?[31mred?[0m'],
+        'assert-in': ['* f: /etc/?[31mred?[0m'],
         'assert-not-in': ['\x1b'],
     },
     {
@@ -526,9 +565,8 @@ TESTS = [
         'assert-in': [
             'AIDE found 20006 differences (20002 added, 1 removed, 3 changed) '
             '[WARNING]',
-            '* f++++++++++++++++++: /usr/share/linuxfabrik/9\n'
-            '* ... and 19992 more\n\nRemoved entries:',
-            'Changed entries:\n* f > ...   ..H.. .  : /etc/hosts',
+            '* f: /usr/share/linuxfabrik/9\n* ... and 19992 more\n\nRemoved entries:',
+            'Changed entries:\n* f: /etc/hosts: grew, content',
         ],
     },
     {
