@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092905'
+__version__ = '2026092907'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -42,6 +42,17 @@ Requires root or sudo."""
 DEFAULT_CRIT = ''
 DEFAULT_MAX_AGE = 26
 DEFAULT_WARN = '0'
+# the online documentation of this check
+DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/aide-logfile/'
+
+# where the configurations that RHEL, Fedora and the LFOps aide role ship, and the one
+# of Debian's aide-common, keep the AIDE database
+DATABASES = ['/var/lib/aide/aide.db.gz', '/var/lib/aide/aide.db']
+# the check unit of the CIS benchmarks and the LFOps aide role
+UNITS = [
+    '/etc/systemd/system/aidecheck.service',
+    '/usr/lib/systemd/system/aidecheck.service',
+]
 
 # the parsed report of the last finished run, reported again while the next one runs
 CACHE_FILE = 'linuxfabrik-monitoring-plugins-aide-logfile.db'
@@ -431,7 +442,7 @@ def main():
         except OSError as e:
             lib.base.oao(
                 f'Cannot access {REPORT} ({e.strerror}). The report is readable by '
-                'root only, so run the check via sudo (see the README).',
+                f'root only, so run the check via sudo, see {DOCS_URL}.',
                 STATE_UNKNOWN,
                 always_ok=args.ALWAYS_OK,
             )
@@ -441,7 +452,7 @@ def main():
         if not success:
             lib.base.oao(
                 f'{handle.rstrip(".")}. The report is readable by root only, so run '
-                'the check via sudo (see the README).',
+                f'the check via sudo, see {DOCS_URL}.',
                 STATE_UNKNOWN,
                 always_ok=args.ALWAYS_OK,
             )
@@ -522,12 +533,26 @@ def main():
         msg += 'The last AIDE run aborted before it wrote its report'
         if text:
             msg += ': ' + printable(' '.join(text.splitlines()[:3])[:200])
-        msg += '. `journalctl --unit aidecheck.service` shows why.'
+        msg += '.'
+        # The most common cause on a fresh installation: no database yet. The
+        # locations are the ones of the shipped configurations (RHEL, Fedora, the
+        # LFOps aide role; Debian's aide-common). A test never looks at the host.
+        if args.TEST is None and not any(os.path.lexists(db) for db in DATABASES):
+            msg += (
+                f' AIDE has no database yet at {DATABASES[0]}. Create it once the host '
+                'is set up completely, with `sudo aide --config=/etc/aide.conf '
+                f'--init` and `sudo mv {DATABASES[0][:-3]}.new.gz {DATABASES[0]}`.'
+            )
+            lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
+        if args.TEST is None and not any(os.path.lexists(unit) for unit in UNITS):
+            msg += ' Run `sudo aide --config=/etc/aide.conf --check` to see why.'
+        else:
+            msg += ' `sudo journalctl --unit aidecheck.service` shows why.'
         if not text:
             msg += (
                 ' An empty report also results from `report_quiet=yes` in the AIDE '
                 'configuration, or from a logrotate configuration with '
-                '`copytruncate` (see the README).'
+                f'`copytruncate`, see {DOCS_URL}.'
             )
         lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
 
@@ -631,12 +656,12 @@ def main():
                 f'\n\nThe details are in {REPORT}. The run wrote a new database '
                 f'({report["database_out"]}), which accepts the differences only '
                 'once it replaces the old one. Then run a check, for example '
-                '`systemctl start aidecheck.service`, to confirm it.'
+                '`sudo systemctl start aidecheck.service`, to confirm it.'
             )
         else:
             msg += (
                 f'\n\nThe details are in {REPORT}. Once the changes are known to be '
-                'legitimate, accept them with `aide --update` and move the new '
+                'legitimate, accept them with `sudo aide --update` and move the new '
                 'database over the old one (for example `aide.db.new.gz` to '
                 '`aide.db.gz`).'
             )
