@@ -29,6 +29,11 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 # helpers (STATISTICS_RE) can be unit-tested directly without spawning a subprocess.
 PLUGIN = os.path.abspath('../ping')
 
+# How glibc reports a name that does not resolve depends on the host's resolver
+# setup: "Name or service not known" (EAI_NONAME) on Fedora 44, "No address associated
+# with hostname" (EAI_NODATA) on GitHub's Ubuntu runners.
+NOT_RESOLVABLE = '(Name or service not known|No address associated with hostname)'
+
 
 def load_plugin_module():
     """Import the plugin script as a module so its pure helpers can be called directly.
@@ -75,10 +80,15 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec([self.check, '--hostname', 'localhost.loc'])
         )
-        self.assertRegex(stdout, r'^ping: localhost.loc: Name or service not known')
+        self.assertRegex(stdout, rf'^ping: localhost\.loc: {NOT_RESOLVABLE}')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
+    # https://docs.github.com/en/actions/concepts/runners/github-hosted-runners
+    @unittest.skipIf(
+        os.environ.get('GITHUB_ACTIONS') == 'true',
+        'GitHub-hosted runners block inbound ICMP, so no echo reply arrives',
+    )
     def test_ping_www_google_ch(self):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec([self.check, '--hostname', 'www.google.ch'])
@@ -95,9 +105,7 @@ class TestCheck(unittest.TestCase):
         stdout, stderr, retc = lib.base.coe(
             lib.shell.shell_exec([self.check, '--hostname', '1.2.3.4.5.6.'])
         )
-        self.assertRegex(
-            stdout, r'^ping: 1\.2\.3\.4\.5\.6\.: Name or service not known'
-        )
+        self.assertRegex(stdout, rf'^ping: 1\.2\.3\.4\.5\.6\.: {NOT_RESOLVABLE}')
         self.assertEqual(stderr, '')
         self.assertEqual(retc, STATE_UNKNOWN)
 
