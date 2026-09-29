@@ -162,7 +162,7 @@ TESTS = [
         'params': '--max-age 0',
         'assert-retc': STATE_OK,
         'assert-in': ['AIDE found no differences in the check '],
-        'assert-regex': r"\|'added'=0;;;0 'changed'=0;;;0 'differences'=0;;0;0 "
+        'assert-regex': r"\|'added'=0;;;0 'changed'=0;;;0 'differences'=0;0;;0 "
         r"'entries'=35759;;;0 'removed'=0;;;0$",
     },
     {
@@ -187,12 +187,12 @@ TESTS = [
         'assert-in': ["'entries'=24355;;;0"],
     },
     {
-        'id': 'crit-findings-aide-0.16',
+        'id': 'warn-findings-aide-0.16',
         'test': 'stdout/findings-rocky8,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [CRITICAL] in '
+            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [WARNING] in '
             'the check ',
             'Added entries:\n'
             '* f++++++++++++++++: /etc/sudoers.d/zz-linuxfabrik\n'
@@ -205,52 +205,54 @@ TESTS = [
         ],
         # the details and the attributes of the database are not repeated
         'assert-not-in': ['Detailed information', 'SHA512', 'File: /etc/hosts'],
-        'assert-regex': r"'differences'=7;;0;0 ",
+        'assert-regex': r"'differences'=7;0;;0 ",
     },
     {
-        'id': 'crit-findings-aide-0.17',
+        'id': 'warn-findings-aide-0.17',
         'test': 'stdout/findings-ubuntu2204,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 4 differences (2 added, 1 removed, 1 changed) [CRITICAL]',
+            'AIDE found 4 differences (2 added, 1 removed, 1 changed) [WARNING]',
             '* f > ...   ..H.. . : /etc/hosts',
         ],
     },
     {
-        'id': 'crit-findings-aide-0.18',
+        'id': 'warn-findings-aide-0.18',
         'test': 'stdout/findings-debian12,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 4 differences (2 added, 1 removed, 1 changed) [CRITICAL]',
+            'AIDE found 4 differences (2 added, 1 removed, 1 changed) [WARNING]',
             '* f+++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
         ],
     },
     {
-        'id': 'crit-findings-aide-0.19',
+        'id': 'warn-findings-aide-0.19',
         'test': 'stdout/findings-debian13,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 6 differences (2 added, 1 removed, 3 changed) [CRITICAL]',
+            'AIDE found 6 differences (2 added, 1 removed, 3 changed) [WARNING]',
             '* f = p..   ...A. .  : /etc/sudoers.d/user',
         ],
-        'assert-regex': r"\|'added'=2;;;0 'changed'=3;;;0 'differences'=6;;0;0 "
+        'assert-regex': r"\|'added'=2;;;0 'changed'=3;;;0 'differences'=6;0;;0 "
         r"'entries'=24356;;;0 'removed'=1;;;0$",
     },
     {
-        'id': 'warn-findings-with-warning-instead-of-critical',
+        'id': 'crit-findings-with-critical-threshold',
         'test': 'stdout/findings-debian13,,0',
-        'params': '--max-age 0 --warning=0 --critical=',
-        'assert-retc': STATE_WARN,
-        'assert-in': ['AIDE found 6 differences (2 added, 1 removed, 3 changed) '],
-        'assert-not-in': ['[CRITICAL]'],
+        'params': '--max-age 0 --critical=0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 6 differences (2 added, 1 removed, 3 changed) [CRITICAL] '
+        ],
+        'assert-regex': r"'differences'=6;0;0;0 ",
     },
     {
         'id': 'ok-findings-within-range',
         'test': 'stdout/findings-debian13,,0',
-        'params': '--max-age 0 --critical=10',
+        'params': '--max-age 0 --warning=10',
         'assert-retc': STATE_OK,
         'assert-in': ['AIDE found 6 differences', 'Changed entries:'],
     },
@@ -259,13 +261,13 @@ TESTS = [
         'test': 'stdout/findings-debian13,,0',
         'params': '--max-age 0 --always-ok',
         'assert-retc': STATE_OK,
-        'assert-in': ['[CRITICAL]'],
+        'assert-in': ['[WARNING]'],
     },
     {
-        'id': 'crit-no-perfdata',
+        'id': 'warn-no-perfdata',
         'test': 'stdout/findings-debian13,,0',
         'params': '--max-age 0 --no-perfdata',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-not-in': ['|'],
     },
     {
@@ -294,25 +296,25 @@ TESTS = [
     {
         # the new database of the update run is still there, so the differences
         # still stand against the old one
-        'id': 'crit-update-pending-aide-0.16',
+        'id': 'warn-update-pending-aide-0.16',
         'test': 'stdout/generated-update-rocky8-pending,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [CRITICAL] in '
+            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [WARNING] in '
             'the update run ',
             '* f++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
             'The run wrote a new database (',
             '/aide.db.new.gz), which accepts the differences only once it replaces '
             'the old one.',
         ],
-        'assert-regex': r"'differences'=7;;0;0 'entries'=35760;;;0",
+        'assert-regex': r"'differences'=7;0;;0 'entries'=35760;;;0",
     },
     {
-        'id': 'crit-update-pending-aide-0.19',
+        'id': 'warn-update-pending-aide-0.19',
         'test': 'stdout/generated-update-debian13-pending,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': ['AIDE found 6 differences (2 added, 1 removed, 3 changed)'],
     },
     {
@@ -327,7 +329,7 @@ TESTS = [
             ' and accepted 7 differences (2 added, 1 removed, 4 changed), no check '
             'has run since',
         ],
-        'assert-not-in': ['Added entries:', 'differences=', '[CRITICAL]'],
+        'assert-not-in': ['Added entries:', 'differences=', '[WARNING]'],
         'assert-regex': r"\|'entries'=35760;;;0$",
     },
     {
@@ -338,10 +340,10 @@ TESTS = [
         'assert-in': [' and accepted 6 differences (2 added, 1 removed, 3 changed)'],
     },
     {
-        'id': 'crit-update-names-no-database',
+        'id': 'warn-update-names-no-database',
         'test': 'stdout/generated-update-not-a-database,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': ['in the update run '],
     },
     {
@@ -349,12 +351,12 @@ TESTS = [
         # leaves its new database where it is (COPYNEWDB=no), framed by lines of
         # its own, and preceded by "Entry ... in databases has different
         # attributes" lines of AIDE
-        'id': 'crit-debian-aide-common',
+        'id': 'warn-debian-aide-common',
         'test': 'stdout/generated-dailyaidecheck-debian13-pending,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found 14 differences (0 added, 12 removed, 2 changed) [CRITICAL] '
+            'AIDE found 14 differences (0 added, 12 removed, 2 changed) [WARNING] '
             'in the update run ',
             '* ... and 2 more\n\nChanged entries:\n* f >.... mc..H.. .  : /etc/hosts',
         ],
@@ -433,11 +435,11 @@ TESTS = [
     {
         # report_level=minimal: the outline says that there are differences, but
         # neither how many nor when
-        'id': 'crit-minimal-report',
+        'id': 'warn-minimal-report',
         'test': 'stdout/generated-minimal,,0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
-            'AIDE found differences [CRITICAL] in the check. The report does not '
+            'AIDE found differences [WARNING] in the check. The report does not '
             'tell how many, set `report_level=summary`',
         ],
         'assert-not-in': [' ago', '|'],
@@ -445,30 +447,30 @@ TESTS = [
     {
         'id': 'ok-minimal-report-within-range',
         'test': 'stdout/generated-minimal,,0',
-        'params': '--critical=5',
+        'params': '--warning=5',
         'assert-retc': STATE_OK,
     },
     {
-        'id': 'crit-large-report',
+        'id': 'warn-large-report',
         'test': 'stdout/generated-large,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 20006 differences (20002 added, 1 removed, 3 changed) '
-            '[CRITICAL]',
+            '[WARNING]',
             '* f++++++++++++++++++: /usr/share/linuxfabrik/9\n'
             '* ... and 19992 more\n\nRemoved entries:',
             'Changed entries:\n* f > ...   ..H.. .  : /etc/hosts',
         ],
     },
     {
-        'id': 'crit-huge-report',
+        'id': 'warn-huge-report',
         'test': 'stdout/generated-huge,,0',
         'params': '--max-age 0',
-        'assert-retc': STATE_CRIT,
+        'assert-retc': STATE_WARN,
         'assert-in': [
             'AIDE found 200006 differences (200002 added, 1 removed, 3 changed) '
-            '[CRITICAL]',
+            '[WARNING]',
             '* ... and 199992 more\n\n'
             'Removed entries:\n* 1 not listed, beyond the first 16.0MiB of the '
             'report\n\n'

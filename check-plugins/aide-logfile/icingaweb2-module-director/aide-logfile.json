@@ -105,7 +105,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it reads no more than the head of the report, however large the report gets. Alerts when AIDE found differences between its database and the file system, by default as CRITICAL, since an unexpected change to a monitored file can be an intrusion. Also alerts when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed. Requires root or sudo.",
+            "notes": "Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it reads no more than the head of the report, however large the report gets. Alerts when AIDE found differences between its database and the file system, and when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed. AIDE reports a change hours after it happened, and most changes are planned ones, so by default only WARNING is raised. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/aide-logfile/",
             "object_name": "tpl-service-aide-logfile",
             "object_type": "template",
@@ -117,10 +117,10 @@
             "vars": {
                 "criticality": "C",
                 "aide_logfile_always_ok": false,
-                "aide_logfile_critical": "0",
+                "aide_logfile_critical": "",
                 "aide_logfile_max_age": 26,
                 "aide_logfile_no_perfdata": false,
-                "aide_logfile_warning": ""
+                "aide_logfile_warning": "0"
             },
             "volatile": null,
             "zone": null,
@@ -185,7 +185,7 @@
         "2": {
             "varname": "aide_logfile_critical",
             "caption": "Aide Logfile: Critical",
-            "description": "CRIT threshold for the number of differences (added, removed and changed entries together) that the last AIDE check found. Supports Nagios ranges. The default alerts on the first difference.",
+            "description": "CRIT threshold for the number of differences (added, removed and changed entries together) that the last AIDE check found. Supports Nagios ranges. Example: `--critical=0` to get a critical alert on the first difference.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {
@@ -216,7 +216,7 @@
         "5": {
             "varname": "aide_logfile_warning",
             "caption": "Aide Logfile: Warning",
-            "description": "WARN threshold for the number of differences (added, removed and changed entries together) that the last AIDE check found. Supports Nagios ranges. Example: `--warning=0 --critical=` to get a warning instead of a critical alert.",
+            "description": "WARN threshold for the number of differences (added, removed and changed entries together) that the last AIDE check found. Supports Nagios ranges. The default alerts on the first difference.",
             "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
             "format": null,
             "settings": {

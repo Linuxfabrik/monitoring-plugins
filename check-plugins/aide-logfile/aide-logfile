@@ -25,21 +25,21 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092902'
+__version__ = '2026092903'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
 removed and changed files together with the first of them. The check itself does not run
 AIDE, so it is fast, and it reads no more than the head of the report, however large the
 report gets. Alerts when AIDE found differences between its database and the file system,
-by default as CRITICAL, since an unexpected change to a monitored file can be an intrusion.
-Also alerts when the report is missing, empty or older than the maximum age, because then
-the regular check has stopped or failed.
+and when the report is missing, empty or older than the maximum age, because then the
+regular check has stopped or failed. AIDE reports a change hours after it happened, and
+most changes are planned ones, so by default only WARNING is raised.
 Requires root or sudo."""
 
-DEFAULT_CRIT = '0'
+DEFAULT_CRIT = ''
 DEFAULT_MAX_AGE = 26
-DEFAULT_WARN = ''
+DEFAULT_WARN = '0'
 
 # the location every AIDE package uses in its shipped configuration (RHEL, Debian's
 # aide-common) and the one the LFOps aide role configures
@@ -117,8 +117,8 @@ def parse_args():
         help='CRIT threshold for the number of differences (added, removed and '
         'changed entries together) that the last AIDE check found. '
         'Supports Nagios ranges. '
-        'The default alerts on the first difference. '
-        'Default: %(default)s',
+        'Example: `--critical=0` to get a critical alert on the first difference. '
+        'Default: %(default)s (no critical)',
         dest='CRIT',
         default=DEFAULT_CRIT,
     )
@@ -154,9 +154,8 @@ def parse_args():
         help='WARN threshold for the number of differences (added, removed and '
         'changed entries together) that the last AIDE check found. '
         'Supports Nagios ranges. '
-        'Example: `--warning=0 --critical=` to get a warning instead of a critical '
-        'alert. '
-        'Default: %(default)s (no warning)',
+        'The default alerts on the first difference. '
+        'Default: %(default)s',
         dest='WARN',
         default=DEFAULT_WARN,
     )

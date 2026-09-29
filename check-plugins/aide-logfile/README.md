@@ -3,7 +3,7 @@
 
 ## Overview
 
-Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it reads no more than the head of the report, however large the report gets. Alerts when AIDE found differences between its database and the file system, by default as CRITICAL, since an unexpected change to a monitored file can be an intrusion. Also alerts when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed.
+Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it reads no more than the head of the report, however large the report gets. Alerts when AIDE found differences between its database and the file system, and when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed. AIDE reports a change hours after it happened, and most changes are planned ones, so by default only WARNING is raised.
 
 AIDE (Advanced Intrusion Detection Environment) compares the file system with a database of file attributes and checksums it created earlier. The CIS benchmarks require it to be installed, initialized and run regularly, and this check tells whether it runs and what it found.
 
@@ -14,7 +14,7 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 * AIDE empties its report when it starts and writes the new one when it has compared the whole file system, which takes minutes on a large host. A check that runs during that time reports UNKNOWN once, and the next run reads the new report.
 * The report has to be a plain one (`report_format=plain`, the default), written anew by every run (`report_append=no`, the default), also when AIDE finds nothing (`report_quiet=no`, the default), with at least `report_level=summary` (the default is `changed_attributes`), so that it tells how many differences there are and when the run started.
 * `aide --update` writes a new database next to the old one, and its differences are accepted only once the new database replaces the old one. The report of an update run therefore counts like a check as long as the new database it names is still there, and as accepted once it is gone. The daily check of Debian's `aide-common` runs `aide --update` by default and never moves the new database into place (`COMMAND=update`, `COPYNEWDB=no` in `/etc/default/aide`), so its differences keep alerting.
-* An unexpected change to a monitored file can mean an intrusion, which is why a difference is CRITICAL by default. A planned change (a package update, an edited configuration file) is reported just the same until the database is updated, see Troubleshooting.
+* AIDE checks at fixed times, so it reports a change hours after it happened, and most changes it reports are planned ones (a package update, an edited configuration file) until the database is updated, see Troubleshooting. A difference therefore raises WARNING by default. Set `--critical=0` for hosts where any unexpected change has to be handled at once.
 
 **Data Collection:**
 
@@ -48,10 +48,11 @@ as aidecheck.timer runs on the host at regular intervals, and reports the
 number of added, removed and changed files together with the first of them.
 The check itself does not run AIDE, so it is fast, and it reads no more than
 the head of the report, however large the report gets. Alerts when AIDE found
-differences between its database and the file system, by default as CRITICAL,
-since an unexpected change to a monitored file can be an intrusion. Also
-alerts when the report is missing, empty or older than the maximum age,
-because then the regular check has stopped or failed. Requires root or sudo.
+differences between its database and the file system, and when the report is
+missing, empty or older than the maximum age, because then the regular check
+has stopped or failed. AIDE reports a change hours after it happened, and most
+changes are planned ones, so by default only WARNING is raised. Requires root
+or sudo.
 
 options:
   -h, --help           show this help message and exit
@@ -59,8 +60,9 @@ options:
   --always-ok          Always returns OK.
   -c, --critical CRIT  CRIT threshold for the number of differences (added,
                        removed and changed entries together) that the last
-                       AIDE check found. Supports Nagios ranges. The default
-                       alerts on the first difference. Default: 0
+                       AIDE check found. Supports Nagios ranges. Example:
+                       `--critical=0` to get a critical alert on the first
+                       difference. Default: (no critical)
   --max-age MAX_AGE    Maximum age of the report in hours. An older report
                        means that the regular AIDE check no longer runs.
                        Default: 26 (0 disables the check)
@@ -69,9 +71,8 @@ options:
                        alerting keeps working while trending data is dropped.
   -w, --warning WARN   WARN threshold for the number of differences (added,
                        removed and changed entries together) that the last
-                       AIDE check found. Supports Nagios ranges. Example:
-                       `--warning=0 --critical=` to get a warning instead of a
-                       critical alert. Default: (no warning)
+                       AIDE check found. Supports Nagios ranges. The default
+                       alerts on the first difference. Default: 0
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/aide-logfile/
@@ -85,7 +86,7 @@ sudo ./aide-logfile
 ```
 
 ```text
-AIDE found 6 differences (2 added, 1 removed, 3 changed) [CRITICAL] in the check 2h 13m ago
+AIDE found 6 differences (2 added, 1 removed, 3 changed) [WARNING] in the check 2h 13m ago
 
 Added entries:
 * f++++++++++++++++++: /etc/sudoers.d/zz-linuxfabrik
@@ -108,10 +109,10 @@ A host without differences:
 AIDE found no differences in the check 3h 4m ago
 ```
 
-Warn instead of alerting as critical, and accept a report of up to two days:
+Alert as critical on the first difference, and accept a report of up to two days:
 
 ```bash
-sudo ./aide-logfile --warning=0 --critical= --max-age=48
+sudo ./aide-logfile --critical=0 --max-age=48
 ```
 
 
@@ -119,7 +120,8 @@ sudo ./aide-logfile --warning=0 --critical= --max-age=48
 
 * OK if the last AIDE run found no differences, and the report is not older than `--max-age`.
 * OK if AIDE initialized its database, or updated it and the new database replaced the old one, and no check has run since, as long as that is not longer ago than `--max-age`.
-* CRIT if the last AIDE check found differences, or an update run whose new database has not replaced the old one yet (`--critical`, default: `0`, so the first difference counts). `--warning` (empty by default) and `--critical` take Nagios ranges on the number of differences.
+* WARN if the last AIDE check found differences, or an update run whose new database has not replaced the old one yet (`--warning`, default: `0`, so the first difference counts).
+* CRIT if the number of differences exceeds `--critical` (empty by default, so CRIT is never raised unless a threshold is set). `--warning` and `--critical` take Nagios ranges on the number of differences.
 * WARN if the AIDE run started more than `--max-age` hours ago (default: 26), because the regular check has then stopped. `--max-age 0` switches this off.
 * WARN if there is no report, because the file integrity of the host is then not being checked.
 * WARN if the report is empty or holds no result and no AIDE process is running, because the last run aborted.
