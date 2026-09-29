@@ -1,0 +1,420 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import atexit
+import datetime
+import os
+import re
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# In --test mode the fixture stands in for /var/log/aide/aide.log. The fixtures in
+# stdout/ are real reports of AIDE, written with the configuration of the LFOps aide
+# role (report_level added_removed_entries, verbose=7 on aide 0.16):
+#   *-rocky8       aide 0.16 on Rocky 8
+#   *-ubuntu2204   aide 0.17.4 on Ubuntu 22.04
+#   *-debian12     aide 0.18.3 on Debian 12
+#   *-debian13     aide 0.19.1 on Debian 13
+#   init-*         `aide --init`
+#   clean-*        `aide --check` without differences
+#   findings-*     `aide --check` after appending a line to /etc/hosts, adding a file
+#                  to /etc/sudoers.d and a setuid binary to /usr/local/bin, and
+#                  removing /etc/issue.net
+#   update-*       `aide --update` on the same host, which writes a new database
+#   dailyaidecheck-debian13
+#                  the daily check of Debian's aide-common 0.19.1, an update run
+#   aborted-rocky8 `aide --check` without a database: aide 0.16 writes the error
+#                  into the report and exits with 18
+#   empty          the same on aide 0.17 and newer, which leave the report empty
+#   json-debian13  `aide --check` with report_format=json
+# The age of a report is measured against the real clock, so the fixed fixtures
+# switch the age check off with --max-age 0, and the age cases use reports that are
+# written below with a start relative to now. So are the reports too large to be
+# worth keeping in the repository.
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def read_fixture(name):
+    with open(os.path.join(HERE, 'stdout', name), encoding='utf-8') as f:
+        return f.read()
+
+
+def write_fixture(name, text):
+    """Write a generated report. It has to live below unit-test/, the only place the
+    plugin reads a fixture from.
+    """
+    path = os.path.join(HERE, 'stdout', name)
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(text)
+    atexit.register(os.remove, path)
+
+
+def with_start(text, hours_ago):
+    """Return the report with a start timestamp `hours_ago` hours in the past, in
+    local time with the UTC offset, as AIDE writes it.
+    """
+    start = datetime.datetime.now().astimezone() - datetime.timedelta(hours=hours_ago)
+    return re.sub(
+        r'^Start timestamp: [^(]+\(',
+        f'Start timestamp: {start:%Y-%m-%d %H:%M:%S %z} (',
+        text,
+        flags=re.MULTILINE,
+    )
+
+
+def with_added(text, count, template):
+    """Return findings-debian13 with `count` more added files: the summary is
+    raised accordingly, and the new files are listed ahead of the real ones.
+    """
+    text = re.sub(
+        r'^(  Added entries:\s+)(\d+)$',
+        lambda m: f'{m.group(1)}{int(m.group(2)) + count}',
+        text,
+        flags=re.MULTILINE,
+    )
+    added = ''.join(template.format(i) for i in range(count))
+    return text.replace(
+        'Added entries:\n---------------------------------------------------\n\n',
+        'Added entries:\n---------------------------------------------------\n\n'
+        + added,
+        1,
+    )
+
+
+clean = read_fixture('clean-debian13')
+findings = read_fixture('findings-debian13')
+write_fixture('generated-1h-old', with_start(clean, 1))
+write_fixture('generated-30h-old', with_start(clean, 30))
+write_fixture('generated-init-30h-old', with_start(read_fixture('init-debian13'), 30))
+# 20,000 added files make a report of about 1 MiB, and the changed files, listed
+# after the added ones, must still show up
+write_fixture(
+    'generated-large',
+    with_added(findings, 20000, 'f++++++++++++++++++: /usr/share/linuxfabrik/{}\n'),
+)
+# beyond the 16 MiB the check reads, the lists that follow are only counted
+write_fixture(
+    'generated-huge',
+    with_added(
+        findings,
+        200000,
+        'f++++++++++++++++++: /usr/share/linuxfabrik/'
+        + 'a-rather-long-file-name-of-some-package/{}\n',
+    ),
+)
+# report_level=minimal (aide 0.17 and newer): the outline and nothing else
+write_fixture(
+    'generated-minimal',
+    'AIDE found differences between database and filesystem!!\n',
+)
+# a report written without line breaks cannot fill the memory
+write_fixture('generated-no-line-breaks', 'x' * (1024 * 1024))
+
+TESTS = [
+    {
+        'id': 'ok-clean-aide-0.16',
+        'test': 'stdout/clean-rocky8,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['AIDE found no differences in the check '],
+        'assert-regex': r"\|'added'=0;;;0 'changed'=0;;;0 'differences'=0;;0;0 "
+        r"'entries'=35759;;;0 'removed'=0;;;0$",
+    },
+    {
+        'id': 'ok-clean-aide-0.17',
+        'test': 'stdout/clean-ubuntu2204,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'entries'=35250;;;0"],
+    },
+    {
+        'id': 'ok-clean-aide-0.18',
+        'test': 'stdout/clean-debian12,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'entries'=23881;;;0"],
+    },
+    {
+        'id': 'ok-clean-aide-0.19',
+        'test': 'stdout/clean-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ["'entries'=24355;;;0"],
+    },
+    {
+        'id': 'crit-findings-aide-0.16',
+        'test': 'stdout/findings-rocky8,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [CRITICAL] in '
+            'the check ',
+            'Added entries:\n'
+            '* f++++++++++++++++: /etc/sudoers.d/zz-linuxfabrik\n'
+            '* f++++++++++++++++: /usr/local/bin/linuxfabrik-suid\n\n'
+            'Removed entries:\n'
+            '* f----------------: /etc/issue.net\n\n'
+            'Changed entries:\n'
+            '* f > ...   ..C....: /etc/hosts\n',
+            'The details are in /var/log/aide/aide.log.',
+        ],
+        # the details and the attributes of the database are not repeated
+        'assert-not-in': ['Detailed information', 'SHA512', 'File: /etc/hosts'],
+        'assert-regex': r"'differences'=7;;0;0 ",
+    },
+    {
+        'id': 'crit-findings-aide-0.17',
+        'test': 'stdout/findings-ubuntu2204,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 4 differences (2 added, 1 removed, 1 changed) [CRITICAL]',
+            '* f > ...   ..H.. . : /etc/hosts',
+        ],
+    },
+    {
+        'id': 'crit-findings-aide-0.18',
+        'test': 'stdout/findings-debian12,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 4 differences (2 added, 1 removed, 1 changed) [CRITICAL]',
+            '* f+++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
+        ],
+    },
+    {
+        'id': 'crit-findings-aide-0.19',
+        'test': 'stdout/findings-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 6 differences (2 added, 1 removed, 3 changed) [CRITICAL]',
+            '* f = p..   ...A. .  : /etc/sudoers.d/user',
+        ],
+        'assert-regex': r"\|'added'=2;;;0 'changed'=3;;;0 'differences'=6;;0;0 "
+        r"'entries'=24356;;;0 'removed'=1;;;0$",
+    },
+    {
+        'id': 'warn-findings-with-warning-instead-of-critical',
+        'test': 'stdout/findings-debian13,,0',
+        'params': '--max-age 0 --warning=0 --critical=',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['AIDE found 6 differences (2 added, 1 removed, 3 changed) '],
+        'assert-not-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'ok-findings-within-range',
+        'test': 'stdout/findings-debian13,,0',
+        'params': '--max-age 0 --critical=10',
+        'assert-retc': STATE_OK,
+        'assert-in': ['AIDE found 6 differences', 'Changed entries:'],
+    },
+    {
+        'id': 'ok-always-ok-masks-findings',
+        'test': 'stdout/findings-debian13,,0',
+        'params': '--max-age 0 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['[CRITICAL]'],
+    },
+    {
+        'id': 'crit-no-perfdata',
+        'test': 'stdout/findings-debian13,,0',
+        'params': '--max-age 0 --no-perfdata',
+        'assert-retc': STATE_CRIT,
+        'assert-not-in': ['|'],
+    },
+    {
+        'id': 'ok-init-aide-0.16',
+        'test': 'stdout/init-rocky8,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['AIDE initialized its database ', 'no check has run since'],
+        'assert-regex': r"\|'entries'=35759;;;0$",
+    },
+    {
+        # aide 0.17 still writes "AIDE initialized database at <path>"
+        'id': 'ok-init-aide-0.17',
+        'test': 'stdout/init-ubuntu2204,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['AIDE initialized its database '],
+    },
+    {
+        'id': 'ok-init-aide-0.19',
+        'test': 'stdout/init-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': ['AIDE initialized its database '],
+    },
+    {
+        # `aide --update` writes a new database next to the old one, so its
+        # differences still stand until the new database replaces the old one
+        'id': 'crit-update-aide-0.16',
+        'test': 'stdout/update-rocky8,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 7 differences (2 added, 1 removed, 4 changed) [CRITICAL] in '
+            'the update run ',
+            '* f++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
+            'The run wrote a new database, which accepts the differences only once '
+            'it replaces the old one',
+        ],
+        'assert-regex': r"'differences'=7;;0;0 'entries'=35760;;;0",
+    },
+    {
+        'id': 'crit-update-aide-0.19',
+        'test': 'stdout/update-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['AIDE found 6 differences (2 added, 1 removed, 3 changed)'],
+    },
+    {
+        # the daily check of Debian's aide-common: an update run by default, framed
+        # by lines of its own, and preceded by "Entry ... in databases has
+        # different attributes" lines of AIDE
+        'id': 'crit-debian-aide-common',
+        'test': 'stdout/dailyaidecheck-debian13,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 14 differences (0 added, 12 removed, 2 changed) [CRITICAL] '
+            'in the update run ',
+            '* ... and 2 more\n\nChanged entries:\n* f >.... mc..H.. .  : /etc/hosts',
+        ],
+        'assert-not-in': ['Added entries:'],
+    },
+    {
+        'id': 'warn-aborted-aide-0.16',
+        'test': 'stdout/aborted-rocky8,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            "The last AIDE run aborted before it wrote its report: Couldn't open "
+            'file /var/lib/aide/aide.db.gz for reading. `journalctl --unit '
+            'aidecheck.service` shows why.',
+        ],
+        'assert-not-in': ['copytruncate'],
+    },
+    {
+        'id': 'warn-aborted-empty-report',
+        'test': 'stdout/empty,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'The last AIDE run aborted before it wrote its report. `journalctl '
+            '--unit aidecheck.service` shows why.',
+            '`copytruncate`',
+        ],
+    },
+    {
+        'id': 'unknown-json-report',
+        'test': 'stdout/json-debian13,,0',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['is not a plain AIDE report. Set `report_format=plain`'],
+    },
+    {
+        'id': 'warn-report-without-line-breaks',
+        'test': 'stdout/generated-no-line-breaks,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['The last AIDE run aborted before it wrote its report: xxx'],
+    },
+    {
+        'id': 'ok-fresh-report',
+        'test': 'stdout/generated-1h-old,,0',
+        'assert-retc': STATE_OK,
+        # the report was written a moment before the plugin runs
+        'assert-regex': r'AIDE found no differences in the check 1h(?: \d+s)? ago\|',
+    },
+    {
+        'id': 'warn-stale-report',
+        'test': 'stdout/generated-30h-old,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'AIDE found no differences in the check 1D 6h ago [WARNING]',
+            'which is more than 26h ago',
+            '`systemctl list-timers aidecheck.timer`',
+        ],
+    },
+    {
+        'id': 'ok-stale-report-with-longer-max-age',
+        'test': 'stdout/generated-30h-old,,0',
+        'params': '--max-age 48',
+        'assert-retc': STATE_OK,
+    },
+    {
+        # the database was initialized, but no check has run for more than a day
+        'id': 'warn-stale-init',
+        'test': 'stdout/generated-init-30h-old,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['AIDE initialized its database 1D 6h ago [WARNING]'],
+    },
+    {
+        # report_level=minimal: the outline says that there are differences, but
+        # neither how many nor when
+        'id': 'crit-minimal-report',
+        'test': 'stdout/generated-minimal,,0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found differences [CRITICAL] in the check. The report does not '
+            'tell how many, set `report_level=summary`',
+        ],
+        'assert-not-in': [' ago', '|'],
+    },
+    {
+        'id': 'ok-minimal-report-within-range',
+        'test': 'stdout/generated-minimal,,0',
+        'params': '--critical=5',
+        'assert-retc': STATE_OK,
+    },
+    {
+        'id': 'crit-large-report',
+        'test': 'stdout/generated-large,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 20006 differences (20002 added, 1 removed, 3 changed) '
+            '[CRITICAL]',
+            '* f++++++++++++++++++: /usr/share/linuxfabrik/9\n'
+            '* ... and 19992 more\n\nRemoved entries:',
+            'Changed entries:\n* f > ...   ..H.. .  : /etc/hosts',
+        ],
+    },
+    {
+        'id': 'crit-huge-report',
+        'test': 'stdout/generated-huge,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'AIDE found 200006 differences (200002 added, 1 removed, 3 changed) '
+            '[CRITICAL]',
+            '* ... and 199992 more\n\n'
+            'Removed entries:\n* 1 not listed, beyond the first 16.0MiB of the '
+            'report\n\n'
+            'Changed entries:\n* 3 not listed, beyond the first 16.0MiB of the '
+            'report\n\n',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../aide-logfile'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,550 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+"""See the check's README for more details."""
+
+import argparse
+import os
+import re
+import sys
+
+import lib.args
+import lib.base
+import lib.disk
+import lib.human
+import lib.lftest
+import lib.time
+import lib.txt
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+__author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
+__version__ = '2026092901'
+
+DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
+as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
+removed and changed files together with the first of them. The check itself does not run
+AIDE, so it is fast, and it reads no more than the head of the report, however large the
+report gets. Alerts when AIDE found differences between its database and the file system,
+by default as CRITICAL, since an unexpected change to a monitored file can be an intrusion.
+Also alerts when the report is missing, empty or older than the maximum age, because then
+the regular check has stopped or failed.
+Requires root or sudo."""
+
+DEFAULT_CRIT = '0'
+DEFAULT_MAX_AGE = 26
+DEFAULT_WARN = ''
+
+# the location every AIDE package uses in its shipped configuration (RHEL, Debian's
+# aide-common) and the one the LFOps aide role configures
+REPORT = '/var/log/aide/aide.log'
+
+# The report starts with the summary, the lists of added, removed and changed entries
+# follow, and the details of every entry come last. A check that found thousands of
+# entries writes megabytes, so the report is read line by line, only the first
+# MAX_ENTRIES entries of each list are kept, and reading stops at the details, or
+# after MAX_REPORT_BYTES in any case.
+MAX_REPORT_BYTES = 16 * 1024 * 1024
+MAX_ENTRIES = 10
+# a line longer than this is no line of an AIDE report and is read in pieces
+MAX_LINE_BYTES = 64 * 1024
+
+# the lists of entries AIDE writes with report_grouped=yes, its default
+GROUPS = {
+    'Added entries': 'added',
+    'Changed entries': 'changed',
+    'Removed entries': 'removed',
+}
+
+# A section of the report starts with a headline, for example
+#     ---------------------------------------------------
+#     Added entries:
+#     ---------------------------------------------------
+# (report_top_format in src/compare_db.c of aide 0.16 and in src/report.c of aide
+# 0.17, PLAIN_REPORT_HEADLINE_FMT in src/report_plain.c since aide 0.18).
+# The layout of the plain report is the same from aide 0.16 to 0.19. Verified with
+# aide 0.16 on Rocky 8, 0.17.4 on Ubuntu 22.04, 0.18.3 on Debian 12 and 0.19.1 on
+# Debian 13, and against the aide sources up to 0.19.4.
+DASHES_REGEX = re.compile(r'^-{20,}$')
+START_REGEX = re.compile(
+    r'^Start timestamp: (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?: [+-]\d{4})?)'
+    r' \(AIDE ([^)]+)\)',
+    re.MULTILINE,
+)
+# "Summary:" block of a run with differences, "Number of entries:" of one without
+SUMMARY_REGEX = re.compile(
+    r'^\s*(Total number of entries|Number of entries|Added entries|Removed entries'
+    r'|Changed entries):\s*(\d+)\s*$',
+    re.MULTILINE,
+)
+
+
+def parse_args():
+    """Parse command line arguments using argparse."""
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        epilog=lib.args.epilog(__file__),
+        formatter_class=lib.args.HelpFormatter,
+    )
+
+    parser.add_argument(
+        '-V',
+        '--version',
+        action='version',
+        version=f'%(prog)s: v{__version__} by {__author__}',
+    )
+
+    parser.add_argument(
+        '--always-ok',
+        help=lib.args.help('--always-ok'),
+        dest='ALWAYS_OK',
+        action='store_true',
+        default=False,
+    )
+
+    # Threshold parameters: use type=str (not int/float) to support Nagios
+    # range expressions like "0", "10:", "~:50", "@10:20".
+    # In main(), pass _operator='range' to lib.base.get_state().
+    parser.add_argument(
+        '-c',
+        '--critical',
+        help='CRIT threshold for the number of differences (added, removed and '
+        'changed entries together) that the last AIDE check found. '
+        'Supports Nagios ranges. '
+        'The default alerts on the first difference. '
+        'Default: %(default)s',
+        dest='CRIT',
+        default=DEFAULT_CRIT,
+    )
+
+    parser.add_argument(
+        '--max-age',
+        help='Maximum age of the report in hours. An older report means that the '
+        'regular AIDE check no longer runs. '
+        'Default: %(default)s (0 disables the check)',
+        dest='MAX_AGE',
+        type=int,
+        default=DEFAULT_MAX_AGE,
+    )
+
+    parser.add_argument(
+        '--no-perfdata',
+        help=lib.args.help('--no-perfdata'),
+        dest='NO_PERFDATA',
+        action='store_true',
+        default=False,
+    )
+
+    parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
+        '-w',
+        '--warning',
+        help='WARN threshold for the number of differences (added, removed and '
+        'changed entries together) that the last AIDE check found. '
+        'Supports Nagios ranges. '
+        'Example: `--warning=0 --critical=` to get a warning instead of a critical '
+        'alert. '
+        'Default: %(default)s (no warning)',
+        dest='WARN',
+        default=DEFAULT_WARN,
+    )
+
+    args, _ = parser.parse_known_args()
+    return args
+
+
+def aide_running():
+    """Tell whether an AIDE process is running right now. AIDE empties its report
+    when it starts and writes the new one only when it has compared the whole file
+    system, which takes minutes on a large host, so an empty report is normal while a
+    check runs. Returns the PID of the first AIDE process found, or an empty string.
+    """
+    try:
+        pids = [entry for entry in os.listdir('/proc') if entry.isdigit()]
+    except OSError:
+        return ''
+    for pid in sorted(pids, key=int):
+        success, comm = lib.disk.read_file(f'/proc/{pid}/comm')
+        if success and comm.strip() == 'aide':
+            return pid
+    return ''
+
+
+def read_lines(handle):
+    """Yield the lines of a binary file handle, each one cut at MAX_LINE_BYTES, so a
+    file without line breaks cannot fill the memory.
+    """
+    while True:
+        line = handle.readline(MAX_LINE_BYTES)
+        if not line:
+            return
+        yield line
+
+
+def parse_report(lines):
+    """Parse a plain AIDE report (aide 0.16 to 0.19), given as an iterable of lines
+    in bytes.
+
+    Returns a dict with `action` (`check`, `init`, `update`, or None if the text is
+    no AIDE report), `found` (whether the outline of a check or update reports
+    differences), `start` (the start timestamp as written by AIDE, or None),
+    `version`, the counts `added`, `changed`, `removed`, `total` (None where the
+    report does not tell), `entries`, a list of (headline, lines) of the lists of
+    added, removed and changed entries with at most MAX_ENTRIES lines each, `text`,
+    everything above the first section, and `truncated`, True if reading stopped at
+    MAX_REPORT_BYTES before the end of the lists.
+    """
+    report = {
+        'action': None,
+        'added': None,
+        'changed': None,
+        'entries': [],
+        'found': False,
+        'removed': None,
+        'start': None,
+        'text': '',
+        'total': None,
+        'truncated': False,
+        'version': '',
+    }
+    head = []
+    section = None
+    # a headline spans three lines, so a line of dashes and the two after it are
+    # held back until it is clear whether they form one
+    pending = []
+    size = 0
+    done = False
+    for raw in lines:
+        size += len(raw)
+        if size > MAX_REPORT_BYTES:
+            report['truncated'] = True
+            break
+        # file names are written as the file system has them, whatever their
+        # encoding
+        pending.append(lib.txt.to_text(raw, errors='strict_or_latin1').rstrip('\r\n'))
+        while pending and not done:
+            if DASHES_REGEX.match(pending[0]):
+                if len(pending) < 3:
+                    break
+                if pending[1].endswith(':') and DASHES_REGEX.match(pending[2]):
+                    title = pending[1][:-1]
+                    pending = pending[3:]
+                    if title.endswith('entries'):
+                        report['entries'].append((title, []))
+                    elif section is not None:
+                        # the details and the attributes of the databases follow
+                        # the lists, nothing below them is needed
+                        done = True
+                    section = title
+                    continue
+            line = pending.pop(0)
+            if section is None:
+                head.append(line)
+            elif report['entries'] and section == report['entries'][-1][0]:
+                entries = report['entries'][-1][1]
+                if line.strip() and len(entries) < MAX_ENTRIES:
+                    entries.append(line.strip())
+        if done:
+            break
+    if section is None:
+        head.extend(pending)
+    text = '\n'.join(head)
+    report['text'] = text
+
+    # The outline of the report: gen_report() in src/compare_db.c of aide 0.16,
+    # src/report.c of aide 0.17, get_summary_string() in src/report.c since aide
+    # 0.18. It is anchored to the start of a line, since the daily check of
+    # Debian's aide-common writes lines of its own around the report. `aide
+    # --update` compares like a check and then writes a new database, and says so
+    # in the next line, from report_level `summary` on.
+    if 'AIDE successfully initialized database.' in text or re.search(
+        r'^AIDE initialized database at ', text, re.MULTILINE
+    ):
+        report['action'] = 'init'
+    else:
+        match = re.search(
+            r'^AIDE found (NO )?differences between database and filesystem',
+            text,
+            re.MULTILINE,
+        )
+        if match:
+            report['action'] = 'check'
+            report['found'] = not match.group(1)
+            if re.search(r'^New AIDE database written to ', text, re.MULTILINE):
+                report['action'] = 'update'
+
+    match = START_REGEX.search(text)
+    if match:
+        report['start'] = match.group(1)
+        report['version'] = match.group(2)
+
+    for key, value in SUMMARY_REGEX.findall(text):
+        if key in ('Total number of entries', 'Number of entries'):
+            report['total'] = int(value)
+        else:
+            report[GROUPS[key]] = int(value)
+    # a run without differences prints the number of entries only
+    if report['action'] in ('check', 'update') and report['total'] is not None:
+        for key in GROUPS.values():
+            if report[key] is None:
+                report[key] = 0
+
+    return report
+
+
+def get_entries_msg(report):
+    """Return the lists of added, removed and changed entries, each cut after
+    MAX_ENTRIES lines.
+    """
+    sections = []
+    listed = []
+    for title, lines in report['entries']:
+        # the count per group comes from the summary; a list of all entries
+        # (report_grouped=no) holds every difference
+        key = GROUPS.get(title)
+        count = report[key] if key else sum(report[key] or 0 for key in GROUPS.values())
+        count = max(count or 0, len(lines))
+        section = f'{title}:\n' + '\n'.join(f'* {line}' for line in lines)
+        if count > len(lines):
+            section += f'\n* ... and {count - len(lines)} more'
+        sections.append(section)
+        listed.append(title)
+    # a list that lies beyond MAX_REPORT_BYTES, in the order AIDE writes them
+    if report['truncated'] and all(title in GROUPS for title in listed):
+        for title in ('Added entries', 'Removed entries', 'Changed entries'):
+            if title not in listed and report[GROUPS[title]]:
+                sections.append(
+                    f'{title}:\n* {report[GROUPS[title]]} not listed, beyond the '
+                    f'first {lib.human.bytes2human(MAX_REPORT_BYTES)} of the report'
+                )
+    return '\n\n' + '\n\n'.join(sections) if sections else ''
+
+
+def main():
+    """The main function. This is where the magic happens."""
+
+    # parse the command line
+    try:
+        args = parse_args()
+    except SystemExit:
+        sys.exit(STATE_UNKNOWN)
+
+    # fetch data
+    mtime = None
+    if args.TEST is None:
+        # AIDE keeps its log directory to root (mode 0700), so without root the
+        # report cannot even be seen, which is not the same as a missing one
+        try:
+            os.lstat(REPORT)
+        except FileNotFoundError:
+            # Deliberately WARNING and not UNKNOWN: the regular check belongs on a
+            # host that got this check, so a missing report is a gap the admin has
+            # to close.
+            lib.base.oao(
+                f'No AIDE report found at {REPORT}, so the file integrity of this host '
+                'is not being checked. Install AIDE, initialize its database and run '
+                '`aide --check` regularly, for example with `aidecheck.timer`, with '
+                f'`report_url=file:{REPORT}` in the AIDE configuration.',
+                STATE_WARN,
+                always_ok=args.ALWAYS_OK,
+            )
+        except OSError as e:
+            lib.base.oao(
+                f'Cannot access {REPORT} ({e.strerror}). The report is readable by '
+                'root only, so run the check via sudo (see the README).',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        success, handle = lib.disk.open_file(
+            REPORT, binary=True, allowed_roots=['/var/log'], nofollow=True
+        )
+        if not success:
+            lib.base.oao(
+                f'{handle.rstrip(".")}. The report is readable by root only, so run '
+                'the check via sudo (see the README).',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        with handle:
+            # the time the report was written, for a report without a start
+            # timestamp
+            mtime = os.fstat(handle.fileno()).st_mtime
+            report = parse_report(read_lines(handle))
+    else:
+        # do not read the report, put in test data. A test never sees a running
+        # AIDE process.
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        report = parse_report(lib.txt.to_bytes(stdout).splitlines(keepends=True))
+
+    # init some vars
+    msg = ''
+    state = STATE_OK
+    perfdata = ''
+
+    # analyze data
+    if report['action'] is None:
+        running = aide_running() if args.TEST is None else ''
+        if running:
+            lib.base.oao(
+                f'An AIDE run is in progress right now (PID {running}). AIDE empties '
+                'its report when it starts and writes the new one when it has '
+                'finished, so the next check run reads the result.',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        text = report['text'].strip()
+        # report_format=json and ndjson (aide 0.18 and newer)
+        if text.startswith('{'):
+            lib.base.oao(
+                f'{REPORT} is not a plain AIDE report. Set `report_format=plain` in '
+                'the AIDE configuration.',
+                STATE_UNKNOWN,
+                always_ok=args.ALWAYS_OK,
+            )
+        # AIDE empties the report when it starts (unless report_append=yes), so an
+        # empty one belongs to a run that aborted before it wrote the report, for
+        # example because the database is missing (exit code 18), or to a clean run
+        # with report_quiet=yes, which writes nothing at all. aide 0.17 and newer log the reason to stderr
+        # only, aide 0.16 also writes it into the report ("Couldn't open file
+        # /var/lib/aide/aide.db.gz for reading"). Verified with aide 0.16 on Rocky
+        # 8, 0.17.4 on Ubuntu 22.04, 0.18.3 on Debian 12 and 0.19.1 on Debian 13.
+        msg += 'The last AIDE run aborted before it wrote its report'
+        if text:
+            msg += ': ' + ' '.join(text.splitlines()[:3])[:200]
+        msg += '. `journalctl --unit aidecheck.service` shows why.'
+        if not text:
+            msg += (
+                ' An empty report also results from `report_quiet=yes` in the AIDE '
+                'configuration, or from a logrotate configuration with '
+                '`copytruncate` (see the README).'
+            )
+        lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
+
+    # AIDE writes the start of the run in the host's local time, together with the
+    # UTC offset, and this check runs on the same host. A report level that leaves
+    # the timestamp out falls back to the time the report was written.
+    started = None
+    if report['start']:
+        # 'YYYY-MM-DD HH:MM:SS' plus ' +hhmm' where AIDE knows the offset
+        pattern = '%Y-%m-%d %H:%M:%S'
+        if len(report['start']) > 19:
+            pattern += ' %z'
+        try:
+            started = lib.time.timestr2epoch(report['start'], pattern=pattern)
+        except ValueError:
+            started = None
+    if started is None:
+        started = mtime
+    age_state = STATE_OK
+    if started is not None:
+        age = max(0, lib.time.now() - started)
+        if args.MAX_AGE and age > args.MAX_AGE * 3600:
+            age_state = STATE_WARN
+    compared = report['action'] in ('check', 'update')
+    differences = sum(report[key] or 0 for key in GROUPS.values())
+    # Below report_level `summary`, AIDE writes the outline only, so the report
+    # tells that there are differences, but not how many.
+    if compared and report['found'] and not differences:
+        differences = None
+    differences_state = STATE_OK
+    if compared:
+        differences_state = lib.base.get_state(
+            1 if differences is None else differences,
+            args.WARN,
+            args.CRIT,
+            _operator='range',
+        )
+    state = lib.base.get_worst(age_state, differences_state)
+
+    # build the message
+    ago = ''
+    if started is not None:
+        ago = (
+            f' {lib.human.seconds2human(age)} ago'
+            f'{lib.base.state2str(age_state, prefix=" ")}'
+        )
+    run = 'the update run' if report['action'] == 'update' else 'the check'
+    if report['action'] == 'init':
+        msg += f'AIDE initialized its database{ago}, no check has run since'
+    elif differences is None:
+        msg += (
+            f'AIDE found differences'
+            f'{lib.base.state2str(differences_state, prefix=" ")} in {run}{ago}. '
+            'The report does not tell how many, set `report_level=summary` or '
+            'higher in the AIDE configuration'
+        )
+    elif differences:
+        msg += (
+            f'AIDE found {differences} {lib.txt.pluralize("difference", differences)}'
+            f' ({report["added"]} added, {report["removed"]} removed, '
+            f'{report["changed"]} changed)'
+            f'{lib.base.state2str(differences_state, prefix=" ")} in {run}{ago}'
+        )
+    else:
+        msg += f'AIDE found no differences in {run}{ago}'
+    if age_state != STATE_OK:
+        msg += (
+            f'\n\nThe last AIDE run started at {lib.time.epoch2iso(started)}, which '
+            f'is more than {args.MAX_AGE}h ago. Check that the regular AIDE check '
+            'still runs, for example with `systemctl list-timers aidecheck.timer`.'
+        )
+    if compared and differences != 0:
+        msg += get_entries_msg(report)
+        if report['action'] == 'update':
+            # `aide --update` writes the new database next to the old one. Debian's
+            # aide-common runs its daily check as an update by default and never
+            # moves the new database into place (COMMAND=update, COPYNEWDB=no in
+            # /etc/default/aide), so the differences still stand against the old
+            # database. Verified with aide-common 0.19.1 on Debian 13.
+            msg += (
+                f'\n\nThe details are in {REPORT}. The run wrote a new database, '
+                'which accepts the differences only once it replaces the old one '
+                '(for example `aide.db.new.gz` to `aide.db.gz`). Then run a check, '
+                'for example '
+                '`systemctl start aidecheck.service`, to confirm it.'
+            )
+        else:
+            msg += (
+                f'\n\nThe details are in {REPORT}. Once the changes are known to be '
+                'legitimate, accept them with `aide --update` and move the new '
+                'database over the old one (for example `aide.db.new.gz` to '
+                '`aide.db.gz`).'
+            )
+    if compared and report['total'] is not None:
+        perfdata += lib.base.get_perfdata('added', report['added'], _min=0)
+        perfdata += lib.base.get_perfdata('changed', report['changed'], _min=0)
+        perfdata += lib.base.get_perfdata(
+            'differences',
+            differences,
+            warn=args.WARN,
+            crit=args.CRIT,
+            _min=0,
+        )
+    if report['total'] is not None:
+        perfdata += lib.base.get_perfdata('entries', report['total'], _min=0)
+    if compared and report['total'] is not None:
+        perfdata += lib.base.get_perfdata('removed', report['removed'], _min=0)
+
+    # over and out
+    lib.base.oao(
+        msg, state, perfdata, always_ok=args.ALWAYS_OK, no_perfdata=args.NO_PERFDATA
+    )
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception:
+        lib.base.cu()

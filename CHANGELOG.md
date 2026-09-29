@@ -10,10 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Highlights:** Every plugin was run against real hosts in one sweep: Debian 11/12/13, Rocky 8/9/10, Ubuntu 22.04/24.04/26.04, Windows 10/11, Windows Server 2016/2019/2022/2025 (including the new JEA endpoint), and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis-logfile` evaluates the daily lynis audit of each host, and `lynis` lists the findings and suggestions of every host it scans.
 
+### Breaking Changes
+
+Icinga Director:
+
+* AIDE Service Set: evaluates the AIDE report with `aide-logfile`, and watches `aidecheck.service` and `aidecheck.timer` (the CIS names) instead of `aide-check.*`, rename your units accordingly
+
 ### Added
 
 Monitoring Plugins:
 
+* aide-logfile: evaluates the report of the regular AIDE check of the host, lists the changed files, and alerts when the check stopped
 * lynis-logfile: evaluates the daily lynis audit of the host, for example from lynis.timer, and alerts when it stopped
 * windows-version: end of life of the installed Windows or Windows Server release
 
@@ -48,7 +55,7 @@ Grafana:
 
 Assets:
 
-* sudoers: allow the `lynis-logfile` check
+* sudoers: allow the `aide-logfile` and `lynis-logfile` checks
 
 ### Fixed
 

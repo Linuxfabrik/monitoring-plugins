@@ -1,0 +1,228 @@
+{
+    "Command": {
+        "cmd-check-aide-logfile": {
+            "arguments": {
+                "--always-ok": {
+                    "set_if": "$aide_logfile_always_ok$"
+                },
+                "--critical": {
+                    "value": "$aide_logfile_critical$"
+                },
+                "--max-age": {
+                    "value": "$aide_logfile_max_age$"
+                },
+                "--no-perfdata": {
+                    "set_if": "$aide_logfile_no_perfdata$"
+                },
+                "--warning": {
+                    "value": "$aide_logfile_warning$"
+                }
+            },
+            "command": "/usr/lib64/nagios/plugins/aide-logfile",
+            "disabled": false,
+            "fields": [
+                {
+                    "datafield_id": 1,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 2,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 3,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 4,
+                    "is_required": "n",
+                    "var_filter": null
+                },
+                {
+                    "datafield_id": 5,
+                    "is_required": "n",
+                    "var_filter": null
+                }
+            ],
+            "imports": [],
+            "is_string": null,
+            "methods_execute": "PluginCheck",
+            "object_name": "cmd-check-aide-logfile",
+            "object_type": "object",
+            "timeout": "10",
+            "vars": {},
+            "zone": null,
+            "uuid": "78eb4a0a-8e04-4d7f-9f7d-dea820f448e7"
+        },
+        "cmd-check-aide-logfile-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/aide-logfile",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-aide-logfile"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-aide-logfile-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "b3d00c20-3629-4f5d-8529-67e422574e9b"
+        }
+    },
+    "ServiceTemplate": {
+        "tpl-service-aide-logfile": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-aide-logfile",
+            "check_interval": "3600",
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": true,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": "aide-logfile.svg",
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-generic"
+            ],
+            "max_check_attempts": 5,
+            "notes": "Evaluates the report of the last AIDE file integrity check, which a timer such as aidecheck.timer runs on the host at regular intervals, and reports the number of added, removed and changed files together with the first of them. The check itself does not run AIDE, so it is fast, and it reads no more than the head of the report, however large the report gets. Alerts when AIDE found differences between its database and the file system, by default as CRITICAL, since an unexpected change to a monitored file can be an intrusion. Also alerts when the report is missing, empty or older than the maximum age, because then the regular check has stopped or failed. Requires root or sudo.",
+            "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/aide-logfile/",
+            "object_name": "tpl-service-aide-logfile",
+            "object_type": "template",
+            "retry_interval": 15,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C",
+                "aide_logfile_always_ok": false,
+                "aide_logfile_critical": "0",
+                "aide_logfile_max_age": 26,
+                "aide_logfile_no_perfdata": false,
+                "aide_logfile_warning": ""
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "a66460c5-9108-46e9-bfc1-d218085295c7"
+        },
+        "tpl-service-aide-logfile-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-aide-logfile-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-aide-logfile"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-aide-logfile-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "2dca7617-6878-4126-8af2-4313ca562fba"
+        }
+    },
+    "Datafield": {
+        "1": {
+            "varname": "aide_logfile_always_ok",
+            "caption": "Aide Logfile: Always OK?",
+            "description": "Always returns OK.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "b2f2787a-b5da-4889-b936-a7ef8e25d4d5"
+        },
+        "2": {
+            "varname": "aide_logfile_critical",
+            "caption": "Aide Logfile: Critical",
+            "description": "CRIT threshold for the number of differences (added, removed and changed entries together) that the last AIDE check found. Supports Nagios ranges. The default alerts on the first difference.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "183a7adb-22a2-49a2-afc6-2c8951a5bba6"
+        },
+        "3": {
+            "varname": "aide_logfile_max_age",
+            "caption": "Aide Logfile: Max Age",
+            "description": "Maximum age of the report in hours. An older report means that the regular AIDE check no longer runs.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "7ad49558-2a45-4069-a9a2-2c716411e8be"
+        },
+        "4": {
+            "varname": "aide_logfile_no_perfdata",
+            "caption": "Aide Logfile: No Perfdata?",
+            "description": "Suppress the performance data section from the output. The status message and the exit code are unaffected, so alerting keeps working while trending data is dropped.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeBoolean",
+            "format": null,
+            "settings": {},
+            "uuid": "6686c909-2526-4fed-a036-6bed96753a62"
+        },
+        "5": {
+            "varname": "aide_logfile_warning",
+            "caption": "Aide Logfile: Warning",
+            "description": "WARN threshold for the number of differences (added, removed and changed entries together) that the last AIDE check found. Supports Nagios ranges. Example: `--warning=0 --critical=` to get a warning instead of a critical alert.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "fd4a8c6f-982b-4d40-ac3a-2078808fd470"
+        }
+    }
+}
