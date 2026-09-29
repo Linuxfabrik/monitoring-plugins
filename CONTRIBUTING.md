@@ -1056,7 +1056,7 @@ Do not fall back to a plain `for ... subTest()` loop. It still executes every ca
 Unit tests come in two flavors:
 
 * **Fast tests** use `--test` to inject fixture data and run in a fraction of a second. They are safe for CI and for the multi-Python-version `tox` matrix.
-* **Container tests** build a podman image per target OS, inject the plugin and `lib/`, and exercise the check against a live service. They need podman on the host and take minutes per plugin. A plugin counts as a container test when its `unit-test/` directory has a `containerfiles/` subdirectory.
+* **Container tests** build a podman image per target OS, inject the plugin and `lib/`, and exercise the check against a live service. They need podman on the host and take minutes per plugin. A plugin counts as a container test when its `unit-test/run` uses testcontainers or one of the `lib.lftest` container helpers.
 
 Everyday commands:
 
@@ -1086,9 +1086,20 @@ tox                      # all supported Python versions, fast tests only
 tox -e py39              # single environment
 ```
 
-`tox` invokes `tools/run-unit-tests --no-container` so the multi-Python matrix skips the container suite. Run `tools/run-container-tests` separately before a release for full integration coverage.
+`tox` invokes `tools/run-unit-tests --no-container` so the multi-Python matrix skips the container suite. Each environment installs the lockfile of its Python version (`lockfiles/pyXX/requirements.txt`), and the plugins import the lib through their `lib` symlink, so the lib repository has to be checked out beside this one (`../lib`). Run `tools/run-container-tests` separately before a release for full integration coverage.
 
 The dependencies install from pure wheels (plus a few pure-Python sdists), so no compiler or development headers are needed on the host. `skip_missing_interpreters = true` already skips environments for Python versions that are not installed at all.
+
+#### Continuous integration
+
+The `Linuxfabrik: Unit Tests` workflow runs the tests every night on `main`, not on every push or pull request, against `main` of the lib. Start it by hand with `gh workflow run lf-unit-tests.yml`, adding `--field container-tests=true` for the container tests. It runs:
+
+* the fast tests for every supported Python version, through `tox`
+* the fast tests of the plugins that ship for Windows (those with a `.windows` file), on Windows
+* a parse of every plugin with the Python 3.6 of Rocky Linux 8, the default `python3` of RHEL 8. The plugins require Python 3.9, so a plugin that Python 3.6 cannot parse is reported as a warning, not as a failure.
+* the container tests, once a week
+
+The lib repository runs the same workflow for its modules.
 
 
 #### Container-based tests

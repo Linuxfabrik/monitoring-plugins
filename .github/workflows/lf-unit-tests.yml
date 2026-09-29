@@ -1,0 +1,227 @@
+name: 'Linuxfabrik: Unit Tests'
+
+# Runs the unit tests of every plugin. The lib repository runs the same workflow
+# for its modules; keep the two alike.
+#
+# Nightly rather than on every push: the fast suite takes about six minutes per
+# Python version, the container suite hours. A red night reaches whoever last
+# edited the schedule below, by mail from GitHub.
+#
+# The plugins are tested against `main` of the lib, checked out beside this
+# repository, which is where the `lib` symlinks point: development happens on
+# `main` in both repositories, and a source install from `main` gets exactly
+# that combination. The linuxfabrik-lib a lockfile pins stays unused.
+
+on:
+  schedule:
+    # the fast tests, every night
+    - cron: '23 2 * * *'
+    # the container tests, once a week
+    - cron: '23 4 * * 6'
+  workflow_dispatch:
+    inputs:
+      container-tests:
+        description: 'Also run the container tests (takes hours)'
+        type: 'boolean'
+        default: false
+
+permissions:
+  contents: 'read'
+
+jobs:
+  fast:
+    name: 'Fast tests (Python ${{ matrix.python-version }})'
+    if: "github.event.schedule != '23 4 * * 6'"
+    runs-on: 'ubuntu-latest'
+    strategy:
+      # One version failing is a fact about that version, so let the others
+      # finish and report rather than cancelling them.
+      fail-fast: false
+      matrix:
+        # Python 3.9 is the floor (RHEL 8 via the python39 module stream, RHEL 9,
+        # Debian 11). tox puts its environment first in PATH, so the plugins
+        # themselves run under the version tested here, not only the test runner.
+        python-version:
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.12'
+          - '3.13'
+          - '3.14'
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'monitoring-plugins'
+
+      - name: 'Checkout the lib'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'lib'
+          ref: 'main'
+          repository: 'Linuxfabrik/lib'
+
+      # The Python under test, plus 3.12 to run tox itself, which is the default
+      # because it is listed last. Current tox needs Python 3.10 or newer, and its
+      # hash-pinned requirements are kept by Dependabot for that one Python only.
+      - name: 'Set up Python ${{ matrix.python-version }}'
+        uses: 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97' # v7.0.0
+        with:
+          python-version: |
+            ${{ matrix.python-version }}
+            3.12
+
+      - name: 'Install tox'
+        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/.github/unit-tests/requirements.txt'
+
+      # Through tox rather than calling the runner directly: `tox.ini` installs the
+      # hash-pinned lockfile of the Python under test, so the tests run against the
+      # dependencies a source install ships with. A missing interpreter must fail
+      # the job; `tox.ini` skips it for local runs, which here would report green
+      # without having tested anything.
+      - name: 'Run the fast tests'
+        env:
+          PYTHON_VERSION: '${{ matrix.python-version }}'
+        run: 'tox --skip-missing-interpreters false -e "py${PYTHON_VERSION//./}"'
+        working-directory: 'monitoring-plugins'
+
+  el8-python36:
+    name: 'Python 3.6 syntax (RHEL 8)'
+    if: "github.event.schedule != '23 4 * * 6'"
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'monitoring-plugins'
+
+      # The plugins require Python 3.9, but the default python3 of RHEL 8 is 3.6,
+      # and a plugin should still run there where that costs little. A plugin
+      # Python 3.6 cannot even parse is therefore reported as a warning, not as a
+      # failure. The lib, which every plugin imports, has to import on 3.6; the
+      # lib repository checks that with the same job.
+      - name: 'Parse every plugin with the Python 3.6 of Rocky Linux 8'
+        run: |
+          docker run --rm --volume "${PWD}/monitoring-plugins:/src:ro" --workdir /src \
+            docker.io/rockylinux/rockylinux:8 \
+            bash -c '
+              set -o errexit
+              dnf --assumeyes --quiet install python3
+              python3 --version
+              checked=0
+              unparsable=0
+              for dir in check-plugins/*/; do
+                name=$(basename "${dir}")
+                plugin="${dir}${name}"
+                [ -f "${plugin}" ] || continue
+                checked=$((checked + 1))
+                if ! output=$(python3 -c "import py_compile, sys; py_compile.compile(sys.argv[1], cfile=\"/tmp/plugin.pyc\", doraise=True)" "${plugin}" 2>&1); then
+                  unparsable=$((unparsable + 1))
+                  echo "::warning file=${plugin}::Python 3.6 cannot parse this plugin: $(echo "${output}" | tail -n 1)"
+                fi
+              done
+              echo "${checked} plugins checked, ${unparsable} not parsable by Python 3.6"
+            '
+
+  windows:
+    name: 'Fast tests (Windows, Python 3.13)'
+    if: "github.event.schedule != '23 4 * * 6'"
+    runs-on: 'windows-latest'
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'monitoring-plugins'
+
+      - name: 'Checkout the lib'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'lib'
+          ref: 'main'
+          repository: 'Linuxfabrik/lib'
+
+      # The Python the Windows build compiles the plugins with.
+      - name: 'Set up Python 3.13'
+        uses: 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97' # v7.0.0
+        with:
+          python-version: '3.13'
+
+      - name: 'Install the dependencies of the Windows build'
+        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/lockfiles/py313-windows/requirements.txt'
+
+      # Git checks the `lib` symlinks out as plain files on Windows, which Python
+      # ignores when importing, so the lib is found through PYTHONPATH instead.
+      # Only the plugins that ship for Windows (those with a `.windows` file) are
+      # tested.
+      - name: 'Run the fast tests of the Windows plugins'
+        env:
+          PYTHONPATH: '${{ github.workspace }}'
+        shell: 'bash'
+        run: |
+          plugins=()
+          for marker in check-plugins/*/.windows; do
+            dir=$(dirname "${marker}")
+            [ -f "${dir}/unit-test/run" ] && plugins+=("$(basename "${dir}")")
+          done
+          python tools/run-unit-tests --no-container "${plugins[@]}"
+        working-directory: 'monitoring-plugins'
+
+  container:
+    name: 'Container tests'
+    if: >-
+      github.event.schedule == '23 4 * * 6'
+      || (github.event_name == 'workflow_dispatch' && inputs.container-tests)
+    runs-on: 'ubuntu-latest'
+    timeout-minutes: 330
+    steps:
+      - name: 'Harden the runner (Audit all outbound calls)'
+        uses: 'step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1' # v2.21.1
+        with:
+          egress-policy: 'audit'
+
+      - name: 'Checkout repository'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'monitoring-plugins'
+
+      - name: 'Checkout the lib'
+        uses: 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' # v7.0.1
+        with:
+          path: 'lib'
+          ref: 'main'
+          repository: 'Linuxfabrik/lib'
+
+      - name: 'Set up Python 3.12'
+        uses: 'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97' # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: 'Install the dependencies and testcontainers'
+        run: 'python -m pip install --require-hashes --requirement monitoring-plugins/.github/container-tests/requirements.txt'
+
+      # The tests drive podman, as on a developer's machine: some call the podman
+      # CLI directly, the others go through testcontainers, which needs the podman
+      # API socket.
+      - name: 'Start the podman API service'
+        run: |
+          podman system service --time=0 "unix://${RUNNER_TEMP}/podman.sock" &
+          echo "DOCKER_HOST=unix://${RUNNER_TEMP}/podman.sock" >> "${GITHUB_ENV}"
+
+      - name: 'Run the container tests'
+        run: 'python tools/run-container-tests'
+        working-directory: 'monitoring-plugins'
