@@ -91,6 +91,11 @@ def _stamp(moment):
     return f'{month} {moment.day:2d} {moment:%H:%M:%S}'
 
 
+# The moment every aged() fixture is measured from. Taken once, so two logs aged
+# alike start in the same second, however long the run takes between the calls.
+NOW = datetime.datetime.now()
+
+
 def aged(name, minutes_ago=180):
     """Copy a fixture, moving its lines so the first of them is `minutes_ago` old.
 
@@ -104,7 +109,7 @@ def aged(name, minutes_ago=180):
     moments = [lib.logsource.timestamp(line) for line in lines]
     known = [moment for moment in moments if moment is not None]
     shift = (
-        datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago) - known[0]
+        NOW - datetime.timedelta(minutes=minutes_ago) - known[0]
         if known
         else datetime.timedelta()
     )

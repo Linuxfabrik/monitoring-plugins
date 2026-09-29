@@ -90,6 +90,11 @@ def _stamp(moment):
     return f'{month} {moment.day:2d} {moment:%H:%M:%S}'
 
 
+# The moment every aged() fixture is measured from. Taken once, so two logs aged
+# alike start in the same second, however long the run takes between the calls.
+NOW = datetime.datetime.now()
+
+
 def aged(name, minutes_ago=180):
     """Copy a fixture, moving its lines so the first of them is `minutes_ago` old.
 
@@ -104,7 +109,7 @@ def aged(name, minutes_ago=180):
     moments = [lib.logsource.timestamp(line) for line in lines]
     known = [moment for moment in moments if moment is not None]
     shift = (
-        datetime.datetime.now() - datetime.timedelta(minutes=minutes_ago) - known[0]
+        NOW - datetime.timedelta(minutes=minutes_ago) - known[0]
         if known
         else datetime.timedelta()
     )
@@ -264,11 +269,14 @@ CASES = [
     {
         # Two logs read as one window: a host that keeps the authentication log
         # of the container next to its own has one check for both, and the
-        # summary says which file each count could have come from.
+        # summary says which file each count could have come from. The second
+        # log is aged ten minutes less, so its first start does not fall into
+        # the same second as the start in the first log, where the two would be
+        # taken for one event delivered twice.
         'id': 'crit-two-logs-are-read-as-one-window',
         'params': [
             f'--server-log={aged("rocky9-clean-start.txt")}',
-            f'--server-log={aged("rocky9-security-events.txt")}',
+            f'--server-log={aged("rocky9-security-events.txt", minutes_ago=170)}',
         ],
         'assert-retc': STATE_CRIT,
         'assert-in': [
@@ -277,7 +285,7 @@ CASES = [
             'rocky9-clean-start',
             'rocky9-security-events',
             '1 revoked key [CRITICAL]',
-            '2 startups detected',
+            '3 startups detected',
         ],
     },
     {
