@@ -16,8 +16,8 @@ import sys
 import lib.args
 import lib.base
 import lib.human
+import lib.lftest
 import lib.qts
-import lib.txt
 import lib.url
 from lib.globals import STATE_OK, STATE_UNKNOWN
 
@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083001'
+__version__ = '2026092901'
 
 DESCRIPTION = """Reports how long a QNAP appliance running QTS has been running since the last boot.
 The uptime is reported for trending and never alerts on its own."""
@@ -102,6 +102,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -136,31 +143,38 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
-
-    # get system information
-    url = (
-        f'{args.URL}/cgi-bin/management/manaRequest.cgi'
-        f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
-    )
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+    # fetch data
+    if args.TEST is None:
+        auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
+        url = (
+            f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+            f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
         )
-    )
+        result = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        # do not call the appliance, put in test data
+        result, _, _ = lib.lftest.test(args.TEST)
     data = xmltodict.parse(result)['QDocRoot']
     if data['authPassed'] == '0':
         lib.base.cu('Insufficient permissions.')
 
+    # init some vars
+    root = data['func']['ownContent']['root']
+
+    # analyze data
     uptime = (
-        int(data['func']['ownContent']['root']['uptime_day']) * 60 * 60 * 24
-        + int(data['func']['ownContent']['root']['uptime_hour']) * 60 * 60
-        + int(data['func']['ownContent']['root']['uptime_min']) * 60
-        + int(data['func']['ownContent']['root']['uptime_sec'])
+        int(root['uptime_day']) * 60 * 60 * 24
+        + int(root['uptime_hour']) * 60 * 60
+        + int(root['uptime_min']) * 60
+        + int(root['uptime_sec'])
     )
 
     # build the message

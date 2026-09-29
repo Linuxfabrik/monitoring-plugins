@@ -16,8 +16,8 @@ import sys
 import lib.args
 import lib.base
 import lib.db_sqlite
+import lib.lftest
 import lib.qts
-import lib.txt
 import lib.url
 from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 
@@ -29,7 +29,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092901'
 
 DESCRIPTION = """Monitors CPU utilization on QNAP appliances running QTS via the API. Alerts only if
 the threshold has been exceeded for a configurable number of consecutive check runs
@@ -38,12 +38,12 @@ the threshold has been exceeded for a configurable number of consecutive check r
 DEFAULT_COUNT = (
     5  # measurements; if check runs once per minute, this is a 5 minute interval
 )
-DEFAULT_CRIT = 90  # %
+DEFAULT_CRIT = '90'  # %
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
 DEFAULT_TIMEOUT = 6
 DEFAULT_USERNAME = 'admin'
-DEFAULT_WARN = 80  # %
+DEFAULT_WARN = '80'  # %
 
 
 def parse_args():
@@ -80,9 +80,11 @@ def parse_args():
     parser.add_argument(
         '-c',
         '--critical',
-        help=lib.args.help('--critical') + ' Default: >= %(default)s',
+        help=lib.args.help('--critical')
+        + ' Supports Nagios ranges.'
+        + ' Alerts only after `--count` consecutive runs above the threshold.'
+        + ' Default: %(default)s',
         dest='CRIT',
-        type=int,
         default=DEFAULT_CRIT,
     )
 
@@ -125,6 +127,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -149,9 +158,11 @@ def parse_args():
     parser.add_argument(
         '-w',
         '--warning',
-        help=lib.args.help('--warning') + ' Default: >= %(default)s',
+        help=lib.args.help('--warning')
+        + ' Supports Nagios ranges.'
+        + ' Alerts only after `--count` consecutive runs above the threshold.'
+        + ' Default: %(default)s',
         dest='WARN',
-        type=int,
         default=DEFAULT_WARN,
     )
 
@@ -159,20 +170,25 @@ def parse_args():
     return args
 
 
-def get_from_db(conn, threshold):
-    result = lib.base.coe(
-        lib.db_sqlite.select(
-            conn,
-            """
-        SELECT count(*) as cnt
-        FROM perfdata
-        WHERE cpu_usage > :cpu_usage
-        """,
-            {'cpu_usage': threshold},
-            fetchone=True,
-        )
-    )
-    return int(result['cnt'])
+def get_state_from_db(conn, count, warn, crit):
+    """Return the state the last COUNT CPU usage samples agree on.
+
+    A single sample above the threshold is a spike, COUNT of them in a row is load.
+    Same hysteresis as `cpu-usage`.
+    """
+    rows = lib.base.coe(lib.db_sqlite.select(conn, 'SELECT cpu_usage FROM perfdata'))
+    if len(rows) < count:
+        # still warming up, too few samples to tell a spike from a trend
+        return STATE_OK
+    states = [
+        lib.base.get_state(row['cpu_usage'], warn, crit, _operator='range')
+        for row in rows
+    ]
+    if all(item == STATE_CRIT for item in states):
+        return STATE_CRIT
+    if all(item in (STATE_CRIT, STATE_WARN) for item in states):
+        return STATE_WARN
+    return STATE_OK
 
 
 def main():
@@ -184,39 +200,45 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
-
-    # get system information
-    url = (
-        f'{args.URL}/cgi-bin/management/'
-        f'manaRequest.cgi?subfunc=sysinfo'
-        f'&hd=no&multicpu=1&sid={auth_sid}'
-    )
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+    # fetch data
+    if args.TEST is None:
+        auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
+        url = (
+            f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+            f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
         )
-    )
+        result = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        # do not call the appliance, put in test data
+        result, _, _ = lib.lftest.test(args.TEST)
     data = xmltodict.parse(result)['QDocRoot']
     if data['authPassed'] == '0':
         lib.base.cu('Insufficient permissions.')
 
+    # init some vars
     stats = {}
     stats['cpu_usage'] = float(
         data['func']['ownContent']['root']['cpu_usage'].replace('%', '')
     )
 
-    # create the db table
+    # analyze data
+    # In test mode (--test), keep the history in memory, so that unit tests neither
+    # depend on nor leave behind a state file.
     definition = """
         cpu_usage REAL NOT NULL
     """
     conn = lib.base.coe(
         lib.db_sqlite.connect(
-            filename='linuxfabrik-monitoring-plugins-qts-cpu-usage.db'
+            filename='linuxfabrik-monitoring-plugins-qts-cpu-usage.db',
+            in_memory=args.TEST is not None,
         )
     )
     lib.base.coe(lib.db_sqlite.create_table(conn, definition))
@@ -226,15 +248,7 @@ def main():
     lib.base.coe(lib.db_sqlite.cut(conn, _max=args.COUNT))
     lib.base.coe(lib.db_sqlite.commit(conn))
 
-    # now, calculate the WARN or CRIT.
-    # overall state is not ok, if ...
-    #   in a row in any column there is a value above the threshold
-    #   and this is true for every row
-    state = STATE_OK
-    if get_from_db(conn, args.CRIT) == args.COUNT:
-        state = STATE_CRIT
-    elif get_from_db(conn, args.WARN) == args.COUNT:
-        state = STATE_WARN
+    state = get_state_from_db(conn, args.COUNT, args.WARN, args.CRIT)
     lib.db_sqlite.close(conn)
 
     # build the message

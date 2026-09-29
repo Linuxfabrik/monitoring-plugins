@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# Where the fixtures come from:
+#
+# * `qutscloud-*` are captured answers of QuTScloud c4.5.7.1864, c5.0.1.1949,
+#   c5.1.0.2498, c5.2.4.3041 and c5.2.9.3468 on KVM, with IP, MAC and hostname
+#   replaced by documentation values. QuTScloud has no sensors and reports its
+#   temperatures as 0.
+# * `qnapstats-*` are captured answers of real appliances, copied verbatim from
+#   python-qnapstats (tests/responses, MIT License, Copyright (c) 2017 Colin O'Dell).
+# * `ts-451-cpu-82-*` and `ts-451-sys-72-*` are the TS-451 answer with only the CPU
+#   or the system temperature raised.
+TESTS = [
+    {
+        'id': 'ok-qutscloud-c4-5-7-1864',
+        'test': 'stdout/qutscloud-c4-5-7-1864-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 0°C (Thresholds: 60/70°C), CPU: 0°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-0-1-1949',
+        'test': 'stdout/qutscloud-c5-0-1-1949-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 0°C (Thresholds: 60/70°C), CPU: 0°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-1-0-2498',
+        'test': 'stdout/qutscloud-c5-1-0-2498-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 0°C (Thresholds: 60/70°C), CPU: 0°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-4-3041',
+        'test': 'stdout/qutscloud-c5-2-4-3041-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 0°C (Thresholds: 60/70°C), CPU: 0°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-9-3468',
+        'test': 'stdout/qutscloud-c5-2-9-3468-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 0°C (Thresholds: 60/70°C), CPU: 0°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-ts-1677xu-rp-4-5-2',
+        'test': 'stdout/qnapstats-ts-1677xu-rp-4-5-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 33°C (Thresholds: 60/70°C), CPU: 59°C (Thresholds: 75/80°C)',
+        ],
+    },
+    {
+        # no CPU temperature on this model
+        'id': 'ok-ts-410-without-cpu-sensor',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "Sys: 40°C (Thresholds: 57/70°C)|'systemp'=40;57;70;0\n",
+        ],
+    },
+    {
+        'id': 'ok-ts-451-4-2-2',
+        'test': 'stdout/qnapstats-ts-451-4-2-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Sys: 38°C (Thresholds: 60/70°C), CPU: 39°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-ts-639-4-2-3',
+        'test': 'stdout/qnapstats-ts-639-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'CPU: 43°C (Thresholds: 62/85°C)',
+        ],
+    },
+    {
+        'id': 'ok-ts-ec1280u-4-5-2',
+        'test': 'stdout/qnapstats-ts-ec1280u-4-5-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'CPU: 44°C (Thresholds: 80/85°C)',
+        ],
+    },
+    {
+        'id': 'warn-cpu-above-warn',
+        'test': 'stdout/ts-451-cpu-82-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'CPU: 82°C (Thresholds: 80/85°C) [WARNING]',
+        ],
+    },
+    {
+        'id': 'crit-sys-above-crit',
+        'test': 'stdout/ts-451-sys-72-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'Sys: 72°C (Thresholds: 60/70°C) [CRITICAL]',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../qts-temperatures'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

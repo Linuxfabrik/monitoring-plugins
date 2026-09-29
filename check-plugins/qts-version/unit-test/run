@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
+
+# Every scenario is a pair of fixtures in stdout/: `<scenario>-sysinfo` stands in for
+# the answer of `manaRequest.cgi?subfunc=sysinfo`, `<scenario>-firm-update` for the
+# answer of `sysRequest.cgi?subfunc=firm_update`.
+#
+# Where the fixtures come from:
+#
+# * `qutscloud-*` are captured answers of QuTScloud c4.5.7.1864, c5.0.1.1949,
+#   c5.1.0.2498, c5.2.4.3041 and c5.2.9.3468 on KVM, with IP, MAC and hostname
+#   replaced by documentation values. Up to c5.0.1 the available firmware is in
+#   `ownContent/newVersion`, from c5.1.0 on in `ownContent/official/newVersion` and
+#   `ownContent/recommended/newVersion`. c5.1.0 reports "error" for the recommended
+#   channel, because QNAP answers `QuTScloud_FW_5.1.0_recommended.xml` with HTTP 403.
+#   `qutscloud-c5-1-0-2498-official-none-recommended-error-*` is that answer with the
+#   official channel set to "none".
+# * All `qts-5-2-*` fixtures are derived from the captured c5.2.9.3468 answers: only
+#   the `firmware` block, `authPassed` and the two `newVersion` values are swapped.
+#   The QTS 5.2 versions are published releases: 5.2.9.3499 build 20260514,
+#   5.2.10.3568 build 20260722 and 5.2.10.3577 build 20260731, the last one being
+#   the firmware from #1547.
+# * `qts-4-3-4-0675-newversion-4-3-4-0695-firm-update` is a captured answer of a
+#   TS-879 on QTS 4.3.4, copied verbatim from python-qnapstats
+#   (tests/responses/TS-420-4.3.3, MIT License, Copyright (c) 2017 Colin O'Dell).
+#   The `firmware` block describes the installed firmware: it is the common header
+#   `sysRequest.cgi` sends with every subfunction, as the answer to the fan settings
+#   of a TS-453Be shows (github.com/guedou/TS-453Be, doc/fan_control.md).
+# * The remaining QTS 4 fixtures are synthetic and follow that answer. The sysinfo
+#   one without `number` is shaped after a TS-410 on QTS 4.2.3 (python-qnapstats).
+TESTS = [
+    {
+        'id': 'warn-qutscloud-c4-5-7-flat-newversion',
+        'test': 'stdout/qutscloud-c4-5-7-1864',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS vc4.5.7.1864 Build 20211126 installed,'
+            ' QTS vc5.1.7.2739 Build 20240419 available',
+        ],
+    },
+    {
+        'id': 'warn-qutscloud-c5-0-1-flat-newversion',
+        'test': 'stdout/qutscloud-c5-0-1-1949',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS vc5.0.1.1949 Build 20220218 installed,'
+            ' QTS vc5.1.7.2739 Build 20240419 available',
+        ],
+    },
+    {
+        # the recommended channel reports "error", the official one an update
+        'id': 'warn-qutscloud-c5-1-0-recommended-error',
+        'test': 'stdout/qutscloud-c5-1-0-2498',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS vc5.1.0.2498 Build 20230822 installed,'
+            ' QTS vc5.2.9.3468 Build 20260413 available',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-1-0-only-recommended-error',
+        'test': 'stdout/qutscloud-c5-1-0-2498-official-none-recommended-error',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['QTS vc5.1.0.2498 Build 20230822 is up to date'],
+    },
+    {
+        'id': 'warn-qutscloud-c5-2-4-official',
+        'test': 'stdout/qutscloud-c5-2-4-3041',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS vc5.2.4.3041 Build 20250211 installed,'
+            ' QTS vc5.2.9.3468 Build 20260413 available',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-9-latest',
+        'test': 'stdout/qutscloud-c5-2-9-3468',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['QTS vc5.2.9.3468 Build 20260413 is up to date'],
+    },
+    {
+        # #1547: a two-digit position in the version must not produce an update
+        'id': 'ok-5-2-10-newversion-none',
+        'test': 'stdout/qts-5-2-10-3577-newversion-none',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['QTS v5.2.10.3577 Build 20260731 is up to date'],
+    },
+    {
+        'id': 'ok-5-2-10-newversion-is-installed',
+        'test': 'stdout/qts-5-2-10-3577-newversion-5-2-10-3577',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['is up to date'],
+    },
+    {
+        'id': 'ok-newversion-empty',
+        'test': 'stdout/qts-5-2-10-3577-newversion-empty',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['is up to date'],
+    },
+    {
+        'id': 'ok-4-2-3-without-number',
+        'test': 'stdout/qts-4-2-3-without-number-newversion-none',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': ['QTS v4.2.3 Build 20170121 is up to date'],
+    },
+    {
+        # the version crosses from one to two digits
+        'id': 'warn-5-2-9-to-5-2-10',
+        'test': 'stdout/qts-5-2-9-3499-newversion-5-2-10-3568',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS v5.2.9.3499 Build 20260514 installed,'
+            ' QTS v5.2.10.3568 Build 20260722 available',
+        ],
+    },
+    {
+        # same version, newer number
+        'id': 'warn-5-2-10-3568-to-5-2-10-3577',
+        'test': 'stdout/qts-5-2-10-3568-newversion-5-2-10-3577',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': ['QTS v5.2.10.3577 Build 20260731 available'],
+    },
+    {
+        # both update channels name a version, the newer one is reported
+        'id': 'warn-official-newer-than-recommended',
+        'test': 'stdout/qts-5-2-9-3499-recommended-5-2-10-3568-official-5-2-10-3577',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': ['QTS v5.2.10.3577 Build 20260731 available'],
+    },
+    {
+        # same version, newer number, captured QTS 4 answer
+        'id': 'warn-4-3-4-0675-to-4-3-4-0695',
+        'test': 'stdout/qts-4-3-4-0675-newversion-4-3-4-0695',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS v4.3.4.0675 Build 20180810 installed,'
+            ' QTS v4.3.4.0695 Build 20180830 available',
+        ],
+    },
+    {
+        'id': 'warn-qutscloud-c5-0-1-to-c5-1-0',
+        'test': 'stdout/qutscloud-c5-0-1-2374-newversion-c5-1-0-2498',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-regex': r'available.* \[WARNING\]',
+        'assert-in': [
+            'QTS vc5.0.1.2374 Build 20230419 installed,'
+            ' QTS vc5.1.0.2498 Build 20230822 available',
+        ],
+    },
+    {
+        'id': 'ok-always-ok-masks-warn',
+        'test': 'stdout/qts-5-2-10-3568-newversion-5-2-10-3577',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': ['available'],
+    },
+    {
+        'id': 'unknown-newversion-error',
+        'test': 'stdout/qts-5-2-10-3577-newversion-error',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Got an error from the QNAP API.'],
+    },
+    {
+        'id': 'unknown-insufficient-permissions',
+        'test': 'stdout/qts-5-2-10-3577-auth-failed',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_UNKNOWN,
+        'assert-in': ['Insufficient permissions.'],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../qts-version'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

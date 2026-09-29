@@ -77,6 +77,9 @@ Monitoring Plugins:
 * postfix-logfile: reads the journal of Postfix on Debian and Ubuntu
 * postgresql-version: names a refused login or a stopped server
 * procs: says how many processes `--argument` and `--username` could not inspect
+* qts-disk-smart: works with a single disk and on QTS 4.2
+* qts-temperatures: works on models without CPU temperature
+* qts-version: reports updates again, no false alert on QTS 5.2.10 ([#1547](https://github.com/Linuxfabrik/monitoring-plugins/issues/1547))
 * redfish-logservices: reads the SEL of HPE servers, and reports a controller without the requested log instead of calling it ok
 * redfish-sensors: no false iLO 6 inlet warning, no sensors listed twice for a backplane, fans on iLO 6, distinct perfdata for alike named sensors
 * restic-check, restic-stats: work with restic v0.18 and newer, no crash in the `raw-data` and `blobs-per-file` modes

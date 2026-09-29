@@ -7,9 +7,7 @@ Monitors CPU utilization on QNAP appliances running QTS via the HTTP API. Alerts
 
 **Important Notes:**
 
-* 3rd party Python module `xmltodict` required
-* Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
-* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+* See [QNAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-qnap/) for the monitoring account, the requirements and for testing without a QNAP appliance.
 
 **Data Collection:**
 
@@ -51,7 +49,9 @@ options:
   --always-ok          Always returns OK.
   --count COUNT        Number of consecutive checks the threshold must be
                        exceeded before alerting. Default: 5
-  -c, --critical CRIT  CRIT threshold in percent. Default: >= 90
+  -c, --critical CRIT  CRIT threshold in percent. Supports Nagios ranges.
+                       Alerts only after `--count` consecutive runs above the
+                       threshold. Default: 90
   --insecure           This option explicitly allows insecure SSL connections.
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
@@ -73,7 +73,9 @@ options:
   --url URL            QTS-based appliance URL. Example:
                        `https://192.0.2.10:8080`.
   --username USERNAME  QTS API username. Default: admin
-  -w, --warning WARN   WARN threshold in percent. Default: >= 80
+  -w, --warning WARN   WARN threshold in percent. Supports Nagios ranges.
+                       Alerts only after `--count` consecutive runs above the
+                       threshold. Default: 80
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-cpu-usage/

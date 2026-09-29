@@ -7,9 +7,7 @@ Monitors system memory utilization on QNAP appliances running QTS via the HTTP A
 
 **Important Notes:**
 
-* 3rd party Python module `xmltodict` required
-* Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
-* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+* See [QNAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-qnap/) for the monitoring account, the requirements and for testing without a QNAP appliance.
 
 **Data Collection:**
 
@@ -45,8 +43,8 @@ options:
   -h, --help           show this help message and exit
   -V, --version        show program's version number and exit
   --always-ok          Always returns OK.
-  -c, --critical CRIT  CRIT threshold for memory usage as a percentage.
-                       Default: 90
+  -c, --critical CRIT  CRIT threshold for memory usage in percent. Supports
+                       Nagios ranges. Default: 90
   --insecure           This option explicitly allows insecure SSL connections.
   --no-perfdata        Suppress the performance data section from the output.
                        The status message and the exit code are unaffected, so
@@ -68,8 +66,8 @@ options:
   --url URL            QTS-based appliance URL. Example:
                        `--url=https://192.168.1.1:8080`.
   --username USERNAME  QTS API username. Default: admin
-  -w, --warning WARN   WARN threshold for memory usage as a percentage.
-                       Default: 80
+  -w, --warning WARN   WARN threshold for memory usage in percent. Supports
+                       Nagios ranges. Default: 80
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-memory-usage/

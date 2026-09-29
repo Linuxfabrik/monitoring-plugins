@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# Where the fixtures come from:
+#
+# * `qutscloud-*` are captured answers of QuTScloud c4.5.7.1864, c5.0.1.1949,
+#   c5.1.0.2498, c5.2.4.3041 and c5.2.9.3468 on KVM, with IP, MAC and hostname
+#   replaced by documentation values. QuTScloud has no sensors and reports its
+#   temperatures as 0.
+# * `qnapstats-*` are captured answers of real appliances, copied verbatim from
+#   python-qnapstats (tests/responses, MIT License, Copyright (c) 2017 Colin O'Dell).
+TESTS = [
+    {
+        'id': 'ok-qutscloud-c4-5-7-1864',
+        'test': 'stdout/qutscloud-c4-5-7-1864-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0.0%',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-0-1-1949',
+        'test': 'stdout/qutscloud-c5-0-1-1949-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '0.5%',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-1-0-2498',
+        'test': 'stdout/qutscloud-c5-1-0-2498-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2.0%',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-4-3041',
+        'test': 'stdout/qutscloud-c5-2-4-3041-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1.5%',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-9-3468',
+        'test': 'stdout/qutscloud-c5-2-9-3468-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1.1%',
+        ],
+    },
+    {
+        'id': 'ok-ts-1677xu-rp-4-5-2',
+        'test': 'stdout/qnapstats-ts-1677xu-rp-4-5-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '4.5%',
+        ],
+    },
+    {
+        'id': 'ok-ts-410-4-2-3',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '48.5%',
+        ],
+    },
+    {
+        'id': 'ok-ts-451-4-2-2',
+        'test': 'stdout/qnapstats-ts-451-4-2-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '2.3%',
+        ],
+    },
+    {
+        'id': 'ok-ts-639-4-2-3',
+        'test': 'stdout/qnapstats-ts-639-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '8.0%',
+        ],
+    },
+    {
+        'id': 'ok-ts-ec1280u-4-5-2',
+        'test': 'stdout/qnapstats-ts-ec1280u-4-5-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '1.2%',
+        ],
+    },
+    {
+        # a single run cannot fill five consecutive runs of the (in-memory) history
+        'id': 'ok-count-not-reached',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --warning=40 --critical=45',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '48.5%',
+        ],
+    },
+    {
+        'id': 'warn-count-1',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --count=1 --warning=40 --critical=60',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            '48.5%',
+        ],
+    },
+    {
+        'id': 'crit-count-1',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --count=1 --warning=40 --critical=45',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            '48.5%',
+        ],
+    },
+    {
+        # a lower bound: 48.5% is below 50
+        'id': 'crit-range-lower-bound',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --count=1 --warning=60: --critical=50:',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['48.5%'],
+    },
+    {
+        'id': 'warn-range-inside',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --count=1 --warning=@40:50 --critical=95',
+        'assert-retc': STATE_WARN,
+        'assert-in': ['48.5%'],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --count=1 --warning=40 --critical=45 --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '48.5%',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../qts-cpu-usage'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

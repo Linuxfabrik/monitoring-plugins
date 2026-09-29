@@ -3,20 +3,17 @@
 
 ## Overview
 
-Checks if firmware updates are available for a QNAP appliance running QTS by querying the QNAP update API. Reports the currently installed version and alerts when a newer firmware version is available.
+Checks if firmware updates are available for a QNAP appliance running QTS, as reported by the update check of the appliance itself. Compares version and build number, so a new build of the installed version counts as an update. Alerts when a firmware update is available.
 
 **Important Notes:**
 
-* 3rd party Python module `xmltodict` required
-* Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
-* Does not work on QTS 4.3 or less (see [#701](https://github.com/Linuxfabrik/monitoring-plugins/issues/701) for details).
-* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+* See [QNAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-qnap/) for the monitoring account, the requirements and for testing without a QNAP appliance.
 
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches system information via `/cgi-bin/management/manaRequest.cgi`
-* Checks for updates via `/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update`
-* Compares the installed version against the latest available version
+* Checks for updates via `/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update`, which reports the update QTS itself knows of. Newer firmware reports one update per channel ("official" and "recommended"), the plugin reports the newest of them.
+* Compares version and build number of the installed firmware against the available one, so a new build of the same version (for example 5.2.10.3568 to 5.2.10.3577) counts as an update
 
 
 ## Fact Sheet
@@ -39,8 +36,10 @@ usage: qts-version [-h] [-V] [--always-ok] [--insecure] [--no-proxy]
                    --password PASSWORD [--proxy PROXY] [--timeout TIMEOUT]
                    --url URL [--username USERNAME]
 
-Checks if firmware updates are available for a QNAP appliance running QTS by
-querying the QNAP update API. Alerts when firmware updates are available.
+Checks if firmware updates are available for a QNAP appliance running QTS, as
+reported by the update check of the appliance itself. Compares version and
+build number, so a new build of the installed version counts as an update.
+Alerts when a firmware update is available.
 
 options:
   -h, --help           show this help message and exit
@@ -79,14 +78,15 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-version/
 Output:
 
 ```text
-QTS vc5.0.1.2374 Build 20230419 installed, QTS vc5.1.0.2498 Build 20230822 available
+QTS vc5.2.4.3041 Build 20250211 installed, QTS vc5.2.9.3468 Build 20260413 available [WARNING]
 ```
 
 
 ## States
 
-* OK if the installed firmware is up to date.
+* OK if the installed firmware is up to date, or if QTS knows of no update.
 * WARN if a firmware update is available.
+* UNKNOWN if QTS reports an error for its update check. An error of the "recommended" channel alone is ignored, some firmware versions ask for a channel QNAP does not serve.
 * `--always-ok` suppresses all alerts and always returns OK.
 
 

@@ -3,18 +3,17 @@
 
 ## Overview
 
-Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive health, temperature, and SMART attribute status for all installed HDDs and SSDs. Disk temperature thresholds are determined automatically from the QTS system configuration.
+Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive health and temperature against the thresholds configured in QTS. A disk that reports no temperature is rated by its health only. Alerts when any disk reports a non-normal SMART status or reaches a temperature threshold.
 
 **Important Notes:**
 
-* 3rd party Python module `xmltodict` required
-* Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
-* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+* See [QNAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-qnap/) for the monitoring account, the requirements and for testing without a QNAP appliance.
 
 **Data Collection:**
 
 * Authenticates against the QTS API and fetches disk SMART data via `/cgi-bin/disk/qsmart.cgi`
 * Fetches system information via `/cgi-bin/management/manaRequest.cgi` to retrieve temperature thresholds
+* A disk that reports no temperature, a virtual disk of QuTScloud for example, is rated by its health only and adds no perfdata.
 * This check does not run SMART itself. To get the latest values, schedule the built-in SMART check in the QTS web interface.
 
 
@@ -39,8 +38,9 @@ usage: qts-disk-smart [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                       [--timeout TIMEOUT] --url URL [--username USERNAME]
 
 Checks disk SMART values on QNAP appliances running QTS via the API. Reports
-drive health, temperature, and SMART attribute status. Alerts when any disk
-reports a non-normal SMART status.
+drive health and temperature against the thresholds configured in QTS. A disk
+that reports no temperature is rated by its health only. Alerts when any disk
+reports a non-normal SMART status or reaches a temperature threshold.
 
 options:
   -h, --help           show this help message and exit
@@ -82,20 +82,11 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/qts-disk-smart/
 Output:
 
 ```text
-Checked 12 disks. All are healthy.
-
-* Disk 1 (ST16000NE000-2RW103, SerNo 382jdh237, Temp 46°C)
-* Disk 2 (ST16000NE000-2RW103, SerNo 382jdh237, Temp 48°C)
-* Disk 3 (ST16000NE000-2RW103, SerNo 382jdh237, Temp 47°C)
-* Disk 4 (ST16000NE000-2RW103, SerNo 382jdh237, Temp 44°C)
-* Disk 5 (ST12000VN0007-2GS116, SerNo 382jdh237, Temp 43°C)
-* Disk 6 (ST12000VN0007-2GS116, SerNo 382jdh237, Temp 43°C)
-* Disk 7 (ST12000VN0007-2GS116, SerNo 382jdh237, Temp 42°C)
-* Disk 8 (ST12000VN0007-2GS116, SerNo 382jdh237, Temp 40°C)
-* PCIe 2 M.2 SSD 1 (FireCuda 520 SSD ZP2000GM30002, SerNo 382jdh237, Temp 48°C)
-* PCIe 2 M.2 SSD 2 (FireCuda 520 SSD ZP2000GM30002, SerNo 382jdh237, Temp 49°C)
-* PCIe 4 M.2 SSD 1 (FireCuda 520 SSD ZP2000GM30002, SerNo 382jdh237, Temp 47°C)
-* PCIe 4 M.2 SSD 2 (FireCuda 520 SSD ZP2000GM30002, SerNo 382jdh237, Temp 48°C)
+Checked 4 disks. All are healthy.
+* Unknown Alias (WD30EFRX-68EUZN0, SerNo WD-XXX, Temp 32°C (Thresholds: 55/60°C))
+* Unknown Alias (WD30EFRX-68EUZN0, SerNo WD-XXX, Temp 32°C (Thresholds: 55/60°C))
+* Unknown Alias (WD30EFRX-68EUZN0, SerNo WD-XXX, Temp 31°C (Thresholds: 55/60°C))
+* Unknown Alias (WD30EFRX-68EUZN0, SerNo WD-XXX, Temp 28°C (Thresholds: 55/60°C))
 ```
 
 

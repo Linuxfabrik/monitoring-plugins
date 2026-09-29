@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_OK
+
+# Where the fixtures come from:
+#
+# * `qutscloud-*` are captured answers of QuTScloud c4.5.7.1864, c5.0.1.1949,
+#   c5.1.0.2498, c5.2.4.3041 and c5.2.9.3468 on KVM, with IP, MAC and hostname
+#   replaced by documentation values. QuTScloud has no sensors and reports its
+#   temperatures as 0.
+# * `qnapstats-*` are captured answers of real appliances, copied verbatim from
+#   python-qnapstats (tests/responses, MIT License, Copyright (c) 2017 Colin O'Dell).
+TESTS = [
+    {
+        'id': 'ok-qutscloud-c4-5-7-1864',
+        'test': 'stdout/qutscloud-c4-5-7-1864-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Up 3m 23s',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-0-1-1949',
+        'test': 'stdout/qutscloud-c5-0-1-1949-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Up 6m 59s',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-1-0-2498',
+        'test': 'stdout/qutscloud-c5-1-0-2498-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Up 7m 2s',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-4-3041',
+        'test': 'stdout/qutscloud-c5-2-4-3041-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Up 7m 10s',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-9-3468',
+        'test': 'stdout/qutscloud-c5-2-9-3468-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Up 37m 3s',
+        ],
+    },
+    {
+        'id': 'ok-ts-1677xu-rp-4-5-2',
+        'test': 'stdout/qnapstats-ts-1677xu-rp-4-5-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'uptime'=632378s",
+        ],
+    },
+    {
+        'id': 'ok-ts-410-4-2-3',
+        'test': 'stdout/qnapstats-ts-410-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'uptime'=1187268s",
+        ],
+    },
+    {
+        'id': 'ok-ts-451-4-2-2',
+        'test': 'stdout/qnapstats-ts-451-4-2-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'uptime'=5502038s",
+        ],
+    },
+    {
+        'id': 'ok-ts-639-4-2-3',
+        'test': 'stdout/qnapstats-ts-639-4-2-3-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'uptime'=1513005s",
+        ],
+    },
+    {
+        'id': 'ok-ts-ec1280u-4-5-2',
+        'test': 'stdout/qnapstats-ts-ec1280u-4-5-2-sysinfo,,0',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            "'uptime'=178009s",
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../qts-uptime'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

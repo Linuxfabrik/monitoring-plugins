@@ -15,6 +15,7 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.qts
 import lib.txt
 import lib.url
@@ -28,11 +29,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092901'
 
 DESCRIPTION = """Checks disk SMART values on QNAP appliances running QTS via the API. Reports drive
-health, temperature, and SMART attribute status.
-Alerts when any disk reports a non-normal SMART status."""
+health and temperature against the thresholds configured in QTS. A disk that reports no
+temperature is rated by its health only.
+Alerts when any disk reports a non-normal SMART status or reaches a temperature threshold."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -102,6 +104,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -136,38 +145,40 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
-
-    # get all HDD/SSD data
-    url = f'{args.URL}/cgi-bin/disk/qsmart.cgi?func=all_hd_data&sid={auth_sid}'
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+    # fetch data
+    if args.TEST is None:
+        auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
+        url = f'{args.URL}/cgi-bin/disk/qsmart.cgi?func=all_hd_data&sid={auth_sid}'
+        qsmart = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-    )
-    data = xmltodict.parse(result)['QDocRoot']
+        url = (
+            f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+            f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
+        )
+        result = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        # do not call the appliance, put in test data
+        base = args.TEST[0]
+        qsmart = lib.lftest.test_text(args.TEST, f'{base}-qsmart')
+        result = lib.lftest.test_text(args.TEST, f'{base}-sysinfo')
+    data = xmltodict.parse(qsmart)['QDocRoot']
     if data['authPassed'] == '0':
         lib.base.cu('Insufficient permissions.')
-
-    # get system information
-    url = (
-        f'{args.URL}/cgi-bin/management/'
-        f'manaRequest.cgi?subfunc=sysinfo'
-        f'&hd=no&multicpu=1&sid={auth_sid}'
-    )
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
-        )
-    )
     sysinfo = xmltodict.parse(result)['QDocRoot']
     if sysinfo['authPassed'] == '0':
         lib.base.cu('Insufficient permissions.')
@@ -177,23 +188,40 @@ def main():
     state = STATE_OK
     msg_body = ''
     perfdata = ''
+    root = sysinfo['func']['ownContent']['root']
+    # xmltodict returns a single element as a dict and several ones as a list
+    disks = data['Disk_Info']['entry']
+    if isinstance(disks, dict):
+        disks = [disks]
 
     # analyze data
-    for disk in data['Disk_Info']['entry']:
-        if disk['Serial']:  # skip empty entries
-            disk_count += 1
+    for disk in disks:
+        if not disk.get('Serial'):  # skip empty slots
+            continue
+        disk_count += 1
+
+        # QTS 4.2 does not report `hd_is_ssd` (python-qnapstats fixtures of a TS-110
+        # and a TS-659), such a disk is rated as a hard disk
+        if disk.get('hd_is_ssd') == '1':
+            warn = int(root['SSDTempWarnT'])
+            crit = int(root['SSDTempErrT'])
+        else:
+            warn = int(root['HDTempWarnT'])
+            crit = int(root['HDTempErrT'])
+
+        # A disk without a sensor, a virtual disk of QuTScloud for example, reports an
+        # empty temperature. Reporting it as 0 degrees would put a made-up value into
+        # the graphs, so such a disk is only rated by its health.
+        disk_temperature = (disk.get('Temperature') or {}).get('oC')
+        if disk_temperature is None:
             disk_state = STATE_OK
-
-            disk_temperature = disk['Temperature'].get('oC', 0)
-            if disk_temperature is None:
-                disk_temperature = 0
-            if disk['hd_is_ssd'] == '1':
-                warn = int(sysinfo['func']['ownContent']['root']['SSDTempWarnT'])
-                crit = int(sysinfo['func']['ownContent']['root']['SSDTempErrT'])
-            else:
-                warn = int(sysinfo['func']['ownContent']['root']['HDTempWarnT'])
-                crit = int(sysinfo['func']['ownContent']['root']['HDTempErrT'])
-
+            temperature = 'Temp n/a'
+        else:
+            disk_temperature = int(disk_temperature)
+            disk_state = lib.base.get_state(
+                disk_temperature, warn, crit, _operator='ge'
+            )
+            temperature = f'Temp {disk_temperature}°C (Thresholds: {warn}/{crit}°C)'
             alias = disk.get('Disk_Alias', 'Unknown Alias').replace(' ', '_')
             model = disk['Model'].replace(' ', '_')
             serial = disk['Serial'].replace(' ', '_')
@@ -204,22 +232,17 @@ def main():
                 crit=crit,
                 _min=0,
             )
+        if disk['Health'] != 'OK':
+            disk_state = STATE_WARN
 
-            disk_state = lib.base.get_state(
-                disk_temperature, warn, crit, _operator='ge'
-            )
-            if disk['Health'] != 'OK':
-                disk_state = STATE_WARN
-
-            state = lib.base.get_worst(disk_state, state)
-            msg_body += (
-                f'* {disk.get("Disk_Alias", "Unknown Alias")}'
-                f' ({disk["Model"]}'
-                f', SerNo {disk["Serial"]}'
-                f', Temp {disk_temperature}°C'
-                f' (Thresholds: {warn}/{crit}°C)'
-                f'{lib.base.state2str(disk_state, prefix="", suffix=" ")}\n'
-            )
+        state = lib.base.get_worst(disk_state, state)
+        msg_body += (
+            f'* {disk.get("Disk_Alias", "Unknown Alias")}'
+            f' ({disk["Model"]}'
+            f', SerNo {disk["Serial"]}'
+            f', {temperature})'
+            f'{lib.base.state2str(disk_state, prefix=" ")}\n'
+        )
 
     # build the message
     if disk_count:

@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8; py-indent-offset: 4 -*-
+#
+# Author:  Linuxfabrik GmbH, Zurich, Switzerland
+# Contact: info (at) linuxfabrik (dot) ch
+#          https://www.linuxfabrik.ch/
+# License: The Unlicense, see LICENSE file.
+
+# https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
+
+import sys
+
+sys.path.insert(0, '..')
+
+import unittest
+
+import lib.lftest
+from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
+
+# Where the fixtures come from:
+#
+# * `qutscloud-*` are captured answers of QuTScloud c4.5.7.1864, c5.0.1.1949,
+#   c5.1.0.2498, c5.2.4.3041 and c5.2.9.3468 on KVM, with IP, MAC and hostname
+#   replaced by documentation values. QuTScloud has no sensors and reports its
+#   temperatures as 0.
+# * `qnapstats-*` are captured answers of real appliances, copied verbatim from
+#   python-qnapstats (tests/responses, MIT License, Copyright (c) 2017 Colin O'Dell).
+# * The TS-110 and TS-659 answers of python-qnapstats have no sysinfo counterpart,
+#   their `-sysinfo` fixture is the TS-410 answer of the same QTS generation and
+#   only provides the temperature thresholds.
+# * `ts-451-disk-61-*` and `ts-451-disk-warning-*` are the TS-451 answer with the
+#   temperature of the first disk raised, or the health of the second disk set to
+#   "Warning".
+TESTS = [
+    {
+        'id': 'ok-qutscloud-c4-5-7-1864-no-temperature',
+        'test': 'stdout/qutscloud-c4-5-7-1864',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System Boot Disk (Virtual Disk (dm-0), SerNo QVD01, Temp n/a)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-0-1-1949-no-temperature',
+        'test': 'stdout/qutscloud-c5-0-1-1949',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System Boot Disk (Virtual Disk (dm-0), SerNo QVD01, Temp n/a)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-1-0-2498-no-temperature',
+        'test': 'stdout/qutscloud-c5-1-0-2498',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System Boot Disk (Virtual Disk (dm-0), SerNo QVD01, Temp n/a)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-4-3041-no-temperature',
+        'test': 'stdout/qutscloud-c5-2-4-3041',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System Boot Disk (Virtual Disk (dm-0), SerNo QVD01, Temp n/a)',
+        ],
+    },
+    {
+        'id': 'ok-qutscloud-c5-2-9-3468-no-temperature',
+        'test': 'stdout/qutscloud-c5-2-9-3468',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'System Boot Disk (Virtual Disk (dm-0), SerNo QVD01, Temp n/a)',
+        ],
+    },
+    {
+        # a disk without a temperature adds nothing to the perfdata
+        'id': 'ok-qutscloud-no-temperature-no-perfdata',
+        'test': 'stdout/qutscloud-c5-2-9-3468',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 2 disks. All are healthy.',
+        ],
+    },
+    {
+        'id': 'ok-ts-110-single-disk',
+        'test': 'stdout/qnapstats-ts-110-4-2-4',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 1 disk. All are healthy.',
+            'Temp 37°C (Thresholds: 55/60°C)',
+        ],
+    },
+    {
+        'id': 'ok-ts-659-without-hd-is-ssd',
+        'test': 'stdout/qnapstats-ts-659-4-2-6',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 4 disks. All are healthy.',
+            'INTEL SSDSA2M160G2GN, SerNo',
+            'Temp n/a)',
+        ],
+    },
+    {
+        'id': 'ok-ts-1677xu-rp-4-5-2',
+        'test': 'stdout/qnapstats-ts-1677xu-rp-4-5-2',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 16 disks. All are healthy.',
+            'Temp 32°C (Thresholds: 70/70°C)',
+        ],
+    },
+    {
+        'id': 'ok-ts-451-4-2-2',
+        'test': 'stdout/qnapstats-ts-451-4-2-2',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 4 disks. All are healthy.',
+        ],
+    },
+    {
+        'id': 'ok-ts-ec1280u-4-5-2',
+        'test': 'stdout/qnapstats-ts-ec1280u-4-5-2',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'Checked 14 disks. All are healthy.',
+        ],
+    },
+    {
+        'id': 'crit-disk-above-crit',
+        'test': 'stdout/ts-451-disk-61',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_CRIT,
+        'assert-in': [
+            'There are critical errors.',
+            'Temp 61°C (Thresholds: 55/60°C)) [CRITICAL]',
+        ],
+    },
+    {
+        'id': 'warn-disk-health',
+        'test': 'stdout/ts-451-disk-warning',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'There are warnings.',
+            ') [WARNING]',
+        ],
+    },
+    {
+        'id': 'ok-always-ok-masks-crit',
+        'test': 'stdout/ts-451-disk-61',
+        'params': '--password=linuxfabrik --url=https://qnap.example.com --always-ok',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            '[CRITICAL]',
+        ],
+    },
+]
+
+
+class TestCheck(unittest.TestCase):
+    check = '../qts-disk-smart'
+
+
+lib.lftest.attach_tests(TestCheck, TESTS)
+
+
+if __name__ == '__main__':
+    unittest.main()

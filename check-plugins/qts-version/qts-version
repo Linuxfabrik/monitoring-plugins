@@ -15,8 +15,8 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.qts
-import lib.txt
 import lib.url
 import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
@@ -29,11 +29,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092901'
 
-DESCRIPTION = """Checks if firmware updates are available for a QNAP appliance running QTS by querying
-the QNAP update API.
-Alerts when firmware updates are available."""
+DESCRIPTION = """Checks if firmware updates are available for a QNAP appliance running QTS, as reported
+by the update check of the appliance itself. Compares version and build number, so a new
+build of the installed version counts as an update.
+Alerts when a firmware update is available."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -95,6 +96,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -129,75 +137,102 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
-
-    # get system information
-    url = (
-        f'{args.URL}/cgi-bin/management/manaRequest.cgi'
-        f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
-    )
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+    # fetch data
+    if args.TEST is None:
+        auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
+        url = (
+            f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+            f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
         )
-    )
-    data = xmltodict.parse(result)['QDocRoot']
-    if data['authPassed'] == '0':
-        lib.base.cu('Insufficient permissions.')
-
-    installed_version = data['firmware']['version']
-    installed_number = data['firmware']['number']
-    installed_build = data['firmware']['build']
-
-    # check for updates
-    url = f'{args.URL}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={auth_sid}'
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            data=data,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+        sysinfo = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
         )
-    )
-    xmldict = xmltodict.parse(result)['QDocRoot']
-    if 'newVersion' in xmldict['func']['ownContent']:
-        # versions up to 5.0.1
-        latest_version = xmldict['func']['ownContent']['newVersion']
-    elif 'version' in xmldict['firmware']:
-        # version 5.0.1+
-        latest_version = xmldict['firmware']['version']
+        data = xmltodict.parse(sysinfo)['QDocRoot']
+        if data['authPassed'] == '0':
+            lib.base.cu('Insufficient permissions.')
+        url = (
+            f'{args.URL}/cgi-bin/sys/sysRequest.cgi?subfunc=firm_update&sid={auth_sid}'
+        )
+        firm_update = lib.base.coe(
+            lib.url.fetch(
+                url,
+                data=data,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
     else:
-        lib.base.cu('Version information cannot be determined.')
+        # do not call the appliance, put in test data
+        base = args.TEST[0]
+        data = xmltodict.parse(lib.lftest.test_text(args.TEST, f'{base}-sysinfo'))[
+            'QDocRoot'
+        ]
+        if data['authPassed'] == '0':
+            lib.base.cu('Insufficient permissions.')
+        firm_update = lib.lftest.test_text(args.TEST, f'{base}-firm-update')
 
-    if latest_version == 'none':
-        latest_version = None
-    elif latest_version == 'error' or len(latest_version) == 0:
+    # init some vars
+    installed_version = data['firmware']['version']
+    # QTS 4.2 does not report a number (python-qnapstats fixtures of a TS-410)
+    installed_number = data['firmware'].get('number')
+    if installed_number:
+        installed_version = f'{installed_version}.{installed_number}'
+    installed = f'{installed_version} Build {data["firmware"]["build"]}'
+
+    # analyze data
+    # The available firmware comes as "<version>.<number> Build <date>", for example
+    # "c5.2.9.3468 Build 20260413", and as "none" or "error" otherwise. Up to
+    # QuTScloud c5.0.1 there is one `newVersion` right in `ownContent`, from c5.1.0 on
+    # there is one per update channel in `ownContent/official` and
+    # `ownContent/recommended` (verified against QuTScloud c4.5.7.1864, c5.0.1.1949,
+    # c5.1.0.2498, c5.2.4.3041 and c5.2.9.3468). A channel reports "error" when QNAP
+    # does not serve its feed: QuTScloud c5.1 asks for
+    # `QuTScloud_FW_5.1.0_recommended.xml`, which answers HTTP 403, so an error of the
+    # recommended channel alone is not worth an alert. Where no channel names a
+    # version, the appliance knows of no update: the `firmware` block of the same
+    # answer describes the installed firmware, not an available one.
+    func = xmltodict.parse(firm_update)['QDocRoot'].get('func') or {}
+    own_content = func.get('ownContent') or {}
+    main_channel = own_content.get('newVersion') or (
+        own_content.get('official') or {}
+    ).get('newVersion')
+    new_versions = [
+        main_channel,
+        (own_content.get('recommended') or {}).get('newVersion'),
+    ]
+
+    # Compare version and number. The build date is left out, and so is everything
+    # from " Build" on, because lib.version.version() would glue the date to the
+    # number. Four positions, because QNAP ships new numbers under the same version
+    # (5.2.10.3568 and 5.2.10.3577).
+    installed_tuple = lib.version.version(installed_version, maxlen=4)
+    available = sorted(
+        (lib.version.version(item.split()[0], maxlen=4), item)
+        for item in new_versions
+        if item and item not in ('error', 'none')
+    )
+    if not available and main_channel == 'error':
         lib.base.cu('Got an error from the QNAP API.')
+    if not available or installed_tuple >= available[-1][0]:
+        lib.base.oao(f'QTS v{installed} is up to date', STATE_OK)
+    latest_version = available[-1][1]
 
     # build the message
-    if lib.version.version('.'.join(installed_version)) >= lib.version.version(
-        latest_version
-    ):
-        lib.base.oao(
-            f'QTS v{installed_version}.{installed_number} Build {installed_build} is up to date',
-            STATE_OK,
-        )
-    # over and out
-    lib.base.oao(
-        (
-            f'QTS v{installed_version}.{installed_number}'
-            f' Build {installed_build} installed,'
-            f' QTS v{latest_version} available'
-        ),
-        STATE_WARN,
-        always_ok=args.ALWAYS_OK,
+    msg = (
+        f'QTS v{installed} installed, QTS v{latest_version} available'
+        f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
     )
+
+    # over and out
+    lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
 
 
 if __name__ == '__main__':

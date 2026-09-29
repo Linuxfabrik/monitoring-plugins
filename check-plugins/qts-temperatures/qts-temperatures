@@ -15,10 +15,10 @@ import sys
 
 import lib.args
 import lib.base
+import lib.lftest
 import lib.qts
-import lib.txt
 import lib.url
-from lib.globals import STATE_UNKNOWN
+from lib.globals import STATE_OK, STATE_UNKNOWN
 
 try:
     import xmltodict
@@ -28,10 +28,12 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026082501'
+__version__ = '2026092901'
 
-DESCRIPTION = """Checks system and disk temperatures on QNAP appliances running QTS via the API.
-Alerts when temperatures exceed the configured thresholds."""
+DESCRIPTION = """Checks system and CPU temperatures on QNAP appliances running QTS via the API. The
+thresholds are the ones configured in QTS. A temperature the model does not report is
+left out.
+Alerts when a temperature reaches the warning or error threshold configured in QTS."""
 
 DEFAULT_INSECURE = False
 DEFAULT_NO_PROXY = False
@@ -101,6 +103,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -135,67 +144,63 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
-    auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
-
-    # get system information
-    url = (
-        f'{args.URL}/cgi-bin/management/manaRequest.cgi'
-        f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
-    )
-    result = lib.base.coe(
-        lib.url.fetch(
-            url,
-            insecure=args.INSECURE,
-            no_proxy=args.NO_PROXY,
-            proxy=args.PROXY,
-            timeout=args.TIMEOUT,
+    # fetch data
+    if args.TEST is None:
+        auth_sid = lib.base.coe(lib.qts.get_auth_sid(args))
+        url = (
+            f'{args.URL}/cgi-bin/management/manaRequest.cgi'
+            f'?subfunc=sysinfo&hd=no&multicpu=1&sid={auth_sid}'
         )
-    )
+        result = lib.base.coe(
+            lib.url.fetch(
+                url,
+                insecure=args.INSECURE,
+                no_proxy=args.NO_PROXY,
+                proxy=args.PROXY,
+                timeout=args.TIMEOUT,
+            )
+        )
+    else:
+        # do not call the appliance, put in test data
+        result, _, _ = lib.lftest.test(args.TEST)
     data = xmltodict.parse(result)['QDocRoot']
     if data['authPassed'] == '0':
         lib.base.cu('Insufficient permissions.')
 
-    # analyze data
-    systemp_state = lib.base.get_state(
-        int(data['func']['ownContent']['root']['sys_tempc']),
-        int(data['func']['ownContent']['root']['SysTempWarnT']),
-        int(data['func']['ownContent']['root']['SysTempErrT']),
-        _operator='ge',
-    )
-    cputemp_state = lib.base.get_state(
-        int(data['func']['ownContent']['root']['cpu_tempc']),
-        int(data['func']['ownContent']['root']['CPUTempWarnT']),
-        int(data['func']['ownContent']['root']['CPUTempErrT']),
-        _operator='ge',
-    )
-    state = lib.base.get_worst(systemp_state, cputemp_state)
-
-    # build the message
+    # init some vars
     root = data['func']['ownContent']['root']
-    msg = (
-        f'Sys: {int(root["sys_tempc"])}°C'
-        f' (Thresholds: {int(root["SysTempWarnT"])}'
-        f'/{int(root["SysTempErrT"])}°C)'
-        f'{lib.base.state2str(systemp_state, prefix=" ")}'
-        f', CPU: {int(root["cpu_tempc"])}°C'
-        f' (Thresholds: {int(root["CPUTempWarnT"])}'
-        f'/{int(root["CPUTempErrT"])}°C)'
-        f'{lib.base.state2str(cputemp_state, prefix=" ")}'
-    )
-    perfdata = lib.base.get_perfdata(
-        'systemp',
-        int(data['func']['ownContent']['root']['sys_tempc']),
-        warn=int(data['func']['ownContent']['root']['SysTempWarnT']),
-        crit=int(data['func']['ownContent']['root']['SysTempErrT']),
-        _min=0,
-    )
-    perfdata += lib.base.get_perfdata(
-        'cputemp',
-        int(data['func']['ownContent']['root']['cpu_tempc']),
-        warn=int(data['func']['ownContent']['root']['CPUTempWarnT']),
-        crit=int(data['func']['ownContent']['root']['CPUTempErrT']),
-        _min=0,
-    )
+    msg = ''
+    perfdata = ''
+    state = STATE_OK
+    # Not every model reports every sensor: a TS-410 on QTS 4.2.3 has no CPU
+    # temperature (python-qnapstats fixture), so a missing sensor is left out.
+    sensors = [
+        # label, perfdata label, value, warn, crit
+        ('Sys', 'systemp', 'sys_tempc', 'SysTempWarnT', 'SysTempErrT'),
+        ('CPU', 'cputemp', 'cpu_tempc', 'CPUTempWarnT', 'CPUTempErrT'),
+    ]
+
+    # analyze data
+    for label, perf_label, value_key, warn_key, crit_key in sensors:
+        if root.get(value_key) is None:
+            continue
+        value = int(root[value_key])
+        warn = int(root[warn_key])
+        crit = int(root[crit_key])
+        sensor_state = lib.base.get_state(value, warn, crit, _operator='ge')
+        state = lib.base.get_worst(state, sensor_state)
+
+        # build the message
+        msg += (
+            f'{label}: {value}°C (Thresholds: {warn}/{crit}°C)'
+            f'{lib.base.state2str(sensor_state, prefix=" ")}, '
+        )
+        perfdata += lib.base.get_perfdata(
+            perf_label, value, warn=warn, crit=crit, _min=0
+        )
+    if not msg:
+        lib.base.cu('The appliance does not report any temperature.')
+    msg = msg[:-2]
 
     # over and out
     lib.base.oao(

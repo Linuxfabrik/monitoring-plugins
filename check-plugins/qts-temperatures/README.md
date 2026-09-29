@@ -3,13 +3,11 @@
 
 ## Overview
 
-Checks system and CPU temperatures on QNAP appliances running QTS via the HTTP API. All temperatures are expressed in Celsius. Temperature thresholds are determined automatically from the QTS system configuration.
+Checks system and CPU temperatures on QNAP appliances running QTS via the API. The thresholds are the ones configured in QTS. A temperature the model does not report is left out. Alerts when a temperature reaches the warning or error threshold configured in QTS. All temperatures are expressed in Celsius.
 
 **Important Notes:**
 
-* 3rd party Python module `xmltodict` required
-* Tested on [QuTScloud](https://www.qnap.com/en-us/download?model=qutscloud&category=firmware) v4.5.6+
-* The user used for monitoring must be a member of the "administrators" group. It is not sufficient to be a member of the "everyone" group.
+* See [QNAP plugins](https://linuxfabrik.github.io/monitoring-plugins/plugins-qnap/) for the monitoring account, the requirements and for testing without a QNAP appliance.
 
 **Data Collection:**
 
@@ -37,8 +35,10 @@ usage: qts-temperatures [-h] [-V] [--always-ok] [--insecure] [--no-perfdata]
                         [--no-proxy] --password PASSWORD [--proxy PROXY]
                         [--timeout TIMEOUT] --url URL [--username USERNAME]
 
-Checks system and disk temperatures on QNAP appliances running QTS via the
-API. Alerts when temperatures exceed the configured thresholds.
+Checks system and CPU temperatures on QNAP appliances running QTS via the API.
+The thresholds are the ones configured in QTS. A temperature the model does
+not report is left out. Alerts when a temperature reaches the warning or error
+threshold configured in QTS.
 
 options:
   -h, --help           show this help message and exit
