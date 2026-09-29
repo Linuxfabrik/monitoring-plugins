@@ -101,7 +101,7 @@ Changed entries:
 * f: /etc/sudoers.d/README: permissions, ACL
 * f: /etc/sudoers.d/user: permissions, ACL
 
-The details are in /var/log/aide/aide.log. Once the changes are known to be legitimate, accept them with `sudo aide --config=/etc/aide.conf --update && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`.
+The details are in /var/log/aide/aide.log. Once the changes are known to be legitimate, accept them with `sudo flock /run/aide.lock aide --config=/etc/aide.conf --update && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`.
 ```
 
 A host without differences:
@@ -156,12 +156,12 @@ The check does not run as root. Call it via `sudo`, as the `AIDE Service Set` an
 
 1. Read the report: `sudo less /var/log/aide/aide.log`. The section "Detailed information about changes" shows the old and new value of every changed attribute of every file.
 2. Find out who changed the files and why: a package update (`dnf history`, `/var/log/apt/history.log`), a configuration management run, an administrator. A changed binary below `/usr` that no package update explains, a new setuid file, or a changed file below `/etc/sudoers.d` or `/etc/pam.d` that nobody can account for is a security incident.
-3. Once the changes are known to be legitimate, accept them as the new baseline with `sudo aide --config=/etc/aide.conf --update && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`, then run a check, for example `sudo systemctl start aidecheck.service`. `aide --update` accepts everything that changed since the database was last updated, not only the changes you reviewed.
+3. Once the changes are known to be legitimate, accept them as the new baseline with `sudo flock /run/aide.lock aide --config=/etc/aide.conf --update && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`, then run a check, for example `sudo systemctl start aidecheck.service`. `aide --update` accepts everything that changed since the database was last updated, not only the changes you reviewed.
 4. Paths that change legitimately all the time belong excluded from the AIDE configuration (`!/path`), or checked with fewer attributes (`PERMS` instead of `NORMAL`), rather than accepted over and over.
 
 ### `The last AIDE run aborted before it wrote its report`
 
-AIDE empties its report when it starts, and an aborted run leaves it empty. Most often the database is missing, for example on a fresh installation. The check then says so and names the command that creates it: `sudo aide --config=/etc/aide.conf --init && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`. Run it once the host is set up completely, since everything that changes afterwards is reported. For any other cause, `sudo journalctl --unit aidecheck.service` shows why, or, on a host without `aidecheck.service`, running `sudo aide --config=/etc/aide.conf --check` by hand does. Two configurations leave the report empty without any error:
+AIDE empties its report when it starts, and an aborted run leaves it empty. Most often the database is missing, for example on a fresh installation. The check then says so and names the command that creates it: `sudo flock /run/aide.lock aide --config=/etc/aide.conf --init && sudo mv /var/lib/aide/aide.db.new.gz /var/lib/aide/aide.db.gz`. Run it once the host is set up completely, since everything that changes afterwards is reported. For any other cause, `sudo journalctl --unit aidecheck.service` shows why, or, on a host without `aidecheck.service`, running `sudo flock /run/aide.lock aide --config=/etc/aide.conf --check` by hand does. Two configurations leave the report empty without any error:
 
 * `report_quiet=yes` in the AIDE configuration writes no report at all when AIDE finds nothing. Remove it.
 * logrotate with `copytruncate` empties the report when it rotates it, which the logrotate configuration RHEL ships in `/etc/logrotate.d/aide` does once the report is larger than 100 KiB. Use `copy` instead of `copytruncate` there: AIDE writes a new report on every run anyway. The LFOps aide role does exactly that.

@@ -27,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092912'
+__version__ = '2026092913'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -48,6 +48,10 @@ DOCS_URL = f'{lib.args.DOCS_BASE_URL}/check-plugins/aide-logfile/'
 # where the configurations that RHEL, Fedora and the LFOps aide role ship, and the one
 # of Debian's aide-common, keep the AIDE database
 DATABASES = ['/var/lib/aide/aide.db.gz', '/var/lib/aide/aide.db']
+# runs AIDE by hand; the lock keeps it from colliding with a check a timer starts at
+# the same moment, which would end with exit code 21 (the LFOps aide role takes the
+# same lock for every AIDE run, flock creates it where nobody does)
+AIDE = 'sudo flock /run/aide.lock aide --config=/etc/aide.conf'
 # puts the database that `aide --init` or `aide --update` wrote into place
 MOVE_DATABASE = f'sudo mv {DATABASES[0][:-3]}.new.gz {DATABASES[0]}'
 # the check unit of the CIS benchmarks and the LFOps aide role
@@ -652,12 +656,11 @@ def main():
         if args.TEST is None and not any(os.path.lexists(db) for db in DATABASES):
             msg += (
                 f' AIDE has no database yet at {DATABASES[0]}. Create it once the host '
-                'is set up completely, with `sudo aide --config=/etc/aide.conf '
-                f'--init && {MOVE_DATABASE}`.'
+                f'is set up completely, with `{AIDE} --init && {MOVE_DATABASE}`.'
             )
             lib.base.oao(msg, STATE_WARN, always_ok=args.ALWAYS_OK)
         if args.TEST is None and not any(os.path.lexists(unit) for unit in UNITS):
-            msg += ' Run `sudo aide --config=/etc/aide.conf --check` to see why.'
+            msg += f' Run `{AIDE} --check` to see why.'
         else:
             msg += ' `sudo journalctl --unit aidecheck.service` shows why.'
         if not text:
@@ -776,8 +779,7 @@ def main():
         else:
             msg += (
                 f'\n\nThe details are in {REPORT}. Once the changes are known to be '
-                'legitimate, accept them with `sudo aide --config=/etc/aide.conf '
-                f'--update && {MOVE_DATABASE}`.'
+                f'legitimate, accept them with `{AIDE} --update && {MOVE_DATABASE}`.'
             )
     if in_progress:
         first, sep, rest = msg.partition('\n')
