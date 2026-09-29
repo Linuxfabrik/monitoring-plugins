@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Highlights:** Every plugin was run against real hosts in one sweep: Debian 11/12/13, Rocky 8/9/10, Ubuntu 22.04/24.04/26.04, Windows 10/11, Windows Server 2016/2019/2022/2025 (including the new JEA endpoint), and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis-logfile` evaluates the daily lynis audit of each host, and `lynis` lists the findings and suggestions of every host it scans.
+**Highlights:** Every plugin was run against real hosts in one sweep: Debian 11/12/13, Rocky 8/9/10, Ubuntu 22.04/24.04/26.04, Windows 10/11, Windows Server 2016/2019/2022/2025 (including the new JEA endpoint), and whatever broke there is fixed. `restic-*` works with restic before and since v0.18 and accepts only root-owned password and repository files. `lynis-logfile` evaluates the daily lynis audit of each host, and `lynis` lists the findings and suggestions of every host it scans. `aide-logfile` evaluates the regular AIDE file integrity check and lists the changed files.
 
 ### Added
 
