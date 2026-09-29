@@ -33,7 +33,9 @@ from lib.globals import STATE_CRIT, STATE_OK, STATE_UNKNOWN, STATE_WARN
 #   findings-*     `aide --check` after appending a line to /etc/hosts, adding a file
 #                  to /etc/sudoers.d and a setuid binary to /usr/local/bin, and
 #                  removing /etc/issue.net
-#   update-*       `aide --update` on the same host, which writes a new database
+#   update-*       `aide --update` on the same host, which writes a new database;
+#                  the test points it at a database below unit-test/ that exists
+#                  (not moved yet) or does not (moved over the old one)
 #   dailyaidecheck-debian13
 #                  the daily check of Debian's aide-common 0.19.1, an update run
 #   aborted-rocky8 `aide --check` without a database: aide 0.16 writes the error
@@ -122,6 +124,36 @@ write_fixture(
 )
 # a report written without line breaks cannot fill the memory
 write_fixture('generated-no-line-breaks', 'x' * (1024 * 1024))
+
+
+def with_database_out(text, path):
+    """Return the report of an update run that names `path` as its new database."""
+    return re.sub(
+        r'^New AIDE database written to .+$',
+        f'New AIDE database written to {path}',
+        text,
+        flags=re.MULTILINE,
+    )
+
+
+# An update run is accepted once its new database is gone, moved over the old one.
+# The reports name the database below unit-test/, so the result does not depend on
+# the host the tests run on: `pending` holds a new database, `moved` does not.
+MOVED = os.path.join(HERE, 'stdout', 'moved', 'aide.db.new.gz')
+PENDING = os.path.join(HERE, 'stdout', 'aide.db.new.gz')
+write_fixture('aide.db.new.gz', '')
+for name in ('update-rocky8', 'update-debian13', 'dailyaidecheck-debian13'):
+    write_fixture(
+        f'generated-{name}-moved', with_database_out(read_fixture(name), MOVED)
+    )
+    write_fixture(
+        f'generated-{name}-pending', with_database_out(read_fixture(name), PENDING)
+    )
+# a report cannot make the check probe for a file that is no AIDE database
+write_fixture(
+    'generated-update-not-a-database',
+    with_database_out(read_fixture('update-debian13'), '/nonexistent/linuxfabrik'),
+)
 
 TESTS = [
     {
@@ -260,34 +292,65 @@ TESTS = [
         'assert-in': ['AIDE initialized its database '],
     },
     {
-        # `aide --update` writes a new database next to the old one, so its
-        # differences still stand until the new database replaces the old one
-        'id': 'crit-update-aide-0.16',
-        'test': 'stdout/update-rocky8,,0',
+        # the new database of the update run is still there, so the differences
+        # still stand against the old one
+        'id': 'crit-update-pending-aide-0.16',
+        'test': 'stdout/generated-update-rocky8-pending,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_CRIT,
         'assert-in': [
             'AIDE found 7 differences (2 added, 1 removed, 4 changed) [CRITICAL] in '
             'the update run ',
             '* f++++++++++++++++: /usr/local/bin/linuxfabrik-suid',
-            'The run wrote a new database, which accepts the differences only once '
-            'it replaces the old one',
+            'The run wrote a new database (',
+            '/aide.db.new.gz), which accepts the differences only once it replaces '
+            'the old one.',
         ],
         'assert-regex': r"'differences'=7;;0;0 'entries'=35760;;;0",
     },
     {
-        'id': 'crit-update-aide-0.19',
-        'test': 'stdout/update-debian13,,0',
+        'id': 'crit-update-pending-aide-0.19',
+        'test': 'stdout/generated-update-debian13-pending,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_CRIT,
         'assert-in': ['AIDE found 6 differences (2 added, 1 removed, 3 changed)'],
     },
     {
-        # the daily check of Debian's aide-common: an update run by default, framed
-        # by lines of its own, and preceded by "Entry ... in databases has
-        # different attributes" lines of AIDE
+        # the new database was moved over the old one: the differences are
+        # accepted, and a check is to follow
+        'id': 'ok-update-moved-aide-0.16',
+        'test': 'stdout/generated-update-rocky8-moved,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': [
+            'AIDE updated its database ',
+            ' and accepted 7 differences (2 added, 1 removed, 4 changed), no check '
+            'has run since',
+        ],
+        'assert-not-in': ['Added entries:', 'differences=', '[CRITICAL]'],
+        'assert-regex': r"\|'entries'=35760;;;0$",
+    },
+    {
+        'id': 'ok-update-moved-aide-0.19',
+        'test': 'stdout/generated-update-debian13-moved,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': [' and accepted 6 differences (2 added, 1 removed, 3 changed)'],
+    },
+    {
+        'id': 'crit-update-names-no-database',
+        'test': 'stdout/generated-update-not-a-database,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_CRIT,
+        'assert-in': ['in the update run '],
+    },
+    {
+        # the daily check of Debian's aide-common: an update run by default that
+        # leaves its new database where it is (COPYNEWDB=no), framed by lines of
+        # its own, and preceded by "Entry ... in databases has different
+        # attributes" lines of AIDE
         'id': 'crit-debian-aide-common',
-        'test': 'stdout/dailyaidecheck-debian13,,0',
+        'test': 'stdout/generated-dailyaidecheck-debian13-pending,,0',
         'params': '--max-age 0',
         'assert-retc': STATE_CRIT,
         'assert-in': [
@@ -296,6 +359,13 @@ TESTS = [
             '* ... and 2 more\n\nChanged entries:\n* f >.... mc..H.. .  : /etc/hosts',
         ],
         'assert-not-in': ['Added entries:'],
+    },
+    {
+        'id': 'ok-debian-aide-common-moved',
+        'test': 'stdout/generated-dailyaidecheck-debian13-moved,,0',
+        'params': '--max-age 0',
+        'assert-retc': STATE_OK,
+        'assert-in': [' and accepted 14 differences'],
     },
     {
         'id': 'warn-aborted-aide-0.16',

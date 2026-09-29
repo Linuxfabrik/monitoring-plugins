@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092901'
+__version__ = '2026092902'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -182,6 +182,19 @@ def aide_running():
     return ''
 
 
+def database_moved(path):
+    """Tell whether the new database an `aide --update` run wrote is gone, which
+    means that it was moved over the old one and its differences are accepted.
+
+    The path comes from the report. Only an absolute path to an AIDE database is
+    looked at, so the report cannot make the check probe for other files, and
+    anything else counts as not moved.
+    """
+    if not path.startswith('/') or not os.path.basename(path).startswith('aide.db'):
+        return False
+    return not os.path.lexists(path)
+
+
 def read_lines(handle):
     """Yield the lines of a binary file handle, each one cut at MAX_LINE_BYTES, so a
     file without line breaks cannot fill the memory.
@@ -198,8 +211,8 @@ def parse_report(lines):
     in bytes.
 
     Returns a dict with `action` (`check`, `init`, `update`, or None if the text is
-    no AIDE report), `found` (whether the outline of a check or update reports
-    differences), `start` (the start timestamp as written by AIDE, or None),
+    no AIDE report), `database_out` (the new database an update run wrote), `found`
+    (whether the outline of a check or update reports differences), `start` (the start timestamp as written by AIDE, or None),
     `version`, the counts `added`, `changed`, `removed`, `total` (None where the
     report does not tell), `entries`, a list of (headline, lines) of the lists of
     added, removed and changed entries with at most MAX_ENTRIES lines each, `text`,
@@ -210,6 +223,7 @@ def parse_report(lines):
         'action': None,
         'added': None,
         'changed': None,
+        'database_out': '',
         'entries': [],
         'found': False,
         'removed': None,
@@ -282,8 +296,12 @@ def parse_report(lines):
         if match:
             report['action'] = 'check'
             report['found'] = not match.group(1)
-            if re.search(r'^New AIDE database written to ', text, re.MULTILINE):
+            match = re.search(
+                r'^New AIDE database written to (.+)$', text, re.MULTILINE
+            )
+            if match:
                 report['action'] = 'update'
+                report['database_out'] = match.group(1).strip()
 
     match = START_REGEX.search(text)
     if match:
@@ -452,7 +470,18 @@ def main():
         age = max(0, lib.time.now() - started)
         if args.MAX_AGE and age > args.MAX_AGE * 3600:
             age_state = STATE_WARN
-    compared = report['action'] in ('check', 'update')
+    # `aide --update` writes the new database next to the old one, and only moving
+    # it over the old one accepts the differences. The LFOps aide role and
+    # system_update do that right after the run and then start a check, which
+    # takes minutes on a large host, so the report of the update run is what the
+    # check sees meanwhile. Debian's aide-common runs its daily check as an update
+    # by default and never moves the new database into place (COMMAND=update,
+    # COPYNEWDB=no in /etc/default/aide), so there the differences still stand.
+    # Verified with aide 0.16 on Rocky 8 and aide-common 0.19.1 on Debian 13.
+    accepted = report['action'] == 'update' and database_moved(report['database_out'])
+    compared = report['action'] == 'check' or (
+        report['action'] == 'update' and not accepted
+    )
     differences = sum(report[key] or 0 for key in GROUPS.values())
     # Below report_level `summary`, AIDE writes the outline only, so the report
     # tells that there are differences, but not how many.
@@ -478,6 +507,16 @@ def main():
     run = 'the update run' if report['action'] == 'update' else 'the check'
     if report['action'] == 'init':
         msg += f'AIDE initialized its database{ago}, no check has run since'
+    elif accepted:
+        msg += f'AIDE updated its database{ago}'
+        if differences:
+            msg += (
+                f' and accepted {differences} '
+                f'{lib.txt.pluralize("difference", differences)}'
+                f' ({report["added"]} added, {report["removed"]} removed, '
+                f'{report["changed"]} changed)'
+            )
+        msg += ', no check has run since'
     elif differences is None:
         msg += (
             f'AIDE found differences'
@@ -503,16 +542,10 @@ def main():
     if compared and differences != 0:
         msg += get_entries_msg(report)
         if report['action'] == 'update':
-            # `aide --update` writes the new database next to the old one. Debian's
-            # aide-common runs its daily check as an update by default and never
-            # moves the new database into place (COMMAND=update, COPYNEWDB=no in
-            # /etc/default/aide), so the differences still stand against the old
-            # database. Verified with aide-common 0.19.1 on Debian 13.
             msg += (
-                f'\n\nThe details are in {REPORT}. The run wrote a new database, '
-                'which accepts the differences only once it replaces the old one '
-                '(for example `aide.db.new.gz` to `aide.db.gz`). Then run a check, '
-                'for example '
+                f'\n\nThe details are in {REPORT}. The run wrote a new database '
+                f'({report["database_out"]}), which accepts the differences only '
+                'once it replaces the old one. Then run a check, for example '
                 '`systemctl start aidecheck.service`, to confirm it.'
             )
         else:
