@@ -13,6 +13,7 @@
 import argparse
 import base64
 import concurrent.futures
+import contextlib
 import errno
 import ipaddress
 import socket
@@ -53,7 +54,7 @@ warnings.filterwarnings('ignore', category=CryptographyDeprecationWarning)
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026083002'
+__version__ = '2026092901'
 
 DESCRIPTION = """Inspects X.509 certificates and alerts on days remaining until expiry,
 hostname mismatch and chain verification failures. Sources via --source: `url` fetches the
@@ -607,10 +608,13 @@ def get_cert_from_url(args):
         return False, sock
     try:
         t0 = time.monotonic()
-        with (
-            sock,
-            insecure_ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
-        ):
+        # ExitStack instead of a parenthesized `with`, which Python 3.6 (the RHEL 8
+        # default python3) cannot parse
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(sock)
+            tls_sock = stack.enter_context(
+                insecure_ctx.wrap_socket(sock, server_hostname=server_hostname)
+            )
             handshake_seconds = time.monotonic() - t0
             cert_der = tls_sock.getpeercert(True)
             tls_version = tls_sock.version()
@@ -730,6 +734,14 @@ def build_tls_contexts(args, check_hostname):
     --ca-file or client certificate is reported as the configuration problem it is,
     instead of being blamed on the endpoint.
     """
+    # `ssl.TLSVersion` and `ssl.SSLCertVerificationError` exist since Python 3.7. The
+    # RHEL 8 default python3 is 3.6: it still gets --source=file, and a clear message
+    # instead of a traceback for the sources that open a connection.
+    if not hasattr(ssl, 'TLSVersion'):
+        return False, (
+            f'--source={args.SOURCE} needs Python 3.7 or newer, this is Python '
+            f'{sys.version.split()[0]}.'
+        )
     try:
         insecure_ctx = ssl.create_default_context()
         insecure_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
@@ -760,10 +772,13 @@ def _grab_cert_insecure(host, port, server_hostname, args, insecure_ctx):
     by every worker, see build_scan_contexts().
     """
     try:
-        with (
-            socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
-            insecure_ctx.wrap_socket(sock, server_hostname=server_hostname) as tls_sock,
-        ):
+        with contextlib.ExitStack() as stack:
+            sock = stack.enter_context(
+                socket.create_connection((host, port), timeout=args.TIMEOUT)
+            )
+            tls_sock = stack.enter_context(
+                insecure_ctx.wrap_socket(sock, server_hostname=server_hostname)
+            )
             return tls_sock.getpeercert(True), tls_sock.version()
     # ssl.SSLError derives from OSError, so it has to be caught first
     except ssl.SSLError:
@@ -798,12 +813,13 @@ def get_cert_from_target(host, port, args, verify_ctx, insecure_ctx):
 
     if verify_ctx is not None:
         try:
-            with (
-                socket.create_connection((host, port), timeout=args.TIMEOUT) as sock,
-                verify_ctx.wrap_socket(
-                    sock, server_hostname=server_hostname
-                ) as tls_sock,
-            ):
+            with contextlib.ExitStack() as stack:
+                sock = stack.enter_context(
+                    socket.create_connection((host, port), timeout=args.TIMEOUT)
+                )
+                tls_sock = stack.enter_context(
+                    verify_ctx.wrap_socket(sock, server_hostname=server_hostname)
+                )
                 cert_der = tls_sock.getpeercert(True)
                 tls_version = tls_sock.version()
                 chain_verdict = 'verified'
@@ -1172,7 +1188,10 @@ def parse_cert(cert_der):
         'rsa_exponent': rsa_exponent,
         'sans': sans,
         'serial_hex': f'{cert.serial_number:X}',
-        'sha256_fingerprint': cert.fingerprint(hashes.SHA256()).hex(':').upper(),
+        # bytes.hex() takes a separator only since Python 3.8
+        'sha256_fingerprint': ':'.join(
+            f'{byte:02X}' for byte in cert.fingerprint(hashes.SHA256())
+        ),
         # cryptography exposes no public getter for the signature algorithm's OID name;
         # `_name` is the documented way to read it.
         'sig_algorithm': cert.signature_algorithm_oid._name,  # pylint: disable=protected-access

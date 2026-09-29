@@ -60,6 +60,7 @@ Monitoring Plugins:
 * HTTPS on Windows no longer fails for sites whose root certificate Windows has not cached yet, on all plugins
 * apache-httpd-logfile, mysql-logfile, php-fpm-logfile, postfix-logfile, sshd-logfile: no journal warning on hosts without systemd ([#1544](https://github.com/Linuxfabrik/monitoring-plugins/issues/1544))
 * by-winrm: patterns see the output as PowerShell shows it again, JEA endpoints accept the command, a failed login returns UNKNOWN, and the first line says what raised the state
+* cert: `--source=file` works with the Python 3.6 of RHEL 8, the other sources say which Python they need instead of crashing
 * dhcp-scope-usage: works again, also locally on Windows
 * disk-io: learns a disk's maximum bandwidth for a week before it warns, no more false warnings on busy hosts after the update
 * dmesg: no false alarm for systemd-ssh-generator on Debian 13 VMs
