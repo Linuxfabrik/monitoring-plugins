@@ -11,12 +11,14 @@
 """See the check's README for more details."""
 
 import argparse
+import json
 import os
 import re
 import sys
 
 import lib.args
 import lib.base
+import lib.cache
 import lib.disk
 import lib.human
 import lib.lftest
@@ -25,7 +27,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092904'
+__version__ = '2026092905'
 
 DESCRIPTION = """Evaluates the report of the last AIDE file integrity check, which a timer such
 as aidecheck.timer runs on the host at regular intervals, and reports the number of added,
@@ -40,6 +42,10 @@ Requires root or sudo."""
 DEFAULT_CRIT = ''
 DEFAULT_MAX_AGE = 26
 DEFAULT_WARN = '0'
+
+# the parsed report of the last finished run, reported again while the next one runs
+CACHE_FILE = 'linuxfabrik-monitoring-plugins-aide-logfile.db'
+CACHE_KEY = 'aide-logfile-last-report'
 
 # the location every AIDE package uses in its shipped configuration (RHEL, Debian's
 # aide-common) and the one the LFOps aide role configures
@@ -468,16 +474,34 @@ def main():
             STATE_UNKNOWN,
             always_ok=args.ALWAYS_OK,
         )
+    # AIDE empties its report when it starts and writes the new one when it has
+    # finished, which takes an hour or more on a large file server. Meanwhile, the
+    # result of the previous run still stands, so it is reported again instead of
+    # flapping to UNKNOWN or OK and back on every run.
+    in_progress = ''
+    if args.TEST is None and report['action'] is None:
+        in_progress = aide_running()
+        if in_progress:
+            try:
+                cached = json.loads(lib.cache.get(CACHE_KEY, filename=CACHE_FILE))
+                report, mtime = cached['report'], cached['mtime']
+                if report['action'] not in ('check', 'init', 'update'):
+                    raise ValueError
+            except Exception:
+                lib.base.oao(
+                    f'An AIDE run is in progress right now (PID {in_progress}), and '
+                    'no result of an earlier run is known yet. The next check run '
+                    'reads the new report.',
+                    STATE_OK,
+                    always_ok=args.ALWAYS_OK,
+                )
+    elif args.TEST is None:
+        lib.cache.set(
+            CACHE_KEY,
+            json.dumps({'mtime': mtime, 'report': report}),
+            filename=CACHE_FILE,
+        )
     if report['action'] is None:
-        running = aide_running() if args.TEST is None else ''
-        if running:
-            lib.base.oao(
-                f'An AIDE run is in progress right now (PID {running}). AIDE empties '
-                'its report when it starts and writes the new one when it has '
-                'finished, so the next check run reads the result.',
-                STATE_UNKNOWN,
-                always_ok=args.ALWAYS_OK,
-            )
         text = report['text'].strip()
         # report_format=json and ndjson (aide 0.18 and newer)
         if text.startswith('{'):
@@ -490,10 +514,11 @@ def main():
         # AIDE empties the report when it starts (unless report_append=yes), so an
         # empty one belongs to a run that aborted before it wrote the report, for
         # example because the database is missing (exit code 18), or to a clean run
-        # with report_quiet=yes, which writes nothing at all. aide 0.17 and newer log the reason to stderr
-        # only, aide 0.16 also writes it into the report ("Couldn't open file
-        # /var/lib/aide/aide.db.gz for reading"). Verified with aide 0.16 on Rocky
-        # 8, 0.17.4 on Ubuntu 22.04, 0.18.3 on Debian 12 and 0.19.1 on Debian 13.
+        # with report_quiet=yes, which writes nothing at all. aide 0.17 and newer
+        # log the reason to stderr only, aide 0.16 also writes it into the report
+        # ("Couldn't open file /var/lib/aide/aide.db.gz for reading"). Verified
+        # with aide 0.16 on Rocky 8, 0.17.4 on Ubuntu 22.04, 0.18.3 on Debian 12
+        # and 0.19.1 on Debian 13.
         msg += 'The last AIDE run aborted before it wrote its report'
         if text:
             msg += ': ' + printable(' '.join(text.splitlines()[:3])[:200])
@@ -615,6 +640,9 @@ def main():
                 'database over the old one (for example `aide.db.new.gz` to '
                 '`aide.db.gz`).'
             )
+    if in_progress:
+        first, sep, rest = msg.partition('\n')
+        msg = f'{first}, a new AIDE run is in progress (PID {in_progress}){sep}{rest}'
     if compared and report['total'] is not None:
         perfdata += lib.base.get_perfdata('added', report['added'], _min=0)
         perfdata += lib.base.get_perfdata('changed', report['changed'], _min=0)

@@ -11,7 +11,7 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 
 * The check reads `/var/log/aide/aide.log`, which AIDE writes when `report_url=file:/var/log/aide/aide.log` is set in its configuration, as it is in the configuration RHEL ships and in the one the [LFOps aide role](https://linuxfabrik.github.io/lfops/roles/aide/) deploys. Something else has to run the check at regular intervals, for example `aidecheck.timer`, which the CIS benchmarks name and the LFOps aide role deploys, or the daily check of Debian's `aide-common`.
 * `/var/log/aide` is readable by root only (on Debian and Ubuntu with `aide-common` by the group `adm` as well), so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `AIDE Service Set` in the Icinga Director does exactly that on every host tagged `aide`, and also checks `aidecheck.service` and `aidecheck.timer`.
-* AIDE empties its report when it starts and writes the new one when it has compared the whole file system, which takes minutes on a large host. A check that runs during that time reports UNKNOWN once, and the next run reads the new report.
+* AIDE empties its report when it starts and writes the new one when it has compared the whole file system, which takes an hour or more on a large file server. Meanwhile, the check reports the result of the previous run, which it keeps in its state file, with the note that a new run is in progress, so the service does not flap. The age of that result still counts against `--max-age`, so an AIDE run that hangs raises a warning after all.
 * The report has to be a plain one (`report_format=plain`, the default), written anew by every run (`report_append=no`, the default), also when AIDE finds nothing (`report_quiet=no`, the default). With `report_level=minimal` it tells that there are differences, but neither how many nor when the run started, so keep at least `report_level=summary` (the default is `changed_attributes`). AIDE 0.16 (RHEL 8) knows `verbose` instead, and writes the start of the run from `verbose=2` on (the default is `5`). The check understands every report level and the grouped and ungrouped lists of AIDE 0.16 to 0.19.
 * `aide --update` writes a new database next to the old one, and its differences are accepted only once the new database replaces the old one. The report of an update run therefore counts like a check as long as the new database it names is still there, and as accepted once it is gone. The daily check of Debian's `aide-common` runs `aide --update` by default and never moves the new database into place (`COMMAND=update`, `COPYNEWDB=no` in `/etc/default/aide`), so its differences keep alerting.
 * AIDE checks at fixed times, so it reports a change hours after it happened, and most changes it reports are planned ones (a package update, an edited configuration file) until the database is updated, see Troubleshooting. A difference therefore raises WARNING by default. Set `--critical=0` for hosts where any unexpected change has to be handled at once.
@@ -35,6 +35,7 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 | Runs on                               | Linux |
 | Compiled for Windows                  | No |
 | Requirements                          | A regular AIDE check, for example `aidecheck.timer`; User with higher permissions |
+| Uses State File                       | `$TEMP/linuxfabrik-monitoring-plugins-aide-logfile.db` |
 
 
 ## Help
@@ -125,7 +126,8 @@ sudo ./aide-logfile --critical=0 --max-age=48
 * WARN if the AIDE run started more than `--max-age` hours ago (default: 26), because the regular check has then stopped. `--max-age 0` switches this off.
 * WARN if there is no report, because the file integrity of the host is then not being checked.
 * WARN if the report is empty or holds no result and no AIDE process is running, because the last run aborted.
-* UNKNOWN if an AIDE run is in progress right now, so the report is not written yet, if the report cannot be read, most likely because the check does not run via `sudo`, if the report is not a plain one, and if it holds the reports of several runs (`report_append=yes`).
+* While an AIDE run is in progress, the state of the previous run, or OK if no earlier result is known.
+* UNKNOWN if the report cannot be read, most likely because the check does not run via `sudo`, if the report is not a plain one, and if it holds the reports of several runs (`report_append=yes`).
 * `--always-ok` suppresses all alerts and always returns OK.
 
 
