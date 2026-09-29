@@ -25,7 +25,7 @@ import lib.version
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026081401'
+__version__ = '2026092901'
 
 DESCRIPTION = """Checks if a newer version of mydumper is available by querying the GitHub releases API.
 Alerts when the installed version is outdated."""
@@ -145,6 +145,7 @@ def main():
     except SystemExit:
         sys.exit(STATE_UNKNOWN)
 
+    # fetch data
     installed_version = get_installed_version(args.PATH, args.TEST)
     if not installed_version:
         lib.base.cu(
@@ -159,13 +160,19 @@ def main():
         latest_version = stderr.strip()
     else:
         latest_version = lib.base.coe(get_latest_version(args.CACHE_EXPIRE * 60 * 60))
+
+    # analyze data
+    up_to_date = lib.version.version(installed_version) >= lib.version.version(
+        latest_version
+    )
+
+    # build the message
     perfdata = lib.base.get_perfdata(
         'mydumper-version',
         lib.version.version2float(installed_version),
         _min=0,
     )
-
-    if lib.version.version(installed_version) >= lib.version.version(latest_version):
+    if up_to_date:
         lib.base.oao(
             f'mydumper/myloader {installed_version} is up to date',
             STATE_OK,
@@ -179,6 +186,7 @@ def main():
             f'mydumper/myloader {installed_version}'
             f' installed, mydumper/myloader'
             f' {latest_version} available'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}'
         ),
         STATE_WARN,
         perfdata,

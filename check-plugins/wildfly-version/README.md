@@ -101,7 +101,7 @@ WildFly v40.0.0.Final is up to date
 ```
 
 ```text
-WildFly v26.1.3.Final installed, WildFly v40.0.0.Final available
+WildFly v26.1.3.Final installed, WildFly v40.0.0.Final available [WARNING]
 ```
 
 

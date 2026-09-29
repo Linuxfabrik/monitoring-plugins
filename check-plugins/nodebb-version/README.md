@@ -77,7 +77,7 @@ https://linuxfabrik.github.io/monitoring-plugins/check-plugins/nodebb-version/
 Output:
 
 ```text
-NodeBB v1.18.1 is available (installed: v1.17.1), Last restart: 2021-08-09 16:03:29 by Linuxfabrik <info at linuxfabrik dot ch> (4W 22h ago)
+NodeBB v1.17.1 installed, NodeBB v1.18.1 available, Last restart: 2021-08-09 16:03:29 by Linuxfabrik <info at linuxfabrik dot ch> (4W 22h ago) [WARNING]
 ```
 
 
