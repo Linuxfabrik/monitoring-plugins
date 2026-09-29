@@ -17,12 +17,13 @@ VARIABLES` plus `SHOW SESSION STATUS LIKE 'Ssl_cipher'` and queries
 privileges, so the test grants the regular `test` user SELECT on
 `mysql.*` via `container.exec` as root before running the plugin.
 
-On a default-configured MariaDB image, the current connection
-itself is not encrypted (pymysql does not auto-enable TLS),
-`require_secure_transport` is `OFF`, and no server certificate is
-installed (`ssl_cert` / `ssl_key` empty). The plugin therefore
-legitimately flags three findings; the test pins WARN so a future
-refactor cannot silently mask them.
+On a default-configured MariaDB image, `require_secure_transport` is
+`OFF` and no server certificate is installed (`ssl_cert` / `ssl_key`
+empty). The plugin therefore legitimately flags these findings; the test
+pins WARN so a future refactor cannot silently mask them. Whether the
+monitoring connection itself is encrypted depends on the PyMySQL the
+plugin runs with: 1.2 negotiates TLS on its own whenever the server
+offers it, 1.1 does not (verified with PyMySQL 1.1.1 and 1.2.3).
 
 The "remote users without REQUIRE SSL" finding does not fire on the
 default image even though `test@%` has no SSL requirement, because
@@ -111,13 +112,14 @@ def _check_image(test, containerfile):
 
         test.assertEqual(result.returncode, STATE_WARN)
         # Findings shared across all MariaDB / MySQL LTS test images:
-        # the monitoring connection is plaintext (pymysql does not
-        # auto-enable TLS) and require_secure_transport is OFF in
-        # default container configs. The "No server certificate
-        # configured" finding only fires on MariaDB (ssl_cert / ssl_key
-        # empty); MySQL ships auto-generated self-signed certs and
-        # therefore reports an expiry-check-skipped line instead.
-        test.assertIn('Current connection not encrypted', combined)
+        # require_secure_transport is OFF in default container configs.
+        # The monitoring connection is reported either way; which one
+        # depends on the PyMySQL version (see the module docstring). The
+        # "No server certificate configured" finding only fires on MariaDB
+        # (ssl_cert / ssl_key empty); MySQL ships auto-generated
+        # self-signed certs and therefore reports an expiry-check-skipped
+        # line instead.
+        test.assertRegex(combined, r'Current connection (not )?encrypted')
         test.assertIn('require_secure_transport` = OFF', combined)
         # Perfdata keys are emitted (single-quoted by lib.base.get_perfdata):
         test.assertIn('mysql_tls_session_encrypted', combined)
