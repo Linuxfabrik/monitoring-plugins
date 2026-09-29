@@ -221,13 +221,13 @@ jobs:
       - name: 'Install the dependencies and testcontainers'
         run: 'python -m pip install --require-hashes --requirement monitoring-plugins/.github/container-tests/requirements.txt'
 
-      # The tests drive podman, as on a developer's machine: some call the podman
-      # CLI directly, the others go through testcontainers, which needs the podman
-      # API socket.
-      - name: 'Start the podman API service'
-        run: |
-          podman system service --time=0 "unix://${RUNNER_TEMP}/podman.sock" &
-          echo "DOCKER_HOST=unix://${RUNNER_TEMP}/podman.sock" >> "${GITHUB_ENV}"
+      # testcontainers talks to the Docker daemon the runner ships. The rootless
+      # podman 4.9 of Ubuntu 24.04 failed here where podman 5 on a developer's
+      # machine does not: MySQL containers could not be stopped ("given PID did
+      # not die within timeout"), and sudo on UBI 8 and 9 lost its PAM account
+      # lookup. A test that calls the podman CLI itself still gets podman.
+      - name: 'Point testcontainers at the Docker daemon'
+        run: 'echo "DOCKER_HOST=unix:///var/run/docker.sock" >> "${GITHUB_ENV}"'
 
       - name: 'Run the container tests'
         run: 'python tools/run-container-tests'
