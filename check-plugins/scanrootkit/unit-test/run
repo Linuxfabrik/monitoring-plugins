@@ -8,10 +8,12 @@
 
 # https://github.com/Linuxfabrik/monitoring-plugins/blob/main/CONTRIBUTING.md
 
+import fcntl
 import os
 import shutil
 import socket
 import sys
+import tempfile
 
 sys.path.insert(0, '..')  # Adds higher directory to python modules path.
 
@@ -22,22 +24,46 @@ import lib.base
 import lib.shell
 from lib.globals import STATE_CRIT, STATE_OK, STATE_WARN
 
-# Tests that need to trigger the plugin write a tiny temporary YAML signature
-# into the assets/ directory and a matching trigger file (or directory, or rely
-# on a real /proc/kallsyms symbol) in /tmp. setUp/tearDown make sure these
-# artifacts are always removed, even if an assertion fails mid-test, so a
-# failed test never poisons the next one.
+# The plugin reads its signatures from the assets/ directory next to itself.
+# Each run therefore works on a private copy of the plugin and its assets/ in a
+# temporary directory, drops its tiny test signatures into that copy, and puts
+# the trigger files (or directories) there too. Two runs at the same time, for
+# example tox environments in parallel, then never see each other's signatures,
+# and a run never writes into the repository.
+#
+# The shipped CiNIK signature can only be triggered through the real
+# /tmp/.cinik, which every run on the host shares, and which would make the
+# baseline of a concurrent run report a rootkit. The whole class therefore holds
+# an exclusive lock on a fixed file for as long as it runs.
+#
+# setUp/tearDown make sure the per-test artifacts are always removed, even if an
+# assertion fails mid-test, so a failed test never poisons the next one.
 
-ASSETS_DIR = '../assets'
-TMP_PREFIX = '/tmp/.scanrootkit-utest-'
+LOCK_FILE = '/tmp/.scanrootkit-utest.lock'
 
 
 class TestCheck(unittest.TestCase):
-    check = '../scanrootkit'
+    @classmethod
+    def setUpClass(cls):
+        cls._lock = open(LOCK_FILE, 'a', encoding='utf-8')  # noqa: SIM115
+        fcntl.flock(cls._lock, fcntl.LOCK_EX)
+        cls.workdir = tempfile.mkdtemp(prefix='scanrootkit-utest-')
+        cls.check = os.path.join(cls.workdir, 'scanrootkit')
+        shutil.copy2('../scanrootkit', cls.check)
+        cls.assets_dir = os.path.join(cls.workdir, 'assets')
+        shutil.copytree('../assets', cls.assets_dir)
+        os.symlink(os.path.realpath('../lib'), os.path.join(cls.workdir, 'lib'))
+        cls.trigger_prefix = os.path.join(cls.workdir, 'trigger-')
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.workdir, ignore_errors=True)
+        fcntl.flock(cls._lock, fcntl.LOCK_UN)
+        cls._lock.close()
 
     def setUp(self):
-        self._tmp_paths = []  # files / dirs to clean up under /tmp
-        self._tmp_signatures = []  # YAMLs we dropped into assets/
+        self._tmp_paths = []  # trigger files / dirs to clean up
+        self._tmp_signatures = []  # YAMLs we dropped into the assets/ copy
 
     def tearDown(self):
         for path in self._tmp_paths:
@@ -59,7 +85,7 @@ class TestCheck(unittest.TestCase):
                 pass
 
     def _add_signature(self, slug, content):
-        path = os.path.join(ASSETS_DIR, f'scanrootkit-utest-{slug}.yml')
+        path = os.path.join(self.assets_dir, f'scanrootkit-utest-{slug}.yml')
         with open(path, 'w', encoding='utf-8') as fh:
             fh.write(content)
         self._tmp_signatures.append(path)
@@ -136,7 +162,7 @@ class TestCheck(unittest.TestCase):
     # --------------------------------------------------------------------
 
     def test_directory_indicator_is_detected(self):
-        target_dir = TMP_PREFIX + 'dir'
+        target_dir = self.trigger_prefix + 'dir'
         self._mkdir(target_dir)
         self._add_signature(
             'dir',
@@ -154,8 +180,8 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_CRIT)
 
     def test_socket_and_fifo_indicators_are_detected(self):
-        socket_target = self._mksocket(TMP_PREFIX + 'socket')
-        fifo_target = self._mkfifo(TMP_PREFIX + 'fifo')
+        socket_target = self._mksocket(self.trigger_prefix + 'socket')
+        fifo_target = self._mkfifo(self.trigger_prefix + 'fifo')
         self._add_signature(
             'socket-fifo',
             (
@@ -247,7 +273,7 @@ class TestCheck(unittest.TestCase):
         self.assertNotIn('Test Substring Should Not Match', stdout)
 
     def test_low_confidence_signature_reports_as_possible_warn(self):
-        target = TMP_PREFIX + 'possible'
+        target = self.trigger_prefix + 'possible'
         self._touch(target)
         self._add_signature(
             'possible',
@@ -266,7 +292,7 @@ class TestCheck(unittest.TestCase):
         self.assertEqual(retc, STATE_WARN)
 
     def test_discovered_field_renders_in_output(self):
-        target = TMP_PREFIX + 'discovered'
+        target = self.trigger_prefix + 'discovered'
         self._touch(target)
         self._add_signature(
             'discovered',
@@ -284,7 +310,7 @@ class TestCheck(unittest.TestCase):
         self.assertIn(f'{target} (File)', stdout)
 
     def test_signature_without_discovered_field_renders_plain_name(self):
-        target = TMP_PREFIX + 'undated'
+        target = self.trigger_prefix + 'undated'
         self._touch(target)
         self._add_signature(
             'undated',
@@ -305,7 +331,7 @@ class TestCheck(unittest.TestCase):
         # Drop a deliberately broken signature file into assets/. The plugin
         # should report it under "Scanfile Errors" but still scan everything
         # else and return a baseline OK on a clean system.
-        path = os.path.join(ASSETS_DIR, 'scanrootkit-utest-broken.yml')
+        path = os.path.join(self.assets_dir, 'scanrootkit-utest-broken.yml')
         with open(path, 'w', encoding='utf-8') as fh:
             fh.write('name: [unterminated\n')
         self._tmp_signatures.append(path)
@@ -334,14 +360,14 @@ class TestCheck(unittest.TestCase):
         # `max` field of both `rootkit_items` and `rootkit_possible`. This is
         # what admins use to graph signature-database growth, and it doubles as
         # the upper bound of the metric range for visualization tools.
-        sig_count = len([f for f in os.listdir(ASSETS_DIR) if f.endswith('.yml')])
+        sig_count = len([f for f in os.listdir(self.assets_dir) if f.endswith('.yml')])
         stdout, _, _ = lib.base.coe(lib.shell.shell_exec([self.check]))
         self.assertIn(f"'rootkit_items'=0;;;0;{sig_count}", stdout)
         self.assertIn(f"'rootkit_possible'=0;;;0;{sig_count}", stdout)
 
     def test_confirmed_and_possible_in_one_run_is_crit(self):
-        confirmed_target = TMP_PREFIX + 'mix-confirmed'
-        possible_target = TMP_PREFIX + 'mix-possible'
+        confirmed_target = self.trigger_prefix + 'mix-confirmed'
+        possible_target = self.trigger_prefix + 'mix-possible'
         self._touch(confirmed_target)
         self._touch(possible_target)
         self._add_signature(
