@@ -13,7 +13,7 @@ AIDE (Advanced Intrusion Detection Environment) compares the file system with a 
 * `/var/log/aide` is readable by root only, so run the check via `sudo` (see the sudoers files in `assets/sudoers`). The `AIDE Service Set` in the Icinga Director does exactly that on every host tagged `aide`, and also checks `aidecheck.service` and `aidecheck.timer`.
 * AIDE empties its report when it starts and writes the new one when it has compared the whole file system, which takes minutes on a large host. A check that runs during that time reports UNKNOWN once, and the next run reads the new report.
 * The report has to be a plain one (`report_format=plain`, the default), written anew by every run (`report_append=no`, the default), also when AIDE finds nothing (`report_quiet=no`, the default), with at least `report_level=summary` (the default is `changed_attributes`), so that it tells how many differences there are and when the run started.
-* A report of `aide --update` counts like a check: the run writes a new database next to the old one, and its differences are accepted only once the new database replaces the old one. The daily check of Debian's `aide-common` runs `aide --update` by default and never moves the new database into place (`COMMAND=update`, `COPYNEWDB=no` in `/etc/default/aide`).
+* `aide --update` writes a new database next to the old one, and its differences are accepted only once the new database replaces the old one. The report of an update run therefore counts like a check as long as the new database it names is still there, and as accepted once it is gone. The daily check of Debian's `aide-common` runs `aide --update` by default and never moves the new database into place (`COMMAND=update`, `COPYNEWDB=no` in `/etc/default/aide`), so its differences keep alerting.
 * An unexpected change to a monitored file can mean an intrusion, which is why a difference is CRITICAL by default. A planned change (a package update, an edited configuration file) is reported just the same until the database is updated, see Troubleshooting.
 
 **Data Collection:**
@@ -118,8 +118,8 @@ sudo ./aide-logfile --warning=0 --critical= --max-age=48
 ## States
 
 * OK if the last AIDE run found no differences, and the report is not older than `--max-age`.
-* OK if AIDE initialized its database and no check has run since, as long as that is not longer ago than `--max-age`.
-* CRIT if the last AIDE check or update run found differences (`--critical`, default: `0`, so the first difference counts). `--warning` (empty by default) and `--critical` take Nagios ranges on the number of differences.
+* OK if AIDE initialized its database, or updated it and the new database replaced the old one, and no check has run since, as long as that is not longer ago than `--max-age`.
+* CRIT if the last AIDE check found differences, or an update run whose new database has not replaced the old one yet (`--critical`, default: `0`, so the first difference counts). `--warning` (empty by default) and `--critical` take Nagios ranges on the number of differences.
 * WARN if the AIDE run started more than `--max-age` hours ago (default: 26), because the regular check has then stopped. `--max-age 0` switches this off.
 * WARN if there is no report, because the file integrity of the host is then not being checked.
 * WARN if the report is empty or holds no result and no AIDE process is running, because the last run aborted.
