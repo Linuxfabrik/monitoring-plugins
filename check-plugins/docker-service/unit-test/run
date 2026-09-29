@@ -206,6 +206,12 @@ PLUGIN_SWARM = os.path.realpath(
 )
 
 DIND_IMAGE = 'docker.io/library/docker:27-dind'
+# The docker daemon inside each node takes its local networks from this pool.
+# By default it picks the first free /16 after its own docker0, 172.18.0.0/16,
+# for the docker_gwbridge that `swarm init` creates. On a host whose docker hands
+# the test network that same 172.18.0.0/16, the node then routes its own network
+# into the bridge and loses its gateway and DNS.
+DIND_ADDRESS_POOL = '--default-address-pool=base=10.201.0.0/16,size=24'
 SERVICE_IMAGE = 'docker.io/library/nginx:alpine'
 
 
@@ -286,6 +292,7 @@ class TestLiveSwarm(unittest.TestCase):
         with Network() as net:
             node1 = (
                 DockerContainer(DIND_IMAGE)
+                .with_command(DIND_ADDRESS_POOL)
                 .with_env('DOCKER_TLS_CERTDIR', '')
                 .with_network(net)
                 .with_network_aliases('node1')
@@ -294,6 +301,7 @@ class TestLiveSwarm(unittest.TestCase):
             )
             node2 = (
                 DockerContainer(DIND_IMAGE)
+                .with_command(DIND_ADDRESS_POOL)
                 .with_env('DOCKER_TLS_CERTDIR', '')
                 .with_network(net)
                 .with_network_aliases('node2')
