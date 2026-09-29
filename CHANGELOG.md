@@ -41,6 +41,7 @@ Icinga Director:
 * Active Directory Domain Service Set: also checks Netlogon
 * AIDE Service Set: evaluates the AIDE report with `aide-logfile`, and watches `aidecheck.service` and `aidecheck.timer`
 * Lynis Service Set: evaluates the daily lynis audit of each tagged host with `lynis-logfile`, and watches `lynis.service` and `lynis.timer`
+* OS - * Basic Service Sets: a failed `aidecheck.service` is left to the AIDE Service Set
 * OS - Windows Basic Service Set: renamed to "Windows 8/2012 or below", checks network errors and fewer services
 
 Grafana:
