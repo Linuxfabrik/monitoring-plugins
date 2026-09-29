@@ -36,7 +36,7 @@ Assets:
 
 Monitoring Plugins:
 
-* about-me: proposes the `lynis` tag where a lynis audit left its report
+* about-me: proposes the `aide` tag where `aidecheck.timer` is enabled, and the `lynis` tag where a lynis audit left its report
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
 * redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
