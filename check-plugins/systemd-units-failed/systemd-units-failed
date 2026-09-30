@@ -25,7 +25,7 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026071201'
+__version__ = '2026093001'
 
 DESCRIPTION = """Checks for failed systemd units. Alerts when any unit is in a failed state. Specific
 units can be excluded from the check via --ignore with regular expressions. When no unit
@@ -107,13 +107,14 @@ _LAST_FAILED_LINE = re.compile(
 )
 
 
-def get_last_failed_unit():
+def get_last_failed_unit(ignores):
     """Return (unit_name, epoch_seconds, reason) of the most recent
     system-scope unit-failed event recorded in the journal of the
     current boot, or (None, None, None) if journalctl is unavailable,
     returns nothing, or its output cannot be parsed. Restricted to
     PID 1 entries so user-session unit failures do not leak into the
-    system-scope check.
+    system-scope check. Units matching one of the `ignores` glob patterns
+    (--ignore) are skipped, like in the check itself.
 
     Filters by message text rather than CODE_FUNC or MESSAGE_ID because
     the structured fields are not consistently set on every systemd
@@ -147,7 +148,10 @@ def get_last_failed_unit():
         return None, None, None
     for line in reversed(stdout.splitlines()):
         match = _LAST_FAILED_LINE.match(line)
-        if match:
+        if match and not any(
+            fnmatch.fnmatchcase(_unescape_systemd_name(match.group(2)), ignore)
+            for ignore in ignores
+        ):
             break
     else:
         return None, None, None
@@ -226,7 +230,7 @@ def main():
     # journal event so the admin sees how long the host has been quiet.
     # Skipped in --test mode because the journal is host-state, not fixture data.
     if state == STATE_OK and args.TEST is None:
-        unit, epoch, message = get_last_failed_unit()
+        unit, epoch, message = get_last_failed_unit(args.IGNORE)
         if unit and epoch:
             delta = max(0, lib.time.now() - epoch)
             ago = lib.human.seconds2human(delta)
