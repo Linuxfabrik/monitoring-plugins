@@ -40,7 +40,7 @@ except ImportError:
 
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026100102 / v8.0.0'
+__version__ = '2026100103 / v8.0.0'
 
 DESCRIPTION = """Collects and displays key system information: OS and kernel version, CPU
 configuration (physical, logical, and usable cores plus frequency), RAM, disk count,
@@ -1351,22 +1351,9 @@ def get_lftags(distro):
         {
             'sw': 'WordPress',
             'package': ['wordpress'],
-            # `/usr/share/wordpress` is where both the Debian/Ubuntu package and the EPEL
-            # RPM install the core, the rest are document-root layouts. Confirmed by the
-            # core's own version file rather than by the directory name, so an empty
-            # directory called `wordpress` is not mistaken for an installation.
-            'expr': [
-                any(
-                    lib.wordpress.is_installation(path)
-                    for path in (
-                        '/srv/www/htdocs/wordpress',
-                        '/usr/share/wordpress',
-                        '/var/www/html',
-                        '/var/www/html/wordpress',
-                        '/var/www/wordpress',
-                    )
-                ),
-            ],
+            # The places the WordPress checks search when they are given no path,
+            # confirmed by the core's own version file rather than by a directory name.
+            'expr': [lib.wordpress.find_installation() is not None],
         },
         # {'sw': 'XFS', 'package': [], 'expr': []},
     ]

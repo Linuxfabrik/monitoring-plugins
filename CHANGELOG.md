@@ -34,7 +34,7 @@ Assets:
 Monitoring Plugins:
 
 * the end of life comes from the distribution for software that RHEL, Debian and Ubuntu ship themselves, on most *-version checks
-* about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu
+* about-me: proposes the tags of the AIDE, database dump, Fangfrisch, Lynis and security lane sets, and recognises ClamAV on Debian and Ubuntu and WordPress below `/var/www`
 * crypto-policy: compares only the base policy and lists the subpolicies, unless `--policy` names subpolicies itself
 * librenms-validate: reports the validations as a compact list instead of a wide table
 * lynis: lists every finding and suggestion with the host it was found on, and refuses to run as root
