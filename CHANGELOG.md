@@ -115,7 +115,9 @@ Icinga Director:
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
 * apache-httpd-security: re-import the basket, so the proxy modules PHP-FPM needs no longer warn
 * ClamAV Service Set: no longer expects `clamav-unofficial-sigs`, checks freshclam, and covers Debian and Ubuntu
+* Mastodon and Rocket.Chat Service Sets: check the rootless containers instead of system units that do not exist
 * Nextcloud Service Set: an enabled `nextcloud-app-update.timer` no longer warns
+* PHP-FPM Service Set: no false alert about a missing `php-fpm.service` on Debian and Ubuntu
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
 
 Build, CI/CD:
