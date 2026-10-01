@@ -39,6 +39,7 @@ Monitoring Plugins:
 * redfish-sensors: CRIT only above the fatal threshold, as HPE iLO rates it, and alerts on degraded power supplies
 * scanrootkit: detects 23 more rootkits and implants, no false SunOS Rootkit alarm on Fedora 44
 * scheduled-task: alerts on a failed last run, works on non-English Windows, `--status` replaces the default list
+* systemd-timedate-status: warns when the system clock is not synchronized to a time source
 
 Icinga Director:
 

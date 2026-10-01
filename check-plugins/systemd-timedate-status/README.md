@@ -3,7 +3,7 @@
 
 ## Overview
 
-Checks system clock and RTC settings via `timedatectl status`, including whether network time synchronization is active and whether the system clock is synchronized.
+Checks system clock and RTC settings via `timedatectl status`, including whether network time synchronization is active and whether the system clock is synchronized. Alerts when the system clock is not synchronized to a time source, or when the RTC is kept in the local time zone.
 
 **Data Collection:**
 
@@ -31,7 +31,8 @@ usage: systemd-timedate-status [-h] [-V] [--always-ok]
 
 Checks system clock and RTC settings via timedatectl, including whether
 network time synchronization is active and whether the system clock is
-synchronized. Alerts on misconfigured time settings.
+synchronized. Alerts when the system clock is not synchronized to a time
+source, or when the RTC is kept in the local time zone.
 
 options:
   -h, --help     show this help message and exit
@@ -64,7 +65,8 @@ System clock synchronized: yes. NTP service: active. The system is configured to
 
 ## States
 
-* OK if NTP is synchronized and RTC is set to UTC.
+* OK if the system clock is synchronized and RTC is set to UTC.
+* WARN if the system clock is not synchronized to a time source.
 * WARN if the system is configured to read the RTC time in the local time zone.
 * `--always-ok` suppresses all alerts and always returns OK.
 

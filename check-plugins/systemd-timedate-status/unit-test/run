@@ -38,6 +38,7 @@ TESTS = [
         'assert-in': [
             'NTP synchronized: no, NTP enabled: no',
             'The system is configured to read the RTC time in the local time zone. ',
+            'The system clock is not synchronized to a time source [WARNING].',
         ],
     },
     {
@@ -56,6 +57,7 @@ TESTS = [
         'assert-in': [
             'NTP synchronized: no, NTP enabled: no',
             'The system is configured to read the RTC time in the local time zone. ',
+            'The system clock is not synchronized to a time source [WARNING].',
         ],
     },
     {
@@ -74,6 +76,7 @@ TESTS = [
         'assert-in': [
             'NTP synchronized: no',
             'The system is configured to read the RTC time in the local time zone. ',
+            'The system clock is not synchronized to a time source [WARNING].',
         ],
     },
     {
@@ -92,6 +95,7 @@ TESTS = [
         'assert-in': [
             'System clock synchronized: no, systemd-timesyncd.service active: no',
             'The system is configured to read the RTC time in the local time zone. ',
+            'The system clock is not synchronized to a time source [WARNING].',
         ],
     },
     {
@@ -110,7 +114,20 @@ TESTS = [
         'assert-in': [
             'System clock synchronized: no, NTP service: no',
             'The system is configured to read the RTC time in the local time zone. ',
+            'The system clock is not synchronized to a time source [WARNING].',
         ],
+    },
+    {
+        # captured on Rocky 9 (systemd 252) with chronyd running but without any
+        # time source, so only the synchronization is wrong
+        'id': 'warn-unsynchronized-rtc-in-utc',
+        'test': 'stdout/20201026-unsynchronized,,0',
+        'assert-retc': STATE_WARN,
+        'assert-in': [
+            'System clock synchronized: no, NTP service: active, RTC in local TZ: no.'
+            ' The system clock is not synchronized to a time source [WARNING].',
+        ],
+        'assert-not-in': ['RTC time in the local time zone'],
     },
 ]
 

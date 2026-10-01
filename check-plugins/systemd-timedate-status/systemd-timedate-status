@@ -21,11 +21,12 @@ import lib.txt
 from lib.globals import STATE_OK, STATE_UNKNOWN, STATE_WARN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026061201'
+__version__ = '2026100101'
 
 DESCRIPTION = """Checks system clock and RTC settings via timedatectl, including whether network time
-synchronization is active and whether the system clock is synchronized. Alerts on
-misconfigured time settings."""
+synchronization is active and whether the system clock is synchronized. Alerts when
+the system clock is not synchronized to a time source, or when the RTC is kept in the
+local time zone."""
 
 
 def parse_args():
@@ -124,6 +125,22 @@ def main():
         )
     else:
         msg += ', RTC in local TZ: no'
+
+    # systemd up to v238 says "NTP synchronized", later releases "System clock
+    # synchronized". Both mean that the kernel considers the clock synchronized to a
+    # time source, whichever service does the synchronizing.
+    if any(
+        f'{label}: no' in stdout
+        for label in ('NTP synchronized', 'System clock synchronized')
+    ):
+        state = STATE_WARN
+        msg += ' ' if msg.endswith('.') else '. '
+        msg += (
+            'The system clock is not synchronized to a time source'
+            f'{lib.base.state2str(STATE_WARN, prefix=" ")}. Check the time'
+            ' synchronization service, for example with `chronyc sources` or'
+            ' `timedatectl timesync-status`.'
+        )
 
     # over and out
     lib.base.oao(msg, state, always_ok=args.ALWAYS_OK)
