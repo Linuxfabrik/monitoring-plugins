@@ -86,6 +86,7 @@ Monitoring Plugins:
 * fs-ro: no false warning for Docker containers on SUSE
 * logfile: reads logfiles on Windows again
 * lynis: names an unreadable lynis installation on SUSE instead of a page of errors, leaves no temporary directories
+* mastodon-version: also finds the version of a rootless Podman installation
 * metabase-stats: no longer aborts every run with a Python error
 * ntp-chronyd: names why `chronyc` failed
 * ntp-w32tm: evaluates German output, warns on a stopped Windows Time service, names a refused query, no longer hangs

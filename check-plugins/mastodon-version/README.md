@@ -3,16 +3,17 @@
 
 ## Overview
 
-Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Requires root or sudo.
+Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Reads the version of a Docker Compose installation, or of the running Mastodon container of a rootless Podman installation. Requires root or sudo.
 
 **Important Notes:**
 
-* The check must run locally on the Mastodon server because it reads the version from the installation directory.
+* The check must run locally on the Mastodon server because it reads the version from the installation directory or from the running container.
 * It does not call `tootctl`, which needs a working Ruby environment and extra environment variables that a monitoring agent does not have.
 
 **Data Collection:**
 
 * Reads the installed Mastodon version from `live/docker-compose.yml` in the installation directory (default: `/home/mastodon`, configurable via `--path`)
+* Without that file, asks Podman as the user given by `--user` (default: `mastodon`) for the running container of the `mastodon/mastodon` image and reads `/opt/mastodon/lib/mastodon/version.rb` inside it
 * Compares against the [endoflife.date API](https://endoflife.date/api/mastodon.json) to determine EOL status and available updates
 * Caches endoflife.date responses locally for 24 hours to reduce external requests
 
@@ -38,11 +39,14 @@ usage: mastodon-version [-h] [-V] [--always-ok] [--check-major]
                         [--no-perfdata] [--no-proxy] [--offset-eol OFFSET_EOL]
                         [--path PATH] [--proxy PROXY] [--timeout TIMEOUT]
                         [--unreachable-severity {ok,warn,crit,unknown}]
+                        [--user USER]
 
 Checks the installed Mastodon version against the endoflife.date API and
 alerts if the version is end-of-life or if newer major, minor, or patch
 releases are available. By default, alerts 30 days before the official EOL
-date. The offset is configurable. Requires root or sudo.
+date. The offset is configurable. Reads the version of a Docker Compose
+installation, or of the running Mastodon container of a rootless Podman
+installation. Requires root or sudo.
 
 options:
   -h, --help            show this help message and exit
@@ -88,6 +92,14 @@ options:
                         copy, or nothing at all - is named in the output, and
                         a clean result then only covers what that fallback
                         could confirm. Default: ok
+  --user USER           Owner of the rootless Podman containers Mastodon runs
+                        in, asked when there is no Docker Compose installation
+                        at `--path`. Podman keeps each user's rootless
+                        containers in that user's own storage, so the check
+                        runs podman as that user. Requires the right to `sudo
+                        -u <user>` (root has this by default), and the user
+                        needs a subordinate UID range in /etc/subuid, as
+                        rootless Podman does. Default: mastodon
 
 Documentation:
 https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mastodon-version/

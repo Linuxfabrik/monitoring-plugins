@@ -37,6 +37,9 @@
                 },
                 "--unreachable-severity": {
                     "value": "$mastodon_version_unreachable_severity$"
+                },
+                "--user": {
+                    "value": "$mastodon_version_user$"
                 }
             },
             "command": "/usr/lib64/nagios/plugins/mastodon-version",
@@ -101,6 +104,11 @@
                     "datafield_id": 12,
                     "is_required": "n",
                     "var_filter": null
+                },
+                {
+                    "datafield_id": 13,
+                    "is_required": "n",
+                    "var_filter": null
                 }
             ],
             "imports": [],
@@ -112,6 +120,23 @@
             "vars": {},
             "zone": null,
             "uuid": "baff26c3-897d-4aec-9f02-1fc3f452a533"
+        },
+        "cmd-check-mastodon-version-sudo": {
+            "arguments": {},
+            "command": "/usr/bin/sudo /usr/lib64/nagios/plugins/mastodon-version",
+            "disabled": false,
+            "fields": [],
+            "imports": [
+                "cmd-check-mastodon-version"
+            ],
+            "is_string": null,
+            "methods_execute": null,
+            "object_name": "cmd-check-mastodon-version-sudo",
+            "object_type": "object",
+            "timeout": null,
+            "vars": {},
+            "zone": null,
+            "uuid": "36baf5c7-cd70-48da-a14e-0019cf2d5b28"
         }
     },
     "ServiceTemplate": {
@@ -144,7 +169,7 @@
                 "tpl-service-generic"
             ],
             "max_check_attempts": 5,
-            "notes": "Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Requires root or sudo.",
+            "notes": "Checks the installed Mastodon version against the endoflife.date API and alerts if the version is end-of-life or if newer major, minor, or patch releases are available. By default, alerts 30 days before the official EOL date. The offset is configurable. Reads the version of a Docker Compose installation, or of the running Mastodon container of a rootless Podman installation. Requires root or sudo.",
             "notes_url": "https://linuxfabrik.github.io/monitoring-plugins/check-plugins/mastodon-version/",
             "object_name": "tpl-service-mastodon-version",
             "object_type": "template",
@@ -165,11 +190,57 @@
                 "mastodon_version_offset_eol": -30,
                 "mastodon_version_path": "/home/mastodon",
                 "mastodon_version_timeout": 8,
-                "mastodon_version_unreachable_severity": "ok"
+                "mastodon_version_unreachable_severity": "ok",
+                "mastodon_version_user": "mastodon"
             },
             "volatile": null,
             "zone": null,
             "uuid": "b2dbd8df-79fc-433d-87ab-0954ad0f1fd2"
+        },
+        "tpl-service-mastodon-version-sudo": {
+            "action_url": null,
+            "apply_for": null,
+            "assign_filter": null,
+            "check_command": "cmd-check-mastodon-version-sudo",
+            "check_interval": null,
+            "check_period": null,
+            "check_timeout": null,
+            "command_endpoint": null,
+            "disabled": false,
+            "display_name": null,
+            "enable_active_checks": null,
+            "enable_event_handler": null,
+            "enable_flapping": null,
+            "enable_notifications": true,
+            "enable_passive_checks": null,
+            "enable_perfdata": null,
+            "event_command": null,
+            "fields": [],
+            "flapping_threshold_high": null,
+            "flapping_threshold_low": null,
+            "groups": [],
+            "host": null,
+            "icon_image": null,
+            "icon_image_alt": null,
+            "imports": [
+                "tpl-service-mastodon-version"
+            ],
+            "max_check_attempts": null,
+            "notes": null,
+            "notes_url": null,
+            "object_name": "tpl-service-mastodon-version-sudo",
+            "object_type": "template",
+            "retry_interval": null,
+            "service_set": null,
+            "template_choice": null,
+            "use_agent": null,
+            "use_var_overrides": null,
+            "vars": {
+                "criticality": "C"
+            },
+            "volatile": null,
+            "zone": null,
+            "uuid": "7e39c660-362e-4d6f-b268-a13fff4dd077"
         }
     },
     "DataList": {
@@ -325,6 +396,17 @@
                 "datalist": "mastodon_version_unreachable_severity_list"
             },
             "uuid": "88082e3d-ddcf-41ab-ad7d-616efa5473f4"
+        },
+        "13": {
+            "varname": "mastodon_version_user",
+            "caption": "Mastodon Version: User",
+            "description": "Owner of the rootless Podman containers Mastodon runs in, asked when there is no Docker Compose installation at `--path`. Podman keeps each user's rootless containers in that user's own storage, so the check runs podman as that user. Requires the right to `sudo -u <user>` (root has this by default), and the user needs a subordinate UID range in /etc/subuid, as rootless Podman does.",
+            "datatype": "Icinga\\Module\\Director\\DataType\\DataTypeString",
+            "format": null,
+            "settings": {
+                "visibility": "visible"
+            },
+            "uuid": "62076667-ce1e-4acd-baca-d7ecfa07728a"
         }
     }
 }

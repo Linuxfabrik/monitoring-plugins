@@ -17,18 +17,21 @@ import sys
 
 import lib.args
 import lib.base
+import lib.container
 import lib.disk
+import lib.lftest
 import lib.time
 import lib.version
 from lib.globals import STATE_UNKNOWN
 
 __author__ = 'Linuxfabrik GmbH, Zurich/Switzerland'
-__version__ = '2026092501'
+__version__ = '2026100101'
 
 DESCRIPTION = """Checks the installed Mastodon version against the endoflife.date API and alerts if the
 version is end-of-life or if newer major, minor, or patch releases are available. By
-default, alerts 30 days before the official EOL date. The offset is configurable.
-Requires root or sudo."""
+default, alerts 30 days before the official EOL date. The offset is configurable. Reads
+the version of a Docker Compose installation, or of the running Mastodon container of a
+rootless Podman installation. Requires root or sudo."""
 
 DEFAULT_CHECK_MAJOR = False
 DEFAULT_CHECK_MINOR = False
@@ -39,6 +42,16 @@ DEFAULT_OFFSET_EOL = -30  # days
 DEFAULT_PATH = '/home/mastodon'
 DEFAULT_TIMEOUT = 8
 DEFAULT_UNREACHABLE_SEVERITY = 'ok'
+DEFAULT_USER = 'mastodon'
+
+# The web and sidekiq containers run this image; the streaming server has an image of its
+# own without the Rails code.
+MASTODON_IMAGE_REGEX = re.compile(r'/mastodon/mastodon:')
+# The image carries no version label, and its tag is often `latest`. The version lives in
+# the Rails code only, one method per part. Verified against the mastodon repository
+# (lib/mastodon/version.rb) and ghcr.io/mastodon/mastodon:latest.
+VERSION_FILE = '/opt/mastodon/lib/mastodon/version.rb'
+VERSION_PART_REGEX = re.compile(r'def (major|minor|patch)\s+(\d+)\s+end')
 
 
 def parse_args():
@@ -135,6 +148,13 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--test',
+        help=lib.args.help('--test'),
+        dest='TEST',
+        type=lib.args.csv,
+    )
+
+    parser.add_argument(
         '--timeout',
         help=lib.args.help('--timeout') + ' Default: %(default)s (seconds)',
         dest='TIMEOUT',
@@ -150,11 +170,28 @@ def parse_args():
         default=DEFAULT_UNREACHABLE_SEVERITY,
     )
 
+    parser.add_argument(
+        '--user',
+        help='Owner of the rootless Podman containers Mastodon runs in, asked when '
+        'there is no Docker Compose installation at `--path`. '
+        "Podman keeps each user's rootless containers in that user's own storage, so "
+        'the check runs podman as that user. '
+        'Requires the right to `sudo -u <user>` (root has this by default), and the '
+        'user needs a subordinate UID range in /etc/subuid, as rootless Podman does. '
+        'Default: %(default)s',
+        dest='USER',
+        default=DEFAULT_USER,
+    )
+
     args, _ = parser.parse_known_args()
     return args
 
 
-def get_installed_version(path):
+def get_compose_version(path):
+    """Return the version a Docker Compose installation at `path` pins its image to.
+
+    Returns `(True, version)`, or `(True, False)` where there is no such installation.
+    """
     # We won't tinker with the ultra-slow tootctl command, which runs as the mastodon user and
     # requires a perfectly working ruby environment, including some extra environment vars,
     # which will cause problems when running this plugin in various nagios or icinga environments.
@@ -177,6 +214,56 @@ def get_installed_version(path):
     return (True, False)
 
 
+def get_container_version_file(user, timeout):
+    """Read the version file out of the running Mastodon container of `user`.
+
+    Returns `(True, content)`, `(True, False)` where `user` runs no Mastodon container,
+    or `(False, (message, state))` where Podman could not be asked.
+    """
+    started = lib.time.now(as_type='float')
+    success, result = lib.container.run(
+        ['podman', 'ps', '--no-trunc', '--format', '{{.ID}} {{.Image}}'],
+        timeout,
+        started,
+        run_as=user,
+    )
+    if not success:
+        return (False, result)
+    stdout, stderr, retc = result
+    if retc != 0:
+        return (False, lib.container.get_engine_error(stderr, stdout))
+    container_id = next(
+        (
+            line.split()[0]
+            for line in stdout.splitlines()
+            if MASTODON_IMAGE_REGEX.search(line)
+        ),
+        None,
+    )
+    if container_id is None:
+        return (True, False)
+    success, result = lib.container.run(
+        ['podman', 'exec', container_id, 'cat', VERSION_FILE],
+        timeout,
+        started,
+        run_as=user,
+    )
+    if not success:
+        return (False, result)
+    stdout, stderr, retc = result
+    if retc != 0:
+        return (False, lib.container.get_engine_error(stderr, stdout))
+    return (True, stdout)
+
+
+def parse_version_file(content):
+    """Return `major.minor.patch` from Mastodon's version file, or `False`."""
+    parts = dict(VERSION_PART_REGEX.findall(content or ''))
+    if not all(part in parts for part in ('major', 'minor', 'patch')):
+        return False
+    return f'{parts["major"]}.{parts["minor"]}.{parts["patch"]}'
+
+
 def main():
     """The main function. This is where the magic happens."""
 
@@ -187,11 +274,27 @@ def main():
         sys.exit(STATE_UNKNOWN)
 
     # fetch data
-    installed_version = lib.base.coe(get_installed_version(args.PATH))
+    if args.TEST is None:
+        installed_version = lib.base.coe(get_compose_version(args.PATH))
+        if not installed_version:
+            success, result = get_container_version_file(args.USER, args.TIMEOUT)
+            if not success:
+                # --always-ok suppresses what would alert somebody. An UNKNOWN (no
+                # permission, client missing) says the check is deployed wrong and
+                # stays.
+                lib.base.oao(
+                    *result, always_ok=args.ALWAYS_OK and result[1] != STATE_UNKNOWN
+                )
+            installed_version = parse_version_file(result)
+    else:
+        # do not call podman, put in test data
+        stdout, _, _ = lib.lftest.test(args.TEST)
+        installed_version = parse_version_file(stdout)
     if not installed_version:
         lib.base.cu(
-            f'Mastodon not found at `{args.PATH}`. '
-            'Use --path to point at the installation directory.'
+            f'Mastodon not found: no Docker Compose installation at `{args.PATH}`, '
+            f'and no running Mastodon container of user `{args.USER}`. '
+            'Use --path or --user to point at the installation.'
         )
 
     # init some vars
