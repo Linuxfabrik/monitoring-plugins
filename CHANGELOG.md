@@ -20,6 +20,7 @@ Monitoring Plugins:
 
 Icinga Director:
 
+* Fangfrisch Service Set for the unofficial ClamAV signatures
 * one Basic Service Set per Windows version, from Windows 10 to Server 2025
 
 Assets:
@@ -99,6 +100,7 @@ Icinga Director:
 
 * snmp: re-import the basket, so the service template no longer hides the MIBs of Debian and Ubuntu
 * Active Directory Lightweight Directory Service Set: checks the AD LDS instances
+* ClamAV Service Set: no longer expects `clamav-unofficial-sigs`, checks freshclam, and covers Debian and Ubuntu
 * Nextcloud Service Set: an enabled `nextcloud-app-update.timer` no longer warns
 * Windows service sets: a stopped service is no longer hidden by one with a similar name
 
